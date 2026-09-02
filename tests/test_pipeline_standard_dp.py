@@ -11,10 +11,9 @@ from egomimic.models.denoising_nets import ConditionalUnet1D
 from egomimic.models.diffusion_policy import DiffusionPolicy
 from egomimic.pipeline.core import Pipeline
 from egomimic.pipeline.stages_diffusion import (
+    DiffusionDenoiserStage,
     DiffusionEpsilonLossStage,
-    MultiDomainDiffusionDenoiserStage,
-    MultiDomainDiffusionNoisingStage,
-    MultiDomainDiffusionPolicyStage,
+    DiffusionNoisingStage,
 )
 from egomimic.pipeline.stages_io import ActionTargetBuilder
 from egomimic.pipeline.stages_sampler import FusedObsEncoder
@@ -53,14 +52,15 @@ def _tiny_policy(domain: str, action_dim: int, prediction_type: str = "epsilon")
 def _factorized_stages(domain: str = CHAIN, action_dim: int = 6):
     return (
         ActionTargetBuilder(),
-        MultiDomainDiffusionNoisingStage(
-            noise_schedulers={domain: _tiny_scheduler()},
-            action_dims={domain: action_dim},
+        DiffusionNoisingStage(
+            noise_scheduler=_tiny_scheduler(),
+            action_dim=action_dim,
             action_horizon=4,
         ),
-        MultiDomainDiffusionDenoiserStage(
-            policies={domain: _tiny_policy(domain, action_dim)},
+        DiffusionDenoiserStage(
+            policy=_tiny_policy(domain, action_dim),
             action_horizon=4,
+            action_dim=action_dim,
             condition_input_dim=5,
         ),
         DiffusionEpsilonLossStage(),
@@ -71,7 +71,6 @@ def test_factorized_training_uses_epsilon_loss_and_backpropagates():
     stages = _factorized_stages()
     output = {
         "condition": torch.randn(2, 5),
-        "embodiment": CHAIN,
         "actions": torch.randn(2, 4, 6),
     }
     for stage in stages:
@@ -90,54 +89,50 @@ def test_factorized_training_uses_epsilon_loss_and_backpropagates():
     )
 
 
-def test_factorized_training_is_rng_equivalent_to_compatibility_stage():
+def test_factorized_training_is_rng_equivalent_to_diffusion_policy_predict():
     policy = _tiny_policy(CHAIN, 6)
-    legacy_policy = deepcopy(policy)
+    reference_policy = deepcopy(policy)
     target = torch.randn(2, 4, 6)
     condition = torch.randn(2, 5)
 
-    legacy = MultiDomainDiffusionPolicyStage(
-        policies={CHAIN: legacy_policy},
-        action_horizon=4,
-        condition_input_dim=5,
-    ).train()
     torch.manual_seed(123)
-    legacy_output = legacy(
-        {"condition": condition, "embodiment": CHAIN, "target": target}
-    )
+    expected_prediction, expected_noise = reference_policy.predict(target, condition)
+    expected_loss = reference_policy.loss_fn(expected_prediction, expected_noise)
 
     stages = (
-        MultiDomainDiffusionNoisingStage(
-            noise_schedulers={CHAIN: _tiny_scheduler()},
-            action_dims={CHAIN: 6},
+        DiffusionNoisingStage(
+            noise_scheduler=_tiny_scheduler(),
+            action_dim=6,
             action_horizon=4,
         ),
-        MultiDomainDiffusionDenoiserStage(
-            policies={CHAIN: policy},
+        DiffusionDenoiserStage(
+            policy=policy,
             action_horizon=4,
+            action_dim=6,
             condition_input_dim=5,
         ),
         DiffusionEpsilonLossStage(),
     )
     torch.manual_seed(123)
-    output = {"condition": condition, "embodiment": CHAIN, "target": target}
+    output = {"condition": condition, "target": target}
     for stage in stages:
         output = stage.train()(output)
 
-    assert torch.equal(
-        output["loss/diffusion_noise"], legacy_output["loss/diffusion_noise"]
-    )
+    assert torch.equal(output["diffusion/predicted_noise"], expected_prediction)
+    assert torch.equal(output["diffusion/noise_target"], expected_noise)
+    assert torch.equal(output["loss/diffusion_noise"], expected_loss)
 
 
-@pytest.mark.parametrize("domain,width", [(CHAIN, 6), (USOCKET, 4)])
-def test_denoiser_rollout_samples_the_selected_domain_width(domain, width):
-    stage = MultiDomainDiffusionDenoiserStage(
-        policies={domain: _tiny_policy(domain, width)},
+@pytest.mark.parametrize("action_key,width", [(CHAIN, 6), (USOCKET, 4)])
+def test_denoiser_rollout_samples_the_common_padded_width(action_key, width):
+    stage = DiffusionDenoiserStage(
+        policy=_tiny_policy(action_key, width),
         action_horizon=4,
+        action_dim=width,
         condition_input_dim=5,
     ).eval()
     with torch.inference_mode():
-        output = stage({"condition": torch.randn(2, 5), "embodiment": domain})
+        output = stage({"condition": torch.randn(2, 5)})
 
     assert output["pred_action"].shape == (2, 4, width)
     assert torch.isfinite(output["pred_action"]).all()
@@ -146,9 +141,9 @@ def test_denoiser_rollout_samples_the_selected_domain_width(domain, width):
 
 def test_nodes_reject_wrong_objective_width_and_scheduler_pair():
     with pytest.raises(ValueError, match="epsilon noise objective"):
-        MultiDomainDiffusionNoisingStage(
-            noise_schedulers={CHAIN: _tiny_scheduler("sample")},
-            action_dims={CHAIN: 6},
+        DiffusionNoisingStage(
+            noise_scheduler=_tiny_scheduler("sample"),
+            action_dim=6,
             action_horizon=4,
         )
 
@@ -157,22 +152,22 @@ def test_nodes_reject_wrong_objective_width_and_scheduler_pair():
         noising(
             target(
                 {
-                    "embodiment": USOCKET,
                     "actions": torch.randn(2, 4, 6),
                 }
             )
         )
 
-    noising = MultiDomainDiffusionNoisingStage(
-        noise_schedulers={CHAIN: _tiny_scheduler(timesteps=7)},
-        action_dims={CHAIN: 6},
+    noising = DiffusionNoisingStage(
+        noise_scheduler=_tiny_scheduler(timesteps=7),
+        action_dim=6,
         action_horizon=4,
     )
-    mismatched = noising({"embodiment": CHAIN, "target": torch.randn(2, 4, 6)})
+    mismatched = noising({"target": torch.randn(2, 4, 6)})
     with pytest.raises(ValueError, match="schedulers differ"):
-        denoiser = MultiDomainDiffusionDenoiserStage(
-            policies={CHAIN: _tiny_policy(CHAIN, 6)},
+        denoiser = DiffusionDenoiserStage(
+            policy=_tiny_policy(CHAIN, 6),
             action_horizon=4,
+            action_dim=6,
             condition_input_dim=5,
         )
         denoiser({**mismatched, "condition": torch.randn(2, 5)})
@@ -184,19 +179,15 @@ def test_diffusion_pipeline_contracts_plan_factorized_train_and_rollout():
     pipeline = Pipeline([encoder, target, noising, denoiser, loss])
 
     assert encoder.contract("train") == (
-        ("obs/*", "embodiment"),
+        ("obs/*",),
         ("condition",),
     )
     assert denoiser.contract("rollout") == (
-        ("condition", "embodiment"),
+        ("condition",),
         ("pred_action", "log/*"),
     )
-    train, train_excluded = pipeline.plan(
-        ["obs/state", "embodiment", "actions"], mode="train"
-    )
-    rollout, rollout_excluded = pipeline.plan(
-        ["obs/state", "embodiment"], mode="rollout"
-    )
+    train, train_excluded = pipeline.plan(["obs/state", "actions"], mode="train")
+    rollout, rollout_excluded = pipeline.plan(["obs/state"], mode="rollout")
     assert train == [encoder, target, noising, denoiser, loss]
     assert train_excluded == []
     assert rollout == [encoder, denoiser]
@@ -217,24 +208,76 @@ def test_hydra_factorized_dp_fragment_instantiates():
     )
     cfg = OmegaConf.load(path)
     cfg.stages[1].action_horizon = 4
-    cfg.stages[1].action_dims.eva_bimanual = 14
-    cfg.stages[1].noise_schedulers.eva_bimanual.num_train_timesteps = 8
+    cfg.stages[1].noise_scheduler.num_train_timesteps = 8
     cfg.stages[2].action_horizon = 4
     cfg.stages[2].condition_input_dim = 5
-    cfg.stages[2].policies.eva_bimanual.action_horizon = 4
-    cfg.stages[2].policies.eva_bimanual.num_inference_steps = 2
-    cfg.stages[2].policies.eva_bimanual.model.cond_dim = 5
-    cfg.stages[2].policies.eva_bimanual.model.diffusion_step_embed_dim = 16
-    cfg.stages[2].policies.eva_bimanual.model.down_dims = [8, 16]
-    cfg.stages[2].policies.eva_bimanual.model.n_groups = 4
-    cfg.stages[2].policies.eva_bimanual.noise_scheduler.num_train_timesteps = 8
+    cfg.stages[2].policy.action_horizon = 4
+    cfg.stages[2].policy.num_inference_steps = 2
+    cfg.stages[2].policy.model.cond_dim = 5
+    cfg.stages[2].policy.model.diffusion_step_embed_dim = 16
+    cfg.stages[2].policy.model.down_dims = [8, 16]
+    cfg.stages[2].policy.model.n_groups = 4
+    cfg.stages[2].policy.noise_scheduler.num_train_timesteps = 8
 
     pipeline = instantiate(cfg)
 
     assert isinstance(pipeline, Pipeline)
     assert [type(stage).__name__ for stage in pipeline.stages] == [
         "ActionTargetBuilder",
-        "MultiDomainDiffusionNoisingStage",
-        "MultiDomainDiffusionDenoiserStage",
+        "DiffusionNoisingStage",
+        "DiffusionDenoiserStage",
         "DiffusionEpsilonLossStage",
     ]
+
+
+def test_generic_diffusion_nodes_ignore_unrelated_route_metadata():
+    target = torch.randn(2, 4, 6)
+    condition = torch.randn(2, 5)
+    first = _factorized_stages()
+    second = deepcopy(first)
+
+    torch.manual_seed(91)
+    first_output = {"target": target, "condition": condition, "embodiment": CHAIN}
+    for stage in first[1:]:
+        first_output = stage.train()(first_output)
+
+    torch.manual_seed(91)
+    second_output = {
+        "target": target,
+        "condition": condition,
+        "embodiment": "arbitrary-unused-metadata",
+    }
+    for stage in second[1:]:
+        second_output = stage.train()(second_output)
+
+    assert torch.equal(
+        first_output["loss/diffusion_noise"],
+        second_output["loss/diffusion_noise"],
+    )
+
+
+def test_generic_denoiser_explicit_width_ignores_unrelated_mixed_metadata():
+    policy = _tiny_policy(CHAIN, 6)
+    policy.infer_ac_dims = {CHAIN: 97, USOCKET: 4}
+    stage = DiffusionDenoiserStage(
+        policy=policy,
+        action_horizon=4,
+        action_dim=6,
+        condition_input_dim=5,
+    ).eval()
+
+    output = stage({"condition": torch.randn(2, 5)})
+
+    assert output["pred_action"].shape == (2, 4, 6)
+
+
+def test_generic_denoiser_uses_singular_policy_state_prefix():
+    stage = DiffusionDenoiserStage(
+        policy=_tiny_policy(CHAIN, 6),
+        action_horizon=4,
+        action_dim=6,
+        condition_input_dim=5,
+    )
+    keys = set(stage.state_dict())
+    assert keys
+    assert all(key.startswith("policy.") for key in keys)

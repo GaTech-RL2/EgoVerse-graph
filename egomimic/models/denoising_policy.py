@@ -50,7 +50,36 @@ class DenoisingPolicy(nn.Module):
             f"[{self.__class__.__name__}] Total trainable parameters: {total_params / 1e6:.2f}M"
         )
 
-    def preprocess_sampling(self, global_cond, embodiment_name, generator=None):
+    def _inference_action_key(self, action_key=None):
+        if action_key is not None:
+            if action_key not in self.infer_ac_dims:
+                raise KeyError(
+                    f"Unknown action key {action_key!r}; "
+                    f"configured={sorted(self.infer_ac_dims)}"
+                )
+            return action_key
+        widths = {int(value) for value in self.infer_ac_dims.values()}
+        if len(widths) != 1:
+            raise ValueError(
+                "An action key is required when infer_ac_dims contains different "
+                f"widths; configured={self.infer_ac_dims}"
+            )
+        return next(iter(self.infer_ac_dims))
+
+    def preprocess_sampling(
+        self,
+        global_cond,
+        embodiment_name=None,
+        generator=None,
+        *,
+        action_dim=None,
+    ):
+        if action_dim is None:
+            action_key = self._inference_action_key(embodiment_name)
+            action_dim = self.infer_ac_dims[action_key]
+        action_dim = int(action_dim)
+        if action_dim <= 0:
+            raise ValueError("action_dim must be positive")
         if self.pooling == "mean":
             global_cond = global_cond.mean(dim=1)
         elif self.pooling == "flatten":
@@ -60,7 +89,7 @@ class DenoisingPolicy(nn.Module):
             (
                 len(global_cond),
                 self.action_horizon,
-                self.infer_ac_dims[embodiment_name],
+                action_dim,
             ),
             dtype=global_cond.dtype,
             device=global_cond.device,
@@ -74,9 +103,19 @@ class DenoisingPolicy(nn.Module):
         """
         raise NotImplementedError
 
-    def sample_action(self, global_cond, embodiment_name, generator=None):
+    def sample_action(
+        self,
+        global_cond,
+        embodiment_name=None,
+        generator=None,
+        *,
+        action_dim=None,
+    ):
         noise, global_cond = self.preprocess_sampling(
-            global_cond, embodiment_name, generator
+            global_cond,
+            embodiment_name,
+            generator,
+            action_dim=action_dim,
         )
         return self.inference(noise, global_cond, generator)
 

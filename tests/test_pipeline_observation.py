@@ -23,7 +23,7 @@ class _PackedState(nn.Module):
         obs_packed,
         cu_seqlens,
         T_total,
-        embodiment_id,
+        embodiment_id=None,
         **kwargs,
     ):
         self.seen = {
@@ -53,7 +53,7 @@ def test_dp_style_encoder_concatenates_sliced_state_and_image_features():
     assert torch.equal(output[:, 2:], image_encoder(image))
 
 
-def test_fused_encoder_packs_history_without_owning_the_action_target():
+def test_fused_encoder_ignores_unrelated_metadata_and_action_target():
     encoder = _PackedState()
     stage = FusedObsEncoder(encoder=encoder, n_obs_steps=2)
     state = torch.arange(24, dtype=torch.float32).reshape(3, 2, 4)
@@ -70,7 +70,7 @@ def test_fused_encoder_packs_history_without_owning_the_action_target():
         "action_shape": (6, 1),
         "cu": [0, 2, 4, 6],
         "T_total": 6,
-        "embodiment": "eva_bimanual",
+        "embodiment": None,
     }
     assert encoder._episode_cu.tolist() == [0, 2, 4, 6]
 
@@ -117,9 +117,49 @@ def test_required_observations_are_reflected_in_mode_contracts():
     assert stage.contract("train")[0] == (
         "obs/state",
         "obs/front_img_1",
-        "embodiment",
     )
     assert stage.contract("rollout")[0] == stage.contract("train")[0]
+
+
+def test_fused_encoder_does_not_require_embodiment_metadata():
+    encoder = _PackedState()
+    stage = FusedObsEncoder(encoder=encoder, n_obs_steps=1)
+
+    output = stage({"obs/state": torch.randn(2, 4)})
+
+    assert output["condition"].shape == (2, 4)
+    assert encoder.seen["embodiment"] is None
+
+
+def test_fused_encoder_declares_only_explicit_forward_context():
+    encoder = _PackedState()
+    stage = FusedObsEncoder(
+        encoder=encoder,
+        n_obs_steps=1,
+        forward_context={"route": "embodiment_id"},
+    )
+
+    output = stage({"obs/state": torch.randn(2, 4), "route": "arm_a"})
+
+    assert output["condition"].shape == (2, 4)
+    assert encoder.seen["embodiment"] == "arm_a"
+    assert stage.contract("train")[0] == ("obs/*", "route")
+
+
+@pytest.mark.parametrize(
+    "forward_context,match",
+    [
+        ({"left": "route", "right": "route"}, "must be unique"),
+        ({"route": "obs_packed"}, "cannot replace encoder inputs"),
+    ],
+)
+def test_fused_encoder_rejects_ambiguous_forward_context(forward_context, match):
+    with pytest.raises(ValueError, match=match):
+        FusedObsEncoder(
+            encoder=_PackedState(),
+            n_obs_steps=1,
+            forward_context=forward_context,
+        )
 
 
 def test_gaussian_noise_supports_new_and_legacy_token_names():

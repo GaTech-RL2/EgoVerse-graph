@@ -44,7 +44,7 @@ class DPStyleObsEncoder(nn.Module):
 class FusedObsEncoder(Stage):
     """Encode an ``N``-observation window into one conditioning vector."""
 
-    reads = ["obs/*", "embodiment"]
+    reads = ["obs/*"]
     writes = ["condition"]
 
     def __init__(
@@ -52,21 +52,45 @@ class FusedObsEncoder(Stage):
         encoder: nn.Module,
         n_obs_steps: int = 2,
         required_obs_keys: List[str] | None = None,
+        forward_context: Dict[str, str] | None = None,
     ):
         super().__init__()
         self.encoder = encoder
         self.n_obs_steps = int(n_obs_steps)
         self.rollout_obs_steps = self.n_obs_steps
+        self.forward_context = {
+            str(batch_key): str(argument)
+            for batch_key, argument in dict(forward_context or {}).items()
+        }
+        if any(not key or not value for key, value in self.forward_context.items()):
+            raise ValueError("forward_context keys and arguments must be non-empty")
+        arguments = tuple(self.forward_context.values())
+        if len(set(arguments)) != len(arguments):
+            raise ValueError("forward_context arguments must be unique")
+        reserved_arguments = {
+            "actions_packed",
+            "obs_packed",
+            "cu_seqlens",
+            "T_total",
+            "device",
+            "dtype",
+        }
+        conflicts = sorted(set(arguments) & reserved_arguments)
+        if conflicts:
+            raise ValueError(
+                "forward_context cannot replace encoder inputs: " f"{conflicts}"
+            )
         if self.n_obs_steps <= 0:
             raise ValueError("n_obs_steps must be positive")
+        reads = ["obs/*"]
         if required_obs_keys is not None:
-            required = tuple(
+            reads = [
                 key if str(key).startswith("obs/") else f"obs/{key}"
                 for key in required_obs_keys
-            )
-            if not required:
+            ]
+            if not reads:
                 raise ValueError("required_obs_keys cannot be empty")
-            self.reads = [*required, "embodiment"]
+        self.reads = list(dict.fromkeys([*reads, *self.forward_context]))
 
     def forward(self, batch: dict) -> dict:
         obs_packed = {
@@ -122,6 +146,10 @@ class FusedObsEncoder(Stage):
         for module in self.modules():
             if getattr(module, "crop_scope", None) == "episode":
                 module._episode_cu = cu_seqlens
+        encoder_context = {
+            argument: batch[batch_key]
+            for batch_key, argument in self.forward_context.items()
+        }
         encoded = self.encoder.forward_packed(
             actions_packed=donor,
             obs_packed=obs_packed,
@@ -129,7 +157,7 @@ class FusedObsEncoder(Stage):
             T_total=total,
             device=device,
             dtype=dtype,
-            embodiment_id=str(batch["embodiment"]),
+            **encoder_context,
         )
         batch["condition"] = encoded.reshape(batch_size, n_obs * encoded.shape[-1])
 

@@ -16,8 +16,10 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 class PipelineAlgo(Algo):
     """Expose a dependency-aware :class:`Pipeline` through ``Algo``.
 
-    Policy behavior belongs to stages. This adapter only maps normalized loader
-    batches into the pipeline namespace and reduces explicit ``loss/*`` values.
+    Policy behavior belongs to stages. This EgoMimic boundary adapter maps
+    normalized ``MultiDataset`` batches into the pipeline namespace, carries
+    metadata through the ordinary batch dictionary, and reduces explicit
+    ``loss/*`` values. :class:`Pipeline` itself never interprets embodiments.
     """
 
     def __init__(
@@ -293,10 +295,10 @@ class PipelineAlgo(Algo):
         return predictions
 
     def compute_losses(self, predictions: dict, batch: dict) -> OrderedDict:
-        per_domain = [predictions[f"{emb_id}_action_loss"] for emb_id in batch]
-        if not per_domain:
+        per_batch = [predictions[f"{emb_id}_action_loss"] for emb_id in batch]
+        if not per_batch:
             raise RuntimeError("PipelineAlgo received an empty multi-dataset batch")
-        losses = OrderedDict(action_loss=torch.stack(per_domain).mean())
+        losses = OrderedDict(action_loss=torch.stack(per_batch).mean())
         losses.update(
             (key, value)
             for key, value in predictions.items()

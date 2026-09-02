@@ -3,47 +3,37 @@
 _target_: egomimic.pipeline.core.Pipeline
 stages:
   - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
-  - _target_: egomimic.pipeline.stages_diffusion.MultiDomainDiffusionNoisingStage
+  - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
     action_horizon: 16
-    action_dims: {eva_bimanual: 14}
-    noise_schedulers:
-      eva_bimanual:
-        _target_: egomimic.models.ddim_scheduler.DDIMScheduler
-        num_train_timesteps: 100
-        beta_start: 0.0001
-        beta_end: 0.02
-        beta_schedule: squaredcos_cap_v2
-        clip_sample: true
-        set_alpha_to_one: true
-        steps_offset: 0
-        prediction_type: epsilon
-  - _target_: egomimic.pipeline.stages_diffusion.MultiDomainDiffusionDenoiserStage
+    action_dim: 14
+    noise_scheduler: &standard_dp_scheduler
+      _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+      num_train_timesteps: 100
+      beta_start: 0.0001
+      beta_end: 0.02
+      beta_schedule: squaredcos_cap_v2
+      clip_sample: true
+      set_alpha_to_one: true
+      steps_offset: 0
+      prediction_type: epsilon
+  - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
     action_horizon: 16
+    action_dim: 14
     condition_input_dim: 128
-    policies:
-      eva_bimanual:
-        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
-        action_horizon: 16
-        infer_ac_dims: {eva_bimanual: 14}
-        num_inference_steps: 10
-        model:
-          _target_: egomimic.models.denoising_nets.ConditionalUnet1D
-          input_dim: 14
-          cond_dim: 128
-          ac_latent_seq: 1
-          diffusion_step_embed_dim: 128
-          down_dims: [128, 256, 512]
-          kernel_size: 3
-          n_groups: 8
-          cond_predict_scale: true
-        noise_scheduler:
-          _target_: egomimic.models.ddim_scheduler.DDIMScheduler
-          num_train_timesteps: 100
-          beta_start: 0.0001
-          beta_end: 0.02
-          beta_schedule: squaredcos_cap_v2
-          clip_sample: true
-          set_alpha_to_one: true
-          steps_offset: 0
-          prediction_type: epsilon
+    policy:
+      _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+      action_horizon: 16
+      infer_ac_dims: {eva_bimanual: 14}
+      num_inference_steps: 10
+      model:
+        _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+        input_dim: 14
+        cond_dim: 128
+        ac_latent_seq: 1
+        diffusion_step_embed_dim: 128
+        down_dims: [128, 256, 512]
+        kernel_size: 3
+        n_groups: 8
+        cond_predict_scale: true
+      noise_scheduler: *standard_dp_scheduler
   - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage

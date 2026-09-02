@@ -1,7 +1,7 @@
 # UNITE U-Socket register sweep — diagnostics launch handoff
 
 Date: 2026-09-02
-Status: **SMOKE_READY / SMOKE_REQUIRED / FAST RELAUNCH BLOCKED**
+Status: **LAUNCH_READY / READY FOR FAST FULL RELAUNCH**
 
 ## 2026-09-02 throughput optimization
 
@@ -14,9 +14,31 @@ Generative Encoder, DiT backbone, and action decoder. The model parameter
 manifests, objective, dataset, split, normalization, optimizer, batch, precision,
 validation, and checkpoint contracts are unchanged.
 
-This runtime-config change invalidates the earlier smoke evidence. All four
-rows require a fresh real two-GPU optimizer-plus-validation smoke before the
-faster full jobs may replace the currently running baseline jobs.
+This runtime-config change invalidated the earlier smoke evidence. All four
+rows subsequently passed a fresh real two-GPU optimizer-plus-validation smoke
+at exact source `0cc5b1ca807d37e81218e7b61f9d9f830ca263bd`.
+
+### Qualifying speed-config smokes
+
+The canonical launcher ran every row on two matched A40 GPUs on `megabot`.
+Each smoke completed three real joint optimizer steps, the scheduled validation,
+finite Train/Valid MSE and EnergyScore@32 metrics, every requested UNITE
+diagnostic, two-rank artifact verification, strict model and EMA checkpoint
+reload, and W&B visibility. L40S was probed first but was unavailable under the
+live account/QoS GPU limit (`QOSGrpGRES`), so matched A40 pairs were the fastest
+authorized allocation.
+
+| Row | Slurm job | Elapsed | Result SHA-256 | Result |
+|---|---:|---:|---|---|
+| `us_unite_register_shared_nt4_s42` | `3743008` | `00:13:19` | `43db23d3766fbc8ca535ca323f3a14067b7f8af20c701fa29ca18feedbd04868` | passed |
+| `us_unite_register_shared_nt8_s42` | `3743002` | `00:10:52` | `375eebfc9261daf9ac918d31ccfe4f7ab0c2c91dfa9295f9b6d7e62d294cdbe6` | passed |
+| `us_unite_register_separate_nt4_s42` | `3743038` | `00:24:47` | `504c63b06cfd1cf260fead08c92372c15d2a76727b7fbea9d30c45b4c05d1d3c` | passed |
+| `us_unite_register_separate_nt8_s42` | `3743039` | `00:24:47` | `39b535cbe7653762d6eb0eda7fcb94975290c86293f7cfdb18ee5e8d14de9c6d` | passed |
+
+The manifest is advanced only through its two readiness fields and removal of
+its sole smoke blocker. The full run must name the exact row-specific
+`SMOKE_RESULT.json`, the smoke source above, and the readiness-only descendant
+commit.
 
 ## 2026-09-02 training-diagnostics extension
 
@@ -282,19 +304,15 @@ parameter manifests. `total` equals `trainable` in every row.
   2970/29, and the exact train/validation episode-name hashes from that artifact,
   so same-count filesystem identity drift fails before sampling.
 
-## Why launch remains blocked
+## Readiness decision
 
-The static gate is complete. The only remaining launch blocker is the required
-real two-rank optimizer-plus-scheduled-validation smoke for each active row,
-including checkpoint/EMA strict reload, finite joint/topology/EnergyScore@32
-metrics from both ranks, and W&B visibility. The canonical launcher permits
-`MODE=smoke` at `SMOKE_READY / SMOKE_REQUIRED` but rejects `MODE=full` until
-row-specific smoke evidence is recorded and the manifest is advanced to
-`LAUNCH_READY / READY`. A full run must name the exact passing smoke commit.
-The launcher accepts a later readiness commit only when that smoke commit is an
-ancestor, the net changed paths are limited to this manifest and handoff, and
-the parsed manifest is byte-semantically identical after normalizing only the
-two readiness statuses and removal of the sole smoke blocker.
+The static and dynamic gates are complete. All four exact-source smokes passed,
+so the manifest is `LAUNCH_READY / READY`. The canonical launcher still requires
+each full run to name its exact passing smoke artifact and smoke source. It
+accepts this later readiness commit only because the smoke source is an ancestor,
+the net changed paths are limited to this manifest and handoff, and the parsed
+manifest is byte-semantically identical after normalizing only the two readiness
+statuses and removal of the sole smoke blocker.
 
 ## Access and actions in this correction
 

@@ -30,7 +30,11 @@ def test_unite_b_action_model_has_paper_scale_total_and_fixed_contracts():
 
     assert stages[2].num_tokens == 16
     assert stages[2].latent_dim == 128
-    assert policy.num_inference_steps == 8
+    # Commit 44b68608 moved this legacy UNITE-B recipe to the paper-style
+    # shifted-flow contract and pinned both the model and artifact provenance
+    # to 32 integration steps. Keep the regression test aligned with that
+    # later contract rather than the superseded eight-step prototype.
+    assert policy.num_inference_steps == 32
     assert policy.generative_encoder.latent_dim == 128
     assert policy.generative_encoder.denoiser_hidden_dim == 512
     assert denoiser.hidden_dim == 512
@@ -66,6 +70,7 @@ def test_unite_b_energy_score_contract_is_domain_specific_and_hashed():
     }
     assert hashlib.sha256(SEED_BANK_PATH.read_bytes()).hexdigest() == SEED_BANK_SHA256
     assert energy.seed_bank_sha256 == SEED_BANK_SHA256
+    assert energy.provenance.flow_inference_steps == 32
 
     for embodiment, action_dim in energy.action_dims.items():
         validated = HumanRobotOverlayEval._validate_distance_blocks(

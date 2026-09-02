@@ -246,7 +246,6 @@ fairness:
   cross_topology_cross_register_count: NOT_FAIR_AS_SINGLE_VARIABLE
 known_blockers:
   - no_row_has_passed_the_required_real_optimizer_validation_reload_smoke
-  - all_rows_must_emit_and_pass_the_new_unite_diagnostic_metric_and_artifact_contract
 validated_review_checks:
   evidence_scope: current_combined_review
   related_tests: 225_passed_combined_planar_unite_sky2

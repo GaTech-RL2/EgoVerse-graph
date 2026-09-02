@@ -756,7 +756,11 @@ def _verify_wandb_visibility(run_path: str, required: set[str]) -> None:
         try:
             run = wandb.Api(timeout=30).run(run_path)
             assert run.path[-3:] == run_path.split("/"), (run.path, run_path)
-            for row in run.scan_history(keys=sorted(required), page_size=1000):
+            # W&B treats a multi-key scan as a same-row intersection. Smoke
+            # metrics are intentionally sparse across train, telemetry, and
+            # validation rows, so scan the exact run's short complete history
+            # and accumulate finite visibility across rows.
+            for row in run.scan_history(page_size=1000):
                 for key in tuple(missing):
                     value = row.get(key)
                     if value is None:

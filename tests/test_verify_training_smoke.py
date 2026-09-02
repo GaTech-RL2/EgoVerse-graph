@@ -522,8 +522,8 @@ def test_exact_wandb_visibility_requires_every_finite_metric(monkeypatch) -> Non
     class FakeRun:
         path = ["entity", "project", "run-id"]
 
-        def scan_history(self, *, keys, page_size):
-            requested.append((keys, page_size))
+        def scan_history(self, *, page_size):
+            requested.append(page_size)
             return iter([{"Train/MSE": 1.0}, {"Valid/MSE": 0.5}])
 
     class FakeApi:
@@ -534,7 +534,7 @@ def test_exact_wandb_visibility_requires_every_finite_metric(monkeypatch) -> Non
     monkeypatch.setattr(wandb, "Api", lambda timeout: FakeApi())
     verifier._verify_wandb_visibility("entity/project/run-id", required)
 
-    assert requested == [(["Train/MSE", "Valid/MSE"], 1000)]
+    assert requested == [1000]
 
 
 def test_exact_wandb_visibility_tolerates_bounded_ingestion_delay(
@@ -547,8 +547,8 @@ def test_exact_wandb_visibility_tolerates_bounded_ingestion_delay(
     class FakeRun:
         path = ["entity", "project", "run-id"]
 
-        def scan_history(self, *, keys, page_size):
-            assert keys == sorted(required) and page_size == 1000
+        def scan_history(self, *, page_size):
+            assert page_size == 1000
             attempts.append(1)
             if len(attempts) < 8:
                 return iter([{"Train/MSE": 1.0}])

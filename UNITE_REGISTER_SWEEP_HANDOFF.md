@@ -216,7 +216,7 @@ parameter manifests. `total` equals `trainable` in every row.
   `artifacts/unite_register_sweep_20260902/parameter_manifests/`; the launcher
   SHA-checks it, regenerates the resolved-stage payload, requires byte-identical
   content, and preserves both copies in run provenance. Its SHA-256 is
-  `5a4c01db15b8b12fd36270ee7222bdac901f28fac7c9466ee22dc60ba7fd4250`.
+  `b65842b1e34a6048d00091580f96ad0c45f37c15810fa7cc47834ad8d6642bbd`.
   The preceding pre-readiness-identity version is archived at
   `/coc/flash7/paphiwetsa3/backups/flow_transfer_unite_skynet_x2_v20.pre_readiness_identity_20260902.sbatch`.
   Its pre-schema-2 version is archived at
@@ -229,7 +229,7 @@ parameter manifests. `total` equals `trainable` in every row.
   `2e5dc7e8c5039be21339573b6eda4627cc67620da8853969afad15f93c01d8ee`).
   No stale content was merged. The canonical external launcher was restored
   byte-for-byte to its guarded schema-2 version, then advanced deliberately to
-  SHA-256 `5a4c01db15b8b12fd36270ee7222bdac901f28fac7c9466ee22dc60ba7fd4250`
+  SHA-256 `b65842b1e34a6048d00091580f96ad0c45f37c15810fa7cc47834ad8d6642bbd`
   with a fail-closed smoke-to-full source-identity check and CPU-hidden strict
   checkpoint/EMA postflight. The immediately preceding launcher is recoverable at
   `/coc/flash7/paphiwetsa3/scripts/train/flow_transfer_unite_skynet_x2_v20.sbatch.pre-codex-cpu-verifier-10cdf0d2`.

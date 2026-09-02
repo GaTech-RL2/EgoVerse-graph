@@ -265,7 +265,7 @@ validated_review_checks:
   canonical_launcher_ddp_strategy: ddp_find_unused_parameters_true
   canonical_launcher_smoke_steps: 3
   canonical_launcher_strict_postflight_cuda_hidden: true
-  canonical_launcher_sha256: acbe1b8f793ccb41de5f6b8da37ac7dea154071d370193a7f4ba42fa814f25f9
+  canonical_launcher_sha256: 5a4c01db15b8b12fd36270ee7222bdac901f28fac7c9466ee22dc60ba7fd4250
   dataset_constructor_split_identity_pins: seed42_counts2970_29_and_exact_name_hashes
   two_rank_gloo_joint_telemetry_probe: passed
   support_experiment: egomimic/hydra_configs/experiment/pusht/unite_usocket_register_sweep_val01_h16.yaml

@@ -178,7 +178,13 @@ def test_materialized_active_h16_rows_construct_and_forward_clean_content(
     )
     config = yaml.safe_load(config_path.read_text())
     assert config["robomimic_model"]["action_horizon"] == 16
-    ge_config = config["robomimic_model"]["stages"][3]["generative_encoder"]
+    policy_config = config["robomimic_model"]["stages"][3]
+    assert policy_config["flow_steps_per_reconstruction"] == 14
+    assert policy_config["flow_mini_batch"] == 14
+    ge_config = policy_config["generative_encoder"]
+    assert ge_config["gradient_checkpointing"] is False
+    assert ge_config["backbone_config"]["gradient_checkpointing"] is False
+    assert policy_config["decoders"][DOMAIN]["gradient_checkpointing"] is False
     assert ge_config["in_context_start"] == 4
     assert ge_config["in_context_len"] == 32
     backbone_config = dict(ge_config["backbone_config"])
@@ -209,11 +215,11 @@ def test_materialized_active_h16_rows_construct_and_forward_clean_content(
 
     assert encoder.denoising_module.max_content_tokens == 16
     assert encoder.denoising_module.max_condition_tokens == 1
-    assert encoder.denoising_module.gradient_checkpointing is True
+    assert encoder.denoising_module.gradient_checkpointing is False
     modules = [encoder.denoising_module]
     if not shared:
         modules.append(encoder.tokenization_module)
-    assert all(module.gradient_checkpointing for module in modules)
+    assert all(not module.gradient_checkpointing for module in modules)
 
     clean_actions = torch.randn(2, 16, 4, requires_grad=True)
     clean_latent = encoder.tokenize(clean_actions, DOMAIN)

@@ -1,8 +1,8 @@
 schema_version: 2
-artifact_status: LAUNCH_READY
-launch_status: READY
-group: usocket_unite_register_sweep_shared_separate_s42_20260902
-label: Pre-smoke U-Socket clean-action-token N4/N8 register sweep with UNITE diagnostics
+artifact_status: SMOKE_READY
+launch_status: SMOKE_REQUIRED
+group: usocket_unite_register_sweep_fast_shared_separate_s42_20260902
+label: Pre-smoke speed-optimized U-Socket clean-action-token N4/N8 register sweep with UNITE diagnostics
 reference_source:
   repository: https://github.com/ShivamDuggal4/UNITE-tokenization-generation
   commit: 2389f2c65fedbd43ada851e69b2b810efd23af7d
@@ -22,8 +22,8 @@ wandb:
   entity: rl2-group
   project: pushshapes-flow-transfer
   resume: never
-  group: usocket_unite_register_sweep_shared_separate_s42_20260902
-output_root_template: /coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/{GPU_TAG}
+  group: usocket_unite_register_sweep_fast_shared_separate_s42_20260902
+output_root_template: /coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_fast_20260902/{GPU_TAG}
 dataset_root: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
 split:
   ratio: 0.01
@@ -72,7 +72,7 @@ fixed_contract:
   dit: {width: 768, depth: 12, heads: 12, mlp_ratio: 4.0}
   decoder: {width: 768, depth: 12, heads: 12, mlp_ratio: 4.0}
   flow_samples_per_joint_step: 14
-  flow_chunks: [4, 4, 4, 2]
+  flow_chunks: [14]
   training_update_semantics: joint_reconstruction_plus_flow_loss_every_step
   unite_flow_updates_per_reconstruction: 0
   paper_sampling:
@@ -96,6 +96,7 @@ fixed_contract:
     dopri5_derivative: fp32
     dopri5_error_control: fp32
   gradient_clip_norm: 3.0
+  gradient_checkpointing: false
   ema_decay: 0.9978
   batch_per_rank: 32
   devices: 2
@@ -196,7 +197,7 @@ rows:
     num_latent_tokens: 4
     latent_register_count: 4
     latent_dim: 16
-    wandb_id_template: us_unite_reg_shared_n4_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
+    wandb_id_template: us_unite_fast_reg_shared_n4_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
     parameter_manifest_path: artifacts/unite_register_sweep_20260902/parameter_manifests/us_unite_register_shared_nt4_s42.json
     expected_backbone_parameter_count: 129999376
     expected_parameter_count: 226292820
@@ -209,7 +210,7 @@ rows:
     num_latent_tokens: 8
     latent_register_count: 8
     latent_dim: 16
-    wandb_id_template: us_unite_reg_shared_n8_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
+    wandb_id_template: us_unite_fast_reg_shared_n8_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
     parameter_manifest_path: artifacts/unite_register_sweep_20260902/parameter_manifests/us_unite_register_shared_nt8_s42.json
     expected_backbone_parameter_count: 130002448
     expected_parameter_count: 226295892
@@ -222,7 +223,7 @@ rows:
     num_latent_tokens: 4
     latent_register_count: 4
     latent_dim: 16
-    wandb_id_template: us_unite_reg_separate_n4_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
+    wandb_id_template: us_unite_fast_reg_separate_n4_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
     parameter_manifest_path: artifacts/unite_register_sweep_20260902/parameter_manifests/us_unite_register_separate_nt4_s42.json
     expected_backbone_parameter_count: 259998752
     expected_parameter_count: 356308996
@@ -235,7 +236,7 @@ rows:
     num_latent_tokens: 8
     latent_register_count: 8
     latent_dim: 16
-    wandb_id_template: us_unite_reg_separate_n8_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
+    wandb_id_template: us_unite_fast_reg_separate_n8_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
     parameter_manifest_path: artifacts/unite_register_sweep_20260902/parameter_manifests/us_unite_register_separate_nt8_s42.json
     expected_backbone_parameter_count: 260004896
     expected_parameter_count: 356315140
@@ -244,7 +245,8 @@ fairness:
   shared_vs_separate_same_register_count: FAIR_WITH_CAVEATS_SEPARATE_DOUBLES_GE_CAPACITY
   register_count_within_same_topology: FAIR_SINGLE_VARIABLE_AFTER_VERIFICATION
   cross_topology_cross_register_count: NOT_FAIR_AS_SINGLE_VARIABLE
-known_blockers: []
+known_blockers:
+  - no_row_has_passed_the_required_real_optimizer_validation_reload_smoke
 validated_review_checks:
   evidence_scope: current_combined_review
   related_tests: 225_passed_combined_planar_unite_sky2

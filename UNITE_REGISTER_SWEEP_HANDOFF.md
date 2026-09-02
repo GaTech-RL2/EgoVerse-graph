@@ -1,7 +1,22 @@
 # UNITE U-Socket register sweep — diagnostics launch handoff
 
 Date: 2026-09-02
-Status: **LAUNCH_READY / READY**
+Status: **SMOKE_READY / SMOKE_REQUIRED / FAST RELAUNCH BLOCKED**
+
+## 2026-09-02 throughput optimization
+
+Short, isolated A40x2 profiles showed that evaluating all 14 flow samples in
+one mini-batch and disabling UNITE gradient checkpointing reduces median
+optimizer-step time by about 30% on both shared and separate topologies. Peak
+memory remained at or below 22.0 GiB on 46 GiB A40 GPUs. The four active row
+configs now set `flow_mini_batch: 14` and disable checkpointing in the
+Generative Encoder, DiT backbone, and action decoder. The model parameter
+manifests, objective, dataset, split, normalization, optimizer, batch, precision,
+validation, and checkpoint contracts are unchanged.
+
+This runtime-config change invalidates the earlier smoke evidence. All four
+rows require a fresh real two-GPU optimizer-plus-validation smoke before the
+faster full jobs may replace the currently running baseline jobs.
 
 ## 2026-09-02 training-diagnostics extension
 

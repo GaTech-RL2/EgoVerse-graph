@@ -21,6 +21,7 @@ Each episode is self-contained with its own metadata, enabling:
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import logging
 import math
@@ -90,6 +91,53 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
+
+
+def episode_names_sha256(dataset_names: Iterable[str]) -> str:
+    """Hash a sorted newline-delimited episode-ID list."""
+    payload = "".join(f"{name}\n" for name in sorted(map(str, dataset_names)))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _validate_episode_name_pin(
+    label: str,
+    dataset_names: Iterable[str],
+    expected_count: int | None,
+    expected_sha256: str | None,
+) -> None:
+    names = sorted(map(str, dataset_names))
+    if expected_count is not None and len(names) != int(expected_count):
+        raise ValueError(
+            f"expected {expected_count} {label} episodes, found {len(names)}"
+        )
+    if expected_sha256 is None:
+        return
+    expected_sha256 = str(expected_sha256).lower()
+    if len(expected_sha256) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_sha256
+    ):
+        raise ValueError(f"{label} expected SHA-256 is not a hex digest")
+    actual = episode_names_sha256(names)
+    if actual != expected_sha256:
+        raise ValueError(
+            f"{label} episode-ID SHA-256 mismatch: expected {expected_sha256}, "
+            f"found {actual}"
+        )
+
+
+def decode_jpeg_payload(payload) -> np.ndarray:
+    """Decode either one JPEG or a temporal sequence without dropping time."""
+    if isinstance(payload, np.ndarray) and payload.ndim == 0:
+        payload = payload.item()
+    if isinstance(payload, (bytes, bytearray, memoryview)):
+        image = simplejpeg.decode_jpeg(bytes(payload), colorspace="RGB")
+        return np.transpose(image, (2, 0, 1)) / 255.0
+    frames = [
+        simplejpeg.decode_jpeg(bytes(value), colorspace="RGB") for value in payload
+    ]
+    if not frames:
+        raise ValueError("JPEG sequence cannot be empty")
+    return np.transpose(np.stack(frames), (0, 3, 1, 2)) / 255.0
 
 
 def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
@@ -618,9 +666,13 @@ class LocalEpisodeResolver(EpisodeResolver):
         key_map: dict | None = None,
         transform_list: list | None = None,
         debug=False,
+        expected_episode_count: int | None = None,
+        expected_episode_names_sha256: str | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list)
         self.debug = debug
+        self.expected_episode_count = expected_episode_count
+        self.expected_episode_names_sha256 = expected_episode_names_sha256
 
     @staticmethod
     def _local_filters_match(
@@ -689,7 +741,15 @@ class LocalEpisodeResolver(EpisodeResolver):
             self.folder_path, filters, debug=self.debug
         )
 
-        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        filtered_names = {folder_name for _, folder_name in filtered_paths}
+        _validate_episode_name_pin(
+            "local inventory",
+            filtered_names,
+            self.expected_episode_count,
+            self.expected_episode_names_sha256,
+        )
+
+        valid_folder_names = filtered_names
         logger.info(f"Valid folder names: {valid_folder_names}")
         if not valid_folder_names:
             raise ValueError(
@@ -701,6 +761,31 @@ class LocalEpisodeResolver(EpisodeResolver):
             search_path=self.folder_path, valid_folder_names=valid_folder_names
         )
 
+        if (
+            self.expected_episode_count is not None
+            or self.expected_episode_names_sha256
+        ):
+            if set(datasets) != valid_folder_names:
+                raise ValueError(
+                    "pinned local inventory did not fully load: "
+                    f"expected {sorted(valid_folder_names)}, got {sorted(datasets)}"
+                )
+
+        return datasets
+
+
+class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
+    """Assign legacy PushShapes stores a config-selected logical embodiment."""
+
+    def __init__(self, *args, embodiment_override: str | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.embodiment_override = embodiment_override
+
+    def resolve(self, *args, **kwargs):
+        datasets = super().resolve(*args, **kwargs)
+        if self.embodiment_override is not None:
+            for dataset in datasets.values():
+                dataset.embodiment = self.embodiment_override
         return datasets
 
 
@@ -732,6 +817,11 @@ class MultiDataset(torch.utils.data.Dataset):
         mode: str = "train",
         percent: float = 0.1,
         valid_ratio: float = 0.2,
+        split_seed: int = SEED,
+        expected_train_episode_count: int | None = None,
+        expected_train_episode_names_sha256: str | None = None,
+        expected_valid_episode_count: int | None = None,
+        expected_valid_episode_names_sha256: str | None = None,
         norm_mode: str = "zscore",
         state: dict | None = None,
         **kwargs,
@@ -774,8 +864,21 @@ class MultiDataset(torch.utils.data.Dataset):
             raise ValueError("MultiDataset requires either `datasets` or `state`.")
 
         # ---- Normal data-mode construction ----
+        self.split_seed = int(split_seed)
         self.train_collections, self.valid_collections = split_dataset_names(
-            datasets.keys(), valid_ratio=valid_ratio, seed=SEED
+            datasets.keys(), valid_ratio=valid_ratio, seed=self.split_seed
+        )
+        _validate_episode_name_pin(
+            "train",
+            self.train_collections,
+            expected_train_episode_count,
+            expected_train_episode_names_sha256,
+        )
+        _validate_episode_name_pin(
+            "validation",
+            self.valid_collections,
+            expected_valid_episode_count,
+            expected_valid_episode_names_sha256,
         )
 
         if mode == "train":
@@ -786,7 +889,7 @@ class MultiDataset(torch.utils.data.Dataset):
             chosen = set(datasets.keys())
         elif mode == "percent":
             all_names = sorted(datasets.keys())
-            rng = random.Random(SEED)
+            rng = random.Random(self.split_seed)
             rng.shuffle(all_names)
             n_keep = int(len(all_names) * percent)
             if percent > 0.0:
@@ -1690,12 +1793,11 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
                     try:
-                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                        data[k] = decode_jpeg_payload(jpeg_bytes)
                     except Exception:
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
-                    data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
                         data[k] = [self._decode_json_entry(v) for v in data[k]]

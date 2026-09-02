@@ -1,0 +1,7 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_chain_direct_bc
+  - override /model: bf/bf_planar_v2_dp_standard
+  - _self_
+name: planar_v2_chain_dp_standard_h16
+description: chain_gripper_standard_DP_DDIM100_obs1_no_EMA

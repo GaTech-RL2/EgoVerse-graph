@@ -1,7 +1,7 @@
-# UNITE U-Socket register sweep — validation-schedule fix handoff
+# UNITE U-Socket register sweep — diagnostics launch handoff
 
 Date: 2026-09-02
-Status: **SMOKE_READY / SMOKE_REQUIRED / FULL RELAUNCH BLOCKED**
+Status: **LAUNCH_READY / READY**
 
 ## 2026-09-02 training-diagnostics extension
 
@@ -27,11 +27,29 @@ five noise levels, both rank artifacts, finite values, and exact W&B visibility.
 The focused implementation suite passes 93 tests and Ruff. A repository-wide
 unfiltered pytest collection is not a valid gate for this repository because it
 collects hardware example scripts and legacy data tests with unavailable robot
-extensions and retired storage paths. This source/config change invalidates all
-earlier smoke evidence, so all four rows still require a fresh real two-GPU
-optimizer-plus-validation smoke before any full launch.
+extensions and retired storage paths. All four rows subsequently passed a fresh
+real two-GPU optimizer-plus-validation smoke at the exact diagnostics source.
 
 ## Qualifying smoke and launch decision
+
+The final qualifying diagnostics source is
+`05facb365b10eee583bd72f79c8d0ad28b538484`. Canonical Slurm array `3742498`
+ran on two matched A40 GPUs per row with bounded concurrency two. All four rows
+completed three real optimizer steps, scheduled validation, strict model and EMA
+checkpoint reloads, W&B visibility checks, and hash verification of both
+rank-local EnergyScore and UNITE-diagnostics artifacts:
+
+| Row | Slurm job | Result SHA-256 | Result |
+|---|---:|---|---|
+| `us_unite_register_shared_nt4_s42` | `3742499` | `f1cf879402b91c910763da2b3c227c9016f75ef0b6424a23d35eb4a584ad443d` | passed |
+| `us_unite_register_shared_nt8_s42` | `3742500` | `33cfe8296bc1b821229a20f20f7eeafe1cbaca5d9650d3f94db70716050ddebf` | passed |
+| `us_unite_register_separate_nt4_s42` | `3742516` | `91252ac5389f24bc291d961bb3c41a3c8024c615b32de1d88edd8562f89637ac` | passed |
+| `us_unite_register_separate_nt8_s42` | `3742498` | `c830c37584e87d28e8da878e309e7fb8df72fa9bc859489ca5d3667e56e1f9fe` | passed |
+
+The first L40S attempt encountered an uncorrectable ECC error on node `bishop`;
+that hardware-failed attempt was not accepted. The final qualifying array used
+healthy A40 nodes and excluded `bishop` and `robby`. The manifest is advanced
+only through its readiness fields and removal of its sole smoke blocker.
 
 The first full-launch attempt exposed a Lightning scheduling error that the
 three-step smoke could not trigger: the 1% training split has 8,073 batches per
@@ -171,9 +189,9 @@ smoke is still required before a full run.
 - Sweep manifest:
   `unite_usocket_register_sweep_manifest.yaml`
   - SHA-256:
-    `286f8bdb5da69a949000a0f026ddccf4f6587d39bbd36e3eb67acd39b30b16e8`
-  - Gate state: `artifact_status=SMOKE_READY`,
-    `launch_status=SMOKE_REQUIRED`
+    `ce407d302df72d8ade92362a0fb7a8478845ddde5276871feaeb7e93cad1bc68`
+  - Gate state: `artifact_status=LAUNCH_READY`,
+    `launch_status=READY`
 - Four-active-row train/rollout graph artifact:
   `artifacts/unite_register_sweep_20260902/config_graphs/four_active_rows_train_rollout.json`
   - SHA-256:
@@ -306,6 +324,6 @@ A real-`PipelineAlgo` regression verifies exact parameter identity coverage,
 disjoint AdamW/Muon groups, and the required content/action projection routing.
 The complete combined suite passes `225/225` after this fix. A separate two-rank
 Gloo probe also passed the exact telemetry pattern of two retained
-`autograd.grad` calls followed by the joint backward. The manifest remains
-`SMOKE_READY / SMOKE_REQUIRED` after the validation-schedule correction; the
-four qualifying real smokes listed above predate this resolved-config change.
+`autograd.grad` calls followed by the joint backward. The exact-source four-row
+diagnostics smoke listed at the top now authorizes the readiness-only descendant
+used for the full launch.

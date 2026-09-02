@@ -1,6 +1,6 @@
 schema_version: 2
-artifact_status: SMOKE_READY
-launch_status: SMOKE_REQUIRED
+artifact_status: LAUNCH_READY
+launch_status: READY
 group: usocket_unite_register_sweep_shared_separate_s42_20260902
 label: Pre-smoke U-Socket clean-action-token N4/N8 register sweep with UNITE diagnostics
 reference_source:
@@ -244,8 +244,7 @@ fairness:
   shared_vs_separate_same_register_count: FAIR_WITH_CAVEATS_SEPARATE_DOUBLES_GE_CAPACITY
   register_count_within_same_topology: FAIR_SINGLE_VARIABLE_AFTER_VERIFICATION
   cross_topology_cross_register_count: NOT_FAIR_AS_SINGLE_VARIABLE
-known_blockers:
-  - no_row_has_passed_the_required_real_optimizer_validation_reload_smoke
+known_blockers: []
 validated_review_checks:
   evidence_scope: current_combined_review
   related_tests: 225_passed_combined_planar_unite_sky2

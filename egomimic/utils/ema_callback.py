@@ -69,7 +69,7 @@ class EMACallback(Callback):
 
     def on_fit_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
         self._initialize(pl_module)
-        self._last_global_step = int(trainer.global_step)
+        self._last_global_step = max(int(trainer.global_step), self._num_updates)
 
     @torch.no_grad()
     def _update(self, pl_module: LightningModule) -> None:
@@ -129,15 +129,11 @@ class EMACallback(Callback):
             self._shadow[name].copy_(temporary)
         self._using_ema = not self._using_ema
 
-    def on_validation_start(
-        self, trainer: Trainer, pl_module: LightningModule
-    ) -> None:
+    def on_validation_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
         if self.validate_with_ema and not self._using_ema:
             self._swap(pl_module)
 
-    def on_validation_end(
-        self, trainer: Trainer, pl_module: LightningModule
-    ) -> None:
+    def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         if self.validate_with_ema and self._using_ema:
             self._swap(pl_module)
 
@@ -186,7 +182,9 @@ class EMACallback(Callback):
         ema_state = checkpoint.get("ema_state_dict")
         if ema_state is None:
             if int(checkpoint.get("global_step", 0)) > 0:
-                raise RuntimeError("Cannot resume EMA training from a checkpoint without EMA")
+                raise RuntimeError(
+                    "Cannot resume EMA training from a checkpoint without EMA"
+                )
             return
         if stored_decay is None or not math.isclose(
             float(stored_decay), self.decay, rel_tol=0.0, abs_tol=1.0e-12
@@ -196,3 +194,11 @@ class EMACallback(Callback):
             )
         self._loaded_shadow = dict(ema_state)
         self._num_updates = int(checkpoint.get("ema_num_updates", 0))
+        checkpoint_global_step = int(checkpoint.get("global_step", 0))
+        if self._num_updates != checkpoint_global_step:
+            raise RuntimeError(
+                "EMA update count must equal checkpoint global_step: "
+                f"ema_num_updates={self._num_updates} "
+                f"global_step={checkpoint_global_step}"
+            )
+        self._last_global_step = checkpoint_global_step

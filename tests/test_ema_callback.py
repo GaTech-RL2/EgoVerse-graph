@@ -72,3 +72,53 @@ def test_ema_resume_rejects_missing_or_mismatched_state():
         assert "decay mismatch" in str(exc)
     else:
         raise AssertionError("EMA resume accepted a different decay")
+
+
+def test_ema_resume_baselines_step_before_lightning_restores_loop_progress():
+    module = _TinyModule()
+    callback = EMACallback(decay=0.9978)
+    shadow = {
+        name: parameter.detach().clone()
+        for name, parameter in module.named_parameters()
+    }
+    callback.on_load_checkpoint(
+        SimpleNamespace(global_step=0),
+        module,
+        {
+            "global_step": 20_000,
+            "ema_decay": 0.9978,
+            "ema_num_updates": 20_000,
+            "ema_state_dict": shadow,
+        },
+    )
+
+    # Lightning calls fit-start hooks before its loop progress has been restored.
+    trainer = SimpleNamespace(global_step=0)
+    callback.on_fit_start(trainer, module)
+    trainer.global_step = 20_001
+    callback.on_train_batch_end(trainer, module, None, None, 0)
+
+    assert callback.num_updates == 20_001
+
+
+def test_ema_resume_rejects_update_count_drift():
+    module = _TinyModule()
+    callback = EMACallback(decay=0.9978)
+    try:
+        callback.on_load_checkpoint(
+            SimpleNamespace(global_step=0),
+            module,
+            {
+                "global_step": 20_000,
+                "ema_decay": 0.9978,
+                "ema_num_updates": 19_999,
+                "ema_state_dict": {
+                    name: parameter.detach().clone()
+                    for name, parameter in module.named_parameters()
+                },
+            },
+        )
+    except RuntimeError as exc:
+        assert "must equal checkpoint global_step" in str(exc)
+    else:
+        raise AssertionError("EMA resume accepted a drifted update count")

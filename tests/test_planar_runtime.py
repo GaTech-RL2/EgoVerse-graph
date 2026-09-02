@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import torch
 import torch.nn as nn
+from omegaconf import OmegaConf
 
 from egomimic.eval.checkpoint_loading import (
     extract_pipeline_nets_state,
@@ -259,6 +260,321 @@ def test_strict_checkpoint_loader_rejects_inexact_or_conflicting_ema_keys():
             {"state_dict": online, "ema_state_dict": conflicting},
             use_ema=True,
         )
+
+
+def _factorized_checkpoint_fixture(domain="domain"):
+    class BufferedPolicy(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.projection = nn.Linear(2, 1)
+            self.register_buffer("running_scale", torch.tensor(3.0))
+
+    class DenoiserStage(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.policy = BufferedPolicy()
+
+    class Policy(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.stages = nn.ModuleList(
+                [nn.Identity(), nn.Identity(), nn.Identity(), DenoiserStage()]
+            )
+
+    from egomimic.pipeline.algo import PipelineAlgo
+
+    class Algo(PipelineAlgo):
+        def __init__(self):
+            self.nets = nn.ModuleDict({"policy": Policy()})
+
+    algo = Algo()
+    expected = OrderedDict(
+        (key, value.clone()) for key, value in algo.nets.state_dict().items()
+    )
+    old_prefix = f"policy.stages.1.policies.{domain}."
+    new_prefix = "policy.stages.3.policy."
+    online = OrderedDict(
+        (
+            "model.nets." + key.replace(new_prefix, old_prefix, 1),
+            value + 1,
+        )
+        for key, value in expected.items()
+    )
+    parameter_keys = set(dict(algo.nets.named_parameters()))
+    ema = OrderedDict(
+        (
+            "nets." + key.replace(new_prefix, old_prefix, 1),
+            expected[key] + 2,
+        )
+        for key in sorted(parameter_keys)
+    )
+    return algo, expected, online, ema, old_prefix, new_prefix
+
+
+def _registered_ema_checkpoint(
+    online,
+    expected,
+    old_prefix,
+    new_prefix,
+    *,
+    registered_prefix="ema_nets.",
+):
+    state_dict = OrderedDict(online)
+    for key, value in expected.items():
+        legacy_key = key.replace(new_prefix, old_prefix, 1)
+        state_dict[registered_prefix + legacy_key] = value + 2
+    # These belong to the historical Lightning wrapper, not algo.nets.
+    state_dict["ema_optimization_step"] = torch.tensor(17)
+    state_dict["ema_decay"] = torch.tensor(0.999)
+    return {"state_dict": state_dict}
+
+
+@pytest.mark.parametrize(
+    "domain",
+    ["pushshapes_sim_chain_gripper", "pushshapes_sim_u_socket"],
+)
+def test_strict_checkpoint_loader_remaps_online_and_ema_exactly(domain):
+    algo, expected, online, ema, old_prefix, new_prefix = (
+        _factorized_checkpoint_fixture(domain)
+    )
+    parameter_keys = set(dict(algo.nets.named_parameters()))
+
+    strict_load_pipeline_checkpoint(
+        algo,
+        {"state_dict": online, "ema_state_dict": ema},
+        use_ema=True,
+        prefix_rewrites=OrderedDict([(old_prefix, new_prefix)]),
+    )
+
+    for key, value in algo.nets.state_dict().items():
+        offset = 2 if key in parameter_keys else 1
+        torch.testing.assert_close(value, expected[key] + offset)
+
+
+@pytest.mark.parametrize(
+    "domain",
+    ["pushshapes_sim_chain_gripper", "pushshapes_sim_u_socket"],
+)
+@pytest.mark.parametrize("registered_prefix", ["ema_nets.", "model.ema_nets."])
+def test_strict_checkpoint_loader_remaps_registered_ema_exactly(
+    domain, registered_prefix
+):
+    algo, expected, online, _, old_prefix, new_prefix = _factorized_checkpoint_fixture(
+        domain
+    )
+    checkpoint = _registered_ema_checkpoint(
+        online,
+        expected,
+        old_prefix,
+        new_prefix,
+        registered_prefix=registered_prefix,
+    )
+    strict_load_pipeline_checkpoint(
+        algo,
+        checkpoint,
+        use_ema=True,
+        prefix_rewrites=OrderedDict([(old_prefix, new_prefix)]),
+    )
+
+    for key, value in algo.nets.state_dict().items():
+        # The legacy wrapper evaluated its complete registered EMA tree,
+        # including its copied buffers.
+        torch.testing.assert_close(value, expected[key] + 2)
+
+
+def test_strict_checkpoint_loader_accepts_equal_registered_ema_aliases():
+    algo, expected, online, _, old_prefix, new_prefix = _factorized_checkpoint_fixture(
+        "pushshapes_sim_chain_gripper"
+    )
+    checkpoint = _registered_ema_checkpoint(online, expected, old_prefix, new_prefix)
+    for key, value in list(checkpoint["state_dict"].items()):
+        if key.startswith("ema_nets."):
+            checkpoint["state_dict"]["model." + key] = value.clone()
+
+    strict_load_pipeline_checkpoint(
+        algo,
+        checkpoint,
+        use_ema=True,
+        prefix_rewrites={old_prefix: new_prefix},
+    )
+
+
+def test_strict_checkpoint_loader_rejects_dual_ema_selection():
+    algo, expected, online, ema, old_prefix, new_prefix = (
+        _factorized_checkpoint_fixture("pushshapes_sim_chain_gripper")
+    )
+    checkpoint = _registered_ema_checkpoint(online, expected, old_prefix, new_prefix)
+    checkpoint["ema_state_dict"] = ema
+    with pytest.raises(ValueError, match="both registered EMA state"):
+        strict_load_pipeline_checkpoint(
+            algo,
+            checkpoint,
+            use_ema=True,
+            prefix_rewrites={old_prefix: new_prefix},
+        )
+
+    # Dual EMA metadata is irrelevant when the caller explicitly selects the
+    # exact online tree, so online-only loading remains backward compatible.
+    strict_load_pipeline_checkpoint(
+        algo,
+        checkpoint,
+        use_ema=False,
+        prefix_rewrites={old_prefix: new_prefix},
+    )
+    for key, value in algo.nets.state_dict().items():
+        torch.testing.assert_close(value, expected[key] + 1)
+
+
+def test_strict_checkpoint_loader_rejects_conflicting_registered_ema_aliases():
+    algo, expected, online, _, old_prefix, new_prefix = _factorized_checkpoint_fixture(
+        "pushshapes_sim_chain_gripper"
+    )
+
+    checkpoint = _registered_ema_checkpoint(online, expected, old_prefix, new_prefix)
+    registered_key = next(
+        key for key in checkpoint["state_dict"] if key.startswith("ema_nets.")
+    )
+    checkpoint["state_dict"]["model." + registered_key] = (
+        checkpoint["state_dict"][registered_key] + 1
+    )
+    with pytest.raises(
+        ValueError, match="conflicting checkpoint aliases in registered EMA state_dict"
+    ):
+        strict_load_pipeline_checkpoint(
+            algo,
+            checkpoint,
+            use_ema=True,
+            prefix_rewrites={old_prefix: new_prefix},
+        )
+
+
+@pytest.mark.parametrize("mutation", ["missing", "extra"])
+def test_strict_checkpoint_loader_rejects_inexact_registered_ema(mutation):
+    algo, expected, online, _, old_prefix, new_prefix = _factorized_checkpoint_fixture(
+        "pushshapes_sim_u_socket"
+    )
+    checkpoint = _registered_ema_checkpoint(online, expected, old_prefix, new_prefix)
+    registered_keys = [
+        key for key in checkpoint["state_dict"] if key.startswith("ema_nets.")
+    ]
+    if mutation == "missing":
+        checkpoint["state_dict"].pop(registered_keys[0])
+    else:
+        checkpoint["state_dict"]["ema_nets." + old_prefix + "unexpected"] = torch.zeros(
+            1
+        )
+
+    with pytest.raises(ValueError, match="registered EMA state_dict key mismatch"):
+        strict_load_pipeline_checkpoint(
+            algo,
+            checkpoint,
+            use_ema=True,
+            prefix_rewrites={old_prefix: new_prefix},
+        )
+
+
+def test_strict_checkpoint_loader_rejects_incomplete_or_ambiguous_rewrites():
+    algo, _, online, ema, old_prefix, new_prefix = _factorized_checkpoint_fixture()
+    with pytest.raises(ValueError, match="Pipeline checkpoint key mismatch"):
+        strict_load_pipeline_checkpoint(
+            algo,
+            {"state_dict": online, "ema_state_dict": ema},
+            use_ema=True,
+            prefix_rewrites={
+                old_prefix + "projection.weight": new_prefix + "projection.weight"
+            },
+        )
+
+    with pytest.raises(ValueError, match="ambiguous state_dict prefix rewrite"):
+        strict_load_pipeline_checkpoint(
+            algo,
+            {"state_dict": online, "ema_state_dict": ema},
+            use_ema=True,
+            prefix_rewrites=OrderedDict(
+                [
+                    (old_prefix, new_prefix),
+                    (old_prefix + "projection.", new_prefix + "projection."),
+                ]
+            ),
+        )
+
+
+def test_strict_checkpoint_loader_rejects_rewrite_collisions():
+    algo, _, online, ema, old_prefix, new_prefix = _factorized_checkpoint_fixture()
+    legacy_key = next(iter(online))
+    current_key = legacy_key.replace(old_prefix, new_prefix, 1)
+    online[current_key] = online[legacy_key].clone()
+
+    with pytest.raises(ValueError, match="state_dict prefix rewrite collision"):
+        strict_load_pipeline_checkpoint(
+            algo,
+            {"state_dict": online, "ema_state_dict": ema},
+            use_ema=True,
+            prefix_rewrites={old_prefix: new_prefix},
+        )
+
+
+def test_train_eval_pipeline_load_is_strict_and_legacy_load_is_unchanged():
+    from egomimic.trainHydra import _load_eval_checkpoint
+
+    algo, _, online, ema, old_prefix, new_prefix = _factorized_checkpoint_fixture()
+
+    class PipelineWrapper:
+        model = algo
+
+        def load_state_dict(self, *args, **kwargs):
+            raise AssertionError(
+                "Pipeline checkpoints must not use wrapper strict=False"
+            )
+
+    incomplete = OrderedDict(online)
+    incomplete.pop(next(iter(incomplete)))
+    cfg = OmegaConf.create(
+        {
+            "eval_checkpoint": {
+                "use_ema": True,
+                "prefix_rewrites": {old_prefix: new_prefix},
+            }
+        }
+    )
+    with pytest.raises(ValueError, match="Pipeline checkpoint key mismatch"):
+        _load_eval_checkpoint(
+            PipelineWrapper(),
+            {"state_dict": incomplete, "ema_state_dict": ema},
+            cfg,
+        )
+
+    class LegacyWrapper:
+        model = nn.Linear(2, 1)
+
+        def __init__(self):
+            self.call = None
+
+        def load_state_dict(self, state, strict):
+            self.call = (state, strict)
+
+    legacy = LegacyWrapper()
+    legacy_state = {"model.weight": torch.ones(1, 2)}
+    _load_eval_checkpoint(
+        legacy,
+        {"state_dict": legacy_state},
+        OmegaConf.create({}),
+    )
+    assert legacy.call == (legacy_state, False)
+
+
+def test_eval_mode_removes_training_time_ema_callback():
+    from egomimic.trainHydra import _callbacks_for_mode
+
+    ema_callback = EMACallback()
+    retained_callback = object()
+    assert _callbacks_for_mode([ema_callback, retained_callback], "eval") == [
+        retained_callback
+    ]
+    assert _callbacks_for_mode([ema_callback, retained_callback], "train") == [
+        ema_callback,
+        retained_callback,
+    ]
 
 
 def test_paper_ema_warmup_and_fail_closed_resume():

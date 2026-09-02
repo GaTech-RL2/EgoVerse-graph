@@ -1,14 +1,16 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
+# Canonical 3,000-episode pre-step ChainGripper corpus. For Hobs=2 Paper DP,
+# action_target_offset=1 aligns [S_t, S_(t+1)] with action a_(t+1).
 train_datasets:
   pushshapes_sim_chain_gripper: &dataset
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/control_gap_all6x13_1000_per_cell_simv2_20260826/ideal/chain_gripper/T
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
       embodiment_override: pushshapes_sim_chain_gripper
-      expected_episode_count: 1000
-      expected_episode_names_sha256: 2dc9e797f5032a807f9bbb5f3f4442830846c7f809fd9d33b5c1149a13498b69
+      expected_episode_count: 3000
+      expected_episode_names_sha256: 61e23164126fd2b2a9bd1cc7c7b015ddff05e18d5fe704b34d870b17742cddcd
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: ${planar.raw_action_horizon}
@@ -24,10 +26,11 @@ train_datasets:
     mode: train
     valid_ratio: 0.01
     split_seed: ${seed}
-    expected_train_episode_count: 990
-    expected_train_episode_names_sha256: 590b4208b7039c0f0416a1b6d854add9399b467549087325ef64e24a155e8686
-    expected_valid_episode_count: 10
-    expected_valid_episode_names_sha256: df44a5509637ca0a4a6232ad74a335fdf8d74e028b62c68dbaffa6ce512f2d34
+    expected_train_episode_count: 2970
+    expected_train_episode_names_sha256: 318c6ec46ef1c0899bbc6254a0799044e534322e7b76bcc11f1744fe3f163264
+    expected_valid_episode_count: 30
+    expected_valid_episode_names_sha256: 01ceda50bdceaf7505ec3e3dc71c9430048f5b6ea5c894fc565d345fe925e6db
+    bounds_check: false
 
 valid_datasets:
   pushshapes_sim_chain_gripper:

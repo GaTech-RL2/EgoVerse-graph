@@ -15,3 +15,15 @@ planar:
       _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
       action_horizon: 16
       native_action_dim: 4
+
+run_provenance:
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
+  split_manifest_sha256: 3ffc1731e050e3275561e240dfb88aac6246e9e64b2b63192ec46a74748b0fb6
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 2970
+  valid_episode_count_per_domain: 30
+  union_episode_count_per_domain: 3000
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  dataset_observation_alignment: pre_step

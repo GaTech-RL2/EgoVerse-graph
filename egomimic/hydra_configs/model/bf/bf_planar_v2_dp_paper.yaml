@@ -11,9 +11,20 @@ robomimic_model:
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
       n_obs_steps: 2
       encoder: ${planar.encoder}
-    - _target_: egomimic.pipeline.stages_planar.SingleDomainPlanarDiffusionStage
-      domain: ${planar.domain}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
       action_horizon: 16
+      action_dim: 5
+      noise_scheduler: &paper_dp_scheduler
+        _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        variance_type: fixed_small
+        clip_sample: true
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: 16
+      action_dim: 5
       condition_input_dim: 134
       policy:
         _target_: egomimic.models.diffusion_policy.DiffusionPolicy
@@ -29,13 +40,8 @@ robomimic_model:
           kernel_size: 5
           n_groups: 8
           cond_predict_scale: true
-        noise_scheduler:
-          _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
-          num_train_timesteps: 100
-          beta_schedule: squaredcos_cap_v2
-          variance_type: fixed_small
-          clip_sample: true
-          prediction_type: epsilon
+        noise_scheduler: *paper_dp_scheduler
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
 
 enable_grad_norm: false
 optimizer:

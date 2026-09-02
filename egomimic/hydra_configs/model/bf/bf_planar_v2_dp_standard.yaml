@@ -11,9 +11,18 @@ robomimic_model:
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
       n_obs_steps: 1
       encoder: ${planar.encoder}
-    - _target_: egomimic.pipeline.stages_planar.SingleDomainPlanarDiffusionStage
-      domain: ${planar.domain}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
       action_horizon: 16
+      action_dim: 5
+      noise_scheduler: &standard_dp_scheduler
+        _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: 16
+      action_dim: 5
       condition_input_dim: 67
       policy:
         _target_: egomimic.models.diffusion_policy.DiffusionPolicy
@@ -28,11 +37,8 @@ robomimic_model:
           diffusion_step_embed_dim: 256
           down_dims: [256, 512, 1024]
           kernel_size: 3
-        noise_scheduler:
-          _target_: egomimic.models.ddim_scheduler.DDIMScheduler
-          num_train_timesteps: 100
-          beta_schedule: squaredcos_cap_v2
-          prediction_type: epsilon
+        noise_scheduler: *standard_dp_scheduler
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
 
 enable_grad_norm: false
 optimizer:

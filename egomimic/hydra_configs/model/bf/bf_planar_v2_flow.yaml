@@ -11,6 +11,7 @@ robomimic_model:
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
       n_obs_steps: 1
       encoder: ${planar.encoder}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
     - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
       action_horizon: ${planar.action_horizon}
       latent_dim: 96

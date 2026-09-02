@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -13,6 +15,25 @@ ROWS = {
     "chain_dp_standard": ("pushshapes_sim_chain_gripper", 16, 1, "ConditionalUnet1D"),
     "usocket_dp_paper": ("pushshapes_sim_u_socket", 16, 2, "PaperConditionalUnet1D"),
     "chain_dp_paper": ("pushshapes_sim_chain_gripper", 16, 2, "PaperConditionalUnet1D"),
+}
+
+DATASETS = {
+    "pushshapes_sim_u_socket": {
+        "root": "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean",
+        "total": 2999,
+        "train": 2970,
+        "valid": 29,
+        "manifest": "planar_v2_usocket_dp_3k_split_seed42_v1.json",
+        "manifest_sha256": "420477eff921b155c50a8e1bc3dcd9fd327f209e5acec27d66f813624dbccfb6",
+    },
+    "pushshapes_sim_chain_gripper": {
+        "root": "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
+        "total": 3000,
+        "train": 2970,
+        "valid": 30,
+        "manifest": "planar_v2_chain_gripper_dp_3k_split_seed42_v1.json",
+        "manifest_sha256": "3ffc1731e050e3275561e240dfb88aac6246e9e64b2b63192ec46a74748b0fb6",
+    },
 }
 
 
@@ -33,17 +54,77 @@ def test_planar_row_composes_to_one_pinned_domain(row, expected):
     dataset = cfg.data.train_datasets[domain]
     assert dataset.valid_ratio == cfg.data.valid_datasets[domain].valid_ratio == 0.01
     assert dataset.split_seed == cfg.seed == 42
-    assert dataset.expected_train_episode_count == 990
-    assert dataset.expected_valid_episode_count == 10
-    assert dataset.resolver.expected_episode_count == 1000
+    expected_data = DATASETS[domain]
+    assert dataset.resolver.folder_path == expected_data["root"]
+    assert dataset.expected_train_episode_count == expected_data["train"]
+    assert dataset.expected_valid_episode_count == expected_data["valid"]
+    assert dataset.resolver.expected_episode_count == expected_data["total"]
+    assert cfg.run_provenance.split_manifest_sha256 == expected_data["manifest_sha256"]
+    assert cfg.run_provenance.dataset_observation_alignment == "pre_step"
     assert cfg.planar.observation_horizon == observation_horizon
-    assert implementation in OmegaConf.to_yaml(cfg.model)
+    model_yaml = OmegaConf.to_yaml(cfg.model)
+    assert implementation in model_yaml
+    stage_names = [
+        stage._target_.rsplit(".", 1)[-1] for stage in cfg.model.robomimic_model.stages
+    ]
+    assert stage_names[0:2] == ["FusedObsEncoder", "ActionTargetBuilder"]
+    if "dp_paper" not in row:
+        assert "eval_checkpoint" not in cfg
     if "dp_paper" in row:
         assert cfg.callbacks.ema.use_warmup is True
-        assert "DDPMScheduler" in OmegaConf.to_yaml(cfg.model)
+        assert cfg.eval_checkpoint.use_ema is True
+        assert OmegaConf.to_container(cfg.eval_checkpoint.prefix_rewrites) == {
+            f"policy.stages.1.policies.{domain}.": "policy.stages.3.policy."
+        }
+        assert "DDPMScheduler" in model_yaml
+        assert stage_names == [
+            "FusedObsEncoder",
+            "ActionTargetBuilder",
+            "DiffusionNoisingStage",
+            "DiffusionDenoiserStage",
+            "DiffusionEpsilonLossStage",
+        ]
+        assert cfg.planar.action_target_offset == 1
+        assert cfg.model.robomimic_model.stages[3].action_dim == 5
+        assert OmegaConf.to_container(cfg.run_provenance.action_contract) == {
+            "observation_alignment": "pre_step",
+            "observation_horizon": 2,
+            "training_action_target_offset": 1,
+            "prediction_horizon": 16,
+            "rollout_action_chunk_start_index": 0,
+            "replan_every": 8,
+            "execution_slice": "[0,8)",
+        }
     elif "dp_standard" in row:
-        assert "DDIMScheduler" in OmegaConf.to_yaml(cfg.model)
+        assert "DDIMScheduler" in model_yaml
         assert "ema" not in cfg.callbacks
+        assert cfg.model.robomimic_model.stages[3].action_dim == 5
+        assert stage_names == [
+            "FusedObsEncoder",
+            "ActionTargetBuilder",
+            "DiffusionNoisingStage",
+            "DiffusionDenoiserStage",
+            "DiffusionEpsilonLossStage",
+        ]
+
+
+@pytest.mark.parametrize("domain,expected", DATASETS.items())
+def test_three_thousand_episode_split_manifest_is_exact(domain, expected):
+    data_dir = (
+        Path(__file__).parents[1] / "egomimic" / "hydra_configs" / "data" / "pusht"
+    )
+    path = data_dir / expected["manifest"]
+    payload = path.read_bytes()
+    manifest = json.loads(payload)
+    split = manifest["domains"][domain]
+
+    assert hashlib.sha256(payload).hexdigest() == expected["manifest_sha256"]
+    assert split["folder_path"] == expected["root"]
+    assert split["total_count"] == expected["total"]
+    assert split["train_count"] == expected["train"]
+    assert split["valid_count"] == expected["valid"]
+    assert split["id_overlap_count"] == 0
+    assert split["resolved_path_overlap_count"] == 0
 
 
 def test_runtime_targets_are_declared_dependencies():

@@ -2,6 +2,7 @@
 defaults:
   - /experiment/pusht/planar_v2_usocket_direct_bc
   - override /model: bf/bf_planar_v2_dp_paper
+  - override /data: pusht/planar_v2_usocket
   - _self_
 name: planar_v2_usocket_dp_paper_h16
 description: u_socket_paper_DP_DDPM100_obs2_EMA
@@ -10,6 +11,19 @@ planar:
   action_target_offset: 1
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list
   batch_size: 32
+run_provenance:
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: 16
+    rollout_action_chunk_start_index: 0
+    replan_every: 8
+    execution_slice: "[0,8)"
+eval_checkpoint:
+  use_ema: true
+  prefix_rewrites:
+    "policy.stages.1.policies.pushshapes_sim_u_socket.": "policy.stages.3.policy."
 callbacks:
   ema:
     _target_: egomimic.utils.ema_callback.EMACallback

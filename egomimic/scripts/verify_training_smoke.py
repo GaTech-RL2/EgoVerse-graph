@@ -49,6 +49,8 @@ _STEP_METRIC_CATEGORIES = {
     # rather than being required on every optimizer step.
     "log/": "telemetry_metrics",
 }
+_WANDB_VISIBILITY_MAX_ATTEMPTS = 25
+_WANDB_VISIBILITY_RETRY_SECONDS = 5
 
 
 def _register_training_config_resolvers() -> None:
@@ -750,7 +752,7 @@ def _verify_wandb_visibility(run_path: str, required: set[str]) -> None:
     assert run_path.count("/") == 2, run_path
     missing = set(required)
     last_error = None
-    for attempt in range(6):
+    for attempt in range(_WANDB_VISIBILITY_MAX_ATTEMPTS):
         try:
             run = wandb.Api(timeout=30).run(run_path)
             assert run.path[-3:] == run_path.split("/"), (run.path, run_path)
@@ -769,8 +771,8 @@ def _verify_wandb_visibility(run_path: str, required: set[str]) -> None:
                 return
         except Exception as error:
             last_error = repr(error)
-        if attempt < 5:
-            time.sleep(5)
+        if attempt + 1 < _WANDB_VISIBILITY_MAX_ATTEMPTS:
+            time.sleep(_WANDB_VISIBILITY_RETRY_SECONDS)
     raise AssertionError(
         ("metrics not visible in exact W&B run", run_path, sorted(missing), last_error)
     )

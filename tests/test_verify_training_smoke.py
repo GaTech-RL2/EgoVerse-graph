@@ -537,6 +537,36 @@ def test_exact_wandb_visibility_requires_every_finite_metric(monkeypatch) -> Non
     assert requested == [(["Train/MSE", "Valid/MSE"], 1000)]
 
 
+def test_exact_wandb_visibility_tolerates_bounded_ingestion_delay(
+    monkeypatch,
+) -> None:
+    required = {"Train/MSE", "Valid/MSE"}
+    attempts = []
+    sleeps = []
+
+    class FakeRun:
+        path = ["entity", "project", "run-id"]
+
+        def scan_history(self, *, keys, page_size):
+            assert keys == sorted(required) and page_size == 1000
+            attempts.append(1)
+            if len(attempts) < 8:
+                return iter([{"Train/MSE": 1.0}])
+            return iter([{"Train/MSE": 1.0, "Valid/MSE": 0.5}])
+
+    class FakeApi:
+        def run(self, run_path):
+            assert run_path == "entity/project/run-id"
+            return FakeRun()
+
+    monkeypatch.setattr(wandb, "Api", lambda timeout: FakeApi())
+    monkeypatch.setattr(verifier.time, "sleep", sleeps.append)
+    verifier._verify_wandb_visibility("entity/project/run-id", required)
+
+    assert len(attempts) == 8
+    assert sleeps == [verifier._WANDB_VISIBILITY_RETRY_SECONDS] * 7
+
+
 @pytest.mark.parametrize(
     ("topology", "ema_backend"),
     (("shared", "callback"), ("separate", "internal")),

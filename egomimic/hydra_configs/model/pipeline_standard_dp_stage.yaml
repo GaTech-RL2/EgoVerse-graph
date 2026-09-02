@@ -1,0 +1,32 @@
+# Reusable, Hydra-instantiable epsilon-prediction Diffusion Policy stage.
+# Embodiment configs may copy this fragment and change the domain, action width,
+# horizon, and conditioning width without importing any simulator integration.
+_target_: egomimic.pipeline.stages_diffusion.MultiDomainDiffusionPolicyStage
+action_horizon: 16
+condition_input_dim: 128
+policies:
+  eva_bimanual:
+    _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+    action_horizon: ${...action_horizon}
+    infer_ac_dims: {eva_bimanual: 14}
+    num_inference_steps: 10
+    model:
+      _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+      input_dim: 14
+      cond_dim: ${....condition_input_dim}
+      ac_latent_seq: 1
+      diffusion_step_embed_dim: 128
+      down_dims: [128, 256, 512]
+      kernel_size: 3
+      n_groups: 8
+      cond_predict_scale: true
+    noise_scheduler:
+      _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+      num_train_timesteps: 100
+      beta_start: 0.0001
+      beta_end: 0.02
+      beta_schedule: squaredcos_cap_v2
+      clip_sample: true
+      set_alpha_to_one: true
+      steps_offset: 0
+      prediction_type: epsilon

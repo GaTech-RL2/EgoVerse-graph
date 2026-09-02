@@ -6,6 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 import torch
+from lightning.pytorch import LightningModule, Trainer
+from torch.utils.data import DataLoader
 
 from egomimic.pipeline.stages_sampler import TokenwiseMLPActionDecoder
 from egomimic.pipeline.stages_unite_released import (
@@ -65,6 +67,43 @@ class _TelemetryHarness(ReleasedUniteModelWrapper):
             (("tokenizer_weight", self.tokenizer_weight),),
             (("denoiser_weight", self.denoiser_weight),),
         )
+
+
+class _ValidationEpochHookHarness(ReleasedUniteModelWrapper):
+    """Minimal real-Trainer harness for Lightning validation-hook legality."""
+
+    def __init__(self):
+        LightningModule.__init__(self)
+        self.anchor = torch.nn.Parameter(torch.zeros(()))
+        self.evaluator = None
+
+    def on_validation_start(self):
+        self._unite_validation_sums = {}
+
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        del batch, batch_idx, dataloader_idx
+        self._accumulate_unite_validation("TotalLoss", torch.tensor(2.0), 1)
+
+    def on_validation_end(self):
+        # The production base hook assumes initialized DDP. This focused CPU
+        # lifecycle test only needs Lightning to exercise on_validation_epoch_end.
+        return None
+
+
+def test_validation_metrics_log_from_lightning_supported_epoch_hook():
+    trainer = Trainer(
+        accelerator="cpu",
+        devices=1,
+        logger=False,
+        enable_checkpointing=False,
+        enable_model_summary=False,
+    )
+    results = trainer.validate(
+        _ValidationEpochHookHarness(),
+        dataloaders=DataLoader([torch.tensor(0.0)], batch_size=1),
+        verbose=False,
+    )
+    assert results == [{"Valid/UNITE/TotalLoss": pytest.approx(2.0)}]
 
 
 def _real_policy(shared: bool):

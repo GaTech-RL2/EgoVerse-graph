@@ -303,7 +303,9 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         self._measure_unite_validation_components(validation_model, batch, batch_idx)
         self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
 
-    def on_validation_end(self):
+    def on_validation_epoch_end(self):
+        """Reduce and log UNITE metrics while Lightning still permits logging."""
+
         metrics = {}
         for suffix, (total, count) in self._unite_validation_sums.items():
             pair = torch.stack(
@@ -320,7 +322,7 @@ class ReleasedUniteModelWrapper(ModelWrapper):
             metrics[f"Valid/UNITE/{suffix}"] = value
         if metrics:
             self.log_dict(metrics, on_step=False, on_epoch=True, sync_dist=False)
-        return super().on_validation_end()
+        return super().on_validation_epoch_end()
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Instantiate Muon/AdamW from stable model-local parameter names."""

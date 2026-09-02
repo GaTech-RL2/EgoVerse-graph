@@ -24,6 +24,18 @@ from egomimic.pipeline.stages_unite_separate import (
 DOMAIN = "pushshapes_sim_u_socket"
 
 
+def test_full_sweep_validation_interval_is_step_based():
+    experiment = yaml.safe_load(
+        Path(
+            "egomimic/hydra_configs/experiment/pusht/"
+            "unite_usocket_register_sweep_val01_h16.yaml"
+        ).read_text()
+    )
+    trainer = experiment["trainer"]
+    assert trainer["val_check_interval"] == 10_000
+    assert trainer["check_val_every_n_epoch"] is None
+
+
 def test_released_1d_position_layout_concatenates_sin_then_cos():
     frequency = torch.tensor((1.0, 0.01))
     angle = frequency

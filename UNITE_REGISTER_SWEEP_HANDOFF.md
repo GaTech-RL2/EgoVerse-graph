@@ -1,9 +1,17 @@
-# UNITE U-Socket register sweep — launch-ready handoff
+# UNITE U-Socket register sweep — validation-schedule fix handoff
 
 Date: 2026-09-02
-Status: **LAUNCH_READY / READY**
+Status: **SMOKE_READY / SMOKE_REQUIRED / FULL RELAUNCH BLOCKED**
 
 ## Qualifying smoke and launch decision
+
+The first full-launch attempt exposed a Lightning scheduling error that the
+three-step smoke could not trigger: the 1% training split has 8,073 batches per
+epoch, less than `val_check_interval=10000`. The experiment now sets
+`check_val_every_n_epoch: null`, making validation genuinely step-based across
+epochs. Because this is a resolved-config change, the earlier smoke evidence is
+retained as diagnostic evidence but no longer authorizes a full relaunch; all
+four rows must pass again from the post-fix source before readiness is restored.
 
 The exact clean smoke source was
 `cc41d4c45eee45d5cc4d26e6b0bd1eb5528a99c0`. Canonical Slurm array
@@ -135,9 +143,9 @@ smoke is still required before a full run.
 - Sweep manifest:
   `unite_usocket_register_sweep_manifest.yaml`
   - SHA-256:
-    `3c809ecf05f78811fad405c2758b67283b5492dfc98e240cba75bb26beb2b6a8`
-  - Gate state: `artifact_status=LAUNCH_READY`,
-    `launch_status=READY`
+    `286f8bdb5da69a949000a0f026ddccf4f6587d39bbd36e3eb67acd39b30b16e8`
+  - Gate state: `artifact_status=SMOKE_READY`,
+    `launch_status=SMOKE_REQUIRED`
 - Four-active-row train/rollout graph artifact:
   `artifacts/unite_register_sweep_20260902/config_graphs/four_active_rows_train_rollout.json`
   - SHA-256:
@@ -271,4 +279,5 @@ disjoint AdamW/Muon groups, and the required content/action projection routing.
 The complete combined suite passes `225/225` after this fix. A separate two-rank
 Gloo probe also passed the exact telemetry pattern of two retained
 `autograd.grad` calls followed by the joint backward. The manifest remains
-`LAUNCH_READY / READY` after the four qualifying real smokes listed above.
+`SMOKE_READY / SMOKE_REQUIRED` after the validation-schedule correction; the
+four qualifying real smokes listed above predate this resolved-config change.

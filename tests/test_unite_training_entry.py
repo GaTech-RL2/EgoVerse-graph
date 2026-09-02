@@ -8,6 +8,7 @@ import torch.nn as nn
 from omegaconf import OmegaConf
 
 import egomimic.trainHydra as train_hydra
+from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.pl_utils.pl_model_unite_released import ReleasedUniteModelWrapper
 from egomimic.utils.unite_optim import (
@@ -35,6 +36,9 @@ class _GenerativeStage(nn.Module):
         super().__init__()
         self.blocks = nn.ModuleList([nn.Linear(2, 2)])
         self.final_layer = nn.Linear(2, 2)
+        self.content_projection = nn.Linear(2, 2)
+        self.condition_projection = nn.Linear(2, 2)
+        self.action_projection = nn.Linear(2, 2)
 
 
 class _TinyPolicy(nn.Module):
@@ -49,11 +53,63 @@ class _TinyAlgo(nn.Module):
         self.nets = nn.ModuleDict({"policy": _TinyPolicy()})
 
 
-class _PlainTinyAlgo:
-    """Match PipelineAlgo's non-Module orchestration contract."""
+class _TinyNormStats:
+    def keys_of_type(self, key_type, emb_id):
+        return {
+            "proprio_keys": [],
+            "lang_keys": [],
+            "camera_keys": [],
+            "action_keys": ["actions"],
+        }[key_type]
 
-    def __init__(self):
-        self.nets = nn.ModuleDict({"policy": _TinyPolicy()})
+    def is_key_with_embodiment(self, key, emb_id):
+        return key == "actions"
+
+
+def _tiny_pipeline_algo() -> PipelineAlgo:
+    return PipelineAlgo(
+        stages=[_VisualStage(), _GenerativeStage()],
+        norm_stats=_TinyNormStats(),
+        domains=["pushshapes_sim_u_socket"],
+        ac_keys={"pushshapes_sim_u_socket": "actions"},
+        device=torch.device("cpu"),
+    )
+
+
+def _internal_ema_wrapper(monkeypatch) -> ReleasedUniteModelWrapper:
+    pipeline_algo = _tiny_pipeline_algo()
+    monkeypatch.setattr(
+        ModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree, norm_stats_state: pipeline_algo,
+    )
+    return ReleasedUniteModelWrapper(
+        config_tree=OmegaConf.create(
+            {
+                "model": {
+                    "robomimic_model": {"_target_": "unused.PipelineAlgo"},
+                    "optimizer": {
+                        "_target_": (
+                            "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
+                        ),
+                        "_partial_": True,
+                        "lr": 1.0e-3,
+                    },
+                    "scheduler": None,
+                    "ema": {
+                        "enabled": True,
+                        "update_after_step": 0,
+                        "inv_gamma": 1.0,
+                        "power": 0.75,
+                        "min_value": 0.0,
+                        "max_value": 0.9999,
+                        "use_for_validation": True,
+                    },
+                }
+            }
+        ),
+        norm_stats_state={},
+    )
 
 
 def _optimizer(model: nn.Module) -> ReleasedUniteCompositeOptimizer:
@@ -125,7 +181,7 @@ def test_train_hydra_rejects_internal_and_callback_ema_together():
 
 
 def test_released_wrapper_constructs_optimizer_without_attached_trainer():
-    model = _PlainTinyAlgo()
+    model = _tiny_pipeline_algo()
     wrapper = ReleasedUniteModelWrapper(
         robomimic_model=model,
         optimizer=partial(ReleasedUniteCompositeOptimizer, lr=1.0e-3),
@@ -134,6 +190,7 @@ def test_released_wrapper_constructs_optimizer_without_attached_trainer():
     configured = wrapper.configure_optimizers()
     optimizer = configured["optimizer"]
     assert isinstance(optimizer, ReleasedUniteCompositeOptimizer)
+    assert wrapper._unite_validation_model() is wrapper.model
     assert all(
         name.startswith("nets.policy.")
         for names in optimizer.group_manifest.values()
@@ -142,9 +199,63 @@ def test_released_wrapper_constructs_optimizer_without_attached_trainer():
     )
 
 
+def test_released_internal_ema_drives_validation_and_is_not_optimized(
+    monkeypatch,
+):
+    wrapper = _internal_ema_wrapper(monkeypatch)
+    assert wrapper._unite_validation_model() is wrapper.ema_model
+
+    optimizer = wrapper.configure_optimizers()["optimizer"]
+    optimizer_parameters = [
+        parameter for group in optimizer.param_groups for parameter in group["params"]
+    ]
+    online_ids = {id(parameter) for parameter in wrapper.nets.parameters()}
+    ema_ids = {id(parameter) for parameter in wrapper.ema_nets.parameters()}
+    optimizer_ids = {id(parameter) for parameter in optimizer_parameters}
+    assert optimizer_ids == online_ids
+    assert optimizer_ids.isdisjoint(ema_ids)
+
+    calls = []
+    processed_batch = {"processed": torch.tensor(1.0)}
+
+    def fail_online_processing(batch):
+        raise AssertionError("custom validation used online instead of internal EMA")
+
+    def process_with_ema(batch):
+        calls.append(("process", batch))
+        return processed_batch
+
+    def measure_with_ema(validation_model, batch, batch_idx):
+        calls.append(("measure", validation_model, batch, batch_idx))
+
+    evaluator = SimpleNamespace(
+        on_validation_step=lambda batch, batch_idx, dataloader_idx: calls.append(
+            ("evaluator", batch, batch_idx, dataloader_idx)
+        )
+    )
+    wrapper.model.process_batch_for_training = fail_online_processing
+    wrapper.ema_model.process_batch_for_training = process_with_ema
+    monkeypatch.setattr(
+        wrapper,
+        "_measure_unite_validation_components",
+        measure_with_ema,
+    )
+    wrapper.evaluator = evaluator
+
+    raw_batch = {"domain": torch.tensor(0.0)}
+    wrapper.validation_step(raw_batch, batch_idx=7, dataloader_idx=2)
+    assert calls == [
+        ("process", raw_batch),
+        ("measure", wrapper.ema_model, processed_batch, 7),
+        ("evaluator", processed_batch, 7, 2),
+    ]
+
+
 def test_released_wrapper_constructs_hydra_config_tree_optimizer():
+    pipeline_algo = _tiny_pipeline_algo()
+    assert not isinstance(pipeline_algo, nn.Module)
     wrapper = ReleasedUniteModelWrapper(
-        robomimic_model=_PlainTinyAlgo(),
+        robomimic_model=pipeline_algo,
         optimizer=None,
         scheduler=None,
     )
@@ -163,7 +274,25 @@ def test_released_wrapper_constructs_hydra_config_tree_optimizer():
         }
     )
     configured = wrapper.configure_optimizers()
-    assert isinstance(configured["optimizer"], ReleasedUniteCompositeOptimizer)
+    optimizer = configured["optimizer"]
+    assert isinstance(optimizer, ReleasedUniteCompositeOptimizer)
+    expected_named = tuple(
+        wrapper.nets.named_parameters(prefix="nets", remove_duplicate=True)
+    )
+    expected_names = {name for name, _ in expected_named}
+    expected_ids = {id(parameter) for _, parameter in expected_named}
+    adamw_names = set(optimizer.group_manifest["adamw_parameter_names"])
+    muon_names = set(optimizer.group_manifest["muon_parameter_names"])
+    optimizer_parameters = [
+        parameter for group in optimizer.param_groups for parameter in group["params"]
+    ]
+    assert expected_names == adamw_names | muon_names
+    assert adamw_names.isdisjoint(muon_names)
+    assert len(expected_named) == len(expected_names) == len(expected_ids)
+    assert len(optimizer_parameters) == len({id(p) for p in optimizer_parameters})
+    assert {id(parameter) for parameter in optimizer_parameters} == expected_ids
+    assert "nets.policy.stages.1.content_projection.weight" in adamw_names
+    assert "nets.policy.stages.1.action_projection.weight" in muon_names
 
 
 def test_visual_core_paths_and_non_matrix_weights_are_adamw():
@@ -177,6 +306,12 @@ def test_visual_core_paths_and_non_matrix_weights_are_adamw():
     # would incorrectly send this real VisualCore path to Muon.
     assert f"{visual_prefix}.projection.weight" in adamw_names
     assert "nets.policy.stages.1.final_layer.weight" in adamw_names
+    # Clean-action content is the robot patch stem and follows patch_embed.
+    assert "nets.policy.stages.1.content_projection.weight" in adamw_names
+    # Pooled observation projection is an explicit modality-adapter exception.
+    assert "nets.policy.stages.1.condition_projection.weight" in adamw_names
+    # The final action matrix follows released decoder_pred and remains Muon-eligible.
+    assert "nets.policy.stages.1.action_projection.weight" in muon_names
     assert "nets.policy.stages.1.blocks.0.weight" in muon_names
     assert adamw_names.isdisjoint(muon_names)
 

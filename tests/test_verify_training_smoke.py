@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 import torch
+import wandb
 from omegaconf import OmegaConf
 
 from egomimic.scripts import verify_training_smoke as verifier
@@ -21,6 +22,35 @@ def _wandb_exit(exit_code: int = 0):
     record = verifier.wandb_internal_pb2.Record()
     record.exit.exit_code = exit_code
     return record.SerializeToString()
+
+
+_RELEASED_TRAIN_METRICS = {
+    "Train/UNITE/TotalLoss",
+    "Train/UNITE/ReconstructionLoss",
+    "Train/UNITE/FlowLoss",
+    "Train/UNITE/ReconstructionL1",
+    "Train/MSE",
+    "Train/MSE/pushshapes_sim_u_socket",
+}
+_RELEASED_OPTIMIZER_METRICS = {"Optimizer/LR/AdamW", "Optimizer/LR/Muon"}
+_RELEASED_VALID_METRICS = {
+    "Valid/UNITE/TotalLoss",
+    "Valid/UNITE/ReconstructionLoss",
+    "Valid/UNITE/FlowLoss",
+    "Valid/UNITE/ReconstructionL1",
+    "Valid/UNITE/ReconstructionNativeMSE",
+    "Valid/UNITE/ReconstructionNativeL1",
+    "Valid/MSE",
+    "Valid/MSE/pushshapes_sim_u_socket",
+    "Valid/Native_MSE",
+    "Valid/Native_MSE/pushshapes_sim_u_socket",
+    "Valid/EnergyScore@32",
+    "Valid/EnergyScore@32/pushshapes_sim_u_socket",
+    "Valid/EnergyScoreAccuracy@32",
+    "Valid/EnergyScoreAccuracy@32/pushshapes_sim_u_socket",
+    "Valid/EnergyScoreDiversity@32",
+    "Valid/EnergyScoreDiversity@32/pushshapes_sim_u_socket",
+}
 
 
 def test_read_wandb_history_collects_all_supported_metric_namespaces(
@@ -347,6 +377,7 @@ def test_checkpoint_model_wrapper_is_reconstructed_strictly_on_cpu(
             captured.update(kwargs)
             return cls()
 
+    monkeypatch.setattr(verifier.torch.cuda, "is_available", lambda: False)
     monkeypatch.setattr(verifier, "ModelWrapper", FakeModelWrapper)
     result = verifier._strict_load_model_wrapper(Path("/tmp/smoke.ckpt"))
 
@@ -367,3 +398,391 @@ def test_checkpoint_model_wrapper_is_reconstructed_strictly_on_cpu(
         "parameter_count": 9,
         "buffer_count": 1,
     }
+
+
+def test_checkpoint_reload_uses_the_configured_wrapper_class(monkeypatch) -> None:
+    captured = {}
+
+    class FakeModelWrapper(torch.nn.Module):
+        pass
+
+    class ConfiguredWrapper(FakeModelWrapper):
+        def __init__(self) -> None:
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.ones(2))
+
+        @classmethod
+        def load_from_checkpoint(cls, checkpoint_path, **kwargs):
+            captured.update(checkpoint_path=checkpoint_path, **kwargs)
+            return cls()
+
+    monkeypatch.setattr(verifier.torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(verifier, "ModelWrapper", FakeModelWrapper)
+    monkeypatch.setattr(
+        verifier.hydra.utils,
+        "get_class",
+        lambda target: ConfiguredWrapper,
+    )
+    config = OmegaConf.create({"model": {"_target_": "tests.ConfiguredWrapper"}})
+
+    result = verifier._strict_load_model_wrapper(
+        Path("/tmp/released.ckpt"),
+        config=config,
+    )
+
+    assert captured == {
+        "checkpoint_path": "/tmp/released.ckpt",
+        "map_location": "cpu",
+        "weights_only": False,
+        "strict": True,
+    }
+    assert result["model_class"].endswith(".ConfiguredWrapper")
+    assert result["parameter_count"] == 2
+
+
+def test_checkpoint_reload_requires_cuda_to_be_hidden(monkeypatch) -> None:
+    monkeypatch.setattr(verifier.torch.cuda, "is_available", lambda: True)
+    with pytest.raises(AssertionError, match="CUDA hidden"):
+        verifier._strict_load_model_wrapper(Path("/tmp/smoke.ckpt"))
+
+
+@pytest.mark.parametrize(
+    "energy_shape",
+    [
+        {"action_dim": 4},
+        {"action_dims": {"pushshapes_sim_u_socket": 4}},
+    ],
+    ids=("paper_shared_action_dim", "unite_per_domain_action_dims"),
+)
+def test_energy_score_artifact_validation_accepts_both_schemas(
+    tmp_path,
+    energy_shape,
+) -> None:
+    output_dir = tmp_path / "run"
+    artifact_root = output_dir / "validation_predictions" / "energy_score"
+    artifact_dir = artifact_root / "epoch-0-step-2"
+    artifact_dir.mkdir(parents=True)
+    seed_bank = tmp_path / "energy_seeds.json"
+    seed_bank.write_text(json.dumps({"seeds": list(range(32))}))
+    predictions = torch.zeros(32, 2, 16, 4)
+    targets = torch.zeros(2, 16, 4)
+    payload = {
+        "schema_version": 1,
+        "metric": "EnergyScore@32",
+        "sample_count": 32,
+        "seed_bank": list(range(32)),
+        "seed_bank_sha256": verifier._sha256(seed_bank),
+        "global_step": 2,
+        "rank": 0,
+        "domains": {
+            "pushshapes_sim_u_socket": {
+                "embodiment_id": 19,
+                "predictions": predictions,
+                "targets": targets,
+                "accuracy_by_condition": torch.zeros(2),
+                "diversity_by_condition": torch.zeros(2),
+                "score_by_condition": torch.zeros(2),
+            }
+        },
+    }
+    torch.save(payload, artifact_dir / "rank-0-batch-0.pt")
+    config = OmegaConf.create(
+        {
+            "evaluator": {
+                "energy_score": {
+                    "enabled": True,
+                    "sample_count": 32,
+                    "max_batches_per_rank": 1,
+                    "seed_bank_path": str(seed_bank),
+                    "seed_bank_sha256": verifier._sha256(seed_bank),
+                    "artifact_root": str(artifact_root),
+                    **energy_shape,
+                }
+            }
+        }
+    )
+
+    records = verifier._validate_energy_score_artifacts(
+        output_dir,
+        config,
+        global_step=2,
+        expected_world_size=1,
+        required_embodiments=[19],
+    )
+
+    assert len(records) == 1
+    assert records[0]["rank"] == 0
+    assert Path(records[0]["path"]).name == "rank-0-batch-0.pt"
+
+
+def test_exact_wandb_visibility_requires_every_finite_metric(monkeypatch) -> None:
+    required = {"Train/MSE", "Valid/MSE"}
+    requested = []
+
+    class FakeRun:
+        path = ["entity", "project", "run-id"]
+
+        def scan_history(self, *, keys, page_size):
+            requested.append((keys, page_size))
+            return iter([{"Train/MSE": 1.0}, {"Valid/MSE": 0.5}])
+
+    class FakeApi:
+        def run(self, run_path):
+            assert run_path == "entity/project/run-id"
+            return FakeRun()
+
+    monkeypatch.setattr(wandb, "Api", lambda timeout: FakeApi())
+    verifier._verify_wandb_visibility("entity/project/run-id", required)
+
+    assert requested == [(["Train/MSE", "Valid/MSE"], 1000)]
+
+
+@pytest.mark.parametrize(
+    ("topology", "ema_backend"),
+    (("shared", "callback"), ("separate", "internal")),
+)
+def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
+    tmp_path,
+    monkeypatch,
+    topology,
+    ema_backend,
+) -> None:
+    output_dir = tmp_path / "run"
+    config_path = output_dir / ".hydra" / "config.yaml"
+    checkpoint_path = output_dir / "checkpoints" / "last.ckpt"
+    stream_path = output_dir / "wandb" / "run-test" / "run-test.wandb"
+    for path in (config_path, checkpoint_path, stream_path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n")
+    parameter_manifest = tmp_path / "parameter_manifest.json"
+    parameter_manifest.write_text(
+        json.dumps(
+            {
+                "topology": topology,
+                "num_latent_tokens": 4,
+                "latent_dim": 16,
+                "action_horizon": 16,
+            }
+        )
+    )
+    split_manifest = tmp_path / "split.json"
+    normalization_artifact = tmp_path / "normalization.json"
+    split_manifest.write_text("{}\n")
+    normalization_artifact.write_text("{}\n")
+
+    model_config = {
+        "_target_": "tests.ConfiguredReleasedWrapper",
+        "share_encoder_denoiser": topology == "shared",
+        "latent_dim": 16,
+        "num_latent_tokens": 4,
+        "unite_flow_updates_per_reconstruction": 0,
+        "unite_gradient_telemetry_every_n_steps": 3,
+    }
+    callback_config = None
+    if ema_backend == "internal":
+        model_config["ema"] = {
+            "enabled": True,
+            "power": 0.75,
+            "max_value": 0.9999,
+            "use_for_validation": True,
+        }
+    else:
+        callback_config = {
+            "ema": {
+                "_target_": "egomimic.utils.ema_callback.EMACallback",
+                "decay": 0.9978,
+                "validate_with_ema": True,
+            }
+        }
+    config = OmegaConf.create(
+        {
+            "trainer": {
+                "max_steps": 3,
+                "limit_train_batches": 3,
+                "val_check_interval": 3,
+                "limit_val_batches": 1,
+                "num_sanity_val_steps": 0,
+                "precision": "bf16",
+                "strategy": "ddp_find_unused_parameters_true",
+                "devices": 2,
+                "num_nodes": 1,
+                "accumulate_grad_batches": 1,
+            },
+            "model": model_config,
+            "callbacks": callback_config,
+            "data": {
+                "train_datasets": {"pushshapes_sim_u_socket": {}},
+                "valid_datasets": {"pushshapes_sim_u_socket": {}},
+            },
+            "evaluator": {
+                "energy_score": {
+                    "enabled": True,
+                    "sample_count": 32,
+                    "seed_bank_sha256": (
+                        "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
+                    ),
+                    "action_dims": {"pushshapes_sim_u_socket": 4},
+                }
+            },
+            "run_provenance": {
+                "sweep_task_id": "us_unite_register_test",
+                "topology": topology,
+                "num_latent_tokens": 4,
+                "latent_dim": 16,
+            },
+        }
+    )
+    checkpoint = {
+        "global_step": 3,
+        "optimizer_states": [
+            {
+                "adamw": {"param_groups": [{"lr": 1.0e-4}]},
+                "muon": {"param_groups": [{"lr": 2.0e-4}]},
+                "group_manifest": {},
+            }
+        ],
+        "lr_schedulers": [{"last_epoch": 3}],
+    }
+    if ema_backend == "callback":
+        checkpoint.update(
+            ema_state_dict={"model.weight": torch.ones(2)},
+            ema_decay=0.9978,
+            ema_num_updates=3,
+            ema_validate_with_ema=True,
+        )
+    monkeypatch.setattr(verifier.torch, "load", lambda *args, **kwargs: checkpoint)
+
+    strict_calls = []
+    strict_record = {
+        "status": "passed",
+        "model_class": "tests.ConfiguredReleasedWrapper",
+        "map_location": "cpu",
+        "strict": True,
+    }
+    if ema_backend == "internal":
+        strict_record["ema"] = {
+            "backend": "model_wrapper",
+            "enabled": True,
+            "optimization_step": 3,
+            "decay": 0.5,
+            "power": 0.75,
+            "max_value": 0.9999,
+            "use_for_validation": True,
+            "parameter_tree_exact": True,
+            "parameters_finite": True,
+        }
+
+    def strict_reload(path, *, config, expected_steps):
+        strict_calls.append((path, config, expected_steps))
+        return strict_record
+
+    monkeypatch.setattr(verifier, "_strict_load_model_wrapper", strict_reload)
+    topology_metrics = (
+        {
+            "log/unite_gradient_cosine": 0.25,
+            "log/unite_recon_grad_norm": 1.0,
+            "log/unite_denoise_grad_norm": 2.0,
+        }
+        if topology == "shared"
+        else {
+            "log/unite_tokenizer_recon_grad_norm": 1.0,
+            "log/unite_denoiser_flow_grad_norm": 2.0,
+        }
+    )
+    training_history = [
+        {
+            "trainer_global_step": 0,
+            "train_metrics": {key: 1.0 for key in _RELEASED_TRAIN_METRICS},
+            "timing_metrics": {},
+            "optimizer_metrics": {key: 1.0e-4 for key in _RELEASED_OPTIMIZER_METRICS},
+            # The generic row contract omits this optional key when no sparse
+            # telemetry was logged. The released verifier must accept that row.
+        },
+        {
+            "trainer_global_step": 1,
+            "train_metrics": {key: 0.5 for key in _RELEASED_TRAIN_METRICS},
+            "timing_metrics": {},
+            "optimizer_metrics": {key: 1.0e-4 for key in _RELEASED_OPTIMIZER_METRICS},
+        },
+        {
+            "trainer_global_step": 2,
+            "train_metrics": {key: 0.25 for key in _RELEASED_TRAIN_METRICS},
+            "timing_metrics": {},
+            "optimizer_metrics": {key: 1.0e-4 for key in _RELEASED_OPTIMIZER_METRICS},
+            "telemetry_metrics": topology_metrics,
+        },
+    ]
+    validation_history = [
+        {
+            "trainer_global_step": 2,
+            "validation_metrics": {key: 0.25 for key in _RELEASED_VALID_METRICS},
+        }
+    ]
+    monkeypatch.setattr(
+        verifier,
+        "read_wandb_history",
+        lambda path: (training_history, validation_history, 0),
+    )
+    energy_calls = []
+
+    def validate_energy(path, resolved_config, **kwargs):
+        energy_calls.append((path, resolved_config, kwargs))
+        return [{"path": "energy.pt", "rank": 0, "sha256": "abc"}]
+
+    monkeypatch.setattr(
+        verifier,
+        "_validate_energy_score_artifacts",
+        validate_energy,
+    )
+    visibility_calls = []
+    monkeypatch.setattr(
+        verifier,
+        "_verify_wandb_visibility",
+        lambda run_path, required: visibility_calls.append((run_path, required)),
+    )
+
+    record = verifier._verify_released_sweep_smoke(
+        output_dir,
+        config,
+        [19],
+        "a" * 40,
+        "ddp_find_unused_parameters_true",
+        2,
+        3,
+        3,
+        3,
+        topology,
+        "us_unite_register_test",
+        16,
+        4,
+        "entity/project/run-id",
+        parameter_manifest,
+        split_manifest,
+        normalization_artifact,
+    )
+
+    assert strict_calls == [(checkpoint_path, config, 3)]
+    assert energy_calls == [
+        (
+            output_dir,
+            config,
+            {
+                "global_step": 3,
+                "expected_world_size": 2,
+                "required_embodiments": [19],
+            },
+        )
+    ]
+    expected_required = (
+        _RELEASED_TRAIN_METRICS
+        | _RELEASED_OPTIMIZER_METRICS
+        | _RELEASED_VALID_METRICS
+        | set(topology_metrics)
+    )
+    assert visibility_calls == [("entity/project/run-id", expected_required)]
+    assert record["model_wrapper_load"] is strict_record
+    assert record["ema"]["backend"] == (
+        "callback" if ema_backend == "callback" else "model_wrapper"
+    )
+    assert record["dense_training_steps"] == [0, 1, 2]
+    assert record["required_wandb_metrics"] == sorted(expected_required)

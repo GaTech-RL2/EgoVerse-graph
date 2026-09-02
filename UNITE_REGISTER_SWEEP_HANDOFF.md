@@ -1,7 +1,48 @@
-# UNITE U-Socket register sweep — pre-smoke launch handoff
+# UNITE U-Socket register sweep — launch-ready handoff
 
 Date: 2026-09-02
-Status: **SMOKE_READY / SMOKE_REQUIRED / FULL LAUNCH BLOCKED**
+Status: **LAUNCH_READY / READY**
+
+## Qualifying smoke and launch decision
+
+The exact clean smoke source was
+`cc41d4c45eee45d5cc4d26e6b0bd1eb5528a99c0`. Canonical Slurm array
+`3742059` ran on two A40 GPUs per row on node `megabot`; all four rows exited
+zero and wrote an immutable `SMOKE_RESULT.json` after three real joint
+optimizer steps and the scheduled real validation:
+
+| Row | Slurm job | Result |
+|---|---:|---|
+| `us_unite_register_shared_nt4_s42` | `3742060` | passed |
+| `us_unite_register_shared_nt8_s42` | `3742096` | passed |
+| `us_unite_register_separate_nt4_s42` | `3742100` | passed |
+| `us_unite_register_separate_nt8_s42` | `3742059` | passed |
+
+Every result records `global_step=3`, finite dense train and validation
+metrics, finite optimizer LRs, callback EMA with decay `0.9978`, strict CPU
+reload of the configured `ReleasedUniteModelWrapper`, exact split and
+train-only normalization identities, W&B visibility of every required sparse
+history key, and paired rank-local `EnergyScore@32` artifacts. Shared rows also
+record finite reconstruction/denoising gradient cosine telemetry; separate
+rows correctly record disjoint gradient sets without inventing a cosine.
+
+The released-paper mechanism audit used upstream commit
+`2389f2c65fedbd43ada851e69b2b810efd23af7d`. The shared rows retain the
+two-pass shared Generative Encoder, Gaussian register inference, detached clean
+latent flow target, fourteen summed flow samples per reconstruction in
+`4+4+4+2` memory chunks, logit-normal time with the released rational shift,
+Base 768x12x12 AdaLN-Zero/QK-norm/RoPE/RMSNorm/SwiGLU backbone, block-4
+in-context insertion, Dopri5+CFG, Muon+AdamW, BF16, clipping, and EMA. The
+robot-policy adaptations are explicit: H16 clean actions replace image-patch
+content, pooled VisualCore/proprio replaces class conditioning, and the decoder
+produces H16 actions. The separate rows are capacity-changing ablation controls,
+not paper-faithful rows.
+
+Fresh dependency graphs are in the local review folder
+`review/pipeline-config-graphs/us-unite-register-sweep-launch-20260902/`.
+All eight train/rollout views lint clean and confirm that actions enter only the
+training tokenizer/target path while image and proprio form the denoising
+condition.
 
 ## Correct architecture contract
 
@@ -94,9 +135,9 @@ smoke is still required before a full run.
 - Sweep manifest:
   `unite_usocket_register_sweep_manifest.yaml`
   - SHA-256:
-    `286f8bdb5da69a949000a0f026ddccf4f6587d39bbd36e3eb67acd39b30b16e8`
-  - Gate state: `artifact_status=SMOKE_READY`,
-    `launch_status=SMOKE_REQUIRED`
+    `3c809ecf05f78811fad405c2758b67283b5492dfc98e240cba75bb26beb2b6a8`
+  - Gate state: `artifact_status=LAUNCH_READY`,
+    `launch_status=READY`
 - Four-active-row train/rollout graph artifact:
   `artifacts/unite_register_sweep_20260902/config_graphs/four_active_rows_train_rollout.json`
   - SHA-256:
@@ -230,5 +271,4 @@ disjoint AdamW/Muon groups, and the required content/action projection routing.
 The complete combined suite passes `225/225` after this fix. A separate two-rank
 Gloo probe also passed the exact telemetry pattern of two retained
 `autograd.grad` calls followed by the joint backward. The manifest remains
-`SMOKE_READY / SMOKE_REQUIRED`; all four real smokes must be retried from the
-post-fix commit before any full launch.
+`LAUNCH_READY / READY` after the four qualifying real smokes listed above.

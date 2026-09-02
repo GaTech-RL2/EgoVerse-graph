@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from egomimic.rldb.zarr.action_chunk_transforms import (
+    PlanarAgentStateToRotVec4,
+    ThetaToRotVec,
+)
 from egomimic.rldb.zarr.planar_arc import PadPlanarAction, TokenizePlanarArcLength
 
 
@@ -38,6 +42,27 @@ def get_planar_keymap(
         keymap["state_agent_obj"]["horizon"] = observation_horizon
     if norm_mode:
         keymap.pop("front_img_1")
+    return keymap
+
+
+def get_keymap_hpt_per_emb_proprio(
+    action_horizon: int = 16,
+    norm_mode: bool = False,
+    action_zarr_key: str = "actions",
+    **kwargs,
+):
+    """Keep native simulator state as metadata and add model-only proprio."""
+    keymap = get_keymap_hpt(
+        action_horizon=action_horizon,
+        norm_mode=norm_mode,
+        action_zarr_key=action_zarr_key,
+        **kwargs,
+    )
+    keymap["state_agent_obj"]["key_type"] = "metadata_keys"
+    keymap["state_agent_model"] = {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state",
+    }
     return keymap
 
 
@@ -102,4 +127,15 @@ def get_planar_arc_length_transform_list(
             dt=dt,
             rotation_radius=rotation_radius,
         )
+    ]
+
+
+def get_usocket_rotvec_action_state_transform_list(
+    action_key: str = "actions",
+    state_key: str = "state_agent_model",
+):
+    """Encode action theta and the observed U-Socket agent pose."""
+    return [
+        ThetaToRotVec(keys=[action_key], angle_col=2),
+        PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
     ]

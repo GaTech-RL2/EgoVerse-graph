@@ -31,6 +31,7 @@ class PlanarActionEval(Eval):
         action_key: str = "actions",
         native_decoder=None,
         deterministic_seed: int = _DEFAULT_DETERMINISTIC_SEED,
+        energy_score_max_batches_per_rank: int | None = None,
     ):
         self.trainer = None
         self.model = None
@@ -42,6 +43,12 @@ class PlanarActionEval(Eval):
         self.blocks = tuple(tuple(map(int, block)) for block in semantic_blocks)
         self.energy_score_enabled = bool(energy_score_enabled)
         self.deterministic_seed = int(deterministic_seed)
+        self.energy_score_max_batches_per_rank = energy_score_max_batches_per_rank
+        if (
+            energy_score_max_batches_per_rank is not None
+            and int(energy_score_max_batches_per_rank) <= 0
+        ):
+            raise ValueError("energy_score_max_batches_per_rank must be positive")
         self.artifact_root = None if artifact_root is None else Path(artifact_root)
         self.seeds = []
         self.seed_bank_sha256 = None
@@ -208,7 +215,11 @@ class PlanarActionEval(Eval):
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
         del dataloader_idx
         sampled = None
-        if self.energy_score_enabled:
+        score_this_batch = self.energy_score_enabled and (
+            self.energy_score_max_batches_per_rank is None
+            or batch_idx < int(self.energy_score_max_batches_per_rank)
+        )
+        if score_this_batch:
             sampled, result = self._seeded_predictions(batch)
         else:
             result = self._forward_with_seed(batch, self.deterministic_seed)

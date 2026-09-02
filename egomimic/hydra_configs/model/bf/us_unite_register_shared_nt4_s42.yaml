@@ -1,0 +1,6 @@
+defaults:
+  - /model/bf/us_unite_register_base@_here_
+  - _self_
+
+share_encoder_denoiser: true
+num_latent_tokens: 4

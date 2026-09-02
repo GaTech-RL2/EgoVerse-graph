@@ -76,6 +76,22 @@ def _callbacks_for_mode(callbacks: List[Callback], mode: str) -> List[Callback]:
     return [callback for callback in callbacks if not isinstance(callback, EMACallback)]
 
 
+def _resolve_model_wrapper_class(cfg: DictConfig) -> type[ModelWrapper]:
+    """Resolve a configured Lightning wrapper without constructing its model."""
+    target = OmegaConf.select(cfg, "model._target_", default=None)
+    if target is None:
+        return ModelWrapper
+    wrapper_class = hydra.utils.get_class(str(target))
+    if not isinstance(wrapper_class, type) or not issubclass(
+        wrapper_class, ModelWrapper
+    ):
+        raise TypeError(
+            "cfg.model._target_ must resolve to a ModelWrapper subclass; "
+            f"got {target!r}"
+        )
+    return wrapper_class
+
+
 def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
     rows = []
     for name, ds in train_datasets.items():
@@ -226,7 +242,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         ds.set_norm_stats_from(norm_stats)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
-    model: LightningModule = ModelWrapper(
+    wrapper_class = _resolve_model_wrapper_class(cfg)
+    model: LightningModule = wrapper_class(
         config_tree=_build_model_config_tree(cfg),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
     )

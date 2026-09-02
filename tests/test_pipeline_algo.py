@@ -5,6 +5,7 @@ import torch
 
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.core import Stage
+from egomimic.pipeline.stages_io import ActionTargetBuilder
 from egomimic.pipeline.stages_sampler import FusedObsEncoder
 
 
@@ -90,6 +91,7 @@ def _algo():
     return PipelineAlgo(
         stages=[
             FusedObsEncoder(encoder=_PackedState(), n_obs_steps=1),
+            ActionTargetBuilder(),
             _TinyHead(),
         ],
         norm_stats=_NormStats(),
@@ -124,7 +126,7 @@ def test_pipeline_algo_maps_loader_keys_and_reduces_domain_losses():
     assert losses["action_loss"].ndim == 0
     assert torch.equal(losses["action_loss"], predictions["6_action_loss"])
     losses["action_loss"].backward()
-    assert algo.policy.stages[1].scale.grad is not None
+    assert algo.policy.stages[2].scale.grad is not None
     logged = algo.log_info({"losses": losses})
     assert logged["MSE"] == pytest.approx(losses["action_loss"].item())
     assert logged["MSE/eva_bimanual"] == pytest.approx(losses["6_action_loss"].item())
@@ -148,6 +150,7 @@ def test_pipeline_algo_rollout_adapts_before_normalizing_and_decodes_after():
     algo = PipelineAlgo(
         stages=[
             FusedObsEncoder(encoder=_PackedState(), n_obs_steps=1),
+            ActionTargetBuilder(),
             _TinyHead(),
         ],
         norm_stats=_NormStats(),

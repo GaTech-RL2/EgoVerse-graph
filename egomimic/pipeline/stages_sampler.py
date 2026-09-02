@@ -44,10 +44,8 @@ class DPStyleObsEncoder(nn.Module):
 class FusedObsEncoder(Stage):
     """Encode an ``N``-observation window into one conditioning vector."""
 
-    reads = ["obs/*", "embodiment", "actions"]
-    writes = ["condition", "target"]
-    reads_by_mode = {"rollout": ["obs/*", "embodiment"]}
-    writes_by_mode = {"rollout": ["condition"]}
+    reads = ["obs/*", "embodiment"]
+    writes = ["condition"]
 
     def __init__(
         self,
@@ -68,8 +66,7 @@ class FusedObsEncoder(Stage):
             )
             if not required:
                 raise ValueError("required_obs_keys cannot be empty")
-            self.reads = [*required, "embodiment", "actions"]
-            self.reads_by_mode = {"rollout": [*required, "embodiment"]}
+            self.reads = [*required, "embodiment"]
 
     def forward(self, batch: dict) -> dict:
         obs_packed = {
@@ -136,11 +133,6 @@ class FusedObsEncoder(Stage):
         )
         batch["condition"] = encoded.reshape(batch_size, n_obs * encoded.shape[-1])
 
-        target = batch.pop("actions", None)
-        if target is None and "rollout_t" not in batch:
-            raise ValueError("FusedObsEncoder: training batch has no actions target")
-        if target is not None:
-            batch["target"] = target
         return batch
 
 

@@ -2,6 +2,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from egomimic.pipeline.stages_io import ActionTargetBuilder
 from egomimic.pipeline.stages_sampler import (
     DPStyleObsEncoder,
     FusedObsEncoder,
@@ -52,7 +53,7 @@ def test_dp_style_encoder_concatenates_sliced_state_and_image_features():
     assert torch.equal(output[:, 2:], image_encoder(image))
 
 
-def test_fused_encoder_packs_history_and_preserves_target():
+def test_fused_encoder_packs_history_without_owning_the_action_target():
     encoder = _PackedState()
     stage = FusedObsEncoder(encoder=encoder, n_obs_steps=2)
     state = torch.arange(24, dtype=torch.float32).reshape(3, 2, 4)
@@ -63,7 +64,8 @@ def test_fused_encoder_packs_history_and_preserves_target():
     )
 
     assert output["condition"].shape == (3, 8)
-    assert output["target"] is actions
+    assert output["actions"] is actions
+    assert "target" not in output
     assert encoder.seen == {
         "action_shape": (6, 1),
         "cu": [0, 2, 4, 6],
@@ -71,6 +73,17 @@ def test_fused_encoder_packs_history_and_preserves_target():
         "embodiment": "eva_bimanual",
     }
     assert encoder._episode_cu.tolist() == [0, 2, 4, 6]
+
+
+def test_action_target_builder_is_a_separate_train_only_node():
+    actions = torch.randn(3, 5, 6)
+    stage = ActionTargetBuilder()
+
+    output = stage({"actions": actions})
+
+    assert output == {"target": actions}
+    assert stage.train_only is True
+    assert stage.contract("train") == (("actions",), ("target",))
 
 
 def test_fused_encoder_rollout_requires_explicit_singleton_history_axis():
@@ -105,13 +118,8 @@ def test_required_observations_are_reflected_in_mode_contracts():
         "obs/state",
         "obs/front_img_1",
         "embodiment",
-        "actions",
     )
-    assert stage.contract("rollout")[0] == (
-        "obs/state",
-        "obs/front_img_1",
-        "embodiment",
-    )
+    assert stage.contract("rollout")[0] == stage.contract("train")[0]
 
 
 def test_gaussian_noise_supports_new_and_legacy_token_names():

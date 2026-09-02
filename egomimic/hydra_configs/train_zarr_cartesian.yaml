@@ -26,6 +26,15 @@ launch_params:
   gpus_per_node: 1
   nodes: 1
 
+runtime:
+  # Keep Lightning's historical SIGUSR1/scontrol ownership unless a maintained
+  # external runner is explicitly selected and confirms ownership via env.
+  slurm_requeue_owner: lightning
+  # Runner-owned mode forwards SIGUSR2 to request a save without granting the
+  # framework authority to call scontrol or finalize W&B.
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+
 seed: 42
 
 # Normalization and norm-stat cache settings (override per-run as needed).

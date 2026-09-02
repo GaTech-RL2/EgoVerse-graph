@@ -578,7 +578,8 @@ def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
         repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
     ).read_text()
 
-    assert "SLURMEnvironment(requeue_signal=signal.SIGUSR1)" in train_hydra
+    assert "slurm_environment = _slurm_environment(cfg)" in train_hydra
+    assert "auto_requeue=_slurm_auto_requeue(cfg)" in train_hydra
     assert "plugins=plugins" in train_hydra
     assert "resuming from 'last.ckpt'" not in train_hydra
     assert 'RESUME_CANDIDATES=("$RUN_DIR"/hpc_ckpt_*.ckpt)' in matrix

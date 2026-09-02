@@ -25,12 +25,106 @@ from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
+from egomimic.utils.slurm_requeue import SaveOnlySignalCheckpoint
 from egomimic.utils.utils import extras, task_wrapper
 
 if not OmegaConf.has_resolver("eval"):
     OmegaConf.register_new_resolver("eval", eval)
 
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+def _slurm_auto_requeue(cfg: DictConfig) -> bool:
+    """Resolve and cross-check the configured Slurm requeue owner."""
+
+    configured_owner = str(
+        OmegaConf.select(
+            cfg,
+            "runtime.slurm_requeue_owner",
+            default="lightning",
+        )
+    )
+    runner_owner = os.environ.get("ICE_REQUEUE_OWNER")
+    child_requeue_disabled = os.environ.get("ICE_CHILD_REQUEUE_DISABLED")
+    if configured_owner == "lightning" and (
+        (runner_owner is None and child_requeue_disabled is None)
+        or (runner_owner == "child" and child_requeue_disabled == "0")
+    ):
+        # Preserve the existing Skynet behavior when no external runner owns
+        # requeue: Lightning handles SIGUSR1 and invokes ``scontrol requeue``.
+        auto_requeue = True
+    elif (
+        configured_owner == "runner"
+        and runner_owner == "runner"
+        and child_requeue_disabled == "1"
+    ):
+        # The ICE runner forwards the checkpoint signal and is the sole process
+        # allowed to invoke ``scontrol requeue``.
+        auto_requeue = False
+    else:
+        raise RuntimeError(
+            "inconsistent Slurm requeue ownership: "
+            f"runtime.slurm_requeue_owner={configured_owner!r}, "
+            f"ICE_REQUEUE_OWNER={runner_owner!r}, "
+            f"ICE_CHILD_REQUEUE_DISABLED={child_requeue_disabled!r}; "
+            "use lightning with no runner variables (or child/0), or runner "
+            "with runner/1"
+        )
+    return auto_requeue
+
+
+def _slurm_environment(cfg: DictConfig) -> SLURMEnvironment:
+    """Build the one Slurm environment plugin with an explicit requeue owner."""
+
+    return SLURMEnvironment(
+        auto_requeue=_slurm_auto_requeue(cfg),
+        requeue_signal=signal.SIGUSR1,
+    )
+
+
+def _instantiate_slurm_callbacks(cfg: DictConfig) -> List[Callback]:
+    """Add the save-only signal callback when an external runner owns requeue."""
+
+    if not os.environ.get("SLURM_JOB_ID") or _slurm_auto_requeue(cfg):
+        return []
+    save_signal = str(
+        OmegaConf.select(cfg, "runtime.slurm_save_signal", default="SIGUSR2")
+    )
+    if save_signal != "SIGUSR2":
+        raise RuntimeError(
+            f"runtime.slurm_save_signal must be 'SIGUSR2'; got {save_signal!r}"
+        )
+    checkpoint_dir = OmegaConf.select(
+        cfg,
+        "runtime.slurm_signal_checkpoint_dir",
+        default=None,
+    )
+    if not checkpoint_dir:
+        raise RuntimeError(
+            "runtime.slurm_signal_checkpoint_dir is required for runner-owned requeue"
+        )
+    return [
+        SaveOnlySignalCheckpoint(
+            checkpoint_dir=str(checkpoint_dir),
+            save_signal=signal.SIGUSR2,
+        )
+    ]
+
+
+def _instantiate_trainer_plugins(cfg: DictConfig) -> List[Any]:
+    """Instantiate each trainer plugin exactly once."""
+
+    plugins: List[Any] = []
+    if cfg.get("mmap_checkpoint", True):
+        plugins.append(MmapCheckpointIO())
+    if os.environ.get("SLURM_JOB_ID"):
+        slurm_environment = _slurm_environment(cfg)
+        plugins.append(slurm_environment)
+        print(
+            "SLURM ENVIRONMENT ENABLED "
+            f"(Lightning auto_requeue={slurm_environment.auto_requeue})"
+        )
+    return plugins
 
 
 def _resolve_mode(cfg: DictConfig) -> str:
@@ -302,6 +396,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
+    if mode == "train":
+        callbacks.extend(_instantiate_slurm_callbacks(cfg))
 
     # In eval mode, apply trainer overrides from the eval object and disable logger
     if mode == "eval":
@@ -321,14 +417,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
-    plugins = []
-    if cfg.get("mmap_checkpoint", True):
-        plugins.append(MmapCheckpointIO())
-    if os.environ.get("SLURM_JOB_ID"):
-        # requeue_signal is a single signal, not a list -- SignalConnector passes
-        # it straight to signal.getsignal(), which raises TypeError on a list.
-        plugins.append(SLURMEnvironment(requeue_signal=signal.SIGUSR1))
-        print("SLURM REQUEUE ENABLED")
+    plugins = _instantiate_trainer_plugins(cfg)
     trainer: Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )

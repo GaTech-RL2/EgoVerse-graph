@@ -199,6 +199,26 @@ def test_released_wrapper_constructs_optimizer_without_attached_trainer():
     )
 
 
+def test_released_wrapper_consumes_checkpointed_topology_argument():
+    wrapper = ReleasedUniteModelWrapper(
+        robomimic_model=_tiny_pipeline_algo(),
+        optimizer=partial(ReleasedUniteCompositeOptimizer, lr=1.0e-3),
+        scheduler=None,
+        share_encoder_denoiser=True,
+    )
+    checkpoint = {}
+    wrapper.on_save_checkpoint(checkpoint)
+    assert checkpoint["hyper_parameters"]["share_encoder_denoiser"] is True
+
+    reloaded = ReleasedUniteModelWrapper(
+        robomimic_model=_tiny_pipeline_algo(),
+        optimizer=partial(ReleasedUniteCompositeOptimizer, lr=1.0e-3),
+        scheduler=None,
+        share_encoder_denoiser=checkpoint["hyper_parameters"]["share_encoder_denoiser"],
+    )
+    assert reloaded.share_encoder_denoiser is True
+
+
 def test_released_internal_ema_drives_validation_and_is_not_optimized(
     monkeypatch,
 ):

@@ -17,7 +17,7 @@ from egomimic.pl_utils.pl_model import ModelWrapper
 class ReleasedUniteModelWrapper(ModelWrapper):
     """Keep the joint UNITE loss while exposing topology-aware telemetry."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, share_encoder_denoiser: bool | None = None, **kwargs):
         super().__init__(**kwargs)
         if self.unite_flow_updates_per_reconstruction != 0:
             raise ValueError(
@@ -29,8 +29,22 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         configured_sharing = (
             None if cfg is None else cfg.model.get("share_encoder_denoiser", None)
         )
-        self.share_encoder_denoiser = (
+        configured_sharing = (
             None if configured_sharing is None else bool(configured_sharing)
+        )
+        checkpoint_sharing = (
+            None if share_encoder_denoiser is None else bool(share_encoder_denoiser)
+        )
+        if (
+            configured_sharing is not None
+            and checkpoint_sharing is not None
+            and configured_sharing != checkpoint_sharing
+        ):
+            raise ValueError(
+                "Checkpoint share_encoder_denoiser disagrees with config_tree"
+            )
+        self.share_encoder_denoiser = (
+            configured_sharing if configured_sharing is not None else checkpoint_sharing
         )
 
     def on_save_checkpoint(self, checkpoint):

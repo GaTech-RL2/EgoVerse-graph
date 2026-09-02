@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -63,6 +64,26 @@ DP_SPECS = {
         4,
     ),
 }
+DP_DATASET_SPECS = {
+    "pushshapes_sim_u_socket": {
+        "folder": "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean",
+        "total": 2999,
+        "train": 2970,
+        "valid": 29,
+        "inventory_sha256": "38a22a25ae2c45d18861bcf0c32d139fcf56787d891ba463e9318c27a105dc8e",
+        "train_sha256": "ceb588f2132f9ff9cdb2c2ebe754a4797228acb884eb18351589242866ee84a1",
+        "valid_sha256": "b34193949ac8d76ea27c6f5c307229798064d16367d7ce2efac00a48f63bfb93",
+    },
+    "pushshapes_sim_chain_gripper": {
+        "folder": "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
+        "total": 3000,
+        "train": 2970,
+        "valid": 30,
+        "inventory_sha256": "61e23164126fd2b2a9bd1cc7c7b015ddff05e18d5fe704b34d870b17742cddcd",
+        "train_sha256": "318c6ec46ef1c0899bbc6254a0799044e534322e7b76bcc11f1744fe3f163264",
+        "valid_sha256": "01ceda50bdceaf7505ec3e3dc71c9430048f5b6ea5c894fc565d345fe925e6db",
+    },
+}
 DP_SINGLE_GPU_SPECS = {
     "pipeline_diffusion_usocket_planar_v2_common5_h16_single_gpu": (
         "pushshapes_sim_u_socket",
@@ -87,14 +108,18 @@ def _compose(experiment: str):
 
 def _assert_shared_gate(cfg, domain: str) -> None:
     assert set(cfg.data.train_datasets) == set(cfg.data.valid_datasets) == {domain}
+    if "ema_contract" in cfg.run_provenance:
+        expected = DP_DATASET_SPECS[domain]
+    else:
+        expected = {"total": 1000, "train": 990, "valid": 10}
     for split_name, mode in (("train_datasets", "train"), ("valid_datasets", "valid")):
         dataset = cfg.data[split_name][domain]
         assert dataset.mode == mode
         assert dataset.valid_ratio == pytest.approx(0.01)
         assert dataset.split_seed == cfg.seed == 42
-        assert dataset.expected_train_episode_count == 990
-        assert dataset.expected_valid_episode_count == 10
-        assert dataset.resolver.expected_episode_count == 1000
+        assert dataset.expected_train_episode_count == expected["train"]
+        assert dataset.expected_valid_episode_count == expected["valid"]
+        assert dataset.resolver.expected_episode_count == expected["total"]
     assert cfg.trainer.max_steps == 240_000
     assert cfg.trainer.val_check_interval == 10_000
     assert cfg.trainer.limit_val_batches == pytest.approx(1.0)
@@ -222,6 +247,10 @@ def test_genuine_dp_baseline_contract(experiment: str) -> None:
     assert cfg.data.train_datasets[domain].resolver.key_map.action_target_offset == 1
     assert cfg.data.train_dataloader_params[domain].batch_size == 32
     assert cfg.run_provenance.action_contract.execution_horizon == 8
+    assert cfg.run_provenance.action_contract.dataset_observation_alignment == "pre_step"
+    assert cfg.run_provenance.action_contract.training_action_target_offset == 1
+    assert cfg.run_provenance.action_contract.rollout_action_chunk_start_index == 0
+    assert cfg.run_provenance.action_contract.execution_slice == "[0,8)"
     assert cfg.run_provenance.diffusion_contract.scheduler == "DDPM"
     assert cfg.run_provenance.diffusion_contract.unet_parameter_count == 251580037
     assert (
@@ -235,6 +264,29 @@ def test_genuine_dp_baseline_contract(experiment: str) -> None:
     assert not any(
         "GaussianLatentNoise" in str(stage._target_) for stage in model.stages
     )
+
+    expected = DP_DATASET_SPECS[domain]
+    dataset = cfg.data.train_datasets[domain]
+    manifest_path = REPO_ROOT / cfg.run_provenance.split_manifest_path
+    manifest = json.loads(manifest_path.read_text())
+    entry = manifest["domains"][domain]
+    assert hashlib.sha256(manifest_path.read_bytes()).hexdigest() == (
+        cfg.run_provenance.split_manifest_sha256
+    )
+    assert entry["total_count"] == expected["total"]
+    assert entry["train_count"] == expected["train"]
+    assert entry["valid_count"] == expected["valid"]
+    assert entry["inventory_names_sha256"] == expected["inventory_sha256"]
+    assert entry["train_names_sha256"] == expected["train_sha256"]
+    assert entry["valid_names_sha256"] == expected["valid_sha256"]
+    assert dataset.resolver.expected_episode_names_sha256 == expected[
+        "inventory_sha256"
+    ]
+    assert dataset.resolver.folder_path == expected["folder"]
+    assert dataset.expected_train_episode_names_sha256 == expected["train_sha256"]
+    assert dataset.expected_valid_episode_names_sha256 == expected["valid_sha256"]
+    assert entry["id_overlap_count"] == 0
+    assert entry["resolved_path_overlap_count"] == 0
 
 
 @pytest.mark.parametrize("experiment", sorted(DP_SPECS))

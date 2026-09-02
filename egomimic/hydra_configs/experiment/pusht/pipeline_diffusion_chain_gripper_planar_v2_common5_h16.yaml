@@ -24,15 +24,15 @@ trainer:
 logger: {wandb: {project: pushshapes-flow-transfer}}
 
 run_provenance:
-  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_split_seed42_v1.json
-  split_manifest_sha256: 764a0c1f94c50bc18346df2e5330572acffbb323a0f8fb0685c91ca6c73fbb21
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
+  split_manifest_sha256: 3ffc1731e050e3275561e240dfb88aac6246e9e64b2b63192ec46a74748b0fb6
   split_seed: ${seed}
   valid_ratio: 0.01
-  train_episode_count_per_domain: 990
-  valid_episode_count_per_domain: 10
+  train_episode_count_per_domain: 2970
+  valid_episode_count_per_domain: 30
   id_overlap_count: 0
   resolved_path_overlap_count: 0
-  union_episode_count_per_domain: 1000
+  union_episode_count_per_domain: 3000
   norm_contract:
     norm_mode: quantile
     reduce_all_but_last: false
@@ -64,6 +64,10 @@ run_provenance:
     action_dim: 5
     prediction_horizon: 16
     execution_horizon: 8
+    dataset_observation_alignment: pre_step
+    training_action_target_offset: 1
+    rollout_action_chunk_start_index: 0
+    execution_slice: "[0,8)"
   diffusion_contract:
     objective: epsilon_prediction
     architecture: PaperConditionalUnet1D

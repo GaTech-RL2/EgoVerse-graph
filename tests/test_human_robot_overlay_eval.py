@@ -371,6 +371,25 @@ def test_exact_epoch_metrics_weight_every_action_element_once():
     assert logged["Valid/Native_MSE/human_bimanual"].item() == 8.0
 
 
+def test_unite_alignment_metrics_are_one_for_identical_representations():
+    generator = torch.Generator().manual_seed(123)
+    features = torch.randn(16, 32, generator=generator)
+
+    cka = HumanRobotOverlayEval._centered_linear_cka(features, features.clone())
+    cknna = HumanRobotOverlayEval._cknna(features, features.clone(), topk=10)
+
+    torch.testing.assert_close(cka, torch.tensor(1.0), atol=1.0e-5, rtol=1.0e-5)
+    torch.testing.assert_close(cknna, torch.tensor(1.0), atol=1.0e-5, rtol=1.0e-5)
+
+
+def test_unite_alignment_metrics_reject_zero_norm_inputs():
+    features = torch.zeros(16, 8)
+    with pytest.raises(ValueError, match="zero or non-finite"):
+        HumanRobotOverlayEval._centered_linear_cka(features, features)
+    with pytest.raises(ValueError, match="zero or non-finite"):
+        HumanRobotOverlayEval._cknna(features, features, topk=10)
+
+
 def test_exact_epoch_metrics_reduce_one_global_embodiment_order(monkeypatch):
     emb_ids = sorted(
         [

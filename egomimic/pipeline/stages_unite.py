@@ -182,7 +182,9 @@ class UniteGenerativeEncoder(nn.Module):
             for domain in selected_domains
         )
         if not named or len({id(parameter) for _, parameter in named}) != len(named):
-            raise RuntimeError("UNITE shared parameter selection is empty or duplicated")
+            raise RuntimeError(
+                "UNITE shared parameter selection is empty or duplicated"
+            )
         if any(not parameter.requires_grad for _, parameter in named):
             raise RuntimeError("UNITE shared telemetry requires trainable parameters")
         return tuple(named)
@@ -358,9 +360,29 @@ class UniteLatentPolicy(Stage):
     ) -> torch.Tensor:
         """Integrate x-start predictions from pure noise at t=0 to data at t=1."""
 
+        endpoint, _ = self._sample_impl(
+            noise,
+            condition,
+            embodiment,
+            capture_trajectory=False,
+        )
+        return endpoint
+
+    def _sample_impl(
+        self,
+        noise: torch.Tensor,
+        condition: torch.Tensor,
+        embodiment: str,
+        *,
+        capture_trajectory: bool,
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor] | None]:
+        """Run the canonical sampler, optionally retaining its exact states."""
+
         self._validate_noise(noise)
         batch_size = int(noise.shape[0])
         latent = noise
+        latent_states = [latent.detach()] if capture_trajectory else None
+        clean_predictions = [] if capture_trajectory else None
         raw_grid = torch.linspace(
             0.0,
             1.0,
@@ -376,18 +398,205 @@ class UniteLatentPolicy(Stage):
             clean_prediction = self.generative_encoder.denoise(
                 latent, time, condition, embodiment
             )
+            if clean_predictions is not None:
+                clean_predictions.append(clean_prediction.detach())
             if index == self.num_inference_steps - 1:
                 latent = clean_prediction
-                continue
-            denominator = (1.0 - current_t).clamp_min(1.0e-6)
-            noise_prediction = (
-                latent - current_t.to(latent) * clean_prediction
-            ) / denominator.to(latent)
-            latent = (
-                next_t.to(latent) * clean_prediction
-                + (1.0 - next_t).to(latent) * noise_prediction
+            else:
+                denominator = (1.0 - current_t).clamp_min(1.0e-6)
+                noise_prediction = (
+                    latent - current_t.to(latent) * clean_prediction
+                ) / denominator.to(latent)
+                latent = (
+                    next_t.to(latent) * clean_prediction
+                    + (1.0 - next_t).to(latent) * noise_prediction
+                )
+            if latent_states is not None:
+                latent_states.append(latent.detach())
+
+        if latent_states is None or clean_predictions is None:
+            return latent, None
+        return latent, {
+            "raw_grid": raw_grid.detach(),
+            "shifted_grid": grid.detach(),
+            "latent_states": torch.stack(latent_states, dim=0),
+            "clean_predictions": torch.stack(clean_predictions, dim=0),
+        }
+
+    def sample_with_trajectory(
+        self,
+        noise: torch.Tensor,
+        condition: torch.Tensor,
+        embodiment: str,
+    ) -> dict[str, torch.Tensor]:
+        """Return all J+1 sampler states from the same stochastic request."""
+
+        endpoint, trajectory = self._sample_impl(
+            noise,
+            condition,
+            embodiment,
+            capture_trajectory=True,
+        )
+        if trajectory is None:
+            raise RuntimeError(
+                "UNITE trajectory capture unexpectedly returned no states"
             )
-        return latent
+        trajectory["endpoint"] = endpoint.detach()
+        return trajectory
+
+    def _capture_pathway_layer_activations(
+        self,
+        pathway: str,
+        operation,
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        if pathway == "tokenization":
+            resolve_backbone = getattr(
+                self.generative_encoder,
+                "_tokenization_backbone",
+                None,
+            )
+            backbone = (
+                resolve_backbone()
+                if resolve_backbone is not None
+                else self.generative_encoder.denoising_module
+            )
+        elif pathway == "denoising":
+            backbone = self.generative_encoder.denoising_module
+        else:
+            raise ValueError(f"Unknown UNITE diagnostic pathway: {pathway}")
+        layers = getattr(backbone, "layers", None)
+        if not isinstance(layers, nn.ModuleList):
+            layers = getattr(backbone, "blocks", None)
+        if not isinstance(layers, nn.ModuleList) or not layers:
+            raise RuntimeError(
+                "UNITE alignment diagnostics require a backbone ModuleList named "
+                "'layers' or 'blocks'"
+            )
+        captured: dict[str, torch.Tensor] = {}
+        handles = []
+
+        def hook_for(name: str):
+            def capture(_module, _inputs, output):
+                if not torch.is_tensor(output) or output.ndim != 3:
+                    raise RuntimeError(
+                        f"UNITE alignment layer {name} produced an invalid output"
+                    )
+                if name in captured:
+                    raise RuntimeError(
+                        f"UNITE alignment layer {name} ran more than once"
+                    )
+                captured[name] = output.detach()
+
+            return capture
+
+        for index, layer in enumerate(layers):
+            name = f"block_{index:02d}"
+            handles.append(layer.register_forward_hook(hook_for(name)))
+        try:
+            output = operation()
+        finally:
+            for handle in handles:
+                handle.remove()
+        expected = {f"block_{index:02d}" for index in range(len(layers))}
+        if set(captured) != expected:
+            raise RuntimeError(
+                "UNITE alignment hooks did not observe every shared layer: "
+                f"expected={sorted(expected)} observed={sorted(captured)}"
+            )
+        return output, captured
+
+    @torch.inference_mode()
+    def validation_diagnostics(
+        self,
+        *,
+        noise: torch.Tensor,
+        condition: torch.Tensor,
+        target: torch.Tensor,
+        embodiment: str,
+        raw_noise_levels: list[float] | tuple[float, ...],
+    ) -> dict:
+        """Capture trajectory and pathway activations for checkpoint validation."""
+
+        if self.training:
+            raise RuntimeError("UNITE validation diagnostics require eval mode")
+        self._validate_noise(noise)
+        embodiment = self.generative_encoder._validate_domain(embodiment)
+        levels = torch.as_tensor(
+            raw_noise_levels,
+            device=noise.device,
+            dtype=torch.float32,
+        )
+        if (
+            levels.ndim != 1
+            or levels.numel() < 2
+            or not bool(torch.isfinite(levels).all())
+            or bool((levels < 0.0).any())
+            or bool((levels > 1.0).any())
+            or not bool(torch.all(levels[1:] > levels[:-1]))
+        ):
+            raise ValueError(
+                "raw_noise_levels must be finite, strictly increasing values in [0, 1]"
+            )
+
+        clean_latent, tokenization_activations = (
+            self._capture_pathway_layer_activations(
+                "tokenization",
+                lambda: self.generative_encoder.tokenize(target, embodiment),
+            )
+        )
+        clean_target = clean_latent.detach()
+        trajectory = self.sample_with_trajectory(noise, condition, embodiment)
+        decoded_trajectory = torch.stack(
+            [
+                self._decode(state, embodiment).detach()
+                for state in trajectory["latent_states"]
+            ],
+            dim=0,
+        )
+
+        shifted_levels = self.shift_time(levels)
+        final_predictions = []
+        denoising_by_layer: dict[str, list[torch.Tensor]] = {
+            name: [] for name in tokenization_activations
+        }
+        batch_size = int(clean_target.shape[0])
+        for raw_level, shifted_level in zip(levels, shifted_levels, strict=True):
+            coefficient = shifted_level.reshape(1, 1, 1).to(clean_target)
+            corrupted = coefficient * clean_target + (1.0 - coefficient) * noise.to(
+                clean_target
+            )
+            time = shifted_level.expand(batch_size)
+            prediction, activations = self._capture_pathway_layer_activations(
+                "denoising",
+                lambda corrupted=corrupted, time=time: self.generative_encoder.denoise(
+                    corrupted,
+                    time,
+                    condition,
+                    embodiment,
+                ),
+            )
+            final_predictions.append(prediction.detach())
+            for name, activation in activations.items():
+                denoising_by_layer[name].append(activation)
+
+        return {
+            "embodiment": embodiment,
+            "clean_latent": clean_target,
+            "initial_noise": noise.detach(),
+            "sampler_raw_grid": trajectory["raw_grid"],
+            "sampler_shifted_grid": trajectory["shifted_grid"],
+            "sampler_latents": trajectory["latent_states"],
+            "sampler_clean_predictions": trajectory["clean_predictions"],
+            "decoded_actions_normalized": decoded_trajectory,
+            "raw_noise_levels": levels.detach(),
+            "shifted_noise_levels": shifted_levels.detach(),
+            "noise_level_final_predictions": torch.stack(final_predictions, dim=0),
+            "tokenization_activations": tokenization_activations,
+            "denoising_activations": {
+                name: torch.stack(values, dim=0)
+                for name, values in denoising_by_layer.items()
+            },
+        }
 
     def _forward_training(self, batch: dict, embodiment: str) -> dict:
         target = batch["target"]

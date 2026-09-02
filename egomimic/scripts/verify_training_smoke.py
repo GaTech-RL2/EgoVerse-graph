@@ -358,9 +358,9 @@ def _select_scheduled_validation(
             metric: selected["validation_metrics"][metric]
             for metric in sorted(required_validation_metrics)
         }
-        assert all(math.isfinite(value) for value in required_values.values()), (
-            required_values
-        )
+        assert all(
+            math.isfinite(value) for value in required_values.values()
+        ), required_values
         return selected
 
     qualifying_history = [
@@ -409,9 +409,9 @@ def _strict_load_model_wrapper(
 ) -> dict[str, Any]:
     """Reconstruct the checkpointed wrapper on CPU with an exact state load."""
 
-    assert not torch.cuda.is_available(), (
-        "strict CPU verification must run with CUDA hidden"
-    )
+    assert (
+        not torch.cuda.is_available()
+    ), "strict CPU verification must run with CUDA hidden"
     wrapper_class = _resolve_model_wrapper_class(config)
     wrapper = wrapper_class.load_from_checkpoint(
         str(checkpoint_path),
@@ -474,9 +474,9 @@ def _configured_ema_backends(config: Any) -> tuple[Any | None, Any | None]:
     if internal is not None and not bool(internal.get("enabled", False)):
         internal = None
     external = OmegaConf.select(config, "callbacks.ema", default=None)
-    assert not (internal is not None and external is not None), (
-        "model.ema and callbacks.ema cannot both be enabled"
-    )
+    assert not (
+        internal is not None and external is not None
+    ), "model.ema and callbacks.ema cannot both be enabled"
     return internal, external
 
 
@@ -611,6 +611,191 @@ def _validate_energy_score_artifacts(
     return records
 
 
+def _released_unite_policy(config: Any) -> Any:
+    policies = [
+        stage
+        for stage in config.model.robomimic_model.stages
+        if str(stage._target_).endswith("ReleasedRecipeUniteLatentPolicy")
+    ]
+    assert len(policies) == 1, [str(stage._target_) for stage in policies]
+    return policies[0]
+
+
+def _released_unite_diagnostic_contract(
+    config: Any,
+) -> tuple[int, list[str], list[str]]:
+    policy = _released_unite_policy(config)
+    if str(policy.sampling_method).lower() == "dopri5":
+        expected_sampler_steps = int(policy.dopri5_num_steps) - 1
+    else:
+        expected_sampler_steps = int(policy.num_inference_steps)
+    assert expected_sampler_steps > 0
+    depth = int(policy.generative_encoder.backbone_config.depth)
+    assert depth > 0
+    layers = [f"block_{index:02d}" for index in range(depth)]
+    diagnostics = config.evaluator.unite_diagnostics
+    labels = [
+        f"t{int(round(float(level) * 1000.0)):03d}"
+        for level in diagnostics.raw_noise_levels
+    ]
+    assert len(labels) >= 2 and len(labels) == len(set(labels))
+    return expected_sampler_steps, layers, labels
+
+
+def _released_unite_required_metrics(config: Any) -> set[str]:
+    sampler_steps, layers, labels = _released_unite_diagnostic_contract(config)
+    required: set[str] = set()
+    for step_index in range(sampler_steps + 1):
+        required.update(
+            {
+                f"Valid/DenoisingTrajectory/LatentMSE/step_{step_index}",
+                f"Valid/DenoisingTrajectory/DecodedMSE/step_{step_index}",
+                f"Valid/DenoisingTrajectory/DecodedNativeMSE/step_{step_index}",
+            }
+        )
+    for label in labels:
+        required.update(
+            {
+                f"Valid/Alignment/FinalLatentCosine/{label}",
+                f"Valid/Alignment/FinalLatentCosineStd/{label}",
+            }
+        )
+        for layer in layers:
+            required.update(
+                {
+                    f"Valid/Alignment/CKA/{layer}/{label}",
+                    f"Valid/Alignment/CKNNA/{layer}/{label}",
+                }
+            )
+    return required
+
+
+def _validate_unite_training_diagnostic_artifacts(
+    output_dir: Path,
+    config: Any,
+    required_embodiments: list[int],
+    expected_world_size: int,
+    selected_step: int,
+) -> list[dict[str, Any]]:
+    diagnostics = OmegaConf.select(config, "evaluator.unite_diagnostics", default=None)
+    assert diagnostics is not None and diagnostics.enabled is True
+    assert int(diagnostics.max_batches_per_rank) == 1
+    assert int(diagnostics.validation_view.per_rank_batch_size) == 16
+    assert int(diagnostics.validation_view.world_size) == expected_world_size
+    assert int(diagnostics.cknna_k) == 10
+
+    seed_bank_path = Path(str(diagnostics.noise_seed_bank_path)).resolve()
+    assert seed_bank_path.is_file(), seed_bank_path
+    assert _sha256(seed_bank_path) == str(diagnostics.noise_seed_bank_sha256)
+    expected_seeds = json.loads(seed_bank_path.read_text())["seeds"]
+    assert len(expected_seeds) >= expected_world_size
+    raw_noise_levels = [float(value) for value in diagnostics.raw_noise_levels]
+    expected_sampler_steps, expected_layers_list, expected_labels = (
+        _released_unite_diagnostic_contract(config)
+    )
+    expected_layers = set(expected_layers_list)
+    expected_domains = {
+        get_embodiment(embodiment).lower() for embodiment in required_embodiments
+    }
+    policy = _released_unite_policy(config)
+    expected_action_dims = {
+        str(name): int(width)
+        for name, width in dict(policy.generative_encoder.action_dims).items()
+    }
+
+    root = output_dir / "validation_predictions" / "unite_training_diagnostics"
+    candidates = sorted(root.glob(f"epoch-*-step-{selected_step}/rank-*-batch-0.pt"))
+    assert len(candidates) == expected_world_size, candidates
+    records: list[dict[str, Any]] = []
+    observed_ranks: set[int] = set()
+    for path in candidates:
+        payload = torch.load(path, map_location="cpu", weights_only=False)
+        assert payload["schema_version"] == 1
+        assert payload["metric"] == "UNITETrainingDiagnostics"
+        assert payload["global_step"] == selected_step
+        rank = int(payload["rank"])
+        assert rank not in observed_ranks
+        observed_ranks.add(rank)
+        assert payload["noise_seed"] == expected_seeds[rank]
+        assert payload["noise_seed_bank_sha256"] == str(
+            diagnostics.noise_seed_bank_sha256
+        )
+        assert payload["raw_noise_levels"] == raw_noise_levels
+        assert payload["noise_labels"] == expected_labels
+        assert payload["sampler_steps"] == expected_sampler_steps
+        assert payload["alignment"]["cknna_k"] == int(diagnostics.cknna_k)
+        assert set(payload["domains"]) == expected_domains
+
+        for domain, artifact in payload["domains"].items():
+            clean = artifact["clean_latent"]
+            initial_noise = artifact["initial_noise"]
+            sampler_latents = artifact["sampler_latents"]
+            sampler_predictions = artifact["sampler_clean_predictions"]
+            decoded = artifact["decoded_actions_normalized"]
+            decoded_native = artifact["decoded_actions_native"]
+            target = artifact["target_normalized"]
+            target_native = artifact["target_native"]
+            noise_predictions = artifact["noise_level_final_predictions"]
+            assert clean.ndim == initial_noise.ndim == target.ndim == 3
+            assert clean.shape == initial_noise.shape
+            assert sampler_latents.shape == (
+                expected_sampler_steps + 1,
+                *clean.shape,
+            )
+            assert sampler_predictions.shape == (expected_sampler_steps, *clean.shape)
+            assert decoded.shape == (expected_sampler_steps + 1, *target.shape)
+            assert decoded_native.shape == (
+                expected_sampler_steps + 1,
+                *target_native.shape,
+            )
+            assert target.shape[-1] == expected_action_dims[domain]
+            assert noise_predictions.shape == (len(raw_noise_levels), *clean.shape)
+            assert set(artifact["tokenization_activations"]) == expected_layers
+            assert set(artifact["denoising_activations"]) == expected_layers
+            assert set(artifact["alignment"]) == expected_layers
+            for layer in expected_layers:
+                tokenization = artifact["tokenization_activations"][layer]
+                denoising = artifact["denoising_activations"][layer]
+                assert tokenization.ndim == 3
+                assert denoising.ndim == 4
+                assert denoising.shape[0] == len(raw_noise_levels)
+                assert denoising.shape[1] == tokenization.shape[0]
+                assert denoising.shape[-1] == tokenization.shape[-1]
+                assert set(artifact["alignment"][layer]) == set(expected_labels)
+                for label in expected_labels:
+                    values = artifact["alignment"][layer][label]
+                    assert math.isfinite(float(values["cka"]))
+                    assert math.isfinite(float(values["cknna"]))
+
+            condition_count = int(clean.shape[0])
+            for key in (
+                "trajectory_latent_mse_by_condition",
+                "trajectory_decoded_mse_by_condition",
+                "trajectory_decoded_native_mse_by_condition",
+            ):
+                values = artifact[key]
+                assert values.shape == (expected_sampler_steps + 1, condition_count)
+                assert bool(torch.isfinite(values).all()), (path, domain, key)
+            cosine = artifact["final_latent_cosine_by_condition"]
+            assert cosine.shape == (len(raw_noise_levels), condition_count)
+            assert bool(torch.isfinite(cosine).all()), (path, domain, "cosine")
+            for key in (
+                "clean_latent",
+                "initial_noise",
+                "sampler_latents",
+                "sampler_clean_predictions",
+                "decoded_actions_normalized",
+                "decoded_actions_native",
+                "target_normalized",
+                "target_native",
+                "noise_level_final_predictions",
+            ):
+                assert bool(torch.isfinite(artifact[key]).all()), (path, domain, key)
+        records.append({"path": str(path), "sha256": _sha256(path), "rank": rank})
+    assert observed_ranks == set(range(expected_world_size)), observed_ranks
+    return records
+
+
 def _validate_unite_alternating_contract(
     config: Any,
     training_history: list[dict[str, Any]],
@@ -670,9 +855,9 @@ def _validate_unite_alternating_contract(
         metrics = row["telemetry_metrics"]
         expected_position = expected_step % (flow_updates_per_reconstruction + 1)
         expected_flow = float(expected_position < flow_updates_per_reconstruction)
-        assert metrics["log/unite_update_cycle_position"] == float(expected_position), (
-            row
-        )
+        assert metrics["log/unite_update_cycle_position"] == float(
+            expected_position
+        ), row
         assert metrics["log/unite_update_is_flow"] == expected_flow, row
         assert metrics["log/unite_update_is_reconstruction"] == 1.0 - expected_flow
 
@@ -830,6 +1015,19 @@ def _verify_released_sweep_smoke(
         "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
     )
     assert set(energy.action_dims) == {"pushshapes_sim_u_socket"}
+    diagnostics = config.evaluator.unite_diagnostics
+    assert diagnostics.enabled is True
+    assert int(diagnostics.max_batches_per_rank) == 1
+    assert [float(value) for value in diagnostics.raw_noise_levels] == [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0,
+    ]
+    assert int(diagnostics.cknna_k) == 10
+    assert int(diagnostics.validation_view.per_rank_batch_size) == 16
+    assert int(diagnostics.validation_view.world_size) == expected_world_size
     provenance = config.run_provenance
     assert str(provenance.sweep_task_id) == sweep_task_id
     assert str(provenance.topology) == topology
@@ -985,6 +1183,11 @@ def _verify_released_sweep_smoke(
         "Valid/EnergyScoreDiversity@32",
         "Valid/EnergyScoreDiversity@32/pushshapes_sim_u_socket",
     }
+    unite_diagnostic_required = _released_unite_required_metrics(config)
+    valid_required.update(unite_diagnostic_required)
+    valid_required.update(
+        {f"{key}/pushshapes_sim_u_socket" for key in unite_diagnostic_required}
+    )
     candidates = [
         row
         for row in validation_history
@@ -1002,6 +1205,13 @@ def _verify_released_sweep_smoke(
         global_step=completed_steps,
         expected_world_size=expected_world_size,
         required_embodiments=required_embodiments,
+    )
+    unite_training_diagnostic_artifacts = _validate_unite_training_diagnostic_artifacts(
+        output_dir,
+        config,
+        required_embodiments,
+        expected_world_size,
+        completed_steps,
     )
     all_required = (
         train_required | optimizer_required | valid_required | telemetry_required
@@ -1035,6 +1245,7 @@ def _verify_released_sweep_smoke(
         "required_wandb_metrics": sorted(all_required),
         "validation_metrics": selected["validation_metrics"],
         "energy_score_artifacts": energy_artifacts,
+        "unite_training_diagnostic_artifacts": unite_training_diagnostic_artifacts,
         "parameter_manifest": str(parameter_manifest),
         "parameter_manifest_sha256": _sha256(parameter_manifest),
         "split_manifest": str(split_manifest),

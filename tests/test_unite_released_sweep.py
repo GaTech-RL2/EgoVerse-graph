@@ -34,6 +34,18 @@ def test_full_sweep_validation_interval_is_step_based():
     trainer = experiment["trainer"]
     assert trainer["val_check_interval"] == 10_000
     assert trainer["check_val_every_n_epoch"] is None
+    diagnostics = experiment["evaluator"]["unite_diagnostics"]
+    assert diagnostics["enabled"] is True
+    assert diagnostics["max_batches_per_rank"] == 1
+    assert diagnostics["raw_noise_levels"] == [0.0, 0.25, 0.5, 0.75, 1.0]
+    assert diagnostics["cknna_k"] == 10
+    assert diagnostics["validation_view"]["per_rank_batch_size"] == 16
+    assert diagnostics["validation_view"]["world_size"] == 2
+    assert diagnostics["provenance"]["returned_sampler_states"] == 50
+    assert (
+        diagnostics["provenance"]["layer_map"]
+        == "all_12_dit_blocks_block_00_through_block_11"
+    )
 
 
 def test_released_1d_position_layout_concatenates_sin_then_cos():
@@ -141,10 +153,10 @@ def test_register_counts_propagate_and_only_toggle_weight_tying(
 
 
 def test_only_four_active_register_configs_are_hydra_selectable():
-    config_dir = (
-        Path(__file__).parents[1] / "egomimic/hydra_configs/model/bf"
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs/model/bf"
+    actual = sorted(
+        path.name for path in config_dir.glob("us_unite_register_*_s42.yaml")
     )
-    actual = sorted(path.name for path in config_dir.glob("us_unite_register_*_s42.yaml"))
     assert actual == [
         "us_unite_register_separate_nt4_s42.yaml",
         "us_unite_register_separate_nt8_s42.yaml",
@@ -219,9 +231,7 @@ def test_materialized_active_h16_rows_construct_and_forward_clean_content(
 @pytest.mark.parametrize("shared", [True, False])
 def test_tokenizer_uses_clean_content_and_learned_null_condition_together(shared):
     encoder = _encoder(shared, 4).eval()
-    backbone = (
-        encoder.denoising_module if shared else encoder.tokenization_module
-    )
+    backbone = encoder.denoising_module if shared else encoder.tokenization_module
     captured = {}
 
     def capture(_, args, kwargs):
@@ -379,6 +389,80 @@ def test_dopri5_keeps_state_and_vector_field_fp32_under_bf16_autocast(monkeypatc
         "derivative_finite": True,
     }
     assert policy._last_sampler_nfe == 1
+
+
+def test_dopri5_trajectory_retains_all_50_returned_states(monkeypatch):
+    policy = _policy(True, 4).eval()
+    policy.sampling_method = "dopri5"
+    policy.dopri5_num_steps = 50
+
+    def odeint(function, initial, times, *, method, atol, rtol):
+        assert method == "dopri5"
+        assert atol == policy.dopri5_atol and rtol == policy.dopri5_rtol
+        derivative = function(times[0], initial)
+        assert derivative.dtype == torch.float32
+        return torch.stack([initial for _ in times])
+
+    monkeypatch.setitem(sys.modules, "torchdiffeq", SimpleNamespace(odeint=odeint))
+    trajectory = policy.sample_with_trajectory(
+        torch.randn(1, 4, 16),
+        torch.randn(1, 14),
+    )
+
+    assert trajectory["latent_states"].shape == (50, 1, 4, 16)
+    assert trajectory["clean_predictions"].shape == (49, 1, 4, 16)
+    assert trajectory["raw_grid"].shape == trajectory["shifted_grid"].shape == (50,)
+    assert trajectory["latent_states"].dtype == torch.float32
+    assert trajectory["sampler_nfe"] == 1
+
+
+@pytest.mark.parametrize("shared", [True, False])
+def test_register_sweep_validation_diagnostics_capture_both_pathways(shared):
+    policy = _policy(shared, 4).eval()
+    policy.action_decoder.decoders[DOMAIN] = UniteActionDecoder(
+        latent_dim=16,
+        action_dim=4,
+        num_latent_tokens=4,
+        action_horizon=16,
+        hidden_dim=32,
+        depth=2,
+        num_heads=4,
+        gradient_checkpointing=False,
+    )
+    policy.sampling_method = "euler"
+    diagnostics = policy.validation_diagnostics(
+        noise=torch.randn(2, 4, 16),
+        condition=torch.randn(2, 14),
+        target=torch.randn(2, 16, 4),
+        embodiment=DOMAIN,
+        raw_noise_levels=[0.0, 0.5, 1.0],
+    )
+
+    assert diagnostics["sampler_latents"].shape == (3, 2, 4, 16)
+    assert diagnostics["sampler_clean_predictions"].shape == (2, 2, 4, 16)
+    assert diagnostics["decoded_actions_normalized"].shape == (3, 2, 16, 4)
+    assert diagnostics["noise_level_final_predictions"].shape == (3, 2, 4, 16)
+    assert diagnostics["raw_noise_levels"].tolist() == [0.0, 0.5, 1.0]
+    assert set(diagnostics["tokenization_activations"]) == {
+        "block_00",
+        "block_01",
+    }
+    assert set(diagnostics["denoising_activations"]) == {
+        "block_00",
+        "block_01",
+    }
+    for name in diagnostics["tokenization_activations"]:
+        tokenization = diagnostics["tokenization_activations"][name]
+        denoising = diagnostics["denoising_activations"][name]
+        assert tokenization.ndim == 3 and tokenization.shape[:1] == (2,)
+        assert denoising.ndim == 4 and denoising.shape[:2] == (3, 2)
+        assert tokenization.shape[-1] == denoising.shape[-1] == 32
+    if shared:
+        assert not isinstance(policy.generative_encoder, SeparateUniteGenerativeEncoder)
+    else:
+        assert policy.generative_encoder._tokenization_backbone() is not (
+            policy.generative_encoder.denoising_module
+        )
 
 
 def test_euler_fallback_integrates_the_full_ode_interval(monkeypatch):

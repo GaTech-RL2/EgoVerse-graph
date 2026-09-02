@@ -37,9 +37,7 @@ def _resolve_action_chunk_execution_slice(
     if horizon <= 0:
         raise ValueError(f"decoded action horizon must be positive, got {horizon}")
     if start < 0:
-        raise ValueError(
-            f"action_chunk_start_index must be non-negative, got {start}"
-        )
+        raise ValueError(f"action_chunk_start_index must be non-negative, got {start}")
     if start >= horizon:
         raise ValueError(
             "action_chunk_start_index must be smaller than the decoded "
@@ -100,12 +98,10 @@ class PipelineAlgo(Algo):
                 "Rollout adapters configured for unknown domains: "
                 f"{sorted(unknown_adapter_domains)}"
             )
-        self.rollout_observation_adapters = dict(
-            rollout_observation_adapters or {}
-        )
-        unknown_observation_adapter_domains = (
-            set(self.rollout_observation_adapters) - set(self.domains)
-        )
+        self.rollout_observation_adapters = dict(rollout_observation_adapters or {})
+        unknown_observation_adapter_domains = set(
+            self.rollout_observation_adapters
+        ) - set(self.domains)
         if unknown_observation_adapter_domains:
             raise ValueError(
                 "Rollout observation adapters configured for unknown domains: "
@@ -484,6 +480,51 @@ class PipelineAlgo(Algo):
             predictions[f"{self.domain_by_id[emb_id]}_{action_key}"] = prediction
             predictions.setdefault(action_key, prediction)
         return predictions
+
+    @torch.inference_mode()
+    def forward_unite_diagnostics(
+        self,
+        batch: dict,
+        *,
+        raw_noise_levels: list[float] | tuple[float, ...],
+    ) -> dict[int, dict]:
+        """Run the canonical prefix once, then capture UNITE validation state."""
+
+        from egomimic.pipeline.stages_unite import UniteLatentPolicy
+
+        policy_stages = [
+            stage
+            for stage in self.policy.stages
+            if isinstance(stage, UniteLatentPolicy)
+        ]
+        if len(policy_stages) != 1:
+            raise RuntimeError(
+                "UNITE diagnostics require exactly one UniteLatentPolicy; "
+                f"found {len(policy_stages)}"
+            )
+        unite_policy = policy_stages[0]
+        diagnostics: dict[int, dict] = {}
+        for emb_id, loader_batch in batch.items():
+            result = self._seed(emb_id, loader_batch)
+            for stage in self.policy.stages:
+                if stage is unite_policy:
+                    break
+                result = stage(result)
+            required = {"sampler/noise", "condition", "target", "embodiment"}
+            missing = required - set(result)
+            if missing:
+                raise RuntimeError(
+                    "UNITE diagnostic prefix is incomplete: "
+                    f"embodiment={emb_id} missing={sorted(missing)}"
+                )
+            diagnostics[int(emb_id)] = unite_policy.validation_diagnostics(
+                noise=result["sampler/noise"],
+                condition=result["condition"],
+                target=result["target"],
+                embodiment=result["embodiment"],
+                raw_noise_levels=raw_noise_levels,
+            )
+        return diagnostics
 
     def log_info(self, info: dict) -> OrderedDict:
         losses = info["losses"]

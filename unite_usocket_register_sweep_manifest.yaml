@@ -2,7 +2,7 @@ schema_version: 2
 artifact_status: SMOKE_READY
 launch_status: SMOKE_REQUIRED
 group: usocket_unite_register_sweep_shared_separate_s42_20260902
-label: Pre-smoke U-Socket clean-action-token N4/N8 register sweep
+label: Pre-smoke U-Socket clean-action-token N4/N8 register sweep with UNITE diagnostics
 reference_source:
   repository: https://github.com/ShivamDuggal4/UNITE-tokenization-generation
   commit: 2389f2c65fedbd43ada851e69b2b810efd23af7d
@@ -108,6 +108,25 @@ fixed_contract:
   gradient_telemetry_smoke_every_steps: 3
   gradient_telemetry_status: enabled_joint_update_safe_read_only_autograd
   energy_score_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+  validation_diagnostics:
+    status: implemented_pending_required_real_ddp_smoke
+    validation_view: first_deterministic_validation_batch_per_ddp_rank
+    per_rank_batch_size: 16
+    world_size: 2
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    sampler: adaptive_dopri5
+    returned_sampler_states: 50
+    trajectory_metrics:
+      - latent_mse_at_every_returned_state
+      - decoded_normalized_mse_at_every_returned_state
+      - decoded_native_mse_at_every_returned_state
+    alignment:
+      layers: all_12_dit_blocks
+      metrics: [centered_linear_cka, cknna_k10]
+      token_pooling: mean_over_tokens
+    final_latent_cosine: all_five_noise_levels_with_condition_std
+    artifact: immutable_per_checkpoint_step_rank_batch
 common_required_metrics:
   train:
     - Train/UNITE/TotalLoss
@@ -227,6 +246,7 @@ fairness:
   cross_topology_cross_register_count: NOT_FAIR_AS_SINGLE_VARIABLE
 known_blockers:
   - no_row_has_passed_the_required_real_optimizer_validation_reload_smoke
+  - all_rows_must_emit_and_pass_the_new_unite_diagnostic_metric_and_artifact_contract
 validated_review_checks:
   evidence_scope: current_combined_review
   related_tests: 225_passed_combined_planar_unite_sky2
@@ -249,3 +269,7 @@ validated_review_checks:
   dataset_constructor_split_identity_pins: seed42_counts2970_29_and_exact_name_hashes
   two_rank_gloo_joint_telemetry_probe: passed
   support_experiment: egomimic/hydra_configs/experiment/pusht/unite_usocket_register_sweep_val01_h16.yaml
+  unite_diagnostics_unit_tests: 93_passed_focused_suite
+  unite_diagnostics_layers: all_12_dit_blocks
+  unite_diagnostics_noise_levels: 5
+  unite_diagnostics_sampler_states: 50

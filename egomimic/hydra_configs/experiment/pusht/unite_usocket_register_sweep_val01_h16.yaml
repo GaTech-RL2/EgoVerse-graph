@@ -67,9 +67,52 @@ run_provenance:
     seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
     validation_view: first_deterministic_validation_batch_per_ddp_rank
     aggregation: condition_mean_then_equal_domain_macro_mean
+  unite_training_diagnostics:
+    validation_view: first_deterministic_validation_batch_per_ddp_rank
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    trajectory: every_returned_sampler_state
+    sampler: adaptive_dopri5
+    returned_sampler_states: 50
+    activation_capture: real_forward_hooks_no_replay_or_replacement
+    layer_map: all_12_dit_blocks_block_00_through_block_11
+    token_pooling: mean_over_tokens_then_one_row_per_validation_condition
+    cka: biased_centered_linear_cka
+    cknna: platonic_rep_unbiased_hsic_intersection_knn
+    cknna_k: 10
+    final_latent_cosine: flatten_all_tokens_and_latent_channels_per_condition
+    aggregation: condition_mean_then_equal_domain_macro_mean
+    artifact: one_immutable_checkpoint_step_rank_batch_artifact
 
 evaluator:
   deterministic_seed: 420042
+  unite_diagnostics:
+    enabled: true
+    noise_seed_bank_path: egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    cknna_k: 10
+    max_batches_per_rank: 1
+    artifact_root: ${paths.output_dir}/validation_predictions/unite_training_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_ddp_rank
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 16
+      world_size: 2
+    provenance:
+      action_representations: ${run_provenance.action_contract.representations}
+      prediction_horizon: 16
+      sampler: adaptive_dopri5
+      returned_sampler_states: 50
+      sampler_atol: 1.0e-6
+      sampler_rtol: 1.0e-3
+      cfg_scale: 4.0
+      cfg_interval: [0.0, 1.0]
+      model_autocast_precision: bf16
+      ode_state_precision: fp32
+      ode_derivative_precision: fp32
+      layer_map: all_12_dit_blocks_block_00_through_block_11
+      activation_capture: real_forward_hooks_no_replay_or_replacement
   energy_score:
     enabled: true
     sample_count: 32

@@ -3,6 +3,34 @@
 Date: 2026-09-02
 Status: **SMOKE_READY / SMOKE_REQUIRED / FULL RELAUNCH BLOCKED**
 
+## 2026-09-02 training-diagnostics extension
+
+The active four-row sweep now includes the requested training-time UNITE
+diagnostics on the first deterministic validation batch from each DDP rank:
+
+- latent, decoded normalized-action, and decoded native-action MSE at every one
+  of the 50 returned adaptive-DOPRI5 states;
+- centered linear CKA and CKNNA (`k=10`) between the real tokenization and
+  denoising activations at every one of the 12 DiT blocks, evaluated at raw
+  noise levels `0.0, 0.25, 0.5, 0.75, 1.0`;
+- final-latent cosine similarity and per-condition standard deviation at those
+  same five noise levels;
+- one immutable artifact per checkpoint step, rank, and diagnostic batch,
+  containing the source tensors and metric provenance.
+
+Both shared and separate Generative Encoder topologies are supported. For the
+separate rows, hooks attach to the actual tokenization backbone and the actual
+denoising backbone; they do not accidentally reuse the denoiser for both paths.
+The strict smoke verifier now requires all trajectory steps, all 12 layers, all
+five noise levels, both rank artifacts, finite values, and exact W&B visibility.
+
+The focused implementation suite passes 93 tests and Ruff. A repository-wide
+unfiltered pytest collection is not a valid gate for this repository because it
+collects hardware example scripts and legacy data tests with unavailable robot
+extensions and retired storage paths. This source/config change invalidates all
+earlier smoke evidence, so all four rows still require a fresh real two-GPU
+optimizer-plus-validation smoke before any full launch.
+
 ## Qualifying smoke and launch decision
 
 The first full-launch attempt exposed a Lightning scheduling error that the

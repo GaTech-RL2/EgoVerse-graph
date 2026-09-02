@@ -489,6 +489,16 @@ def test_energy_score_artifact_validation_accepts_both_schemas(
     config = OmegaConf.create(
         {
             "evaluator": {
+                "unite_diagnostics": {
+                    "enabled": True,
+                    "raw_noise_levels": [0.0, 0.25, 0.5, 0.75, 1.0],
+                    "cknna_k": 10,
+                    "max_batches_per_rank": 1,
+                    "validation_view": {
+                        "per_rank_batch_size": 16,
+                        "world_size": 2,
+                    },
+                },
                 "energy_score": {
                     "enabled": True,
                     "sample_count": 32,
@@ -497,7 +507,7 @@ def test_energy_score_artifact_validation_accepts_both_schemas(
                     "seed_bank_sha256": verifier._sha256(seed_bank),
                     "artifact_root": str(artifact_root),
                     **energy_shape,
-                }
+                },
             }
         }
     )
@@ -652,7 +662,17 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
                         "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
                     ),
                     "action_dims": {"pushshapes_sim_u_socket": 4},
-                }
+                },
+                "unite_diagnostics": {
+                    "enabled": True,
+                    "max_batches_per_rank": 1,
+                    "raw_noise_levels": [0.0, 0.25, 0.5, 0.75, 1.0],
+                    "cknna_k": 10,
+                    "validation_view": {
+                        "per_rank_batch_size": 16,
+                        "world_size": 2,
+                    },
+                },
             },
             "run_provenance": {
                 "sweep_task_id": "us_unite_register_test",
@@ -745,7 +765,11 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
     validation_history = [
         {
             "trainer_global_step": 2,
-            "validation_metrics": {key: 0.25 for key in _RELEASED_VALID_METRICS},
+            "validation_metrics": {
+                **{key: 0.25 for key in _RELEASED_VALID_METRICS},
+                "Valid/DenoisingTrajectory/LatentMSE/step_0": 0.25,
+                "Valid/DenoisingTrajectory/LatentMSE/step_0/pushshapes_sim_u_socket": 0.25,
+            },
         }
     ]
     monkeypatch.setattr(
@@ -763,6 +787,23 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
         verifier,
         "_validate_energy_score_artifacts",
         validate_energy,
+    )
+    diagnostic_calls = []
+
+    monkeypatch.setattr(
+        verifier,
+        "_released_unite_required_metrics",
+        lambda resolved_config: {"Valid/DenoisingTrajectory/LatentMSE/step_0"},
+    )
+
+    def validate_diagnostics(path, resolved_config, *args):
+        diagnostic_calls.append((path, resolved_config, args))
+        return [{"path": "diagnostics.pt", "rank": 0, "sha256": "def"}]
+
+    monkeypatch.setattr(
+        verifier,
+        "_validate_unite_training_diagnostic_artifacts",
+        validate_diagnostics,
     )
     visibility_calls = []
     monkeypatch.setattr(
@@ -803,11 +844,16 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
             },
         )
     ]
+    assert diagnostic_calls == [(output_dir, config, ([19], 2, 3))]
     expected_required = (
         _RELEASED_TRAIN_METRICS
         | _RELEASED_OPTIMIZER_METRICS
         | _RELEASED_VALID_METRICS
         | set(topology_metrics)
+        | {
+            "Valid/DenoisingTrajectory/LatentMSE/step_0",
+            "Valid/DenoisingTrajectory/LatentMSE/step_0/pushshapes_sim_u_socket",
+        }
     )
     assert visibility_calls == [("entity/project/run-id", expected_required)]
     assert record["model_wrapper_load"] is strict_record
@@ -815,4 +861,7 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
         "callback" if ema_backend == "callback" else "model_wrapper"
     )
     assert record["dense_training_steps"] == [0, 1, 2]
+    assert record["unite_training_diagnostic_artifacts"] == [
+        {"path": "diagnostics.pt", "rank": 0, "sha256": "def"}
+    ]
     assert record["required_wandb_metrics"] == sorted(expected_required)

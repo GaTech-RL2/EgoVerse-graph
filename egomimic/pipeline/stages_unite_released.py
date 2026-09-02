@@ -301,6 +301,108 @@ class ReleasedRecipeUniteLatentPolicy(UniteLatentPolicy):
             raise ValueError("sampling_method must be 'euler' or 'dopri5'")
         return self._sample_euler(noise, condition, scale)
 
+    def sample_with_trajectory(
+        self,
+        noise: torch.Tensor,
+        condition: torch.Tensor,
+        embodiment: str | None = None,
+    ) -> dict[str, torch.Tensor | int]:
+        """Run the configured released sampler once and retain every grid state."""
+
+        del embodiment
+        self._validate_noise(noise)
+        batch_size = int(noise.shape[0])
+        if self.sampling_method == "dopri5":
+            try:
+                from torchdiffeq import odeint
+            except ImportError as exc:
+                raise RuntimeError(
+                    "Paper-compatible UNITE sampling requires torchdiffeq"
+                ) from exc
+
+            raw_grid = torch.linspace(
+                0.0,
+                1.0,
+                self.dopri5_num_steps,
+                device=noise.device,
+                dtype=torch.float32,
+            )
+            grid = self.shift_time(raw_grid)
+            nfe = 0
+
+            def velocity(
+                time_scalar: torch.Tensor, latent: torch.Tensor
+            ) -> torch.Tensor:
+                nonlocal nfe
+                nfe += 1
+                time = time_scalar.expand(batch_size)
+                clean_prediction = self._guided_clean_prediction(
+                    latent, time, condition, self.cfg_scale
+                )
+                denominator = (1.0 - time_scalar).clamp_min(self.sample_eps)
+                return (clean_prediction.float() - latent.float()) / denominator.float()
+
+            states = odeint(
+                velocity,
+                noise.float(),
+                grid,
+                method="dopri5",
+                atol=self.dopri5_atol,
+                rtol=self.dopri5_rtol,
+            )
+            clean_predictions = []
+            for latent, time_scalar in zip(states[:-1], grid[:-1], strict=True):
+                clean_predictions.append(
+                    self._guided_clean_prediction(
+                        latent,
+                        time_scalar.expand(batch_size),
+                        condition,
+                        self.cfg_scale,
+                    ).detach()
+                )
+            self._last_sampler_nfe = nfe
+            return {
+                "raw_grid": raw_grid.detach(),
+                "shifted_grid": grid.detach(),
+                "latent_states": states.detach(),
+                "clean_predictions": torch.stack(clean_predictions, dim=0),
+                "sampler_nfe": nfe,
+            }
+
+        latent = noise
+        states = [latent.detach()]
+        clean_predictions = []
+        raw_grid = torch.linspace(
+            0.0,
+            1.0,
+            self.num_inference_steps + 1,
+            device=noise.device,
+            dtype=torch.float32,
+        )
+        grid = self.shift_time(raw_grid)
+        for index in range(self.num_inference_steps):
+            current_t = grid[index]
+            next_t = grid[index + 1]
+            clean_prediction = self._guided_clean_prediction(
+                latent,
+                current_t.expand(batch_size),
+                condition,
+                self.cfg_scale,
+            )
+            clean_predictions.append(clean_prediction.detach())
+            denominator = (1.0 - current_t).clamp_min(self.sample_eps)
+            velocity = (clean_prediction - latent) / denominator.to(latent)
+            latent = latent + (next_t - current_t).to(latent) * velocity
+            states.append(latent.detach())
+        self._last_sampler_nfe = self.num_inference_steps
+        return {
+            "raw_grid": raw_grid.detach(),
+            "shifted_grid": grid.detach(),
+            "latent_states": torch.stack(states, dim=0),
+            "clean_predictions": torch.stack(clean_predictions, dim=0),
+            "sampler_nfe": self.num_inference_steps,
+        }
+
     def _sample_euler(
         self, noise: torch.Tensor, condition: torch.Tensor, cfg_scale: float
     ) -> torch.Tensor:

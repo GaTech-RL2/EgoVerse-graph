@@ -13,6 +13,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 )
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     CHAIN_GRIPPER_POINT_ARC_DIM,
+    PLANAR_ARC_DIM,
     USOCKET_ARC_DIM,
     TokenizeChainGripperPointArcLength,
     TokenizeUSocketArcLength,
@@ -82,6 +83,127 @@ class USocketRotVecRolloutAdapter:
             )
         theta = np.arctan2(value[..., 3], value[..., 2])
         return np.concatenate((value[..., :2], theta[..., None]), axis=-1)
+
+    __call__ = decode
+
+
+def _planar_common5_to_native(actions, *, native_action_dim: int, adapter: str):
+    """Decode ``[x, y, cos(theta), sin(theta), grip]`` without changing time."""
+    if native_action_dim not in (2, 3, 4):
+        raise ValueError("native_action_dim must be one of 2, 3, or 4")
+    if torch.is_tensor(actions):
+        if actions.ndim < 2 or actions.shape[-1] != 5:
+            raise ValueError(
+                f"{adapter} expects (..., 5) common-planar actions, "
+                f"got {tuple(actions.shape)}"
+            )
+        theta = torch.atan2(actions[..., 3], actions[..., 2])
+        native = torch.cat(
+            (actions[..., :2], theta.unsqueeze(-1), actions[..., 4:5]), dim=-1
+        )
+        return native[..., :native_action_dim]
+
+    value = np.asarray(actions)
+    if value.ndim < 2 or value.shape[-1] != 5:
+        raise ValueError(
+            f"{adapter} expects (..., 5) common-planar actions, got {value.shape}"
+        )
+    theta = np.arctan2(value[..., 3], value[..., 2])
+    native = np.concatenate(
+        (value[..., :2], theta[..., None], value[..., 4:5]), axis=-1
+    )
+    return native[..., :native_action_dim]
+
+
+class PlanarCommon5RolloutAdapter:
+    """Decode a fixed-rate common-planar chunk into native simulator controls."""
+
+    preserves_decoded_timing = True
+
+    def __init__(self, action_horizon: int, native_action_dim: int):
+        self.action_horizon = int(action_horizon)
+        self.native_action_dim = int(native_action_dim)
+        if self.action_horizon <= 0:
+            raise ValueError("action_horizon must be positive")
+        if self.native_action_dim not in (2, 3, 4):
+            raise ValueError("native_action_dim must be one of 2, 3, or 4")
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        if torch.is_tensor(actions):
+            value = actions.unsqueeze(0) if actions.ndim == 2 else actions
+            expected = (self.action_horizon, 5)
+            if value.ndim != 3 or tuple(value.shape[1:]) != expected:
+                raise ValueError(
+                    "PlanarCommon5RolloutAdapter expects "
+                    f"(B, {expected[0]}, {expected[1]}), got {tuple(value.shape)}"
+                )
+        else:
+            value = np.asarray(actions)
+            value = value[None] if value.ndim == 2 else value
+            expected = (self.action_horizon, 5)
+            if value.ndim != 3 or tuple(value.shape[1:]) != expected:
+                raise ValueError(
+                    "PlanarCommon5RolloutAdapter expects "
+                    f"(B, {expected[0]}, {expected[1]}), got {value.shape}"
+                )
+        return _planar_common5_to_native(
+            value,
+            native_action_dim=self.native_action_dim,
+            adapter="PlanarCommon5RolloutAdapter",
+        )
+
+    __call__ = decode
+
+
+class PlanarArcWaypointZeroRolloutAdapter:
+    """Decode the anchored planar waypoint and replan every control step.
+
+    The generic v2 token stores ``M`` common-layout waypoints followed by one
+    timing row. A full fixed-rate inverse is intentionally not inferred from
+    that scalar timing payload. Rollout therefore executes waypoint zero and
+    asks the policy for a fresh token at the next simulator step.
+    """
+
+    preserves_decoded_timing = True
+
+    def __init__(self, resampled_vector_length: int, native_action_dim: int):
+        self.resampled_vector_length = int(resampled_vector_length)
+        self.native_action_dim = int(native_action_dim)
+        self.action_horizon = 1
+        if self.resampled_vector_length < 2:
+            raise ValueError("resampled_vector_length must be at least 2")
+        if self.native_action_dim not in (2, 3, 4):
+            raise ValueError("native_action_dim must be one of 2, 3, or 4")
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        expected = (self.resampled_vector_length + 1, PLANAR_ARC_DIM)
+        if torch.is_tensor(actions):
+            value = actions.unsqueeze(0) if actions.ndim == 2 else actions
+            if value.ndim != 3 or tuple(value.shape[1:]) != expected:
+                raise ValueError(
+                    "PlanarArcWaypointZeroRolloutAdapter expects "
+                    f"(B, {expected[0]}, {expected[1]}), got {tuple(value.shape)}"
+                )
+            return _planar_common5_to_native(
+                value[:, :1],
+                native_action_dim=self.native_action_dim,
+                adapter="PlanarArcWaypointZeroRolloutAdapter",
+            )
+
+        value = np.asarray(actions)
+        value = value[None] if value.ndim == 2 else value
+        if value.ndim != 3 or tuple(value.shape[1:]) != expected:
+            raise ValueError(
+                "PlanarArcWaypointZeroRolloutAdapter expects "
+                f"(B, {expected[0]}, {expected[1]}), got {value.shape}"
+            )
+        return _planar_common5_to_native(
+            value[:, :1],
+            native_action_dim=self.native_action_dim,
+            adapter="PlanarArcWaypointZeroRolloutAdapter",
+        )
 
     __call__ = decode
 

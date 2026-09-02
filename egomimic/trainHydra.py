@@ -6,7 +6,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import hydra
 import lightning as L
 import torch
+from fsspec.implementations.local import LocalFileSystem
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
+from lightning.fabric.plugins.io.torch_io import TorchCheckpointIO
+from lightning.fabric.utilities.cloud_io import _load as pl_load
+from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
@@ -23,7 +27,8 @@ from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper
 
-OmegaConf.register_new_resolver("eval", eval)
+if not OmegaConf.has_resolver("eval"):
+    OmegaConf.register_new_resolver("eval", eval)
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -44,14 +49,24 @@ def _resolve_mode(cfg: DictConfig) -> str:
 
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
-    model_cfg = copy.deepcopy(cfg.model)
+    # Resolve while the model subtree is still attached to the composed root.
+    # Parametric model configs legitimately reference experiment-level values
+    # such as ``arc_token_horizon``. Deep-copying first detaches that parent
+    # scope and leaves checkpoint reconstruction with broken interpolations.
+    model_cfg = OmegaConf.create(OmegaConf.to_container(cfg.model, resolve=True))
     if (
         "robomimic_model" in model_cfg
         and isinstance(model_cfg.robomimic_model, DictConfig)
         and "norm_stats" in model_cfg.robomimic_model
     ):
         model_cfg.robomimic_model.norm_stats = None
-    return OmegaConf.create({"model": model_cfg})
+    tree = {"model": model_cfg}
+    if cfg.get("run_provenance") is not None:
+        tree["run_provenance"] = OmegaConf.to_container(
+            cfg.run_provenance,
+            resolve=True,
+        )
+    return OmegaConf.create(tree)
 
 
 def _resolve_model_wrapper_class(cfg: DictConfig) -> type[ModelWrapper]:
@@ -77,8 +92,22 @@ def _resolve_model_wrapper_class(cfg: DictConfig) -> type[ModelWrapper]:
     return wrapper_class
 
 
+def _validate_ema_configuration(cfg: DictConfig) -> None:
+    """Reject ambiguous double-EMA ownership before constructing the wrapper."""
+
+    model_ema = OmegaConf.select(cfg, "model.ema", default=None)
+    internal_enabled = model_ema is not None and bool(model_ema.get("enabled", False))
+    callback_ema = OmegaConf.select(cfg, "callbacks.ema", default=None)
+    if internal_enabled and callback_ema is not None:
+        raise ValueError(
+            "model.ema and callbacks.ema cannot both be enabled; select exactly "
+            "one EMA owner"
+        )
+
+
 def _instantiate_model_wrapper(cfg: DictConfig, norm_stats: MultiDataset):
     """Construct the Lightning wrapper with every runtime-sensitive model flag."""
+    _validate_ema_configuration(cfg)
     wrapper_class = _resolve_model_wrapper_class(cfg)
     return wrapper_class(
         config_tree=_build_model_config_tree(cfg),
@@ -118,6 +147,43 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
         intfmt=",",
     )
     log.info("Dataset frame counts:\n" + table)
+
+
+class MmapCheckpointIO(TorchCheckpointIO):
+    """``TorchCheckpointIO`` that memory-maps tensor storages instead of reading them.
+
+    Every DDP rank loads the checkpoint independently and with no rank guard
+    (``checkpoint_connector.resume_start``), so a plain read holds N private
+    copies of the file in host RAM at once -- N x (weights + optimizer moments),
+    and the moments are 2x the weights for AdamW. Mapping the file instead lets
+    ranks on a node share page-cache pages, so one physical copy backs them all.
+
+    ``pl_load`` does not forward ``mmap``, hence the reimplementation. Falls back
+    to the normal read for checkpoints that predate torch's zipfile format (they
+    cannot be mapped).
+    """
+
+    def load_checkpoint(
+        self,
+        path: str,
+        map_location: Optional[Any] = lambda storage, loc: storage,
+        weights_only: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        fs = get_filesystem(path)
+        if not fs.exists(path):
+            raise FileNotFoundError(f"Checkpoint file not found: {path}")
+        if not isinstance(fs, LocalFileSystem):
+            # mmap needs a real local file; let pl_load handle fsspec/URL paths.
+            return pl_load(path, map_location=map_location, weights_only=weights_only)
+        try:
+            return torch.load(
+                path, map_location=map_location, weights_only=weights_only, mmap=True
+            )
+        except (RuntimeError, ValueError, NotImplementedError) as e:
+            log.warning(
+                f"mmap load of {path} failed ({e}); falling back to a full read"
+            )
+            return pl_load(path, map_location=map_location, weights_only=weights_only)
 
 
 @task_wrapper
@@ -166,9 +232,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert (
-        "MultiDataModuleWrapper" in cfg.data._target_
-    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    assert "MultiDataModuleWrapper" in cfg.data._target_, (
+        "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    )
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
     )
@@ -185,9 +251,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
     sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
-    norm_num_workers = OmegaConf.select(
-        cfg, "norm_stats.num_workers", default=4
-    )
+    norm_num_workers = OmegaConf.select(cfg, "norm_stats.num_workers", default=4)
     precomputed_norm_path = configured_precomputed_path
     save_cache_dir = configured_save_cache_dir
 
@@ -219,9 +283,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
     if mode == "norm_stats":
-        _log_dataset_frame_counts(
-            datamodule.train_datasets, datamodule.valid_datasets
-        )
+        _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)
         return {}, {"cfg": cfg, "datamodule": datamodule, "norm_stats": norm_stats}
 
     # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
@@ -260,11 +322,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     plugins = []
+    if cfg.get("mmap_checkpoint", True):
+        plugins.append(MmapCheckpointIO())
     if os.environ.get("SLURM_JOB_ID"):
+        # requeue_signal is a single signal, not a list -- SignalConnector passes
+        # it straight to signal.getsignal(), which raises TypeError on a list.
         plugins.append(SLURMEnvironment(requeue_signal=signal.SIGUSR1))
         print("SLURM REQUEUE ENABLED")
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins
+        cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
 
     object_dict = {
@@ -282,9 +348,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     if os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
         if cfg.get("ckpt_path"):
-            log.info(
-                "Detected SLURM requeue — using checkpoint selected by launcher"
-            )
+            log.info("Detected SLURM requeue — using checkpoint selected by launcher")
         else:
             log.info(
                 "Detected SLURM requeue — Lightning will select the newest "

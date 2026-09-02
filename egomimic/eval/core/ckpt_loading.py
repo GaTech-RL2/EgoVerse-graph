@@ -15,6 +15,7 @@ Run on an A40 node:
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import torch
@@ -57,70 +58,364 @@ def _assert_completed_seed_rollouts(
     return counts
 
 
+def _checkpoint_model_config(ckpt: dict, config_path: str | None):
+    """Return the checkpoint-pinned model config and verify the resolved config."""
+    hparams = ckpt.get("hyper_parameters") or ckpt.get("hparams") or {}
+    embedded_tree = hparams.get("config_tree")
+    if embedded_tree is None:
+        raise RuntimeError("checkpoint has no embedded hyper_parameters.config_tree")
+    embedded_cfg = OmegaConf.create(embedded_tree)
+    if OmegaConf.select(embedded_cfg, "model.robomimic_model") is None:
+        raise RuntimeError("checkpoint config_tree has no model.robomimic_model")
+
+    if config_path is not None:
+        full_cfg = OmegaConf.load(config_path)
+        embedded_model = OmegaConf.to_container(
+            embedded_cfg.model.robomimic_model, resolve=True
+        )
+        resolved_model = OmegaConf.to_container(
+            full_cfg.model.robomimic_model, resolve=True
+        )
+        if embedded_model != resolved_model:
+            raise RuntimeError(
+                "resolved config model.robomimic_model differs from the "
+                "checkpoint-embedded model config"
+            )
+    return embedded_cfg, hparams
+
+
+def _coalesce_state_alias(
+    state: dict,
+    sources: dict[str, set[str]],
+    *,
+    canonical_key: str,
+    source_key: str,
+    value,
+    tree_name: str,
+) -> None:
+    """Record one normalized state key, accepting only identical aliases."""
+    if canonical_key not in state:
+        state[canonical_key] = value
+        sources[canonical_key] = {source_key}
+        return
+
+    previous = state[canonical_key]
+    identical = (
+        torch.is_tensor(previous)
+        and torch.is_tensor(value)
+        and previous.shape == value.shape
+        and previous.dtype == value.dtype
+        and torch.equal(previous, value)
+    )
+    if not identical:
+        alias_names = sorted(sources[canonical_key] | {source_key})
+        raise RuntimeError(
+            f"conflicting {tree_name} aliases for {canonical_key!r}: {alias_names}"
+        )
+    sources[canonical_key].add(source_key)
+
+
+def _strict_state_dict(
+    ckpt: dict,
+    use_ema: bool,
+    *,
+    expected_parameter_keys: set[str] | None = None,
+) -> dict:
+    """Extract an exact Algo ModuleDict state from online or EMA weights.
+
+    Registered ``ema_nets.*`` checkpoints contain a complete module state,
+    including buffers, and therefore must match the online tree exactly.
+    Legacy ``EMACallback`` checkpoints instead store only named parameters in
+    top-level ``ema_state_dict``. For those checkpoints, validate the complete
+    parameter key set against the instantiated model and overlay the averaged
+    parameters on the online state so live buffers are retained.
+    """
+    if "state_dict" not in ckpt:
+        raise RuntimeError("checkpoint has no state_dict")
+    state_dict = ckpt["state_dict"]
+    if not isinstance(state_dict, dict):
+        raise RuntimeError("checkpoint state_dict is not a mapping")
+
+    online = {}
+    online_sources: dict[str, set[str]] = {}
+    registered_ema = {}
+    wrapper_buffers = {}
+    rejected = []
+    allowed_wrapper_buffers = {"ema_optimization_step", "ema_decay"}
+    for key, value in state_dict.items():
+        if key.startswith("ema_nets."):
+            stripped_key = key[len("ema_nets.") :]
+            if stripped_key in registered_ema:
+                raise RuntimeError(
+                    f"duplicate registered EMA state key {stripped_key!r}"
+                )
+            registered_ema[stripped_key] = value
+            continue
+        if key in allowed_wrapper_buffers:
+            wrapper_buffers[key] = value
+            continue
+        for prefix in ("nets.", "model.nets."):
+            if key.startswith(prefix):
+                stripped_key = key[len(prefix) :]
+                _coalesce_state_alias(
+                    online,
+                    online_sources,
+                    canonical_key=stripped_key,
+                    source_key=key,
+                    value=value,
+                    tree_name="online state",
+                )
+                break
+        else:
+            rejected.append(key)
+    if rejected:
+        raise RuntimeError(
+            f"checkpoint contains {len(rejected)} non-model state keys: {rejected[:5]}"
+        )
+    if not online:
+        raise RuntimeError("checkpoint state_dict contains no nets.* model tensors")
+
+    legacy_ema = ckpt.get("ema_state_dict")
+    if registered_ema:
+        if legacy_ema is not None:
+            raise RuntimeError(
+                "checkpoint contains both registered ema_nets.* and ema_state_dict"
+            )
+        missing_buffers = allowed_wrapper_buffers - set(wrapper_buffers)
+        if missing_buffers:
+            raise RuntimeError(
+                "registered EMA checkpoint is missing wrapper buffers: "
+                f"{sorted(missing_buffers)}"
+            )
+        if set(registered_ema) != set(online):
+            missing = sorted(set(online) - set(registered_ema))[:5]
+            extra = sorted(set(registered_ema) - set(online))[:5]
+            raise RuntimeError(
+                "registered EMA tensor keys do not exactly match online keys: "
+                f"missing={missing} extra={extra}"
+            )
+    elif wrapper_buffers:
+        raise RuntimeError(
+            "EMA wrapper buffers are present without a registered ema_nets.* tree"
+        )
+
+    normalized_legacy_ema = None
+    if legacy_ema is not None:
+        if not isinstance(legacy_ema, dict):
+            raise RuntimeError("ema_state_dict is not a mapping")
+        normalized_legacy_ema = {}
+        legacy_ema_sources: dict[str, set[str]] = {}
+        for key, value in legacy_ema.items():
+            stripped_key = key
+            for prefix in ("nets.", "model.nets.", "ema_nets."):
+                if key.startswith(prefix):
+                    stripped_key = key[len(prefix) :]
+                    break
+            _coalesce_state_alias(
+                normalized_legacy_ema,
+                legacy_ema_sources,
+                canonical_key=stripped_key,
+                source_key=key,
+                value=value,
+                tree_name="legacy EMA state",
+            )
+        if expected_parameter_keys is None:
+            raise RuntimeError(
+                "legacy EMA validation requires the instantiated model parameter keys"
+            )
+        expected_parameter_keys = set(expected_parameter_keys)
+        if not expected_parameter_keys:
+            raise RuntimeError("instantiated model contains no parameters")
+        if set(normalized_legacy_ema) != expected_parameter_keys:
+            missing = sorted(expected_parameter_keys - set(normalized_legacy_ema))[:5]
+            extra = sorted(set(normalized_legacy_ema) - expected_parameter_keys)[:5]
+            raise RuntimeError(
+                "legacy EMA parameter keys do not exactly match model parameters: "
+                f"missing={missing} extra={extra}"
+            )
+        unknown_parameters = expected_parameter_keys - set(online)
+        if unknown_parameters:
+            raise RuntimeError(
+                "instantiated model parameter keys are absent from online state: "
+                f"{sorted(unknown_parameters)[:5]}"
+            )
+
+    if use_ema:
+        if registered_ema:
+            selected = registered_ema
+        elif normalized_legacy_ema is not None:
+            selected = dict(online)
+            selected.update(normalized_legacy_ema)
+        else:
+            raise RuntimeError("requested EMA weights but checkpoint has no EMA tree")
+        print(f"[load] using EMA weights ({len(selected)} tensors)")
+        return selected
+    print(f"[load] using online weights ({len(online)} tensors)")
+    return online
+
+
 def load_algo_from_ckpt(
     ckpt_path: str, config_path: str | None = None, use_ema: bool = False
 ):
-    """Reconstruct the algo + load its weights from the lightning ckpt."""
+    """Reconstruct the algo and load every checkpoint tensor strictly."""
     print(f"[load] ckpt: {ckpt_path}")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     # Lightning saves under "state_dict"; param keys are "nets.policy.<name>".
     print(f"[load] keys: {list(ckpt.keys())[:5]} ...")
 
-    hparams = ckpt.get("hyper_parameters") or ckpt.get("hparams") or {}
-    if "config_tree" not in hparams:
-        if config_path is None:
-            raise SystemExit(
-                "Checkpoint has no config_tree in hyper_parameters; pass --config-path "
-                "to point at the hydra .hydra/config.yaml that built it."
-            )
-        cfg = OmegaConf.load(config_path)
-    else:
-        cfg = OmegaConf.create(hparams["config_tree"])
+    cfg, hparams = _checkpoint_model_config(ckpt, config_path)
 
     # Build the algo via the same Hydra path the trainer uses.
     from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
     norm_state = hparams.get("norm_stats_state")
     if norm_state is None:
-        raise SystemExit("hyper_parameters has no norm_stats_state")
+        raise RuntimeError("hyper_parameters has no norm_stats_state")
     norm_stats = MultiDataset.from_state(norm_state)
     algo = instantiate(cfg.model.robomimic_model, norm_stats=norm_stats)
 
-    # Strip "nets." prefix or "model.nets." prefix when loading.
-    state_dict = ckpt["state_dict"]
-    ema = None
-    if use_ema:
-        ema = ckpt.get("ema_state_dict")
-        if ema is None:
-            raise SystemExit(
-                "--use-ema: checkpoint has no ema_state_dict "
-                "(was the run trained with EMACallback?)"
-            )
-        print(f"[load] using EMA weights ({len(ema)} tensors)")
-
-    def strip_wrapper_prefix(source):
-        stripped = {}
-        for k, v in source.items():
-            for prefix in ("nets.", "model.nets."):
-                if k.startswith(prefix):
-                    stripped[k[len(prefix) :]] = v
-                    break
-            else:
-                stripped[k] = v
-        return stripped
-
-    new_sd = strip_wrapper_prefix(state_dict)
-    if ema is not None:
-        # Apply EMA after prefix normalization. ModelWrapper registers aliases
-        # under both ``model.nets`` and ``nets``; normalizing first guarantees
-        # that a later live alias cannot overwrite an averaged tensor.
-        new_sd.update(strip_wrapper_prefix(ema))
-    missing, unexpected = algo.nets.load_state_dict(new_sd, strict=False)
-    if missing:
-        print(f"[load] missing keys ({len(missing)}): {missing[:5]}")
-    if unexpected:
-        print(f"[load] unexpected keys ({len(unexpected)}): {unexpected[:5]}")
+    new_sd = _strict_state_dict(
+        ckpt,
+        use_ema=use_ema,
+        expected_parameter_keys={name for name, _ in algo.nets.named_parameters()},
+    )
+    algo.nets.load_state_dict(new_sd, strict=True)
+    print(f"[load] strict state load passed ({len(new_sd)} tensors)")
     return algo, cfg
+
+
+def strict_no_rollout_preflight(
+    ckpt_path: str,
+    config_path: str,
+    selected_embodiment_name: str,
+    selected_embodiment_id: int,
+    expected_native_action_dim: int,
+    use_ema: bool = False,
+    action_chunk_start_index: int = 0,
+    replan_every: int | None = None,
+) -> dict:
+    """Strictly validate checkpoint/config/model binding without an env or inference."""
+    from egomimic.pipeline.algo import _resolve_action_chunk_execution_slice
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+    algo, _ = load_algo_from_ckpt(ckpt_path, config_path, use_ema=use_ema)
+    emb_name = str(selected_embodiment_name)
+    emb_id = int(selected_embodiment_id)
+    native_dim = int(expected_native_action_dim)
+    if native_dim <= 0:
+        raise RuntimeError(
+            f"expected native action dim must be positive, got {native_dim}"
+        )
+    resolved_id = int(get_embodiment_id(emb_name))
+    if resolved_id != emb_id:
+        raise RuntimeError(
+            f"embodiment name/id mismatch: {emb_name!r} maps to {resolved_id}, "
+            f"expected {emb_id}"
+        )
+    if algo.domain_by_id.get(emb_id) != emb_name:
+        raise RuntimeError(
+            "selected embodiment is absent from loaded model domains: "
+            f"selected={emb_id}:{emb_name} loaded={algo.domain_by_id}"
+        )
+
+    adapter = algo.rollout_adapter_for(emb_id)
+    if adapter is None or not callable(getattr(adapter, "decode", None)):
+        raise RuntimeError(f"selected embodiment {emb_name!r} has no rollout adapter")
+    if not bool(getattr(adapter, "preserves_decoded_timing", False)):
+        raise RuntimeError(
+            "rollout adapter does not declare preserves_decoded_timing=True"
+        )
+
+    action_dims = []
+    for stage in algo.policy.stages:
+        dims = getattr(stage, "action_dims", None)
+        if dims is not None and emb_name in dims:
+            action_dims.append(int(dims[emb_name]))
+    if len(set(action_dims)) != 1:
+        raise RuntimeError(
+            f"could not resolve one model token width for {emb_name!r}: {action_dims}"
+        )
+    token_dim = action_dims[0]
+    token_horizon = int(algo.action_horizon)
+    probe = torch.zeros((1, token_horizon, token_dim), dtype=torch.float32)
+    decoded = adapter.decode(probe, context={})
+    if not torch.is_tensor(decoded):
+        decoded = torch.as_tensor(decoded)
+    if decoded.ndim != 3 or decoded.shape[0] != 1:
+        raise RuntimeError(
+            f"adapter probe must decode to (1,H,D), got {tuple(decoded.shape)}"
+        )
+    if int(decoded.shape[-1]) != native_dim:
+        raise RuntimeError(
+            f"adapter native action width {decoded.shape[-1]} != expected {native_dim}"
+        )
+    decoded_horizon = int(decoded.shape[1])
+    if decoded_horizon <= 0:
+        raise RuntimeError("adapter decoded an empty action horizon")
+    execution_start, execution_stop = _resolve_action_chunk_execution_slice(
+        decoded_horizon=decoded_horizon,
+        start_index=action_chunk_start_index,
+        replan_every=replan_every,
+    )
+
+    report = {
+        "status": "audited_strict_no_rollout_ok",
+        "embodiment_id": emb_id,
+        "embodiment_name": emb_name,
+        "model_token_horizon": token_horizon,
+        "model_token_dim": token_dim,
+        "decoded_action_horizon": decoded_horizon,
+        "action_chunk_start_index": execution_start,
+        "execution_horizon": execution_stop - execution_start,
+        "execution_stop_index_exclusive": execution_stop,
+        "native_action_dim": native_dim,
+        "state_tensor_count": len(algo.nets.state_dict()),
+        "weights": "ema" if use_ema else "raw",
+    }
+    print("[strict-preflight] " + json.dumps(report, sort_keys=True))
+    return report
+
+
+def _override_sampler_inference_steps(
+    algo,
+    inference_steps: int,
+    embodiment_name: str | None = None,
+) -> tuple[str, int]:
+    """Apply an evaluation-only override after the exact state loads."""
+    requested = int(inference_steps)
+    if requested <= 0:
+        raise ValueError("sampler inference steps must be positive")
+    candidates = []
+    seen_ids = set()
+
+    def add_candidate(candidate) -> None:
+        if not hasattr(candidate, "num_inference_steps"):
+            return
+        candidate_id = id(candidate)
+        if candidate_id not in seen_ids:
+            seen_ids.add(candidate_id)
+            candidates.append(candidate)
+
+    for stage in algo.policy.stages:
+        add_candidate(stage)
+        policies = getattr(stage, "policies", None)
+        if policies is None:
+            continue
+        if embodiment_name is not None and embodiment_name in policies:
+            add_candidate(policies[embodiment_name])
+        elif embodiment_name is None and len(policies) == 1:
+            add_candidate(next(iter(policies.values())))
+
+    if len(candidates) != 1:
+        names = [type(stage).__name__ for stage in candidates]
+        raise RuntimeError(
+            "sampler inference-step override requires exactly one compatible "
+            f"stage, found {names}"
+        )
+    stage = candidates[0]
+    original = int(stage.num_inference_steps)
+    stage.num_inference_steps = requested
+    return type(stage).__name__, original
 
 
 class _MockTrainer:
@@ -254,6 +549,21 @@ def main():
         "(receding horizon). Default: consume the full chunk open-loop. "
         "1 = re-plan every env step.",
     )
+    parser.add_argument(
+        "--action-chunk-start-index",
+        type=int,
+        default=0,
+        help="Zero-based index of the first decoded native action to execute. "
+        "Default: 0. This is an explicit evaluation-time temporal-contract "
+        "setting and is never inferred from the model family.",
+    )
+    parser.add_argument(
+        "--sampler-inference-steps",
+        type=int,
+        default=None,
+        help="Evaluation-only override for a single compatible sampler stage. "
+        "The checkpoint/config remain strictly pinned.",
+    )
     args = parser.parse_args()
 
     try:
@@ -270,6 +580,12 @@ def main():
             )
     if args.rollout_timeout < 0:
         parser.error("--rollout-timeout must be >= 0")
+    if args.replan_every is not None and args.replan_every <= 0:
+        parser.error("--replan-every must be positive")
+    if args.action_chunk_start_index < 0:
+        parser.error("--action-chunk-start-index must be >= 0")
+    if args.sampler_inference_steps is not None and args.sampler_inference_steps <= 0:
+        parser.error("--sampler-inference-steps must be positive")
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -285,6 +601,17 @@ def main():
             print(f"[config] using {args.config_path}")
 
     algo, _ = load_algo_from_ckpt(args.ckpt, args.config_path, use_ema=args.use_ema)
+    if args.sampler_inference_steps is not None:
+        stage_name, original_steps = _override_sampler_inference_steps(
+            algo,
+            args.sampler_inference_steps,
+            embodiment_name=args.embodiment_name,
+        )
+        print(
+            "[sim] sampler inference steps override: "
+            f"stage={stage_name} checkpoint_default={original_steps} "
+            f"effective={args.sampler_inference_steps}"
+        )
     # HNet algo doesn't inherit nn.Module — move the inner ModuleDict.
     algo.nets = algo.nets.to(device)
     algo.device = device
@@ -300,6 +627,14 @@ def main():
     if args.replan_every is not None:
         algo.replan_every = int(args.replan_every)
         print(f"[sim] replan_every override = {algo.replan_every}")
+    if not hasattr(algo, "action_chunk_start_index"):
+        if args.action_chunk_start_index != 0:
+            raise RuntimeError(
+                f"{type(algo).__name__} does not support --action-chunk-start-index"
+            )
+    else:
+        algo.action_chunk_start_index = int(args.action_chunk_start_index)
+        print(f"[sim] action_chunk_start_index = {algo.action_chunk_start_index}")
     import torch as _torch
 
     _torch.manual_seed(int(args.seed))

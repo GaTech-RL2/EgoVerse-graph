@@ -564,7 +564,7 @@ PY
   python -m egomimic.trainHydra "${COMMON_OVERRIDES[@]}" \
   2>&1 | tee "$TRAIN_LOG"
 
-python "$VERIFIER" "$RUN_DIR" \
+CUDA_VISIBLE_DEVICES= python "$VERIFIER" "$RUN_DIR" \
   --required-embodiments 19,20 \
   --expected-head "$EXPECTED_HEAD" \
   --expected-world-size "$EXPECTED_WORLD_SIZE" \
@@ -579,7 +579,7 @@ test "$(sha256sum "$LAUNCHER" | awk '{print $1}')" = "$EXPECTED_LAUNCHER_SHA"
 
 # Persist PASS only after the data, norm artifact, source tree, and launcher
 # have all survived the postflight unchanged.
-python "$VERIFIER" "$RUN_DIR" \
+CUDA_VISIBLE_DEVICES= python "$VERIFIER" "$RUN_DIR" \
   --required-embodiments 19,20 \
   --expected-head "$EXPECTED_HEAD" \
   --expected-world-size "$EXPECTED_WORLD_SIZE"

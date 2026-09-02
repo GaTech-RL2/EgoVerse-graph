@@ -706,12 +706,12 @@ test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
 test "$(sha256sum "$LAUNCHER" | awk '{print $1}')" = "$EXPECTED_LAUNCHER_SHA"
 
 if test "$MODE" = smoke; then
-  python "$VERIFIER" "$RUN_DIR" \
+  CUDA_VISIBLE_DEVICES= python "$VERIFIER" "$RUN_DIR" \
     --required-embodiments 20 \
     --expected-head "$EXPECTED_HEAD" \
     --expected-world-size "$EXPECTED_WORLD_SIZE" \
     --dry-run
-  python "$VERIFIER" "$RUN_DIR" \
+  CUDA_VISIBLE_DEVICES= python "$VERIFIER" "$RUN_DIR" \
     --required-embodiments 20 \
     --expected-head "$EXPECTED_HEAD" \
     --expected-world-size "$EXPECTED_WORLD_SIZE"

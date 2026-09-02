@@ -3,15 +3,27 @@
 
 def get_keymap_hpt(
     action_horizon: int = 16,
+    observation_horizon: int = 1,
+    action_target_offset: int = 0,
     norm_mode: bool = False,
     action_zarr_key: str = "actions",
     **kwargs,
 ):
-    """Map one current observation to a future action chunk.
+    """Map an observation window to a future action chunk.
 
-    Observation keys intentionally have no horizon. Exposing future
-    observations would leak the target during training and mismatch rollout.
+    With the default one-observation contract, observation keys intentionally
+    have no redundant horizon axis.  Paper Diffusion Policy uses two
+    observations: its sample starts one frame earlier, conditions on frames
+    ``t,t+1``, and predicts actions starting at ``t+1``.  The matching
+    ``action_target_offset=1`` fetches the extra leading action so the transform
+    can align the target to the last observed frame without future leakage.
     """
+    observation_horizon = int(observation_horizon)
+    action_target_offset = int(action_target_offset)
+    if observation_horizon <= 0:
+        raise ValueError("observation_horizon must be positive")
+    if action_target_offset < 0:
+        raise ValueError("action_target_offset must be non-negative")
     keymap = {
         "front_img_1": {
             "key_type": "camera_keys",
@@ -24,9 +36,12 @@ def get_keymap_hpt(
         "actions": {
             "key_type": "action_keys",
             "zarr_key": str(action_zarr_key),
-            "horizon": int(action_horizon),
+            "horizon": int(action_horizon) + action_target_offset,
         },
     }
+    if observation_horizon > 1:
+        keymap["front_img_1"]["horizon"] = observation_horizon
+        keymap["state_agent_obj"]["horizon"] = observation_horizon
     if norm_mode:
         keymap.pop("front_img_1")
     return keymap
@@ -154,7 +169,6 @@ def get_arc_length_transform_list(
             min_distance_unit=min_distance_unit,
             resampled_vector_length=resampled_vector_length,
             dt=dt,
-            rotation_radius=rotation_radius,
         )
     ]
 
@@ -202,3 +216,85 @@ def get_chain_gripper_native_point_arc_length_transform_list(
         resampled_vector_length=resampled_vector_length,
         dt=dt,
     )
+
+
+class SliceActionTarget:
+    """Align a fixed-horizon action target to the last observed frame."""
+
+    def __init__(self, keys, start: int, horizon: int):
+        self.keys = list(keys)
+        self.start = int(start)
+        self.horizon = int(horizon)
+        if self.start < 0 or self.horizon <= 0:
+            raise ValueError("SliceActionTarget requires start>=0 and horizon>0")
+
+    def transform(self, batch):
+        for key in self.keys:
+            value = batch[key]
+            sliced = value[self.start : self.start + self.horizon]
+            if int(sliced.shape[0]) != self.horizon:
+                raise ValueError(
+                    f"{key} target has {sliced.shape[0]} steps after alignment; "
+                    f"expected {self.horizon}"
+                )
+            batch[key] = sliced
+        return batch
+
+
+def get_planar_dense_transform_list(
+    keys: list[str] | None = None,
+    action_target_offset: int = 0,
+    action_horizon: int = 16,
+):
+    """h16-style dense baseline, widened to the shared 5-channel layout.
+
+    Pairs with the arc configs: identical action representation, the only
+    difference being time-indexed dense chunks vs arc-length tokens. Without
+    the shared layout the comparison would confound tokenization with a
+    change of action space.
+    """
+    from egomimic.rldb.zarr.arc_length_tokenizer import PadPlanarAction
+
+    action_keys = keys or ["actions"]
+    transforms = []
+    if int(action_target_offset) > 0:
+        transforms.append(
+            SliceActionTarget(
+                keys=action_keys,
+                start=int(action_target_offset),
+                horizon=int(action_horizon),
+            )
+        )
+    transforms.append(PadPlanarAction(keys=action_keys))
+    return transforms
+
+
+def get_planar_arc_length_transform_list(
+    keys: list[str] | None = None,
+    min_distance_unit: float = 100.0,
+    resampled_vector_length: int = 100,
+    dt: float = 1.0 / 30.0,
+    rotation_radius: float = 0.0,
+    hybrid_rotation_unit: float | None = None,
+    velocity_mode: str = "mean_scalar",
+    velocity_layout: str = "append",
+):
+    """Build an explicitly configured embodiment-agnostic planar tokenizer."""
+    from egomimic.rldb.zarr.arc_length_tokenizer import TokenizePlanarArcLength
+
+    action_keys = keys or ["actions"]
+    if len(action_keys) != 1:
+        raise ValueError("planar arc tokenization expects exactly one action key")
+    return [
+        TokenizePlanarArcLength(
+            action_key=action_keys[0],
+            output_action_key=action_keys[0],
+            min_distance_unit=min_distance_unit,
+            resampled_vector_length=resampled_vector_length,
+            dt=dt,
+            rotation_radius=rotation_radius,
+            hybrid_rotation_unit=hybrid_rotation_unit,
+            velocity_mode=velocity_mode,
+            velocity_layout=velocity_layout,
+        )
+    ]

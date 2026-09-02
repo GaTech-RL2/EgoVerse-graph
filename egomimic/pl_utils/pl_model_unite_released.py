@@ -21,7 +21,11 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         # ``model.*`` / ``nets.*`` and is unavailable in isolated construction
         # tests.  Model-local names are stable and preserve the concrete
         # ``...encoder.img_encoders...`` path needed by the released grouping.
-        named_parameters = tuple(self.model.named_parameters())
+        # PipelineAlgo is an orchestration object rather than ``nn.Module``;
+        # its registered model tree lives in ``nets``. Preserve the historical
+        # ``nets.*`` names because the released AdamW/Muon partition contract is
+        # name-sensitive (in particular for VisualCore parameters).
+        named_parameters = tuple(self.model.nets.named_parameters(prefix="nets"))
         config_tree = getattr(self.hparams, "config_tree", None)
         if config_tree is not None:
             cfg = self._as_config(config_tree)

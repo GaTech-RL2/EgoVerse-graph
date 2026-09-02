@@ -1,3 +1,4 @@
+import copy
 import random
 import time
 from collections import OrderedDict, deque
@@ -75,7 +76,9 @@ class ModelWrapper(LightningModule):
             unite_gradient_telemetry_every_n_steps
         )
         if self.unite_flow_updates_per_reconstruction < 0:
-            raise ValueError("unite_flow_updates_per_reconstruction must be non-negative")
+            raise ValueError(
+                "unite_flow_updates_per_reconstruction must be non-negative"
+            )
         if self.unite_gradient_telemetry_every_n_steps < 0:
             raise ValueError(
                 "unite_gradient_telemetry_every_n_steps must be non-negative"
@@ -91,22 +94,104 @@ class ModelWrapper(LightningModule):
         self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
 
+        self._ema_config = self._resolve_ema_config(config_tree)
+        if self._ema_config is not None:
+            self.ema_model = copy.deepcopy(self.model)
+            # Algo is an orchestration object rather than nn.Module. Register
+            # its ModuleDict explicitly so Lightning moves, saves, and strictly
+            # reloads the complete EMA tree.
+            self.ema_nets = self.ema_model.nets
+            self.ema_nets.eval()
+            self.ema_nets.requires_grad_(False)
+            self.register_buffer(
+                "ema_optimization_step", torch.zeros((), dtype=torch.long)
+            )
+            self.register_buffer("ema_decay", torch.zeros((), dtype=torch.float64))
+
+    @classmethod
+    def _resolve_ema_config(cls, config_tree):
+        cfg = cls._as_config(config_tree)
+        if cfg is None:
+            return None
+        raw = OmegaConf.select(cfg, "model.ema")
+        if raw is None or not bool(raw.get("enabled", False)):
+            return None
+        values = {
+            "update_after_step": int(raw.get("update_after_step", 0)),
+            "inv_gamma": float(raw.get("inv_gamma", 1.0)),
+            "power": float(raw.get("power", 0.75)),
+            "min_value": float(raw.get("min_value", 0.0)),
+            "max_value": float(raw.get("max_value", 0.9999)),
+            "use_for_validation": bool(raw.get("use_for_validation", True)),
+        }
+        if values["update_after_step"] < 0 or values["inv_gamma"] <= 0.0:
+            raise ValueError("EMA requires update_after_step>=0 and inv_gamma>0")
+        if values["power"] <= 0.0:
+            raise ValueError("EMA power must be positive")
+        if not 0.0 <= values["min_value"] <= values["max_value"] < 1.0:
+            raise ValueError("EMA decay bounds must satisfy 0<=min<=max<1")
+        return values
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if hasattr(self, "ema_model"):
+            self.ema_nets.eval()
+        return self
+
+    def _ema_decay_for_step(self, optimization_step: int) -> float:
+        cfg = self._ema_config
+        step = max(0, int(optimization_step) - cfg["update_after_step"] - 1)
+        value = 1.0 - (1.0 + step / cfg["inv_gamma"]) ** (-cfg["power"])
+        if step <= 0:
+            return 0.0
+        return max(cfg["min_value"], min(value, cfg["max_value"]))
+
+    @torch.no_grad()
+    def _update_ema(self):
+        if not hasattr(self, "ema_model"):
+            return
+        # Match diffusers.EMAModel exactly: increment the completed optimizer
+        # step before evaluating the warm-up decay schedule.
+        self.ema_optimization_step.add_(1)
+        decay = self._ema_decay_for_step(int(self.ema_optimization_step.item()))
+        online_params = dict(self.model.nets.named_parameters())
+        ema_params = dict(self.ema_model.nets.named_parameters())
+        if online_params.keys() != ema_params.keys():
+            raise RuntimeError("EMA/online parameter trees differ")
+        for name, parameter in online_params.items():
+            averaged = ema_params[name]
+            if not parameter.requires_grad:
+                averaged.copy_(parameter.detach().to(dtype=averaged.dtype))
+            else:
+                averaged.mul_(decay).add_(
+                    parameter.detach().to(dtype=averaged.dtype), alpha=1.0 - decay
+                )
+        online_buffers = dict(self.model.nets.named_buffers())
+        ema_buffers = dict(self.ema_model.nets.named_buffers())
+        if online_buffers.keys() != ema_buffers.keys():
+            raise RuntimeError("EMA/online buffer trees differ")
+        for name, value in online_buffers.items():
+            ema_buffers[name].copy_(value.detach().to(dtype=ema_buffers[name].dtype))
+        self.ema_decay.fill_(decay)
+
     def on_save_checkpoint(self, checkpoint):
         """Keep runtime logging controls accurate across full-state resumes."""
         hyper_parameters = checkpoint.setdefault("hyper_parameters", {})
         hyper_parameters["enable_grad_norm"] = bool(self.enable_grad_norm)
-        hyper_parameters["train_metrics_on_step"] = bool(
-            self.train_metrics_on_step
-        )
-        hyper_parameters["train_metrics_on_epoch"] = bool(
-            self.train_metrics_on_epoch
-        )
+        hyper_parameters["train_metrics_on_step"] = bool(self.train_metrics_on_step)
+        hyper_parameters["train_metrics_on_epoch"] = bool(self.train_metrics_on_epoch)
         hyper_parameters["unite_flow_updates_per_reconstruction"] = int(
             self.unite_flow_updates_per_reconstruction
         )
         hyper_parameters["unite_gradient_telemetry_every_n_steps"] = int(
             self.unite_gradient_telemetry_every_n_steps
         )
+        if self._ema_config is not None:
+            hyper_parameters["ema_contract"] = dict(self._ema_config)
+            hyper_parameters["ema_optimization_step"] = int(
+                self.ema_optimization_step.item()
+            )
+            hyper_parameters["ema_decay"] = float(self.ema_decay.item())
 
     @staticmethod
     def _as_config(cfg):
@@ -292,13 +377,11 @@ class ModelWrapper(LightningModule):
                 losses, "_loss_unite_reconstruction"
             )
             flow_loss = self._mean_loss_terms(losses, "_loss_unite_latent")
-            selected_loss, update_mode, cycle_position = (
-                self._select_unite_update_loss(
-                    reconstruction_loss,
-                    flow_loss,
-                    int(self.global_step),
-                    self.unite_flow_updates_per_reconstruction,
-                )
+            selected_loss, update_mode, cycle_position = self._select_unite_update_loss(
+                reconstruction_loss,
+                flow_loss,
+                int(self.global_step),
+                self.unite_flow_updates_per_reconstruction,
             )
             losses["action_loss"] = selected_loss
             self._log_train_metric(
@@ -311,14 +394,8 @@ class ModelWrapper(LightningModule):
             self._log_train_metric(
                 "log/unite_update_cycle_position", float(cycle_position)
             )
-            if (
-                int(self.global_step)
-                % self.unite_gradient_telemetry_every_n_steps
-                == 0
-            ):
-                self._measure_unite_shared_gradients(
-                    reconstruction_loss, flow_loss
-                )
+            if int(self.global_step) % self.unite_gradient_telemetry_every_n_steps == 0:
+                self._measure_unite_shared_gradients(reconstruction_loss, flow_loss)
 
         if (
             self.debug_loss_spike
@@ -398,7 +475,31 @@ class ModelWrapper(LightningModule):
             return
         self.model.device = self.device
 
+        validation_model = self.model
+        if self._ema_config is not None and self._ema_config["use_for_validation"]:
+            self.ema_model.device = self.device
+            validation_model = self.ema_model
+        self.evaluator.model = validation_model
+
         self.evaluator.on_validation_start()
+
+    def optimizer_step(
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_closure=None,
+    ):
+        """Update EMA exactly once after a completed automatic optimizer step."""
+
+        result = super().optimizer_step(
+            epoch,
+            batch_idx,
+            optimizer,
+            optimizer_closure,
+        )
+        self._update_ema()
+        return result
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """
@@ -450,7 +551,11 @@ class ModelWrapper(LightningModule):
             cfg = self._as_config(config_tree)
             optimizer = hydra.utils.instantiate(
                 cfg.model.optimizer,
-                params=self.trainer.model.parameters(),
+                params=(
+                    parameter
+                    for parameter in self.trainer.model.parameters()
+                    if parameter.requires_grad
+                ),
             )
             if callable(optimizer):
                 optimizer = optimizer()
@@ -465,7 +570,13 @@ class ModelWrapper(LightningModule):
             else:
                 scheduler = None
         else:
-            optimizer = self.hparams.optimizer(params=self.trainer.model.parameters())
+            optimizer = self.hparams.optimizer(
+                params=(
+                    parameter
+                    for parameter in self.trainer.model.parameters()
+                    if parameter.requires_grad
+                )
+            )
             scheduler = (
                 self.hparams.scheduler(optimizer=optimizer)
                 if self.hparams.scheduler is not None
@@ -485,6 +596,8 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
+        if hasattr(self, "ema_model"):
+            self.ema_model.device = self.device
         print(
             f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
             flush=True,

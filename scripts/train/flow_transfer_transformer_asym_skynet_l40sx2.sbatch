@@ -411,7 +411,7 @@ assert_sha "$EXPECTED_NORM_SHA" "$NORM_ARTIFACT"
 assert_sha "$EXPECTED_SPLIT_SHA" "$SPLIT_MANIFEST"
 
 if test "$MODE" = smoke; then
-  "$PY_ENV/bin/python" "$VERIFIER" "$RUN_DIR" \
+  CUDA_VISIBLE_DEVICES= "$PY_ENV/bin/python" "$VERIFIER" "$RUN_DIR" \
     --required-embodiments 19,20 \
     --expected-head "$BASE_REVISION" \
     --expected-world-size 2

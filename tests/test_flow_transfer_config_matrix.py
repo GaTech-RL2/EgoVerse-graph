@@ -919,7 +919,10 @@ def test_training_smoke_verifier_checks_world2_and_dense_step_history() -> None:
     assert "str(config.trainer.strategy) == expected_strategy" in verifier
     assert '"trainer_strategy": str(config.trainer.strategy)' in verifier
     assert 'row["trainer_global_step"] + 1 >= minimum_validation_step' in verifier
-    assert '"validation_after_optimizer_steps": validation_after_optimizer_steps' in verifier
+    assert (
+        '"validation_after_optimizer_steps": validation_after_optimizer_steps'
+        in verifier
+    )
     assert "config.trainer.limit_train_batches" in verifier
     assert "config.model.train_metrics_on_step is True" in verifier
     assert 'checkpoint.get("optimizer_states", [])' in verifier
@@ -934,5 +937,27 @@ def test_training_smoke_verifier_checks_world2_and_dense_step_history() -> None:
     assert '"Optimizer/param_group_0_lr"' in verifier
     assert "dense_training_history" in verifier
     assert "training_steps == list(range(expected_steps))" in verifier
-    assert "all(math.isfinite(value) for value in values)" in verifier
+    assert "math.isfinite(value) for value in required_values.values()" in verifier
     assert "scheduled_history" in verifier
+    assert "run_provenance.required_wandb_metrics" in verifier
+    assert "wrapper_class.load_from_checkpoint" in verifier
+    assert 'map_location="cpu"' in verifier
+    assert "strict=True" in verifier
+
+
+def test_every_training_smoke_verifier_invocation_hides_cuda() -> None:
+    calls = []
+    launcher_root = Path(__file__).parents[1] / "scripts" / "train"
+    for launcher in sorted(launcher_root.glob("*.sbatch")):
+        for line_number, line in enumerate(launcher.read_text().splitlines(), start=1):
+            invokes_verifier = (
+                '"$VERIFIER"' in line or '"$SMOKE_VERIFIER"' in line
+            ) and "PYTHON" in line.upper()
+            if invokes_verifier:
+                calls.append((launcher.name, line_number, line))
+
+    assert calls
+    assert all(
+        line.lstrip().startswith("CUDA_VISIBLE_DEVICES=")
+        for _, _, line in calls
+    ), calls

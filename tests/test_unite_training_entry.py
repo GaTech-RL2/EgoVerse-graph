@@ -2,6 +2,7 @@ import copy
 from functools import partial
 from types import SimpleNamespace
 
+import pytest
 import torch
 import torch.nn as nn
 from omegaconf import OmegaConf
@@ -45,6 +46,13 @@ class _TinyPolicy(nn.Module):
 class _TinyAlgo(nn.Module):
     def __init__(self):
         super().__init__()
+        self.nets = nn.ModuleDict({"policy": _TinyPolicy()})
+
+
+class _PlainTinyAlgo:
+    """Match PipelineAlgo's non-Module orchestration contract."""
+
+    def __init__(self):
         self.nets = nn.ModuleDict({"policy": _TinyPolicy()})
 
 
@@ -98,20 +106,45 @@ def test_train_hydra_honors_configured_wrapper_without_changing_default(
     assert captured["scheduler_frequency"] == 1
 
 
+def test_train_hydra_rejects_internal_and_callback_ema_together():
+    cfg = OmegaConf.create(
+        {
+            "model": {
+                "robomimic_model": {},
+                "ema": {"enabled": True},
+            },
+            "callbacks": {
+                "ema": {
+                    "_target_": "egomimic.utils.ema_callback.EMACallback",
+                }
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="cannot both be enabled"):
+        train_hydra._validate_ema_configuration(cfg)
+
+
 def test_released_wrapper_constructs_optimizer_without_attached_trainer():
-    model = _TinyAlgo()
+    model = _PlainTinyAlgo()
     wrapper = ReleasedUniteModelWrapper(
         robomimic_model=model,
         optimizer=partial(ReleasedUniteCompositeOptimizer, lr=1.0e-3),
         scheduler=None,
     )
     configured = wrapper.configure_optimizers()
-    assert isinstance(configured["optimizer"], ReleasedUniteCompositeOptimizer)
+    optimizer = configured["optimizer"]
+    assert isinstance(optimizer, ReleasedUniteCompositeOptimizer)
+    assert all(
+        name.startswith("nets.policy.")
+        for names in optimizer.group_manifest.values()
+        if isinstance(names, tuple)
+        for name in names
+    )
 
 
 def test_released_wrapper_constructs_hydra_config_tree_optimizer():
     wrapper = ReleasedUniteModelWrapper(
-        robomimic_model=_TinyAlgo(),
+        robomimic_model=_PlainTinyAlgo(),
         optimizer=None,
         scheduler=None,
     )

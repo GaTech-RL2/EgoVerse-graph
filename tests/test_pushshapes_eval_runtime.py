@@ -8,7 +8,9 @@ import torch
 
 from egomimic.eval.core.ckpt_loading import (
     _assert_completed_seed_rollouts,
+    _override_sampler_inference_steps,
     _parse_init_seeds,
+    _strict_state_dict,
 )
 from egomimic.eval.core.eval_sim import SimRolloutEval
 from egomimic.pipeline.algo import PipelineAlgo
@@ -72,6 +74,10 @@ class _Condition(Stage):
         return batch
 
 
+class _TwoObsCondition(_Condition):
+    rollout_obs_steps = 2
+
+
 class _BF16Prediction(Stage):
     reads = ["condition", "embodiment"]
     writes = ["pred_action"]
@@ -93,6 +99,26 @@ class _BF16Prediction(Stage):
             dtype=torch.bfloat16,
             device=batch["condition"].device,
         )
+        return batch
+
+
+class _IndexedPrediction(Stage):
+    reads = ["condition", "embodiment"]
+    writes = ["pred_action"]
+
+    def __init__(self, horizon=10):
+        super().__init__()
+        self.horizon = int(horizon)
+        self.calls = 0
+
+    def forward(self, batch):
+        self.calls += 1
+        indices = torch.arange(
+            self.horizon,
+            dtype=torch.float32,
+            device=batch["condition"].device,
+        ).view(1, self.horizon, 1)
+        batch["pred_action"] = indices.expand(-1, -1, 4).clone()
         return batch
 
 
@@ -126,6 +152,75 @@ def test_pipeline_inference_step_keeps_native_width_and_bf16_safe_queue():
     assert second.tolist() == [7.0, 8.0, 9.0, 10.0]
     assert third.tolist() == [1.0, 2.0, 3.0, 4.0]
     assert prediction.calls == 2
+
+
+def _indexed_pipeline(horizon=10):
+    prediction = _IndexedPrediction(horizon=horizon)
+    algo = PipelineAlgo(
+        stages=[_TwoObsCondition(), prediction],
+        norm_stats=_IdentityNormStats(),
+        domains=["pushshapes_sim_chain_gripper"],
+        ac_keys={"pushshapes_sim_chain_gripper": "actions"},
+        rollout_adapter=_NativeFourAdapter(),
+        action_horizon=horizon,
+        device=torch.device("cpu"),
+    )
+    return algo, prediction
+
+
+def test_pipeline_action_chunk_start_one_queues_tokens_one_through_eight():
+    algo, prediction = _indexed_pipeline(horizon=10)
+    algo.action_chunk_start_index = 1
+    algo.replan_every = 8
+    emb_id = get_embodiment_id("pushshapes_sim_chain_gripper")
+    obs = {"state_agent_obj": torch.zeros((1, 6), dtype=torch.float32)}
+
+    executed = [algo.inference_step(obs, t, emb_id)[0] for t in range(8)]
+
+    assert executed == pytest.approx(list(range(1, 9)))
+    assert prediction.calls == 1
+
+    # Exhausting the queue replans from the same explicit start index.
+    assert algo.inference_step(obs, 8, emb_id)[0] == pytest.approx(1.0)
+    assert prediction.calls == 2
+    # A new episode must discard a partially consumed queue and plan afresh.
+    assert algo.inference_step(obs, 0, emb_id)[0] == pytest.approx(1.0)
+    assert prediction.calls == 3
+
+
+def test_pipeline_action_chunk_start_defaults_to_zero_without_family_inference():
+    algo, prediction = _indexed_pipeline(horizon=10)
+    algo.replan_every = 2
+    emb_id = get_embodiment_id("pushshapes_sim_chain_gripper")
+    obs = {"state_agent_obj": torch.zeros((1, 6), dtype=torch.float32)}
+
+    first = algo.inference_step(obs, 0, emb_id)
+    second = algo.inference_step(obs, 1, emb_id)
+
+    assert algo.action_chunk_start_index == 0
+    assert first[0] == pytest.approx(0.0)
+    assert second[0] == pytest.approx(1.0)
+    assert prediction.calls == 1
+
+
+@pytest.mark.parametrize(
+    "start_index,replan_every,message",
+    [
+        (-1, 1, "must be non-negative"),
+        (3, 1, "must be smaller than the decoded horizon"),
+        (1, 3, "exceeds the decoded horizon"),
+        (0, 0, "replan_every must be positive"),
+    ],
+)
+def test_pipeline_action_chunk_slice_validation(start_index, replan_every, message):
+    algo, _ = _indexed_pipeline(horizon=3)
+    algo.action_chunk_start_index = start_index
+    algo.replan_every = replan_every
+    emb_id = get_embodiment_id("pushshapes_sim_chain_gripper")
+    obs = {"state_agent_obj": torch.zeros((1, 6), dtype=torch.float32)}
+
+    with pytest.raises(ValueError, match=message):
+        algo.inference_step(obs, 0, emb_id)
 
 
 def _obs():
@@ -164,6 +259,7 @@ class _FakeEnv:
     def __init__(self):
         self.actions = []
         self.reset_seeds = []
+        self.action_space = SimpleNamespace(shape=(4,))
 
     def reset(self, seed=None):
         self.reset_seeds.append(seed)
@@ -216,12 +312,13 @@ class _FakeChainEval(SimRolloutEval):
         return None
 
 
-def test_sim_evaluator_passes_full_chain_action_to_environment():
+def test_sim_evaluator_passes_full_chain_action_to_environment(tmp_path):
     env = _FakeEnv()
     evaluator = _FakeChainEval(env)
     evaluator.model = _FakeAlgo()
     evaluator.trainer = SimpleNamespace(
-        lightning_module=SimpleNamespace(device=torch.device("cpu"))
+        lightning_module=SimpleNamespace(device=torch.device("cpu")),
+        default_root_dir=str(tmp_path),
     )
 
     coverage, frames = evaluator._rollout_one_impl(None, 20, 0)
@@ -232,7 +329,7 @@ def test_sim_evaluator_passes_full_chain_action_to_environment():
     assert env.actions[0].tolist() == pytest.approx([100.0, 200.0, 0.3, 0.7])
 
 
-def test_seed_mode_rolls_every_seed_even_when_batch_reports_one_episode():
+def test_seed_mode_rolls_every_seed_even_when_batch_reports_one_episode(tmp_path):
     env = _FakeEnv()
     seeds = [2011, 2022, 2033]
     evaluator = _FakeChainEval(
@@ -243,7 +340,8 @@ def test_seed_mode_rolls_every_seed_even_when_batch_reports_one_episode():
     )
     evaluator.model = _FakeAlgo()
     evaluator.trainer = SimpleNamespace(
-        lightning_module=SimpleNamespace(device=torch.device("cpu"))
+        lightning_module=SimpleNamespace(device=torch.device("cpu")),
+        default_root_dir=str(tmp_path),
     )
 
     metrics, _ = evaluator.compute_metrics_and_viz({20: {}})
@@ -259,3 +357,209 @@ def test_completed_seed_rollout_count_assertion_is_strict():
     assert _assert_completed_seed_rollouts(evaluator, [20], 3) == {20: 3}
     with pytest.raises(RuntimeError, match=r"emb20 completed=3 expected=4"):
         _assert_completed_seed_rollouts(evaluator, [20], 4)
+
+
+def _registered_ema_checkpoint():
+    return {
+        "state_dict": {
+            "nets.policy.weight": torch.tensor([1.0]),
+            "nets.policy.bias": torch.tensor([2.0]),
+            "ema_nets.policy.weight": torch.tensor([3.0]),
+            "ema_nets.policy.bias": torch.tensor([4.0]),
+            "ema_optimization_step": torch.tensor(17),
+            "ema_decay": torch.tensor(0.999),
+        }
+    }
+
+
+def test_strict_state_dict_selects_complete_registered_ema_or_online_tree():
+    ckpt = _registered_ema_checkpoint()
+
+    online = _strict_state_dict(ckpt, use_ema=False)
+    ema = _strict_state_dict(ckpt, use_ema=True)
+
+    assert set(online) == {"policy.weight", "policy.bias"}
+    assert set(ema) == set(online)
+    assert online["policy.weight"].item() == pytest.approx(1.0)
+    assert ema["policy.weight"].item() == pytest.approx(3.0)
+
+
+def test_strict_state_dict_rejects_partial_or_foreign_registered_ema_state():
+    ckpt = _registered_ema_checkpoint()
+    del ckpt["state_dict"]["ema_nets.policy.bias"]
+    with pytest.raises(RuntimeError, match="do not exactly match"):
+        _strict_state_dict(ckpt, use_ema=True)
+
+    ckpt = _registered_ema_checkpoint()
+    ckpt["state_dict"]["foreign_buffer"] = torch.tensor(1)
+    with pytest.raises(RuntimeError, match="non-model state keys"):
+        _strict_state_dict(ckpt, use_ema=True)
+
+    ckpt = _registered_ema_checkpoint()
+    del ckpt["state_dict"]["ema_decay"]
+    with pytest.raises(RuntimeError, match="missing wrapper buffers"):
+        _strict_state_dict(ckpt, use_ema=True)
+
+
+def _legacy_callback_ema_checkpoint():
+    return {
+        "state_dict": {
+            "nets.policy.weight": torch.tensor([1.0]),
+            "nets.policy.running_scale": torch.tensor([2.0]),
+        },
+        "ema_state_dict": {
+            "nets.policy.weight": torch.tensor([3.0]),
+        },
+    }
+
+
+def test_strict_state_dict_overlays_legacy_ema_parameters_and_keeps_live_buffers():
+    ckpt = _legacy_callback_ema_checkpoint()
+    parameter_keys = {"policy.weight"}
+
+    online = _strict_state_dict(
+        ckpt,
+        use_ema=False,
+        expected_parameter_keys=parameter_keys,
+    )
+    ema = _strict_state_dict(
+        ckpt,
+        use_ema=True,
+        expected_parameter_keys=parameter_keys,
+    )
+
+    assert set(ema) == set(online) == {"policy.weight", "policy.running_scale"}
+    assert online["policy.weight"].item() == pytest.approx(1.0)
+    assert ema["policy.weight"].item() == pytest.approx(3.0)
+    assert ema["policy.running_scale"].item() == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_strict_state_dict_coalesces_identical_wrapper_aliases_order_independently(
+    reverse,
+):
+    entries = [
+        ("nets.policy.weight", torch.tensor([1.0, 2.0])),
+        ("model.nets.policy.weight", torch.tensor([1.0, 2.0])),
+    ]
+    if reverse:
+        entries.reverse()
+
+    state = _strict_state_dict({"state_dict": dict(entries)}, use_ema=False)
+
+    assert set(state) == {"policy.weight"}
+    torch.testing.assert_close(state["policy.weight"], torch.tensor([1.0, 2.0]))
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        torch.tensor([1.0, 3.0]),
+        torch.tensor([[1.0, 2.0]]),
+        torch.tensor([1, 2], dtype=torch.int64),
+    ],
+    ids=["value", "shape", "dtype"],
+)
+def test_strict_state_dict_rejects_conflicting_wrapper_aliases(alias):
+    ckpt = {
+        "state_dict": {
+            "nets.policy.weight": torch.tensor([1.0, 2.0]),
+            "model.nets.policy.weight": alias,
+        }
+    }
+
+    with pytest.raises(RuntimeError, match="conflicting online state aliases"):
+        _strict_state_dict(ckpt, use_ema=False)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_strict_state_dict_coalesces_identical_legacy_ema_aliases(reverse):
+    entries = [
+        ("nets.policy.weight", torch.tensor([3.0])),
+        ("model.nets.policy.weight", torch.tensor([3.0])),
+        ("policy.weight", torch.tensor([3.0])),
+    ]
+    if reverse:
+        entries.reverse()
+    ckpt = _legacy_callback_ema_checkpoint()
+    ckpt["ema_state_dict"] = dict(entries)
+
+    ema = _strict_state_dict(
+        ckpt,
+        use_ema=True,
+        expected_parameter_keys={"policy.weight"},
+    )
+
+    assert ema["policy.weight"].item() == pytest.approx(3.0)
+    assert ema["policy.running_scale"].item() == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        torch.tensor([4.0]),
+        torch.tensor([[3.0]]),
+        torch.tensor([3], dtype=torch.int64),
+    ],
+    ids=["value", "shape", "dtype"],
+)
+def test_strict_state_dict_rejects_conflicting_legacy_ema_aliases(alias):
+    ckpt = _legacy_callback_ema_checkpoint()
+    ckpt["ema_state_dict"]["model.nets.policy.weight"] = alias
+
+    with pytest.raises(RuntimeError, match="conflicting legacy EMA state aliases"):
+        _strict_state_dict(
+            ckpt,
+            use_ema=True,
+            expected_parameter_keys={"policy.weight"},
+        )
+
+
+def test_strict_state_dict_rejects_incomplete_legacy_ema_parameters():
+    ckpt = _legacy_callback_ema_checkpoint()
+
+    with pytest.raises(RuntimeError, match="do not exactly match model parameters"):
+        _strict_state_dict(
+            ckpt,
+            use_ema=True,
+            expected_parameter_keys={"policy.weight", "policy.bias"},
+        )
+
+    with pytest.raises(RuntimeError, match="requires the instantiated model"):
+        _strict_state_dict(ckpt, use_ema=True)
+
+
+def test_sampler_override_finds_selected_nested_domain_policy():
+    chain = SimpleNamespace(num_inference_steps=100)
+    socket = SimpleNamespace(num_inference_steps=100)
+    stage = SimpleNamespace(
+        policies={
+            "pushshapes_sim_chain_gripper": chain,
+            "pushshapes_sim_u_socket": socket,
+        }
+    )
+    algo = SimpleNamespace(policy=SimpleNamespace(stages=[stage]))
+
+    stage_name, original = _override_sampler_inference_steps(
+        algo,
+        32,
+        embodiment_name="pushshapes_sim_chain_gripper",
+    )
+
+    assert stage_name == "SimpleNamespace"
+    assert original == 100
+    assert chain.num_inference_steps == 32
+    assert socket.num_inference_steps == 100
+
+
+def test_sampler_override_rejects_ambiguous_direct_candidates():
+    algo = SimpleNamespace(
+        policy=SimpleNamespace(
+            stages=[
+                SimpleNamespace(num_inference_steps=100),
+                SimpleNamespace(num_inference_steps=100),
+            ]
+        )
+    )
+    with pytest.raises(RuntimeError, match="exactly one"):
+        _override_sampler_inference_steps(algo, 50)

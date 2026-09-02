@@ -472,7 +472,7 @@ if test "$MODE" = preflight; then
     tests/test_pipeline_sampler_stage.py \
     tests/test_fixed_validation_loader.py \
     tests/test_human_robot_overlay_eval.py
-  "$PY_ENV/bin/python" "$VERIFIER" "$SUPERSEDED_SMOKE" \
+  CUDA_VISIBLE_DEVICES= "$PY_ENV/bin/python" "$VERIFIER" "$SUPERSEDED_SMOKE" \
     --required-embodiments 19,20 \
     --expected-head "$SUPERSEDED_SMOKE_HEAD" \
     --expected-world-size 2 \
@@ -778,7 +778,7 @@ test "$(git -C "$REPO" rev-parse HEAD)" = "$EXPECTED_HEAD"
 test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
 
 if test "$MODE" = smoke; then
-  "$PY_ENV/bin/python" "$VERIFIER" "$RUN_DIR" \
+  CUDA_VISIBLE_DEVICES= "$PY_ENV/bin/python" "$VERIFIER" "$RUN_DIR" \
     --required-embodiments 19,20 \
     --expected-head "$EXPECTED_HEAD" \
     --expected-world-size 2 \

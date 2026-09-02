@@ -32,6 +32,8 @@ class HumanRobotOverlayEval(EvalVideo):
         frame_stride: int = 10,
         max_frames: int | None = 120,
         max_frames_by_embodiment: dict[str, int] | None = None,
+        log_normalized_mse: bool | None = None,
+        log_native_mse: bool | None = None,
         deterministic_seed: int | None = None,
         exact_epoch_metrics: bool = False,
         energy_score: dict[str, Any] | None = None,
@@ -46,6 +48,17 @@ class HumanRobotOverlayEval(EvalVideo):
             str(name).lower(): int(limit)
             for name, limit in (max_frames_by_embodiment or {}).items()
         }
+        # ``None`` preserves the UNITE evaluator contract: log normalized and
+        # unnormalized model-action aliases and macro-average domains. Paper
+        # DP opts in explicitly and requires adapter-decoded native actions and
+        # element-weighted batch aggregates.
+        self.log_normalized_mse = (
+            True if log_normalized_mse is None else bool(log_normalized_mse)
+        )
+        self.log_native_mse = True if log_native_mse is None else bool(log_native_mse)
+        self._normalized_mse_is_explicit = log_normalized_mse is not None
+        self._native_mse_is_explicit = log_native_mse is not None
+        self._decode_native_mse = log_native_mse is True
         self.deterministic_seed = (
             None if deterministic_seed is None else int(deterministic_seed)
         )
@@ -55,7 +68,11 @@ class HumanRobotOverlayEval(EvalVideo):
         self._energy_seed_bank: list[int] = []
         self._energy_seed_bank_sha256: str | None = None
         self._energy_batches_done = 0
+        self._energy_schema: str | None = None
+        self._energy_action_dims: dict[str, int] = {}
         self._energy_distance_blocks: dict[str, dict[str, dict[str, Any]]] = {}
+        self._energy_shared_action_dim: int | None = None
+        self._energy_shared_distance_blocks: dict[str, dict[str, Any]] | None = None
         if self.energy_score_enabled:
             self._configure_energy_score()
         self._rendered_frames: dict[int, int] = {}
@@ -81,6 +98,10 @@ class HumanRobotOverlayEval(EvalVideo):
         action_dim: int,
         blocks: dict[str, Any],
     ) -> dict[str, dict[str, Any]]:
+        if action_dim <= 0:
+            raise ValueError(
+                f"Energy Score action dimension for {embodiment_name} must be positive"
+            )
         if not blocks:
             raise ValueError(
                 f"Energy Score requires semantic blocks for {embodiment_name}"
@@ -90,7 +111,12 @@ class HumanRobotOverlayEval(EvalVideo):
         for name, raw in blocks.items():
             indices = [int(index) for index in raw.get("indices", [])]
             weight = float(raw.get("weight", 0.0))
-            if not indices or weight <= 0.0 or covered.intersection(indices):
+            if (
+                not indices
+                or len(indices) != len(set(indices))
+                or weight <= 0.0
+                or covered.intersection(indices)
+            ):
                 raise ValueError(
                     f"Invalid Energy Score block {embodiment_name}/{name}: {raw}"
                 )
@@ -120,27 +146,44 @@ class HumanRobotOverlayEval(EvalVideo):
             raise ValueError("Energy Score seeds must be unique")
         self._energy_seed_bank_sha256 = expected_sha
 
-        action_dims = {
-            str(name).lower(): int(width)
-            for name, width in dict(self.energy_score.get("action_dims", {})).items()
-        }
-        configured_blocks = {
-            str(name).lower(): dict(blocks)
-            for name, blocks in dict(
-                self.energy_score.get("distance_blocks", {})
-            ).items()
-        }
-        if not action_dims or set(action_dims) != set(configured_blocks):
+        raw_action_dims = self.energy_score.get("action_dims")
+        raw_action_dim = self.energy_score.get("action_dim")
+        configured_blocks = dict(self.energy_score.get("distance_blocks", {}))
+        if raw_action_dims is not None and raw_action_dim is not None:
             raise ValueError(
-                "Energy Score action_dims and distance_blocks must name the "
-                "same embodiments"
+                "Energy Score must use either action_dim or action_dims, not both"
             )
-        self._energy_distance_blocks = {
-            name: self._validate_distance_blocks(
-                name, action_dims[name], configured_blocks[name]
+        if raw_action_dims is not None:
+            action_dims = {
+                str(name).lower(): int(width)
+                for name, width in dict(raw_action_dims).items()
+            }
+            blocks_by_embodiment = {
+                str(name).lower(): dict(blocks)
+                for name, blocks in configured_blocks.items()
+            }
+            if not action_dims or set(action_dims) != set(blocks_by_embodiment):
+                raise ValueError(
+                    "Energy Score action_dims and distance_blocks must name the "
+                    "same embodiments"
+                )
+            self._energy_schema = "per_domain"
+            self._energy_action_dims = action_dims
+            self._energy_distance_blocks = {
+                name: self._validate_distance_blocks(
+                    name, action_dims[name], blocks_by_embodiment[name]
+                )
+                for name in action_dims
+            }
+        elif raw_action_dim is not None:
+            action_dim = int(raw_action_dim)
+            self._energy_schema = "shared"
+            self._energy_shared_action_dim = action_dim
+            self._energy_shared_distance_blocks = self._validate_distance_blocks(
+                "shared", action_dim, configured_blocks
             )
-            for name in action_dims
-        }
+        else:
+            raise ValueError("Energy Score requires action_dim or action_dims")
         if int(self.energy_score.get("max_batches_per_rank", 0)) <= 0:
             raise ValueError("Energy Score max_batches_per_rank must be positive")
         if not str(self.energy_score.get("artifact_root", "")):
@@ -152,13 +195,36 @@ class HumanRobotOverlayEval(EvalVideo):
         right: torch.Tensor,
         embodiment_name: str,
     ) -> torch.Tensor:
-        """Return equal-semantic-block RMS distance on normalized chunks."""
+        """Return a block-balanced normalized chunk distance.
+
+        The tensors may carry any shared leading axes. Their last two axes are
+        horizon and action channel; every semantic block contributes one RMS
+        term regardless of its coordinate count.
+        """
 
         if left.shape != right.shape:
             left, right = torch.broadcast_tensors(left, right)
+        action_width = int(left.shape[-1])
+        if self._energy_schema == "per_domain":
+            if embodiment_name not in self._energy_distance_blocks:
+                raise ValueError(
+                    f"No Energy Score distance contract for {embodiment_name}"
+                )
+            expected_width = self._energy_action_dims[embodiment_name]
+            blocks = self._energy_distance_blocks[embodiment_name]
+        elif self._energy_schema == "shared":
+            expected_width = int(self._energy_shared_action_dim)
+            blocks = self._energy_shared_distance_blocks
+        else:
+            raise RuntimeError("Energy Score distance contract is not configured")
+        if action_width != expected_width:
+            raise ValueError(
+                f"Energy Score action width for {embodiment_name} is {action_width}, "
+                f"expected {expected_width}"
+            )
         terms = []
         weights = []
-        for raw in self._energy_distance_blocks[embodiment_name].values():
+        for raw in blocks.values():
             indices = raw["indices"]
             weight = raw["weight"]
             delta = left[..., indices] - right[..., indices]
@@ -205,10 +271,6 @@ class HumanRobotOverlayEval(EvalVideo):
         domain_diversities = []
         for emb_id, predictions in sampled.items():
             embodiment_name = get_embodiment(emb_id).lower()
-            if embodiment_name not in self._energy_distance_blocks:
-                raise ValueError(
-                    f"No Energy Score distance contract for {embodiment_name}"
-                )
             action_key = self.model.resolved_ac_keys[emb_id]
             target = self._normalized_target(batch[emb_id], action_key)
             if predictions.shape[1:] != target.shape:
@@ -277,17 +339,21 @@ class HumanRobotOverlayEval(EvalVideo):
         temporary = destination.with_suffix(".pt.tmp")
         if destination.exists() or temporary.exists():
             raise FileExistsError(f"Refusing to overwrite {destination}")
+        distance_contract = {
+            "space": "normalized_action_chunk",
+            "formula": "mean_weighted_semantic_block_rms",
+        }
+        if self._energy_schema == "per_domain":
+            distance_contract["blocks_by_embodiment"] = self._energy_distance_blocks
+        else:
+            distance_contract["blocks"] = self._energy_shared_distance_blocks
         payload = {
             "schema_version": 1,
             "metric": "EnergyScore@32",
             "sample_count": 32,
             "seed_bank": self._energy_seed_bank,
             "seed_bank_sha256": self._energy_seed_bank_sha256,
-            "distance": {
-                "space": "normalized_action_chunk",
-                "formula": "mean_weighted_semantic_block_rms",
-                "blocks_by_embodiment": self._energy_distance_blocks,
-            },
+            "distance": distance_contract,
             "aggregation": "condition_mean_then_equal_domain_macro_mean",
             "global_step": step,
             "epoch": epoch,
@@ -328,26 +394,35 @@ class HumanRobotOverlayEval(EvalVideo):
     def _accumulate_exact(
         self,
         emb_id: int,
-        normalized_squared_error: torch.Tensor,
-        native_squared_error: torch.Tensor,
+        normalized_squared_error: torch.Tensor | None,
+        native_squared_error: torch.Tensor | None,
     ) -> None:
+        if normalized_squared_error is None and native_squared_error is None:
+            return
+        reference = (
+            normalized_squared_error
+            if normalized_squared_error is not None
+            else native_squared_error
+        )
         item = self._exact_sums.setdefault(
             int(emb_id),
             {
                 "normalized_sum": torch.zeros(
-                    (), device=normalized_squared_error.device, dtype=torch.float64
+                    (), device=reference.device, dtype=torch.float64
                 ),
                 "normalized_count": 0,
                 "native_sum": torch.zeros(
-                    (), device=native_squared_error.device, dtype=torch.float64
+                    (), device=reference.device, dtype=torch.float64
                 ),
                 "native_count": 0,
             },
         )
-        item["normalized_sum"] += normalized_squared_error.double().sum().detach()
-        item["normalized_count"] += normalized_squared_error.numel()
-        item["native_sum"] += native_squared_error.double().sum().detach()
-        item["native_count"] += native_squared_error.numel()
+        if normalized_squared_error is not None:
+            item["normalized_sum"] += normalized_squared_error.double().sum().detach()
+            item["normalized_count"] += normalized_squared_error.numel()
+        if native_squared_error is not None:
+            item["native_sum"] += native_squared_error.double().sum().detach()
+            item["native_count"] += native_squared_error.numel()
 
     def on_validation_end(self):
         if self.exact_epoch_metrics:
@@ -355,35 +430,49 @@ class HumanRobotOverlayEval(EvalVideo):
             normalized_mses = []
             native_mses = []
             device = self.trainer.lightning_module.device
-            for emb_id in sorted(self._exact_sums):
-                item = self._exact_sums[emb_id]
-                totals = torch.tensor(
-                    [
-                        float(item["normalized_sum"].item()),
-                        float(item["normalized_count"]),
-                        float(item["native_sum"].item()),
-                        float(item["native_count"]),
-                    ],
-                    dtype=torch.float64,
-                    device=device,
+            distributed = dist.is_available() and dist.is_initialized()
+            embodiment_ids = sorted(self._exact_sums)
+            if distributed:
+                gathered_ids: list[list[int] | None] = [
+                    None for _ in range(dist.get_world_size())
+                ]
+                dist.all_gather_object(gathered_ids, embodiment_ids)
+                embodiment_ids = sorted(
+                    {
+                        int(emb_id)
+                        for rank_ids in gathered_ids
+                        for emb_id in (rank_ids or [])
+                    }
                 )
-                if dist.is_available() and dist.is_initialized():
+
+            for emb_id in embodiment_ids:
+                item = self._exact_sums.get(emb_id)
+                totals = torch.zeros(4, dtype=torch.float64, device=device)
+                if item is not None:
+                    totals[0] = item["normalized_sum"].item()
+                    totals[1] = item["normalized_count"]
+                    totals[2] = item["native_sum"].item()
+                    totals[3] = item["native_count"]
+                if distributed:
                     dist.all_reduce(totals, op=dist.ReduceOp.SUM)
-                normalized_mse = totals[0] / totals[1]
-                native_mse = totals[2] / totals[3]
                 embodiment_name = get_embodiment(emb_id).lower()
-                metrics[f"Valid/MSE/{embodiment_name}"] = normalized_mse.float()
-                metrics[f"Valid/Native_MSE/{embodiment_name}"] = native_mse.float()
-                metrics[f"Valid/Element_Count/{embodiment_name}"] = totals[1]
-                normalized_mses.append(normalized_mse)
-                native_mses.append(native_mse)
+                if totals[1] > 0:
+                    normalized_mse = totals[0] / totals[1]
+                    metrics[f"Valid/MSE/{embodiment_name}"] = normalized_mse.float()
+                    metrics[f"Valid/Element_Count/{embodiment_name}"] = totals[1]
+                    normalized_mses.append(normalized_mse)
+                if totals[3] > 0:
+                    native_mse = totals[2] / totals[3]
+                    metrics[f"Valid/Native_MSE/{embodiment_name}"] = native_mse.float()
+                    native_mses.append(native_mse)
             if normalized_mses:
                 metrics["Valid/MSE"] = torch.stack(normalized_mses).mean().float()
             if native_mses:
                 metrics["Valid/Native_MSE"] = torch.stack(native_mses).mean().float()
-            self.trainer.lightning_module.log_dict(
-                metrics, on_step=False, on_epoch=True, sync_dist=False
-            )
+            if metrics:
+                self.trainer.lightning_module.log_dict(
+                    metrics, on_step=False, on_epoch=True, sync_dist=False
+                )
         super().on_validation_end()
 
     @staticmethod
@@ -441,14 +530,36 @@ class HumanRobotOverlayEval(EvalVideo):
             action_key
         ]
 
+    @staticmethod
+    def _finite_mse(prediction, target, label: str):
+        if prediction.shape != target.shape:
+            raise ValueError(
+                f"{label} prediction/target mismatch: "
+                f"{tuple(prediction.shape)} vs {tuple(target.shape)}"
+            )
+        if prediction.numel() == 0:
+            raise ValueError(f"{label} received an empty prediction/target")
+        squared_error = (prediction - target).float().square().reshape(-1)
+        if not bool(torch.isfinite(squared_error).all()):
+            raise ValueError(f"{label} contains non-finite squared error")
+        return (
+            squared_error.mean().detach(),
+            squared_error.sum().detach(),
+            squared_error.numel(),
+        )
+
     def compute_metrics_and_viz(
         self, batch: dict[int, dict[str, Any]]
     ) -> tuple[dict[str, torch.Tensor], dict[int, np.ndarray]]:
         predictions = self.model.forward_eval(batch)
         metrics = {}
         images = {}
-        normalized_mses = []
-        native_mses = []
+        normalized_domain_mses = []
+        native_domain_mses = []
+        normalized_squared_error_sum = None
+        normalized_element_count = 0
+        native_squared_error_sum = None
+        native_element_count = 0
 
         if self.energy_score_enabled and self._energy_batches_done < int(
             self.energy_score["max_batches_per_rank"]
@@ -469,11 +580,16 @@ class HumanRobotOverlayEval(EvalVideo):
 
             normalized_prediction = predictions[prediction_key]
             normalized_target = self._normalized_target(embodiment_batch, action_key)
+            normalized_count = min(
+                normalized_target.shape[0], normalized_prediction.shape[0]
+            )
+            normalized_target = normalized_target[:normalized_count]
+            normalized_prediction = normalized_prediction[:normalized_count]
             unnormalized, target = self._unnormalized_target(
                 embodiment_batch, emb_id, action_key
             )
             prediction = self._unnormalize_prediction(
-                predictions[prediction_key], emb_id, action_key
+                normalized_prediction, emb_id, action_key
             )
             count = min(target.shape[0], prediction.shape[0])
             normalized_target = normalized_target[:count]
@@ -484,13 +600,6 @@ class HumanRobotOverlayEval(EvalVideo):
                     f"{tuple(normalized_prediction.shape)} vs "
                     f"{tuple(normalized_target.shape)}"
                 )
-            normalized_squared_error = (
-                normalized_prediction - normalized_target
-            ).square()
-            normalized_mse = normalized_squared_error.mean()
-            normalized_mses.append(normalized_mse.detach())
-            if not self.exact_epoch_metrics:
-                metrics[f"Valid/MSE/{embodiment_name}"] = normalized_mse.detach()
             target = target[:count]
             prediction = prediction[:count]
             if target.shape != prediction.shape:
@@ -501,18 +610,80 @@ class HumanRobotOverlayEval(EvalVideo):
 
             metric_prefix = f"Valid/emb{emb_id}_{action_key}_action"
             metrics.update(self._error_metrics(metric_prefix, prediction, target))
-            native_squared_error = (prediction - target).square()
-            native_mse = native_squared_error.mean()
-            native_mses.append(native_mse.detach())
+            metrics[f"Valid/emb{emb_id}_{action_key}_copybaseline_mse"] = (
+                (target[:, :1] - target).square().mean().detach()
+            )
+
+            normalized_squared_error = None
+            if self.log_normalized_mse:
+                normalized_mse, squared_error_sum, element_count = self._finite_mse(
+                    normalized_prediction,
+                    normalized_target,
+                    f"normalized {embodiment_name}",
+                )
+                normalized_squared_error = (
+                    (normalized_prediction - normalized_target).float().square()
+                )
+                if not self.exact_epoch_metrics:
+                    metrics[f"Valid/MSE/{embodiment_name}"] = normalized_mse
+                    if self._normalized_mse_is_explicit:
+                        normalized_squared_error_sum = (
+                            squared_error_sum
+                            if normalized_squared_error_sum is None
+                            else normalized_squared_error_sum + squared_error_sum
+                        )
+                        normalized_element_count += element_count
+                    else:
+                        normalized_domain_mses.append(normalized_mse)
+
+            native_squared_error = None
+            if self.log_native_mse:
+                if self._decode_native_mse:
+                    adapter = self.model.rollout_adapter_for(emb_id)
+                    if adapter is None:
+                        raise ValueError(
+                            f"Native MSE requested but {embodiment_name} has no "
+                            "rollout adapter"
+                        )
+                    native_prediction = adapter.decode(prediction, unnormalized)
+                    native_target = adapter.decode(target, unnormalized)
+                    if not torch.is_tensor(native_prediction):
+                        native_prediction = torch.as_tensor(
+                            native_prediction, device=prediction.device
+                        )
+                    if not torch.is_tensor(native_target):
+                        native_target = torch.as_tensor(
+                            native_target, device=target.device
+                        )
+                else:
+                    # UNITE action heads already emit the action representation
+                    # used by its historical Native_MSE validation contract.
+                    native_prediction = prediction
+                    native_target = target
+                native_mse, squared_error_sum, element_count = self._finite_mse(
+                    native_prediction,
+                    native_target,
+                    f"native {embodiment_name}",
+                )
+                native_squared_error = (
+                    (native_prediction - native_target).float().square()
+                )
+                if not self.exact_epoch_metrics:
+                    metrics[f"Valid/Native_MSE/{embodiment_name}"] = native_mse
+                    if self._native_mse_is_explicit:
+                        native_squared_error_sum = (
+                            squared_error_sum
+                            if native_squared_error_sum is None
+                            else native_squared_error_sum + squared_error_sum
+                        )
+                        native_element_count += element_count
+                    else:
+                        native_domain_mses.append(native_mse)
+
             if self.exact_epoch_metrics:
                 self._accumulate_exact(
                     emb_id, normalized_squared_error, native_squared_error
                 )
-            else:
-                metrics[f"Valid/Native_MSE/{embodiment_name}"] = native_mse.detach()
-            metrics[f"Valid/emb{emb_id}_{action_key}_copybaseline_mse"] = (
-                (target[:, :1] - target).square().mean().detach()
-            )
 
             raw_images = embodiment_batch.get(self.image_key)
             viz = None if self.viz_func is None else self.viz_func.get(embodiment_name)
@@ -581,10 +752,32 @@ class HumanRobotOverlayEval(EvalVideo):
                     flush=True,
                 )
 
-        if normalized_mses and not self.exact_epoch_metrics:
-            metrics["Valid/MSE"] = torch.stack(normalized_mses).mean()
-        if native_mses and not self.exact_epoch_metrics:
-            metrics["Valid/Native_MSE"] = torch.stack(native_mses).mean()
+        if not self.exact_epoch_metrics and self.log_normalized_mse:
+            if self._normalized_mse_is_explicit:
+                if (
+                    normalized_squared_error_sum is None
+                    or normalized_element_count == 0
+                ):
+                    raise ValueError(
+                        "Normalized MSE requested for an empty validation batch"
+                    )
+                metrics["Valid/MSE"] = (
+                    normalized_squared_error_sum / normalized_element_count
+                ).detach()
+            elif normalized_domain_mses:
+                metrics["Valid/MSE"] = torch.stack(normalized_domain_mses).mean()
+
+        if not self.exact_epoch_metrics and self.log_native_mse:
+            if self._native_mse_is_explicit:
+                if native_squared_error_sum is None or native_element_count == 0:
+                    raise ValueError(
+                        "Native MSE requested for an empty validation batch"
+                    )
+                metrics["Valid/Native_MSE"] = (
+                    native_squared_error_sum / native_element_count
+                ).detach()
+            elif native_domain_mses:
+                metrics["Valid/Native_MSE"] = torch.stack(native_domain_mses).mean()
 
         return metrics, images
 

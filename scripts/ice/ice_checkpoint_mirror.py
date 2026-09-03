@@ -8,21 +8,20 @@ stdout line. The object must contain a non-negative integer ``global_step``.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import fcntl
 import glob
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import shlex
 import signal
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Sequence
-
 
 INCOMPLETE_SUFFIXES = (".tmp", ".part", ".partial", ".incomplete")
 HOST_RE = re.compile(r"^[A-Za-z0-9_.@-]+$")
@@ -302,11 +301,14 @@ def mirror_one(
     ssh: str,
     rsync: str,
     rsync_rsh: str | None,
+    temporary_tag: str | None = None,
 ) -> str:
     suffix = "".join(path.suffixes) or ".checkpoint"
     base = path.name[: -len(suffix)] if suffix else path.name
     final = f"{remote_dir.rstrip('/')}/{base}.{digest}{suffix}"
-    temporary = f"{final}.partial"
+    if temporary_tag is not None and not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", temporary_tag):
+        raise ValueError("temporary_tag contains unsupported characters")
+    temporary = f"{final}.partial" + (f".{temporary_tag}" if temporary_tag else "")
     existing = remote_sha(ssh, host, final)
     if existing == digest:
         try:

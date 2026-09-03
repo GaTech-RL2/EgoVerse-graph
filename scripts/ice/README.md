@@ -90,3 +90,34 @@ and writes `COMPLETE.json` only after successful training and terminal
 checkpoint validation. It never opts into unvalidated checkpoints. For a long
 run, launch the separate CPU checkpoint mirror described by
 `ice_checkpoint_mirror.sbatch`; do not put mirroring inside the GPU job.
+
+## Multi-node checkpoint mirror pool
+
+For sustained or multi-run training, use `ice_checkpoint_mirror_pool.sbatch`
+instead of the single-node wrapper. Submit it as a bounded Slurm array, with one
+exclusive `ice-cpu` node per array element:
+
+```bash
+export ICE_MIRROR_POOL_SIZE=4
+export ICE_MIRROR_POOL_SCRIPT=/absolute/repo/scripts/ice/ice_checkpoint_mirror_pool.py
+sbatch --array=0-3%4 scripts/ice/ice_checkpoint_mirror_pool.sbatch
+```
+
+All workers must receive the same manifest, state directory, scratch root,
+quota, destination host, and SSH identity. The shared state directory must be
+on ICE storage visible from every allocated node. Workers rotate their scan
+order and take a nonblocking per-checkpoint lock, so validation, hashing, and
+upload of different checkpoints proceed concurrently without duplicate
+transfers. Short state and event locks prevent lost updates.
+
+Array element zero is the maintenance worker. It alone measures whole-scratch
+pressure, prunes when explicitly enabled, and publishes `mirror-complete.json`.
+Pruning still requires a fresh local validation/hash, an exact remote SHA-256
+match, a final unchanged local stat, and retention of at least two recent local
+checkpoints per run. A worker or transfer failure never signals a GPU job.
+
+Start with two to four workers and increase only after measuring aggregate
+throughput: every worker reads the shared ICE filesystem and writes through the
+same remote gateway. `#SBATCH --exclusive` guarantees distinct nodes but makes
+the allocation intentionally expensive; remove it only if separate nodes are
+not required.

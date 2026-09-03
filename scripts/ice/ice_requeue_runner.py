@@ -13,13 +13,11 @@ ICE_RESTART_COUNT, ICE_ATTEMPT_DIR, and ICE_REQUEUE_OWNER.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import fcntl
 import glob
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import shlex
 import shutil
@@ -27,8 +25,9 @@ import signal
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Sequence
-
 
 INCOMPLETE_SUFFIXES = (".tmp", ".part", ".partial", ".incomplete")
 STEP_RE = re.compile(r"(?:^|[^A-Za-z])(?:global[_-]?step|step)[=_-]?(\d+)", re.IGNORECASE)

@@ -312,9 +312,9 @@ if family == "paper_dp":
 elif family == "unite":
     assert experiment == "pusht/unite_usocket_register_sweep_val01_h16"
     assert cfg.name == "unite_usocket_register_sweep_h16"
-    assert bool(cfg.evaluator.unite_diagnostics.enabled)
-    assert int(cfg.evaluator.unite_diagnostics.validation_view.world_size) == 2
-    assert int(cfg.evaluator.unite_diagnostics.validation_view.per_rank_batch_size) == 16
+    assert int(cfg.evaluator.energy_score_max_batches_per_rank) == 1
+    assert int(cfg.evaluator.energy_score_validation_view.world_size) == 2
+    assert int(cfg.evaluator.energy_score_validation_view.per_rank_batch_size) == 16
     if h100_fast == "true":
         policy = cfg.model.pipeline.stages[4]
         assert int(policy.flow_mini_batch) == 14

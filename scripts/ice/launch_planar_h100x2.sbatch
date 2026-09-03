@@ -114,6 +114,21 @@ positive_integer ICE_SEED "$ICE_SEED"
 [[ "$RESTART_COUNT" =~ ^[0-9]+$ ]] || die "invalid SLURM_RESTART_COUNT"
 test "$RESTART_COUNT" -le "$ICE_MAX_RESTARTS" || die "restart limit exceeded"
 
+# An externally submitted continuation has no runner high-water state yet. Bind
+# its seed checkpoint explicitly so a nonzero restart count cannot silently
+# enter discovery with no authenticated checkpoint.
+if test -n "${ICE_INITIAL_CHECKPOINT:-}"; then
+  required ICE_INITIAL_CHECKPOINT_SHA256
+  absolute_path ICE_INITIAL_CHECKPOINT "$ICE_INITIAL_CHECKPOINT"
+  test -f "$ICE_INITIAL_CHECKPOINT" || die "ICE_INITIAL_CHECKPOINT is unavailable"
+  [[ "$ICE_INITIAL_CHECKPOINT_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
+    die "ICE_INITIAL_CHECKPOINT_SHA256 must be a lowercase SHA-256"
+  test "$(sha256sum "$ICE_INITIAL_CHECKPOINT" | awk '{print $1}')" = \
+    "$ICE_INITIAL_CHECKPOINT_SHA256" || die "ICE_INITIAL_CHECKPOINT SHA-256 mismatch"
+elif test -n "${ICE_INITIAL_CHECKPOINT_SHA256:-}"; then
+  die "ICE_INITIAL_CHECKPOINT_SHA256 requires ICE_INITIAL_CHECKPOINT"
+fi
+
 for binding in \
   "ICE_REPO:$ICE_REPO" "ICE_PYTHON:$ICE_PYTHON" \
   "ICE_DATASET_DIR:$ICE_DATASET_DIR" "ICE_OUTPUT_DIR:$ICE_OUTPUT_DIR" \
@@ -477,5 +492,11 @@ RUNNER_ARGS=(
   --confirm-child-requeue-disabled
   --completion-sentinel "$ICE_OUTPUT_DIR/COMPLETE.json"
 )
+if test -n "${ICE_INITIAL_CHECKPOINT:-}"; then
+  RUNNER_ARGS+=(
+    --initial-checkpoint "$ICE_INITIAL_CHECKPOINT"
+    --require-initial-checkpoint
+  )
+fi
 exec "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
   /usr/bin/env bash -c "$CHILD_CODE" ice-planar-h100x2 "${BASE_OVERRIDES[@]}"

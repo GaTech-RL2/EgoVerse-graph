@@ -23,7 +23,7 @@ run_provenance:
 eval_checkpoint:
   use_ema: true
   prefix_rewrites:
-    "policy.stages.1.policies.pushshapes_sim_chain_gripper.": "policy.stages.3.policy."
+    "policy.stages.1.policies.pushshapes_sim_chain_gripper.": "pipeline.stages.3.policy."
 callbacks:
   ema:
     _target_: egomimic.utils.ema_callback.EMACallback

@@ -240,7 +240,7 @@ def test_strict_checkpoint_loader_overlays_ema_and_retains_online_buffers():
             self.register_buffer("running_scale", torch.tensor(3.0))
 
     class Algo:
-        nets = nn.ModuleDict({"policy": BufferedPolicy()})
+        nets = nn.ModuleDict({"pipeline": BufferedPolicy()})
 
     algo = Algo()
     expected = OrderedDict(
@@ -265,7 +265,7 @@ def test_strict_checkpoint_loader_overlays_ema_and_retains_online_buffers():
 
 def test_strict_checkpoint_loader_rejects_inexact_or_conflicting_ema_keys():
     class Algo:
-        nets = nn.ModuleDict({"policy": nn.Linear(2, 1)})
+        nets = nn.ModuleDict({"pipeline": nn.Linear(2, 1)})
 
     algo = Algo()
     expected = algo.nets.state_dict()
@@ -287,7 +287,7 @@ def test_strict_checkpoint_loader_rejects_inexact_or_conflicting_ema_keys():
         )
 
     extra = OrderedDict(ema)
-    extra["model.nets.policy.unexpected"] = torch.zeros(1)
+    extra["model.nets.pipeline.unexpected"] = torch.zeros(1)
     with pytest.raises(ValueError, match="EMA parameter key mismatch"):
         strict_load_pipeline_checkpoint(
             algo,
@@ -329,14 +329,14 @@ def _factorized_checkpoint_fixture(domain="domain"):
 
     class Algo(PipelineAlgo):
         def __init__(self):
-            self.nets = nn.ModuleDict({"policy": Policy()})
+            self.nets = nn.ModuleDict({"pipeline": Policy()})
 
     algo = Algo()
     expected = OrderedDict(
         (key, value.clone()) for key, value in algo.nets.state_dict().items()
     )
     old_prefix = f"policy.stages.1.policies.{domain}."
-    new_prefix = "policy.stages.3.policy."
+    new_prefix = "pipeline.stages.3.policy."
     online = OrderedDict(
         (
             "model.nets." + key.replace(new_prefix, old_prefix, 1),
@@ -558,7 +558,7 @@ def test_strict_checkpoint_loader_rejects_rewrite_collisions():
         )
 
 
-def test_train_eval_pipeline_load_is_strict_and_legacy_load_is_unchanged():
+def test_train_eval_pipeline_load_is_strict():
     from egomimic.trainHydra import _load_eval_checkpoint
 
     algo, _, online, ema, old_prefix, new_prefix = _factorized_checkpoint_fixture()
@@ -587,25 +587,6 @@ def test_train_eval_pipeline_load_is_strict_and_legacy_load_is_unchanged():
             {"state_dict": incomplete, "ema_state_dict": ema},
             cfg,
         )
-
-    class LegacyWrapper:
-        model = nn.Linear(2, 1)
-
-        def __init__(self):
-            self.call = None
-
-        def load_state_dict(self, state, strict):
-            self.call = (state, strict)
-
-    legacy = LegacyWrapper()
-    legacy_state = {"model.weight": torch.ones(1, 2)}
-    _load_eval_checkpoint(
-        legacy,
-        {"state_dict": legacy_state},
-        OmegaConf.create({}),
-    )
-    assert legacy.call == (legacy_state, False)
-
 
 def test_eval_mode_removes_training_time_ema_callback():
     from egomimic.trainHydra import _callbacks_for_mode

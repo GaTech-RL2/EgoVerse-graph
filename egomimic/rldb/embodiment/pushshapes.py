@@ -5,7 +5,7 @@ from __future__ import annotations
 from egomimic.rldb.zarr.planar_arc import PadPlanarAction, TokenizePlanarArcLength
 
 
-def get_keymap_hpt(
+def get_planar_keymap(
     action_horizon: int = 16,
     observation_horizon: int = 1,
     action_target_offset: int = 0,

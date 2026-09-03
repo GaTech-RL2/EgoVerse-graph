@@ -57,7 +57,7 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
         "rollout_adapters",
         "rollout_observation_adapters",
         "norm_stats",
-    } & set(cfg.model.robomimic_model)
+    } & set(cfg.model.pipeline)
     dataset = cfg.data.train_datasets[domain]
     assert dataset.valid_ratio == cfg.data.valid_datasets[domain].valid_ratio == 0.01
     assert dataset.split_seed == cfg.seed == 42
@@ -72,14 +72,14 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     model_yaml = OmegaConf.to_yaml(cfg.model)
     assert implementation in model_yaml
     stage_names = [
-        stage._target_.rsplit(".", 1)[-1] for stage in cfg.model.robomimic_model.stages
+        stage._target_.rsplit(".", 1)[-1] for stage in cfg.model.pipeline.stages
     ]
     assert stage_names[0:2] == ["FusedObsEncoder", "ActionTargetBuilder"]
-    assert cfg.model.robomimic_model.stages[0].inputs == {
+    assert cfg.model.pipeline.stages[0].inputs == {
         "front_img_1": "front_img_1",
         "state_agent_obj": "state_agent_obj",
     }
-    sampler = cfg.model.robomimic_model.stages[3]
+    sampler = cfg.model.pipeline.stages[3]
     assert sampler.action_horizon == horizon
     if "dp_paper" not in row:
         assert "eval_checkpoint" not in cfg
@@ -87,7 +87,7 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
         assert cfg.callbacks.ema.use_warmup is True
         assert cfg.eval_checkpoint.use_ema is True
         assert OmegaConf.to_container(cfg.eval_checkpoint.prefix_rewrites) == {
-            f"policy.stages.1.policies.{domain}.": "policy.stages.3.policy."
+            f"policy.stages.1.policies.{domain}.": "pipeline.stages.3.policy."
         }
         assert "DDPMScheduler" in model_yaml
         assert stage_names == [
@@ -98,7 +98,7 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
             "DiffusionEpsilonLossStage",
         ]
         assert cfg.planar.action_target_offset == 1
-        assert cfg.model.robomimic_model.stages[3].action_dim == 5
+        assert cfg.model.pipeline.stages[3].action_dim == 5
         assert OmegaConf.to_container(cfg.run_provenance.action_contract) == {
             "observation_alignment": "pre_step",
             "observation_horizon": 2,
@@ -111,7 +111,7 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     elif "dp_standard" in row:
         assert "DDIMScheduler" in model_yaml
         assert "ema" not in cfg.callbacks
-        assert cfg.model.robomimic_model.stages[3].action_dim == 5
+        assert cfg.model.pipeline.stages[3].action_dim == 5
         assert stage_names == [
             "FusedObsEncoder",
             "ActionTargetBuilder",

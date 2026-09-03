@@ -12,7 +12,7 @@ train_datasets:
       expected_episode_count: 3000
       expected_episode_names_sha256: 61e23164126fd2b2a9bd1cc7c7b015ddff05e18d5fe704b34d870b17742cddcd
       key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
         action_horizon: ${planar.raw_action_horizon}
         observation_horizon: ${planar.observation_horizon}
         action_target_offset: ${planar.action_target_offset}

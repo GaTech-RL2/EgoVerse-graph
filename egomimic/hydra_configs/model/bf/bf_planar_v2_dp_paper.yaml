@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
-robomimic_model:
+pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
   stages:
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder

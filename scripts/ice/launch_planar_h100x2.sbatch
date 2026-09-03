@@ -460,6 +460,11 @@ exec "$ICE_SRUN" --nodes=1 --ntasks=2 \
   "$checkpoint_override" "+logger.wandb.resume=$wandb_resume"
 BASH
 
+# Current register-sweep checkpoints use the generic strict Lightning validator;
+# the UNITE continuation dispatcher targets an older, incompatible contract.
+ICE_CHECKPOINT_VALIDATOR="$ICE_TOOL_DIR/validate_lightning_checkpoint.py"
+test -x "$ICE_CHECKPOINT_VALIDATOR" || die "generic checkpoint validator is unavailable"
+
 RUNNER_ARGS=(
   --state-dir "$ICE_OUTPUT_DIR/runner-state"
   --checkpoint-glob "$ICE_OUTPUT_DIR/checkpoints/*.ckpt"

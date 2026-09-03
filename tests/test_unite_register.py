@@ -454,7 +454,11 @@ def test_unite_energy_score_is_limited_without_truncating_mse_validation(tmp_pat
     )
     score_calls = []
     evaluator._seeded_predictions = lambda _batch: (
-        score_calls.append(True) or {19: target.unsqueeze(0).repeat(32, 1, 1, 1)}
+        score_calls.append(True)
+        or (
+            {19: target.unsqueeze(0).repeat(32, 1, 1, 1)},
+            {19: {"pred_action": target}},
+        )
     )
     evaluator._save_artifact = lambda *_args: None
     batch = {

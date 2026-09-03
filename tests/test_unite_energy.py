@@ -40,6 +40,7 @@ def _evaluator(tmp_path, **kwargs):
         seed_bank_sha256=digest,
         artifact_root=str(tmp_path / "artifacts"),
         semantic_blocks=((0, 2), (2, 4)),
+        deterministic_seed=0,
         **kwargs,
     )
 
@@ -77,6 +78,7 @@ def test_energy_seed_bank_hash_and_seed_identity_are_strict(tmp_path):
         seed_bank_sha256=digest,
         artifact_root=str(tmp_path / "artifacts"),
         semantic_blocks=((0, 2), (2, 4)),
+        deterministic_seed=0,
     )
     evaluator.model = _NestedRandomModel()
     target = torch.zeros(2, 2, 4)
@@ -84,7 +86,8 @@ def test_energy_seed_bank_hash_and_seed_identity_are_strict(tmp_path):
 
     torch.manual_seed(8675309)
     original_rng_state = torch.random.get_rng_state()
-    sampled = evaluator._seeded_predictions(batch)["validation/usocket"]
+    sampled, first_result = evaluator._seeded_predictions(batch)
+    sampled = sampled["validation/usocket"]
     actual_next_random = torch.rand(4)
     torch.random.set_rng_state(original_rng_state)
     expected_next_random = torch.rand(4)
@@ -94,6 +97,9 @@ def test_energy_seed_bank_hash_and_seed_identity_are_strict(tmp_path):
         expected_first_sample = torch.rand_like(target)
     assert sampled.shape == (32, 2, 2, 4)
     torch.testing.assert_close(sampled[0], expected_first_sample)
+    torch.testing.assert_close(
+        first_result["validation/usocket"]["pred_action"], expected_first_sample
+    )
     torch.testing.assert_close(actual_next_random, expected_next_random)
 
 
@@ -147,7 +153,10 @@ def test_energy_artifact_records_provenance_and_per_condition_outputs(tmp_path):
     samples = target.unsqueeze(0).repeat(32, 1, 1, 1)
     condition_values = torch.linspace(0.0, 1.0, 32)
     samples[:, 1] = condition_values[:, None, None]
-    evaluator._seeded_predictions = lambda _batch: {"validation/usocket": samples}
+    evaluator._seeded_predictions = lambda _batch: (
+        {"validation/usocket": samples},
+        {"validation/usocket": {"pred_action": samples[0]}},
+    )
 
     evaluator.on_validation_step(batch, batch_idx=0)
 
@@ -159,6 +168,7 @@ def test_energy_artifact_records_provenance_and_per_condition_outputs(tmp_path):
     assert artifact["sample_count"] == 32
     assert artifact["seed_bank"] == list(range(32))
     assert artifact["seed_bank_sha256"] == evaluator.seed_bank_sha256
+    assert artifact["deterministic_seed"] == 0
     assert artifact["distance"] == {
         "space": "normalized_action_chunk",
         "formula": "mean_equal_weight_semantic_block_rms",
@@ -227,7 +237,10 @@ def test_energy_batch_cap_does_not_cap_normal_mse_validation(tmp_path):
     energy_calls = []
     evaluator._seeded_predictions = lambda _batch: (
         energy_calls.append(True)
-        or {"validation/usocket": target.unsqueeze(0).repeat(32, 1, 1, 1)}
+        or (
+            {"validation/usocket": target.unsqueeze(0).repeat(32, 1, 1, 1)},
+            {"validation/usocket": {"pred_action": target}},
+        )
     )
     evaluator._save_artifact = lambda *_args: None
 

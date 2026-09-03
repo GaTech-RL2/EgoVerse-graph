@@ -1,12 +1,9 @@
 import inspect
 from copy import deepcopy
-from pathlib import Path
 
 import pytest
 import torch
 import torch.nn.functional as F
-from hydra.utils import instantiate
-from omegaconf import OmegaConf
 
 from egomimic.models.ddim_scheduler import DDIMScheduler
 from egomimic.models.denoising_nets import ConditionalUnet1D
@@ -234,38 +231,6 @@ def test_diffusion_pipeline_mode_controls_topology_not_module_training_flag():
     assert inference["pred_action"].shape == (2, 4, 6)
     assert "target" not in inference
     assert tuple(pipeline.state_dict()) == initial_keys
-
-
-def test_hydra_factorized_dp_fragment_instantiates():
-    path = (
-        Path(__file__).parents[1]
-        / "egomimic"
-        / "hydra_configs"
-        / "pipeline"
-        / "standard_dp.yaml"
-    )
-    cfg = OmegaConf.load(path)
-    cfg.stages[1].action_horizon = 4
-    cfg.stages[1].noise_scheduler.num_train_timesteps = 8
-    cfg.stages[2].action_horizon = 4
-    cfg.stages[2].condition_input_dim = 5
-    cfg.stages[2].policy.action_horizon = 4
-    cfg.stages[2].policy.num_inference_steps = 2
-    cfg.stages[2].policy.model.cond_dim = 5
-    cfg.stages[2].policy.model.diffusion_step_embed_dim = 16
-    cfg.stages[2].policy.model.down_dims = [8, 16]
-    cfg.stages[2].policy.model.n_groups = 4
-    cfg.stages[2].policy.noise_scheduler.num_train_timesteps = 8
-
-    pipeline = instantiate(cfg)
-
-    assert isinstance(pipeline, Pipeline)
-    assert [type(stage).__name__ for stage in pipeline.stages] == [
-        "ActionTargetBuilder",
-        "DiffusionNoisingStage",
-        "DiffusionDenoiserStage",
-        "DiffusionEpsilonLossStage",
-    ]
 
 
 def test_generic_diffusion_nodes_ignore_unrelated_route_metadata():

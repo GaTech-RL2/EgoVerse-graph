@@ -422,7 +422,7 @@ fi
 cd "$ICE_REPO"
 export PYTHONPATH=$ICE_REPO HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
 export WANDB_MODE=online WANDB_SILENT=true MUJOCO_GL=egl
-exec "$ICE_SRUN" --nodes=1 --ntasks=2 --gpus-per-task=1 \
+exec "$ICE_SRUN" --nodes=1 --ntasks=2 \
   --cpus-per-task="${SLURM_CPUS_PER_TASK:?}" --kill-on-bad-exit=1 --unbuffered \
   "$ICE_PYTHON" -m egomimic.trainHydra "$@" \
   "$checkpoint_override" "+logger.wandb.resume=$wandb_resume"

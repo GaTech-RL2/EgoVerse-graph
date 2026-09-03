@@ -452,6 +452,17 @@ def test_only_registered_rows_and_no_legacy_or_diagnostic_surface():
     assert (
         sorted(path.name for path in model_dir.glob("us_unite_register*.yaml")) == rows
     )
+
+
+def test_ice_launcher_explicitly_wires_unite_diagnostics():
+    launcher = (ROOT / "scripts/ice/launch_planar_h100x2.sbatch").read_text()
+    assert "ICE_UNITE_DIAGNOSTICS=${ICE_UNITE_DIAGNOSTICS:-false}" in launcher
+    assert "evaluator.unite_diagnostics.enabled=true" in launcher
+    assert (
+        "evaluator.unite_diagnostics.validation_view.split_manifest_sha256="
+        "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" in launcher
+    )
+    assert '"unite_diagnostics": "$ICE_UNITE_DIAGNOSTICS"' in launcher
     assert not (ROOT / "egomimic/pipeline/stages_unite.py").exists()
     policy_parameters = inspect.signature(
         ReleasedRecipeUniteLatentPolicy.__init__

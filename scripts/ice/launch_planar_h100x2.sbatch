@@ -72,6 +72,7 @@ ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-planar-bc-ice}
 ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,planar-v2,bc,ice]'}
 ICE_MODEL=${ICE_MODEL:-none}
 ICE_UNITE_H100_FAST=${ICE_UNITE_H100_FAST:-false}
+ICE_UNITE_DIAGNOSTICS=${ICE_UNITE_DIAGNOSTICS:-false}
 ICE_TOOL_DIR=${ICE_TOOL_DIR:-$ICE_REPO/scripts/ice}
 ICE_REQUEUE_RUNNER=${ICE_REQUEUE_RUNNER:-$ICE_TOOL_DIR/ice_requeue_runner.py}
 ICE_GPU_PROBE=${ICE_GPU_PROBE:-$ICE_TOOL_DIR/ice_gpu_probe.py}
@@ -90,6 +91,10 @@ esac
 case "$ICE_UNITE_H100_FAST" in
   true|false) ;;
   *) die "ICE_UNITE_H100_FAST must be true or false" ;;
+esac
+case "$ICE_UNITE_DIAGNOSTICS" in
+  true|false) ;;
+  *) die "ICE_UNITE_DIAGNOSTICS must be true or false" ;;
 esac
 case "$ICE_FAMILY:$ICE_EXPERIMENT:$ICE_MODEL" in
   paper_dp:pusht/planar_v2_usocket_dp_paper:none) ;;
@@ -216,6 +221,15 @@ if test "$ICE_UNITE_H100_FAST" = true; then
     model.scheduler.final_lr=3.0e-6
   )
 fi
+if test "$ICE_UNITE_DIAGNOSTICS" = true; then
+  test "$ICE_FAMILY" = unite || die "ICE_UNITE_DIAGNOSTICS requires ICE_FAMILY=unite"
+  test "$ICE_MODEL" = bf/us_unite_register_shared_nt16_s42 || \
+    die "ICE_UNITE_DIAGNOSTICS requires the shared UNITE N=16 model row"
+  BASE_OVERRIDES+=(
+    evaluator.unite_diagnostics.enabled=true
+    "evaluator.unite_diagnostics.validation_view.split_manifest_sha256=$ICE_EXPECTED_SPLIT_MANIFEST_SHA256"
+  )
+fi
 if test -n "${ICE_NORM_STATS_PATH:-}"; then
   absolute_path ICE_NORM_STATS_PATH "$ICE_NORM_STATS_PATH"
   test -e "$ICE_NORM_STATS_PATH" || die "ICE_NORM_STATS_PATH is unavailable"
@@ -260,7 +274,8 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
 "$ICE_PYTHON" - "$PREFLIGHT_CONFIG" "$ICE_FAMILY" "$ICE_EXPERIMENT" \
   "$ICE_MAX_STEPS" "$ICE_VAL_CHECK_INTERVAL" "$ICE_LIMIT_TRAIN_BATCHES" \
   "$ICE_LIMIT_VAL_BATCHES" "$ICE_CHECKPOINT_EVERY_N_STEPS" \
-  "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_H100_FAST" <<'PY'
+  "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_H100_FAST" \
+  "$ICE_UNITE_DIAGNOSTICS" <<'PY'
 import math
 import pathlib
 import sys
@@ -278,6 +293,7 @@ from omegaconf import OmegaConf
     checkpoint_interval,
     split_manifest_sha256,
     h100_fast,
+    unite_diagnostics,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 assert cfg.mode == "train"
@@ -327,6 +343,16 @@ elif family == "unite":
         assert math.isclose(float(cfg.model.scheduler.base_lr_1), 3.0e-5)
         assert math.isclose(float(cfg.model.scheduler.base_lr_2), 3.0e-6)
         assert math.isclose(float(cfg.model.scheduler.final_lr), 3.0e-6)
+    if unite_diagnostics == "true":
+        diagnostics = cfg.evaluator.unite_diagnostics
+        assert bool(diagnostics.enabled) is True
+        assert diagnostics.validation_view.split_manifest_sha256 == split_manifest_sha256
+        assert int(diagnostics.validation_view.world_size) == 2
+        assert int(diagnostics.validation_view.per_rank_batch_size) == 16
+        assert int(diagnostics.max_batches_per_rank) == 1
+        assert diagnostics.provenance.sampler == "dopri5"
+    else:
+        assert bool(cfg.evaluator.unite_diagnostics.enabled) is False
 else:
     raise AssertionError(family)
 PY
@@ -347,11 +373,23 @@ if test "$ICE_LAUNCH_MODE" != run; then
   "$ICE_PYTHON" - "$ICE_REPO" "$ICE_EXPECTED_HEAD" "$ICE_FAMILY" "$ICE_EXPERIMENT" \
     "$ICE_DATASET_DIR" "$ICE_OUTPUT_DIR" "$ICE_WANDB_ENTITY" \
     "$ICE_WANDB_PROJECT" "$ICE_WANDB_RUN_ID" \
-    "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" <<'PY'
+    "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_DIAGNOSTICS" <<'PY'
 import json
 import sys
 
-repo, head, family, experiment, dataset, output, entity, project, run_id, split_sha = sys.argv[1:]
+(
+    repo,
+    head,
+    family,
+    experiment,
+    dataset,
+    output,
+    entity,
+    project,
+    run_id,
+    split_sha,
+    unite_diagnostics,
+) = sys.argv[1:]
 print(json.dumps({
     "status": "PREFLIGHT_READY",
     "source": {"repo": repo, "head": head},
@@ -365,6 +403,7 @@ print(json.dumps({
     "strategy": "ddp_find_unused_parameters_true",
     "precision": "bf16-mixed",
     "requeue_owner": "runner",
+    "unite_diagnostics": unite_diagnostics,
 }, sort_keys=True))
 PY
   exit 0

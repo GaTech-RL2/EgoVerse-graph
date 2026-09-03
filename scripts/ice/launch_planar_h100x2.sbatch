@@ -168,7 +168,7 @@ BASE_OVERRIDES=(
   trainer.log_every_n_steps=1
   ++callbacks.model_checkpoint.monitor=null
   callbacks.model_checkpoint.save_top_k=-1
-  callbacks.model_checkpoint.save_last=true
+  callbacks.model_checkpoint.save_last=false
   callbacks.model_checkpoint.every_n_epochs=null
   "++callbacks.model_checkpoint.every_n_train_steps=$ICE_CHECKPOINT_EVERY_N_STEPS"
   ++callbacks.model_checkpoint.train_time_interval=null
@@ -271,7 +271,7 @@ assert int(cfg.callbacks.model_checkpoint.every_n_train_steps) == int(
     checkpoint_interval
 )
 assert int(cfg.callbacks.model_checkpoint.save_top_k) == -1
-assert cfg.callbacks.model_checkpoint.save_last is True
+assert cfg.callbacks.model_checkpoint.save_last is False
 assert cfg.runtime.slurm_requeue_owner == "runner"
 assert cfg.runtime.slurm_save_signal == "SIGUSR2"
 assert cfg.paths.root_dir == cfg.paths.work_dir

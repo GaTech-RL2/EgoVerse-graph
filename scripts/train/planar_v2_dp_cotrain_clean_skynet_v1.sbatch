@@ -5,14 +5,13 @@ set -Eeuo pipefail
 
 EXPECTED_HEAD=${EXPECTED_HEAD:?set EXPECTED_HEAD}
 EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?set EXPECTED_LAUNCHER_SHA}
+MODE=${MODE:-smoke}
 REPO=/coc/flash7/paphiwetsa3/worktrees/planar-v2-dp-cotrain-clean-20260903
 PY=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python
 LAUNCHER=/coc/flash7/paphiwetsa3/scripts/train/planar_v2_dp_cotrain_clean_skynet_v1.sbatch
 U_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
 CHAIN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
 EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/planar_v2_dp_cotrain_clean_20260903
-RUN_DIR=$EXP_ROOT/smokes/job_${SLURM_JOB_ID:?}
-PROVENANCE=$RUN_DIR/provenance
 WORLD_SIZE=2
 PARAMETER_COUNT=51506981
 EXPERIMENT=pusht/planar_v2_cotrain_clean_dp_standard
@@ -24,6 +23,36 @@ trap 'printf "[smoke] FAIL line=%s status=%s command=%q\n" "$LINENO" "$?" "$BASH
 test "$(sha256sum "$LAUNCHER" | awk '{print $1}')" = "$EXPECTED_LAUNCHER_SHA"
 test "$(git -C "$REPO" rev-parse HEAD)" = "$EXPECTED_HEAD"
 test -z "$(git -C "$REPO" status --porcelain)"
+cd "$REPO"
+export PYTHONPATH=$REPO HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
+
+if test "$MODE" = preflight; then
+  PREFLIGHT_DIR=$(mktemp -d /tmp/planar-v2-dp-cotrain-clean-preflight.XXXXXX)
+  "$PY" scripts/data/materialize_local_episode_split.py \
+    --domain pushshapes_sim_u_socket="$U_DATA" \
+    --domain pushshapes_sim_chain_gripper="$CHAIN_DATA" \
+    --valid-ratio 0.01 --seed 42 --output "$PREFLIGHT_DIR/split.json"
+  "$PY" -m egomimic.trainHydra --config-name=train_zarr_cartesian \
+    "+experiment=$EXPERIMENT" "++paths.root_dir=$PREFLIGHT_DIR" \
+    "paths.output_dir=$PREFLIGHT_DIR" "paths.work_dir=$REPO" \
+    norm_stats.sample_frac=1.0 --cfg job --resolve > "$PREFLIGHT_DIR/config.yaml"
+  "$PY" - "$PREFLIGHT_DIR/config.yaml" "$PREFLIGHT_DIR/split.json" "$PARAMETER_COUNT" <<'PY'
+import json, pathlib, sys
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
+c = OmegaConf.load(sys.argv[1]); split = json.loads(pathlib.Path(sys.argv[2]).read_text())
+assert split["status"] == "PASS" and split["cross_domain_train_valid_resolved_path_overlap_count"] == 0
+assert set(c.data.train_datasets) == {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
+assert c.run_provenance.obstacle_data is False and c.norm_stats.sample_frac == 1.0
+m = instantiate(c.model.pipeline)
+assert sum(p.numel() for p in m.nets.parameters()) == int(sys.argv[3])
+print("[preflight] READY clean-only data, exact split, config, graph, and parameters")
+PY
+  exit 0
+fi
+test "$MODE" = smoke
+RUN_DIR=$EXP_ROOT/smokes/job_${SLURM_JOB_ID:?}
+PROVENANCE=$RUN_DIR/provenance
 test "${SLURM_NTASKS:?}" = "$WORLD_SIZE"
 test "${SLURM_JOB_NUM_NODES:?}" = 1
 test "${SLURM_CPUS_PER_TASK:?}" -ge 8
@@ -31,8 +60,7 @@ test "${SLURM_RESTART_COUNT:-0}" = 0
 test ! -e "$RUN_DIR"
 mkdir -p "$PROVENANCE"
 
-cd "$REPO"
-export PYTHONPATH=$REPO HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 WANDB_MODE=online WANDB_SILENT=true
+export WANDB_MODE=online WANDB_SILENT=true
 GPU_NAMES=$(nvidia-smi --query-gpu=name --format=csv,noheader)
 test "$(wc -l <<<"$GPU_NAMES")" = "$WORLD_SIZE"
 printf '%s\n' "$GPU_NAMES" > "$PROVENANCE/gpu_names.txt"

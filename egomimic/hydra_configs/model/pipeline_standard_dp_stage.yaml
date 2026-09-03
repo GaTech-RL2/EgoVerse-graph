@@ -23,7 +23,6 @@ stages:
     policy:
       _target_: egomimic.models.diffusion_policy.DiffusionPolicy
       action_horizon: 16
-      infer_ac_dims: {eva_bimanual: 14}
       num_inference_steps: 10
       model:
         _target_: egomimic.models.denoising_nets.ConditionalUnet1D

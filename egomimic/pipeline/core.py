@@ -4,7 +4,56 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+import numpy as np
+import torch
 import torch.nn as nn
+
+_EXECUTION_MODES = frozenset({"train", "inference"})
+
+
+def resolve_homogeneous_scalar(value, *, label: str = "selector"):
+    """Return one Python scalar from a scalar or homogeneous 1-D collection.
+
+    Batched metadata is commonly collated into a 1-D tensor, ndarray, or list.
+    Stages that select a branch can use this helper without teaching the
+    pipeline what the selector represents.
+    """
+
+    if torch.is_tensor(value):
+        if value.ndim == 0:
+            return value.item()
+        if value.ndim != 1 or value.numel() == 0:
+            raise ValueError(f"{label} must be a scalar or non-empty 1-D value")
+        first = value[0]
+        if not bool(torch.all(value == first)):
+            raise ValueError(f"{label} must be homogeneous within one batch")
+        return first.item()
+
+    if isinstance(value, np.ndarray):
+        if value.ndim == 0:
+            return value.item()
+        if value.ndim != 1 or value.size == 0:
+            raise ValueError(f"{label} must be a scalar or non-empty 1-D value")
+        first = value[0]
+        if not bool(np.all(value == first)):
+            raise ValueError(f"{label} must be homogeneous within one batch")
+        return first.item() if isinstance(first, np.generic) else first
+
+    if isinstance(value, (list, tuple)):
+        if not value:
+            raise ValueError(f"{label} must be non-empty")
+        resolved = [resolve_homogeneous_scalar(item, label=label) for item in value]
+        first = resolved[0]
+        if any(item != first for item in resolved[1:]):
+            raise ValueError(f"{label} must be homogeneous within one batch")
+        return first
+
+    if np.isscalar(value):
+        return value.item() if isinstance(value, np.generic) else value
+    raise TypeError(
+        f"{label} must be a scalar, tensor, ndarray, list, or tuple; "
+        f"got {type(value).__name__}"
+    )
 
 
 def sum_losses(batch: dict):
@@ -24,11 +73,17 @@ class Stage(nn.Module):
     writes_by_mode: Mapping[str, Sequence[str]] = {}
 
     def contract(self, mode: str = "train") -> tuple[tuple[str, ...], tuple[str, ...]]:
-        if mode not in {"train", "rollout"}:
-            raise ValueError(f"Stage contract mode must be train|rollout, got {mode!r}")
+        if mode not in _EXECUTION_MODES:
+            raise ValueError(
+                f"Stage contract mode must be train|inference, got {mode!r}"
+            )
         reads = self.reads_by_mode.get(mode, self.reads)
         writes = self.writes_by_mode.get(mode, self.writes)
         return tuple(reads or ()), tuple(writes or ())
+
+    def execute(self, batch: dict, *, mode: str) -> dict:
+        """Execute this stage for an already validated graph mode."""
+        return self(batch)
 
     def forward(self, batch: dict) -> dict:  # pragma: no cover - interface
         raise NotImplementedError
@@ -51,23 +106,23 @@ class Pipeline(Stage):
         super().__init__()
         self.stages = nn.ModuleList(stages)
 
-    def forward(self, batch: dict) -> dict:
-        for stage in self.stages:
-            batch = stage(batch)
-        return batch
+    def forward(self, batch: dict, mode: str = "train") -> dict:
+        return self.execute(batch, mode=mode)
 
     def plan(
         self, seed_keys: Sequence[str], mode: str = "train"
     ) -> tuple[list[Stage], list[tuple[Stage, list[str]]]]:
         """Resolve runnable stages without executing the graph."""
-        if mode not in {"train", "rollout"}:
-            raise ValueError(f"Pipeline.plan mode must be train|rollout, got {mode!r}")
+        if mode not in _EXECUTION_MODES:
+            raise ValueError(
+                f"Pipeline.plan mode must be train|inference, got {mode!r}"
+            )
 
         available = set(seed_keys)
         runnable: list[Stage] = []
         excluded: list[tuple[Stage, list[str]]] = []
         for stage in self.stages:
-            if mode == "rollout" and getattr(stage, "train_only", False):
+            if mode == "inference" and getattr(stage, "train_only", False):
                 excluded.append((stage, ["<train-only>"]))
                 continue
             reads, writes = stage.contract(mode)
@@ -79,18 +134,51 @@ class Pipeline(Stage):
             available.update(writes)
         return runnable, excluded
 
+    def execute(self, batch: dict, *, mode: str) -> dict:
+        """Run the selected subgraph from a flat mapping.
+
+        The input is shallow-copied so stage mutation cannot alter evaluator or
+        loader state. Ordinary metadata remains available to specialized stages;
+        read/write contracts determine graph dependencies rather than filtering
+        the shared dictionary.
+        """
+
+        if not isinstance(batch, Mapping):
+            raise TypeError("Pipeline input must be a flat mapping")
+        if any(not isinstance(key, str) for key in batch):
+            raise TypeError("Pipeline input keys must be strings")
+
+        runnable, excluded = self.plan(tuple(batch), mode=mode)
+        blocked = [
+            (type(stage).__name__, missing)
+            for stage, missing in excluded
+            if missing != ["<train-only>"]
+        ]
+        if blocked:
+            raise RuntimeError(f"Pipeline {mode} graph has blocked stages: {blocked}")
+
+        result = dict(batch)
+        for stage in runnable:
+            result = stage.execute(result, mode=mode)
+            if not isinstance(result, dict):
+                raise TypeError(
+                    f"{type(stage).__name__} returned {type(result).__name__}, "
+                    "expected dict"
+                )
+        return result
+
     def explain(self, seed_keys: Sequence[str] = (), mode: str = "train") -> str:
         """Return a compact, human-readable dependency plan."""
-        if mode not in {"train", "rollout"}:
+        if mode not in _EXECUTION_MODES:
             raise ValueError(
-                f"Pipeline.explain mode must be train|rollout, got {mode!r}"
+                f"Pipeline.explain mode must be train|inference, got {mode!r}"
             )
 
         available = set(seed_keys)
         lines = []
         for stage in self.stages:
             reads, writes = stage.contract(mode)
-            if mode == "rollout" and getattr(stage, "train_only", False):
+            if mode == "inference" and getattr(stage, "train_only", False):
                 reason = " (EXCLUDED: train-only)"
             else:
                 missing = [

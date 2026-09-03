@@ -1,3 +1,4 @@
+import inspect
 import random
 import time
 from collections import OrderedDict, deque
@@ -76,11 +77,12 @@ class ModelWrapper(LightningModule):
 
     def _instantiate_model(self, config_tree, norm_stats_state):
         cfg = self._as_config(config_tree)
-        norm_stats = MultiDataset.from_state(norm_stats_state)
-        return hydra.utils.instantiate(
-            cfg.model.robomimic_model,
-            norm_stats=norm_stats,
-        )
+        target = hydra.utils.get_class(str(cfg.model.robomimic_model._target_))
+        parameters = inspect.signature(target.__init__).parameters
+        kwargs = {}
+        if "norm_stats" in parameters:
+            kwargs["norm_stats"] = MultiDataset.from_state(norm_stats_state)
+        return hydra.utils.instantiate(cfg.model.robomimic_model, **kwargs)
 
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
@@ -125,12 +127,14 @@ class ModelWrapper(LightningModule):
                 torch.stack([loss_dict[key] for loss_dict in loss_dicts])
             )
 
+        objective_key = "loss" if "loss" in losses else "action_loss"
+
         if (
             self.debug_loss_spike
             and random.random() < self.debug_loss_spike_prob
             and self.global_step > 100
         ):
-            losses["action_loss"] = losses["action_loss"] * self.debug_loss_spike_factor
+            losses[objective_key] = losses[objective_key] * self.debug_loss_spike_factor
             if self.trainer.is_global_zero:
                 print(
                     f"[LOSS_SPIKE] step={self.global_step} factor={self.debug_loss_spike_factor}",
@@ -142,7 +146,7 @@ class ModelWrapper(LightningModule):
         for k, v in self.model.log_info(info).items():
             self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
 
-        return losses["action_loss"]
+        return losses[objective_key]
 
     def on_after_backward(self):
         if not self.enable_grad_norm:

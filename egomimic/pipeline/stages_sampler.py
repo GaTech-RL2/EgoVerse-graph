@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from collections.abc import Mapping
+from typing import Dict
 
 import torch
 import torch.nn as nn
 
-from egomimic.pipeline.core import Stage
+from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
 
 
 class DPStyleObsEncoder(nn.Module):
@@ -42,22 +43,29 @@ class DPStyleObsEncoder(nn.Module):
 
 
 class FusedObsEncoder(Stage):
-    """Encode an ``N``-observation window into one conditioning vector."""
+    """Encode explicitly selected batch inputs into one conditioning vector."""
 
-    reads = ["obs/*"]
     writes = ["condition"]
 
     def __init__(
         self,
         encoder: nn.Module,
+        inputs: Mapping[str, str],
         n_obs_steps: int = 2,
-        required_obs_keys: List[str] | None = None,
         forward_context: Dict[str, str] | None = None,
     ):
         super().__init__()
         self.encoder = encoder
+        self.inputs = {
+            str(packed_key): str(batch_key)
+            for packed_key, batch_key in dict(inputs).items()
+        }
+        if not self.inputs or any(
+            not packed_key or not batch_key
+            for packed_key, batch_key in self.inputs.items()
+        ):
+            raise ValueError("inputs must map packed names to non-empty batch keys")
         self.n_obs_steps = int(n_obs_steps)
-        self.rollout_obs_steps = self.n_obs_steps
         self.forward_context = {
             str(batch_key): str(argument)
             for batch_key, argument in dict(forward_context or {}).items()
@@ -82,21 +90,12 @@ class FusedObsEncoder(Stage):
             )
         if self.n_obs_steps <= 0:
             raise ValueError("n_obs_steps must be positive")
-        reads = ["obs/*"]
-        if required_obs_keys is not None:
-            reads = [
-                key if str(key).startswith("obs/") else f"obs/{key}"
-                for key in required_obs_keys
-            ]
-            if not reads:
-                raise ValueError("required_obs_keys cannot be empty")
-        self.reads = list(dict.fromkeys([*reads, *self.forward_context]))
+        self.reads = list(dict.fromkeys([*self.inputs.values(), *self.forward_context]))
 
     def forward(self, batch: dict) -> dict:
         obs_packed = {
-            key.split("/", 1)[1]: value
-            for key, value in batch.items()
-            if key.startswith("obs/")
+            packed_key: batch[batch_key]
+            for packed_key, batch_key in self.inputs.items()
         }
         try:
             reference = next(
@@ -112,16 +111,10 @@ class FusedObsEncoder(Stage):
                     continue
                 if int(value.shape[0]) != batch_size:
                     raise ValueError(
-                        f"FusedObsEncoder: obs/{key} has batch {value.shape[0]}; "
+                        f"FusedObsEncoder: {self.inputs[key]} has batch "
+                        f"{value.shape[0]}; "
                         f"expected {batch_size}"
                     )
-                if "rollout_t" in batch:
-                    if value.ndim < 2 or value.shape[1] != 1:
-                        raise ValueError(
-                            f"FusedObsEncoder rollout obs/{key} must have an "
-                            f"explicit singleton history axis, got {tuple(value.shape)}"
-                        )
-                    obs_packed[key] = value[:, 0]
         else:
             if reference.ndim < 2 or reference.shape[1] != n_obs:
                 raise ValueError(
@@ -133,7 +126,8 @@ class FusedObsEncoder(Stage):
                     continue
                 if value.shape[:2] != (batch_size, n_obs):
                     raise ValueError(
-                        f"FusedObsEncoder: obs/{key} has shape {tuple(value.shape)}; "
+                        f"FusedObsEncoder: {self.inputs[key]} has shape "
+                        f"{tuple(value.shape)}; "
                         f"expected leading dimensions {(batch_size, n_obs)}"
                     )
                 obs_packed[key] = value.reshape(batch_size * n_obs, *value.shape[2:])
@@ -172,24 +166,14 @@ class GaussianLatentNoise(Stage):
 
     def __init__(
         self,
-        num_tokens: int | None = None,
+        num_tokens: int,
         latent_dim: int = 128,
-        action_horizon: int | None = None,
     ):
         super().__init__()
-        if num_tokens is None and action_horizon is None:
-            raise ValueError("num_tokens must be configured")
-        if num_tokens is not None and action_horizon is not None:
-            raise ValueError("Configure num_tokens or legacy action_horizon, not both")
-        self.num_tokens = int(action_horizon if num_tokens is None else num_tokens)
+        self.num_tokens = int(num_tokens)
         self.latent_dim = int(latent_dim)
         if self.num_tokens <= 0 or self.latent_dim <= 0:
             raise ValueError("num_tokens and latent_dim must be positive")
-
-    @property
-    def action_horizon(self) -> int:
-        """Compatibility alias for the original latent-sampler configs."""
-        return self.num_tokens
 
     def forward(self, batch: dict) -> dict:
         condition = batch["condition"]
@@ -209,4 +193,86 @@ class GaussianLatentNoise(Stage):
             dtype=dtype,
             device=device,
         )
+        return batch
+
+
+class KeyedFeatureProjection(Stage):
+    """Select a feature projection using ordinary batch-dictionary keys."""
+
+    def __init__(
+        self,
+        selector_key: str,
+        input_key: str,
+        output_key: str,
+        projections: Dict[str, dict],
+        output_dim: int = 64,
+        selector_aliases: Mapping | None = None,
+    ):
+        super().__init__()
+        self.selector_key = str(selector_key)
+        self.input_key = str(input_key)
+        self.output_key = str(output_key)
+        if not self.selector_key or not self.input_key or not self.output_key:
+            raise ValueError(
+                "selector_key, input_key, and output_key must be non-empty"
+            )
+        self.reads = (self.input_key, self.selector_key)
+        self.writes = (self.output_key,)
+        self.output_dim = int(output_dim)
+        if self.output_dim <= 0 or not projections:
+            raise ValueError("positive output_dim and at least one projection required")
+
+        self.projection_specs = {}
+        branches = {}
+        for selector, raw_spec in projections.items():
+            spec = dict(raw_spec)
+            input_dim = int(spec["input_dim"])
+            hidden_dim = int(spec.get("hidden_dim", self.output_dim))
+            if input_dim <= 0 or hidden_dim <= 0:
+                raise ValueError("input_dim and hidden_dim must be positive")
+            selector = str(selector)
+            if not selector:
+                raise ValueError("projection selector names must be non-empty")
+            self.projection_specs[selector] = {
+                "input_dim": input_dim,
+                "semantic": str(spec.get("semantic", "")),
+            }
+            branches[selector] = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.SiLU(),
+                nn.Linear(hidden_dim, self.output_dim),
+            )
+        self.projections = nn.ModuleDict(branches)
+
+        self.selector_aliases = {
+            str(resolve_homogeneous_scalar(source, label="selector alias")): str(target)
+            for source, target in dict(selector_aliases or {}).items()
+        }
+        unknown_targets = set(self.selector_aliases.values()) - set(self.projections)
+        if unknown_targets:
+            raise ValueError(
+                "selector_aliases reference unknown projections: "
+                f"{sorted(unknown_targets)}"
+            )
+
+    def forward(self, batch: dict) -> dict:
+        selector = str(
+            resolve_homogeneous_scalar(
+                batch[self.selector_key], label=self.selector_key
+            )
+        )
+        selector = self.selector_aliases.get(selector, selector)
+        if selector not in self.projections:
+            raise KeyError(
+                f"No projection for {self.selector_key}={selector!r}; "
+                f"configured={list(self.projections)}"
+            )
+        value = batch[self.input_key]
+        spec = self.projection_specs[selector]
+        if value.shape[-1] != spec["input_dim"]:
+            raise ValueError(
+                f"{self.input_key} width for {selector!r} is {value.shape[-1]}, "
+                f"expected {spec['input_dim']} ({spec['semantic']})"
+            )
+        batch[self.output_key] = self.projections[selector](value)
         return batch

@@ -7,6 +7,7 @@ from egomimic.pipeline.stages_sampler import (
     DPStyleObsEncoder,
     FusedObsEncoder,
     GaussianLatentNoise,
+    KeyedFeatureProjection,
 )
 
 
@@ -55,13 +56,15 @@ def test_dp_style_encoder_concatenates_sliced_state_and_image_features():
 
 def test_fused_encoder_ignores_unrelated_metadata_and_action_target():
     encoder = _PackedState()
-    stage = FusedObsEncoder(encoder=encoder, n_obs_steps=2)
+    stage = FusedObsEncoder(
+        encoder=encoder,
+        inputs={"state": "state"},
+        n_obs_steps=2,
+    )
     state = torch.arange(24, dtype=torch.float32).reshape(3, 2, 4)
     actions = torch.randn(3, 5, 6)
 
-    output = stage(
-        {"obs/state": state, "actions": actions, "embodiment": "eva_bimanual"}
-    )
+    output = stage({"state": state, "actions": actions, "selector": "arm_a"})
 
     assert output["condition"].shape == (3, 8)
     assert output["actions"] is actions
@@ -86,46 +89,40 @@ def test_action_target_builder_is_a_separate_train_only_node():
     assert stage.contract("train") == (("actions",), ("target",))
 
 
-def test_fused_encoder_rollout_requires_explicit_singleton_history_axis():
-    stage = FusedObsEncoder(encoder=_PackedState(), n_obs_steps=1)
-    with pytest.raises(ValueError, match="singleton history axis"):
-        stage(
-            {
-                "obs/state": torch.randn(2, 4),
-                "embodiment": "eva_bimanual",
-                "rollout_t": 0,
-            }
-        )
-
-    output = stage(
-        {
-            "obs/state": torch.randn(2, 1, 4),
-            "embodiment": "eva_bimanual",
-            "rollout_t": 0,
-        }
+def test_fused_encoder_single_step_shape_does_not_depend_on_execution_mode():
+    stage = FusedObsEncoder(
+        encoder=_PackedState(),
+        inputs={"state": "state"},
+        n_obs_steps=1,
     )
+    value = torch.randn(2, 4)
+    output = stage({"state": value, "unrelated": "metadata"})
     assert output["condition"].shape == (2, 4)
     assert "target" not in output
 
 
-def test_required_observations_are_reflected_in_mode_contracts():
+def test_explicit_inputs_are_reflected_in_mode_contracts():
     stage = FusedObsEncoder(
         encoder=_PackedState(),
+        inputs={"state": "state_tensor", "image": "camera_tensor"},
         n_obs_steps=1,
-        required_obs_keys=["state", "obs/front_img_1"],
     )
     assert stage.contract("train")[0] == (
-        "obs/state",
-        "obs/front_img_1",
+        "state_tensor",
+        "camera_tensor",
     )
-    assert stage.contract("rollout")[0] == stage.contract("train")[0]
+    assert stage.contract("inference")[0] == stage.contract("train")[0]
 
 
 def test_fused_encoder_does_not_require_embodiment_metadata():
     encoder = _PackedState()
-    stage = FusedObsEncoder(encoder=encoder, n_obs_steps=1)
+    stage = FusedObsEncoder(
+        encoder=encoder,
+        inputs={"state": "state"},
+        n_obs_steps=1,
+    )
 
-    output = stage({"obs/state": torch.randn(2, 4)})
+    output = stage({"state": torch.randn(2, 4)})
 
     assert output["condition"].shape == (2, 4)
     assert encoder.seen["embodiment"] is None
@@ -135,15 +132,16 @@ def test_fused_encoder_declares_only_explicit_forward_context():
     encoder = _PackedState()
     stage = FusedObsEncoder(
         encoder=encoder,
+        inputs={"state": "state"},
         n_obs_steps=1,
         forward_context={"route": "embodiment_id"},
     )
 
-    output = stage({"obs/state": torch.randn(2, 4), "route": "arm_a"})
+    output = stage({"state": torch.randn(2, 4), "route": "arm_a"})
 
     assert output["condition"].shape == (2, 4)
     assert encoder.seen["embodiment"] == "arm_a"
-    assert stage.contract("train")[0] == ("obs/*", "route")
+    assert stage.contract("train")[0] == ("state", "route")
 
 
 @pytest.mark.parametrize(
@@ -157,19 +155,56 @@ def test_fused_encoder_rejects_ambiguous_forward_context(forward_context, match)
     with pytest.raises(ValueError, match=match):
         FusedObsEncoder(
             encoder=_PackedState(),
+            inputs={"state": "state"},
             n_obs_steps=1,
             forward_context=forward_context,
         )
 
 
-def test_gaussian_noise_supports_new_and_legacy_token_names():
+def test_gaussian_noise_uses_explicit_token_count():
     condition = torch.zeros(2, 7)
     assert GaussianLatentNoise(num_tokens=4, latent_dim=3)({"condition": condition})[
         "sampler/noise"
     ].shape == (2, 4, 3)
-    legacy = GaussianLatentNoise(action_horizon=5, latent_dim=2)
-    assert legacy.action_horizon == 5
-    assert legacy({"condition": condition})["sampler/noise"].shape == (2, 5, 2)
 
-    with pytest.raises(ValueError, match="not both"):
-        GaussianLatentNoise(num_tokens=4, action_horizon=4)
+
+def test_keyed_projection_resolves_homogeneous_selector_alias():
+    stage = KeyedFeatureProjection(
+        selector_key="model_selector",
+        input_key="features",
+        output_key="projected",
+        output_dim=3,
+        projections={"image": {"input_dim": 2, "hidden_dim": 4}},
+        selector_aliases={19: "image"},
+    )
+    batch = {
+        "model_selector": torch.tensor([19, 19]),
+        "features": torch.randn(2, 2),
+    }
+
+    output = stage(batch)
+
+    assert output["projected"].shape == (2, 3)
+    assert set(stage.state_dict()) == {
+        "projections.image.0.weight",
+        "projections.image.0.bias",
+        "projections.image.2.weight",
+        "projections.image.2.bias",
+    }
+
+
+def test_keyed_projection_rejects_mixed_selector_batch():
+    stage = KeyedFeatureProjection(
+        selector_key="model_selector",
+        input_key="features",
+        output_key="projected",
+        projections={"image": {"input_dim": 2}},
+    )
+
+    with pytest.raises(ValueError, match="homogeneous"):
+        stage(
+            {
+                "model_selector": torch.tensor([1, 2]),
+                "features": torch.randn(2, 2),
+            }
+        )

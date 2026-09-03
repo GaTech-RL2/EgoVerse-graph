@@ -1,5 +1,17 @@
 """Dependency-aware policy pipelines."""
 
-from egomimic.pipeline.core import Pipeline, Stage, sum_losses
+from egomimic.pipeline.core import (
+    Pipeline,
+    Stage,
+    resolve_homogeneous_scalar,
+    sum_losses,
+)
+from egomimic.pipeline.stages_sampler import KeyedFeatureProjection
 
-__all__ = ["Pipeline", "Stage", "sum_losses"]
+__all__ = [
+    "KeyedFeatureProjection",
+    "Pipeline",
+    "Stage",
+    "resolve_homogeneous_scalar",
+    "sum_losses",
+]

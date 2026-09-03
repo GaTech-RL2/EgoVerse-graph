@@ -1,4 +1,6 @@
+import inspect
 from collections import OrderedDict
+from pathlib import Path
 
 import pytest
 import torch
@@ -7,42 +9,7 @@ from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.core import Stage
 from egomimic.pipeline.stages_io import ActionTargetBuilder
 from egomimic.pipeline.stages_sampler import FusedObsEncoder
-
-
-class _NormStats:
-    _types = {
-        "state": "proprio_keys",
-        "front_img_1": "camera_keys",
-        "actions_cartesian": "action_keys",
-    }
-    _zarr = {
-        "observations.state": "state",
-        "observations.images.front": "front_img_1",
-        "actions": "actions_cartesian",
-    }
-
-    def keys_of_type(self, key_type, embodiment_id):
-        assert embodiment_id == 6
-        return [key for key, value in self._types.items() if value == key_type]
-
-    def is_key_with_embodiment(self, key, embodiment_id):
-        return embodiment_id == 6 and key in self._types
-
-    def zarr_key_to_keyname(self, key, embodiment_id):
-        assert embodiment_id == 6
-        return self._zarr.get(key)
-
-    def keyname_to_zarr_key(self, key, embodiment_id):
-        assert embodiment_id == 6
-        return next((raw for raw, name in self._zarr.items() if name == key), None)
-
-    def normalize(self, batch, embodiment_id):
-        assert embodiment_id == 6
-        return dict(batch)
-
-    def unnormalize(self, batch, embodiment_id):
-        assert embodiment_id == 6
-        return dict(batch)
+from egomimic.pl_utils.pl_model import ModelWrapper
 
 
 class _PackedState(torch.nn.Module):
@@ -51,145 +18,230 @@ class _PackedState(torch.nn.Module):
 
 
 class _TinyHead(Stage):
-    reads = ["condition", "target", "embodiment"]
+    reads = ["condition", "target", "selector"]
     writes = ["loss/fit", "log/fit"]
-    reads_by_mode = {"rollout": ["condition", "embodiment"]}
-    writes_by_mode = {"rollout": ["pred_action"]}
+    reads_by_mode = {"inference": ["condition", "selector"]}
+    writes_by_mode = {"inference": ["prediction"]}
 
     def __init__(self):
         super().__init__()
         self.scale = torch.nn.Parameter(torch.tensor(0.5))
+        self.seen_keys = None
 
-    def forward(self, batch):
-        if self.training:
+    def execute(self, batch, *, mode):
+        self.seen_keys = set(batch)
+        if mode == "train":
             loss = (batch["target"] * self.scale).square().mean()
             batch["loss/fit"] = loss
             batch["log/fit"] = loss.detach()
-        else:
+        elif mode == "inference":
             batch_size = batch["condition"].shape[0]
-            batch["pred_action"] = self.scale.expand(batch_size, 3, 2)
+            batch["prediction"] = self.scale.expand(batch_size, 3, 2)
+        else:  # pragma: no cover - Pipeline validates modes first
+            raise ValueError(mode)
         return batch
 
-
-class _ObservationAdapter:
-    def encode(self, batch):
-        output = dict(batch)
-        output["observations.state"] = output["raw_state"] + 1
-        return output
+    def forward(self, batch):
+        return self.execute(batch, mode="train")
 
 
-class _ActionAdapter:
-    def __init__(self):
-        self.context = None
+class _ImageHead(Stage):
+    reads = ["pixels", "reference"]
+    writes = ["loss/reconstruction"]
+    reads_by_mode = {"inference": ["pixels"]}
+    writes_by_mode = {"inference": ["reconstruction"]}
 
-    def decode(self, actions, context=None):
-        self.context = context
-        return actions + 2
+    def execute(self, batch, *, mode):
+        if mode == "train":
+            batch["loss/reconstruction"] = (
+                (batch["pixels"] - batch["reference"]).square().mean()
+            )
+        elif mode == "inference":
+            batch["reconstruction"] = batch["pixels"]
+        else:  # pragma: no cover - Pipeline validates modes first
+            raise ValueError(mode)
+        return batch
+
+    def forward(self, batch):
+        return self.execute(batch, mode="train")
 
 
 def _algo():
     return PipelineAlgo(
         stages=[
-            FusedObsEncoder(encoder=_PackedState(), n_obs_steps=1),
+            FusedObsEncoder(
+                encoder=_PackedState(),
+                inputs={"state": "state"},
+                n_obs_steps=1,
+            ),
             ActionTargetBuilder(),
             _TinyHead(),
         ],
-        norm_stats=_NormStats(),
-        domains=["eva_bimanual"],
-        ac_keys={"eva_bimanual": "actions_cartesian"},
-        action_horizon=3,
         device="cpu",
     )
 
 
-def _raw_batch():
-    return {
-        "eva_bimanual": {
-            "observations.state": torch.randn(2, 4),
-            "observations.images.front": torch.randn(2, 3, 8, 8),
-            "actions": torch.randn(2, 3, 2),
+def _raw_batch(scale=1.0):
+    return OrderedDict(
+        source_a={
+            "state": torch.randn(2, 4),
+            "actions": torch.full((2, 3, 2), float(scale)),
+            "selector": "arm_a",
             "ignored": torch.ones(2),
         }
-    }
+    )
 
 
-def test_pipeline_algo_maps_loader_keys_and_reduces_domain_losses():
+def test_pipeline_algo_preserves_opaque_sources_and_reduces_losses():
     algo = _algo()
     processed = algo.process_batch_for_training(_raw_batch())
 
-    assert list(processed) == [6]
-    assert set(processed[6]) == {"state", "front_img_1", "actions_cartesian"}
+    assert list(processed) == ["source_a"]
+    assert set(processed["source_a"]) == {
+        "state",
+        "actions",
+        "selector",
+        "ignored",
+    }
     predictions = algo.forward_training(processed)
     losses = algo.compute_losses(predictions, processed)
 
     assert isinstance(predictions, OrderedDict)
-    assert losses["action_loss"].ndim == 0
-    assert torch.equal(losses["action_loss"], predictions["6_action_loss"])
-    losses["action_loss"].backward()
+    assert list(predictions) == ["source_a"]
+    assert losses["loss"].ndim == 0
+    assert torch.equal(losses["loss"], losses["source_0_loss"])
+    losses["loss"].backward()
     assert algo.policy.stages[2].scale.grad is not None
     logged = algo.log_info({"losses": losses})
-    assert logged["MSE"] == pytest.approx(losses["action_loss"].item())
-    assert logged["MSE/eva_bimanual"] == pytest.approx(losses["6_action_loss"].item())
+    assert logged["Loss"] == pytest.approx(losses["loss"].item())
 
 
-def test_pipeline_algo_teacher_forced_eval_uses_standard_prediction_names():
+def test_pipeline_algo_equal_weights_multiple_sources():
+    algo = _algo()
+    raw = _raw_batch(scale=1.0)
+    raw["another_source"] = _raw_batch(scale=3.0)["source_a"]
+    processed = algo.process_batch_for_training(raw)
+
+    predictions = algo.forward_training(processed)
+    losses = algo.compute_losses(predictions, processed)
+
+    expected = torch.stack(
+        [predictions[source]["loss/fit"] for source in predictions]
+    ).mean()
+    torch.testing.assert_close(losses["loss"], expected)
+
+
+def test_pipeline_algo_inference_excludes_training_nodes_without_filtering_metadata():
     algo = _algo()
     processed = algo.process_batch_for_training(_raw_batch())
-    algo.policy.eval()
+    algo.policy.train()
 
-    predictions = algo.forward_eval(processed)
+    results = algo.forward_eval(processed)
 
     expected = torch.full((2, 3, 2), 0.5)
-    assert torch.equal(predictions["emb6_actions_cartesian"], expected)
-    assert torch.equal(predictions["eva_bimanual_actions_cartesian"], expected)
-    assert torch.equal(predictions["actions_cartesian"], expected)
-
-
-def test_pipeline_algo_rollout_adapts_before_normalizing_and_decodes_after():
-    action_adapter = _ActionAdapter()
-    algo = PipelineAlgo(
-        stages=[
-            FusedObsEncoder(encoder=_PackedState(), n_obs_steps=1),
-            ActionTargetBuilder(),
-            _TinyHead(),
-        ],
-        norm_stats=_NormStats(),
-        domains=["eva_bimanual"],
-        ac_keys={"eva_bimanual": "actions_cartesian"},
-        rollout_adapters={"eva_bimanual": action_adapter},
-        rollout_observation_adapters={"eva_bimanual": _ObservationAdapter()},
-        action_horizon=3,
-        device="cpu",
-    )
-    raw = {
-        "raw_state": torch.zeros(2, 4),
-        "actions": torch.randn(2, 3, 2),
+    assert torch.equal(results["source_a"]["prediction"], expected)
+    assert algo.policy.stages[2].seen_keys == {
+        "state",
+        "actions",
+        "selector",
+        "ignored",
+        "condition",
     }
+    assert results["source_a"]["actions"] is processed["source_a"]["actions"]
+    assert "target" not in results["source_a"]
+    assert "target" not in processed["source_a"]
 
-    processed = algo.process_batch_for_rollout({"eva_bimanual": raw})
-    algo.policy.eval()
-    predictions = algo.forward_rollout(processed, rollout_t=7)
 
-    assert set(processed[6]) == {"state"}
-    assert torch.equal(processed[6]["state"], torch.ones(2, 4))
-    assert torch.equal(
-        predictions["eva_bimanual_actions_cartesian"],
-        torch.full((2, 3, 2), 2.5),
+def test_pipeline_algo_is_not_specific_to_control_batches():
+    algo = PipelineAlgo(stages=[_ImageHead()], device="cpu")
+    pixels = torch.randn(2, 3, 8, 8)
+    batch = {"images": {"pixels": pixels, "reference": pixels + 1}}
+    processed = algo.process_batch_for_training(batch)
+
+    train_results = algo.forward_training(processed)
+    losses = algo.compute_losses(train_results, processed)
+    inference_results = algo.forward_eval(processed)
+
+    assert losses["loss"].item() == pytest.approx(1.0)
+    assert torch.equal(inference_results["images"]["reconstruction"], pixels)
+    assert inference_results["images"]["reference"] is processed["images"]["reference"]
+
+
+def test_pipeline_algo_constructor_and_source_are_route_agnostic():
+    parameters = inspect.signature(PipelineAlgo).parameters
+    assert tuple(parameters) == ("stages", "device")
+    with pytest.raises(TypeError):
+        PipelineAlgo(stages=[], domains=["anything"])
+
+    root = Path(__file__).parents[1]
+    source = "\n".join(
+        (root / relative).read_text().lower()
+        for relative in ("egomimic/pipeline/core.py", "egomimic/pipeline/algo.py")
     )
-    assert torch.equal(
-        predictions["eva_bimanual_actions_cartesian_tokens"],
-        torch.full((2, 3, 2), 0.5),
+    for forbidden in (
+        "domain",
+        "embodiment",
+        "ac_key",
+        "action_key",
+        "norm_stats",
+        "rollout_adapter",
+        "action_horizon",
+        "rollout",
+    ):
+        assert forbidden not in source
+
+
+def test_pipeline_algo_rejects_malformed_grouped_input():
+    algo = PipelineAlgo(stages=[], device="cpu")
+    with pytest.raises(TypeError, match="mapping of flat batches"):
+        algo.process_batch_for_training([{"pixels": torch.zeros(1)}])
+    with pytest.raises(TypeError, match="source values"):
+        algo.process_batch_for_training({"source": torch.zeros(1)})
+
+
+def test_pipeline_algo_moves_nested_tensors_without_changing_dtype():
+    algo = PipelineAlgo(stages=[], device="cpu")
+    processed = algo.process_batch_for_training(
+        {
+            "source": {
+                "value": torch.ones(2, dtype=torch.float64),
+                "metadata": {"index": torch.ones(2, dtype=torch.int16)},
+            }
+        }
     )
-    assert action_adapter.context == processed[6]
-    assert algo.rollout_adapter_for(6) is action_adapter
+
+    assert processed["source"]["value"].dtype == torch.float64
+    assert processed["source"]["metadata"]["index"].dtype == torch.int16
 
 
-def test_pipeline_algo_validates_domain_action_mapping():
-    with pytest.raises(ValueError, match="exactly match"):
-        PipelineAlgo(
-            stages=[],
-            norm_stats=_NormStats(),
-            domains=["eva_bimanual"],
-            ac_keys={},
-            device="cpu",
-        )
+def test_model_wrapper_does_not_inject_stats_into_generic_pipeline(monkeypatch):
+    def reject_stats(_):  # pragma: no cover - failure path documents the invariant
+        raise AssertionError("generic pipeline must not construct dataset statistics")
+
+    monkeypatch.setattr(
+        "egomimic.pl_utils.pl_model.MultiDataset.from_state", reject_stats
+    )
+    wrapper = ModelWrapper(
+        config_tree={
+            "model": {
+                "robomimic_model": {
+                    "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+                    "stages": [],
+                    "device": "cpu",
+                }
+            }
+        },
+        norm_stats_state={"must": "remain unused"},
+    )
+
+    assert isinstance(wrapper.model, PipelineAlgo)
+
+
+def test_model_wrapper_accepts_generic_pipeline_loss(monkeypatch):
+    wrapper = ModelWrapper(robomimic_model=_algo())
+    monkeypatch.setattr(wrapper, "log", lambda *args, **kwargs: None)
+
+    loss = wrapper.training_step(_raw_batch(), batch_idx=0)
+
+    assert loss.ndim == 0
+    assert torch.isfinite(loss)

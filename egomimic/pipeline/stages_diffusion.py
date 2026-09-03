@@ -133,8 +133,8 @@ class DiffusionDenoiserStage(Stage):
         "diffusion/scheduler_signature",
     )
     writes = ("diffusion/predicted_noise",)
-    reads_by_mode = {"rollout": ("condition",)}
-    writes_by_mode = {"rollout": ("pred_action", "log/*")}
+    reads_by_mode = {"inference": ("condition",)}
+    writes_by_mode = {"inference": ("pred_action", "log/*")}
     objective = "epsilon"
 
     def __init__(
@@ -197,35 +197,36 @@ class DiffusionDenoiserStage(Stage):
                 f"(B, {self.condition_input_dim}), got {tuple(condition.shape)}"
             )
 
-    def forward(self, batch: dict) -> dict:
+    def _forward_train(self, batch: dict) -> dict:
         policy = self.policy
         condition = batch["condition"]
         self._validate_condition(condition)
 
-        if self.training:
-            expected_signature = _scheduler_signature(policy.noise_scheduler)
-            if batch["diffusion/scheduler_signature"] != expected_signature:
-                raise ValueError("Forward and reverse diffusion schedulers differ")
-            noisy_action = batch["diffusion/noisy_action"]
-            _validate_action_shape(
-                noisy_action,
-                batch_size=int(condition.shape[0]),
-                action_horizon=self.action_horizon,
-                action_dim=self.action_dim,
-                label="Noisy diffusion action",
+        expected_signature = _scheduler_signature(policy.noise_scheduler)
+        if batch["diffusion/scheduler_signature"] != expected_signature:
+            raise ValueError("Forward and reverse diffusion schedulers differ")
+        noisy_action = batch["diffusion/noisy_action"]
+        _validate_action_shape(
+            noisy_action,
+            batch_size=int(condition.shape[0]),
+            action_horizon=self.action_horizon,
+            action_dim=self.action_dim,
+            label="Noisy diffusion action",
+        )
+        prediction = policy.model(noisy_action, batch["diffusion/timestep"], condition)
+        if prediction.shape != noisy_action.shape:
+            raise ValueError(
+                "Diffusion epsilon prediction shape mismatch: "
+                f"prediction={tuple(prediction.shape)} "
+                f"noisy_action={tuple(noisy_action.shape)}"
             )
-            prediction = policy.model(
-                noisy_action, batch["diffusion/timestep"], condition
-            )
-            if prediction.shape != noisy_action.shape:
-                raise ValueError(
-                    "Diffusion epsilon prediction shape mismatch: "
-                    f"prediction={tuple(prediction.shape)} "
-                    f"noisy_action={tuple(noisy_action.shape)}"
-                )
-            batch["diffusion/predicted_noise"] = prediction
-            return batch
+        batch["diffusion/predicted_noise"] = prediction
+        return batch
 
+    def _forward_inference(self, batch: dict) -> dict:
+        policy = self.policy
+        condition = batch["condition"]
+        self._validate_condition(condition)
         prediction = policy.sample_action(condition, action_dim=self.action_dim)
         _validate_action_shape(
             prediction,
@@ -240,6 +241,17 @@ class DiffusionDenoiserStage(Stage):
             prediction.detach().square().mean().sqrt()
         )
         return batch
+
+    def execute(self, batch: dict, *, mode: str) -> dict:
+        if mode == "train":
+            return self._forward_train(batch)
+        if mode == "inference":
+            return self._forward_inference(batch)
+        raise ValueError(f"Unsupported diffusion execution mode {mode!r}")
+
+    def forward(self, batch: dict) -> dict:
+        """Retain direct-call training behavior; graph mode is always explicit."""
+        return self._forward_train(batch)
 
 
 class DiffusionEpsilonLossStage(Stage):

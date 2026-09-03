@@ -1,7 +1,13 @@
+import numpy as np
 import pytest
 import torch
 
-from egomimic.pipeline.core import Pipeline, Stage, sum_losses
+from egomimic.pipeline.core import (
+    Pipeline,
+    Stage,
+    resolve_homogeneous_scalar,
+    sum_losses,
+)
 
 
 class _FeatureStage(Stage):
@@ -26,8 +32,8 @@ class _LossStage(Stage):
 class _ModeStage(Stage):
     reads = ["target"]
     writes = ["loss/mode"]
-    reads_by_mode = {"rollout": ["condition"]}
-    writes_by_mode = {"rollout": ["pred_action"]}
+    reads_by_mode = {"inference": ["condition"]}
+    writes_by_mode = {"inference": ["prediction"]}
 
 
 def test_pipeline_registers_and_executes_stages():
@@ -51,7 +57,7 @@ def test_pipeline_plan_resolves_wildcards_and_train_only_stages():
     assert runnable == [feature, loss]
     assert excluded == []
 
-    runnable, excluded = pipeline.plan(["obs/x"], mode="rollout")
+    runnable, excluded = pipeline.plan(["obs/x"], mode="inference")
     assert runnable == [feature]
     assert excluded == [(loss, ["<train-only>"])]
 
@@ -61,14 +67,51 @@ def test_stage_mode_contract_and_explain_are_exact():
     pipeline = Pipeline([stage])
 
     assert stage.contract("train") == (("target",), ("loss/mode",))
-    assert stage.contract("rollout") == (("condition",), ("pred_action",))
+    assert stage.contract("inference") == (("condition",), ("prediction",))
     assert "EXCLUDED: missing target" in pipeline.explain([], mode="train")
-    assert "pred_action" in pipeline.explain(["condition"], mode="rollout")
+    assert "prediction" in pipeline.explain(["condition"], mode="inference")
 
-    with pytest.raises(ValueError, match="train\\|rollout"):
+    with pytest.raises(ValueError, match="train\\|inference"):
         stage.contract("validation")
 
 
 def test_sum_losses_rejects_graph_without_an_objective():
     with pytest.raises(RuntimeError, match=r"no loss/\* keys"):
         sum_losses({"log/value": torch.tensor(1.0)})
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("image", "image"),
+        (torch.tensor(3), 3),
+        (torch.tensor([3, 3]), 3),
+        (np.asarray("image"), "image"),
+        (np.asarray([4, 4]), 4),
+        (["image", "image"], "image"),
+        ((torch.tensor(5), torch.tensor(5)), 5),
+    ],
+)
+def test_resolve_homogeneous_scalar(value, expected):
+    assert resolve_homogeneous_scalar(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        [],
+        torch.tensor([]),
+        torch.tensor([1, 2]),
+        torch.zeros(1, 1),
+        np.asarray(["left", "right"]),
+        np.zeros((1, 1)),
+    ],
+)
+def test_resolve_homogeneous_scalar_rejects_ambiguous_values(value):
+    with pytest.raises(ValueError):
+        resolve_homogeneous_scalar(value)
+
+
+def test_resolve_homogeneous_scalar_rejects_non_scalar_objects():
+    with pytest.raises(TypeError, match="must be a scalar"):
+        resolve_homogeneous_scalar({"selector": "image"})

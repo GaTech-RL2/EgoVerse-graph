@@ -25,7 +25,7 @@ import zarr
 from tqdm import tqdm
 
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.rldb.zarr import LocalEpisodeResolver
+from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver
 
 # ── per-episode worker ────────────────────────────────────────────────────────
 
@@ -115,10 +115,11 @@ def main() -> int:
 
     # Optional episode sampling
     if args.pct < 100.0:
-        k = max(1, int(round(len(raw) * args.pct / 100.0)))
+        episode_count = len(raw)
+        k = max(1, int(round(episode_count * args.pct / 100.0)))
         rng = random.Random(args.seed)
         raw = sorted(rng.sample(raw, k))
-        print(f"Sampling {k} / {len(raw)} episodes ({args.pct:.1f}%).")
+        print(f"Sampling {k} / {episode_count} episodes ({args.pct:.1f}%).")
 
     eps = [(Path(path_str), eh) for path_str, eh in raw]
     print(f"Scanning {len(eps)} episodes with {args.workers} threads...")

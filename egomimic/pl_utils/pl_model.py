@@ -103,6 +103,32 @@ class ModelWrapper(LightningModule):
         for k, v in self.model.log_info(info).items():
             self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
 
+        # DiffusionEpsilonLossStage writes the normalized epsilon-prediction MSE
+        # as ``log/diffusion_noise``.  Publish stable aggregate and per-source
+        # aliases here, outside PipelineAlgo, so the generic pipeline continues
+        # to treat source names as opaque loader keys.
+        source_mse = []
+        for index, source in enumerate(batch):
+            value = losses.get(f"source_{index}_log_diffusion_noise")
+            if value is None:
+                continue
+            source_mse.append(value)
+            self.log(
+                f"Train/MSE/{source}",
+                value,
+                sync_dist=True,
+                on_step=False,
+                on_epoch=True,
+            )
+        if source_mse:
+            self.log(
+                "Train/MSE",
+                torch.stack(source_mse).mean(),
+                sync_dist=True,
+                on_step=False,
+                on_epoch=True,
+            )
+
         return losses["loss"]
 
     def on_after_backward(self):

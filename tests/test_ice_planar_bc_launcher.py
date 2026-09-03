@@ -16,12 +16,15 @@ def test_launcher_is_valid_bash_and_has_single_gpu_requeue_contract():
     assert "#SBATCH --nodes=1" in text
     assert "#SBATCH --ntasks-per-node=1" in text
     assert "#SBATCH --gres=gpu:1" in text
+    assert "#SBATCH --constraint=H100|H200" in text
     assert "#SBATCH --requeue" in text
     assert "#SBATCH --signal=B:USR1@600" in text
     assert "trainer.strategy=auto" in text
     assert "trainer.devices=1" in text
     assert "trainer.num_nodes=1" in text
     assert "trainer.precision=$ICE_PRECISION" in text
+    assert "ICE_EXPECTED_GPU_NAME" not in text
+    assert text.count("--allowed-gpu-name") == 2
 
 
 def test_launcher_uses_strict_external_runner_and_completion_sentinel():

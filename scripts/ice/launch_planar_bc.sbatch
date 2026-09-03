@@ -9,6 +9,7 @@
 #SBATCH --mem=96G
 #SBATCH --time=16:00:00
 #SBATCH --gres=gpu:1
+#SBATCH --constraint=H100|H200
 #SBATCH --requeue
 #SBATCH --signal=B:USR1@600
 
@@ -56,7 +57,7 @@ for variable in \
   ICE_REPO ICE_EXPECTED_HEAD ICE_PYTHON ICE_DATASET_DIR ICE_OUTPUT_DIR \
   ICE_EXPERIMENT ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID \
   ICE_CHECKPOINT_VALIDATOR ICE_EXPECTED_SPLIT_MANIFEST_SHA256 \
-  ICE_EXPECTED_GPU_NAME ICE_MAX_STEPS \
+  ICE_MAX_STEPS \
   ICE_VAL_CHECK_INTERVAL ICE_LIMIT_TRAIN_BATCHES ICE_LIMIT_VAL_BATCHES \
   ICE_CHECKPOINT_EVERY_N_STEPS ICE_TRAIN_BATCH_SIZE ICE_VALID_BATCH_SIZE; do
   required "$variable"
@@ -366,7 +367,9 @@ export ICE_WANDB_GROUP ICE_WANDB_TAGS ICE_SRUN
 "$ICE_SRUN" --nodes=1 --ntasks=1 --gpus-per-task=1 \
   --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 --unbuffered \
   "$ICE_PYTHON" "$ICE_GPU_PROBE" \
-  --expected-world-size 1 --expected-gpu-name "$ICE_EXPECTED_GPU_NAME" \
+  --expected-world-size 1 \
+  --allowed-gpu-name "NVIDIA H100 80GB HBM3" \
+  --allowed-gpu-name "NVIDIA H200" \
   --output "$ATTEMPT_PROVENANCE/gpu_probe.json"
 
 read -r -d '' CHILD_CODE <<'BASH' || true

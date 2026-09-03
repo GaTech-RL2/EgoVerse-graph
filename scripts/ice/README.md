@@ -40,7 +40,7 @@ Export these before `sbatch --export=ALL`:
   `pusht/planar_v2_usocket_arc_bc`
 - `ICE_WANDB_ENTITY`, `ICE_WANDB_PROJECT`, and a unique
   `ICE_WANDB_RUN_ID`
-- one GPU selected by the `H100|H200` Slurm constraint
+- one GPU selected by the launcher's `H100|H200` Slurm constraint
 - `ICE_MAX_STEPS`, `ICE_VAL_CHECK_INTERVAL`,
   `ICE_LIMIT_TRAIN_BATCHES`, `ICE_LIMIT_VAL_BATCHES`,
   `ICE_CHECKPOINT_EVERY_N_STEPS`, `ICE_TRAIN_BATCH_SIZE`, and
@@ -73,7 +73,8 @@ Probe the exact real allocation before submission, for example:
 ```bash
 sbatch --test-only --account=coc --partition=ice-gpu --qos=coc-ice \
   --nodes=1 --ntasks-per-node=1 --cpus-per-task=8 --mem=96G \
-  --time=16:00:00 --gres=gpu:h200:1 scripts/ice/launch_planar_bc.sbatch
+  --time=16:00:00 --gres=gpu:1 --constraint='H100|H200' \
+  scripts/ice/launch_planar_bc.sbatch
 ```
 
 Then submit exactly one selected allocation. The batch job records the Slurm

@@ -72,3 +72,4 @@ egomimic = ["hydra_configs/**/*.yaml", "hydra_configs/**/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

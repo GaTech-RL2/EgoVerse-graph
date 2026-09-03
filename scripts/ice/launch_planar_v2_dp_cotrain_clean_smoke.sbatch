@@ -39,6 +39,7 @@ preflight() {
     "data.valid_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$CHAIN_DATA" \
     "++paths.root_dir=$output" "paths.output_dir=$output" "paths.work_dir=$REPO" \
     launch_params.gpus_per_node=1 launch_params.nodes=1 norm_stats.sample_frac=1.0 \
+    norm_stats_only=true trainer.accelerator=cpu trainer.devices=1 \
     --cfg job --resolve > "$output/resolved_config.yaml"
   "$PY" - "$output/resolved_config.yaml" "$output/split_audit.json" "$PARAMETER_COUNT" <<'PY'
 import json, pathlib, sys
@@ -109,7 +110,7 @@ COMMON=(
 )
 export WANDB_MODE=online WANDB_SILENT=true
 "$PY" -m egomimic.trainHydra "${COMMON[@]}" norm_stats_only=true \
-  trainer.accelerator=cpu trainer.devices=1 logger=null \
+  trainer.accelerator=cpu trainer.devices=1 \
   "norm_stats.save_cache_dir=$RUN_DIR" "hydra.run.dir=$RUN_DIR/norm_materialize"
 test -s "$RUN_DIR/norm_stats/norm_stats.json"
 srun --kill-on-bad-exit=1 --unbuffered "$PY" -m egomimic.trainHydra "${COMMON[@]}" \

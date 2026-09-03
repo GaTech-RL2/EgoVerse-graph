@@ -1,12 +1,15 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/planar_v2_usocket_direct_bc
+  - /experiment/pusht/planar_v2_usocket_base
   - override /model: bf/bf_planar_v2_dp_paper
-  - override /data: pusht/planar_v2_usocket
   - _self_
 name: planar_v2_usocket_dp_paper_h16
 description: u_socket_paper_DP_DDPM100_obs2_EMA
 planar:
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
+    action_horizon: 16
+    native_action_dim: 3
   observation_horizon: 2
   action_target_offset: 1
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list

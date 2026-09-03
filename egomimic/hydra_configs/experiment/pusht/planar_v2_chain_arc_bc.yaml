@@ -1,13 +1,11 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/planar_v2_base
+  - /experiment/pusht/planar_v2_chain_base
   - override /model: bf/bf_planar_v2_flow
-  - override /data: pusht/planar_v2_chain_gripper
   - _self_
 name: planar_v2_chain_arc_D200_M100
 description: chain_gripper_arc_bc_common5_J8_replan1
 planar:
-  action_dims: {pushshapes_sim_chain_gripper: 5}
   eval_native_decoder:
     _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroRolloutAdapter
     resampled_vector_length: 100
@@ -15,15 +13,3 @@ planar:
   raw_action_horizon: 200
   action_horizon: 101
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
-
-run_provenance:
-  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
-  split_manifest_sha256: 3ced944ea3af8e875ea88fc5c2df3a5d2865a9f95223d109fb4bd28c8be7cf69
-  split_seed: ${seed}
-  valid_ratio: 0.01
-  train_episode_count_per_domain: 2970
-  valid_episode_count_per_domain: 30
-  union_episode_count_per_domain: 3000
-  id_overlap_count: 0
-  resolved_path_overlap_count: 0
-  dataset_observation_alignment: pre_step

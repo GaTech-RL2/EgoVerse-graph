@@ -36,6 +36,18 @@ DATASETS = {
     },
 }
 
+DP_DOMAIN_BASES = {
+    "chain_dp_standard": "chain_base",
+    "chain_dp_paper": "chain_base",
+    "usocket_dp_standard": "usocket_base",
+    "usocket_dp_paper": "usocket_base",
+}
+
+DOMAIN_BASE_DATA = {
+    "chain_base": "chain_gripper",
+    "usocket_base": "usocket",
+}
+
 
 @pytest.mark.parametrize("row,expected", ROWS.items())
 def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
@@ -69,6 +81,13 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     assert cfg.run_provenance.split_manifest_sha256 == expected_data["manifest_sha256"]
     assert cfg.run_provenance.dataset_observation_alignment == "pre_step"
     assert cfg.planar.observation_horizon == observation_horizon
+    decoder = cfg.planar.eval_native_decoder
+    if "arc_bc" in row:
+        assert decoder._target_.endswith("PlanarArcWaypointZeroRolloutAdapter")
+        assert "action_horizon" not in decoder
+    else:
+        assert decoder._target_.endswith("PlanarCommon5RolloutAdapter")
+        assert decoder.action_horizon == 16
     model_yaml = OmegaConf.to_yaml(cfg.model)
     assert implementation in model_yaml
     stage_names = [
@@ -116,6 +135,29 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
             "DiffusionDenoiserStage",
             "DiffusionEpsilonLossStage",
         ]
+
+
+@pytest.mark.parametrize("row,domain_base", DP_DOMAIN_BASES.items())
+def test_dp_rows_inherit_model_neutral_domain_base(row, domain_base):
+    experiment_dir = (
+        Path(__file__).parents[1]
+        / "egomimic"
+        / "hydra_configs"
+        / "experiment"
+        / "pusht"
+    )
+    experiment = OmegaConf.load(experiment_dir / f"planar_v2_{row}.yaml")
+    defaults = OmegaConf.to_container(experiment.defaults)
+    assert defaults[0] == f"/experiment/pusht/planar_v2_{domain_base}"
+    assert all("direct_bc" not in str(item) for item in defaults)
+
+    base = OmegaConf.load(experiment_dir / f"planar_v2_{domain_base}.yaml")
+    base_defaults = OmegaConf.to_container(base.defaults)
+    assert base_defaults[0] == "/experiment/pusht/planar_v2_base"
+    assert base_defaults[1] == {
+        "override /data": f"pusht/planar_v2_{DOMAIN_BASE_DATA[domain_base]}"
+    }
+    assert "model" not in base
 
 
 @pytest.mark.parametrize("domain,expected", DATASETS.items())

@@ -180,9 +180,9 @@ BASE_OVERRIDES=(
   ++callbacks.model_checkpoint.train_time_interval=null
   ++callbacks.model_checkpoint.save_on_train_epoch_end=false
   "callbacks.model_checkpoint.filename='epoch-{epoch}-step-{step}'"
-  runtime.slurm_requeue_owner=runner
-  runtime.slurm_save_signal=SIGUSR2
-  'runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints'
+  +runtime.slurm_requeue_owner=runner
+  +runtime.slurm_save_signal=SIGUSR2
+  '+runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints'
   "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$ICE_DATASET_DIR"
   "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$ICE_DATASET_DIR"
   "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=$ICE_TRAIN_BATCH_SIZE"
@@ -294,8 +294,8 @@ assert int(cfg.callbacks.model_checkpoint.every_n_train_steps) == int(
 )
 assert int(cfg.callbacks.model_checkpoint.save_top_k) == -1
 assert cfg.callbacks.model_checkpoint.save_last is False
-assert cfg.runtime.slurm_requeue_owner == "runner"
-assert cfg.runtime.slurm_save_signal == "SIGUSR2"
+assert cfg.+runtime.slurm_requeue_owner == "runner"
+assert cfg.+runtime.slurm_save_signal == "SIGUSR2"
 assert cfg.paths.root_dir == cfg.paths.work_dir
 if cfg.norm_stats.precomputed_norm_path is None:
     assert cfg.norm_stats.save_cache_dir == cfg.paths.output_dir

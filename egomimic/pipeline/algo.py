@@ -77,6 +77,53 @@ class PipelineAlgo:
     def forward_eval(self, batch: Mapping) -> OrderedDict:
         return self._execute(batch, mode="inference")
 
+    @torch.inference_mode()
+    def forward_unite_diagnostics(
+        self,
+        batch: Mapping,
+        *,
+        raw_noise_levels: list[float] | tuple[float, ...],
+    ) -> OrderedDict:
+        """Run the real pipeline prefix once and capture the UNITE policy state."""
+
+        from egomimic.pipeline.stages_unite_released import (
+            ReleasedRecipeUniteLatentPolicy,
+        )
+
+        policy_stages = [
+            stage
+            for stage in self.pipeline.stages
+            if isinstance(stage, ReleasedRecipeUniteLatentPolicy)
+        ]
+        if len(policy_stages) != 1:
+            raise RuntimeError(
+                "UNITE diagnostics require exactly one released latent policy; "
+                f"found {len(policy_stages)}"
+            )
+        policy = policy_stages[0]
+        results = OrderedDict()
+        for source, source_batch in batch.items():
+            result = dict(source_batch)
+            for stage in self.pipeline.stages:
+                if stage is policy:
+                    break
+                result = stage.execute(result, mode="train")
+            required = {"sampler/noise", "condition", "target", "embodiment"}
+            missing = required - set(result)
+            if missing:
+                raise RuntimeError(
+                    f"UNITE diagnostic prefix for {source!r} is missing "
+                    f"{sorted(missing)}"
+                )
+            results[source] = policy.validation_diagnostics(
+                noise=result["sampler/noise"],
+                condition=result["condition"],
+                target=result["target"],
+                embodiment=result["embodiment"],
+                raw_noise_levels=raw_noise_levels,
+            )
+        return results
+
     def compute_losses(self, predictions: Mapping, batch: Mapping) -> OrderedDict:
         self._validate_groups(batch)
         if tuple(predictions) != tuple(batch):

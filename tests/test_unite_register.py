@@ -129,6 +129,75 @@ def test_register_topology_and_h16_round_trip(shared, num_latent_tokens):
     assert actions.grad is not None
 
 
+def test_dopri5_diagnostic_trajectory_retains_fifty_returned_states(monkeypatch):
+    policy = _policy(True, 4).eval()
+
+    def odeint(function, initial, times, *, method, atol, rtol):
+        assert method == "dopri5"
+        assert atol == policy.dopri5_atol
+        assert rtol == policy.dopri5_rtol
+        assert function(times[0], initial).dtype == torch.float32
+        return torch.stack([initial for _ in times])
+
+    monkeypatch.setitem(sys.modules, "torchdiffeq", SimpleNamespace(odeint=odeint))
+    trajectory = policy.sample_with_trajectory(
+        torch.randn(2, 4, 16),
+        torch.randn(2, 14),
+        DOMAIN,
+    )
+
+    assert trajectory["latent_states"].shape == (50, 2, 4, 16)
+    assert trajectory["clean_predictions"].shape == (49, 2, 4, 16)
+    assert trajectory["raw_grid"].shape == trajectory["shifted_grid"].shape == (50,)
+    assert trajectory["latent_states"].dtype == torch.float32
+
+
+@pytest.mark.parametrize("shared", [True, False])
+def test_validation_diagnostics_capture_real_tokenizer_and_denoiser_blocks(
+    monkeypatch, shared
+):
+    policy = _policy(shared, 4).eval()
+
+    def odeint(function, initial, times, *, method, atol, rtol):
+        del function, method, atol, rtol
+        return torch.stack([initial for _ in times])
+
+    monkeypatch.setitem(sys.modules, "torchdiffeq", SimpleNamespace(odeint=odeint))
+    diagnostics = policy.validation_diagnostics(
+        noise=torch.randn(12, 4, 16),
+        condition=torch.randn(12, 14),
+        target=torch.randn(12, 16, 4),
+        embodiment=DOMAIN,
+        raw_noise_levels=[0.0, 0.5, 1.0],
+    )
+
+    assert diagnostics["sampler_latents"].shape == (50, 12, 4, 16)
+    assert diagnostics["decoded_actions_normalized"].shape == (50, 12, 16, 4)
+    assert diagnostics["noise_level_final_predictions"].shape == (3, 12, 4, 16)
+    assert set(diagnostics["tokenization_activations"]) == {
+        "block_00",
+        "block_01",
+    }
+    assert set(diagnostics["denoising_activations"]) == {
+        "block_00",
+        "block_01",
+    }
+    for name, tokenization in diagnostics["tokenization_activations"].items():
+        denoising = diagnostics["denoising_activations"][name]
+        assert tokenization.ndim == 3 and tokenization.shape[0] == 12
+        assert denoising.ndim == 4 and denoising.shape[:2] == (3, 12)
+        assert tokenization.shape[-1] == denoising.shape[-1] == 32
+
+
+def test_alignment_metrics_are_finite_for_paired_features():
+    left = torch.randn(12, 32)
+    right = left + 0.05 * torch.randn_like(left)
+    cka = PlanarActionEval._centered_linear_cka(left, right)
+    cknna = PlanarActionEval._cknna(left, right, topk=10)
+    assert cka.ndim == cknna.ndim == 0
+    assert bool(torch.isfinite(cka)) and bool(torch.isfinite(cknna))
+
+
 def test_action_decoder_does_not_require_horizon_register_divisibility():
     decoder = UniteActionDecoder(
         latent_dim=16,
@@ -425,7 +494,7 @@ def test_four_rows_compose_with_supported_data_and_evaluator_schema(
         assert set(section) - accepted - {"_target_"} == set()
 
 
-def test_only_registered_rows_and_no_legacy_or_diagnostic_surface():
+def test_only_registered_rows_and_no_legacy_surface():
     model_dir = CONFIG_DIR / "model/bf"
     rows = sorted(path.name for path in model_dir.glob("us_unite_register_*_s42.yaml"))
     assert rows == [
@@ -477,8 +546,14 @@ def test_only_registered_rows_and_no_legacy_or_diagnostic_surface():
     }
     assert experiment["run_provenance"]["energy_score_contract"]["sample_count"] == 32
     assert "train_only_normalization_sha256" not in experiment["run_provenance"]
-    assert "unite_diagnostics" not in experiment["evaluator"]
-    assert "unite_training_diagnostics" not in experiment["run_provenance"]
+    diagnostics = experiment["evaluator"]["unite_diagnostics"]
+    assert diagnostics["enabled"] is True
+    assert diagnostics["raw_noise_levels"] == [0.0, 0.25, 0.5, 0.75, 1.0]
+    assert diagnostics["cknna_k"] == 10
+    assert diagnostics["max_batches_per_rank"] == 1
+    assert diagnostics["validation_view"]["per_rank_batch_size"] == 16
+    assert diagnostics["provenance"]["returned_sampler_states"] == 50
+    assert "unite_training_diagnostics" in experiment["run_provenance"]
 
 
 def test_unite_energy_score_is_limited_without_truncating_mse_validation(tmp_path):

@@ -458,7 +458,7 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         if self.evaluator is not None:
             self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
 
-    def on_validation_end(self):
+    def on_validation_epoch_end(self):
         if self._unite_validation_count:
             metrics, _ = self._reduce_sums(
                 self._unite_validation_sums, self._unite_validation_count

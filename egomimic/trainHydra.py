@@ -216,6 +216,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if save_cache_dir:
             norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
+    if cfg.get("norm_stats_only", False):
+        if not OmegaConf.select(cfg, "norm_stats.save_cache_dir", default=None):
+            raise ValueError("norm_stats_only requires norm_stats.save_cache_dir")
+        log.info("Normalization-only mode complete")
+        return {}, {"cfg": cfg, "norm_stats": norm_stats}
+
     # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
     # by reference. Bounds-check + normalize run at the MultiDataset level in
     # ``__getitem__`` — not as per-leaf transforms — which avoids the shared

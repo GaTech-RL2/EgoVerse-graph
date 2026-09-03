@@ -132,6 +132,10 @@ test "$(git -C "$ICE_REPO" rev-parse HEAD)" = "$ICE_EXPECTED_HEAD" || \
   die "source HEAD does not match ICE_EXPECTED_HEAD"
 test -z "$(git -C "$ICE_REPO" status --porcelain=v1 --untracked-files=all)" || \
   die "source repository must be exactly clean"
+# The parent runner launches the checkpoint validator directly. Bind it to the
+# same exact source tree as the training child so strict checkpoint reloads do
+# not depend on the submission shell's ambient Python path.
+export PYTHONPATH=$ICE_REPO
 
 BASE_OVERRIDES=(
   --config-name=train_zarr_cartesian

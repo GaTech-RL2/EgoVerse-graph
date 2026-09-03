@@ -41,6 +41,17 @@ def test_launcher_uses_strict_external_runner_and_completion_sentinel():
     assert "ICE_RESUME_GLOBAL_STEP" in text
 
 
+def test_parent_runner_inherits_exact_repo_pythonpath_for_checkpoint_validation():
+    text = LAUNCHER.read_text()
+
+    parent_export = text.index("export PYTHONPATH=$ICE_REPO")
+    preflight_runner = text.index('"$ICE_PYTHON" "$ICE_REQUEUE_RUNNER"')
+    final_runner = text.rindex('exec "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER"')
+    child_definition = text.index("read -r -d '' CHILD_CODE")
+
+    assert parent_export < preflight_runner < child_definition < final_runner
+
+
 def test_launcher_exposes_direct_and_arc_bc_and_explicit_training_limits():
     text = LAUNCHER.read_text()
 

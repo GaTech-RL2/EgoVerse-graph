@@ -321,7 +321,7 @@ def test_validation_components_weight_sources_batches_and_ranks(monkeypatch):
         "log_dict",
         lambda values, **kwargs: logged.update({"values": values, "kwargs": kwargs}),
     )
-    wrapper.on_validation_end()
+    wrapper.on_validation_epoch_end()
 
     assert logged["kwargs"] == {
         "on_step": False,

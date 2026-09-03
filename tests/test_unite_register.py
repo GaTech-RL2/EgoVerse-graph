@@ -462,7 +462,8 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
         "evaluator.unite_diagnostics.validation_view.split_manifest_sha256="
         "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" in launcher
     )
-    assert '"unite_diagnostics": "$ICE_UNITE_DIAGNOSTICS"' in launcher
+    assert '"$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_DIAGNOSTICS"' in launcher
+    assert '"unite_diagnostics": unite_diagnostics' in launcher
     assert not (ROOT / "egomimic/pipeline/stages_unite.py").exists()
     policy_parameters = inspect.signature(
         ReleasedRecipeUniteLatentPolicy.__init__

@@ -80,5 +80,24 @@ def test_contract_rejects_scientific_drift(resolved_config):
         if str(stage.get("_target_", "")).endswith("ReleasedRecipeUniteLatentPolicy")
     )
     policy.flow_steps_per_reconstruction = 13
-    with pytest.raises(ValueError, match="14:1"):
+    with pytest.raises(ValueError, match="unsupported UNITE"):
         validate_unite_config(config, expected_world_size=2)
+
+
+def test_n8_flow42_ablation_is_explicit_and_contract_valid():
+    config_dir = Path("egomimic/hydra_configs").resolve()
+    with initialize_config_dir(config_dir=str(config_dir), version_base="1.3"):
+        config = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "model=bf/us_unite_register_shared_nt8_flow42_s42",
+                "+experiment=pusht/unite_usocket_register_sweep_val01_h16",
+                "trainer.devices=1",
+                "evaluator.energy_score_validation_view.per_rank_batch_size=32",
+                "++paths.root_dir=.",
+            ],
+        )
+    result = validate_unite_config(config, expected_world_size=1)
+    assert result["row"]["num_latent_tokens"] == 8
+    assert result["flow_steps_per_reconstruction"] == 42
+    assert config.run_provenance.unite_update_schedule.flow_samples_per_reconstruction == 42

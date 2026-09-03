@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.pipeline.stages_unite_released import ReleasedRecipeUniteLatentPolicy
 
 
 class ReleasedUniteModelWrapper(ModelWrapper):
@@ -36,6 +37,58 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         self._configured_share_encoder_denoiser = configured
         self._unite_validation_sums = OrderedDict()
         self._unite_validation_count = 0
+
+    @torch.inference_mode()
+    def forward_eval(self, batch: Mapping) -> OrderedDict:
+        """Expose ordinary inference alongside the UNITE diagnostic boundary."""
+
+        return self.model.forward_eval(batch)
+
+    @torch.inference_mode()
+    def forward_unite_diagnostics(
+        self,
+        batch: Mapping,
+        *,
+        raw_noise_levels: tuple[float, ...] | list[float],
+    ) -> OrderedDict:
+        """Run the pipeline prefix and capture released-UNITE diagnostics."""
+
+        if not isinstance(batch, Mapping):
+            raise TypeError("UNITE diagnostics input must be a source mapping")
+        stages = self.model.pipeline.stages
+        policies = [
+            stage for stage in stages if isinstance(stage, ReleasedRecipeUniteLatentPolicy)
+        ]
+        if len(policies) != 1:
+            raise RuntimeError(
+                "Released UNITE diagnostics require exactly one latent policy; "
+                f"found {len(policies)}"
+            )
+        policy = policies[0]
+        diagnostics = OrderedDict()
+        for source, source_batch in batch.items():
+            if not isinstance(source_batch, Mapping):
+                raise TypeError(f"UNITE diagnostic source {source!r} must be a mapping")
+            result = dict(source_batch)
+            for stage in stages:
+                if stage is policy:
+                    break
+                result = stage.execute(result, mode="inference")
+            required = {"sampler/noise", "condition", "target", "embodiment"}
+            missing = required - set(result)
+            if missing:
+                raise RuntimeError(
+                    f"Released UNITE diagnostic prefix for {source!r} is missing "
+                    f"{sorted(missing)}"
+                )
+            diagnostics[source] = policy.validation_diagnostics(
+                noise=result["sampler/noise"],
+                condition=result["condition"],
+                target=result["target"],
+                embodiment=result["embodiment"],
+                raw_noise_levels=raw_noise_levels,
+            )
+        return diagnostics
 
     @staticmethod
     def _finite_scalar(value: Any, label: str) -> torch.Tensor:
@@ -426,6 +479,7 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         self._unite_validation_count = 0
         if self.evaluator is not None:
             self.model.device = self.device
+            self.evaluator.model = self
             self.evaluator.on_validation_start()
 
     @torch.no_grad()

@@ -1,14 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=egoverse-planar-h100x2
+#SBATCH --job-name=egoverse-unite
 #SBATCH --account=coc
 #SBATCH --partition=ice-gpu
 #SBATCH --qos=coc-ice
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=2
+#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=96G
 #SBATCH --time=16:00:00
-#SBATCH --gres=gpu:H100:2
+#SBATCH --gres=gpu:1
+#SBATCH --constraint=H100|H200
 #SBATCH --requeue
 #SBATCH --signal=B:USR1@600
 
@@ -16,7 +17,7 @@ set -Eeuo pipefail
 umask 077
 
 die() {
-  printf 'launch_planar_h100x2: %s\n' "$*" >&2
+  printf 'launch_unite: %s\n' "$*" >&2
   exit 64
 }
 
@@ -54,9 +55,8 @@ PY
 
 for variable in \
   ICE_REPO ICE_EXPECTED_HEAD ICE_PYTHON ICE_DATASET_DIR ICE_OUTPUT_DIR \
-  ICE_FAMILY ICE_EXPERIMENT ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID \
-  ICE_CHECKPOINT_VALIDATOR ICE_EXPECTED_SPLIT_MANIFEST_SHA256 \
-  ICE_EXPECTED_GPU_NAME ICE_MAX_STEPS \
+  ICE_EXPERIMENT ICE_MODEL ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID \
+  ICE_EXPECTED_SPLIT_MANIFEST_SHA256 ICE_MAX_STEPS \
   ICE_VAL_CHECK_INTERVAL ICE_LIMIT_TRAIN_BATCHES ICE_LIMIT_VAL_BATCHES \
   ICE_CHECKPOINT_EVERY_N_STEPS ICE_TRAIN_BATCH_SIZE ICE_VALID_BATCH_SIZE; do
   required "$variable"
@@ -68,16 +68,18 @@ ICE_EXPECTED_PARTITION=${ICE_EXPECTED_PARTITION:-ice-gpu}
 ICE_EXPECTED_QOS=${ICE_EXPECTED_QOS:-coc-ice}
 ICE_MAX_RESTARTS=${ICE_MAX_RESTARTS:-32}
 ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
-ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-planar-bc-ice}
-ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,planar-v2,bc,ice]'}
-ICE_MODEL=${ICE_MODEL:-none}
-ICE_WORLD_SIZE=${ICE_WORLD_SIZE:-2}
-ICE_UNITE_H100_FAST=${ICE_UNITE_H100_FAST:-false}
+ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-unite-ice}
+ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,unite,ice]'}
+ICE_FAMILY=unite
+ICE_WORLD_SIZE=1
+ICE_TRAINER_STRATEGY=auto
+ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
 ICE_UNITE_DIAGNOSTICS=${ICE_UNITE_DIAGNOSTICS:-false}
 ICE_TOOL_DIR=${ICE_TOOL_DIR:-$ICE_REPO/scripts/ice}
 ICE_REQUEUE_RUNNER=${ICE_REQUEUE_RUNNER:-$ICE_TOOL_DIR/ice_requeue_runner.py}
 ICE_GPU_PROBE=${ICE_GPU_PROBE:-$ICE_TOOL_DIR/ice_gpu_probe.py}
 ICE_DATASET_VALIDATOR=${ICE_DATASET_VALIDATOR:-$ICE_TOOL_DIR/validate_planar_dataset.py}
+ICE_CHECKPOINT_VALIDATOR=${ICE_CHECKPOINT_VALIDATOR:-$ICE_TOOL_DIR/validate_lightning_checkpoint.py}
 ICE_SPLIT_MANIFEST=${ICE_SPLIT_MANIFEST:-$ICE_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json}
 ICE_PRECISION=${ICE_PRECISION:-bf16-mixed}
 ICE_SEED=${ICE_SEED:-42}
@@ -89,24 +91,19 @@ case "$ICE_LAUNCH_MODE" in
   preflight|dry-run|run) ;;
   *) die "ICE_LAUNCH_MODE must be preflight, dry-run, or run" ;;
 esac
-case "$ICE_UNITE_H100_FAST" in
+case "$ICE_UNITE_FAST" in
   true|false) ;;
-  *) die "ICE_UNITE_H100_FAST must be true or false" ;;
+  *) die "ICE_UNITE_FAST must be true or false" ;;
 esac
 case "$ICE_UNITE_DIAGNOSTICS" in
   true|false) ;;
   *) die "ICE_UNITE_DIAGNOSTICS must be true or false" ;;
 esac
-case "$ICE_WORLD_SIZE" in
-  1) ICE_TRAINER_STRATEGY=auto ;;
-  2) ICE_TRAINER_STRATEGY=ddp_find_unused_parameters_true ;;
-  *) die "ICE_WORLD_SIZE must be 1 or 2" ;;
-esac
-case "$ICE_FAMILY:$ICE_EXPERIMENT:$ICE_MODEL" in
-  paper_dp:pusht/planar_v2_usocket_dp_paper:none) ;;
-  unite:pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
-  unite:pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt16_s42) ;;
-  *) die "unsupported family, experiment, or model row" ;;
+case "$ICE_EXPERIMENT:$ICE_MODEL" in
+  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
+  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_flow42_s42) ;;
+  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt16_s42) ;;
+  *) die "unsupported UNITE experiment or model row" ;;
 esac
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 [[ "$ICE_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || die "ICE_EXPECTED_HEAD must be a full commit"
@@ -218,11 +215,10 @@ BASE_OVERRIDES=(
 if test "$ICE_MODEL" != none; then
   BASE_OVERRIDES+=("model=$ICE_MODEL")
 fi
-if test "$ICE_UNITE_H100_FAST" = true; then
-  test "$ICE_FAMILY" = unite || die "ICE_UNITE_H100_FAST requires ICE_FAMILY=unite"
+if test "$ICE_UNITE_FAST" = true; then
   case "$ICE_MODEL" in
-    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt16_s42) ;;
-    *) die "ICE_UNITE_H100_FAST requires a supported shared UNITE N=8 or N=16 model row" ;;
+    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt16_s42) ;;
+    *) die "ICE_UNITE_FAST requires a supported shared UNITE N=8 or N=16 model row" ;;
   esac
   BASE_OVERRIDES+=(
     model.pipeline.stages.4.flow_mini_batch=14
@@ -236,7 +232,6 @@ if test "$ICE_UNITE_H100_FAST" = true; then
   )
 fi
 if test "$ICE_UNITE_DIAGNOSTICS" = true; then
-  test "$ICE_FAMILY" = unite || die "ICE_UNITE_DIAGNOSTICS requires ICE_FAMILY=unite"
   test "$ICE_MODEL" = bf/us_unite_register_shared_nt16_s42 || \
     die "ICE_UNITE_DIAGNOSTICS requires the shared UNITE N=16 model row"
   BASE_OVERRIDES+=(
@@ -290,7 +285,7 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
 "$ICE_PYTHON" - "$PREFLIGHT_CONFIG" "$ICE_FAMILY" "$ICE_EXPERIMENT" \
   "$ICE_MAX_STEPS" "$ICE_VAL_CHECK_INTERVAL" "$ICE_LIMIT_TRAIN_BATCHES" \
   "$ICE_LIMIT_VAL_BATCHES" "$ICE_CHECKPOINT_EVERY_N_STEPS" \
-  "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_H100_FAST" \
+  "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_FAST" \
   "$ICE_UNITE_DIAGNOSTICS" "$ICE_WORLD_SIZE" "$ICE_TRAIN_BATCH_SIZE" \
   "$ICE_VALID_BATCH_SIZE" <<'PY'
 import math
@@ -458,7 +453,7 @@ ATTEMPT_PROVENANCE=$ICE_OUTPUT_DIR/provenance/restart-$RESTART_COUNT
 test ! -e "$ATTEMPT_PROVENANCE" || die "attempt provenance already exists"
 mkdir -p "$ATTEMPT_PROVENANCE"
 "$ICE_PYTHON" - "$ATTEMPT_PROVENANCE/launch_contract.json" \
-  "$ICE_UNITE_DIAGNOSTICS" "$ICE_EXPECTED_GPU_NAME" "$ICE_EXPECTED_HEAD" \
+  "$ICE_UNITE_DIAGNOSTICS" "H100|H200" "$ICE_EXPECTED_HEAD" \
   "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" "$ICE_TRAIN_BATCH_SIZE" \
   "$ICE_VALID_BATCH_SIZE" <<'PY'
 import json
@@ -521,12 +516,10 @@ export ICE_WANDB_GROUP ICE_WANDB_TAGS ICE_SRUN
 # ``srun`` steps must inherit the runner-owned requeue contract as well.
 export SLURM_EXPORT_ENV=ALL
 
-for ((gpu_index = 0; gpu_index < ICE_WORLD_SIZE; gpu_index++)); do
-  CUDA_VISIBLE_DEVICES=$gpu_index SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
-    "$ICE_PYTHON" "$ICE_GPU_PROBE" \
-    --expected-world-size 1 --expected-gpu-name "$ICE_EXPECTED_GPU_NAME" \
-    --output "$ATTEMPT_PROVENANCE/gpu_probe_$gpu_index.json"
-done
+CUDA_VISIBLE_DEVICES=0 SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
+  "$ICE_PYTHON" "$ICE_GPU_PROBE" \
+  --expected-world-size 1 --allowed-gpu-name H100 --allowed-gpu-name H200 \
+  --output "$ATTEMPT_PROVENANCE/gpu_probe_0.json"
 
 read -r -d '' CHILD_CODE <<'BASH' || true
 set -Eeuo pipefail
@@ -581,4 +574,4 @@ RUNNER_ARGS=(
   --completion-sentinel "$ICE_OUTPUT_DIR/COMPLETE.json"
 )
 exec "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
-  /usr/bin/env bash -c "$CHILD_CODE" ice-planar-h100x2 "${BASE_OVERRIDES[@]}"
+  /usr/bin/env bash -c "$CHILD_CODE" ice-unite "${BASE_OVERRIDES[@]}"

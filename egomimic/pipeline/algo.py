@@ -77,54 +77,6 @@ class PipelineAlgo:
     def forward_eval(self, batch: Mapping) -> OrderedDict:
         return self._execute(batch, mode="inference")
 
-    @torch.inference_mode()
-    def forward_unite_diagnostics(
-        self,
-        batch: Mapping,
-        *,
-        raw_noise_levels: tuple[float, ...] | list[float],
-    ) -> OrderedDict:
-        """Run the real pipeline prefix and capture released-UNITE diagnostics."""
-
-        from egomimic.pipeline.stages_unite_released import (
-            ReleasedRecipeUniteLatentPolicy,
-        )
-
-        self._validate_groups(batch)
-        policies = [
-            stage
-            for stage in self.pipeline.stages
-            if isinstance(stage, ReleasedRecipeUniteLatentPolicy)
-        ]
-        if len(policies) != 1:
-            raise RuntimeError(
-                "Released UNITE diagnostics require exactly one latent policy; "
-                f"found {len(policies)}"
-            )
-        policy = policies[0]
-        diagnostics = OrderedDict()
-        for source, source_batch in batch.items():
-            result = dict(source_batch)
-            for stage in self.pipeline.stages:
-                if stage is policy:
-                    break
-                result = stage.execute(result, mode="inference")
-            required = {"sampler/noise", "condition", "target", "embodiment"}
-            missing = required - set(result)
-            if missing:
-                raise RuntimeError(
-                    f"Released UNITE diagnostic prefix for {source!r} is missing "
-                    f"{sorted(missing)}"
-                )
-            diagnostics[source] = policy.validation_diagnostics(
-                noise=result["sampler/noise"],
-                condition=result["condition"],
-                target=result["target"],
-                embodiment=result["embodiment"],
-                raw_noise_levels=raw_noise_levels,
-            )
-        return diagnostics
-
     def compute_losses(self, predictions: Mapping, batch: Mapping) -> OrderedDict:
         self._validate_groups(batch)
         if tuple(predictions) != tuple(batch):

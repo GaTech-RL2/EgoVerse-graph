@@ -5,7 +5,7 @@ defaults:
   - override /logger: wandb
 
 name: unite_usocket_register_sweep_h16
-description: clean_action_h16_registers_pooled_obs_adaln_joint_flow14
+description: clean_action_h16_registers_pooled_obs_adaln_joint_flow${model.flow_steps_per_reconstruction}
 
 launch_params:
   gpus_per_node: 2
@@ -62,7 +62,7 @@ run_provenance:
       pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
   unite_update_schedule:
     mode: joint_reconstruction_plus_flow
-    flow_samples_per_reconstruction: 14
+    flow_samples_per_reconstruction: ${model.flow_steps_per_reconstruction}
     total_optimizer_steps: 240000
   energy_score_contract:
     sample_count: 32

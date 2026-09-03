@@ -40,7 +40,7 @@ Export these before `sbatch --export=ALL`:
   `pusht/planar_v2_usocket_arc_bc`
 - `ICE_WANDB_ENTITY`, `ICE_WANDB_PROJECT`, and a unique
   `ICE_WANDB_RUN_ID`
-- `ICE_EXPECTED_GPU_NAME`
+- one GPU selected by the `H100|H200` Slurm constraint
 - `ICE_MAX_STEPS`, `ICE_VAL_CHECK_INTERVAL`,
   `ICE_LIMIT_TRAIN_BATCHES`, `ICE_LIMIT_VAL_BATCHES`,
   `ICE_CHECKPOINT_EVERY_N_STEPS`, `ICE_TRAIN_BATCH_SIZE`, and

@@ -14,11 +14,12 @@ from typing import Any
 from omegaconf import OmegaConf
 
 EXPECTED_ROWS = {
-    (True, 4),
-    (True, 8),
-    (True, 16),
-    (False, 4),
-    (False, 8),
+    (True, 4, 14),
+    (True, 8, 14),
+    (True, 8, 42),
+    (True, 16, 14),
+    (False, 4, 14),
+    (False, 8, 14),
 }
 
 
@@ -87,10 +88,14 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
     tokens = _positive_integer(
         int(_select(config, "model.num_latent_tokens")), "model.num_latent_tokens"
     )
-    if (shared, tokens) not in EXPECTED_ROWS:
+    policy = _stage_by_target(config, "ReleasedRecipeUniteLatentPolicy")
+    flow_steps = _positive_integer(
+        int(policy.flow_steps_per_reconstruction),
+        "model.pipeline policy flow_steps_per_reconstruction",
+    )
+    if (shared, tokens, flow_steps) not in EXPECTED_ROWS:
         raise ValueError(
-            "UNITE row must be shared with 4, 8, or 16 latent tokens, "
-            "or separate with 4 or 8 latent tokens"
+            "unsupported UNITE topology, register count, or flow ratio"
         )
     latent_dim = _positive_integer(
         int(_select(config, "model.latent_dim")), "model.latent_dim"
@@ -98,9 +103,6 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
     if latent_dim != 16:
         raise ValueError("clean UNITE register sweep requires latent_dim=16")
 
-    policy = _stage_by_target(config, "ReleasedRecipeUniteLatentPolicy")
-    if int(policy.flow_steps_per_reconstruction) != 14:
-        raise ValueError("clean UNITE contract requires a 14:1 flow schedule")
     if int(policy.dopri5_output_points) != 50:
         raise ValueError("clean UNITE Dopri5 contract requires 50 output points")
     if float(policy.reconstruction_noising_start) != 0.7:
@@ -125,7 +127,7 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
 
     diagnostics = _select(config, "evaluator.unite_diagnostics", required=False)
     diagnostics_status = "ABSENT"
-    if diagnostics is not None:
+    if diagnostics is not None and bool(diagnostics.get("enabled", True)):
         diagnostic_view = diagnostics.get("validation_view")
         if not isinstance(diagnostic_view, Mapping):
             raise ValueError("UNITE diagnostics require a validation_view mapping")
@@ -150,7 +152,7 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
             "latent_dim": latent_dim,
         },
         "world_size": world_size,
-        "flow_steps_per_reconstruction": 14,
+        "flow_steps_per_reconstruction": flow_steps,
         "reconstruction_noising_start": 0.7,
         "sampler": {"name": "dopri5", "output_points": 50},
         "energy_score_conditions": 32,

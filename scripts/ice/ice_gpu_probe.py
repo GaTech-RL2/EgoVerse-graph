@@ -106,7 +106,9 @@ def _required_slurm_integer(name: str) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--expected-gpu-name", required=True)
+    names = parser.add_mutually_exclusive_group(required=True)
+    names.add_argument("--expected-gpu-name")
+    names.add_argument("--allowed-gpu-name", action="append")
     parser.add_argument("--expected-world-size", type=int, choices=(1,), default=1)
     parser.add_argument("--matrix-size", type=int, default=2048)
     parser.add_argument("--output", type=pathlib.Path)
@@ -132,9 +134,11 @@ def main() -> int:
 
     torch.cuda.set_device(0)
     gpu_name = torch.cuda.get_device_name(0)
-    if args.expected_gpu_name.casefold() not in gpu_name.casefold():
+    allowed_names = args.allowed_gpu_name or [args.expected_gpu_name]
+    if not any(name.casefold() in gpu_name.casefold() for name in allowed_names):
         raise RuntimeError(
-            f"allocated GPU {gpu_name!r} does not match {args.expected_gpu_name!r}"
+            f"allocated GPU {gpu_name!r} does not match any allowed name: "
+            f"{allowed_names!r}"
         )
     if not torch.cuda.is_bf16_supported():
         raise RuntimeError(f"allocated GPU does not support BF16: {gpu_name}")

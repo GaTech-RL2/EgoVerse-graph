@@ -7,6 +7,7 @@ latent_dim: 16
 condition_dim: 128
 hidden_dim: 768
 action_horizon: 16
+flow_steps_per_reconstruction: 14
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
@@ -59,7 +60,7 @@ pipeline:
       dopri5_atol: 1.0e-6
       dopri5_rtol: 1.0e-3
       timestep_shift_alpha: 0.5
-      flow_steps_per_reconstruction: 14
+      flow_steps_per_reconstruction: ${model.flow_steps_per_reconstruction}
       flow_mini_batch: 4
       train_eps: 0.05
       sample_eps: 0.05

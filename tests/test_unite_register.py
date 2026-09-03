@@ -447,6 +447,7 @@ def test_only_registered_rows_and_no_legacy_or_diagnostic_surface():
         "us_unite_register_separate_nt8_s42.yaml",
         "us_unite_register_shared_nt16_s42.yaml",
         "us_unite_register_shared_nt4_s42.yaml",
+        "us_unite_register_shared_nt8_flow42_s42.yaml",
         "us_unite_register_shared_nt8_s42.yaml",
     ]
     assert (
@@ -455,7 +456,7 @@ def test_only_registered_rows_and_no_legacy_or_diagnostic_surface():
 
 
 def test_ice_launcher_explicitly_wires_unite_diagnostics():
-    launcher = (ROOT / "scripts/ice/launch_planar_h100x2.sbatch").read_text()
+    launcher = (ROOT / "scripts/ice/launch_unite.sbatch").read_text()
     assert "ICE_UNITE_DIAGNOSTICS=${ICE_UNITE_DIAGNOSTICS:-false}" in launcher
     assert "evaluator.unite_diagnostics.enabled=true" in launcher
     assert (
@@ -466,7 +467,13 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
     assert "launch_contract.json" in launcher
     assert '"world_size": int(world_size)' in launcher
     assert '"unite_diagnostics": unite_diagnostics' in launcher
-    assert "ICE_WORLD_SIZE=${ICE_WORLD_SIZE:-2}" in launcher
+    assert "ICE_WORLD_SIZE=1" in launcher
+    assert "#SBATCH --gres=gpu:1" in launcher
+    assert "#SBATCH --constraint=H100|H200" in launcher
+    assert "ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}" in launcher
+    assert "ICE_UNITE_H100_FAST" not in launcher
+    assert "ICE_EXPECTED_GPU_NAME" not in launcher
+    assert "bf/us_unite_register_shared_nt8_flow42_s42" in launcher
     assert '"trainer.devices=$ICE_WORLD_SIZE"' in launcher
     assert '"evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"' in launcher
     assert '--ntasks="${ICE_WORLD_SIZE:?}"' in launcher

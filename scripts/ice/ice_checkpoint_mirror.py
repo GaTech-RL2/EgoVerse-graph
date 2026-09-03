@@ -403,25 +403,31 @@ def state_entry(info: CheckpointInfo, row_id: str, prior: dict[str, Any] | None)
     return result
 
 
-def completion_sentinel_is_valid(path: Path) -> bool:
+def completion_sentinel_checkpoint(path: Path) -> dict[str, Any] | None:
     try:
         payload = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):
-        return False
+        return None
     if payload.get("schema_version") != 1 or payload.get("status") != "COMPLETE":
-        return False
+        return None
     checkpoint = payload.get("checkpoint")
     if not isinstance(checkpoint, dict):
-        return False
+        return None
     step = checkpoint.get("global_step")
     digest = checkpoint.get("sha256")
-    return (
-        not isinstance(step, bool)
-        and isinstance(step, int)
-        and step >= 0
-        and isinstance(digest, str)
-        and SHA_RE.fullmatch(digest) is not None
-    )
+    if (
+        isinstance(step, bool)
+        or not isinstance(step, int)
+        or step < 0
+        or not isinstance(digest, str)
+        or SHA_RE.fullmatch(digest) is None
+    ):
+        return None
+    return checkpoint
+
+
+def completion_sentinel_is_valid(path: Path) -> bool:
+    return completion_sentinel_checkpoint(path) is not None
 
 
 def main(argv: Sequence[str] | None = None) -> int:

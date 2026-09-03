@@ -287,7 +287,10 @@ def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]
     archive_counts: dict[str, int] = {}
     for row in manifest["runs"]:
         sentinel = row.get("completion_sentinel")
-        if sentinel is None or not core.completion_sentinel_is_valid(Path(sentinel).expanduser().resolve()):
+        if sentinel is None:
+            return False
+        terminal = core.completion_sentinel_checkpoint(Path(sentinel).expanduser().resolve())
+        if terminal is None:
             return False
         entries = [
             entry
@@ -296,6 +299,7 @@ def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]
         ]
         if not entries:
             return False
+        terminal_archived = False
         archive_counts[row["id"]] = len(entries)
         for entry in entries:
             if not entry.get("remote_verified"):
@@ -305,6 +309,13 @@ def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]
                 args.ssh, args.remote_host, remote_path
             ) != entry.get("sha256"):
                 return False
+            if (
+                entry.get("global_step") == terminal["global_step"]
+                and entry.get("sha256") == terminal["sha256"]
+            ):
+                terminal_archived = True
+        if not terminal_archived:
+            return False
     if ok:
         core.atomic_json(
             state_dir / "mirror-complete.json",

@@ -99,6 +99,8 @@ class ArchiveInventoryTest(unittest.TestCase):
                             str(archived_ckpt.resolve()): {
                                 "run_id": "archived",
                                 "remote_verified": True,
+                                "global_step": 10,
+                                "sha256": hashlib.sha256(archived_ckpt.read_bytes()).hexdigest(),
                             }
                         },
                     }

@@ -87,7 +87,8 @@ def build_inventory(
         row = rows_by_root.get(run_root)
         checkpoints = discovered.get(run_root, [])
         sentinel = Path(row["completion_sentinel"]) if row and row.get("completion_sentinel") else run_root / "COMPLETE.json"
-        complete = core.completion_sentinel_is_valid(sentinel)
+        terminal = core.completion_sentinel_checkpoint(sentinel)
+        complete = terminal is not None
         if row is None:
             status = "unregistered"
             verified = 0
@@ -101,9 +102,18 @@ def build_inventory(
                 and entry.get("run_id") == row["id"]
                 and entry.get("remote_verified") is True
             )
+            terminal_verified = any(
+                isinstance(entry, dict)
+                and entry.get("run_id") == row["id"]
+                and entry.get("remote_verified") is True
+                and terminal is not None
+                and entry.get("global_step") == terminal["global_step"]
+                and entry.get("sha256") == terminal["sha256"]
+                for entry in state["files"].values()
+            )
             if not checkpoints:
                 status = "complete_missing_checkpoints" if complete else "registered_no_checkpoints"
-            elif complete and verified == len(checkpoints):
+            elif complete and verified == len(checkpoints) and terminal_verified:
                 status = "complete_archived"
             elif complete:
                 status = "complete_needs_transfer"
@@ -124,6 +134,7 @@ def build_inventory(
                 "completion_evidence": str(sentinel) if complete else None,
                 "checkpoint_count": len(checkpoints),
                 "remote_verified_count": verified,
+                "terminal_checkpoint_remote_verified": terminal_verified if row else False,
                 "status": status,
             }
         )

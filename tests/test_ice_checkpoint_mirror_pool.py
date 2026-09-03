@@ -180,6 +180,38 @@ class MirrorPoolTest(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertFalse((state / "mirror-complete.json").exists())
 
+    def test_completion_requires_exact_terminal_checkpoint(self):
+        with tempfile.TemporaryDirectory() as raw:
+            scratch, run, state, checkpoint, manifest = make_layout(Path(raw))
+            sentinel = run / "COMPLETE.json"
+            payload = json.loads(sentinel.read_text())
+            payload["checkpoint"]["global_step"] = 999
+            payload["checkpoint"]["sha256"] = "a" * 64
+            sentinel.write_text(json.dumps(payload))
+            remote: dict[str, str] = {}
+
+            def fake_mirror(
+                path, digest, remote_dir, host, ssh, rsync, rsync_rsh, temporary_tag=None
+            ):
+                destination = f"/remote/{digest}"
+                remote[destination] = digest
+                return destination
+
+            with (
+                mock.patch.object(POOL.core, "mirror_one", side_effect=fake_mirror),
+                mock.patch.object(
+                    POOL.core,
+                    "remote_sha",
+                    side_effect=lambda ssh, host, path: remote.get(path),
+                ),
+                mock.patch.object(POOL.core, "scratch_bytes", return_value=100),
+            ):
+                code = POOL.main(worker_args(manifest, state, scratch))
+            self.assertEqual(code, 0)
+            self.assertFalse((state / "mirror-complete.json").exists())
+            saved = json.loads((state / "mirror-state.json").read_text())
+            self.assertTrue(saved["files"][str(checkpoint.resolve())]["remote_verified"])
+
     def test_worker_count_and_index_are_fail_closed(self):
         with tempfile.TemporaryDirectory() as raw:
             scratch, _run, state, _checkpoint, manifest = make_layout(Path(raw))

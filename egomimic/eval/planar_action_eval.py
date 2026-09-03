@@ -30,6 +30,7 @@ class PlanarActionEval(Eval):
         energy_score_enabled: bool = True,
         action_key: str = "actions",
         native_decoder=None,
+        native_decoders=None,
         deterministic_seed: int = _DEFAULT_DETERMINISTIC_SEED,
     ):
         self.trainer = None
@@ -38,7 +39,10 @@ class PlanarActionEval(Eval):
         self.action_key = str(action_key)
         if not self.action_key:
             raise ValueError("action_key must be non-empty")
+        if native_decoder is not None and native_decoders is not None:
+            raise ValueError("configure native_decoder or native_decoders, not both")
         self.native_decoder = native_decoder
+        self.native_decoders = dict(native_decoders or {})
         self.blocks = tuple(tuple(map(int, block)) for block in semantic_blocks)
         self.energy_score_enabled = bool(energy_score_enabled)
         self.deterministic_seed = int(deterministic_seed)
@@ -139,17 +143,29 @@ class PlanarActionEval(Eval):
             first_result,
         )
 
-    def _native(self, normalized, embodiment_id):
+    def _native_decoder(self, embodiment_id):
+        if not self.native_decoders:
+            return self.native_decoder
+        name = get_embodiment(embodiment_id)
+        if name is None:
+            raise KeyError(f"Unknown Planar embodiment id {embodiment_id}")
+        label = name.lower()
+        if label not in self.native_decoders:
+            raise KeyError(f"No native decoder configured for {label!r}")
+        return self.native_decoders[label]
+
+    def _native(self, normalized, embodiment_id, decoder):
         if self.normalizer is None:
             raise RuntimeError("Planar evaluator data context was not bound")
         unnormalized = self.normalizer.unnormalize(
             {self.action_key: normalized}, embodiment_id
         )[self.action_key]
-        if self.native_decoder is None:
+        if decoder is None:
             return unnormalized
-        return self.native_decoder.decode(unnormalized)
+        return decoder.decode(unnormalized)
 
-    def _native_mse(self, prediction, target):
+    @staticmethod
+    def _native_mse(prediction, target, decoder):
         """Measure native Planar actions with a circular theta residual."""
         if prediction.shape != target.shape:
             raise ValueError(
@@ -158,7 +174,7 @@ class PlanarActionEval(Eval):
             )
         # Without a decoder, rotation remains encoded as cos/sin in common-five
         # space, where ordinary subtraction is already wrap-safe.
-        if self.native_decoder is None or prediction.shape[-1] < 3:
+        if decoder is None or prediction.shape[-1] < 3:
             return (prediction - target).square().mean()
 
         residual = prediction - target
@@ -224,9 +240,11 @@ class PlanarActionEval(Eval):
             prediction = result[source_id]["pred_action"]
             target = source_batch[self.action_key]
             normalized_mse = (prediction - target).square().mean()
+            decoder = self._native_decoder(embodiment_id)
             native_mse = self._native_mse(
-                self._native(prediction, embodiment_id),
-                self._native(target, embodiment_id),
+                self._native(prediction, embodiment_id, decoder),
+                self._native(target, embodiment_id, decoder),
+                decoder,
             )
             metrics[f"Valid/MSE/{label}"] = normalized_mse
             metrics[f"Valid/Native_MSE/{label}"] = native_mse

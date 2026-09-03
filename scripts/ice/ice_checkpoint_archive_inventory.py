@@ -102,7 +102,7 @@ def build_inventory(
                 and entry.get("remote_verified") is True
             )
             if not checkpoints:
-                status = "registered_no_checkpoints"
+                status = "complete_missing_checkpoints" if complete else "registered_no_checkpoints"
             elif complete and verified == len(checkpoints):
                 status = "complete_archived"
             elif complete:
@@ -113,7 +113,7 @@ def build_inventory(
                 status = "active_needs_transfer"
 
         counts[status] = counts.get(status, 0) + 1
-        if status in {"unregistered", "complete_needs_transfer"}:
+        if status in {"unregistered", "complete_needs_transfer", "complete_missing_checkpoints"}:
             attention.append(str(run_root))
         runs.append(
             {

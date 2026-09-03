@@ -165,6 +165,42 @@ class ArchiveInventoryTest(unittest.TestCase):
             self.assertTrue(report["runs"][0]["complete"])
             self.assertEqual(report["runs"][0]["checkpoint_count"], 0)
 
+    def test_registered_complete_run_with_missing_checkpoint_requires_attention(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw) / "scratch" / "campaign"
+            run = root / "run"
+            run.mkdir(parents=True)
+            sentinel = run / "COMPLETE.json"
+            sentinel.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "status": "COMPLETE",
+                        "checkpoint": {"global_step": 10, "sha256": "a" * 64},
+                    }
+                )
+            )
+            report = INVENTORY.build_inventory(
+                root,
+                {
+                    "schema_version": 1,
+                    "runs": [
+                        {
+                            "id": "run",
+                            "local_root": str(run),
+                            "checkpoint_glob": "checkpoints/*.ckpt",
+                            "validator": "/unused/by_inventory",
+                            "remote_dir": "/remote/archive/run",
+                            "completion_sentinel": str(sentinel),
+                        }
+                    ],
+                },
+                {"schema_version": 2, "files": {}},
+                4,
+            )
+            self.assertEqual(report["runs"][0]["status"], "complete_missing_checkpoints")
+            self.assertEqual(report["attention_required"], [str(run.resolve())])
+
 
 if __name__ == "__main__":
     unittest.main()

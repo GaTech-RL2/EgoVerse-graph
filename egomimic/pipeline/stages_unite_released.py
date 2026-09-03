@@ -1,4 +1,4 @@
-"""Released UNITE policy for compact robot-action register latents."""
+"""Released UNITE stages for compact action-register latents."""
 
 from __future__ import annotations
 
@@ -77,7 +77,6 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         self,
         generative_encoder: nn.Module,
         decoders: Dict[str, nn.Module],
-        num_inference_steps: int = 8,
         reconstruction_noise_std: float = 0.0,
         timestep_shift_alpha: float = 0.5,
         flow_steps_per_reconstruction: int = 14,
@@ -100,7 +99,6 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         super().__init__()
         self.generative_encoder = generative_encoder
         self.action_decoder = _PerEmbodimentDecoder(decoders)
-        self.num_inference_steps = int(num_inference_steps)
         self.timestep_shift_alpha = float(timestep_shift_alpha)
         self.flow_steps_per_reconstruction = int(flow_steps_per_reconstruction)
         self.flow_mini_batch = int(flow_mini_batch)
@@ -132,8 +130,6 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             self.action_decoder.action_dims
         ):
             raise ValueError("UNITE encoder and decoder action dimensions must match")
-        if self.num_inference_steps <= 0:
-            raise ValueError("num_inference_steps must be positive")
         if float(reconstruction_noise_std) != 0.0:
             raise ValueError(
                 "Released register UNITE requires reconstruction_noise_std=0"
@@ -437,13 +433,11 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
 
     def forward(self, batch: dict) -> dict:
         """Retain direct-call behavior while graph execution passes mode explicitly."""
-        return self._execute_mode(
-            batch, "train" if self.training else "inference"
-        )
+        return self._execute_mode(batch, "train" if self.training else "inference")
 
 
 class ReleasedRecipeUniteObjective(Stage):
-    """Robot-action translation of released reconstruction plus flow objective."""
+    """Action-space translation of the released reconstruction/flow objective."""
 
     train_only = True
     reads = [
@@ -469,11 +463,11 @@ class ReleasedRecipeUniteObjective(Stage):
         flow = batch["unite/flow_loss"]
         if flow.ndim != 0 or not bool(torch.isfinite(flow)):
             raise RuntimeError("Released UNITE flow loss must be a finite scalar")
-        generated_action = _mse(batch["pred_action"], batch["target"])
+        generated_action_mse = _mse(batch["pred_action"], batch["target"])
         batch["loss/unite_reconstruction"] = self.reconstruction_weight * reconstruction
         batch["loss/unite_latent"] = self.flow_weight * flow
         batch["log/unite_reconstruction"] = reconstruction.detach()
         batch["log/unite_reconstruction_l1"] = reconstruction_l1.detach()
         batch["log/unite_latent"] = flow.detach()
-        batch["log/native_action"] = generated_action.detach()
+        batch["log/unite_generated_action_mse"] = generated_action_mse.detach()
         return batch

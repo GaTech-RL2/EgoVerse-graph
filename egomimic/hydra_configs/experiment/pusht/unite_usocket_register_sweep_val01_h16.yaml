@@ -23,6 +23,8 @@ trainer:
   accumulate_grad_batches: 1
   strategy: ddp_find_unused_parameters_true
   log_every_n_steps: 1
+  gradient_clip_val: 3.0
+  gradient_clip_algorithm: norm
 
 logger:
   wandb:
@@ -35,6 +37,8 @@ norm_stats:
 callbacks:
   model_checkpoint:
     filename: "epoch-{epoch}-step-{step}"
+    every_n_train_steps: 20000
+    every_n_epochs: null
   ema:
     _target_: egomimic.utils.ema_callback.EMACallback
     decay: 0.9978
@@ -45,7 +49,6 @@ eval_checkpoint:
 
 run_provenance:
   split_manifest_sha256: 672f0f519bb7bff5b6b956d1b709abf1a1d387dd6b88b20a7c37536799bce0cd
-  train_only_normalization_sha256: 3559aca1ac1279cbdd37de8e5b2da9bb350fbc0f1177d4c669aa590011fd0203
   action_contract:
     representations:
       pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
@@ -56,10 +59,28 @@ run_provenance:
   energy_score_contract:
     sample_count: 32
     seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    validation_view: first_deterministic_validation_batch_per_ddp_rank
     aggregation: condition_mean_then_equal_domain_macro_mean
 
 evaluator:
+  deterministic_seed: 420042
   energy_score_max_batches_per_rank: 1
+  energy_score_validation_view:
+    definition: first_deterministic_validation_batch_per_ddp_rank
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    per_rank_batch_size: 16
+    world_size: ${trainer.devices}
+  energy_score_provenance:
+    action_representations: ${run_provenance.action_contract.representations}
+    prediction_horizon: ${model.action_horizon}
+    sampler: dopri5
+    sampler_evaluation_points: 50
+    sampler_atol: 1.0e-6
+    sampler_rtol: 1.0e-3
+    model_autocast_precision: bf16
+    dopri5_state_precision: fp32
+    dopri5_derivative_precision: fp32
+    dopri5_error_control_precision: fp32
   semantic_blocks: [[0, 2], [2, 4]]
   native_decoder:
     _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder

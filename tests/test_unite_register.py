@@ -125,6 +125,20 @@ def test_register_topology_and_h16_round_trip(shared, num_latent_tokens):
     assert actions.grad is not None
 
 
+def test_action_decoder_does_not_require_horizon_register_divisibility():
+    decoder = UniteActionDecoder(
+        latent_dim=16,
+        action_dim=4,
+        num_latent_tokens=3,
+        action_horizon=7,
+        hidden_dim=32,
+        depth=2,
+        num_heads=4,
+        gradient_checkpointing=False,
+    )
+    assert decoder(torch.randn(2, 3, 16)).shape == (2, 7, 4)
+
+
 def test_clean_content_and_in_context_tokens_enter_shared_adaln_backbone():
     encoder = _encoder(True, 4).eval()
     captured = {}
@@ -290,13 +304,25 @@ def test_dopri5_has_one_fp32_integrator_with_released_grid(monkeypatch):
 )
 def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_tokens):
     model_dir = CONFIG_DIR / "model/bf"
-    base = OmegaConf.load(model_dir / "us_unite_register_base.yaml")
-    overlay = OmegaConf.load(
+    canonical_path = model_dir / "us_unite_register_shared_nt4_s42.yaml"
+    canonical = OmegaConf.load(canonical_path)
+    row_path = (
         model_dir / f"us_unite_register_{topology}_nt{num_latent_tokens}_s42.yaml"
     )
-    assert set(overlay) == {"defaults", "share_encoder_denoiser", "num_latent_tokens"}
-    del overlay["defaults"]
-    root = OmegaConf.create({"model": OmegaConf.merge(base, overlay)})
+    if row_path == canonical_path:
+        row = canonical
+        assert "defaults" not in row
+    else:
+        overlay = OmegaConf.load(row_path)
+        assert set(overlay) <= {
+            "defaults",
+            "share_encoder_denoiser",
+            "num_latent_tokens",
+        }
+        assert set(overlay) - {"defaults"}
+        del overlay["defaults"]
+        row = OmegaConf.merge(canonical, overlay)
+    root = OmegaConf.create({"model": row})
     OmegaConf.resolve(root)
     model = root.model
     assert model.share_encoder_denoiser is (topology == "shared")
@@ -362,6 +388,9 @@ def test_only_four_rows_and_no_legacy_or_diagnostic_surface():
         "us_unite_register_shared_nt4_s42.yaml",
         "us_unite_register_shared_nt8_s42.yaml",
     ]
+    assert (
+        sorted(path.name for path in model_dir.glob("us_unite_register*.yaml")) == rows
+    )
     assert not (ROOT / "egomimic/pipeline/stages_unite.py").exists()
     experiment = yaml.safe_load(
         (
@@ -370,9 +399,18 @@ def test_only_four_rows_and_no_legacy_or_diagnostic_surface():
     )
     assert experiment["trainer"]["max_steps"] == 240_000
     assert experiment["trainer"]["check_val_every_n_epoch"] is None
+    assert experiment["trainer"]["gradient_clip_val"] == 3.0
+    assert experiment["trainer"]["gradient_clip_algorithm"] == "norm"
+    assert experiment["callbacks"]["model_checkpoint"]["every_n_train_steps"] == 20_000
+    assert experiment["callbacks"]["model_checkpoint"]["every_n_epochs"] is None
     assert experiment["eval_checkpoint"] == {"use_ema": True}
     assert {"override /evaluator": "eval_planar_v2"} in experiment["defaults"]
     assert experiment["evaluator"]["energy_score_max_batches_per_rank"] == 1
+    assert experiment["evaluator"]["deterministic_seed"] == 420_042
+    assert experiment["evaluator"]["energy_score_validation_view"]["definition"] == (
+        "first_deterministic_validation_batch_per_ddp_rank"
+    )
+    assert experiment["evaluator"]["energy_score_provenance"]["sampler"] == "dopri5"
     assert experiment["evaluator"]["semantic_blocks"] == [[0, 2], [2, 4]]
     assert experiment["evaluator"]["native_decoder"] == {
         "_target_": "egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder"
@@ -382,6 +420,7 @@ def test_only_four_rows_and_no_legacy_or_diagnostic_surface():
         "action_decoder",
     }
     assert experiment["run_provenance"]["energy_score_contract"]["sample_count"] == 32
+    assert "train_only_normalization_sha256" not in experiment["run_provenance"]
     assert "unite_diagnostics" not in experiment["evaluator"]
     assert "unite_training_diagnostics" not in experiment["run_provenance"]
 

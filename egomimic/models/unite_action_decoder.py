@@ -147,13 +147,6 @@ class UniteActionDecoder(nn.Module):
             raise ValueError("mlp_ratio must be positive")
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("dropout must be in [0, 1)")
-        if self.action_horizon % self.num_latent_tokens:
-            raise ValueError(
-                "action_horizon must be divisible by num_latent_tokens for the "
-                "Pipeline temporal-factor contract"
-            )
-        self.temporal_factor = self.action_horizon // self.num_latent_tokens
-
         self.latent_projection = nn.Linear(self.latent_dim, self.hidden_dim)
         self.action_query = nn.Parameter(torch.zeros(1, 1, self.hidden_dim))
         self.token_identity = nn.Parameter(torch.zeros(2, self.hidden_dim))
@@ -184,15 +177,6 @@ class UniteActionDecoder(nn.Module):
         nn.init.zeros_(self.latent_projection.bias)
         nn.init.xavier_uniform_(self.action_projection.weight)
         nn.init.zeros_(self.action_projection.bias)
-
-    def output_num_tokens(self, input_num_tokens: int) -> int:
-        input_num_tokens = int(input_num_tokens)
-        if input_num_tokens != self.num_latent_tokens:
-            raise ValueError(
-                f"UNITE decoder received {input_num_tokens} register tokens, "
-                f"expected {self.num_latent_tokens}"
-            )
-        return self.action_horizon
 
     def forward(self, latent: torch.Tensor) -> torch.Tensor:
         expected = (self.num_latent_tokens, self.latent_dim)

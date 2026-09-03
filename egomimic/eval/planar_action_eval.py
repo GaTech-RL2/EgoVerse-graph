@@ -307,8 +307,13 @@ class PlanarActionEval(Eval):
         denominator = (
             (left.T @ left).square().sum() * (right.T @ right).square().sum()
         ).sqrt()
-        if not bool(torch.isfinite(denominator)) or float(denominator) <= 0.0:
-            raise ValueError("CKA encountered a zero or non-finite centered norm")
+        if not bool(torch.isfinite(denominator)):
+            raise ValueError("CKA encountered a non-finite centered norm")
+        if float(denominator) <= torch.finfo(denominator.dtype).eps:
+            # A constant representation has no centered variance, so linear CKA
+            # is undefined. Use the finite zero-alignment convention for this
+            # diagnostic edge case; it must never interrupt validation/training.
+            return denominator.new_zeros(())
         value = numerator / denominator
         if not bool(torch.isfinite(value)):
             raise ValueError("CKA produced a non-finite value")

@@ -198,6 +198,13 @@ def test_alignment_metrics_are_finite_for_paired_features():
     assert bool(torch.isfinite(cka)) and bool(torch.isfinite(cknna))
 
 
+def test_centered_linear_cka_is_zero_for_constant_features():
+    left = torch.ones(8, 4)
+    right = torch.randn(8, 4)
+    cka = PlanarActionEval._centered_linear_cka(left, right)
+    assert cka.item() == 0.0
+
+
 def test_zero_final_latent_has_finite_zero_cosine():
     clean = torch.randn(12, 64)
     predicted = torch.zeros(3, 12, 64)

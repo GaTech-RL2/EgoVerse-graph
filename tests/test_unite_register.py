@@ -377,11 +377,11 @@ def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_t
     ge = stages[4].generative_encoder
     assert ge.share_encoder_denoiser is (topology == "shared")
     assert ge.num_latent_tokens == ge.backbone_config.horizon == num_latent_tokens
-    assert stages[4].flow_mini_batch == 4
-    assert ge.gradient_checkpointing is True
-    assert ge.backbone_config.gradient_checkpointing is True
+    assert stages[4].flow_mini_batch == 14
+    assert ge.gradient_checkpointing is False
+    assert ge.backbone_config.gradient_checkpointing is False
     assert stages[4].decoders[DOMAIN].action_horizon == 16
-    assert stages[4].decoders[DOMAIN].gradient_checkpointing is True
+    assert stages[4].decoders[DOMAIN].gradient_checkpointing is False
 
 
 @pytest.mark.parametrize("topology", ["shared", "separate"])

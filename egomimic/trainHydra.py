@@ -29,8 +29,6 @@ from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper
 
-OmegaConf.register_new_resolver("eval", eval)
-
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
@@ -297,8 +295,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             eval_obj.trainer = trainer
             eval_obj.model = model.model
-            if hasattr(eval_obj, "bind_data_context"):
-                eval_obj.bind_data_context(normalizer=norm_stats)
+            eval_obj.bind_data_context(normalizer=norm_stats)
             model.evaluator = eval_obj
         log.info("Starting training!")
         trainer.fit(
@@ -310,8 +307,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model
-        if hasattr(eval_obj, "bind_data_context"):
-            eval_obj.bind_data_context(normalizer=norm_stats)
+        eval_obj.bind_data_context(normalizer=norm_stats)
         model.evaluator = eval_obj
 
         ckpt_path = cfg.get("ckpt_path")

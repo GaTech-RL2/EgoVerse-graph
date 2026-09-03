@@ -342,7 +342,7 @@ def test_validation_components_weight_sources_batches_and_ranks(monkeypatch):
     assert not any("Native" in name or "Energy" in name for name in values)
 
 
-def test_gradient_telemetry_runs_after_each_hundred_completed_steps(monkeypatch):
+def test_gradient_telemetry_runs_on_update_completing_each_hundred_steps(monkeypatch):
     wrapper = _wrapper()
     monkeypatch.setattr(wrapper, "log", lambda *_args, **_kwargs: None)
     completed_steps = {"value": 0}
@@ -355,9 +355,9 @@ def test_gradient_telemetry_runs_after_each_hundred_completed_steps(monkeypatch)
     monkeypatch.setattr(
         wrapper,
         "_measure_topology_gradients",
-        lambda *_args: measured.append(completed_steps["value"]),
+        lambda *_args: measured.append(completed_steps["value"] + 1),
     )
-    for step in (0, 1, 99, 100, 101, 200):
+    for step in (0, 1, 98, 99, 100, 198, 199, 200):
         completed_steps["value"] = step
         wrapper.training_step(_batch((1, 1.0, 1.0, 1.0)), step)
     assert measured == [100, 200]

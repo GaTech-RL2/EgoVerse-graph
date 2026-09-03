@@ -26,6 +26,14 @@ launch_params:
   gpus_per_node: 1
   nodes: 1
 
+runtime:
+  # Lightning owns SIGUSR1/scontrol by default. An external ICE runner must
+  # opt in explicitly and prove that child/framework requeue is disabled.
+  slurm_requeue_owner: lightning
+  # Runner-owned mode forwards SIGUSR2 only to request a full-state save.
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+
 seed: 42
 
 # Normalization and norm-stat cache settings (override per-run as needed).

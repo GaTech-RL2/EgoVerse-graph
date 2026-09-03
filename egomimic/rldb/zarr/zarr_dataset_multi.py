@@ -714,8 +714,8 @@ class MultiDataset(torch.utils.data.Dataset):
       - **Data mode** (default): pass ``datasets`` to wrap a real dataset graph
         (existing behaviour, used during training). Stats fields start empty;
         call ``populate_from_datasets()`` and ``infer_norm_from_dataset(...)``
-        to fill them in, then ``attach_normalize_transforms()`` to wire
-        normalize/reject transforms onto each leaf's ``transform_list``.
+        to fill them in, then share them with the selected datasets through
+        ``set_norm_stats_from()``.
       - **State mode** (``state=...``, ``datasets=None``): construct a
         stats-only instance for deploy/eval where the dataset graph isn't
         available. ``self.datasets`` is empty; only the stats fields are
@@ -820,9 +820,8 @@ class MultiDataset(torch.utils.data.Dataset):
         reference. After this call ``__getitem__`` will bounds-check + normalize
         each sample using ``source``'s ``norm_stats``/``key_types``/``zarr_keys``.
 
-        Use this *instead of* ``attach_normalize_transforms`` — it doesn't mutate
-        any leaf-level ``transform`` list, so it can't accumulate duplicate
-        passes when leaves share a transform list reference.
+        This does not mutate any leaf-level ``transform`` list, so it cannot
+        accumulate duplicate passes when leaves share a transform list reference.
         """
         self.norm_stats = source.norm_stats
         self.key_types = source.key_types
@@ -1358,26 +1357,6 @@ class MultiDataset(torch.utils.data.Dataset):
             out[data_key] = self._apply_unnorm_one(value, stats)
         return out
 
-    # ---- transform attachment ----
-
-    def attach_normalize_transforms(
-        self, datasets: dict | None = None, reject_outliers: bool = True
-    ) -> None:
-        """Deprecated. Use ``set_norm_stats_from`` on each training/valid
-        MultiDataset instead. Bounds-check + normalize now run at the
-        MultiDataset level in ``__getitem__``, not as per-leaf transforms.
-
-        Kept as a thin shim that calls ``set_norm_stats_from(self)`` on each
-        MultiDataset in ``datasets`` so existing callers keep working. The
-        ``reject_outliers`` flag is no longer honored — bounds checking is
-        always on when stats are populated. To disable, clear ``norm_stats``.
-        """
-        del reject_outliers  # unused
-        graph = datasets if datasets is not None else self.datasets
-        for ds in graph.values():
-            if isinstance(ds, MultiDataset):
-                ds.set_norm_stats_from(self)
-
     # ---- serialization (checkpoint roundtrip) ----
 
     @staticmethod
@@ -1753,13 +1732,18 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
                     # some contributors store 3x3 (e.g. microagi).
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                if K.shape != (
+                    3,
+                    4,
+                ):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
             else:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             _ = origin  # preserved for symmetry with prior API
             return data
 

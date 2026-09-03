@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Literal
 
 import numpy as np
@@ -25,7 +24,6 @@ from egomimic.utils.viz_utils import (
     _viz_gaze,
     _viz_keypoints,
 )
-
 
 ARIA_INTRINSICS = np.array(
     [
@@ -105,9 +103,6 @@ class Human(Embodiment):
     """
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
-    # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
-    # Pi's _fill_missing_images auto-duplicates the absent wrist keys.
-    PI_FRONT_KEY = "base_0_rgb"
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
@@ -223,16 +218,11 @@ class Human(Embodiment):
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
     ):
-        """Canonical MANO keymap. A ``_pi`` suffix swaps the front image key to
-        ``PI_FRONT_KEY``; ``include_aria_keypoints`` additionally exposes the raw
-        Aria-layout proprio keypoints alongside the MANO ones.
-        """
-        is_pi = keymap_mode.endswith("_pi")
-        base_mode = keymap_mode[: -len("_pi")] if is_pi else keymap_mode
-        front_key = cls.PI_FRONT_KEY if is_pi else cls.VIZ_IMAGE_KEY
+        """Build canonical MANO keys plus optional raw Aria keypoints."""
+        front_key = cls.VIZ_IMAGE_KEY
         horizon = cls.ACTION_HORIZON
 
-        if base_mode == "cartesian":
+        if keymap_mode == "cartesian":
             key_map = {
                 front_key: {
                     "key_type": "camera_keys",
@@ -257,7 +247,7 @@ class Human(Embodiment):
                     "zarr_key": "left.obs_ee_pose",
                 },
             }
-        elif base_mode == "keypoints":
+        elif keymap_mode == "keypoints":
             kp = "obs_keypoints"  # canonical MANO keypoints for every vendor
             key_map = {
                 front_key: {
@@ -312,7 +302,7 @@ class Human(Embodiment):
         else:
             raise ValueError(
                 f"Unsupported keymap_mode '{keymap_mode}' for {cls.__name__}. "
-                "Expected 'cartesian' or 'keypoints' (optionally with a '_pi' suffix)."
+                "Expected 'cartesian' or 'keypoints'."
             )
 
         if has_head_pose:

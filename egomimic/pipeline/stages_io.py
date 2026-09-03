@@ -1,4 +1,4 @@
-"""Small data-boundary stages for policy pipelines."""
+"""Small data-boundary stages for configured pipelines."""
 
 from __future__ import annotations
 

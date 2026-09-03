@@ -1,4 +1,4 @@
-"""Dependency-aware policy pipelines."""
+"""Dependency-aware pipelines."""
 
 from egomimic.pipeline.core import (
     Pipeline,

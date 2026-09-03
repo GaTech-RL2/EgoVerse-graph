@@ -1,4 +1,4 @@
-"""Observation and noise stages shared by Pipeline policy families."""
+"""Input and noise stages shared by configured Pipeline graphs."""
 
 from __future__ import annotations
 

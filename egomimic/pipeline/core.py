@@ -1,4 +1,4 @@
-"""Small dependency-aware stage runner used by Pipeline policies."""
+"""Small dependency-aware stage runner for configured Pipeline graphs."""
 
 from __future__ import annotations
 

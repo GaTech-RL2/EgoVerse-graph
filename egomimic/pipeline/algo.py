@@ -23,12 +23,12 @@ class PipelineAlgo:
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
-        self.nets = nn.ModuleDict({"policy": Pipeline(list(stages))})
+        self.nets = nn.ModuleDict({"pipeline": Pipeline(list(stages))})
         self.nets.to(self.device)
 
     @property
-    def policy(self) -> Pipeline:
-        return self.nets["policy"]
+    def pipeline(self) -> Pipeline:
+        return self.nets["pipeline"]
 
     def _move_value(self, value):
         if torch.is_tensor(value):
@@ -66,7 +66,7 @@ class PipelineAlgo:
     def _execute(self, batch: Mapping, *, mode: str) -> OrderedDict:
         self._validate_groups(batch)
         return OrderedDict(
-            (source, self.policy.execute(dict(value), mode=mode))
+            (source, self.pipeline.execute(dict(value), mode=mode))
             for source, value in batch.items()
         )
 

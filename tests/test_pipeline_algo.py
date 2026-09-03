@@ -111,7 +111,7 @@ def test_pipeline_algo_preserves_opaque_sources_and_reduces_losses():
     assert losses["loss"].ndim == 0
     assert torch.equal(losses["loss"], losses["source_0_loss"])
     losses["loss"].backward()
-    assert algo.policy.stages[2].scale.grad is not None
+    assert algo.pipeline.stages[2].scale.grad is not None
     logged = algo.log_info({"losses": losses})
     assert logged["Loss"] == pytest.approx(losses["loss"].item())
 
@@ -134,13 +134,13 @@ def test_pipeline_algo_equal_weights_multiple_sources():
 def test_pipeline_algo_inference_excludes_training_nodes_without_filtering_metadata():
     algo = _algo()
     processed = algo.process_batch_for_training(_raw_batch())
-    algo.policy.train()
+    algo.pipeline.train()
 
     results = algo.forward_eval(processed)
 
     expected = torch.full((2, 3, 2), 0.5)
     assert torch.equal(results["source_a"]["prediction"], expected)
-    assert algo.policy.stages[2].seen_keys == {
+    assert algo.pipeline.stages[2].seen_keys == {
         "state",
         "actions",
         "selector",

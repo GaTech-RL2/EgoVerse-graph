@@ -129,7 +129,7 @@ class ModelWrapper(LightningModule):
             self.parameters(), max_norm=float("inf")
         )
         grad_norm_val = float(grad_norm)
-        info = {"policy_grad_norms_raw": grad_norm_val}
+        info = {"pipeline_grad_norms_raw": grad_norm_val}
         grad_norm_flagged = False
 
         if len(self.grad_norm_history) >= self.grad_norm_mad_min_count:
@@ -138,9 +138,9 @@ class ModelWrapper(LightningModule):
             mad = float(np.median(np.abs(values - median)))
             if mad > 0.0:
                 threshold = median + self.grad_norm_mad_scale * mad
-                info["policy_grad_norms_mad_threshold"] = threshold
+                info["pipeline_grad_norms_mad_threshold"] = threshold
                 grad_norm_flagged = grad_norm_val > threshold
-                info["policy_grad_norms_mad_flag"] = float(grad_norm_flagged)
+                info["pipeline_grad_norms_mad_flag"] = float(grad_norm_flagged)
                 if grad_norm_flagged:
                     torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=median)
                     if self.trainer.is_global_zero:
@@ -166,7 +166,7 @@ class ModelWrapper(LightningModule):
             self.parameters(), max_norm=float("inf")
         )
         self.log(
-            "Train/policy_grad_norms_clipped",
+            "Train/pipeline_grad_norms_clipped",
             float(grad_norm),
             on_step=False,
             on_epoch=True,

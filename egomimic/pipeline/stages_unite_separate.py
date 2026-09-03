@@ -91,9 +91,7 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
         self._validate_backbone_contract(self.denoising_module)
 
     def _validate_domain(self, embodiment) -> str:
-        branch = resolve_homogeneous_scalar(
-            embodiment, label="UNITE branch selector"
-        )
+        branch = resolve_homogeneous_scalar(embodiment, label="UNITE branch selector")
         if isinstance(branch, int):
             branch = get_embodiment(branch)
             if branch is None:
@@ -189,16 +187,12 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
         shape = (1,) * (condition.ndim - 1) + (self.condition_input_dim,)
         return null.reshape(shape).expand_as(condition)
 
-    def _register_noise(self, actions: torch.Tensor) -> torch.Tensor:
-        return torch.randn(
-            int(actions.shape[0]),
-            self.num_latent_tokens,
-            self.latent_dim,
-            device=actions.device,
-            dtype=actions.dtype,
-        )
-
-    def tokenize(self, actions: torch.Tensor, embodiment: str) -> torch.Tensor:
+    def tokenize(
+        self,
+        actions: torch.Tensor,
+        embodiment: str,
+        register_queries: torch.Tensor,
+    ) -> torch.Tensor:
         embodiment = self._resolve_domain(embodiment)
         action_dim = self.action_dims[embodiment]
         if actions.ndim != 3 or int(actions.shape[-1]) != action_dim:
@@ -208,12 +202,28 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
             )
         if int(actions.shape[1]) <= 0:
             raise ValueError("clean action content must contain at least one token")
+        expected_registers = (
+            int(actions.shape[0]),
+            self.num_latent_tokens,
+            self.latent_dim,
+        )
+        if not torch.is_tensor(register_queries) or tuple(register_queries.shape) != (
+            expected_registers
+        ):
+            shape = (
+                tuple(register_queries.shape)
+                if torch.is_tensor(register_queries)
+                else None
+            )
+            raise ValueError(
+                "UNITE register queries must have shape "
+                f"{expected_registers}, got {shape}"
+            )
         content = self.action_context_projections[embodiment](actions)
         domain = self._tokenization_domain_embedding(embodiment).to(content)
         null_input = self._tokenization_null_input(embodiment).to(content)
         tokenization_condition = self._tokenization_condition_projection()(null_input)
         tokenization_condition = (tokenization_condition + domain).reshape(1, 1, -1)
-        registers = self._register_noise(actions)
         batch_size = int(actions.shape[0])
         tokenization_condition = tokenization_condition.expand(batch_size, -1, -1)
         time = (
@@ -221,7 +231,7 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
             * self.tokenization_time_max
         )
         encoded = self._tokenization_backbone()(
-            registers,
+            register_queries.to(device=actions.device, dtype=actions.dtype),
             time,
             condition=tokenization_condition,
             content_tokens=content,

@@ -111,7 +111,11 @@ def test_register_topology_and_h16_round_trip(shared, num_latent_tokens):
         assert encoder.tokenization_module is not encoder.denoising_module
 
     actions = torch.randn(2, 16, 4, requires_grad=True)
-    latent = encoder.tokenize(actions, DOMAIN)
+    latent = encoder.tokenize(
+        actions,
+        DOMAIN,
+        torch.randn(2, num_latent_tokens, 16),
+    )
     prediction = encoder.denoise(
         latent.detach(),
         torch.full((2,), 0.5),
@@ -145,6 +149,7 @@ def test_clean_content_and_in_context_tokens_enter_shared_adaln_backbone():
     sequence_lengths = []
 
     def capture_inputs(_module, _args, kwargs):
+        captured["registers"] = _args[0]
         captured["condition"] = kwargs["condition"]
         captured["content"] = kwargs["content_tokens"]
 
@@ -157,13 +162,15 @@ def test_clean_content_and_in_context_tokens_enter_shared_adaln_backbone():
         )
         for block in encoder.denoising_module.blocks
     ]
-    encoder.tokenize(torch.randn(2, 16, 4), DOMAIN)
+    registers = torch.randn(2, 4, 16)
+    encoder.tokenize(torch.randn(2, 16, 4), DOMAIN, registers)
     input_hook.remove()
     for hook in block_hooks:
         hook.remove()
 
     assert captured["condition"].shape == (2, 1, 12)
     assert captured["content"].shape == (2, 16, 12)
+    torch.testing.assert_close(captured["registers"], registers)
     assert sequence_lengths == [20, 28]
     assert all(
         hasattr(block, "adaln_modulation") for block in encoder.denoising_module.blocks
@@ -203,6 +210,8 @@ def test_joint_step_uses_one_reconstruction_and_fourteen_flow_samples(shared):
     assert sorted(calls) == sorted([2, 8, 8, 8, 4])
     total = output["loss/unite_reconstruction"] + output["loss/unite_latent"]
     assert total.ndim == 0 and bool(torch.isfinite(total))
+    assert "sampler/endpoint" not in output
+    assert "pred_action" not in output
     total.backward()
 
 

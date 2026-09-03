@@ -58,10 +58,7 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
 
     reads = ["sampler/noise", "condition", "target", "embodiment"]
     writes = [
-        "sampler/endpoint",
-        "pred_action",
         "unite/clean_latent",
-        "unite/predicted_clean_latent",
         "unite/reconstructed_action",
         "unite/flow_loss",
         "log/*",
@@ -264,11 +261,10 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         self,
         clean_latent: torch.Tensor,
         condition: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         detached_clean = clean_latent.detach()
         batch_size = int(detached_clean.shape[0])
         loss = None
-        representative_prediction = None
         representative_time = None
         dropout_fraction = detached_clean.new_zeros(())
         for repeats in self._flow_chunks(
@@ -293,18 +289,12 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             chunk_loss = ((repeated_clean - prediction) / denominator).square().mean()
             weighted = chunk_loss * repeats
             loss = weighted if loss is None else loss + weighted
-            if representative_prediction is None:
-                representative_prediction = prediction[:batch_size]
+            if representative_time is None:
                 representative_time = time[:batch_size]
-        if (
-            loss is None
-            or representative_prediction is None
-            or representative_time is None
-        ):
+        if loss is None or representative_time is None:
             raise RuntimeError("Released UNITE flow loop produced no samples")
         return (
             loss,
-            representative_prediction,
             representative_time,
             dropout_fraction / self.flow_steps_per_reconstruction,
         )
@@ -373,21 +363,20 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
 
     def _forward_training(self, batch: dict, embodiment: str) -> dict:
         target = batch["target"]
-        clean_latent = self.generative_encoder.tokenize(target, embodiment)
+        clean_latent = self.generative_encoder.tokenize(
+            target,
+            embodiment,
+            batch["sampler/noise"],
+        )
         reconstructed_action = self._decode(
             self._noisy_reconstruction_latent(clean_latent), embodiment
         )
-        flow_loss, predicted_clean, sampled_time, dropout_fraction = (
-            self._released_flow_loss(clean_latent, batch["condition"])
+        flow_loss, sampled_time, dropout_fraction = self._released_flow_loss(
+            clean_latent, batch["condition"]
         )
-        endpoint = predicted_clean
-        predicted_action = self._decode(endpoint, embodiment)
         batch.update(
             {
-                "sampler/endpoint": endpoint,
-                "pred_action": predicted_action,
                 "unite/clean_latent": clean_latent,
-                "unite/predicted_clean_latent": predicted_clean,
                 "unite/reconstructed_action": reconstructed_action,
                 "unite/flow_loss": flow_loss,
                 "log/sampler_unroll_steps": 1.0,
@@ -421,11 +410,14 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             batch = self._forward_rollout(batch, embodiment)
         else:
             raise ValueError(f"Unsupported UNITE execution mode {mode!r}")
-        endpoint = batch["sampler/endpoint"]
-        prediction = batch["pred_action"]
         batch["log/sampler_noise_rms"] = noise.detach().square().mean().sqrt()
-        batch["log/sampler_endpoint_rms"] = endpoint.detach().square().mean().sqrt()
-        batch["log/sampler_prediction_rms"] = prediction.detach().square().mean().sqrt()
+        if mode == "inference":
+            endpoint = batch["sampler/endpoint"]
+            prediction = batch["pred_action"]
+            batch["log/sampler_endpoint_rms"] = endpoint.detach().square().mean().sqrt()
+            batch["log/sampler_prediction_rms"] = (
+                prediction.detach().square().mean().sqrt()
+            )
         return batch
 
     def execute(self, batch: dict, *, mode: str) -> dict:
@@ -441,7 +433,6 @@ class ReleasedRecipeUniteObjective(Stage):
 
     train_only = True
     reads = [
-        "pred_action",
         "target",
         "unite/reconstructed_action",
         "unite/flow_loss",
@@ -463,11 +454,9 @@ class ReleasedRecipeUniteObjective(Stage):
         flow = batch["unite/flow_loss"]
         if flow.ndim != 0 or not bool(torch.isfinite(flow)):
             raise RuntimeError("Released UNITE flow loss must be a finite scalar")
-        generated_action_mse = _mse(batch["pred_action"], batch["target"])
         batch["loss/unite_reconstruction"] = self.reconstruction_weight * reconstruction
         batch["loss/unite_latent"] = self.flow_weight * flow
         batch["log/unite_reconstruction"] = reconstruction.detach()
         batch["log/unite_reconstruction_l1"] = reconstruction_l1.detach()
         batch["log/unite_latent"] = flow.detach()
-        batch["log/unite_generated_action_mse"] = generated_action_mse.detach()
         return batch

@@ -1,5 +1,5 @@
-# Hydra-instantiable standard-DP subgraph. Copy these stages into a policy
-# after its observation encoder; the model and reverse sampler share one node.
+# Hydra-instantiable standard-DP subgraph fragment. Compose these stages after
+# an observation encoder; the denoising model and reverse sampler share one node.
 _target_: egomimic.pipeline.core.Pipeline
 stages:
   - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder

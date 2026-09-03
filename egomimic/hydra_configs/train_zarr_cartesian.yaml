@@ -1,12 +1,12 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: null
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva
+  - data: null
   - callbacks: checkpoints
-  - evaluator: eval_hpt
+  - evaluator: null
   - override hydra/launcher: submitit
   - _self_
 

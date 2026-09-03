@@ -7,13 +7,14 @@ Reads pr_diff.txt, calls Claude API, writes review_output.md.
 """
 
 import os
+
 import anthropic
 
 SYSTEM_PROMPT = """You are a senior engineer and research collaborator reviewing pull requests for
 the EgoVerse robotics research codebase (https://github.com/GaTech-RL2/EgoVerse).
 
 The codebase is a robot learning framework. Key areas:
-- egomimic/algo/       — algorithm implementations (ACT, HPT, Pi 0.5)
+- egomimic/pipeline/   — generic graph runner and configured stages
 - egomimic/rldb/       — data loading (zarr, embodiment transforms, filters)
 - egomimic/scripts/    — data processing per embodiment (Eva, Aria, Mecka, Scale)
 - egomimic/hydra_configs/ — Hydra training configs

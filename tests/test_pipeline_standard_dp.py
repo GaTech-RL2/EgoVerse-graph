@@ -241,8 +241,8 @@ def test_hydra_factorized_dp_fragment_instantiates():
         Path(__file__).parents[1]
         / "egomimic"
         / "hydra_configs"
-        / "model"
-        / "pipeline_standard_dp_stage.yaml"
+        / "pipeline"
+        / "standard_dp.yaml"
     )
     cfg = OmegaConf.load(path)
     cfg.stages[1].action_horizon = 4

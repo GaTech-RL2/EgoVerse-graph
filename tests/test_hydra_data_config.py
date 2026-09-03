@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from omegaconf import OmegaConf
 
 from egomimic.utils.hydra_utils import (
     instantiate_dataset_splits_from_path,
@@ -86,3 +87,11 @@ def test_data_config_loader_rejects_non_data_group_path(tmp_path):
 
     with pytest.raises(ValueError, match="Expected a config below"):
         load_data_config_from_path(config_path, root_config_name="root")
+
+
+def test_repository_data_configs_resolve_in_root_context():
+    config_dir = Path(__file__).parents[1] / "egomimic" / "hydra_configs" / "data"
+
+    for config_path in sorted(config_dir.glob("*.yaml")):
+        data = load_data_config_from_path(config_path)
+        OmegaConf.to_container(data, resolve=True)

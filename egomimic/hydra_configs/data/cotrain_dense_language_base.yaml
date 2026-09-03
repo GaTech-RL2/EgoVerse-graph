@@ -5,7 +5,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
+      folder_path: ${oc.env:EGOVERSE_DATASET_DIR,/coc/flash7/scratch/egoverseS3ZarrDataset}
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
         keymap_mode: cartesian
@@ -20,7 +20,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
+      folder_path: ${oc.env:EGOVERSE_DATASET_DIR,/coc/flash7/scratch/egoverseS3ZarrDataset}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: cartesian
@@ -35,30 +35,22 @@ train_datasets:
 
 valid_datasets:
   eva_bimanual:
-    _target_: ${train_datasets.eva_bimanual._target_}
-    resolver: ${train_datasets.eva_bimanual.resolver}
-    filters: ${train_datasets.eva_bimanual.filters}
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
     mode: valid
-    valid_ratio: ${train_datasets.eva_bimanual.valid_ratio}
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
   human_bimanual:
-    _target_: ${train_datasets.human_bimanual._target_}
-    resolver: ${train_datasets.human_bimanual.resolver}
-    filters: ${train_datasets.human_bimanual.filters}
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
     mode: valid
-    valid_ratio: ${train_datasets.human_bimanual.valid_ratio}
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
 
 train_dataloader_params:
-  eva_bimanual:
-    batch_size: 32
-    num_workers: 6
-  human_bimanual:
-    batch_size: 32
-    num_workers: 6
+  eva_bimanual: {batch_size: 32, num_workers: 6}
+  human_bimanual: {batch_size: 32, num_workers: 6}
 
 valid_dataloader_params:
-  eva_bimanual:
-    batch_size: 32
-    num_workers: 6
-  human_bimanual:
-    batch_size: 32
-    num_workers: 6
+  eva_bimanual: {batch_size: 32, num_workers: 6}
+  human_bimanual: {batch_size: 32, num_workers: 6}

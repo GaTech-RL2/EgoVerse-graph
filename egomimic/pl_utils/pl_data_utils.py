@@ -1,22 +1,15 @@
 import logging
-import random
-from typing import Literal
 
-import numpy as np
-import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
-from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
-from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
 
-
 class MultiDataModuleWrapper(LightningDataModule):
     """
-    New functionality for dictionary based multi embodiment loading using CombinedLoader.
+    Build dictionary-based multi-source loaders with Lightning CombinedLoader.
 
     Uses hydra to instantiate DataLoader objects and then wraps them in a combined loader
     """
@@ -35,12 +28,8 @@ class MultiDataModuleWrapper(LightningDataModule):
             train_dataloader_params: dictionary of train dataloader parameters
             valid_dataloader_params: dictionary of valid dataloader parameters
 
-        Tokenization (sampling a prompt from per-sample annotation lists,
-        splicing in embodiment / control-mode / proprio blocks, and running
-        the HF tokenizer) lives on the algo side now — see
-        ``PI.process_batch_for_training``. The collate here only stacks
-        tensors and preserves variable-length list-valued keys (e.g. raw
-        ``annotations``) so the algo can consume them downstream.
+        The collate function stacks ordinary values and preserves variable-length
+        list-valued fields for whichever configured stage consumes them.
         """
         super().__init__()
         # Drop `None` slots so downstream iteration sites don't need null guards.
@@ -89,8 +78,6 @@ class MultiDataModuleWrapper(LightningDataModule):
         return CombinedLoader(iterables, "max_size_cycle")
 
 
-
-
 def _extract_list_keys(batch):
     """Pop all list-valued keys from *batch* samples and return them separately.
 
@@ -112,5 +99,3 @@ def annotation_collate(batch):
     collated = default_collate(batch)
     collated.update(extracted)
     return collated
-
-

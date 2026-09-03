@@ -1,24 +1,8 @@
-"""Image VisualCore for BC-RNN (robomimic faithful port), kept inside the
-BC-RNN package so this codebase needs no edits to its own image encoders.
+"""Reusable ResNet and spatial-softmax visual encoders for Pipeline stages.
 
-PROVENANCE / PORT NOTE
-----------------------
-``SpatialSoftmax`` + ``VisualCore`` were copied VERBATIM from EgoVerse2's
-``egomimic/models/hnet_nets/image_encoders.py`` (branch hpt-hnet-pusher-nc3)
-during the BC-RNN port into EgoVerse-pact-2. The EgoVerse2 obs encoder reaches
-this class via the config ``_target_:
-egomimic.models.hnet_nets.image_encoders.VisualCore``. EgoVerse-pact diverged
-from EgoVerse2 around 2026-05-18 and its own
-``hnet_nets/image_encoders.py`` carries ONLY ``SimpleConv`` — it has no
-``VisualCore`` / ``SpatialSoftmax`` / ``ResNetEncoder``. Rather than splice the
-class (and its closure) into a diverged foreign file, VisualCore lives here and
-the BC-RNN model configs point their ``front_img_1._target_`` at
-``egomimic.models.stems.visual_core.VisualCore`` (its role home). This keeps
-VisualCore self-contained and touches ZERO of pact-2's existing classes.
-
-Shape contract (matches SimpleConv): ``(..., C, H, W) -> (..., embed_dim)`` and
-exposes ``.embed_dim`` (== feature_dimension), so ``ObsEncoder`` can size the
-fusion / concat without inspecting weights.
+The public shape contract is ``(..., C, H, W) -> (..., embed_dim)``. The
+``embed_dim`` attribute equals ``feature_dimension`` so configured stages can
+size downstream fusion without inspecting model weights.
 """
 
 from typing import Optional
@@ -107,7 +91,7 @@ class VisualCore(nn.Module):
 
     The ResNet18 conv backbone is ``nn.Sequential(*list(resnet18.children())
     [:-2])`` — byte-identical to robomimic's ``ResNet18Conv`` and to the
-    existing ``hpt_nets.ResNet.net``. ``pretrained`` defaults to False to match
+    the repository's established convolutional stem. ``pretrained`` defaults to False to match
     robomimic's ResNet18Conv default (bc.json passes no backbone_kwargs).
 
     Shape contract (matches SimpleConv): ``(..., C, H, W) ->
@@ -150,7 +134,7 @@ class VisualCore(nn.Module):
         #   "spatial_softmax" (default, byte-identical to before this knob)
         #       -> robomimic: num_kp keypoint (x,y) coords. Discards ALL
         #          appearance; on a 4x4 grid it is 32 points on 16 cells.
-        #   "avgpool" -> HPT's stem behaviour: adaptive-average the map to a
+        #   "avgpool" -> adaptive-average the feature map to a
         #       pool_grid x pool_grid grid, flatten, project. Keeps appearance,
         #       which is what the conditioning ablation showed is missing.
         if pool_type not in ("spatial_softmax", "avgpool"):

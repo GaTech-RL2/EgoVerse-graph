@@ -8,11 +8,10 @@ from collections.abc import Iterable, Mapping
 import torch
 import torch.nn as nn
 
-from egomimic.algo.algo import Algo
 from egomimic.pipeline.core import Pipeline, Stage, sum_losses
 
 
-class PipelineAlgo(Algo):
+class PipelineAlgo:
     """Expose a :class:`Pipeline` to training and evaluation callers.
 
     The outer mapping comes from a multi-source loader. Its keys are opaque and
@@ -21,7 +20,6 @@ class PipelineAlgo(Algo):
     """
 
     def __init__(self, stages: Iterable[Stage], device=None):
-        super().__init__()
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )

@@ -36,21 +36,16 @@ dependencies = [
     "arm_pytorch_utilities",
     "pytorch-kinematics",
     "lightning",
-    "positional-encodings[pytorch]",
     "argparse",
     "pandas",
-    "overrides",
     "zarr==3.1.5",
     "tabulate",
     "transformers==4.53.2",
-    "timm",
     "boto3",
     "cloudpathlib",
     "sqlalchemy",
     "psycopg[binary]",
     "ray",
-    "geomloss",
-    "tslearn",
     "typing_extensions",
     "pyarrow",
     "simplejpeg",
@@ -68,3 +63,9 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.setuptools.package-data]
+egomimic = ["hydra_configs/**/*.yaml", "hydra_configs/**/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

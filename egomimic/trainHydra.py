@@ -33,14 +33,23 @@ log = RankedLogger(__name__, rank_zero_only=True)
 
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
-    model_cfg = copy.deepcopy(cfg.model)
-    if (
-        "robomimic_model" in model_cfg
-        and isinstance(model_cfg.robomimic_model, DictConfig)
-        and "norm_stats" in model_cfg.robomimic_model
-    ):
-        model_cfg.robomimic_model.norm_stats = None
+    model_cfg = OmegaConf.create(OmegaConf.to_container(cfg.model, resolve=True))
     return OmegaConf.create({"model": model_cfg})
+
+
+def _validate_run_config(cfg: DictConfig) -> str:
+    if cfg.get("model") is None:
+        raise ValueError("Select a complete Pipeline model config")
+    if OmegaConf.select(cfg, "model.pipeline", default=None) is None:
+        raise ValueError("Model config must define model.pipeline")
+    if cfg.get("data") is None:
+        raise ValueError("Select a data config")
+    mode = cfg.get("mode")
+    if mode not in {"train", "eval"}:
+        raise ValueError("Config mode must be 'train' or 'eval'")
+    if mode == "eval" and cfg.get("evaluator") is None:
+        raise ValueError("Evaluation mode requires an evaluator config")
+    return mode
 
 
 def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
@@ -114,6 +123,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     :param cfg: A DictConfig configuration composed by Hydra.
     :return: A tuple with metrics and dict with all instantiated objects.
     """
+    mode = _validate_run_config(cfg)
+
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
@@ -193,7 +204,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
         config_tree=_build_model_config_tree(cfg),
-        norm_stats_state=norm_stats.to_state(),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
     )
 
@@ -201,16 +211,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
-
-    # Resolve mode: support both new `mode` key and legacy `train`/`eval` booleans
-    if cfg.get("mode") is not None:
-        mode = cfg.mode
-    elif cfg.get("train", False):
-        mode = "train"
-    elif cfg.get("eval", False):
-        mode = "eval"
-    else:
-        raise ValueError("Config must specify either `mode` or `train`/`eval` booleans")
 
     # In eval mode, apply trainer overrides from the eval object and disable logger
     if mode == "eval":

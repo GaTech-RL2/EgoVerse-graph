@@ -1,7 +1,6 @@
-import inspect
 import random
 import time
-from collections import OrderedDict, deque
+from collections import deque
 from typing import Any, Dict
 
 import hydra
@@ -11,12 +10,11 @@ from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
 import egomimic.utils.tensor_utils as TensorUtils
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
 class ModelWrapper(LightningModule):
     """
-    Wrapper class around robomimic models to ensure compatibility with Pytorch Lightning.
+    Lightning wrapper for a configured PipelineAlgo.
     """
 
     debug_loss_spike = False
@@ -28,11 +26,8 @@ class ModelWrapper(LightningModule):
 
     def __init__(
         self,
-        robomimic_model=None,
-        optimizer=None,
-        scheduler=None,
+        pipeline=None,
         config_tree=None,
-        norm_stats_state=None,
         scheduler_interval="step",
         scheduler_frequency: int = 1,
         evaluator=None,
@@ -40,27 +35,21 @@ class ModelWrapper(LightningModule):
     ):
         """
         Args:
-            model (PolicyAlgo): robomimic model to wrap.
+            pipeline: an already-instantiated PipelineAlgo.
+            config_tree: resolved model configuration containing ``model.pipeline``.
         """
         super().__init__()
-        self.save_hyperparameters(ignore=["robomimic_model"])
+        self.save_hyperparameters(ignore=["pipeline"])
 
+        if (config_tree is None) == (pipeline is None):
+            raise ValueError("Provide exactly one of pipeline or config_tree")
         if config_tree is not None:
-            self.model = self._instantiate_model(config_tree, norm_stats_state)
-        elif robomimic_model is not None:  # legacy support
-            self.model = robomimic_model
+            self.model = self._instantiate_model(config_tree)
         else:
-            raise ValueError(
-                "ModelWrapper requires either an instantiated robomimic_model or "
-                "a config_tree with norm_stats_state."
-            )
+            self.model = pipeline
         self.nets = (
             self.model.nets
         )  # to ensure the lightning module has access to the model's parameters
-        try:
-            self.params = self.model.nets["policy"].params
-        except Exception:
-            pass
         self.enable_grad_norm = enable_grad_norm
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
 
@@ -75,20 +64,13 @@ class ModelWrapper(LightningModule):
             return cfg
         return OmegaConf.create(cfg)
 
-    def _instantiate_model(self, config_tree, norm_stats_state):
+    def _instantiate_model(self, config_tree):
         cfg = self._as_config(config_tree)
-        target = hydra.utils.get_class(str(cfg.model.robomimic_model._target_))
-        parameters = inspect.signature(target.__init__).parameters
-        kwargs = {}
-        if "norm_stats" in parameters:
-            kwargs["norm_stats"] = MultiDataset.from_state(norm_stats_state)
-        return hydra.utils.instantiate(cfg.model.robomimic_model, **kwargs)
+        return hydra.utils.instantiate(cfg.model.pipeline)
 
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
         self.train()
-        loss_dicts = []
-
         t0 = time.time()
         batch = self.model.process_batch_for_training(batch)
         t1 = time.time()
@@ -96,7 +78,6 @@ class ModelWrapper(LightningModule):
         t2 = time.time()
         losses = self.model.compute_losses(predictions, batch)
         t3 = time.time()
-        loss_dicts.append(losses)
 
         self.log(
             "Timing/Process_Batch_Sec",
@@ -120,14 +101,7 @@ class ModelWrapper(LightningModule):
             sync_dist=True,
         )
 
-        # Average over both the hand and robot batch if applicable
-        losses = OrderedDict()
-        for key in loss_dicts[0].keys():
-            losses[key] = torch.mean(
-                torch.stack([loss_dict[key] for loss_dict in loss_dicts])
-            )
-
-        objective_key = "loss" if "loss" in losses else "action_loss"
+        objective_key = "loss"
 
         if (
             self.debug_loss_spike
@@ -263,12 +237,7 @@ class ModelWrapper(LightningModule):
             else:
                 scheduler = None
         else:
-            optimizer = self.hparams.optimizer(params=self.trainer.model.parameters())
-            scheduler = (
-                self.hparams.scheduler(optimizer=optimizer)
-                if self.hparams.scheduler is not None
-                else None
-            )
+            raise RuntimeError("ModelWrapper optimizer requires config_tree")
 
         if scheduler is not None:
             return {

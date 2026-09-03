@@ -214,31 +214,25 @@ def test_pipeline_algo_moves_nested_tensors_without_changing_dtype():
     assert processed["source"]["metadata"]["index"].dtype == torch.int16
 
 
-def test_model_wrapper_does_not_inject_stats_into_generic_pipeline(monkeypatch):
-    def reject_stats(_):  # pragma: no cover - failure path documents the invariant
-        raise AssertionError("generic pipeline must not construct dataset statistics")
-
-    monkeypatch.setattr(
-        "egomimic.pl_utils.pl_model.MultiDataset.from_state", reject_stats
-    )
-    wrapper = ModelWrapper(
-        config_tree={
-            "model": {
-                "robomimic_model": {
-                    "_target_": "egomimic.pipeline.algo.PipelineAlgo",
-                    "stages": [],
-                    "device": "cpu",
-                }
+def test_model_wrapper_keeps_data_provenance_out_of_pipeline():
+    config_tree = {
+        "model": {
+            "pipeline": {
+                "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+                "stages": [],
+                "device": "cpu",
             }
-        },
-        norm_stats_state={"must": "remain unused"},
-    )
+        }
+    }
+    wrapper = ModelWrapper(config_tree=config_tree)
 
     assert isinstance(wrapper.model, PipelineAlgo)
+    with pytest.raises(TypeError, match="norm_stats_state"):
+        ModelWrapper(config_tree=config_tree, norm_stats_state={"legacy": True})
 
 
 def test_model_wrapper_accepts_generic_pipeline_loss(monkeypatch):
-    wrapper = ModelWrapper(robomimic_model=_algo())
+    wrapper = ModelWrapper(pipeline=_algo())
     monkeypatch.setattr(wrapper, "log", lambda *args, **kwargs: None)
 
     loss = wrapper.training_step(_raw_batch(), batch_idx=0)

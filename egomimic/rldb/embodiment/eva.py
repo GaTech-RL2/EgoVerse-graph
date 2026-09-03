@@ -61,19 +61,14 @@ class Eva(Embodiment):
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
-        # Camera key naming differs by algo:
-        #   "cartesian"     -> dataset-style names (HPT and friends)
-        #   "cartesian_pi"  -> PI/PaliGemma-style names (base_0_rgb, *_wrist_0_rgb)
-        # Everything else (proprio + action) stays identical so the same
-        # transform_list ("cartesian") works either way.
-        if keymap_mode == "cartesian_pi":
-            front_key = "base_0_rgb"
-            right_wrist_key = "right_wrist_0_rgb"
-            left_wrist_key = "left_wrist_0_rgb"
-        else:
-            front_key = cls.VIZ_IMAGE_KEY
-            right_wrist_key = "observations.images.right_wrist_img"
-            left_wrist_key = "observations.images.left_wrist_img"
+        if keymap_mode != "cartesian":
+            raise ValueError(
+                f"Unsupported keymap_mode {keymap_mode!r} for {cls.__name__}; "
+                "expected 'cartesian'"
+            )
+        front_key = cls.VIZ_IMAGE_KEY
+        right_wrist_key = "observations.images.right_wrist_img"
+        left_wrist_key = "observations.images.left_wrist_img"
 
         key_map = {
             front_key: {

@@ -302,6 +302,36 @@ def test_dopri5_has_one_fp32_integrator_with_released_grid(monkeypatch):
     assert policy.dopri5_output_points == 50
 
 
+def test_released_unite_diagnostics_capture_dopri5_and_shared_blocks(monkeypatch):
+    policy = _policy(True, 4).eval()
+
+    def fake_odeint(function, initial, times, *, method, atol, rtol):
+        assert method == "dopri5"
+        assert atol == 1.0e-6 and rtol == 1.0e-3
+        assert bool(torch.isfinite(function(times[1], initial)).all())
+        return torch.stack([initial + float(index) / 100.0 for index in range(len(times))])
+
+    monkeypatch.setitem(sys.modules, "torchdiffeq", SimpleNamespace(odeint=fake_odeint))
+    diagnostics = policy.validation_diagnostics(
+        noise=torch.randn(12, 4, 16),
+        condition=torch.randn(12, 14),
+        target=torch.randn(12, 16, 4),
+        embodiment=DOMAIN,
+        raw_noise_levels=[0.0, 0.5, 1.0],
+    )
+    assert diagnostics["sampler_latents"].shape == (50, 12, 4, 16)
+    assert diagnostics["decoded_actions_normalized"].shape == (50, 12, 16, 4)
+    assert diagnostics["noise_level_final_predictions"].shape == (3, 12, 4, 16)
+    assert set(diagnostics["tokenization_activations"]) == {"block_00", "block_01"}
+    for layer in diagnostics["tokenization_activations"]:
+        assert diagnostics["tokenization_activations"][layer].shape[0] == 12
+        assert diagnostics["denoising_activations"][layer].shape[0] == 3
+        assert not policy.generative_encoder.denoising_module.blocks[
+            int(layer.rsplit("_", 1)[1])
+        ]._forward_hooks
+    assert bool(torch.isfinite(diagnostics["sampler_latents"]).all())
+
+
 def test_cfg_threads_the_dataset_selected_branch_to_encoder(monkeypatch):
     policy = _policy(True, 4).eval()
     selected = []
@@ -409,12 +439,13 @@ def test_four_rows_compose_with_supported_data_and_evaluator_schema(
         assert set(section) - accepted - {"_target_"} == set()
 
 
-def test_only_four_rows_and_no_legacy_or_diagnostic_surface():
+def test_only_registered_rows_and_no_legacy_or_diagnostic_surface():
     model_dir = CONFIG_DIR / "model/bf"
     rows = sorted(path.name for path in model_dir.glob("us_unite_register_*_s42.yaml"))
     assert rows == [
         "us_unite_register_separate_nt4_s42.yaml",
         "us_unite_register_separate_nt8_s42.yaml",
+        "us_unite_register_shared_nt16_s42.yaml",
         "us_unite_register_shared_nt4_s42.yaml",
         "us_unite_register_shared_nt8_s42.yaml",
     ]

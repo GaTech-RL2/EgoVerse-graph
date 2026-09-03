@@ -48,7 +48,15 @@ eval_checkpoint:
   use_ema: true
 
 run_provenance:
-  split_manifest_sha256: 672f0f519bb7bff5b6b956d1b709abf1a1d387dd6b88b20a7c37536799bce0cd
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json
+  split_manifest_sha256: 3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313
+  split_seed: 42
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 2970
+  valid_episode_count_per_domain: 29
+  union_episode_count_per_domain: 2999
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
   action_contract:
     representations:
       pushshapes_sim_u_socket: x_y_cos_theta_sin_theta

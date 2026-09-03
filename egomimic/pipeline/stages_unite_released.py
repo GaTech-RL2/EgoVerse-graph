@@ -278,14 +278,14 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             raise RuntimeError("Released UNITE flow loop produced no samples")
         return loss
 
-    def _integrate_dopri5(
+    def _integrate_dopri5_trajectory(
         self,
         noise: torch.Tensor,
         condition: torch.Tensor,
         cfg_scale: float,
         embodiment: str,
-    ) -> torch.Tensor:
-        """Integrate once over the released shifted grid and return its endpoint."""
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Integrate once and return every released Dopri5 output-grid state."""
 
         try:
             from torchdiffeq import odeint
@@ -321,6 +321,24 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             atol=self.dopri5_atol,
             rtol=self.dopri5_rtol,
         )
+        if tuple(trajectory.shape[1:]) != tuple(noise.shape):
+            raise RuntimeError("Released UNITE Dopri5 trajectory shape is invalid")
+        if not bool(torch.isfinite(trajectory).all()):
+            raise RuntimeError("Released UNITE Dopri5 trajectory is non-finite")
+        return trajectory, raw_grid, grid
+
+    def _integrate_dopri5(
+        self,
+        noise: torch.Tensor,
+        condition: torch.Tensor,
+        cfg_scale: float,
+        embodiment: str,
+    ) -> torch.Tensor:
+        """Integrate once over the released shifted grid and return its endpoint."""
+
+        trajectory, _, _ = self._integrate_dopri5_trajectory(
+            noise, condition, cfg_scale, embodiment
+        )
         return trajectory[-1]
 
     def sample(
@@ -334,6 +352,126 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         self._validate_noise(noise)
         scale = self.cfg_scale if cfg_scale is None else float(cfg_scale)
         return self._integrate_dopri5(noise, condition, scale, embodiment)
+
+    def _capture_backbone_activations(self, operation):
+        blocks = getattr(self.generative_encoder.denoising_module, "blocks", None)
+        if not isinstance(blocks, nn.ModuleList) or not blocks:
+            raise RuntimeError(
+                "Released UNITE diagnostics require a denoiser ModuleList named "
+                "'blocks'"
+            )
+        captured: dict[str, torch.Tensor] = {}
+        handles = []
+
+        def hook_for(name: str):
+            def capture(_module, _inputs, output):
+                if not torch.is_tensor(output) or output.ndim != 3:
+                    raise RuntimeError(
+                        f"Released UNITE diagnostic layer {name} returned an "
+                        "invalid activation"
+                    )
+                if name in captured:
+                    raise RuntimeError(
+                        f"Released UNITE diagnostic layer {name} ran more than once"
+                    )
+                captured[name] = output.detach()
+
+            return capture
+
+        for index, block in enumerate(blocks):
+            name = f"block_{index:02d}"
+            handles.append(block.register_forward_hook(hook_for(name)))
+        try:
+            output = operation()
+        finally:
+            for handle in handles:
+                handle.remove()
+        expected = {f"block_{index:02d}" for index in range(len(blocks))}
+        if set(captured) != expected:
+            raise RuntimeError(
+                "Released UNITE diagnostic hooks missed backbone blocks: "
+                f"expected={sorted(expected)} observed={sorted(captured)}"
+            )
+        return output, captured
+
+    @torch.inference_mode()
+    def validation_diagnostics(
+        self,
+        *,
+        noise: torch.Tensor,
+        condition: torch.Tensor,
+        target: torch.Tensor,
+        embodiment: str,
+        raw_noise_levels: tuple[float, ...] | list[float],
+    ) -> dict:
+        """Capture one exact Dopri5 trajectory and paired pathway activations."""
+
+        if self.training:
+            raise RuntimeError("Released UNITE diagnostics require evaluation mode")
+        embodiment = self._resolve_domain(embodiment)
+        self._validate_noise(noise)
+        levels = torch.as_tensor(
+            raw_noise_levels, device=noise.device, dtype=torch.float32
+        )
+        if (
+            levels.ndim != 1
+            or levels.numel() < 2
+            or not bool(torch.isfinite(levels).all())
+            or bool((levels < 0.0).any())
+            or bool((levels > 1.0).any())
+            or not bool(torch.all(levels[1:] > levels[:-1]))
+        ):
+            raise ValueError(
+                "raw_noise_levels must be finite, strictly increasing values in [0, 1]"
+            )
+
+        clean_latent, tokenization_activations = self._capture_backbone_activations(
+            lambda: self.generative_encoder.tokenize(target, embodiment, noise)
+        )
+        clean_target = clean_latent.detach()
+        trajectory, raw_grid, shifted_grid = self._integrate_dopri5_trajectory(
+            noise, condition, self.cfg_scale, embodiment
+        )
+        decoded_trajectory = torch.stack(
+            [self._decode(state, embodiment).detach() for state in trajectory], dim=0
+        )
+
+        shifted_levels = self.shift_time(levels)
+        final_predictions = []
+        denoising_by_layer = {name: [] for name in tokenization_activations}
+        batch_size = int(clean_target.shape[0])
+        for shifted_level in shifted_levels:
+            coefficient = shifted_level.reshape(1, 1, 1).to(clean_target)
+            corrupted = coefficient * clean_target + (1.0 - coefficient) * noise.to(
+                clean_target
+            )
+            time = shifted_level.expand(batch_size)
+            prediction, activations = self._capture_backbone_activations(
+                lambda corrupted=corrupted, time=time: self.generative_encoder.denoise(
+                    corrupted, time, condition, embodiment
+                )
+            )
+            final_predictions.append(prediction.detach())
+            for name, activation in activations.items():
+                denoising_by_layer[name].append(activation)
+
+        return {
+            "embodiment": embodiment,
+            "clean_latent": clean_target,
+            "initial_noise": noise.detach(),
+            "sampler_raw_grid": raw_grid.detach(),
+            "sampler_shifted_grid": shifted_grid.detach(),
+            "sampler_latents": trajectory.detach(),
+            "decoded_actions_normalized": decoded_trajectory,
+            "raw_noise_levels": levels.detach(),
+            "shifted_noise_levels": shifted_levels.detach(),
+            "noise_level_final_predictions": torch.stack(final_predictions, dim=0),
+            "tokenization_activations": tokenization_activations,
+            "denoising_activations": {
+                name: torch.stack(values, dim=0)
+                for name, values in denoising_by_layer.items()
+            },
+        }
 
     def _forward_training(self, batch: dict, embodiment: str) -> dict:
         target = batch["target"]

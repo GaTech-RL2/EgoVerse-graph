@@ -185,6 +185,16 @@ def _resolve_model_wrapper_class(cfg: DictConfig) -> type[ModelWrapper]:
     return wrapper_class
 
 
+def _instantiate_model_wrapper(cfg: DictConfig) -> LightningModule:
+    """Construct the configured wrapper with every wrapper-level control."""
+    wrapper_class = _resolve_model_wrapper_class(cfg)
+    return wrapper_class(
+        config_tree=_build_model_config_tree(cfg),
+        scheduler_interval=cfg.model.get("scheduler_interval", "step"),
+        enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
+    )
+
+
 def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
     rows = []
     for name, ds in train_datasets.items():
@@ -493,11 +503,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         ds.set_norm_stats_from(norm_stats)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
-    wrapper_class = _resolve_model_wrapper_class(cfg)
-    model: LightningModule = wrapper_class(
-        config_tree=_build_model_config_tree(cfg),
-        scheduler_interval=cfg.model.get("scheduler_interval", "step"),
-    )
+    model: LightningModule = _instantiate_model_wrapper(cfg)
 
     _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)
 

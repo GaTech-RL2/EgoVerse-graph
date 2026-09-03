@@ -16,6 +16,7 @@ from omegaconf import OmegaConf
 EXPECTED_ROWS = {
     (True, 4),
     (True, 8),
+    (True, 16),
     (False, 4),
     (False, 8),
 }
@@ -87,7 +88,10 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
         int(_select(config, "model.num_latent_tokens")), "model.num_latent_tokens"
     )
     if (shared, tokens) not in EXPECTED_ROWS:
-        raise ValueError("UNITE row must be shared/separate with 4 or 8 latent tokens")
+        raise ValueError(
+            "UNITE row must be shared with 4, 8, or 16 latent tokens, "
+            "or separate with 4 or 8 latent tokens"
+        )
     latent_dim = _positive_integer(
         int(_select(config, "model.latent_dim")), "model.latent_dim"
     )

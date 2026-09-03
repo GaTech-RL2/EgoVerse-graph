@@ -408,9 +408,12 @@ class ReleasedUniteModelWrapper(ModelWrapper):
                 batch_size=global_count,
             )
 
-        # global_step is the number of optimizer updates already completed.
-        step = int(self.global_step)
-        if step >= 1 and step % self.gradient_telemetry_cadence == 0:
+        # During training_step, global_step counts updates completed before the
+        # current batch. Measure on the batch whose optimizer update will reach
+        # the requested cadence; otherwise max_steps=100 stops at global_step 99
+        # without ever emitting cadence-100 telemetry.
+        next_step = int(self.global_step) + 1
+        if next_step % self.gradient_telemetry_cadence == 0:
             self._measure_topology_gradients(
                 components["ReconstructionLoss"],
                 components["FlowLoss"],
@@ -471,6 +474,8 @@ class ReleasedUniteModelWrapper(ModelWrapper):
                 on_epoch=True,
                 sync_dist=False,
             )
+
+    def on_validation_end(self):
         if self.evaluator is not None:
             self.evaluator.on_validation_end()
 

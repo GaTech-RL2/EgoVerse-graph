@@ -36,6 +36,7 @@ class PlanarActionEval(Eval):
         energy_score_max_batches_per_rank: int | None = None,
         energy_score_validation_view: Mapping | None = None,
         energy_score_provenance: Mapping | None = None,
+        unite_diagnostics: Mapping | None = None,
     ):
         self.trainer = None
         self.model = None
@@ -56,6 +57,19 @@ class PlanarActionEval(Eval):
             energy_score_provenance,
             label="energy_score_provenance",
         )
+        self.unite_diagnostics = self._metadata_copy(
+            unite_diagnostics,
+            label="unite_diagnostics",
+        ) or {}
+        self.unite_diagnostics_enabled = bool(
+            self.unite_diagnostics.get("enabled", False)
+        )
+        self._unite_diagnostic_batches_done = 0
+        self._unite_noise_seeds = []
+        self._unite_noise_seed_sha256 = None
+        self._unite_noise_levels = []
+        self._unite_noise_labels = []
+        self._unite_cknna_k = 0
         if (
             energy_score_max_batches_per_rank is not None
             and int(energy_score_max_batches_per_rank) <= 0
@@ -86,6 +100,8 @@ class PlanarActionEval(Eval):
                     f"{self.seeds[0]}"
                 )
             self.seed_bank_sha256 = digest
+        if self.unite_diagnostics_enabled:
+            self._configure_unite_diagnostics()
         self.override_dict = {
             "limit_train_batches": 0,
             "limit_val_batches": limit_val_batches,
@@ -111,7 +127,7 @@ class PlanarActionEval(Eval):
         return to_plain(value)
 
     def on_validation_start(self):
-        return None
+        self._unite_diagnostic_batches_done = 0
 
     def on_validation_end(self):
         return None
@@ -150,6 +166,291 @@ class PlanarActionEval(Eval):
         with torch.random.fork_rng(devices=self._cuda_devices(batch)):
             torch.manual_seed(int(seed))
             return self.model.forward_eval(batch)
+
+    @staticmethod
+    def _noise_label(raw_level):
+        return f"t{int(round(float(raw_level) * 1000.0)):03d}"
+
+    def _configure_unite_diagnostics(self):
+        path = Path(str(self.unite_diagnostics.get("noise_seed_bank_path", "")))
+        expected = str(self.unite_diagnostics.get("noise_seed_bank_sha256", ""))
+        digest = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+        if digest != expected:
+            raise ValueError(f"UNITE diagnostic seed-bank identity mismatch: {path}")
+        payload = json.loads(path.read_text())
+        seeds = [int(seed) for seed in payload.get("seeds", [])]
+        if not seeds or len(seeds) != len(set(seeds)):
+            raise ValueError("UNITE diagnostic seeds must be non-empty and unique")
+        self._unite_noise_seeds = seeds
+        self._unite_noise_seed_sha256 = digest
+        self._unite_noise_levels = [
+            float(value)
+            for value in self.unite_diagnostics.get("raw_noise_levels", [])
+        ]
+        if (
+            len(self._unite_noise_levels) < 2
+            or any(
+                not 0.0 <= value <= 1.0 for value in self._unite_noise_levels
+            )
+            or any(
+                right <= left
+                for left, right in zip(
+                    self._unite_noise_levels,
+                    self._unite_noise_levels[1:],
+                    strict=False,
+                )
+            )
+        ):
+            raise ValueError("UNITE diagnostic noise levels must increase in [0, 1]")
+        self._unite_noise_labels = [
+            self._noise_label(value) for value in self._unite_noise_levels
+        ]
+        if len(self._unite_noise_labels) != len(set(self._unite_noise_labels)):
+            raise ValueError("UNITE diagnostic noise labels collide")
+        self._unite_cknna_k = int(self.unite_diagnostics.get("cknna_k", 0))
+        view = dict(self.unite_diagnostics.get("validation_view", {}))
+        batch_size = int(view.get("per_rank_batch_size", 0))
+        world_size = int(view.get("world_size", 0))
+        if not 2 <= self._unite_cknna_k < batch_size:
+            raise ValueError("UNITE CKNNA requires 2 <= k < per-rank batch size")
+        if world_size <= 0 or len(seeds) < world_size:
+            raise ValueError("UNITE diagnostics need one seed per configured rank")
+        if int(self.unite_diagnostics.get("max_batches_per_rank", 0)) <= 0:
+            raise ValueError("UNITE diagnostic batch limit must be positive")
+        if not str(self.unite_diagnostics.get("artifact_root", "")):
+            raise ValueError("UNITE diagnostics need an artifact root")
+
+    @staticmethod
+    def _centered_linear_cka(left, right):
+        if left.ndim != 2 or right.ndim != 2 or left.shape[0] != right.shape[0]:
+            raise ValueError("CKA requires paired two-dimensional features")
+        left = left.float() - left.float().mean(dim=0, keepdim=True)
+        right = right.float() - right.float().mean(dim=0, keepdim=True)
+        numerator = (left.T @ right).square().sum()
+        denominator = (
+            (left.T @ left).square().sum() * (right.T @ right).square().sum()
+        ).sqrt()
+        if not bool(torch.isfinite(denominator)) or float(denominator) <= 0.0:
+            raise ValueError("CKA has a zero or non-finite centered norm")
+        value = numerator / denominator
+        if not bool(torch.isfinite(value)):
+            raise ValueError("CKA is non-finite")
+        return value
+
+    @staticmethod
+    def _unbiased_hsic(left, right):
+        if left.shape != right.shape or left.ndim != 2 or left.shape[0] < 4:
+            raise ValueError("Unbiased HSIC requires paired square kernels and N >= 4")
+        sample_count = int(left.shape[0])
+        left = left.clone().fill_diagonal_(0.0)
+        right = right.clone().fill_diagonal_(0.0)
+        return (
+            (left * right.T).sum()
+            + left.sum() * right.sum() / ((sample_count - 1) * (sample_count - 2))
+            - 2.0 * (left @ right).sum() / (sample_count - 2)
+        ) / (sample_count * (sample_count - 3))
+
+    @classmethod
+    def _cknna(cls, left, right, *, topk):
+        if left.ndim != 2 or right.ndim != 2 or left.shape[0] != right.shape[0]:
+            raise ValueError("CKNNA requires paired two-dimensional features")
+        sample_count = int(left.shape[0])
+        if not 2 <= int(topk) < sample_count:
+            raise ValueError(f"CKNNA requires 2 <= k < {sample_count}")
+
+        def normalize(value):
+            value = value.float()
+            norms = torch.linalg.vector_norm(value, dim=1, keepdim=True)
+            if not bool(torch.isfinite(norms).all()) or bool((norms <= 0).any()):
+                raise ValueError("CKNNA feature norm is zero or non-finite")
+            return value / norms
+
+        left_kernel = normalize(left) @ normalize(left).T
+        right_kernel = normalize(right) @ normalize(right).T
+
+        def local_hsic(first, second):
+            first_search = first.clone().fill_diagonal_(float("-inf"))
+            second_search = second.clone().fill_diagonal_(float("-inf"))
+            first_indices = torch.topk(first_search, topk, dim=1).indices
+            second_indices = torch.topk(second_search, topk, dim=1).indices
+            first_mask = torch.zeros_like(first).scatter_(1, first_indices, 1.0)
+            second_mask = torch.zeros_like(second).scatter_(1, second_indices, 1.0)
+            intersection = first_mask * second_mask
+            return cls._unbiased_hsic(intersection * first, intersection * second)
+
+        cross = local_hsic(left_kernel, right_kernel)
+        left_self = local_hsic(left_kernel, left_kernel)
+        right_self = local_hsic(right_kernel, right_kernel)
+        product = left_self * right_self
+        if not bool(torch.isfinite(product)) or float(product) <= 0.0:
+            raise ValueError("CKNNA self-alignment is zero or non-finite")
+        value = cross / product.sqrt()
+        if not bool(torch.isfinite(value)):
+            raise ValueError("CKNNA is non-finite")
+        return value
+
+    @staticmethod
+    def _cpu_tree(value):
+        if torch.is_tensor(value):
+            return value.detach().float().cpu()
+        if isinstance(value, Mapping):
+            return {str(key): PlanarActionEval._cpu_tree(item) for key, item in value.items()}
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            return [PlanarActionEval._cpu_tree(item) for item in value]
+        return copy.deepcopy(value)
+
+    def _unite_metrics_and_artifact(self, batch, batch_idx):
+        rank = int(self.trainer.global_rank)
+        if rank >= len(self._unite_noise_seeds):
+            raise ValueError(f"No UNITE diagnostic seed for rank {rank}")
+        noise_seed = self._unite_noise_seeds[rank]
+        with torch.random.fork_rng(devices=self._cuda_devices(batch)):
+            torch.manual_seed(noise_seed)
+            diagnostics = self.model.forward_unite_diagnostics(
+                batch, raw_noise_levels=self._unite_noise_levels
+            )
+
+        metrics = {}
+        macro = {}
+        artifact_domains = {}
+
+        def add_metric(base, domain, value):
+            value = value.detach().float()
+            if value.ndim or not bool(torch.isfinite(value)):
+                raise ValueError(f"Invalid UNITE diagnostic metric {base}/{domain}")
+            metrics[f"{base}/{domain}"] = value
+            macro.setdefault(base, []).append(value)
+
+        for source_id, diagnostic in diagnostics.items():
+            embodiment_id, domain = self._embodiment(batch[source_id])
+            target = batch[source_id][self.action_key]
+            clean = diagnostic["clean_latent"].float()
+            states = diagnostic["sampler_latents"].float()
+            decoded = diagnostic["decoded_actions_normalized"].float()
+            if states.shape[1:] != clean.shape or decoded.shape[1:] != target.shape:
+                raise ValueError("UNITE diagnostic trajectory shapes do not align")
+            latent_mse = (states - clean.unsqueeze(0)).square().mean(dim=(-2, -1))
+            decoded_mse = (decoded - target.float().unsqueeze(0)).square().mean(
+                dim=(-2, -1)
+            )
+            native_target = self._native(target, embodiment_id)
+            decoded_native = torch.stack(
+                [self._native(state, embodiment_id) for state in decoded], dim=0
+            )
+            native_mse = (
+                (decoded_native - native_target.unsqueeze(0)).square().mean(dim=(-2, -1))
+            )
+            for step in range(int(states.shape[0])):
+                add_metric(
+                    f"Valid/DenoisingTrajectory/LatentMSE/step_{step}",
+                    domain,
+                    latent_mse[step].mean(),
+                )
+                add_metric(
+                    f"Valid/DenoisingTrajectory/DecodedMSE/step_{step}",
+                    domain,
+                    decoded_mse[step].mean(),
+                )
+                add_metric(
+                    f"Valid/DenoisingTrajectory/DecodedNativeMSE/step_{step}",
+                    domain,
+                    native_mse[step].mean(),
+                )
+
+            predictions = diagnostic["noise_level_final_predictions"].float()
+            clean_flat = clean.reshape(clean.shape[0], -1)
+            prediction_flat = predictions.reshape(predictions.shape[0], predictions.shape[1], -1)
+            clean_norm = torch.linalg.vector_norm(clean_flat, dim=1)
+            prediction_norm = torch.linalg.vector_norm(prediction_flat, dim=2)
+            if bool((clean_norm <= 0).any()) or bool((prediction_norm <= 0).any()):
+                raise ValueError("UNITE final-latent cosine has a zero norm")
+            cosine = (prediction_flat * clean_flat.unsqueeze(0)).sum(dim=2) / (
+                prediction_norm * clean_norm.unsqueeze(0)
+            )
+            alignment = {}
+            tokenization = diagnostic["tokenization_activations"]
+            denoising = diagnostic["denoising_activations"]
+            for noise_index, label in enumerate(self._unite_noise_labels):
+                add_metric(
+                    f"Valid/Alignment/FinalLatentCosine/{label}",
+                    domain,
+                    cosine[noise_index].mean(),
+                )
+                add_metric(
+                    f"Valid/Alignment/FinalLatentCosineStd/{label}",
+                    domain,
+                    cosine[noise_index].std(unbiased=False),
+                )
+                for layer, tokenized in tokenization.items():
+                    left = tokenized.float().mean(dim=1)
+                    right = denoising[layer][noise_index].float().mean(dim=1)
+                    cka = self._centered_linear_cka(left, right)
+                    cknna = self._cknna(left, right, topk=self._unite_cknna_k)
+                    add_metric(f"Valid/Alignment/CKA/{layer}/{label}", domain, cka)
+                    add_metric(f"Valid/Alignment/CKNNA/{layer}/{label}", domain, cknna)
+                    alignment.setdefault(layer, {})[label] = {
+                        "cka": cka,
+                        "cknna": cknna,
+                    }
+            artifact_domains[domain] = self._cpu_tree(
+                {
+                    **diagnostic,
+                    "source_id": source_id,
+                    "embodiment_id": embodiment_id,
+                    "target_normalized": target,
+                    "target_native": native_target,
+                    "decoded_actions_native": decoded_native,
+                    "trajectory_latent_mse_by_condition": latent_mse,
+                    "trajectory_decoded_mse_by_condition": decoded_mse,
+                    "trajectory_decoded_native_mse_by_condition": native_mse,
+                    "final_latent_cosine_by_condition": cosine,
+                    "alignment": alignment,
+                }
+            )
+        for base, values in macro.items():
+            metrics[base] = torch.stack(values).mean()
+
+        root = Path(str(self.unite_diagnostics["artifact_root"])).resolve()
+        destination = (
+            root
+            / f"epoch-{int(self.trainer.current_epoch)}-step-{int(self.trainer.global_step)}"
+            / f"rank-{rank}-batch-{int(batch_idx)}.pt"
+        )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_suffix(".tmp")
+        if destination.exists() or temporary.exists():
+            raise FileExistsError(f"refusing to overwrite {destination}")
+        torch.save(
+            {
+                "schema_version": 1,
+                "metric": "ReleasedUNITETrainingDiagnostics",
+                "global_step": int(self.trainer.global_step),
+                "epoch": int(self.trainer.current_epoch),
+                "rank": rank,
+                "batch_idx": int(batch_idx),
+                "noise_seed": noise_seed,
+                "noise_seed_bank_sha256": self._unite_noise_seed_sha256,
+                "raw_noise_levels": self._unite_noise_levels,
+                "noise_labels": self._unite_noise_labels,
+                "sampler": "dopri5",
+                "sampler_output_points": int(
+                    next(iter(diagnostics.values()))["sampler_latents"].shape[0]
+                ),
+                "alignment": {
+                    "pooling": "mean_tokens_then_validation_condition_rows",
+                    "cka": "biased_centered_linear_cka",
+                    "cknna": "unbiased_hsic_intersection_knn",
+                    "cknna_k": self._unite_cknna_k,
+                    "cosine": "flatten_tokens_and_latent_channels_per_condition",
+                },
+                "validation_view": self.unite_diagnostics.get("validation_view"),
+                "provenance": self.unite_diagnostics.get("provenance"),
+                "domains": artifact_domains,
+            },
+            temporary,
+        )
+        os.replace(temporary, destination)
+        return metrics
 
     def _seeded_predictions(self, batch):
         predictions = {source_id: [] for source_id in batch}
@@ -286,6 +587,17 @@ class PlanarActionEval(Eval):
         else:
             result = self._forward_with_seed(batch, self.deterministic_seed)
         metrics = {}
+        if (
+            self.unite_diagnostics_enabled
+            and self._unite_diagnostic_batches_done
+            < int(self.unite_diagnostics["max_batches_per_rank"])
+        ):
+            metrics.update(
+                self._unite_metrics_and_artifact(
+                    batch, self._unite_diagnostic_batches_done
+                )
+            )
+            self._unite_diagnostic_batches_done += 1
         normalized_values = []
         native_values = []
         labels = set()

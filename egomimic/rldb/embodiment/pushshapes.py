@@ -45,14 +45,14 @@ def get_planar_keymap(
     return keymap
 
 
-def get_keymap_hpt_per_emb_proprio(
+def get_planar_keymap_per_source_proprio(
     action_horizon: int = 16,
     norm_mode: bool = False,
     action_zarr_key: str = "actions",
     **kwargs,
 ):
     """Keep native simulator state as metadata and add model-only proprio."""
-    keymap = get_keymap_hpt(
+    keymap = get_planar_keymap(
         action_horizon=action_horizon,
         norm_mode=norm_mode,
         action_zarr_key=action_zarr_key,

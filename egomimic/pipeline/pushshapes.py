@@ -113,7 +113,7 @@ class USocketModelStateObservationAdapter:
         return self.transform.transform(output)
 
 
-class USocketRotVecRolloutAdapter:
+class USocketRotVecNativeDecoder:
     """Decode ``[x, y, cos(theta), sin(theta)]`` into simulator actions."""
 
     preserves_decoded_timing = True
@@ -122,7 +122,7 @@ class USocketRotVecRolloutAdapter:
         del context
         if actions.ndim < 2 or actions.shape[-1] != 4:
             raise ValueError(
-                f"USocketRotVecRolloutAdapter expects (..., 4), got {actions.shape}"
+                f"USocketRotVecNativeDecoder expects (..., 4), got {actions.shape}"
             )
         if torch.is_tensor(actions):
             theta = torch.atan2(actions[..., 3], actions[..., 2])

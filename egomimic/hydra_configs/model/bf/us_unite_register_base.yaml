@@ -8,7 +8,7 @@ condition_dim: 128
 hidden_dim: 768
 action_horizon: 16
 
-robomimic_model:
+pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
@@ -64,7 +64,7 @@ robomimic_model:
       reconstruction_noise_std: 0.0
       timestep_shift_alpha: 0.5
       flow_steps_per_reconstruction: 14
-      flow_mini_batch: 14
+      flow_mini_batch: 4
       train_eps: 0.05
       sample_eps: 0.05
       lognorm_mu: 0.0
@@ -81,7 +81,7 @@ robomimic_model:
         latent_dim: ${model.latent_dim}
         num_latent_tokens: ${model.num_latent_tokens}
         denoiser_hidden_dim: ${model.hidden_dim}
-        gradient_checkpointing: false
+        gradient_checkpointing: true
         tokenization_time_max: 0.01
         in_context_start: 4
         in_context_len: 32
@@ -111,7 +111,7 @@ robomimic_model:
           trainable_content_position_embeddings: false
           trainable_condition_position_embeddings: false
           trainable_in_context_position_embeddings: true
-          gradient_checkpointing: false
+          gradient_checkpointing: true
       decoders:
         pushshapes_sim_u_socket:
           _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
@@ -124,7 +124,7 @@ robomimic_model:
           num_heads: 12
           mlp_ratio: 4.0
           dropout: 0.0
-          gradient_checkpointing: false
+          gradient_checkpointing: true
     - _target_: egomimic.pipeline.stages_unite_released.ReleasedRecipeUniteObjective
       reconstruction_weight: 1.0
       flow_weight: 1.0

@@ -42,8 +42,6 @@ callbacks:
 
 eval_checkpoint:
   use_ema: true
-  prefix_rewrites:
-    "policy.stages.3.": "policy.stages.4."
 
 run_provenance:
   split_manifest_sha256: 672f0f519bb7bff5b6b956d1b709abf1a1d387dd6b88b20a7c37536799bce0cd
@@ -64,11 +62,11 @@ evaluator:
   energy_score_max_batches_per_rank: 1
   semantic_blocks: [[0, 2], [2, 4]]
   native_decoder:
-    _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
+    _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
 
 # Simulator I/O is an application boundary, not part of PipelineAlgo.
 deployment:
   observation_adapter:
     _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
   action_decoder:
-    _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
+    _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder

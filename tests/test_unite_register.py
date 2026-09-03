@@ -15,7 +15,7 @@ from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.models.unite_action_decoder import UniteActionDecoder
 from egomimic.pipeline.pushshapes import (
     USocketModelStateObservationAdapter,
-    USocketRotVecRolloutAdapter,
+    USocketRotVecNativeDecoder,
 )
 from egomimic.pipeline.stages_sampler import KeyedFeatureProjection
 from egomimic.pipeline.stages_unite_released import (
@@ -27,7 +27,7 @@ from egomimic.pipeline.stages_unite_separate import (
     build_configurable_unite_generative_encoder,
 )
 from egomimic.rldb.embodiment.pushshapes import (
-    get_keymap_hpt_per_emb_proprio,
+    get_planar_keymap_per_source_proprio,
     get_usocket_rotvec_action_state_transform_list,
 )
 
@@ -301,7 +301,7 @@ def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_t
     model = root.model
     assert model.share_encoder_denoiser is (topology == "shared")
     assert model.num_latent_tokens == num_latent_tokens
-    stages = model.robomimic_model.stages
+    stages = model.pipeline.stages
     assert not {
         "action_horizon",
         "domains",
@@ -310,7 +310,7 @@ def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_t
         "rollout_adapters",
         "rollout_observation_adapters",
         "norm_stats",
-    } & set(model.robomimic_model)
+    } & set(model.pipeline)
     assert [stage._target_.rsplit(".", 1)[-1] for stage in stages[:4]] == [
         "KeyedFeatureProjection",
         "FusedObsEncoder",
@@ -321,7 +321,11 @@ def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_t
     ge = stages[4].generative_encoder
     assert ge.share_encoder_denoiser is (topology == "shared")
     assert ge.num_latent_tokens == ge.backbone_config.horizon == num_latent_tokens
+    assert stages[4].flow_mini_batch == 4
+    assert ge.gradient_checkpointing is True
+    assert ge.backbone_config.gradient_checkpointing is True
     assert stages[4].decoders[DOMAIN].action_horizon == 16
+    assert stages[4].decoders[DOMAIN].gradient_checkpointing is True
 
 
 @pytest.mark.parametrize("topology", ["shared", "separate"])
@@ -366,15 +370,12 @@ def test_only_four_rows_and_no_legacy_or_diagnostic_surface():
     )
     assert experiment["trainer"]["max_steps"] == 240_000
     assert experiment["trainer"]["check_val_every_n_epoch"] is None
-    assert experiment["eval_checkpoint"] == {
-        "use_ema": True,
-        "prefix_rewrites": {"policy.stages.3.": "policy.stages.4."},
-    }
+    assert experiment["eval_checkpoint"] == {"use_ema": True}
     assert {"override /evaluator": "eval_planar_v2"} in experiment["defaults"]
     assert experiment["evaluator"]["energy_score_max_batches_per_rank"] == 1
     assert experiment["evaluator"]["semantic_blocks"] == [[0, 2], [2, 4]]
     assert experiment["evaluator"]["native_decoder"] == {
-        "_target_": "egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter"
+        "_target_": "egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder"
     }
     assert set(experiment["deployment"]) == {
         "observation_adapter",
@@ -403,11 +404,9 @@ def test_unite_energy_score_is_limited_without_truncating_mse_validation(tmp_pat
 
     target = torch.zeros(2, 16, 4)
     evaluator.model = SimpleNamespace(
-        resolved_ac_keys={19: "actions"},
-        norm_stats=IdentityNorm(),
-        rollout_adapter_for=lambda _embodiment_id: None,
-        forward_eval=lambda _batch: {"emb19_actions": target},
+        forward_eval=lambda _batch: {19: {"pred_action": target}},
     )
+    evaluator.bind_data_context(normalizer=IdentityNorm())
     evaluator.trainer = SimpleNamespace(
         current_epoch=0,
         global_step=0,
@@ -419,7 +418,12 @@ def test_unite_energy_score_is_limited_without_truncating_mse_validation(tmp_pat
         score_calls.append(True) or {19: target.unsqueeze(0).repeat(32, 1, 1, 1)}
     )
     evaluator._save_artifact = lambda *_args: None
-    batch = {19: {"actions": target}}
+    batch = {
+        19: {
+            "actions": target,
+            "embodiment": torch.full((target.shape[0],), 19),
+        }
+    }
 
     evaluator.on_validation_step(batch, batch_idx=1)
     assert score_calls == []
@@ -446,7 +450,7 @@ def test_usocket_training_and_rollout_action_contract_match(as_torch):
     rollout_obs = USocketModelStateObservationAdapter().encode({"state_agent_obj": raw})
     assert rollout_obs["state_agent_obj"] is raw
     assert rollout_obs["state_agent_model"].shape == (4,)
-    decoded = USocketRotVecRolloutAdapter().decode(sample["actions"])
+    decoded = USocketRotVecNativeDecoder().decode(sample["actions"])
     if as_torch:
         torch.testing.assert_close(decoded, actions)
     else:
@@ -454,7 +458,7 @@ def test_usocket_training_and_rollout_action_contract_match(as_torch):
 
 
 def test_usocket_keymap_and_proprio_projection_are_explicit():
-    keymap = get_keymap_hpt_per_emb_proprio(action_horizon=16)
+    keymap = get_planar_keymap_per_source_proprio(action_horizon=16)
     assert keymap["state_agent_obj"]["key_type"] == "metadata_keys"
     assert keymap["state_agent_model"]["key_type"] == "proprio_keys"
     assert keymap["actions"]["horizon"] == 16

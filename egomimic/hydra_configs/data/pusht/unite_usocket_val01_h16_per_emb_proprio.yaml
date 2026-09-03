@@ -8,7 +8,7 @@ train_datasets:
       folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
       embodiment_override: pushshapes_sim_u_socket
       key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_per_emb_proprio
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
         action_horizon: 16
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_usocket_rotvec_action_state_transform_list
@@ -29,7 +29,7 @@ valid_datasets:
       folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
       embodiment_override: pushshapes_sim_u_socket
       key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_per_emb_proprio
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
         action_horizon: 16
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_usocket_rotvec_action_state_transform_list

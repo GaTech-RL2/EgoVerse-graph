@@ -7,7 +7,7 @@ import torch.nn as nn
 from omegaconf import OmegaConf
 
 from egomimic.pl_utils.pl_model_unite_released import ReleasedUniteModelWrapper
-from egomimic.trainHydra import _resolve_model_wrapper_class
+from egomimic.trainHydra import _instantiate_model_wrapper, _resolve_model_wrapper_class
 from egomimic.utils.unite_optim import (
     ReleasedUniteCompositeOptimizer,
     VendoredTorchMuon,
@@ -483,3 +483,26 @@ def test_training_entry_resolves_only_model_wrapper_subclasses():
     cfg.model._target_ = "torch.nn.Linear"
     with pytest.raises(TypeError, match="ModelWrapper subclass"):
         _resolve_model_wrapper_class(cfg)
+
+
+def test_training_entry_forwards_enable_grad_norm(monkeypatch):
+    class CaptureWrapper:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    cfg = OmegaConf.create(
+        {
+            "model": {
+                "_target_": "unused.for.this.unit.test",
+                "enable_grad_norm": False,
+            }
+        }
+    )
+    monkeypatch.setattr(
+        "egomimic.trainHydra._resolve_model_wrapper_class",
+        lambda _cfg: CaptureWrapper,
+    )
+
+    wrapper = _instantiate_model_wrapper(cfg)
+
+    assert wrapper.kwargs["enable_grad_norm"] is False

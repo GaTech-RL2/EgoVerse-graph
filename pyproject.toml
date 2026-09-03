@@ -63,6 +63,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["egomimic*"]
 
 [tool.setuptools.package-data]
 egomimic = ["hydra_configs/**/*.yaml", "hydra_configs/**/*.json"]

@@ -460,10 +460,13 @@ class PlanarActionEval(Eval):
             )
             clean_norm = torch.linalg.vector_norm(clean_flat, dim=1)
             predicted_norm = torch.linalg.vector_norm(predicted_flat, dim=2)
-            if bool((clean_norm <= 0).any()) or bool((predicted_norm <= 0).any()):
-                raise ValueError("Final-latent cosine encountered an invalid norm")
+            if not bool(torch.isfinite(clean_norm).all()) or not bool(
+                torch.isfinite(predicted_norm).all()
+            ):
+                raise ValueError("Final-latent cosine encountered a non-finite norm")
             cosine = (predicted_flat * clean_flat.unsqueeze(0)).sum(dim=2) / (
-                predicted_norm * clean_norm.unsqueeze(0)
+                predicted_norm.clamp_min(1.0e-8)
+                * clean_norm.unsqueeze(0).clamp_min(1.0e-8)
             )
             alignment_values = {}
             for noise_index, noise_label in enumerate(self._unite_noise_labels):

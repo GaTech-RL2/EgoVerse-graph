@@ -198,6 +198,17 @@ def test_alignment_metrics_are_finite_for_paired_features():
     assert bool(torch.isfinite(cka)) and bool(torch.isfinite(cknna))
 
 
+def test_zero_final_latent_has_finite_zero_cosine():
+    clean = torch.randn(12, 64)
+    predicted = torch.zeros(3, 12, 64)
+    cosine = (predicted * clean.unsqueeze(0)).sum(dim=2) / (
+        torch.linalg.vector_norm(predicted, dim=2).clamp_min(1.0e-8)
+        * torch.linalg.vector_norm(clean, dim=1).unsqueeze(0).clamp_min(1.0e-8)
+    )
+    assert bool(torch.isfinite(cosine).all())
+    assert bool((cosine == 0.0).all())
+
+
 def test_action_decoder_does_not_require_horizon_register_divisibility():
     decoder = UniteActionDecoder(
         latent_dim=16,

@@ -71,6 +71,44 @@ def payload(*, scheduler: bool = True) -> dict:
     }
 
 
+def add_unranked_model_checkpoint_state(
+    candidate: dict,
+    *,
+    include_config: bool = False,
+    save_top_k: int = -1,
+) -> tuple[str, dict]:
+    state_key = (
+        "ModelCheckpoint{'monitor': None, 'mode': 'min', "
+        "'every_n_train_steps': 2, 'every_n_epochs': 0, "
+        "'train_time_interval': None}"
+    )
+    state = {
+        "monitor": None,
+        "best_model_score": None,
+        "best_model_path": "/output/checkpoints/epoch-0-step-2.ckpt",
+        "current_score": None,
+        "dirpath": "/output/checkpoints",
+        "best_k_models": {},
+        "kth_best_model_path": "",
+        "kth_value": torch.tensor(float("inf")),
+        "last_model_path": "/output/checkpoints/last.ckpt",
+    }
+    candidate["callbacks"] = {state_key: state}
+    if include_config:
+        candidate["hyper_parameters"]["callbacks"] = {
+            "model_checkpoint": {
+                "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+                "monitor": None,
+                "mode": "min",
+                "save_top_k": save_top_k,
+                "every_n_train_steps": 2,
+                "every_n_epochs": None,
+                "train_time_interval": None,
+            }
+        }
+    return state_key, state
+
+
 def save(path: Path, value: object) -> Path:
     torch.save(value, path)
     return path
@@ -197,6 +235,22 @@ def test_global_step_must_be_an_exact_nonnegative_integer(
             ),
             "non-finite scalar",
         ),
+        (
+            lambda value: value["lr_schedulers"][0].__setitem__(
+                "last_epoch", float("inf")
+            ),
+            "non-finite scalar",
+        ),
+        (
+            lambda value: value["loops"]["fit_loop"].__setitem__(
+                "completed", float("inf")
+            ),
+            "non-finite scalar",
+        ),
+        (
+            lambda value: value.__setitem__("numeric_content", float("inf")),
+            "non-finite scalar",
+        ),
     ],
 )
 def test_nonfinite_checkpoint_content_is_rejected(
@@ -209,6 +263,93 @@ def test_nonfinite_checkpoint_content_is_rejected(
 
     assert result.returncode == 1
     assert message in result.stderr
+
+
+@pytest.mark.parametrize("include_config", [False, True])
+def test_unranked_model_checkpoint_kth_value_sentinel_is_allowed(
+    tmp_path: Path, include_config: bool
+):
+    candidate = payload()
+    add_unranked_model_checkpoint_state(candidate, include_config=include_config)
+
+    metadata = success_json(
+        invoke(save(tmp_path / "model-checkpoint.ckpt", candidate), "--structural-only")
+    )
+
+    assert metadata["allowed_callback_sentinel_count"] == 1
+
+
+def test_model_checkpoint_sentinel_requires_save_all_config_when_available(
+    tmp_path: Path,
+):
+    candidate = payload()
+    add_unranked_model_checkpoint_state(
+        candidate,
+        include_config=True,
+        save_top_k=1,
+    )
+
+    result = invoke(
+        save(tmp_path / "top-one-checkpoint.ckpt", candidate),
+        "--structural-only",
+    )
+
+    assert result.returncode == 1
+    assert "non-finite tensor" in result.stderr
+    assert ".kth_value" in result.stderr
+
+
+def test_model_checkpoint_exception_does_not_cover_other_callback_state(
+    tmp_path: Path,
+):
+    candidate = payload()
+    _, callback_state = add_unranked_model_checkpoint_state(candidate)
+    callback_state["current_score"] = torch.tensor(float("inf"))
+
+    result = invoke(
+        save(tmp_path / "bad-callback-state.ckpt", candidate),
+        "--structural-only",
+    )
+
+    assert result.returncode == 1
+    assert "non-finite tensor" in result.stderr
+    assert ".current_score" in result.stderr
+
+
+def test_model_checkpoint_exception_requires_unmonitored_callback_identity(
+    tmp_path: Path,
+):
+    candidate = payload()
+    state_key, callback_state = add_unranked_model_checkpoint_state(candidate)
+    monitored_key = state_key.replace("'monitor': None", "'monitor': 'Valid/MSE'")
+    callback_state["monitor"] = "Valid/MSE"
+    candidate["callbacks"] = {monitored_key: callback_state}
+
+    result = invoke(
+        save(tmp_path / "monitored-checkpoint.ckpt", candidate),
+        "--structural-only",
+    )
+
+    assert result.returncode == 1
+    assert "non-finite tensor" in result.stderr
+    assert ".kth_value" in result.stderr
+
+
+def test_model_checkpoint_exception_requires_tensor_ranking_sentinel(
+    tmp_path: Path,
+):
+    candidate = payload()
+    _, callback_state = add_unranked_model_checkpoint_state(candidate)
+    callback_state["kth_value"] = float("inf")
+
+    result = invoke(
+        save(tmp_path / "scalar-sentinel.ckpt", candidate),
+        "--structural-only",
+    )
+
+    assert result.returncode == 1
+    assert "non-finite scalar" in result.stderr
+    assert ".kth_value" in result.stderr
 
 
 def test_expected_identity_is_fail_closed_on_missing_or_mismatch(tmp_path: Path):

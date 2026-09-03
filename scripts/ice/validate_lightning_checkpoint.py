@@ -15,6 +15,7 @@ generic ICE requeue runner and checkpoint mirror.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import math
 import numbers
@@ -125,6 +126,29 @@ _SCHEDULER_CONFIG_PATHS: tuple[tuple[str, ...], ...] = (
     ("model", "scheduler"),
 )
 
+_CALLBACK_CONFIG_PATHS: tuple[tuple[str, ...], ...] = (
+    ("hyper_parameters", "config_tree", "callbacks"),
+    ("hyper_parameters", "callbacks"),
+    ("hparams", "config_tree", "callbacks"),
+    ("hparams", "callbacks"),
+    ("config_tree", "callbacks"),
+)
+_MODEL_CHECKPOINT_TARGETS = frozenset(
+    {
+        "lightning.pytorch.callbacks.ModelCheckpoint",
+        "pytorch_lightning.callbacks.ModelCheckpoint",
+    }
+)
+_MODEL_CHECKPOINT_STATE_KEY_FIELDS = frozenset(
+    {
+        "monitor",
+        "mode",
+        "every_n_train_steps",
+        "every_n_epochs",
+        "train_time_interval",
+    }
+)
+
 
 def _stat_signature(path: Path) -> tuple[int, int, int, int, int]:
     value = path.stat()
@@ -160,14 +184,20 @@ def _container_children(value: Any) -> Sequence[Any] | None:
     return None
 
 
-def _finite_tensor(tensor: torch.Tensor, path: str) -> tuple[int, int]:
+def _finite_tensor(
+    tensor: torch.Tensor, path: str, *, allow_nonfinite: bool = False
+) -> tuple[int, int]:
     try:
         if tensor.device.type == "meta":
             raise RuntimeError(f"checkpoint contains a meta tensor: {path}")
         candidate = tensor.dequantize() if tensor.is_quantized else tensor
         if candidate.layout != torch.strided:
             candidate = candidate.to_dense()
-        if candidate.numel() and not bool(torch.isfinite(candidate).all()):
+        if (
+            candidate.numel()
+            and not bool(torch.isfinite(candidate).all())
+            and not allow_nonfinite
+        ):
             raise RuntimeError(f"checkpoint contains a non-finite tensor: {path}")
         return 1, tensor.numel()
     except RuntimeError:
@@ -190,14 +220,25 @@ def _finite_numeric_scalar(value: numbers.Number, path: str) -> None:
         raise RuntimeError(f"checkpoint contains a non-finite scalar: {path}")
 
 
-def finite_scan(value: Any, path: str = "root") -> ScanStats:
+def finite_scan(
+    value: Any,
+    path: str = "root",
+    *,
+    allowed_nonfinite_paths: frozenset[tuple[Any, ...]] = frozenset(),
+) -> ScanStats:
     """Scan every tensor and numeric scalar in an acyclic checkpoint tree."""
 
     active_containers: set[int] = set()
 
-    def visit(current: Any, current_path: str) -> ScanStats:
+    def visit(
+        current: Any, current_path: str, components: tuple[Any, ...]
+    ) -> ScanStats:
         if isinstance(current, torch.Tensor):
-            count, numel = _finite_tensor(current, current_path)
+            count, numel = _finite_tensor(
+                current,
+                current_path,
+                allow_nonfinite=components in allowed_nonfinite_paths,
+            )
             return ScanStats(tensor_count=count, tensor_numel=numel)
         if isinstance(current, bool):
             return ScanStats()
@@ -218,15 +259,143 @@ def finite_scan(value: Any, path: str = "root") -> ScanStats:
             total = ScanStats()
             if isinstance(current, Mapping):
                 for key, child in current.items():
-                    total += visit(child, f"{current_path}.{key}")
+                    total += visit(
+                        child,
+                        f"{current_path}.{key}",
+                        (*components, key),
+                    )
             else:
                 for index, child in enumerate(children):
-                    total += visit(child, f"{current_path}[{index}]")
+                    total += visit(
+                        child,
+                        f"{current_path}[{index}]",
+                        (*components, index),
+                    )
             return total
         finally:
             active_containers.remove(identity)
 
-    return visit(value, path)
+    return visit(value, path, ())
+
+
+def _model_checkpoint_state_identity(state_key: Any) -> dict[str, Any] | None:
+    """Parse Lightning's exact ``ModelCheckpoint.state_key`` representation."""
+
+    prefix = "ModelCheckpoint"
+    if not isinstance(state_key, str) or not state_key.startswith(prefix):
+        return None
+    try:
+        identity = ast.literal_eval(state_key[len(prefix) :])
+    except (SyntaxError, ValueError):
+        return None
+    if not isinstance(identity, dict):
+        return None
+    if frozenset(identity) != _MODEL_CHECKPOINT_STATE_KEY_FIELDS:
+        return None
+    if identity["monitor"] is not None or identity["mode"] not in {"min", "max"}:
+        return None
+    for name in ("every_n_train_steps", "every_n_epochs"):
+        value = identity[name]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+    if not (identity["every_n_train_steps"] or identity["every_n_epochs"]):
+        return None
+    if identity["train_time_interval"] is not None:
+        return None
+    return identity
+
+
+def _configured_model_checkpoints(
+    payload: Mapping[Any, Any],
+) -> tuple[Mapping[Any, Any], ...]:
+    configs: list[Mapping[Any, Any]] = []
+    for path in _CALLBACK_CONFIG_PATHS:
+        callbacks = _nested_value(payload, path)
+        if not isinstance(callbacks, Mapping):
+            continue
+        for config in callbacks.values():
+            if (
+                isinstance(config, Mapping)
+                and config.get("_target_") in _MODEL_CHECKPOINT_TARGETS
+            ):
+                configs.append(config)
+    return tuple(configs)
+
+
+def _config_matches_unranked_checkpoint(
+    config: Mapping[Any, Any], identity: Mapping[str, Any]
+) -> bool:
+    if config.get("monitor") is not None:
+        return False
+    if config.get("mode", "min") != identity["mode"]:
+        return False
+    if config.get("train_time_interval") is not None:
+        return False
+    if config.get("save_top_k", _MISSING) != -1:
+        return False
+    for name in ("every_n_train_steps", "every_n_epochs"):
+        configured = config.get(name)
+        configured = 0 if configured is None else configured
+        if (
+            isinstance(configured, bool)
+            or not isinstance(configured, int)
+            or configured != identity[name]
+        ):
+            return False
+    return True
+
+
+def _is_unranked_model_checkpoint_sentinel(
+    state: Any,
+    identity: Mapping[str, Any],
+) -> bool:
+    if not isinstance(state, Mapping):
+        return False
+    if state.get("monitor", _MISSING) is not None:
+        return False
+    if state.get("best_model_score", _MISSING) is not None:
+        return False
+    if state.get("current_score", _MISSING) is not None:
+        return False
+    if state.get("kth_best_model_path", _MISSING) != "":
+        return False
+    best_k_models = state.get("best_k_models")
+    if not isinstance(best_k_models, Mapping) or best_k_models:
+        return False
+
+    value = state.get("kth_value")
+    if (
+        not isinstance(value, torch.Tensor)
+        or value.device.type == "meta"
+        or value.ndim != 0
+        or not value.is_floating_point()
+    ):
+        return False
+    expected = math.inf if identity["mode"] == "min" else -math.inf
+    return float(value.item()) == expected
+
+
+def _allowed_lightning_callback_sentinel_paths(
+    payload: Mapping[Any, Any],
+) -> frozenset[tuple[Any, ...]]:
+    """Allow only Lightning's unused top-k boundary for unranked checkpoints."""
+
+    callbacks = payload.get("callbacks")
+    if not isinstance(callbacks, Mapping):
+        return frozenset()
+    configs = _configured_model_checkpoints(payload)
+    allowed: set[tuple[Any, ...]] = set()
+    for state_key, state in callbacks.items():
+        identity = _model_checkpoint_state_identity(state_key)
+        if identity is None:
+            continue
+        if configs and not any(
+            _config_matches_unranked_checkpoint(config, identity) for config in configs
+        ):
+            continue
+        if _is_unranked_model_checkpoint_sentinel(state, identity):
+            allowed.add(("callbacks", state_key, "kth_value"))
+    return frozenset(allowed)
 
 
 def _strict_model_reload(
@@ -472,7 +641,11 @@ def validate_checkpoint(
     state_scan = finite_scan(state_dict, "root.state_dict")
     if state_scan.tensor_count == 0:
         raise RuntimeError("state_dict contains no tensors")
-    full_scan = finite_scan(payload)
+    callback_sentinel_paths = _allowed_lightning_callback_sentinel_paths(payload)
+    full_scan = finite_scan(
+        payload,
+        allowed_nonfinite_paths=callback_sentinel_paths,
+    )
     strict_reload_metadata: dict[str, int | bool]
     if strict_model_reload:
         strict_reload_metadata = _strict_model_reload(path, payload)
@@ -519,6 +692,7 @@ def validate_checkpoint(
         "tensor_count": full_scan.tensor_count,
         "tensor_numel": full_scan.tensor_numel,
         "numeric_scalar_count": full_scan.numeric_scalar_count,
+        "allowed_callback_sentinel_count": len(callback_sentinel_paths),
         "identity_sources": identity_sources,
     }
     if epoch is not None:

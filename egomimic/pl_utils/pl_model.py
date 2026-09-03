@@ -1,5 +1,7 @@
 import time
 from collections import deque
+from collections.abc import Mapping
+from numbers import Real
 from typing import Any, Dict
 
 import hydra
@@ -61,6 +63,74 @@ class ModelWrapper(LightningModule):
         cfg = self._as_config(config_tree)
         return hydra.utils.instantiate(cfg.model.pipeline)
 
+    @staticmethod
+    def _prediction_log_metrics(predictions, reference: torch.Tensor):
+        """Collect finite scalar ``log/*`` outputs under opaque source keys."""
+
+        if not isinstance(predictions, Mapping):
+            raise TypeError("Pipeline predictions must be a source mapping")
+        metrics = {}
+        for source, result in predictions.items():
+            if not isinstance(source, str) or not source:
+                raise TypeError("Pipeline source keys must be non-empty strings")
+            if not isinstance(result, Mapping):
+                raise TypeError(
+                    f"Pipeline result for source {source!r} must be a mapping"
+                )
+            for key, value in result.items():
+                if not isinstance(key, str) or not key.startswith("log/"):
+                    continue
+                metric = key.removeprefix("log/")
+                if not metric:
+                    raise ValueError("Pipeline log metric name must not be empty")
+                if torch.is_tensor(value):
+                    if value.ndim != 0:
+                        raise TypeError(
+                            f"Pipeline metric {key!r} for source {source!r} "
+                            "must be scalar"
+                        )
+                    scalar = value.detach().to(
+                        device=reference.device,
+                        dtype=reference.dtype,
+                    )
+                elif isinstance(value, Real) and not isinstance(value, bool):
+                    scalar = torch.tensor(
+                        float(value),
+                        device=reference.device,
+                        dtype=reference.dtype,
+                    )
+                else:
+                    raise TypeError(
+                        f"Pipeline metric {key!r} for source {source!r} "
+                        "must be a real scalar"
+                    )
+                if not bool(torch.isfinite(scalar)):
+                    raise RuntimeError(
+                        f"Non-finite pipeline metric {key!r} for source {source!r}"
+                    )
+                metrics.setdefault(metric, []).append((source, scalar))
+        return metrics
+
+    def _log_prediction_metrics(self, predictions, reference: torch.Tensor) -> None:
+        for metric, source_values in self._prediction_log_metrics(
+            predictions, reference
+        ).items():
+            for source, value in source_values:
+                self.log(
+                    f"Train/{metric}/{source}",
+                    value,
+                    sync_dist=True,
+                    on_step=False,
+                    on_epoch=True,
+                )
+            self.log(
+                f"Train/{metric}",
+                torch.stack([value for _, value in source_values]).mean(),
+                sync_dist=True,
+                on_step=False,
+                on_epoch=True,
+            )
+
     def training_step(self, batch, batch_idx):
         del batch_idx
         self.train()
@@ -100,6 +170,7 @@ class ModelWrapper(LightningModule):
                 for key, value in losses.items()
             }
         }
+        self._log_prediction_metrics(predictions, losses["loss"])
         for k, v in self.model.log_info(info).items():
             self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
 

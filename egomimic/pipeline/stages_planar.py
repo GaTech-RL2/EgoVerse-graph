@@ -322,7 +322,7 @@ class PlanarActionMSELoss(Stage):
 
     train_only = True
     reads = ("pred_action", "target")
-    writes = ("loss/action", "log/action_mse")
+    writes = ("loss/action", "log/MSE")
 
     def forward(self, batch: dict) -> dict:
         prediction, target = batch["pred_action"], batch["target"]
@@ -340,5 +340,5 @@ class PlanarActionMSELoss(Stage):
                 mask = mask.unsqueeze(-1)
             loss = (error * mask).sum() / mask.expand_as(error).sum().clamp_min(1)
         batch["loss/action"] = loss
-        batch["log/action_mse"] = loss.detach()
+        batch["log/MSE"] = loss.detach()
         return batch

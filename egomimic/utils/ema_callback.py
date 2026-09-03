@@ -45,6 +45,10 @@ class EMACallback(Callback):
     def _parameters(module):
         return OrderedDict(module.named_parameters())
 
+    @property
+    def num_updates(self) -> int:
+        return self._num_updates
+
     def _schedule(self, update: int) -> float:
         step = max(0, int(update) - self.update_after_step - 1)
         if step == 0:
@@ -75,7 +79,10 @@ class EMACallback(Callback):
                 for name, parameter in parameters.items()
             )
             self._loaded_shadow = None
-        self._last_global_step = int(trainer.global_step)
+        # Lightning can call this hook before restoring loop progress. Preserve
+        # the checkpoint baseline so the first resumed optimizer step is seen
+        # as exactly one EMA update instead of a jump from zero.
+        self._last_global_step = max(int(trainer.global_step), self._num_updates)
 
     @torch.no_grad()
     def _update(self, pl_module: LightningModule) -> float:
@@ -178,3 +185,11 @@ class EMACallback(Callback):
             raise RuntimeError("EMA checkpoint configuration mismatch")
         self._loaded_shadow = dict(state)
         self._num_updates = int(checkpoint.get("ema_num_updates", 0))
+        checkpoint_global_step = int(checkpoint.get("global_step", 0))
+        if self._num_updates != checkpoint_global_step:
+            raise RuntimeError(
+                "EMA update count must equal checkpoint global_step: "
+                f"ema_num_updates={self._num_updates} "
+                f"global_step={checkpoint_global_step}"
+            )
+        self._last_global_step = checkpoint_global_step

@@ -7,14 +7,11 @@ defaults:
 name: planar_v2_usocket_arc_D200_M100
 description: u_socket_arc_bc_common5_J8_replan1
 planar:
-  domain: pushshapes_sim_u_socket
-  ac_keys: {pushshapes_sim_u_socket: actions}
   action_dims: {pushshapes_sim_u_socket: 5}
-  rollout_adapters:
-    pushshapes_sim_u_socket:
-      _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroRolloutAdapter
-      resampled_vector_length: 100
-      native_action_dim: 3
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroRolloutAdapter
+    resampled_vector_length: 100
+    native_action_dim: 3
   raw_action_horizon: 200
   action_horizon: 101
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list

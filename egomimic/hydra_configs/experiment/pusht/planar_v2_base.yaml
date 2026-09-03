@@ -22,11 +22,12 @@ logger:
   wandb:
     project: pushshapes-planar-v2
 
+evaluator:
+  native_decoder: ${planar.eval_native_decoder}
+
 planar:
-  domain: ???
-  ac_keys: ???
   action_dims: ???
-  rollout_adapters: ???
+  eval_native_decoder: ???
   raw_action_horizon: 16
   action_horizon: 16
   observation_horizon: 1

@@ -7,14 +7,11 @@ defaults:
 name: planar_v2_chain_direct_bc_h16
 description: chain_gripper_direct_common5_H16_J8
 planar:
-  domain: pushshapes_sim_chain_gripper
-  ac_keys: {pushshapes_sim_chain_gripper: actions}
   action_dims: {pushshapes_sim_chain_gripper: 5}
-  rollout_adapters:
-    pushshapes_sim_chain_gripper:
-      _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
-      action_horizon: 16
-      native_action_dim: 4
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
+    action_horizon: 16
+    native_action_dim: 4
 
 run_provenance:
   split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json

@@ -3,6 +3,7 @@ import sys
 import types
 from collections import OrderedDict
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -14,7 +15,9 @@ from egomimic.eval.checkpoint_loading import (
     strict_load_pipeline_checkpoint,
 )
 from egomimic.eval.energy_score import energy_score
+from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.models.denoising_nets import CrossTransformer, PaperConditionalUnet1D
+from egomimic.pipeline.core import resolve_homogeneous_scalar
 from egomimic.utils.ema_callback import EMACallback
 
 
@@ -24,6 +27,7 @@ def _load_planar_stages_without_shared_pipeline():
     previous = sys.modules.get(module_name)
     stub = types.ModuleType(module_name)
     stub.Stage = nn.Module
+    stub.resolve_homogeneous_scalar = resolve_homogeneous_scalar
     sys.modules[module_name] = stub
     try:
         path = Path(__file__).parents[1] / "egomimic/pipeline/stages_planar.py"
@@ -55,7 +59,7 @@ def test_planar_flow_sampler_train_and_eval_contract():
         TinyDenoiser(3, 4),
         condition_input_dim=2,
         action_horizon=5,
-        action_dims={"domain": 5},
+        action_dims={"pushshapes_sim_u_socket": 5},
         latent_dim=3,
         condition_dim=4,
         decoder_hidden_dim=8,
@@ -64,7 +68,7 @@ def test_planar_flow_sampler_train_and_eval_contract():
         num_inference_steps=4,
     )
     batch = {
-        "embodiment": "domain",
+        "embodiment": torch.tensor([19, 19]),
         "condition": torch.randn(2, 2),
         "sampler/noise": torch.randn(2, 5, 3),
     }
@@ -73,9 +77,13 @@ def test_planar_flow_sampler_train_and_eval_contract():
     torch.testing.assert_close(
         sampler.last_integration_step_sizes.sum(dim=-1), torch.ones(2)
     )
-    sampler.eval()
-    result = sampler(batch.copy())
+    sampler.train()
+    batches_seen = int(sampler.training_batches_seen)
+    result = sampler.execute(batch.copy(), mode="inference")
     assert result["log/sampler_unroll_steps"] == 4
+    assert int(sampler.training_batches_seen) == batches_seen
+    with pytest.raises(ValueError, match="homogeneous"):
+        sampler({**batch, "embodiment": torch.tensor([19, 20])})
 
 
 def test_planar_decoder_preserves_legacy_sequential_state_keys():
@@ -186,6 +194,42 @@ def test_energy_score_separates_accuracy_and_diversity():
     torch.testing.assert_close(
         values["score"], values["accuracy"] - 0.5 * values["diversity"]
     )
+
+
+def test_planar_evaluator_uses_natural_batch_metadata_and_nested_results():
+    target = torch.zeros(2, 16, 5)
+    batch = {
+        "opaque-stream": {
+            "actions": target,
+            "embodiment": torch.tensor([19, 19]),
+        }
+    }
+
+    class IdentityNormalizer:
+        @staticmethod
+        def unnormalize(values, embodiment_id):
+            assert embodiment_id == 19
+            return values
+
+    evaluator = PlanarActionEval(energy_score_enabled=False)
+    evaluator.bind_data_context(normalizer=IdentityNormalizer())
+    evaluator.model = SimpleNamespace(
+        forward_eval=lambda grouped: {
+            source: {"pred_action": source_batch["actions"] + 1}
+            for source, source_batch in grouped.items()
+        }
+    )
+    logged = {}
+    evaluator.trainer = SimpleNamespace(
+        lightning_module=SimpleNamespace(
+            log_dict=lambda metrics, **_kwargs: logged.update(metrics)
+        )
+    )
+
+    evaluator.on_validation_step(batch, batch_idx=0)
+
+    assert logged["Valid/MSE"].item() == pytest.approx(1.0)
+    assert logged["Valid/MSE/pushshapes_sim_u_socket"].item() == pytest.approx(1.0)
 
 
 def test_strict_checkpoint_loader_overlays_ema_and_retains_online_buffers():

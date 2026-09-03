@@ -38,7 +38,7 @@ DATASETS = {
 
 
 @pytest.mark.parametrize("row,expected", ROWS.items())
-def test_planar_row_composes_to_one_pinned_domain(row, expected):
+def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
         cfg = compose(
@@ -48,9 +48,16 @@ def test_planar_row_composes_to_one_pinned_domain(row, expected):
     for section in (cfg.planar, cfg.model, cfg.data):
         OmegaConf.resolve(section)
     domain, horizon, observation_horizon, implementation = expected
-    assert cfg.planar.domain == domain
-    assert cfg.model.robomimic_model.action_horizon == horizon
     assert list(cfg.data.train_datasets) == [domain]
+    assert not {
+        "action_horizon",
+        "domains",
+        "ac_keys",
+        "rollout_adapter",
+        "rollout_adapters",
+        "rollout_observation_adapters",
+        "norm_stats",
+    } & set(cfg.model.robomimic_model)
     dataset = cfg.data.train_datasets[domain]
     assert dataset.valid_ratio == cfg.data.valid_datasets[domain].valid_ratio == 0.01
     assert dataset.split_seed == cfg.seed == 42
@@ -68,6 +75,12 @@ def test_planar_row_composes_to_one_pinned_domain(row, expected):
         stage._target_.rsplit(".", 1)[-1] for stage in cfg.model.robomimic_model.stages
     ]
     assert stage_names[0:2] == ["FusedObsEncoder", "ActionTargetBuilder"]
+    assert cfg.model.robomimic_model.stages[0].inputs == {
+        "front_img_1": "front_img_1",
+        "state_agent_obj": "state_agent_obj",
+    }
+    sampler = cfg.model.robomimic_model.stages[3]
+    assert sampler.action_horizon == horizon
     if "dp_paper" not in row:
         assert "eval_checkpoint" not in cfg
     if "dp_paper" in row:

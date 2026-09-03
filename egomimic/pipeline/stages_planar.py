@@ -9,7 +9,8 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 
-from egomimic.pipeline.core import Stage
+from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
+from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
 class TokenwiseActionDecoder(nn.Sequential):
@@ -230,6 +231,19 @@ class PlanarFlowSampler(Stage):
             )
         return self.denoising_module(latent, time, condition)
 
+    def _resolve_branch(self, selector) -> str:
+        branch = resolve_homogeneous_scalar(selector, label="Planar branch selector")
+        if isinstance(branch, int):
+            branch = get_embodiment(branch)
+            if branch is None:
+                raise KeyError("unknown Planar branch selector")
+            branch = branch.lower()
+        else:
+            branch = str(branch)
+        if branch not in self.decoders:
+            raise KeyError(f"unknown Planar branch {branch!r}")
+        return branch
+
     def integrate(self, latent, condition, num_steps, step_sizes=None):
         batch_size = latent.shape[0]
         if step_sizes is None:
@@ -258,10 +272,8 @@ class PlanarFlowSampler(Stage):
         self.last_integration_step_sizes = step_sizes.detach()
         return latent
 
-    def forward(self, batch: dict) -> dict:
-        domain = str(batch["embodiment"])
-        if domain not in self.decoders:
-            raise KeyError(f"unknown Planar embodiment {domain!r}")
+    def _execute_mode(self, batch: dict, mode: str) -> dict:
+        branch = self._resolve_branch(batch["embodiment"])
         noise = batch["sampler/noise"]
         condition = batch["condition"]
         expected = (condition.shape[0], self.action_horizon, self.latent_dim)
@@ -274,8 +286,8 @@ class PlanarFlowSampler(Stage):
                 f"expected condition width {self.condition_input_dim}, got {condition.shape[-1]}"
             )
         condition = self.condition_projection(condition).unsqueeze(1)
-        condition = condition + self.domain_embeddings[domain].view(1, 1, -1)
-        if self.training:
+        condition = condition + self.domain_embeddings[branch].view(1, 1, -1)
+        if mode == "train":
             self.training_batches_seen.add_(1)
             optimizer_step = (
                 int(self.training_batches_seen.item()) - 1
@@ -283,16 +295,27 @@ class PlanarFlowSampler(Stage):
             num_steps = self.unroll_steps_at(optimizer_step)
             step_sizes = self.sample_step_sizes(noise.shape[0], num_steps, noise)
             batch["log/optimizer_step"] = float(optimizer_step)
-        else:
+        elif mode == "inference":
             num_steps = self.num_inference_steps
             step_sizes = None
+        else:
+            raise ValueError(f"Unsupported Planar execution mode {mode!r}")
         endpoint = self.integrate(noise, condition, num_steps, step_sizes)
-        prediction = self.decoders[domain](endpoint)
+        prediction = self.decoders[branch](endpoint)
         batch["sampler/endpoint"] = endpoint
         batch["pred_action"] = prediction
         batch["log/sampler_unroll_steps"] = float(num_steps)
         batch["log/sampler_endpoint_rms"] = endpoint.detach().square().mean().sqrt()
         return batch
+
+    def execute(self, batch: dict, *, mode: str) -> dict:
+        return self._execute_mode(batch, mode)
+
+    def forward(self, batch: dict) -> dict:
+        """Retain direct-call behavior while graph execution passes mode explicitly."""
+        return self._execute_mode(
+            batch, "train" if self.training else "inference"
+        )
 
 
 class PlanarActionMSELoss(Stage):

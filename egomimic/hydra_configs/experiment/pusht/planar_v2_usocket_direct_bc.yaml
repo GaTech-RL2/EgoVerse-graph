@@ -7,14 +7,11 @@ defaults:
 name: planar_v2_usocket_direct_bc_h16
 description: u_socket_direct_common5_H16_J8
 planar:
-  domain: pushshapes_sim_u_socket
-  ac_keys: {pushshapes_sim_u_socket: actions}
   action_dims: {pushshapes_sim_u_socket: 5}
-  rollout_adapters:
-    pushshapes_sim_u_socket:
-      _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
-      action_horizon: 16
-      native_action_dim: 3
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
+    action_horizon: 16
+    native_action_dim: 3
 
 run_provenance:
   split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json

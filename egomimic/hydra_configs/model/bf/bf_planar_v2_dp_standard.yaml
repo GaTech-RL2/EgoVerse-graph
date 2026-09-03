@@ -2,14 +2,12 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
 robomimic_model:
   _target_: egomimic.pipeline.algo.PipelineAlgo
-  action_horizon: 16
-  domains:
-    - ${planar.domain}
-  ac_keys: ${planar.ac_keys}
-  rollout_adapters: ${planar.rollout_adapters}
   stages:
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
       n_obs_steps: 1
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
       encoder: ${planar.encoder}
     - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
@@ -27,7 +25,6 @@ robomimic_model:
       policy:
         _target_: egomimic.models.diffusion_policy.DiffusionPolicy
         action_horizon: 16
-        infer_ac_dims: ${planar.action_dims}
         num_inference_steps: 100
         model:
           _target_: egomimic.models.denoising_nets.ConditionalUnet1D

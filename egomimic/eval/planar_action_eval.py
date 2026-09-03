@@ -11,6 +11,7 @@ import torch
 
 from egomimic.eval.energy_score import energy_score
 from egomimic.eval.eval import Eval
+from egomimic.pipeline.core import resolve_homogeneous_scalar
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
@@ -25,9 +26,16 @@ class PlanarActionEval(Eval):
         artifact_root: str | None = None,
         semantic_blocks=((0, 2), (2, 4), (4, 5)),
         energy_score_enabled: bool = True,
+        action_key: str = "actions",
+        native_decoder=None,
     ):
         self.trainer = None
         self.model = None
+        self.normalizer = None
+        self.action_key = str(action_key)
+        if not self.action_key:
+            raise ValueError("action_key must be non-empty")
+        self.native_decoder = native_decoder
         self.blocks = tuple(tuple(map(int, block)) for block in semantic_blocks)
         self.energy_score_enabled = bool(energy_score_enabled)
         self.artifact_root = None if artifact_root is None else Path(artifact_root)
@@ -63,8 +71,26 @@ class PlanarActionEval(Eval):
     def on_validation_end(self):
         return None
 
+    def bind_data_context(self, *, normalizer):
+        """Attach data-owned normalization without putting it on PipelineAlgo."""
+        self.normalizer = normalizer
+
+    @staticmethod
+    def _embodiment(source_batch):
+        if "embodiment" not in source_batch:
+            raise KeyError("Planar evaluation batch is missing embodiment metadata")
+        embodiment_id = int(
+            resolve_homogeneous_scalar(
+                source_batch["embodiment"], label="embodiment"
+            )
+        )
+        name = get_embodiment(embodiment_id)
+        if name is None:
+            raise KeyError(f"Unknown Planar embodiment id {embodiment_id}")
+        return embodiment_id, name.lower()
+
     def _seeded_predictions(self, batch):
-        predictions = {embodiment_id: [] for embodiment_id in batch}
+        predictions = {source_id: [] for source_id in batch}
         cuda_devices = sorted(
             {
                 int(value.device.index)
@@ -79,23 +105,24 @@ class PlanarActionEval(Eval):
             with torch.random.fork_rng(devices=cuda_devices):
                 torch.manual_seed(seed)
                 result = self.model.forward_eval(batch)
-            for embodiment_id in batch:
-                action_key = self.model.resolved_ac_keys[embodiment_id]
-                predictions[embodiment_id].append(
-                    result[f"emb{embodiment_id}_{action_key}"].detach()
+            for source_id in batch:
+                predictions[source_id].append(
+                    result[source_id]["pred_action"].detach()
                 )
         return {
-            embodiment_id: torch.stack(values)
-            for embodiment_id, values in predictions.items()
+            source_id: torch.stack(values)
+            for source_id, values in predictions.items()
         }
 
     def _native(self, normalized, embodiment_id):
-        action_key = self.model.resolved_ac_keys[embodiment_id]
-        unnormalized = self.model.norm_stats.unnormalize(
-            {action_key: normalized}, embodiment_id
-        )[action_key]
-        adapter = self.model.rollout_adapter_for(embodiment_id)
-        return adapter.decode(unnormalized) if adapter is not None else unnormalized
+        if self.normalizer is None:
+            raise RuntimeError("Planar evaluator data context was not bound")
+        unnormalized = self.normalizer.unnormalize(
+            {self.action_key: normalized}, embodiment_id
+        )[self.action_key]
+        if self.native_decoder is None:
+            return unnormalized
+        return self.native_decoder.decode(unnormalized)
 
     def _save_artifact(self, batch_idx, samples, batch):
         destination = (
@@ -108,11 +135,13 @@ class PlanarActionEval(Eval):
         if destination.exists() or temporary.exists():
             raise FileExistsError(f"refusing to overwrite {destination}")
         domains = {}
-        for embodiment_id, values in samples.items():
-            action_key = self.model.resolved_ac_keys[embodiment_id]
-            domains[get_embodiment(embodiment_id)] = {
+        for source_id, values in samples.items():
+            _, name = self._embodiment(batch[source_id])
+            if name in domains:
+                raise ValueError(f"Duplicate Planar evaluation embodiment {name!r}")
+            domains[name] = {
                 "samples": values.float().cpu(),
-                "target": batch[embodiment_id][action_key].detach().float().cpu(),
+                "target": batch[source_id][self.action_key].detach().float().cpu(),
             }
         torch.save(
             {
@@ -134,11 +163,14 @@ class PlanarActionEval(Eval):
         metrics = {}
         normalized_values = []
         native_values = []
-        for embodiment_id, domain_batch in batch.items():
-            domain = get_embodiment(embodiment_id).lower()
-            action_key = self.model.resolved_ac_keys[embodiment_id]
-            prediction = result[f"emb{embodiment_id}_{action_key}"]
-            target = domain_batch[action_key]
+        labels = set()
+        for source_id, source_batch in batch.items():
+            embodiment_id, label = self._embodiment(source_batch)
+            if label in labels:
+                raise ValueError(f"Duplicate Planar evaluation embodiment {label!r}")
+            labels.add(label)
+            prediction = result[source_id]["pred_action"]
+            target = source_batch[self.action_key]
             normalized_mse = (prediction - target).square().mean()
             native_mse = (
                 (
@@ -148,8 +180,8 @@ class PlanarActionEval(Eval):
                 .square()
                 .mean()
             )
-            metrics[f"Valid/MSE/{domain}"] = normalized_mse
-            metrics[f"Valid/Native_MSE/{domain}"] = native_mse
+            metrics[f"Valid/MSE/{label}"] = normalized_mse
+            metrics[f"Valid/Native_MSE/{label}"] = native_mse
             normalized_values.append(normalized_mse)
             native_values.append(native_mse)
         metrics["Valid/MSE"] = torch.stack(normalized_values).mean()
@@ -158,15 +190,14 @@ class PlanarActionEval(Eval):
         if self.energy_score_enabled:
             sampled = self._seeded_predictions(batch)
             scores = []
-            for embodiment_id, samples in sampled.items():
-                domain = get_embodiment(embodiment_id).lower()
-                action_key = self.model.resolved_ac_keys[embodiment_id]
+            for source_id, samples in sampled.items():
+                _, label = self._embodiment(batch[source_id])
                 values = energy_score(
-                    samples, batch[embodiment_id][action_key], self.blocks
+                    samples, batch[source_id][self.action_key], self.blocks
                 )
-                metrics[f"Valid/EnergyScore@32/{domain}"] = values["score"]
-                metrics[f"Valid/EnergyScoreAccuracy@32/{domain}"] = values["accuracy"]
-                metrics[f"Valid/EnergyScoreDiversity@32/{domain}"] = values["diversity"]
+                metrics[f"Valid/EnergyScore@32/{label}"] = values["score"]
+                metrics[f"Valid/EnergyScoreAccuracy@32/{label}"] = values["accuracy"]
+                metrics[f"Valid/EnergyScoreDiversity@32/{label}"] = values["diversity"]
                 scores.append(values)
             for key, metric_name in (
                 ("score", "Valid/EnergyScore@32"),

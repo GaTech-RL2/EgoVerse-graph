@@ -477,6 +477,7 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
     assert "+runtime.slurm_requeue_owner" not in launcher
     assert "runtime.slurm_requeue_owner=runner" in launcher
     assert '"trainer.devices=$ICE_WORLD_SIZE"' in launcher
+    assert "export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY" in launcher
     assert '"evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"' in launcher
     assert '--ntasks="${ICE_WORLD_SIZE:?}"' in launcher
     assert 'test "$ICE_MAX_STEPS" -ge 100' in launcher

@@ -512,6 +512,7 @@ test -x "$ICE_SRUN" || die "srun is unavailable"
 export ICE_REPO ICE_PYTHON ICE_EXPERIMENT ICE_OUTPUT_DIR ICE_DATASET_DIR
 export ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID ICE_WANDB_NAME
 export ICE_WANDB_GROUP ICE_WANDB_TAGS ICE_SRUN
+export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY
 # The batch was submitted with an explicit environment allow-list. Nested
 # ``srun`` steps must inherit the runner-owned requeue contract as well.
 export SLURM_EXPORT_ENV=ALL

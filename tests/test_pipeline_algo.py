@@ -239,3 +239,25 @@ def test_model_wrapper_accepts_generic_pipeline_loss(monkeypatch):
 
     assert loss.ndim == 0
     assert torch.isfinite(loss)
+
+
+def test_model_wrapper_logs_stable_diffusion_mse_aliases(monkeypatch):
+    wrapper = ModelWrapper(pipeline=_algo())
+    logged = {}
+    monkeypatch.setattr(
+        wrapper,
+        "log",
+        lambda name, value, **_kwargs: logged.__setitem__(name, value),
+    )
+    original_compute_losses = wrapper.model.compute_losses
+
+    def compute_losses(predictions, batch):
+        losses = original_compute_losses(predictions, batch)
+        losses["source_0_log_diffusion_noise"] = losses["source_0_loss"]
+        return losses
+
+    monkeypatch.setattr(wrapper.model, "compute_losses", compute_losses)
+    loss = wrapper.training_step(_raw_batch(), batch_idx=0)
+
+    assert torch.equal(logged["Train/MSE/source_a"], loss)
+    assert torch.equal(logged["Train/MSE"], loss)

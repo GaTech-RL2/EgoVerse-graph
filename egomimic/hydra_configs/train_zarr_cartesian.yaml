@@ -14,6 +14,7 @@ name: test
 description: test
 ckpt_path: null
 mode: train
+norm_stats_only: false
 
 hydra:
   run:

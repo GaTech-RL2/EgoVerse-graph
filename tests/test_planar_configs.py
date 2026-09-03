@@ -160,6 +160,64 @@ def test_dp_rows_inherit_model_neutral_domain_base(row, domain_base):
     assert "model" not in base
 
 
+def test_standard_dp_clean_cotrain_composes_both_domains_without_obstacles():
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "+experiment=pusht/planar_v2_cotrain_clean_dp_standard",
+                "++paths.root_dir=.",
+            ],
+        )
+    for section in (cfg.planar, cfg.model, cfg.data, cfg.run_provenance):
+        OmegaConf.resolve(section)
+    expected_domains = {
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    }
+    assert set(cfg.data.train_datasets) == expected_domains
+    assert set(cfg.data.valid_datasets) == expected_domains
+    assert set(cfg.evaluator.native_decoders) == expected_domains
+    assert cfg.run_provenance.obstacle_data is False
+    assert all(
+        "obstacle" not in dataset.resolver.folder_path.lower()
+        for dataset in cfg.data.train_datasets.values()
+    )
+    assert all(
+        dataset.valid_ratio == 0.01 and dataset.split_seed == 42
+        for dataset in cfg.data.train_datasets.values()
+    )
+    assert cfg.model.pipeline.stages[3].action_dim == 5
+
+
+def test_diffusion_mse_is_visible_during_long_training_epochs():
+    model_wrapper = (
+        Path(__file__).parents[1] / "egomimic" / "pl_utils" / "pl_model.py"
+    ).read_text()
+    aggregate = model_wrapper.index('"Train/MSE",')
+    per_source = model_wrapper.index('f"Train/MSE/{source}",')
+    assert "on_step=True" in model_wrapper[aggregate : aggregate + 220]
+    assert "on_step=True" in model_wrapper[per_source : per_source + 220]
+
+
+def test_ddp_device_count_is_per_node_without_eval_resolver():
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "+experiment=pusht/planar_v2_cotrain_clean_dp_standard",
+                "launch_params.gpus_per_node=2",
+                "launch_params.nodes=3",
+                "++paths.root_dir=.",
+            ],
+        )
+    assert cfg.trainer.devices == 2
+    assert cfg.trainer.num_nodes == 3
+    assert "${eval:" not in OmegaConf.to_yaml(cfg.trainer, resolve=False)
+
+
 @pytest.mark.parametrize("domain,expected", DATASETS.items())
 def test_three_thousand_episode_split_manifest_is_exact(domain, expected):
     data_dir = (

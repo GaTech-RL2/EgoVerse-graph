@@ -393,6 +393,39 @@ def test_planar_evaluator_wraps_native_rotation_error_across_pi():
     assert logged["Valid/Native_MSE"].item() == pytest.approx(expected)
 
 
+def test_planar_evaluator_selects_native_decoder_per_embodiment():
+    target = torch.zeros(1, 16, 5)
+    batch = {
+        "u": {"actions": target, "embodiment": torch.tensor([19])},
+        "chain": {"actions": target, "embodiment": torch.tensor([20])},
+    }
+    evaluator = PlanarActionEval(
+        energy_score_enabled=False,
+        native_decoders={
+            "pushshapes_sim_u_socket": PlanarCommon5NativeDecoder(16, 3),
+            "pushshapes_sim_chain_gripper": PlanarCommon5NativeDecoder(16, 4),
+        },
+    )
+    evaluator.bind_data_context(normalizer=_IdentityNormalizer())
+    evaluator.model = SimpleNamespace(
+        forward_eval=lambda grouped: {
+            source: {"pred_action": source_batch["actions"]}
+            for source, source_batch in grouped.items()
+        }
+    )
+    logged = {}
+    evaluator.trainer = SimpleNamespace(
+        lightning_module=SimpleNamespace(
+            log_dict=lambda metrics, **_kwargs: logged.update(metrics)
+        )
+    )
+
+    evaluator.on_validation_step(batch, batch_idx=0)
+
+    assert logged["Valid/Native_MSE/pushshapes_sim_u_socket"] == 0
+    assert logged["Valid/Native_MSE/pushshapes_sim_chain_gripper"] == 0
+
+
 def test_strict_checkpoint_loader_overlays_ema_and_retains_online_buffers():
     class BufferedPolicy(nn.Module):
         def __init__(self):

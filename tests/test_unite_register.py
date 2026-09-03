@@ -242,7 +242,7 @@ def test_unite_graph_execution_mode_is_explicit(monkeypatch):
     monkeypatch.setattr(
         policy,
         "sample",
-        lambda noise, _condition: torch.zeros_like(noise),
+        lambda noise, _condition, _embodiment: torch.zeros_like(noise),
     )
     monkeypatch.setattr(
         policy.generative_encoder,
@@ -269,7 +269,7 @@ def test_dopri5_has_one_fp32_integrator_with_released_grid(monkeypatch):
     monkeypatch.setattr(
         policy,
         "_guided_clean_prediction",
-        lambda latent, _time, _condition, _scale: torch.zeros_like(
+        lambda latent, _time, _condition, _scale, _embodiment: torch.zeros_like(
             latent, dtype=torch.bfloat16
         ),
     )
@@ -290,6 +290,7 @@ def test_dopri5_has_one_fp32_integrator_with_released_grid(monkeypatch):
     endpoint = policy.sample(
         torch.randn(2, 4, 16, dtype=torch.bfloat16),
         torch.randn(2, 14, dtype=torch.bfloat16),
+        DOMAIN,
     )
     assert endpoint.shape == (2, 4, 16)
     assert endpoint.dtype == torch.float32
@@ -298,13 +299,33 @@ def test_dopri5_has_one_fp32_integrator_with_released_grid(monkeypatch):
     assert captured["times"].shape == (50,)
     assert captured["times"][0] == 0.0 and captured["times"][-1] == 1.0
     assert captured["atol"] == 1.0e-6 and captured["rtol"] == 1.0e-3
-    assert policy._last_sampler_nfe == 1
-    with pytest.raises(ValueError, match="only Dopri5"):
-        policy.sample(
-            torch.randn(1, 4, 16),
-            torch.randn(1, 14),
-            sampling_method="euler",
-        )
+    assert policy.dopri5_output_points == 50
+
+
+def test_cfg_threads_the_dataset_selected_branch_to_encoder(monkeypatch):
+    policy = _policy(True, 4).eval()
+    selected = []
+
+    def null_condition(condition, embodiment):
+        selected.append(("null", embodiment))
+        return torch.zeros_like(condition)
+
+    def denoise(latent, _time, _condition, embodiment):
+        selected.append(("denoise", embodiment))
+        return torch.zeros_like(latent)
+
+    monkeypatch.setattr(
+        policy.generative_encoder, "null_condition_like", null_condition
+    )
+    monkeypatch.setattr(policy.generative_encoder, "denoise", denoise)
+    policy._guided_clean_prediction(
+        torch.randn(2, 4, 16),
+        torch.full((2,), 0.5),
+        torch.randn(2, 14),
+        4.0,
+        DOMAIN,
+    )
+    assert selected == [("null", DOMAIN), ("denoise", DOMAIN)]
 
 
 @pytest.mark.parametrize(
@@ -401,6 +422,15 @@ def test_only_four_rows_and_no_legacy_or_diagnostic_surface():
         sorted(path.name for path in model_dir.glob("us_unite_register*.yaml")) == rows
     )
     assert not (ROOT / "egomimic/pipeline/stages_unite.py").exists()
+    policy_parameters = inspect.signature(
+        ReleasedRecipeUniteLatentPolicy.__init__
+    ).parameters
+    assert not {
+        "sampling_method",
+        "cfg_norm_order",
+        "dopri5_num_steps",
+        "reconstruction_noise_std",
+    } & set(policy_parameters)
     experiment = yaml.safe_load(
         (
             CONFIG_DIR / "experiment/pusht/unite_usocket_register_sweep_val01_h16.yaml"

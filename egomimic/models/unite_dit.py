@@ -335,7 +335,6 @@ class UniteDiTBackbone(nn.Module):
         )
         self.in_context_len = int(in_context_len)
         self.gradient_checkpointing = bool(gradient_checkpointing)
-        self.time_conditioning = "additive"
         if (
             min(
                 self.input_dim,

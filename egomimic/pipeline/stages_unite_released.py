@@ -61,20 +61,18 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         "unite/clean_latent",
         "unite/reconstructed_action",
         "unite/flow_loss",
-        "log/*",
     ]
     reads_by_mode = {
         "inference": ["sampler/noise", "condition", "embodiment"],
     }
     writes_by_mode = {
-        "inference": ["sampler/endpoint", "pred_action", "log/*"],
+        "inference": ["sampler/endpoint", "pred_action"],
     }
 
     def __init__(
         self,
         generative_encoder: nn.Module,
         decoders: Dict[str, nn.Module],
-        reconstruction_noise_std: float = 0.0,
         timestep_shift_alpha: float = 0.5,
         flow_steps_per_reconstruction: int = 14,
         flow_mini_batch: int = 14,
@@ -85,11 +83,9 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         reconstruction_noising_start: float = 0.7,
         reconstruction_noising_probability: float = 0.5,
         condition_dropout_probability: float = 0.1,
-        sampling_method: str = "dopri5",
         cfg_scale: float = 4.0,
         cfg_interval: tuple[float, float] = (0.0, 1.0),
-        cfg_norm_order: str = "norm_first",
-        dopri5_num_steps: int = 50,
+        dopri5_output_points: int = 50,
         dopri5_atol: float = 1.0e-6,
         dopri5_rtol: float = 1.0e-3,
     ):
@@ -108,14 +104,11 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             reconstruction_noising_probability
         )
         self.condition_dropout_probability = float(condition_dropout_probability)
-        self.sampling_method = str(sampling_method).lower()
         self.cfg_scale = float(cfg_scale)
         self.cfg_interval = tuple(float(value) for value in cfg_interval)
-        self.cfg_norm_order = str(cfg_norm_order)
-        self.dopri5_num_steps = int(dopri5_num_steps)
+        self.dopri5_output_points = int(dopri5_output_points)
         self.dopri5_atol = float(dopri5_atol)
         self.dopri5_rtol = float(dopri5_rtol)
-        self._last_sampler_nfe = 0
 
         domains = tuple(getattr(self.generative_encoder, "domains", ()))
         if not domains or set(domains) != set(self.action_decoder.domains):
@@ -127,10 +120,6 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             self.action_decoder.action_dims
         ):
             raise ValueError("UNITE encoder and decoder action dimensions must match")
-        if float(reconstruction_noise_std) != 0.0:
-            raise ValueError(
-                "Released register UNITE requires reconstruction_noise_std=0"
-            )
         if not torch.isfinite(torch.tensor(self.timestep_shift_alpha)):
             raise ValueError("timestep_shift_alpha must be finite")
         if self.timestep_shift_alpha <= 0.0:
@@ -147,20 +136,14 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             raise ValueError("reconstruction_noising_probability must be in [0, 1]")
         if not 0.0 <= self.condition_dropout_probability <= 1.0:
             raise ValueError("condition_dropout_probability must be in [0, 1]")
-        if self.sampling_method != "dopri5":
-            raise ValueError("Released register UNITE supports only Dopri5 sampling")
         if not torch.isfinite(torch.tensor(self.cfg_scale)) or self.cfg_scale < 0.0:
             raise ValueError("cfg_scale must be finite and non-negative")
         if len(self.cfg_interval) != 2 or not (
             0.0 <= self.cfg_interval[0] < self.cfg_interval[1] <= 1.0
         ):
             raise ValueError("cfg_interval must satisfy 0 <= start < end <= 1")
-        if self.cfg_norm_order != "norm_first":
-            raise ValueError(
-                "Released register UNITE requires cfg_norm_order=norm_first"
-            )
-        if self.dopri5_num_steps < 2:
-            raise ValueError("dopri5_num_steps must be at least 2")
+        if self.dopri5_output_points < 2:
+            raise ValueError("dopri5_output_points must be at least 2")
         if self.dopri5_atol <= 0.0 or self.dopri5_rtol <= 0.0:
             raise ValueError("dopri5 tolerances must be positive")
 
@@ -192,21 +175,24 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         )
         return alpha * time / (1.0 + (alpha - 1.0) * time)
 
-    def _null_condition_like(self, condition: torch.Tensor) -> torch.Tensor:
-        return self.generative_encoder.null_condition_like(condition)
+    def _null_condition_like(
+        self, condition: torch.Tensor, embodiment: str
+    ) -> torch.Tensor:
+        return self.generative_encoder.null_condition_like(condition, embodiment)
 
     def _condition_with_dropout(
-        self, condition: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        self, condition: torch.Tensor, embodiment: str
+    ) -> torch.Tensor:
         if not self.training or self.condition_dropout_probability == 0.0:
-            return condition, condition.new_zeros(())
+            return condition
         mask_shape = (int(condition.shape[0]),) + (1,) * (condition.ndim - 1)
         mask = (
             torch.rand(int(condition.shape[0]), device=condition.device)
             < self.condition_dropout_probability
         ).reshape(mask_shape)
-        dropped = torch.where(mask, self._null_condition_like(condition), condition)
-        return dropped, mask.float().mean()
+        return torch.where(
+            mask, self._null_condition_like(condition, embodiment), condition
+        )
 
     def _guided_clean_prediction(
         self,
@@ -214,16 +200,17 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         time: torch.Tensor,
         condition: torch.Tensor,
         cfg_scale: float,
+        embodiment: str,
     ) -> torch.Tensor:
         if float(cfg_scale) <= 1.0:
-            return self.generative_encoder.denoise(latent, time, condition)
+            return self.generative_encoder.denoise(latent, time, condition, embodiment)
         doubled_latent = torch.cat((latent, latent), dim=0)
         doubled_time = torch.cat((time, time), dim=0)
         doubled_condition = torch.cat(
-            (condition, self._null_condition_like(condition)), dim=0
+            (condition, self._null_condition_like(condition, embodiment)), dim=0
         )
         conditioned, unconditional = self.generative_encoder.denoise(
-            doubled_latent, doubled_time, doubled_condition
+            doubled_latent, doubled_time, doubled_condition, embodiment
         ).chunk(2, dim=0)
         guided = unconditional + float(cfg_scale) * (conditioned - unconditional)
         start, end = self.cfg_interval
@@ -261,12 +248,11 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         self,
         clean_latent: torch.Tensor,
         condition: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        embodiment: str,
+    ) -> torch.Tensor:
         detached_clean = clean_latent.detach()
         batch_size = int(detached_clean.shape[0])
         loss = None
-        representative_time = None
-        dropout_fraction = detached_clean.new_zeros(())
         for repeats in self._flow_chunks(
             self.flow_steps_per_reconstruction, self.flow_mini_batch
         ):
@@ -274,36 +260,30 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             repeated_condition = condition.repeat(
                 repeats, *([1] * (condition.ndim - 1))
             )
-            repeated_condition, chunk_dropout = self._condition_with_dropout(
-                repeated_condition
+            repeated_condition = self._condition_with_dropout(
+                repeated_condition, embodiment
             )
-            dropout_fraction = dropout_fraction + repeats * chunk_dropout
             time = self._sample_flow_time(batch_size * repeats, detached_clean.device)
             time_view = time.reshape(batch_size * repeats, 1, 1).to(detached_clean)
             noise = torch.randn_like(repeated_clean)
             corrupted = time_view * repeated_clean + (1.0 - time_view) * noise
             prediction = self.generative_encoder.denoise(
-                corrupted, time, repeated_condition
+                corrupted, time, repeated_condition, embodiment
             )
             denominator = (1.0 - time_view).clamp_min(self.train_eps)
             chunk_loss = ((repeated_clean - prediction) / denominator).square().mean()
             weighted = chunk_loss * repeats
             loss = weighted if loss is None else loss + weighted
-            if representative_time is None:
-                representative_time = time[:batch_size]
-        if loss is None or representative_time is None:
+        if loss is None:
             raise RuntimeError("Released UNITE flow loop produced no samples")
-        return (
-            loss,
-            representative_time,
-            dropout_fraction / self.flow_steps_per_reconstruction,
-        )
+        return loss
 
     def _integrate_dopri5(
         self,
         noise: torch.Tensor,
         condition: torch.Tensor,
         cfg_scale: float,
+        embodiment: str,
     ) -> torch.Tensor:
         """Integrate once over the released shifted grid and return its endpoint."""
 
@@ -316,21 +296,19 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         raw_grid = torch.linspace(
             0.0,
             1.0,
-            self.dopri5_num_steps,
+            self.dopri5_output_points,
             device=noise.device,
             dtype=torch.float32,
         )
         grid = self.shift_time(raw_grid)
-        nfe = 0
 
         def velocity(time_scalar: torch.Tensor, latent: torch.Tensor) -> torch.Tensor:
-            nonlocal nfe
-            nfe += 1
             clean_prediction = self._guided_clean_prediction(
                 latent,
                 time_scalar.expand(batch_size),
                 condition,
                 cfg_scale,
+                embodiment,
             )
             denominator = (1.0 - time_scalar).clamp_min(self.sample_eps)
             return (clean_prediction.float() - latent.float()) / denominator.float()
@@ -343,23 +321,19 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             atol=self.dopri5_atol,
             rtol=self.dopri5_rtol,
         )
-        self._last_sampler_nfe = nfe
         return trajectory[-1]
 
     def sample(
         self,
         noise: torch.Tensor,
         condition: torch.Tensor,
+        embodiment: str,
         *,
-        sampling_method: str | None = None,
         cfg_scale: float | None = None,
     ) -> torch.Tensor:
         self._validate_noise(noise)
-        method = self.sampling_method if sampling_method is None else sampling_method
-        if str(method).lower() != "dopri5":
-            raise ValueError("Released register UNITE supports only Dopri5 sampling")
         scale = self.cfg_scale if cfg_scale is None else float(cfg_scale)
-        return self._integrate_dopri5(noise, condition, scale)
+        return self._integrate_dopri5(noise, condition, scale, embodiment)
 
     def _forward_training(self, batch: dict, embodiment: str) -> dict:
         target = batch["target"]
@@ -371,31 +345,22 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         reconstructed_action = self._decode(
             self._noisy_reconstruction_latent(clean_latent), embodiment
         )
-        flow_loss, sampled_time, dropout_fraction = self._released_flow_loss(
-            clean_latent, batch["condition"]
+        flow_loss = self._released_flow_loss(
+            clean_latent, batch["condition"], embodiment
         )
         batch.update(
             {
                 "unite/clean_latent": clean_latent,
                 "unite/reconstructed_action": reconstructed_action,
                 "unite/flow_loss": flow_loss,
-                "log/sampler_unroll_steps": 1.0,
-                "log/unite_time_mean": sampled_time.detach().mean(),
-                "log/unite_condition_dropout_fraction": dropout_fraction.detach(),
-                "log/unite_cfg_scale": self.cfg_scale,
-                "log/unite_flow_samples_per_reconstruction": float(
-                    self.flow_steps_per_reconstruction
-                ),
             }
         )
         return batch
 
     def _forward_rollout(self, batch: dict, embodiment: str) -> dict:
-        endpoint = self.sample(batch["sampler/noise"], batch["condition"])
+        endpoint = self.sample(batch["sampler/noise"], batch["condition"], embodiment)
         batch["sampler/endpoint"] = endpoint
         batch["pred_action"] = self._decode(endpoint, embodiment)
-        batch["log/sampler_unroll_steps"] = float(self._last_sampler_nfe)
-        batch["log/unite_cfg_scale"] = self.cfg_scale
         return batch
 
     def _execute_mode(self, batch: dict, mode: str) -> dict:
@@ -410,14 +375,6 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             batch = self._forward_rollout(batch, embodiment)
         else:
             raise ValueError(f"Unsupported UNITE execution mode {mode!r}")
-        batch["log/sampler_noise_rms"] = noise.detach().square().mean().sqrt()
-        if mode == "inference":
-            endpoint = batch["sampler/endpoint"]
-            prediction = batch["pred_action"]
-            batch["log/sampler_endpoint_rms"] = endpoint.detach().square().mean().sqrt()
-            batch["log/sampler_prediction_rms"] = (
-                prediction.detach().square().mean().sqrt()
-            )
         return batch
 
     def execute(self, batch: dict, *, mode: str) -> dict:

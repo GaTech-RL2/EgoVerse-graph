@@ -52,15 +52,12 @@ pipeline:
       num_tokens: ${model.num_latent_tokens}
       latent_dim: ${model.latent_dim}
     - _target_: egomimic.pipeline.stages_unite_released.ReleasedRecipeUniteLatentPolicy
-      sampling_method: dopri5
       condition_dropout_probability: 0.1
       cfg_scale: 4.0
       cfg_interval: [0.0, 1.0]
-      cfg_norm_order: norm_first
-      dopri5_num_steps: 50
+      dopri5_output_points: 50
       dopri5_atol: 1.0e-6
       dopri5_rtol: 1.0e-3
-      reconstruction_noise_std: 0.0
       timestep_shift_alpha: 0.5
       flow_steps_per_reconstruction: 14
       flow_mini_batch: 4

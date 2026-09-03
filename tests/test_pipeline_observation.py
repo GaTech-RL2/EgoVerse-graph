@@ -20,17 +20,18 @@ class _PackedState(nn.Module):
     def forward_packed(
         self,
         *,
-        actions_packed,
         obs_packed,
         cu_seqlens,
         T_total,
+        device,
+        dtype,
         embodiment_id=None,
-        **kwargs,
     ):
         self.seen = {
-            "action_shape": tuple(actions_packed.shape),
             "cu": cu_seqlens.tolist(),
             "T_total": T_total,
+            "device": device,
+            "dtype": dtype,
             "embodiment": embodiment_id,
         }
         return obs_packed["state"]
@@ -75,9 +76,10 @@ def test_fused_encoder_ignores_unrelated_metadata_and_action_target():
     assert output["actions"] is actions
     assert "target" not in output
     assert encoder.seen == {
-        "action_shape": (6, 1),
         "cu": [0, 2, 4, 6],
         "T_total": 6,
+        "device": state.device,
+        "dtype": state.dtype,
         "embodiment": None,
     }
     assert encoder._episode_cu.tolist() == [0, 2, 4, 6]

@@ -13,7 +13,7 @@ from egomimic.pl_utils.pl_model import ModelWrapper
 
 
 class _PackedState(torch.nn.Module):
-    def forward_packed(self, *, obs_packed, **kwargs):
+    def forward_packed(self, *, obs_packed, **_context):
         return obs_packed["state"]
 
 

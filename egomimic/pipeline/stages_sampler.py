@@ -21,7 +21,7 @@ class DPStyleObsEncoder(nn.Module):
         self.obs_specs = {str(key): dict(spec) for key, spec in obs_specs.items()}
         self.img_encoders = nn.ModuleDict(img_encoders)
 
-    def forward_packed(self, *, obs_packed: dict, T_total: int, **kwargs):
+    def forward_packed(self, *, obs_packed: dict, T_total: int, **_context):
         features = []
         for key in sorted(self.obs_specs):
             spec = self.obs_specs[key]
@@ -76,7 +76,6 @@ class FusedObsEncoder(Stage):
         if len(set(arguments)) != len(arguments):
             raise ValueError("forward_context arguments must be unique")
         reserved_arguments = {
-            "actions_packed",
             "obs_packed",
             "cu_seqlens",
             "T_total",
@@ -135,7 +134,6 @@ class FusedObsEncoder(Stage):
         total = batch_size * n_obs
         device = reference.device
         dtype = reference.dtype if reference.is_floating_point() else torch.float32
-        donor = torch.zeros((total, 1), device=device, dtype=dtype)
         cu_seqlens = torch.arange(0, total + 1, n_obs, device=device, dtype=torch.long)
         for module in self.modules():
             if getattr(module, "crop_scope", None) == "episode":
@@ -145,7 +143,6 @@ class FusedObsEncoder(Stage):
             for batch_key, argument in self.forward_context.items()
         }
         encoded = self.encoder.forward_packed(
-            actions_packed=donor,
             obs_packed=obs_packed,
             cu_seqlens=cu_seqlens,
             T_total=total,

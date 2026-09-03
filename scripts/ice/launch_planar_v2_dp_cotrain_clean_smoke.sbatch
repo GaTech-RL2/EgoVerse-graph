@@ -71,6 +71,10 @@ preflight "$RUN_DIR/provenance"
 
 nvidia-smi -q > "$RUN_DIR/provenance/nvidia-smi-q.txt"
 test "$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)" = 1
+ECC=$(nvidia-smi \
+  --query-gpu=ecc.errors.uncorrected.volatile.total,ecc.errors.uncorrected.aggregate.total \
+  --format=csv,noheader,nounits)
+test "$(awk -F, '{gsub(/ /, ""); print ($1 == 0 && $2 == 0) ? "pass" : "fail"}' <<<"$ECC")" = pass
 "$PY" - <<'PY'
 import torch
 assert torch.cuda.is_available() and torch.cuda.device_count() == 1

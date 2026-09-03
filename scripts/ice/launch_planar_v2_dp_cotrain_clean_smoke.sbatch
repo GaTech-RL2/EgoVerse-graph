@@ -24,29 +24,48 @@ test -x "$PY" && test -d "$U_DATA" && test -d "$CHAIN_DATA"
 cd "$REPO"
 export PYTHONPATH=$REPO HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
 
+build_common() {
+  local output=$1 wandb_id=$2
+  COMMON=(
+    --config-name=train_zarr_cartesian "+experiment=$EXPERIMENT" mode=train ckpt_path=null
+    "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$U_DATA"
+    "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$U_DATA"
+    "data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$CHAIN_DATA"
+    "data.valid_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$CHAIN_DATA"
+    "++paths.root_dir=$output" "paths.output_dir=$output" "paths.work_dir=$REPO"
+    "hydra.run.dir=$output" launch_params.gpus_per_node=1 launch_params.nodes=1
+    trainer.devices=1 trainer.num_nodes=1 trainer.strategy=ddp trainer.precision=bf16
+    trainer.max_steps=2 trainer.limit_train_batches=2 trainer.val_check_interval=1
+    trainer.limit_val_batches=1 trainer.num_sanity_val_steps=0 trainer.log_every_n_steps=1
+    norm_stats.sample_frac=1.0 norm_stats.save_cache_dir=null
+    +callbacks.model_checkpoint.monitor=null callbacks.model_checkpoint.save_top_k=-1
+    callbacks.model_checkpoint.save_last=true callbacks.model_checkpoint.every_n_epochs=null
+    +callbacks.model_checkpoint.every_n_train_steps=1 +callbacks.model_checkpoint.train_time_interval=null
+    +callbacks.model_checkpoint.save_on_train_epoch_end=false
+    "callbacks.model_checkpoint.filename='epoch-{epoch}-step-{step}'"
+    logger.wandb.entity=rl2-group logger.wandb.project=pushshapes-planar-v2
+    logger.wandb.group=planar-v2-dp-cotrain-clean-20260903
+    "logger.wandb.id=$wandb_id" "+logger.wandb.name=$wandb_id" +logger.wandb.resume=never
+    "logger.wandb.tags=[standard-dp,cotrain,clean-only,no-obstacle,planar-v2,h16,ddim100,smoke,ice]"
+  )
+}
+
 preflight() {
-  local output=$1
+  local output=$1 wandb_id=$2
   mkdir -p "$output"
   "$PY" scripts/data/materialize_local_episode_split.py \
     --domain pushshapes_sim_u_socket="$U_DATA" \
     --domain pushshapes_sim_chain_gripper="$CHAIN_DATA" \
     --valid-ratio 0.01 --seed 42 --output "$output/split_audit.json"
-  "$PY" -m egomimic.trainHydra --config-name=train_zarr_cartesian \
-    "+experiment=$EXPERIMENT" \
-    "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$U_DATA" \
-    "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$U_DATA" \
-    "data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$CHAIN_DATA" \
-    "data.valid_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$CHAIN_DATA" \
-    "++paths.root_dir=$output" "paths.output_dir=$output" "paths.work_dir=$REPO" \
-    launch_params.gpus_per_node=1 launch_params.nodes=1 norm_stats.sample_frac=1.0 \
-    norm_stats_only=true trainer.accelerator=cpu trainer.devices=1 \
-    +callbacks.model_checkpoint.monitor=null \
-    +callbacks.model_checkpoint.every_n_train_steps=1 \
-    +callbacks.model_checkpoint.train_time_interval=null \
-    +callbacks.model_checkpoint.save_on_train_epoch_end=false \
-    +logger.wandb.resume=never \
-    --cfg job --resolve > "$output/resolved_config.yaml"
-  "$PY" - "$output/resolved_config.yaml" "$output/split_audit.json" "$PARAMETER_COUNT" <<'PY'
+  build_common "$output" "$wandb_id"
+  "$PY" -m egomimic.trainHydra "${COMMON[@]}" norm_stats_only=true \
+    trainer.accelerator=cpu trainer.devices=1 \
+    "norm_stats.save_cache_dir=$output" "hydra.run.dir=$output/norm_materialize" \
+    --cfg job --resolve > "$output/norm_config.yaml"
+  "$PY" -m egomimic.trainHydra "${COMMON[@]}" \
+    "norm_stats.precomputed_norm_path=$output/norm_stats" \
+    --cfg job --resolve > "$output/training_config.yaml"
+  "$PY" - "$output/training_config.yaml" "$output/split_audit.json" "$PARAMETER_COUNT" <<'PY'
 import json, pathlib, sys
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
@@ -64,7 +83,7 @@ PY
 if test "$MODE" = preflight; then
   PREFLIGHT=$ROOT/preflight/${EXPECTED_HEAD:0:12}
   test ! -e "$PREFLIGHT"
-  preflight "$PREFLIGHT"
+  preflight "$PREFLIGHT" preflight
   exit 0
 fi
 test "$MODE" = smoke
@@ -73,7 +92,8 @@ test "${SLURM_CPUS_PER_TASK:?}" -ge 8 && test "${SLURM_RESTART_COUNT:-0}" = 0
 RUN_DIR=$ROOT/runs/smoke-job-${SLURM_JOB_ID:?}
 test ! -e "$RUN_DIR"
 mkdir -p "$RUN_DIR/provenance"
-preflight "$RUN_DIR/provenance"
+WANDB_ID=planar-v2-dp-cotrain-clean-ice-smoke-${SLURM_JOB_ID}
+preflight "$RUN_DIR/provenance" "$WANDB_ID"
 
 nvidia-smi -q > "$RUN_DIR/provenance/nvidia-smi-q.txt"
 test "$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)" = 1
@@ -90,29 +110,6 @@ assert torch.isfinite(y).all()
 print("[hardware] CUDA BF16 PASS", torch.cuda.get_device_name())
 PY
 
-WANDB_ID=planar-v2-dp-cotrain-clean-ice-smoke-${SLURM_JOB_ID}
-COMMON=(
-  --config-name=train_zarr_cartesian "+experiment=$EXPERIMENT" mode=train ckpt_path=null
-  "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$U_DATA"
-  "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$U_DATA"
-  "data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$CHAIN_DATA"
-  "data.valid_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$CHAIN_DATA"
-  "++paths.root_dir=$RUN_DIR" "paths.output_dir=$RUN_DIR" "paths.work_dir=$REPO"
-  "hydra.run.dir=$RUN_DIR" launch_params.gpus_per_node=1 launch_params.nodes=1
-  trainer.devices=1 trainer.num_nodes=1 trainer.strategy=ddp trainer.precision=bf16
-  trainer.max_steps=2 trainer.limit_train_batches=2 trainer.val_check_interval=1
-  trainer.limit_val_batches=1 trainer.num_sanity_val_steps=0 trainer.log_every_n_steps=1
-  norm_stats.sample_frac=1.0 norm_stats.save_cache_dir=null
-  +callbacks.model_checkpoint.monitor=null callbacks.model_checkpoint.save_top_k=-1
-  callbacks.model_checkpoint.save_last=true callbacks.model_checkpoint.every_n_epochs=null
-  +callbacks.model_checkpoint.every_n_train_steps=1 +callbacks.model_checkpoint.train_time_interval=null
-  +callbacks.model_checkpoint.save_on_train_epoch_end=false
-  "callbacks.model_checkpoint.filename='epoch-{epoch}-step-{step}'"
-  logger.wandb.entity=rl2-group logger.wandb.project=pushshapes-planar-v2
-  logger.wandb.group=planar-v2-dp-cotrain-clean-20260903
-  "logger.wandb.id=$WANDB_ID" "logger.wandb.name=$WANDB_ID" +logger.wandb.resume=never
-  "logger.wandb.tags=[standard-dp,cotrain,clean-only,no-obstacle,planar-v2,h16,ddim100,smoke,ice]"
-)
 export WANDB_MODE=online WANDB_SILENT=true
 "$PY" -m egomimic.trainHydra "${COMMON[@]}" norm_stats_only=true \
   trainer.accelerator=cpu trainer.devices=1 \

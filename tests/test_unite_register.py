@@ -545,6 +545,13 @@ def test_only_registered_rows_and_no_legacy_surface():
         "action_decoder",
     }
     assert experiment["run_provenance"]["energy_score_contract"]["sample_count"] == 32
+    assert experiment["run_provenance"]["split_manifest_sha256"] == (
+        "3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313"
+    )
+    assert experiment["run_provenance"]["split_seed"] == 42
+    assert experiment["run_provenance"]["valid_ratio"] == 0.01
+    assert experiment["run_provenance"]["train_episode_count_per_domain"] == 2970
+    assert experiment["run_provenance"]["valid_episode_count_per_domain"] == 29
     assert "train_only_normalization_sha256" not in experiment["run_provenance"]
     diagnostics = experiment["evaluator"]["unite_diagnostics"]
     assert diagnostics["enabled"] is True

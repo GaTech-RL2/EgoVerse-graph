@@ -470,6 +470,8 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
     assert '"trainer.devices=$ICE_WORLD_SIZE"' in launcher
     assert '"evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"' in launcher
     assert '--ntasks="${ICE_WORLD_SIZE:?}"' in launcher
+    assert 'test "$ICE_MAX_STEPS" -ge 100' in launcher
+    assert 'test "$ICE_VAL_CHECK_INTERVAL" -le "$ICE_MAX_STEPS"' in launcher
     assert not (ROOT / "egomimic/pipeline/stages_unite.py").exists()
     policy_parameters = inspect.signature(
         ReleasedRecipeUniteLatentPolicy.__init__

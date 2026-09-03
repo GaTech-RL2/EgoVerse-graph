@@ -122,6 +122,12 @@ positive_integer ICE_TRAIN_BATCH_SIZE "$ICE_TRAIN_BATCH_SIZE"
 positive_integer ICE_VALID_BATCH_SIZE "$ICE_VALID_BATCH_SIZE"
 positive_integer ICE_MAX_RESTARTS "$ICE_MAX_RESTARTS"
 positive_integer ICE_SEED "$ICE_SEED"
+if test "$ICE_UNITE_DIAGNOSTICS" = true; then
+  test "$ICE_MAX_STEPS" -ge 100 || \
+    die "ICE_UNITE_DIAGNOSTICS requires at least 100 optimizer steps to exercise cadence-100 gradient telemetry"
+  test "$ICE_VAL_CHECK_INTERVAL" -le "$ICE_MAX_STEPS" || \
+    die "ICE_UNITE_DIAGNOSTICS requires scheduled validation within the smoke budget"
+fi
 [[ "$RESTART_COUNT" =~ ^[0-9]+$ ]] || die "invalid SLURM_RESTART_COUNT"
 test "$RESTART_COUNT" -le "$ICE_MAX_RESTARTS" || die "restart limit exceeded"
 

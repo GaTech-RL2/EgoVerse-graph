@@ -474,6 +474,8 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
     assert "ICE_UNITE_H100_FAST" not in launcher
     assert "ICE_EXPECTED_GPU_NAME" not in launcher
     assert "bf/us_unite_register_shared_nt8_flow42_s42" in launcher
+    assert "+runtime.slurm_requeue_owner" not in launcher
+    assert "runtime.slurm_requeue_owner=runner" in launcher
     assert '"trainer.devices=$ICE_WORLD_SIZE"' in launcher
     assert '"evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"' in launcher
     assert '--ntasks="${ICE_WORLD_SIZE:?}"' in launcher

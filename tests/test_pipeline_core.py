@@ -80,6 +80,12 @@ def test_sum_losses_rejects_graph_without_an_objective():
         sum_losses({"log/value": torch.tensor(1.0)})
 
 
+@pytest.mark.parametrize("value", [1.0, torch.ones(2)])
+def test_sum_losses_requires_scalar_tensors(value):
+    with pytest.raises(TypeError, match="must be a scalar tensor"):
+        sum_losses({"loss/value": value})
+
+
 @pytest.mark.parametrize(
     "value,expected",
     [

@@ -153,6 +153,17 @@ class FusedObsEncoder(Stage):
             dtype=dtype,
             **encoder_context,
         )
+        expected_rows = batch_size * n_obs
+        if (
+            not torch.is_tensor(encoded)
+            or encoded.ndim != 2
+            or int(encoded.shape[0]) != expected_rows
+        ):
+            shape = tuple(encoded.shape) if torch.is_tensor(encoded) else None
+            raise ValueError(
+                "FusedObsEncoder output must have shape "
+                f"({expected_rows}, feature_dim), got {shape}"
+            )
         batch["condition"] = encoded.reshape(batch_size, n_obs * encoded.shape[-1])
 
         return batch

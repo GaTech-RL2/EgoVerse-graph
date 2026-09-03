@@ -36,6 +36,11 @@ class _PackedState(nn.Module):
         return obs_packed["state"]
 
 
+class _MalformedPackedState(_PackedState):
+    def forward_packed(self, **kwargs):
+        return super().forward_packed(**kwargs).unsqueeze(0)
+
+
 def test_dp_style_encoder_concatenates_sliced_state_and_image_features():
     image_encoder = nn.Linear(3, 2, bias=False)
     encoder = DPStyleObsEncoder(
@@ -76,6 +81,17 @@ def test_fused_encoder_ignores_unrelated_metadata_and_action_target():
         "embodiment": None,
     }
     assert encoder._episode_cu.tolist() == [0, 2, 4, 6]
+
+
+def test_fused_encoder_rejects_malformed_encoder_output():
+    stage = FusedObsEncoder(
+        encoder=_MalformedPackedState(),
+        inputs={"state": "state"},
+        n_obs_steps=2,
+    )
+
+    with pytest.raises(ValueError, match="output must have shape"):
+        stage({"state": torch.randn(3, 2, 4)})
 
 
 def test_action_target_builder_is_a_separate_train_only_node():

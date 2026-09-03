@@ -58,10 +58,17 @@ def resolve_homogeneous_scalar(value, *, label: str = "selector"):
 
 def sum_losses(batch: dict):
     """Sum every scalar written under the ``loss/`` namespace."""
-    losses = [value for key, value in batch.items() if key.startswith("loss/")]
+    losses = [(key, value) for key, value in batch.items() if key.startswith("loss/")]
     if not losses:
         raise RuntimeError("no loss/* keys in batch -- no loss stage ran")
-    return sum(losses[1:], start=losses[0])
+    for key, value in losses:
+        if not torch.is_tensor(value) or value.ndim != 0:
+            raise TypeError(
+                f"{key} must be a scalar tensor, got {type(value).__name__} "
+                f"with shape {getattr(value, 'shape', None)}"
+            )
+    values = [value for _, value in losses]
+    return sum(values[1:], start=values[0])
 
 
 class Stage(nn.Module):

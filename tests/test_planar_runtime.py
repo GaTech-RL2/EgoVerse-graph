@@ -1,4 +1,5 @@
 import importlib.util
+import math
 import sys
 import types
 from collections import OrderedDict
@@ -18,6 +19,7 @@ from egomimic.eval.energy_score import energy_score
 from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.models.denoising_nets import CrossTransformer, PaperConditionalUnet1D
 from egomimic.pipeline.core import resolve_homogeneous_scalar
+from egomimic.pipeline.pushshapes import PlanarCommon5RolloutAdapter
 from egomimic.utils.ema_callback import EMACallback
 
 
@@ -230,6 +232,59 @@ def test_planar_evaluator_uses_natural_batch_metadata_and_nested_results():
 
     assert logged["Valid/MSE"].item() == pytest.approx(1.0)
     assert logged["Valid/MSE/pushshapes_sim_u_socket"].item() == pytest.approx(1.0)
+
+
+def test_planar_evaluator_wraps_native_rotation_error_across_pi():
+    epsilon = 0.01
+
+    def common_five(theta):
+        return torch.tensor(
+            [[[0.0, 0.0, math.cos(theta), math.sin(theta), 0.0]]],
+            dtype=torch.float64,
+        )
+
+    target = common_five(math.pi - epsilon)
+    prediction = common_five(-math.pi + epsilon)
+    batch = {
+        "opaque-stream": {
+            "actions": target,
+            "embodiment": torch.tensor([19]),
+        }
+    }
+
+    class IdentityNormalizer:
+        @staticmethod
+        def unnormalize(values, embodiment_id):
+            assert embodiment_id == 19
+            return values
+
+    evaluator = PlanarActionEval(
+        energy_score_enabled=False,
+        native_decoder=PlanarCommon5RolloutAdapter(
+            action_horizon=1,
+            native_action_dim=3,
+        ),
+    )
+    evaluator.bind_data_context(normalizer=IdentityNormalizer())
+    evaluator.model = SimpleNamespace(
+        forward_eval=lambda _batch: {
+            "opaque-stream": {"pred_action": prediction}
+        }
+    )
+    logged = {}
+    evaluator.trainer = SimpleNamespace(
+        lightning_module=SimpleNamespace(
+            log_dict=lambda metrics, **_kwargs: logged.update(metrics)
+        )
+    )
+
+    evaluator.on_validation_step(batch, batch_idx=0)
+
+    expected = (2.0 * epsilon) ** 2 / 3.0
+    assert logged["Valid/Native_MSE/pushshapes_sim_u_socket"].item() == pytest.approx(
+        expected
+    )
+    assert logged["Valid/Native_MSE"].item() == pytest.approx(expected)
 
 
 def test_strict_checkpoint_loader_overlays_ema_and_retains_online_buffers():

@@ -124,6 +124,28 @@ class PlanarActionEval(Eval):
             return unnormalized
         return self.native_decoder.decode(unnormalized)
 
+    def _native_mse(self, prediction, target):
+        """Measure native Planar actions with a circular theta residual."""
+        if prediction.shape != target.shape:
+            raise ValueError(
+                "native prediction and target shapes differ: "
+                f"{prediction.shape} != {target.shape}"
+            )
+        # Without a decoder, rotation remains encoded as cos/sin in common-five
+        # space, where ordinary subtraction is already wrap-safe.
+        if self.native_decoder is None or prediction.shape[-1] < 3:
+            return (prediction - target).square().mean()
+
+        residual = prediction - target
+        theta_residual = torch.atan2(
+            torch.sin(residual[..., 2]), torch.cos(residual[..., 2])
+        )
+        residual = torch.cat(
+            (residual[..., :2], theta_residual.unsqueeze(-1), residual[..., 3:]),
+            dim=-1,
+        )
+        return residual.square().mean()
+
     def _save_artifact(self, batch_idx, samples, batch):
         destination = (
             self.artifact_root
@@ -172,13 +194,9 @@ class PlanarActionEval(Eval):
             prediction = result[source_id]["pred_action"]
             target = source_batch[self.action_key]
             normalized_mse = (prediction - target).square().mean()
-            native_mse = (
-                (
-                    self._native(prediction, embodiment_id)
-                    - self._native(target, embodiment_id)
-                )
-                .square()
-                .mean()
+            native_mse = self._native_mse(
+                self._native(prediction, embodiment_id),
+                self._native(target, embodiment_id),
             )
             metrics[f"Valid/MSE/{label}"] = normalized_mse
             metrics[f"Valid/Native_MSE/{label}"] = native_mse

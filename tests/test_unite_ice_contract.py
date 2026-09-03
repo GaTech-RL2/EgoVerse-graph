@@ -26,7 +26,7 @@ def resolved_config():
 
 @pytest.mark.parametrize(
     ("shared", "tokens"),
-    [(True, 4), (True, 8), (False, 4), (False, 8)],
+    [(True, 4), (True, 8), (True, 16), (False, 4), (False, 8)],
 )
 def test_clean_rows_bind_energy_view_to_world_size(resolved_config, shared, tokens):
     config = OmegaConf.create(OmegaConf.to_container(resolved_config, resolve=False))

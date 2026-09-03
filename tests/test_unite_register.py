@@ -330,9 +330,17 @@ def test_cfg_threads_the_dataset_selected_branch_to_encoder(monkeypatch):
 
 @pytest.mark.parametrize(
     ("topology", "num_latent_tokens"),
-    [("shared", 4), ("shared", 8), ("separate", 4), ("separate", 8)],
+    [
+        ("shared", 4),
+        ("shared", 8),
+        ("shared", 16),
+        ("separate", 4),
+        ("separate", 8),
+    ],
 )
-def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_tokens):
+def test_registered_rows_are_thin_overlays_of_one_resolved_base(
+    topology, num_latent_tokens
+):
     model_dir = CONFIG_DIR / "model/bf"
     canonical_path = model_dir / "us_unite_register_shared_nt4_s42.yaml"
     canonical = OmegaConf.load(canonical_path)
@@ -384,8 +392,16 @@ def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_t
     assert stages[4].decoders[DOMAIN].gradient_checkpointing is True
 
 
-@pytest.mark.parametrize("topology", ["shared", "separate"])
-@pytest.mark.parametrize("num_latent_tokens", [4, 8])
+@pytest.mark.parametrize(
+    ("topology", "num_latent_tokens"),
+    [
+        ("shared", 4),
+        ("shared", 8),
+        ("shared", 16),
+        ("separate", 4),
+        ("separate", 8),
+    ],
+)
 def test_four_rows_compose_with_supported_data_and_evaluator_schema(
     topology, num_latent_tokens
 ):
@@ -409,12 +425,13 @@ def test_four_rows_compose_with_supported_data_and_evaluator_schema(
         assert set(section) - accepted - {"_target_"} == set()
 
 
-def test_only_four_rows_and_no_legacy_or_diagnostic_surface():
+def test_only_registered_rows_and_no_legacy_or_diagnostic_surface():
     model_dir = CONFIG_DIR / "model/bf"
     rows = sorted(path.name for path in model_dir.glob("us_unite_register_*_s42.yaml"))
     assert rows == [
         "us_unite_register_separate_nt4_s42.yaml",
         "us_unite_register_separate_nt8_s42.yaml",
+        "us_unite_register_shared_nt16_s42.yaml",
         "us_unite_register_shared_nt4_s42.yaml",
         "us_unite_register_shared_nt8_s42.yaml",
     ]

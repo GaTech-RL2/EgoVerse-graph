@@ -37,8 +37,7 @@ class TokenwiseActionDecoder(nn.Sequential):
             layers.append(nn.Linear(input_dim, output_dim))
             if index < num_layers - 1:
                 layers.append(nn.SiLU())
-        # Remain an nn.Sequential directly so legacy checkpoints retain keys such
-        # as ``decoders.<domain>.0.weight`` instead of gaining a ``network`` level.
+        # Keep the registered parameter tree compact: ``0.weight``, ``2.weight``, ...
         super().__init__(*layers)
         self.latent_dim = latent_dim
         self.action_dim = action_dim

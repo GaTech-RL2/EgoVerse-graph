@@ -86,9 +86,6 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     if "dp_paper" in row:
         assert cfg.callbacks.ema.use_warmup is True
         assert cfg.eval_checkpoint.use_ema is True
-        assert OmegaConf.to_container(cfg.eval_checkpoint.prefix_rewrites) == {
-            f"policy.stages.1.policies.{domain}.": "pipeline.stages.3.policy."
-        }
         assert "DDPMScheduler" in model_yaml
         assert stage_names == [
             "FusedObsEncoder",

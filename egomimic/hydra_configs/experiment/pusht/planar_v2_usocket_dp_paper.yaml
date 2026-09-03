@@ -22,8 +22,6 @@ run_provenance:
     execution_slice: "[0,8)"
 eval_checkpoint:
   use_ema: true
-  prefix_rewrites:
-    "policy.stages.1.policies.pushshapes_sim_u_socket.": "pipeline.stages.3.policy."
 callbacks:
   ema:
     _target_: egomimic.utils.ema_callback.EMACallback

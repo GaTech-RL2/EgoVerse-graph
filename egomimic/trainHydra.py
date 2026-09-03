@@ -63,12 +63,10 @@ def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
     use_ema = settings.get("use_ema", False) if settings is not None else False
     if not isinstance(use_ema, bool):
         raise TypeError("eval_checkpoint.use_ema must be a boolean")
-    prefix_rewrites = settings.get("prefix_rewrites") if settings is not None else None
     strict_load_pipeline_checkpoint(
         algo,
         checkpoint,
         use_ema=use_ema,
-        prefix_rewrites=prefix_rewrites,
     )
     return model
 

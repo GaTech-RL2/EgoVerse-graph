@@ -145,10 +145,6 @@ class EMACallback(Callback):
         if self._using_ema:
             for name, online in self._shadow.items():
                 checkpoint["state_dict"][name] = online.detach()
-                if name.startswith("model.nets."):
-                    alias = "nets." + name[len("model.nets.") :]
-                    if alias in checkpoint["state_dict"]:
-                        checkpoint["state_dict"][alias] = online.detach()
         checkpoint["ema_state_dict"] = OrderedDict(
             (name, value.detach()) for name, value in ema_state.items()
         )

@@ -775,7 +775,7 @@ class LocalEpisodeResolver(EpisodeResolver):
 
 
 class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
-    """Assign legacy PushShapes stores a config-selected logical embodiment."""
+    """Assign PushShapes stores a config-selected logical embodiment."""
 
     def __init__(self, *args, embodiment_override: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)

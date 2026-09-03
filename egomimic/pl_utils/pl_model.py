@@ -527,15 +527,23 @@ class ModelWrapper(LightningModule):
         if self.evaluator is not None:
             self.evaluator.on_validation_end()
 
+        self._barrier_if_distributed("validation end")
+
+    def _barrier_if_distributed(self, phase: str) -> bool:
+        if not (
+            torch.distributed.is_available() and torch.distributed.is_initialized()
+        ):
+            return False
         print(
-            f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
+            f"Rank {self.global_rank} on {phase}, waiting for all ranks to synchronize",
             flush=True,
         )
         torch.distributed.barrier()
         print(
-            f"Rank {self.global_rank} on validation end, all ranks synchronized",
+            f"Rank {self.global_rank} on {phase}, all ranks synchronized",
             flush=True,
         )
+        return True
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
@@ -598,23 +606,18 @@ class ModelWrapper(LightningModule):
         self.model.device = self.device
         if hasattr(self, "ema_model"):
             self.ema_model.device = self.device
-        print(
-            f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
-            flush=True,
-        )
-        torch.distributed.barrier()
-        print(
-            f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
-        )
+        self._barrier_if_distributed("fit start")
 
     def on_train_epoch_start(self):
         if not self.train_metrics_on_epoch:
             return super().on_train_epoch_start()
         for i, param_group in enumerate(self.optimizers().param_groups):
             self.log(
-                f"Optimizer/param_group_{i}_lr_epoch"
-                if self.train_metrics_on_step
-                else f"Optimizer/param_group_{i}_lr",
+                (
+                    f"Optimizer/param_group_{i}_lr_epoch"
+                    if self.train_metrics_on_step
+                    else f"Optimizer/param_group_{i}_lr"
+                ),
                 param_group["lr"],
                 on_step=False,
                 on_epoch=True,

@@ -4,10 +4,13 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+import torch
 import yaml
 
+from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     MultiDataset,
     episode_names_sha256,
@@ -45,6 +48,26 @@ NORMALIZATION = Path(
     "flow_transfer_dp_transformer_val01_l40sx2_20260831/"
     "source_artifacts/norm/norm_stats.json"
 )
+
+
+@pytest.mark.parametrize(
+    ("available", "initialized", "expected_barriers"),
+    ((False, False, 0), (True, False, 0), (True, True, 1)),
+)
+def test_model_wrapper_barrier_requires_initialized_process_group(
+    monkeypatch, available, initialized, expected_barriers
+):
+    calls = []
+    monkeypatch.setattr(torch.distributed, "is_available", lambda: available)
+    monkeypatch.setattr(torch.distributed, "is_initialized", lambda: initialized)
+    monkeypatch.setattr(torch.distributed, "barrier", lambda: calls.append("barrier"))
+
+    synchronized = ModelWrapper._barrier_if_distributed(
+        SimpleNamespace(global_rank=0), "fit start"
+    )
+
+    assert synchronized is bool(expected_barriers)
+    assert calls == ["barrier"] * expected_barriers
 
 
 def _sha256(path: Path) -> str:

@@ -1,4 +1,3 @@
-import random
 import time
 from collections import deque
 from typing import Any, Dict
@@ -9,17 +8,12 @@ import torch
 from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
-import egomimic.utils.tensor_utils as TensorUtils
-
 
 class ModelWrapper(LightningModule):
     """
     Lightning wrapper for a configured PipelineAlgo.
     """
 
-    debug_loss_spike = False
-    debug_loss_spike_factor = 1000.0
-    debug_loss_spike_prob = 0.03
     grad_norm_mad_scale = 3.0
     grad_norm_mad_min_count = 100
     grad_norm_mad_window = 200
@@ -53,7 +47,6 @@ class ModelWrapper(LightningModule):
         self.enable_grad_norm = enable_grad_norm
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
 
-        self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
 
     @staticmethod
@@ -68,8 +61,8 @@ class ModelWrapper(LightningModule):
         cfg = self._as_config(config_tree)
         return hydra.utils.instantiate(cfg.model.pipeline)
 
-    # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
+        del batch_idx
         self.train()
         t0 = time.time()
         batch = self.model.process_batch_for_training(batch)
@@ -101,26 +94,16 @@ class ModelWrapper(LightningModule):
             sync_dist=True,
         )
 
-        objective_key = "loss"
-
-        if (
-            self.debug_loss_spike
-            and random.random() < self.debug_loss_spike_prob
-            and self.global_step > 100
-        ):
-            losses[objective_key] = losses[objective_key] * self.debug_loss_spike_factor
-            if self.trainer.is_global_zero:
-                print(
-                    f"[LOSS_SPIKE] step={self.global_step} factor={self.debug_loss_spike_factor}",
-                    flush=True,
-                )
-
-        info = {}
-        info["losses"] = TensorUtils.detach(losses)
+        info = {
+            "losses": {
+                key: value.detach() if torch.is_tensor(value) else value
+                for key, value in losses.items()
+            }
+        }
         for k, v in self.model.log_info(info).items():
             self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
 
-        return losses[objective_key]
+        return losses["loss"]
 
     def on_after_backward(self):
         if not self.enable_grad_norm:
@@ -181,42 +164,18 @@ class ModelWrapper(LightningModule):
         self.evaluator.on_validation_start()
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        """
-        Run a validation step on the batch, and save that batch of images into the val_image_buffer.  Once the buffer hits 1000 images, save that as a 30fps video using torchvision.io.write_video.
-        """
+        """Delegate one processed validation batch to the configured evaluator."""
         if self.evaluator is None:
             return
         batch = self.model.process_batch_for_training(batch)
-        print(
-            f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}",
-            flush=True,
-        )
         self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
 
     def on_validation_end(self):
-        print(f"[ON_VALIDATION_END] rank={self.global_rank}", flush=True)
         if self.evaluator is not None:
             self.evaluator.on_validation_end()
 
-        print(
-            f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
-            flush=True,
-        )
-        torch.distributed.barrier()
-        print(
-            f"Rank {self.global_rank} on validation end, all ranks synchronized",
-            flush=True,
-        )
-
     def configure_optimizers(self) -> Dict[str, Any]:
-        """Choose what optimizers and learning-rate schedulers to use in your optimization.
-        Normally you'd need one. But in the case of GANs or similar you might have multiple.
-
-        Examples:
-            https://lightning.ai/docs/pytorch/latest/common/lightning_module.html#configure-optimizers
-
-        :return: A dict containing the configured optimizers and learning-rate schedulers to be used for training.
-        """
+        """Instantiate the optimizer and optional scheduler from model config."""
         config_tree = getattr(self.hparams, "config_tree", None)
         if config_tree is not None:
             cfg = self._as_config(config_tree)
@@ -252,14 +211,6 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
-        print(
-            f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
-            flush=True,
-        )
-        torch.distributed.barrier()
-        print(
-            f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
-        )
 
     def on_train_epoch_start(self):
         for i, param_group in enumerate(self.optimizers().param_groups):

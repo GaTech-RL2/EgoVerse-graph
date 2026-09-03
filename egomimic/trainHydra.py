@@ -16,7 +16,6 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
-import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
@@ -148,9 +147,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert (
-        "MultiDataModuleWrapper" in cfg.data._target_
-    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    assert "MultiDataModuleWrapper" in cfg.data._target_, (
+        "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    )
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
     )
@@ -265,8 +264,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
         cfg.ckpt_path = last_ckpt_path
 
-    os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
-
     if mode == "train":
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
@@ -285,40 +282,17 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         eval_obj.model = model.model
         model.evaluator = eval_obj
 
-        if hasattr(eval_obj, "run"):
-            eval_obj.run(trainer, model, datamodule, cfg)
-        else:
-            # Default: load checkpoint + validate (unchanged from main)
-            ckpt_path = cfg.get("ckpt_path")
-            if ckpt_path:
-                checkpoint = torch.load(
-                    ckpt_path, map_location="cpu", weights_only=False
-                )
-                model.load_state_dict(checkpoint["state_dict"], strict=False)
-                log.info(f"Loaded weights from {ckpt_path}")
-            log.info("Starting evaluation!")
-            trainer.validate(model=model, datamodule=datamodule)
+        ckpt_path = cfg.get("ckpt_path")
+        if ckpt_path:
+            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+            model.load_state_dict(checkpoint["state_dict"], strict=True)
+            log.info(f"Loaded weights from {ckpt_path}")
+        log.info("Starting evaluation!")
+        trainer.validate(model=model, datamodule=datamodule)
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
-    train_metrics = trainer.callback_metrics
-
-    # if cfg.get("test"):
-    #     log.info("Starting testing!")
-    #     ckpt_path = trainer.checkpoint_callback.best_model_path
-    #     if ckpt_path == "":
-    #         log.warning("Best ckpt not found! Using current weights for testing...")
-    #         ckpt_path = None
-    #     trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
-    #     log.info(f"Best ckpt path: {ckpt_path}")
-
-    # test_metrics = trainer.callback_metrics
-
-    # merge train and test metrics
-    test_metrics = {}  # my stub
-    metric_dict = {**train_metrics, **test_metrics}
-
-    return metric_dict, object_dict
+    return trainer.callback_metrics, object_dict
 
 
 @hydra.main(
@@ -338,18 +312,7 @@ def main(cfg: DictConfig) -> Optional[float]:
 
     print(OmegaConf.to_yaml(cfg))
 
-    # cfg = OmegaConf.resolve(cfg)
-
-    # train the model
-    metric_dict, _ = train(cfg)
-
-    # # safely retrieve metric value for hydra-based hyperparameter optimization
-    # metric_value = get_metric_value(
-    #     metric_dict=metric_dict, metric_name=cfg.get("optimized_metric")
-    # )
-
-    # # return optimized metric
-    # return metric_value
+    train(cfg)
 
 
 if __name__ == "__main__":

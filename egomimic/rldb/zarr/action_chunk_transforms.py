@@ -1,9 +1,9 @@
 """
 Embodiment-dependent action chunk transforms for ZarrDataset.
 
-Replicates the prestacking transformations from aria_to_lerobot.py / eva_to_lerobot.py,
-applied at load time instead of at data creation time. Raw action frames are loaded
-as (action_horizon, action_dim) and interpolated to (chunk_length, action_dim).
+Applies prestacking transformations at load time rather than data-creation time.
+Raw action frames are loaded as (action_horizon, action_dim) and interpolated to
+(chunk_length, action_dim).
 
 Translation (xyz) and gripper dimensions use linear interpolation.
 Rotation (euler ypr) dimensions use np.unwrap before interpolation and rewrap after,
@@ -535,12 +535,8 @@ class PadGripperZeros(Transform):
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 

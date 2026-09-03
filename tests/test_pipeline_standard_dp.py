@@ -285,3 +285,7 @@ def test_generic_denoiser_uses_singular_policy_state_prefix():
     keys = set(stage.state_dict())
     assert keys
     assert all(key.startswith("policy.") for key in keys)
+
+
+def test_unet_has_one_conditioning_mechanism():
+    assert "feature_concatenate" not in inspect.signature(ConditionalUnet1D).parameters

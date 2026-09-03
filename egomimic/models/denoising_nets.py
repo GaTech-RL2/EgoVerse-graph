@@ -159,48 +159,6 @@ class ConditionalResidualBlock1D(nn.Module):
         return out
 
 
-class ConditionalConcatResidualBlock1D(nn.Module):
-    """very naive feature concatenations instead of a film layer with residual connections"""
-
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        cond_dim,
-        kernel_size=3,
-        n_groups=8,
-        cond_predict_scale=False,
-    ):
-        super().__init__()
-
-        self.blocks = nn.ModuleList(
-            [
-                Conv1dBlock(
-                    in_channels + cond_dim, out_channels, kernel_size, n_groups=n_groups
-                ),
-                Conv1dBlock(out_channels, out_channels, kernel_size, n_groups=n_groups),
-            ]
-        )
-
-        # FiLM modulation https://arxiv.org/abs/1709.07871
-        # predicts per-channel scale and bias
-        self.out_channels = out_channels
-
-    def forward(self, x, cond, *args, **kwargs):
-        """
-        x : [ batch_size x in_channels x horizon ]
-        cond : [ batch_size x cond_dim]
-
-        returns:
-        out : [ batch_size x out_channels x horizon ]
-        """
-        cond = cond[:, :, None].repeat(1, 1, x.shape[-1])
-        x = torch.cat((x, cond), dim=1)
-        out = self.blocks[0](x)
-        out = self.blocks[1](out)
-        return out
-
-
 class ConditionalUnet1D(nn.Module):
     def __init__(
         self,
@@ -212,7 +170,6 @@ class ConditionalUnet1D(nn.Module):
         kernel_size=3,
         n_groups=8,
         cond_predict_scale=False,
-        feature_concatenate=False,
     ):
         """Build a one-dimensional U-Net with global conditioning."""
         super().__init__()
@@ -232,11 +189,7 @@ class ConditionalUnet1D(nn.Module):
 
         in_out = list(zip(all_dims[:-1], all_dims[1:]))
 
-        layer_func = (
-            ConditionalResidualBlock1D
-            if not feature_concatenate
-            else ConditionalConcatResidualBlock1D
-        )
+        layer_func = ConditionalResidualBlock1D
 
         mid_dim = all_dims[-1]
         self.mid_modules = nn.ModuleList(

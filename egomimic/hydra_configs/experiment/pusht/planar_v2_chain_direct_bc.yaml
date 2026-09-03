@@ -15,7 +15,7 @@ planar:
 
 run_provenance:
   split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
-  split_manifest_sha256: 3ffc1731e050e3275561e240dfb88aac6246e9e64b2b63192ec46a74748b0fb6
+  split_manifest_sha256: 3ced944ea3af8e875ea88fc5c2df3a5d2865a9f95223d109fb4bd28c8be7cf69
   split_seed: ${seed}
   valid_ratio: 0.01
   train_episode_count_per_domain: 2970

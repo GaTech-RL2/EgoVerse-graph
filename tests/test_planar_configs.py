@@ -24,7 +24,7 @@ DATASETS = {
         "train": 2970,
         "valid": 29,
         "manifest": "planar_v2_usocket_dp_3k_split_seed42_v1.json",
-        "manifest_sha256": "420477eff921b155c50a8e1bc3dcd9fd327f209e5acec27d66f813624dbccfb6",
+        "manifest_sha256": "3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313",
     },
     "pushshapes_sim_chain_gripper": {
         "root": "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
@@ -32,7 +32,7 @@ DATASETS = {
         "train": 2970,
         "valid": 30,
         "manifest": "planar_v2_chain_gripper_dp_3k_split_seed42_v1.json",
-        "manifest_sha256": "3ffc1731e050e3275561e240dfb88aac6246e9e64b2b63192ec46a74748b0fb6",
+        "manifest_sha256": "3ced944ea3af8e875ea88fc5c2df3a5d2865a9f95223d109fb4bd28c8be7cf69",
     },
 }
 

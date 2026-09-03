@@ -51,6 +51,7 @@ dependencies = [
     "simplejpeg",
     "prettytable",
     "datasets==4.0.0",
+    "diffusers==0.30.3",
     "s5cmd",
     "mediapy",
     "pytest",

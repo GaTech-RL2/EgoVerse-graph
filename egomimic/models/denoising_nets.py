@@ -342,6 +342,124 @@ class ConditionalUnet1D(nn.Module):
         return x
 
 
+class PaperConditionalUnet1D(nn.Module):
+    """Diffusion Policy U-Net with global observation conditioning."""
+
+    def __init__(
+        self,
+        input_dim,
+        global_cond_dim=None,
+        diffusion_step_embed_dim=256,
+        down_dims=(256, 512, 1024),
+        kernel_size=3,
+        n_groups=8,
+        cond_predict_scale=False,
+    ):
+        super().__init__()
+        self.input_dim = int(input_dim)
+        self.global_cond_dim = None if global_cond_dim is None else int(global_cond_dim)
+        all_dims = [self.input_dim] + [int(value) for value in down_dims]
+        start_dim = all_dims[1]
+        embed_dim = int(diffusion_step_embed_dim)
+        self.diffusion_step_encoder = nn.Sequential(
+            SinusoidalPosEmb(embed_dim),
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.Mish(),
+            nn.Linear(embed_dim * 4, embed_dim),
+        )
+        condition_dim = embed_dim + (self.global_cond_dim or 0)
+        pairs = list(zip(all_dims[:-1], all_dims[1:]))
+
+        def residual(input_channels, output_channels):
+            return ConditionalResidualBlock1D(
+                input_channels,
+                output_channels,
+                cond_dim=condition_dim,
+                kernel_size=int(kernel_size),
+                n_groups=int(n_groups),
+                cond_predict_scale=bool(cond_predict_scale),
+            )
+
+        middle = all_dims[-1]
+        self.mid_modules = nn.ModuleList(
+            [residual(middle, middle), residual(middle, middle)]
+        )
+        self.down_modules = nn.ModuleList(
+            [
+                nn.ModuleList(
+                    [
+                        residual(input_channels, output_channels),
+                        residual(output_channels, output_channels),
+                        Downsample1d(output_channels)
+                        if index < len(pairs) - 1
+                        else nn.Identity(),
+                    ]
+                )
+                for index, (input_channels, output_channels) in enumerate(pairs)
+            ]
+        )
+        reverse_pairs = list(reversed(pairs[1:]))
+        self.up_modules = nn.ModuleList(
+            [
+                nn.ModuleList(
+                    [
+                        residual(output_channels * 2, input_channels),
+                        residual(input_channels, input_channels),
+                        Upsample1d(input_channels),
+                    ]
+                )
+                for input_channels, output_channels in reverse_pairs
+            ]
+        )
+        self.final_conv = nn.Sequential(
+            Conv1dBlock(start_dim, start_dim, kernel_size=int(kernel_size)),
+            nn.Conv1d(start_dim, self.input_dim, 1),
+        )
+        logger.info(
+            "PaperConditionalUnet1D parameters: %d",
+            sum(parameter.numel() for parameter in self.parameters()),
+        )
+
+    def forward(
+        self,
+        sample: torch.Tensor,
+        timestep: Union[torch.Tensor, float, int],
+        global_cond=None,
+    ):
+        sample = einops.rearrange(sample, "b h t -> b t h")
+        timesteps = timestep
+        if not torch.is_tensor(timesteps):
+            timesteps = torch.tensor([timesteps], device=sample.device)
+        elif timesteps.ndim == 0:
+            timesteps = timesteps[None].to(sample.device)
+        timesteps = timesteps.expand(sample.shape[0])
+        condition = self.diffusion_step_encoder(timesteps)
+        if global_cond is not None:
+            if (
+                self.global_cond_dim is not None
+                and global_cond.shape[-1] != self.global_cond_dim
+            ):
+                raise ValueError(
+                    f"expected condition width {self.global_cond_dim}, "
+                    f"got {global_cond.shape[-1]}"
+                )
+            condition = torch.cat((condition, global_cond), dim=-1)
+
+        x = sample
+        residuals = []
+        for first, second, downsample in self.down_modules:
+            x = first(x, condition)
+            x = second(x, condition)
+            residuals.append(x)
+            x = downsample(x)
+        for block in self.mid_modules:
+            x = block(x, condition)
+        for first, second, upsample in self.up_modules:
+            x = first(torch.cat((x, residuals.pop()), dim=1), condition)
+            x = upsample(second(x, condition))
+        return einops.rearrange(self.final_conv(x), "b t h -> b h t")
+
+
 class CrossBlock(nn.Module):
     def __init__(
         self,
@@ -404,9 +522,15 @@ class CrossTransformer(nn.Module):
         dropout,
         mlp_layers,
         mlp_ratio,
+        time_conditioning="concat",
         **kwargs,
     ):
         super().__init__()
+        if time_conditioning not in {"concat", "additive"}:
+            raise ValueError("time_conditioning must be either 'concat' or 'additive'")
+        if time_conditioning == "concat" and hidden_dim % 2:
+            raise ValueError("concat time conditioning requires an even hidden_dim")
+        self.time_conditioning = time_conditioning
         self.layers = nn.ModuleList(
             [
                 CrossBlock(
@@ -421,9 +545,18 @@ class CrossTransformer(nn.Module):
                 for i in range(nblocks)
             ]
         )
-        self.proj_u = nn.Linear(act_dim, hidden_dim // 2)
+        action_embedding_dim = (
+            hidden_dim // 2 if time_conditioning == "concat" else hidden_dim
+        )
+        if action_embedding_dim < act_dim:
+            raise ValueError(
+                "Rank-deficient denoiser input: action embedding width "
+                f"{action_embedding_dim} is smaller than noisy action dimension "
+                f"{act_dim}. Increase hidden_dim or use additive time conditioning."
+            )
+        self.proj_u = nn.Linear(act_dim, action_embedding_dim)
         self.proj_d = nn.Linear(hidden_dim, act_dim)
-        self.pos_emb = nn.Parameter(torch.zeros(1, act_seq, hidden_dim // 2))
+        self.pos_emb = nn.Parameter(torch.zeros(1, act_seq, action_embedding_dim))
 
     def forward(self, x, timesteps, cond, *args, **kwargs):
         hid_tkns = self.proj_u(x)
@@ -436,9 +569,10 @@ class CrossTransformer(nn.Module):
             .expand(hid_tkns.shape[0], hid_tkns.shape[1], -1)
             .to(hid_tkns.device)
         )
-        # if hasattr(timesteps, "shape") and len(timesteps.shape) > 0 and timesteps.shape[0] == 1:
-        #     breakpoint()
-        hid_tkns = torch.cat([hid_tkns, time_embed], dim=-1)
+        if self.time_conditioning == "concat":
+            hid_tkns = torch.cat([hid_tkns, time_embed], dim=-1)
+        else:
+            hid_tkns = hid_tkns + time_embed
 
         for layer in self.layers:
             hid_tkns = layer(hid_tkns, cond)

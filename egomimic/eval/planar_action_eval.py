@@ -14,9 +14,11 @@ from egomimic.eval.eval import Eval
 from egomimic.pipeline.core import resolve_homogeneous_scalar
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
+_DEFAULT_DETERMINISTIC_SEED = 420042
+
 
 class PlanarActionEval(Eval):
-    """Log normalized/native MSE and seeded EnergyScore@32 per embodiment."""
+    """Log deterministic normalized/native MSE and seeded EnergyScore@32."""
 
     def __init__(
         self,
@@ -28,6 +30,7 @@ class PlanarActionEval(Eval):
         energy_score_enabled: bool = True,
         action_key: str = "actions",
         native_decoder=None,
+        deterministic_seed: int = _DEFAULT_DETERMINISTIC_SEED,
     ):
         self.trainer = None
         self.model = None
@@ -38,6 +41,7 @@ class PlanarActionEval(Eval):
         self.native_decoder = native_decoder
         self.blocks = tuple(tuple(map(int, block)) for block in semantic_blocks)
         self.energy_score_enabled = bool(energy_score_enabled)
+        self.deterministic_seed = int(deterministic_seed)
         self.artifact_root = None if artifact_root is None else Path(artifact_root)
         self.seeds = []
         self.seed_bank_sha256 = None
@@ -56,6 +60,12 @@ class PlanarActionEval(Eval):
                 raise ValueError("EnergyScore@32 requires 32 unique seeds")
             if self.artifact_root is None:
                 raise ValueError("Energy Score needs a non-empty artifact_root")
+            if self.seeds[0] != self.deterministic_seed:
+                raise ValueError(
+                    "deterministic_seed must equal the first Energy Score seed "
+                    f"for prediction reuse: {self.deterministic_seed} != "
+                    f"{self.seeds[0]}"
+                )
             self.seed_bank_sha256 = digest
         self.override_dict = {
             "limit_train_batches": 0,
@@ -89,30 +99,45 @@ class PlanarActionEval(Eval):
             raise KeyError(f"Unknown Planar embodiment id {embodiment_id}")
         return embodiment_id, name.lower()
 
-    def _seeded_predictions(self, batch):
-        predictions = {source_id: [] for source_id in batch}
-        cuda_devices = sorted(
+    @staticmethod
+    def _cuda_devices(batch):
+        return sorted(
             {
                 int(value.device.index)
-                for domain_batch in batch.values()
-                for value in domain_batch.values()
+                for source_batch in batch.values()
+                for value in source_batch.values()
                 if torch.is_tensor(value)
                 and value.device.type == "cuda"
                 and value.device.index is not None
             }
         )
-        for seed in self.seeds:
-            with torch.random.fork_rng(devices=cuda_devices):
-                torch.manual_seed(seed)
-                result = self.model.forward_eval(batch)
+
+    def _forward_with_seed(self, batch, seed):
+        """Run one stochastic prediction without changing caller RNG state."""
+        with torch.random.fork_rng(devices=self._cuda_devices(batch)):
+            torch.manual_seed(int(seed))
+            return self.model.forward_eval(batch)
+
+    def _seeded_predictions(self, batch):
+        predictions = {source_id: [] for source_id in batch}
+        first_result = None
+        for index, seed in enumerate(self.seeds):
+            result = self._forward_with_seed(batch, seed)
+            if index == 0:
+                first_result = result
             for source_id in batch:
                 predictions[source_id].append(
                     result[source_id]["pred_action"].detach()
                 )
-        return {
-            source_id: torch.stack(values)
-            for source_id, values in predictions.items()
-        }
+        if first_result is None:  # guarded by the seed-bank constructor check
+            raise RuntimeError("Energy Score seed bank is empty")
+        return (
+            {
+                source_id: torch.stack(values)
+                for source_id, values in predictions.items()
+            },
+            first_result,
+        )
 
     def _native(self, normalized, embodiment_id):
         if self.normalizer is None:
@@ -171,6 +196,7 @@ class PlanarActionEval(Eval):
                 "metric": "EnergyScore@32",
                 "seeds": self.seeds,
                 "seed_bank_sha256": self.seed_bank_sha256,
+                "deterministic_seed": self.deterministic_seed,
                 "semantic_blocks": self.blocks,
                 "domains": domains,
             },
@@ -181,7 +207,11 @@ class PlanarActionEval(Eval):
     @torch.inference_mode()
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
         del dataloader_idx
-        result = self.model.forward_eval(batch)
+        sampled = None
+        if self.energy_score_enabled:
+            sampled, result = self._seeded_predictions(batch)
+        else:
+            result = self._forward_with_seed(batch, self.deterministic_seed)
         metrics = {}
         normalized_values = []
         native_values = []
@@ -205,8 +235,7 @@ class PlanarActionEval(Eval):
         metrics["Valid/MSE"] = torch.stack(normalized_values).mean()
         metrics["Valid/Native_MSE"] = torch.stack(native_values).mean()
 
-        if self.energy_score_enabled:
-            sampled = self._seeded_predictions(batch)
+        if sampled is not None:
             scores = []
             for source_id, samples in sampled.items():
                 _, label = self._embodiment(batch[source_id])

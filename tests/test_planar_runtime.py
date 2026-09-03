@@ -234,6 +234,112 @@ def test_planar_evaluator_uses_natural_batch_metadata_and_nested_results():
     assert logged["Valid/MSE/pushshapes_sim_u_socket"].item() == pytest.approx(1.0)
 
 
+class _IdentityNormalizer:
+    @staticmethod
+    def unnormalize(values, _embodiment_id):
+        return values
+
+
+def _stochastic_evaluator_fixture(evaluator, target, predictions, logged=None):
+    def forward_eval(_batch):
+        prediction = torch.rand_like(target)
+        predictions.append(prediction.clone())
+        return {"opaque-stream": {"pred_action": prediction}}
+
+    evaluator.bind_data_context(normalizer=_IdentityNormalizer())
+    evaluator.model = SimpleNamespace(forward_eval=forward_eval)
+    evaluator.trainer = SimpleNamespace(
+        current_epoch=2,
+        global_step=17,
+        global_rank=0,
+        lightning_module=SimpleNamespace(
+            log_dict=(
+                (lambda metrics, **_kwargs: logged.update(metrics))
+                if logged is not None
+                else (lambda *_args, **_kwargs: None)
+            )
+        ),
+    )
+    return {
+        "opaque-stream": {
+            "actions": target,
+            "embodiment": torch.tensor([19]),
+        }
+    }
+
+
+def test_planar_evaluator_restores_rng_after_ordinary_prediction():
+    target = torch.zeros(1, 2, 5)
+    evaluator = PlanarActionEval(energy_score_enabled=False)
+    batch = _stochastic_evaluator_fixture(evaluator, target, [])
+    torch.manual_seed(8675309)
+    state = torch.random.get_rng_state().clone()
+
+    evaluator.on_validation_step(batch, batch_idx=0)
+
+    assert torch.equal(torch.random.get_rng_state(), state)
+
+
+def test_planar_evaluator_default_seed_is_wired_and_repeatable():
+    target = torch.zeros(1, 2, 5)
+    predictions = []
+    evaluator = PlanarActionEval(energy_score_enabled=False)
+    batch = _stochastic_evaluator_fixture(evaluator, target, predictions)
+
+    evaluator.on_validation_step(batch, batch_idx=0)
+    torch.rand(11)
+    evaluator.on_validation_step(batch, batch_idx=1)
+
+    assert evaluator.deterministic_seed == 420042
+    evaluator_config = OmegaConf.load(
+        Path(__file__).parents[1]
+        / "egomimic/hydra_configs/evaluator/eval_planar_v2.yaml"
+    )
+    assert evaluator_config.deterministic_seed == evaluator.deterministic_seed
+    torch.testing.assert_close(predictions[0], predictions[1], rtol=0.0, atol=0.0)
+
+
+def test_planar_evaluator_reuses_first_energy_sample_for_mse(tmp_path):
+    target = torch.zeros(1, 2, 5)
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs/evaluator"
+    evaluator = PlanarActionEval(
+        seed_bank_path=str(config_dir / "energy_score_seed_bank_k32_v1.json"),
+        seed_bank_sha256=(
+            "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
+        ),
+        artifact_root=str(tmp_path),
+    )
+    predictions = []
+    logged = {}
+    batch = _stochastic_evaluator_fixture(evaluator, target, predictions, logged)
+    torch.manual_seed(314159)
+    state = torch.random.get_rng_state().clone()
+
+    evaluator.on_validation_step(batch, batch_idx=0)
+
+    assert len(predictions) == 32
+    assert torch.equal(torch.random.get_rng_state(), state)
+    torch.testing.assert_close(
+        logged["Valid/MSE"], predictions[0].square().mean()
+    )
+    artifact = tmp_path / "epoch-2-step-17/rank-0-batch-0.pt"
+    payload = torch.load(artifact, weights_only=True)
+    assert payload["deterministic_seed"] == evaluator.seeds[0] == 420042
+
+
+def test_planar_evaluator_rejects_nonreusable_deterministic_seed(tmp_path):
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs/evaluator"
+    with pytest.raises(ValueError, match="must equal the first Energy Score seed"):
+        PlanarActionEval(
+            seed_bank_path=str(config_dir / "energy_score_seed_bank_k32_v1.json"),
+            seed_bank_sha256=(
+                "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
+            ),
+            artifact_root=str(tmp_path),
+            deterministic_seed=7,
+        )
+
+
 def test_planar_evaluator_wraps_native_rotation_error_across_pi():
     epsilon = 0.01
 

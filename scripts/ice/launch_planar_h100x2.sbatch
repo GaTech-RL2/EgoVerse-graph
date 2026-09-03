@@ -4,7 +4,7 @@
 #SBATCH --partition=ice-gpu
 #SBATCH --qos=coc-ice
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=96G
 #SBATCH --time=16:00:00
@@ -345,7 +345,7 @@ test "$SLURM_JOB_ACCOUNT" = "$ICE_EXPECTED_ACCOUNT" || die "unexpected Slurm acc
 test "$SLURM_JOB_PARTITION" = "$ICE_EXPECTED_PARTITION" || die "unexpected Slurm partition"
 test "$SLURM_JOB_QOS" = "$ICE_EXPECTED_QOS" || die "unexpected Slurm QoS"
 test "$SLURM_JOB_NUM_NODES" = 1 || die "launcher requires one node"
-test "$SLURM_NTASKS" = 1 || die "launcher requires one allocation task"
+test "$SLURM_NTASKS" = 2 || die "launcher requires two DDP tasks"
 positive_integer SLURM_CPUS_PER_TASK "$SLURM_CPUS_PER_TASK"
 
 if test "$RESTART_COUNT" = 0; then
@@ -422,7 +422,7 @@ fi
 cd "$ICE_REPO"
 export PYTHONPATH=$ICE_REPO HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
 export WANDB_MODE=online WANDB_SILENT=true MUJOCO_GL=egl
-exec "$ICE_SRUN" --nodes=1 --ntasks=1 --gpus-per-task=2 \
+exec "$ICE_SRUN" --nodes=1 --ntasks=2 --gpus-per-task=1 \
   --cpus-per-task="${SLURM_CPUS_PER_TASK:?}" --kill-on-bad-exit=1 --unbuffered \
   "$ICE_PYTHON" -m egomimic.trainHydra "$@" \
   "$checkpoint_override" "+logger.wandb.resume=$wandb_resume"

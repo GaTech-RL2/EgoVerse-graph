@@ -19,7 +19,7 @@ from egomimic.eval.energy_score import energy_score
 from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.models.denoising_nets import CrossTransformer, PaperConditionalUnet1D
 from egomimic.pipeline.core import resolve_homogeneous_scalar
-from egomimic.pipeline.pushshapes import PlanarCommon5RolloutAdapter
+from egomimic.pipeline.pushshapes import PlanarCommon5NativeDecoder
 from egomimic.utils.ema_callback import EMACallback
 
 
@@ -260,7 +260,7 @@ def test_planar_evaluator_wraps_native_rotation_error_across_pi():
 
     evaluator = PlanarActionEval(
         energy_score_enabled=False,
-        native_decoder=PlanarCommon5RolloutAdapter(
+        native_decoder=PlanarCommon5NativeDecoder(
             action_horizon=1,
             native_action_dim=3,
         ),

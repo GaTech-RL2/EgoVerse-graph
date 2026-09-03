@@ -83,10 +83,10 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     assert cfg.planar.observation_horizon == observation_horizon
     decoder = cfg.planar.eval_native_decoder
     if "arc_bc" in row:
-        assert decoder._target_.endswith("PlanarArcWaypointZeroRolloutAdapter")
+        assert decoder._target_.endswith("PlanarArcWaypointZeroNativeDecoder")
         assert "action_horizon" not in decoder
     else:
-        assert decoder._target_.endswith("PlanarCommon5RolloutAdapter")
+        assert decoder._target_.endswith("PlanarCommon5NativeDecoder")
         assert decoder.action_horizon == 16
     model_yaml = OmegaConf.to_yaml(cfg.model)
     assert implementation in model_yaml

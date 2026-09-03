@@ -7,6 +7,6 @@ name: planar_v2_chain_dp_standard_h16
 description: chain_gripper_standard_DP_DDIM100_obs1_no_EMA
 planar:
   eval_native_decoder:
-    _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
     action_horizon: 16
     native_action_dim: 4

@@ -7,7 +7,7 @@ name: planar_v2_usocket_dp_paper_h16
 description: u_socket_paper_DP_DDPM100_obs2_EMA
 planar:
   eval_native_decoder:
-    _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
     action_horizon: 16
     native_action_dim: 3
   observation_horizon: 2

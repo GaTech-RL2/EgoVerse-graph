@@ -1,4 +1,4 @@
-"""Planar action adapters shared by offline metrics and simulator callers."""
+"""Planar action decoders shared by metrics and downstream consumers."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def _common5_to_native(actions, native_action_dim: int):
     return native[..., :native_action_dim]
 
 
-class PlanarCommon5RolloutAdapter:
+class PlanarCommon5NativeDecoder:
     """Decode a fixed-rate common-five chunk without changing its timing."""
 
     preserves_decoded_timing = True
@@ -58,8 +58,8 @@ class PlanarCommon5RolloutAdapter:
     __call__ = decode
 
 
-class PlanarArcWaypointZeroRolloutAdapter:
-    """Execute anchored waypoint zero from an arc token, then replan."""
+class PlanarArcWaypointZeroNativeDecoder:
+    """Decode the anchored first waypoint from a Planar arc token."""
 
     preserves_decoded_timing = True
     action_horizon = 1

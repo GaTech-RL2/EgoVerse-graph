@@ -5,8 +5,8 @@ import pytest
 import torch
 
 from egomimic.pipeline.pushshapes import (
-    PlanarArcWaypointZeroRolloutAdapter,
-    PlanarCommon5RolloutAdapter,
+    PlanarArcWaypointZeroNativeDecoder,
+    PlanarCommon5NativeDecoder,
 )
 from egomimic.rldb.zarr.planar_arc import (
     PadPlanarAction,
@@ -73,9 +73,9 @@ def test_zero_motion_holds_pose_and_grip():
 @pytest.mark.parametrize("native_dim", [2, 3, 4])
 def test_common_and_arc_adapters_decode_same_anchor(native_dim):
     token = torch.tensor([[[2.0, 3.0, 0.0, 1.0, 0.4], [9.0, 8.0, 1.0, 0.0, 0.0]]])
-    dense = PlanarCommon5RolloutAdapter(2, native_dim).decode(token)
+    dense = PlanarCommon5NativeDecoder(2, native_dim).decode(token)
     arc_input = torch.cat((token, torch.zeros(1, 1, 5)), dim=1)
-    arc = PlanarArcWaypointZeroRolloutAdapter(2, native_dim).decode(arc_input)
+    arc = PlanarArcWaypointZeroNativeDecoder(2, native_dim).decode(arc_input)
     assert dense.shape == (1, 2, native_dim)
     torch.testing.assert_close(arc, dense[:, :1])
 

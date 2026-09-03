@@ -1,4 +1,4 @@
-"""Small, explicit SE(2) arc tokenizer used by Planar PushShapes policies."""
+"""Small, explicit SE(2) arc tokenizer used by Planar PushShapes models."""
 
 from __future__ import annotations
 

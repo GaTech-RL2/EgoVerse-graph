@@ -25,6 +25,8 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    PUSHSHAPES_SIM_U_SOCKET = 19
+    PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
@@ -199,12 +201,22 @@ class Embodiment(ABC):
             pred_action = pred_actions[i]
             K_i = _intrinsics_from_batch(batch, i)
             ims = cls.viz(
-                image, action, mode=mode, color="Greens", alpha=gt_alpha,
-                intrinsics=K_i, **kwargs
+                image,
+                action,
+                mode=mode,
+                color="Greens",
+                alpha=gt_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             ims = cls.viz(
-                ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha,
-                intrinsics=K_i, **kwargs
+                ims,
+                pred_action,
+                mode=mode,
+                color="Reds",
+                alpha=pred_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             if annotation_key is not None:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)

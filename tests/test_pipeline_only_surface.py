@@ -47,4 +47,6 @@ def test_distribution_discovers_only_the_egomimic_package():
 def test_training_entrypoint_has_one_strict_evaluation_path():
     entrypoint = (ROOT / "egomimic/trainHydra.py").read_text()
     assert 'hasattr(eval_obj, "run")' not in entrypoint
+    assert 'hasattr(eval_obj, "bind_data_context")' not in entrypoint
     assert "strict=False" not in entrypoint
+    assert "register_new_resolver" not in entrypoint

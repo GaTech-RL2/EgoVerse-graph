@@ -571,3 +571,92 @@ class NumpyToTensor(Transform):
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
         return batch
+
+
+class ThetaToRotVec(Transform):
+    """Replace scalar theta with ``(cos(theta), sin(theta))``."""
+
+    def __init__(self, keys: list[str], angle_col: int = 2):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+        if self.angle_col < 0:
+            raise ValueError("angle_col must be non-negative")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            value = batch[key]
+            if value.ndim == 0 or value.shape[-1] <= self.angle_col:
+                raise ValueError(
+                    f"ThetaToRotVec needs angle_col={self.angle_col} in key "
+                    f"'{key}', got shape {tuple(value.shape)}"
+                )
+            theta = value[..., self.angle_col]
+            if torch.is_tensor(value):
+                batch[key] = torch.cat(
+                    (
+                        value[..., : self.angle_col],
+                        torch.cos(theta).unsqueeze(-1),
+                        torch.sin(theta).unsqueeze(-1),
+                        value[..., self.angle_col + 1 :],
+                    ),
+                    dim=-1,
+                )
+            else:
+                value = np.asarray(value)
+                batch[key] = np.concatenate(
+                    (
+                        value[..., : self.angle_col],
+                        np.cos(theta)[..., None].astype(value.dtype, copy=False),
+                        np.sin(theta)[..., None].astype(value.dtype, copy=False),
+                        value[..., self.angle_col + 1 :],
+                    ),
+                    axis=-1,
+                )
+        return batch
+
+
+class PlanarAgentStateToRotVec4(Transform):
+    """Encode native ``[agent x,y,theta,...]`` state as exactly four values."""
+
+    def __init__(self, keys: list[str], angle_col: int = 2, source_dim: int = 6):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+        self.source_dim = int(source_dim)
+        if self.angle_col != 2:
+            raise ValueError("PlanarAgentStateToRotVec4 requires angle_col=2")
+        if self.source_dim < 3:
+            raise ValueError("source_dim must be at least three")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            value = batch[key]
+            if value.ndim == 0 or value.shape[-1] != self.source_dim:
+                raise ValueError(
+                    "PlanarAgentStateToRotVec4 needs exact source width "
+                    f"{self.source_dim} in key '{key}', got shape {tuple(value.shape)}"
+                )
+            theta = value[..., 2]
+            if torch.is_tensor(value):
+                batch[key] = torch.cat(
+                    (
+                        value[..., :2],
+                        torch.cos(theta).unsqueeze(-1),
+                        torch.sin(theta).unsqueeze(-1),
+                    ),
+                    dim=-1,
+                )
+            else:
+                value = np.asarray(value)
+                batch[key] = np.concatenate(
+                    (
+                        value[..., :2],
+                        np.cos(theta)[..., None].astype(value.dtype, copy=False),
+                        np.sin(theta)[..., None].astype(value.dtype, copy=False),
+                    ),
+                    axis=-1,
+                )
+        return batch

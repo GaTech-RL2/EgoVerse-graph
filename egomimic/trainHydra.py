@@ -16,17 +16,18 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
+from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.eval.eval import Eval
+from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
+from egomimic.utils.ema_callback import EMACallback
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper
-
-OmegaConf.register_new_resolver("eval", eval)
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -49,6 +50,46 @@ def _validate_run_config(cfg: DictConfig) -> str:
     if mode == "eval" and cfg.get("evaluator") is None:
         raise ValueError("Evaluation mode requires an evaluator config")
     return mode
+
+
+def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
+    """Strictly restore a configured Pipeline for standalone evaluation."""
+    algo = getattr(model, "model", None)
+    if not isinstance(algo, PipelineAlgo):
+        raise TypeError("Evaluation model must wrap PipelineAlgo")
+    settings = OmegaConf.select(cfg, "eval_checkpoint", default=None)
+    use_ema = settings.get("use_ema", False) if settings is not None else False
+    if not isinstance(use_ema, bool):
+        raise TypeError("eval_checkpoint.use_ema must be a boolean")
+    strict_load_pipeline_checkpoint(
+        algo,
+        checkpoint,
+        use_ema=use_ema,
+    )
+    return model
+
+
+def _callbacks_for_mode(callbacks: List[Callback], mode: str) -> List[Callback]:
+    """Keep training-time EMA swapping out of standalone evaluation."""
+    if mode != "eval":
+        return callbacks
+    return [callback for callback in callbacks if not isinstance(callback, EMACallback)]
+
+
+def _resolve_model_wrapper_class(cfg: DictConfig) -> type[ModelWrapper]:
+    """Resolve a configured Lightning wrapper without constructing its model."""
+    target = OmegaConf.select(cfg, "model._target_", default=None)
+    if target is None:
+        return ModelWrapper
+    wrapper_class = hydra.utils.get_class(str(target))
+    if not isinstance(wrapper_class, type) or not issubclass(
+        wrapper_class, ModelWrapper
+    ):
+        raise TypeError(
+            "cfg.model._target_ must resolve to a ModelWrapper subclass; "
+            f"got {target!r}"
+        )
+    return wrapper_class
 
 
 def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
@@ -201,7 +242,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         ds.set_norm_stats_from(norm_stats)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
-    model: LightningModule = ModelWrapper(
+    wrapper_class = _resolve_model_wrapper_class(cfg)
+    model: LightningModule = wrapper_class(
         config_tree=_build_model_config_tree(cfg),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
     )
@@ -211,6 +253,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
 
+    callbacks = _callbacks_for_mode(callbacks, mode)
     # In eval mode, apply trainer overrides from the eval object and disable logger
     if mode == "eval":
         eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
@@ -269,6 +312,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             eval_obj.trainer = trainer
             eval_obj.model = model.model
+            eval_obj.bind_data_context(normalizer=norm_stats)
             model.evaluator = eval_obj
         log.info("Starting training!")
         trainer.fit(
@@ -280,12 +324,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model
+        eval_obj.bind_data_context(normalizer=norm_stats)
         model.evaluator = eval_obj
 
         ckpt_path = cfg.get("ckpt_path")
         if ckpt_path:
             checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-            model.load_state_dict(checkpoint["state_dict"], strict=True)
+            _load_eval_checkpoint(model, checkpoint, cfg)
             log.info(f"Loaded weights from {ckpt_path}")
         log.info("Starting evaluation!")
         trainer.validate(model=model, datamodule=datamodule)

@@ -191,6 +191,16 @@ def test_standard_dp_clean_cotrain_composes_both_domains_without_obstacles():
     assert cfg.model.pipeline.stages[3].action_dim == 5
 
 
+def test_diffusion_mse_is_visible_during_long_training_epochs():
+    model_wrapper = (
+        Path(__file__).parents[1] / "egomimic" / "pl_utils" / "pl_model.py"
+    ).read_text()
+    aggregate = model_wrapper.index('"Train/MSE",')
+    per_source = model_wrapper.index('f"Train/MSE/{source}",')
+    assert "on_step=True" in model_wrapper[aggregate : aggregate + 220]
+    assert "on_step=True" in model_wrapper[per_source : per_source + 220]
+
+
 def test_ddp_device_count_is_per_node_without_eval_resolver():
     config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):

@@ -117,7 +117,7 @@ class ModelWrapper(LightningModule):
                 f"Train/MSE/{source}",
                 value,
                 sync_dist=True,
-                on_step=False,
+                on_step=True,
                 on_epoch=True,
             )
         if source_mse:
@@ -125,7 +125,7 @@ class ModelWrapper(LightningModule):
                 "Train/MSE",
                 torch.stack(source_mse).mean(),
                 sync_dist=True,
-                on_step=False,
+                on_step=True,
                 on_epoch=True,
             )
 

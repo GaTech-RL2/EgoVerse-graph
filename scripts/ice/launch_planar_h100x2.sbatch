@@ -71,6 +71,7 @@ ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
 ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-planar-bc-ice}
 ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,planar-v2,bc,ice]'}
 ICE_MODEL=${ICE_MODEL:-none}
+ICE_WORLD_SIZE=${ICE_WORLD_SIZE:-2}
 ICE_UNITE_H100_FAST=${ICE_UNITE_H100_FAST:-false}
 ICE_UNITE_DIAGNOSTICS=${ICE_UNITE_DIAGNOSTICS:-false}
 ICE_TOOL_DIR=${ICE_TOOL_DIR:-$ICE_REPO/scripts/ice}
@@ -95,6 +96,11 @@ esac
 case "$ICE_UNITE_DIAGNOSTICS" in
   true|false) ;;
   *) die "ICE_UNITE_DIAGNOSTICS must be true or false" ;;
+esac
+case "$ICE_WORLD_SIZE" in
+  1) ICE_TRAINER_STRATEGY=auto ;;
+  2) ICE_TRAINER_STRATEGY=ddp_find_unused_parameters_true ;;
+  *) die "ICE_WORLD_SIZE must be 1 or 2" ;;
 esac
 case "$ICE_FAMILY:$ICE_EXPERIMENT:$ICE_MODEL" in
   paper_dp:pusht/planar_v2_usocket_dp_paper:none) ;;
@@ -159,12 +165,12 @@ BASE_OVERRIDES=(
   "++paths.root_dir=$ICE_REPO"
   "paths.output_dir=$ICE_OUTPUT_DIR"
   "paths.work_dir=$ICE_REPO"
-  launch_params.gpus_per_node=2
+  "launch_params.gpus_per_node=$ICE_WORLD_SIZE"
   launch_params.nodes=1
   trainer.accelerator=gpu
-  trainer.devices=2
+  "trainer.devices=$ICE_WORLD_SIZE"
   trainer.num_nodes=1
-  trainer.strategy=ddp_find_unused_parameters_true
+  "trainer.strategy=$ICE_TRAINER_STRATEGY"
   trainer.sync_batchnorm=false
   "trainer.precision=$ICE_PRECISION"
   trainer.accumulate_grad_batches=1
@@ -192,6 +198,8 @@ BASE_OVERRIDES=(
   "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$ICE_DATASET_DIR"
   "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=$ICE_TRAIN_BATCH_SIZE"
   "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$ICE_VALID_BATCH_SIZE"
+  "evaluator.energy_score_validation_view.world_size=$ICE_WORLD_SIZE"
+  "evaluator.energy_score_validation_view.per_rank_batch_size=$ICE_VALID_BATCH_SIZE"
   logger.wandb.offline=false
   "logger.wandb.entity=$ICE_WANDB_ENTITY"
   "logger.wandb.project=$ICE_WANDB_PROJECT"
@@ -228,6 +236,8 @@ if test "$ICE_UNITE_DIAGNOSTICS" = true; then
   BASE_OVERRIDES+=(
     evaluator.unite_diagnostics.enabled=true
     "evaluator.unite_diagnostics.validation_view.split_manifest_sha256=$ICE_EXPECTED_SPLIT_MANIFEST_SHA256"
+    "evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"
+    "evaluator.unite_diagnostics.validation_view.per_rank_batch_size=$ICE_VALID_BATCH_SIZE"
   )
 fi
 if test -n "${ICE_NORM_STATS_PATH:-}"; then
@@ -275,7 +285,8 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
   "$ICE_MAX_STEPS" "$ICE_VAL_CHECK_INTERVAL" "$ICE_LIMIT_TRAIN_BATCHES" \
   "$ICE_LIMIT_VAL_BATCHES" "$ICE_CHECKPOINT_EVERY_N_STEPS" \
   "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_H100_FAST" \
-  "$ICE_UNITE_DIAGNOSTICS" <<'PY'
+  "$ICE_UNITE_DIAGNOSTICS" "$ICE_WORLD_SIZE" "$ICE_TRAIN_BATCH_SIZE" \
+  "$ICE_VALID_BATCH_SIZE" <<'PY'
 import math
 import pathlib
 import sys
@@ -294,13 +305,18 @@ from omegaconf import OmegaConf
     split_manifest_sha256,
     h100_fast,
     unite_diagnostics,
+    world_size,
+    train_batch_size,
+    valid_batch_size,
 ) = sys.argv[1:]
+world_size = int(world_size)
 cfg = OmegaConf.load(pathlib.Path(path))
 assert cfg.mode == "train"
 assert cfg.trainer.accelerator == "gpu"
-assert int(cfg.trainer.devices) == 2
+assert int(cfg.trainer.devices) == world_size
 assert int(cfg.trainer.num_nodes) == 1
-assert cfg.trainer.strategy == "ddp_find_unused_parameters_true"
+expected_strategy = "auto" if world_size == 1 else "ddp_find_unused_parameters_true"
+assert cfg.trainer.strategy == expected_strategy
 assert cfg.trainer.sync_batchnorm is False
 assert str(cfg.trainer.precision) == "bf16-mixed"
 assert int(cfg.trainer.max_steps) == int(max_steps)
@@ -322,17 +338,17 @@ else:
 assert cfg.run_provenance.split_seed == 42
 assert cfg.run_provenance.valid_ratio == 0.01
 assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+assert int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(train_batch_size)
+assert int(cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(valid_batch_size)
 if family == "paper_dp":
     assert experiment == "pusht/planar_v2_usocket_dp_paper"
     assert cfg.name == "planar_v2_usocket_dp_paper_h16"
-    assert int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size) == 32
-    assert int(cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size) == 16
 elif family == "unite":
     assert experiment == "pusht/unite_usocket_register_sweep_val01_h16"
     assert cfg.name == "unite_usocket_register_sweep_h16"
     assert int(cfg.evaluator.energy_score_max_batches_per_rank) == 1
-    assert int(cfg.evaluator.energy_score_validation_view.world_size) == 2
-    assert int(cfg.evaluator.energy_score_validation_view.per_rank_batch_size) == 16
+    assert int(cfg.evaluator.energy_score_validation_view.world_size) == world_size
+    assert int(cfg.evaluator.energy_score_validation_view.per_rank_batch_size) == int(valid_batch_size)
     if h100_fast == "true":
         policy = cfg.model.pipeline.stages[4]
         assert int(policy.flow_mini_batch) == 14
@@ -347,8 +363,8 @@ elif family == "unite":
         diagnostics = cfg.evaluator.unite_diagnostics
         assert bool(diagnostics.enabled) is True
         assert diagnostics.validation_view.split_manifest_sha256 == split_manifest_sha256
-        assert int(diagnostics.validation_view.world_size) == 2
-        assert int(diagnostics.validation_view.per_rank_batch_size) == 16
+        assert int(diagnostics.validation_view.world_size) == world_size
+        assert int(diagnostics.validation_view.per_rank_batch_size) == int(valid_batch_size)
         assert int(diagnostics.max_batches_per_rank) == 1
         assert diagnostics.provenance.sampler == "dopri5"
     else:
@@ -373,7 +389,8 @@ if test "$ICE_LAUNCH_MODE" != run; then
   "$ICE_PYTHON" - "$ICE_REPO" "$ICE_EXPECTED_HEAD" "$ICE_FAMILY" "$ICE_EXPERIMENT" \
     "$ICE_DATASET_DIR" "$ICE_OUTPUT_DIR" "$ICE_WANDB_ENTITY" \
     "$ICE_WANDB_PROJECT" "$ICE_WANDB_RUN_ID" \
-    "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_DIAGNOSTICS" <<'PY'
+    "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_DIAGNOSTICS" \
+    "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" <<'PY'
 import json
 import sys
 
@@ -389,6 +406,8 @@ import sys
     run_id,
     split_sha,
     unite_diagnostics,
+    world_size,
+    trainer_strategy,
 ) = sys.argv[1:]
 print(json.dumps({
     "status": "PREFLIGHT_READY",
@@ -399,8 +418,8 @@ print(json.dumps({
     "split_manifest_sha256": split_sha,
     "output": output,
     "wandb": {"entity": entity, "project": project, "run_id": run_id},
-    "world_size": 2,
-    "strategy": "ddp_find_unused_parameters_true",
+    "world_size": int(world_size),
+    "strategy": trainer_strategy,
     "precision": "bf16-mixed",
     "requeue_owner": "runner",
     "unite_diagnostics": unite_diagnostics,
@@ -418,7 +437,8 @@ test "$SLURM_JOB_ACCOUNT" = "$ICE_EXPECTED_ACCOUNT" || die "unexpected Slurm acc
 test "$SLURM_JOB_PARTITION" = "$ICE_EXPECTED_PARTITION" || die "unexpected Slurm partition"
 test "$SLURM_JOB_QOS" = "$ICE_EXPECTED_QOS" || die "unexpected Slurm QoS"
 test "$SLURM_JOB_NUM_NODES" = 1 || die "launcher requires one node"
-test "$SLURM_NTASKS" = 2 || die "launcher requires two DDP tasks"
+test "$SLURM_NTASKS" = "$ICE_WORLD_SIZE" || \
+  die "SLURM_NTASKS must match ICE_WORLD_SIZE"
 positive_integer SLURM_CPUS_PER_TASK "$SLURM_CPUS_PER_TASK"
 
 if test "$RESTART_COUNT" = 0; then
@@ -432,12 +452,23 @@ ATTEMPT_PROVENANCE=$ICE_OUTPUT_DIR/provenance/restart-$RESTART_COUNT
 test ! -e "$ATTEMPT_PROVENANCE" || die "attempt provenance already exists"
 mkdir -p "$ATTEMPT_PROVENANCE"
 "$ICE_PYTHON" - "$ATTEMPT_PROVENANCE/launch_contract.json" \
-  "$ICE_UNITE_DIAGNOSTICS" "$ICE_EXPECTED_GPU_NAME" "$ICE_EXPECTED_HEAD" <<'PY'
+  "$ICE_UNITE_DIAGNOSTICS" "$ICE_EXPECTED_GPU_NAME" "$ICE_EXPECTED_HEAD" \
+  "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" "$ICE_TRAIN_BATCH_SIZE" \
+  "$ICE_VALID_BATCH_SIZE" <<'PY'
 import json
 import pathlib
 import sys
 
-path, unite_diagnostics, gpu_name, source_head = sys.argv[1:]
+(
+    path,
+    unite_diagnostics,
+    gpu_name,
+    source_head,
+    world_size,
+    trainer_strategy,
+    train_batch_size,
+    valid_batch_size,
+) = sys.argv[1:]
 pathlib.Path(path).write_text(
     json.dumps(
         {
@@ -445,6 +476,10 @@ pathlib.Path(path).write_text(
             "unite_diagnostics": unite_diagnostics,
             "expected_gpu_name": gpu_name,
             "source_head": source_head,
+            "world_size": int(world_size),
+            "trainer_strategy": trainer_strategy,
+            "train_batch_size": int(train_batch_size),
+            "valid_batch_size": int(valid_batch_size),
         },
         indent=2,
         sort_keys=True,
@@ -480,7 +515,7 @@ export ICE_WANDB_GROUP ICE_WANDB_TAGS ICE_SRUN
 # ``srun`` steps must inherit the runner-owned requeue contract as well.
 export SLURM_EXPORT_ENV=ALL
 
-for gpu_index in 0 1; do
+for ((gpu_index = 0; gpu_index < ICE_WORLD_SIZE; gpu_index++)); do
   CUDA_VISIBLE_DEVICES=$gpu_index SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
     "$ICE_PYTHON" "$ICE_GPU_PROBE" \
     --expected-world-size 1 --expected-gpu-name "$ICE_EXPECTED_GPU_NAME" \
@@ -516,7 +551,7 @@ fi
 cd "$ICE_REPO"
 export PYTHONPATH=$ICE_REPO HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
 export WANDB_MODE=online WANDB_SILENT=true MUJOCO_GL=egl
-exec "$ICE_SRUN" --nodes=1 --ntasks=2 \
+exec "$ICE_SRUN" --nodes=1 --ntasks="${ICE_WORLD_SIZE:?}" \
   --cpus-per-task="${SLURM_CPUS_PER_TASK:?}" --kill-on-bad-exit=1 --unbuffered \
   "$ICE_PYTHON" -m egomimic.trainHydra "$@" \
   "$checkpoint_override" "+logger.wandb.resume=$wandb_resume"

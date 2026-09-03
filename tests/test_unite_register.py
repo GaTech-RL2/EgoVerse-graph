@@ -464,7 +464,12 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
     )
     assert '"$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_DIAGNOSTICS"' in launcher
     assert "launch_contract.json" in launcher
+    assert '"world_size": int(world_size)' in launcher
     assert '"unite_diagnostics": unite_diagnostics' in launcher
+    assert "ICE_WORLD_SIZE=${ICE_WORLD_SIZE:-2}" in launcher
+    assert '"trainer.devices=$ICE_WORLD_SIZE"' in launcher
+    assert '"evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"' in launcher
+    assert '--ntasks="${ICE_WORLD_SIZE:?}"' in launcher
     assert not (ROOT / "egomimic/pipeline/stages_unite.py").exists()
     policy_parameters = inspect.signature(
         ReleasedRecipeUniteLatentPolicy.__init__

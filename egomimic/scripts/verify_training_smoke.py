@@ -997,9 +997,12 @@ def _verify_released_sweep_smoke(
     assert int(config.trainer.limit_val_batches) == 1
     assert int(config.trainer.num_sanity_val_steps) == 0
     assert str(config.trainer.precision) == "bf16"
-    assert str(config.trainer.strategy) == expected_strategy
-    assert expected_strategy == "ddp_find_unused_parameters_true"
-    assert int(config.trainer.devices) == expected_world_size == 2
+    assert expected_world_size in {1, 2}
+    expected_single_or_ddp = (
+        "auto" if expected_world_size == 1 else "ddp_find_unused_parameters_true"
+    )
+    assert str(config.trainer.strategy) == expected_strategy == expected_single_or_ddp
+    assert int(config.trainer.devices) == expected_world_size
     assert int(config.trainer.num_nodes) == 1
     assert int(config.trainer.accumulate_grad_batches) == 1
     assert config.model.share_encoder_denoiser is (topology == "shared")
@@ -1009,6 +1012,16 @@ def _verify_released_sweep_smoke(
     assert int(config.model.unite_gradient_telemetry_every_n_steps) == 3
     assert set(config.data.train_datasets) == {"pushshapes_sim_u_socket"}
     assert set(config.data.valid_datasets) == {"pushshapes_sim_u_socket"}
+    assert (
+        int(config.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size)
+        * expected_world_size
+        == 64
+    )
+    assert (
+        int(config.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size)
+        * expected_world_size
+        == 32
+    )
     energy = config.evaluator.energy_score
     assert energy.enabled is True and int(energy.sample_count) == 32
     assert str(energy.seed_bank_sha256) == (
@@ -1026,7 +1039,9 @@ def _verify_released_sweep_smoke(
         1.0,
     ]
     assert int(diagnostics.cknna_k) == 10
-    assert int(diagnostics.validation_view.per_rank_batch_size) == 16
+    assert (
+        int(diagnostics.validation_view.per_rank_batch_size) * expected_world_size == 32
+    )
     assert int(diagnostics.validation_view.world_size) == expected_world_size
     provenance = config.run_provenance
     assert str(provenance.sweep_task_id) == sweep_task_id

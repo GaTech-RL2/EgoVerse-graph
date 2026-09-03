@@ -581,11 +581,13 @@ def test_exact_wandb_visibility_tolerates_bounded_ingestion_delay(
     ("topology", "ema_backend"),
     (("shared", "callback"), ("separate", "internal")),
 )
+@pytest.mark.parametrize("world_size", (1, 2))
 def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
     tmp_path,
     monkeypatch,
     topology,
     ema_backend,
+    world_size,
 ) -> None:
     output_dir = tmp_path / "run"
     config_path = output_dir / ".hydra" / "config.yaml"
@@ -643,8 +645,10 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
                 "limit_val_batches": 1,
                 "num_sanity_val_steps": 0,
                 "precision": "bf16",
-                "strategy": "ddp_find_unused_parameters_true",
-                "devices": 2,
+                "strategy": (
+                    "auto" if world_size == 1 else "ddp_find_unused_parameters_true"
+                ),
+                "devices": world_size,
                 "num_nodes": 1,
                 "accumulate_grad_batches": 1,
             },
@@ -653,6 +657,12 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
             "data": {
                 "train_datasets": {"pushshapes_sim_u_socket": {}},
                 "valid_datasets": {"pushshapes_sim_u_socket": {}},
+                "train_dataloader_params": {
+                    "pushshapes_sim_u_socket": {"batch_size": 64 // world_size},
+                },
+                "valid_dataloader_params": {
+                    "pushshapes_sim_u_socket": {"batch_size": 32 // world_size},
+                },
             },
             "evaluator": {
                 "energy_score": {
@@ -669,8 +679,8 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
                     "raw_noise_levels": [0.0, 0.25, 0.5, 0.75, 1.0],
                     "cknna_k": 10,
                     "validation_view": {
-                        "per_rank_batch_size": 16,
-                        "world_size": 2,
+                        "per_rank_batch_size": 32 // world_size,
+                        "world_size": world_size,
                     },
                 },
             },
@@ -817,8 +827,8 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
         config,
         [19],
         "a" * 40,
-        "ddp_find_unused_parameters_true",
-        2,
+        "auto" if world_size == 1 else "ddp_find_unused_parameters_true",
+        world_size,
         3,
         3,
         3,
@@ -839,12 +849,12 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
             config,
             {
                 "global_step": 3,
-                "expected_world_size": 2,
+                "expected_world_size": world_size,
                 "required_embodiments": [19],
             },
         )
     ]
-    assert diagnostic_calls == [(output_dir, config, ([19], 2, 3))]
+    assert diagnostic_calls == [(output_dir, config, ([19], world_size, 3))]
     expected_required = (
         _RELEASED_TRAIN_METRICS
         | _RELEASED_OPTIMIZER_METRICS

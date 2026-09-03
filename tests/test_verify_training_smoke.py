@@ -672,6 +672,10 @@ def test_released_sweep_gate_unites_reload_ema_metrics_and_telemetry(
                         "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
                     ),
                     "action_dims": {"pushshapes_sim_u_socket": 4},
+                    "validation_view": {
+                        "per_rank_batch_size": 32 // world_size,
+                        "world_size": world_size,
+                    },
                 },
                 "unite_diagnostics": {
                     "enabled": True,

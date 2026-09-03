@@ -1028,6 +1028,8 @@ def _verify_released_sweep_smoke(
         "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
     )
     assert set(energy.action_dims) == {"pushshapes_sim_u_socket"}
+    assert int(energy.validation_view.per_rank_batch_size) * expected_world_size == 32
+    assert int(energy.validation_view.world_size) == expected_world_size
     diagnostics = config.evaluator.unite_diagnostics
     assert diagnostics.enabled is True
     assert int(diagnostics.max_batches_per_rank) == 1

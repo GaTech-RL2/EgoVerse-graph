@@ -51,31 +51,36 @@ build_common() {
 }
 
 preflight() {
-  local output=$1 wandb_id=$2
-  mkdir -p "$output"
+  local evidence_dir=$1 runtime_dir=$2 wandb_id=$3
+  mkdir -p "$evidence_dir"
   "$PY" scripts/data/materialize_local_episode_split.py \
     --domain pushshapes_sim_u_socket="$U_DATA" \
     --domain pushshapes_sim_chain_gripper="$CHAIN_DATA" \
-    --valid-ratio 0.01 --seed 42 --output "$output/split_audit.json"
-  build_common "$output" "$wandb_id"
+    --valid-ratio 0.01 --seed 42 --output "$evidence_dir/split_audit.json"
+  build_common "$runtime_dir" "$wandb_id"
   "$PY" -m egomimic.trainHydra "${COMMON[@]}" norm_stats_only=true \
     trainer.accelerator=cpu trainer.devices=1 \
-    "norm_stats.save_cache_dir=$output" "hydra.run.dir=$output/norm_materialize" \
-    --cfg job --resolve > "$output/norm_config.yaml"
+    "norm_stats.save_cache_dir=$runtime_dir" "hydra.run.dir=$runtime_dir/norm_materialize" \
+    --cfg job --resolve > "$evidence_dir/norm_config.yaml"
   "$PY" -m egomimic.trainHydra "${COMMON[@]}" \
-    "norm_stats.precomputed_norm_path=$output/norm_stats" \
-    --cfg job --resolve > "$output/training_config.yaml"
-  "$PY" - "$output/training_config.yaml" "$output/split_audit.json" "$PARAMETER_COUNT" <<'PY'
+    "norm_stats.precomputed_norm_path=$runtime_dir/norm_stats" \
+    --cfg job --resolve > "$evidence_dir/training_config.yaml"
+  "$PY" - "$evidence_dir/training_config.yaml" "$evidence_dir/norm_config.yaml" \
+    "$evidence_dir/split_audit.json" "$PARAMETER_COUNT" "$runtime_dir" <<'PY'
 import json, pathlib, sys
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
-c = OmegaConf.load(sys.argv[1]); s = json.loads(pathlib.Path(sys.argv[2]).read_text())
+c = OmegaConf.load(sys.argv[1]); n = OmegaConf.load(sys.argv[2])
+s = json.loads(pathlib.Path(sys.argv[3]).read_text()); runtime = pathlib.Path(sys.argv[5])
 assert s["status"] == "PASS" and s["cross_domain_train_valid_resolved_path_overlap_count"] == 0
 assert {(d["total_count"], d["train_count"], d["valid_count"]) for d in s["domains"].values()} == {(2999, 2970, 29), (3000, 2970, 30)}
 assert set(c.data.train_datasets) == {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
 assert c.run_provenance.obstacle_data is False and c.norm_stats.sample_frac == 1.0
+assert pathlib.Path(c.paths.root_dir) == runtime and pathlib.Path(c.paths.output_dir) == runtime
+assert pathlib.Path(c.norm_stats.precomputed_norm_path) == runtime / "norm_stats"
+assert pathlib.Path(n.paths.output_dir) == runtime and pathlib.Path(n.norm_stats.save_cache_dir) == runtime
 m = instantiate(c.model.pipeline)
-assert sum(p.numel() for p in m.nets.parameters()) == int(sys.argv[3])
+assert sum(p.numel() for p in m.nets.parameters()) == int(sys.argv[4])
 print("[preflight] READY exact source/data/split/config/parameters")
 PY
 }
@@ -83,7 +88,7 @@ PY
 if test "$MODE" = preflight; then
   PREFLIGHT=$ROOT/preflight/${EXPECTED_HEAD:0:12}
   test ! -e "$PREFLIGHT"
-  preflight "$PREFLIGHT" preflight
+  preflight "$PREFLIGHT" "$PREFLIGHT" preflight
   exit 0
 fi
 test "$MODE" = smoke
@@ -93,7 +98,7 @@ RUN_DIR=$ROOT/runs/smoke-job-${SLURM_JOB_ID:?}
 test ! -e "$RUN_DIR"
 mkdir -p "$RUN_DIR/provenance"
 WANDB_ID=planar-v2-dp-cotrain-clean-ice-smoke-${SLURM_JOB_ID}
-preflight "$RUN_DIR/provenance" "$WANDB_ID"
+preflight "$RUN_DIR/provenance" "$RUN_DIR" "$WANDB_ID"
 
 nvidia-smi -q > "$RUN_DIR/provenance/nvidia-smi-q.txt"
 test "$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)" = 1

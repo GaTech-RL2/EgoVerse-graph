@@ -100,6 +100,7 @@ exclusive `ice-cpu` node per array element:
 ```bash
 export ICE_MIRROR_POOL_SIZE=4
 export ICE_MIRROR_POOL_SCRIPT=/absolute/repo/scripts/ice/ice_checkpoint_mirror_pool.py
+export ICE_MIRROR_PYTHON=/absolute/environment/bin/python
 sbatch --array=0-3%4 scripts/ice/ice_checkpoint_mirror_pool.sbatch
 ```
 
@@ -109,6 +110,19 @@ on ICE storage visible from every allocated node. Workers rotate their scan
 order and take a nonblocking per-checkpoint lock, so validation, hashing, and
 upload of different checkpoints proceed concurrently without duplicate
 transfers. Short state and event locks prevent lost updates.
+
+`ICE_MIRROR_PYTHON` is mandatory and must be the absolute interpreter that can
+import every validator dependency. The wrappers never infer Python from
+`PATH`; this prevents a healthy monitor from silently rejecting checkpoints
+because a site interpreter lacks PyTorch.
+
+Set `ICE_MIRROR_INVENTORY_ROOT` to a bounded project or campaign directory to
+publish `archive-inventory.json` in the shared state directory. The inventory
+discovers checkpoint-bearing run directories and separates registered archived,
+registered pending, and unregistered runs. It recognizes completion only from a
+valid run-local `COMPLETE.json`; Slurm state alone is not completion evidence.
+Discovery is read-only and never guesses a validator, retention policy, or
+Skynet destination for an unregistered run.
 
 Array element zero is the maintenance worker. It alone measures whole-scratch
 pressure, prunes when explicitly enabled, and publishes `mirror-complete.json`.

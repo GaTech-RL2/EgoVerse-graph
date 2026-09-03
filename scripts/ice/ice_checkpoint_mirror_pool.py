@@ -21,6 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Sequence
 
+import ice_checkpoint_archive_inventory as inventory
 import ice_checkpoint_mirror as core
 
 STOP = False
@@ -233,6 +234,18 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
 def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]) -> bool:
     """Publish pressure and completion state; optionally perform guarded pruning."""
     ok = True
+    if args.inventory_search_root is not None:
+        try:
+            report = inventory.build_inventory(
+                args.inventory_search_root,
+                manifest,
+                inventory.load_state(state_dir),
+                args.inventory_max_depth,
+            )
+            core.atomic_json(state_dir / "archive-inventory.json", report)
+        except Exception as exc:
+            ok = False
+            log_event(state_dir, {"event": "inventory_error", "error": str(exc)})
     try:
         used = core.scratch_bytes(args.scratch_root, args.du_timeout_seconds)
         fraction = used / args.quota_bytes
@@ -312,6 +325,8 @@ def parser() -> argparse.ArgumentParser:
     result.description = __doc__
     result.add_argument("--worker-index", type=int, required=True)
     result.add_argument("--worker-count", type=int, required=True)
+    result.add_argument("--inventory-search-root", type=Path)
+    result.add_argument("--inventory-max-depth", type=int, default=6)
     return result
 
 
@@ -331,11 +346,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("worker-count must be >=2 and worker-index must be in range")
     if args.quota_bytes <= 0 or args.poll_seconds <= 0 or args.du_timeout_seconds <= 0:
         raise SystemExit("quota, poll interval, and du timeout must be positive")
+    if args.inventory_max_depth < 1:
+        raise SystemExit("inventory-max-depth must be positive")
     if not 0 < args.soft_used_fraction < args.hard_used_fraction < 1:
         raise SystemExit("require 0 < soft-used-fraction < hard-used-fraction < 1")
 
     args.state_dir = core.specific_absolute(args.state_dir, "state-dir")
     args.scratch_root = core.specific_absolute(args.scratch_root, "scratch-root")
+    if args.inventory_search_root is not None:
+        args.inventory_search_root = core.specific_absolute(
+            args.inventory_search_root, "inventory-search-root"
+        )
+        core.contained(args.inventory_search_root, args.scratch_root, "inventory-search-root")
     if not args.scratch_root.is_dir():
         raise SystemExit(f"scratch-root is not a directory: {args.scratch_root}")
     core.contained(args.state_dir, args.scratch_root, "state-dir")

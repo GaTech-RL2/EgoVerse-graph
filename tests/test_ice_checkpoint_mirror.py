@@ -90,6 +90,7 @@ def mirror_args(manifest: Path, state: Path, scratch: Path) -> list[str]:
 class CheckpointMetadataTest(unittest.TestCase):
     def test_cpu_wrapper_forwards_configured_du_timeout(self):
         wrapper = SBATCH_PATH.read_text()
+        self.assertIn('"${ICE_MIRROR_PYTHON}" "${ICE_MIRROR_SCRIPT}"', wrapper)
         self.assertIn('if [[ -n "${ICE_MIRROR_DU_TIMEOUT_SECONDS:-}" ]]', wrapper)
         self.assertIn(
             'ARGS+=(--du-timeout-seconds "${ICE_MIRROR_DU_TIMEOUT_SECONDS}")',

@@ -19,10 +19,13 @@ set -euo pipefail
 : "${ICE_SCRATCH_QUOTA_BYTES:?set ICE_SCRATCH_QUOTA_BYTES}"
 : "${ICE_MIRROR_REMOTE_HOST:?set ICE_MIRROR_REMOTE_HOST}"
 : "${ICE_MIRROR_SCRIPT:?set the exact absolute ice_checkpoint_mirror.py path}"
+: "${ICE_MIRROR_PYTHON:?set the exact absolute Python with validator dependencies}"
 
 [[ "${ICE_MIRROR_SCRIPT}" = /* ]]
+[[ "${ICE_MIRROR_PYTHON}" = /* ]]
 test -f "${ICE_MIRROR_SCRIPT}"
 test -r "${ICE_MIRROR_SCRIPT}"
+test -x "${ICE_MIRROR_PYTHON}"
 
 ARGS=(
   --manifest "${ICE_MIRROR_MANIFEST}"
@@ -47,7 +50,7 @@ if [[ -n "${ICE_MIRROR_RSYNC_RSH:-}" ]]; then
   ARGS+=(--rsync-rsh "${ICE_MIRROR_RSYNC_RSH}")
 fi
 
-python3 "${ICE_MIRROR_SCRIPT}" "${ARGS[@]}" &
+"${ICE_MIRROR_PYTHON}" "${ICE_MIRROR_SCRIPT}" "${ARGS[@]}" &
 CHILD_PID=$!
 
 requeue_at_boundary() {

@@ -105,6 +105,8 @@ class MirrorPoolTest(unittest.TestCase):
         self.assertIn("SLURM_ARRAY_TASK_COUNT", wrapper)
         self.assertIn("SLURM_ARRAY_TASK_ID", wrapper)
         self.assertIn("ICE_MIRROR_POOL_SIZE", wrapper)
+        self.assertIn('"${ICE_MIRROR_PYTHON}" "${ICE_MIRROR_POOL_SCRIPT}"', wrapper)
+        self.assertIn("ICE_MIRROR_INVENTORY_ROOT", wrapper)
 
     def test_nonblocking_claim_allows_only_one_worker(self):
         with tempfile.TemporaryDirectory() as raw:

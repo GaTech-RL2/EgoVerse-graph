@@ -680,7 +680,10 @@ def _validate_unite_training_diagnostic_artifacts(
     diagnostics = OmegaConf.select(config, "evaluator.unite_diagnostics", default=None)
     assert diagnostics is not None and diagnostics.enabled is True
     assert int(diagnostics.max_batches_per_rank) == 1
-    assert int(diagnostics.validation_view.per_rank_batch_size) == 16
+    assert (
+        int(diagnostics.validation_view.per_rank_batch_size) * expected_world_size
+        == 32
+    )
     assert int(diagnostics.validation_view.world_size) == expected_world_size
     assert int(diagnostics.cknna_k) == 10
 

@@ -40,6 +40,11 @@ preflight() {
     "++paths.root_dir=$output" "paths.output_dir=$output" "paths.work_dir=$REPO" \
     launch_params.gpus_per_node=1 launch_params.nodes=1 norm_stats.sample_frac=1.0 \
     norm_stats_only=true trainer.accelerator=cpu trainer.devices=1 \
+    +callbacks.model_checkpoint.monitor=null \
+    +callbacks.model_checkpoint.every_n_train_steps=1 \
+    +callbacks.model_checkpoint.train_time_interval=null \
+    +callbacks.model_checkpoint.save_on_train_epoch_end=false \
+    +logger.wandb.resume=never \
     --cfg job --resolve > "$output/resolved_config.yaml"
   "$PY" - "$output/resolved_config.yaml" "$output/split_audit.json" "$PARAMETER_COUNT" <<'PY'
 import json, pathlib, sys
@@ -98,14 +103,14 @@ COMMON=(
   trainer.max_steps=2 trainer.limit_train_batches=2 trainer.val_check_interval=1
   trainer.limit_val_batches=1 trainer.num_sanity_val_steps=0 trainer.log_every_n_steps=1
   norm_stats.sample_frac=1.0 norm_stats.save_cache_dir=null
-  callbacks.model_checkpoint.monitor=null callbacks.model_checkpoint.save_top_k=-1
+  +callbacks.model_checkpoint.monitor=null callbacks.model_checkpoint.save_top_k=-1
   callbacks.model_checkpoint.save_last=true callbacks.model_checkpoint.every_n_epochs=null
-  callbacks.model_checkpoint.every_n_train_steps=1 callbacks.model_checkpoint.train_time_interval=null
-  callbacks.model_checkpoint.save_on_train_epoch_end=false
+  +callbacks.model_checkpoint.every_n_train_steps=1 +callbacks.model_checkpoint.train_time_interval=null
+  +callbacks.model_checkpoint.save_on_train_epoch_end=false
   "callbacks.model_checkpoint.filename='epoch-{epoch}-step-{step}'"
   logger.wandb.entity=rl2-group logger.wandb.project=pushshapes-planar-v2
   logger.wandb.group=planar-v2-dp-cotrain-clean-20260903
-  "logger.wandb.id=$WANDB_ID" "logger.wandb.name=$WANDB_ID" logger.wandb.resume=never
+  "logger.wandb.id=$WANDB_ID" "logger.wandb.name=$WANDB_ID" +logger.wandb.resume=never
   "logger.wandb.tags=[standard-dp,cotrain,clean-only,no-obstacle,planar-v2,h16,ddim100,smoke,ice]"
 )
 export WANDB_MODE=online WANDB_SILENT=true

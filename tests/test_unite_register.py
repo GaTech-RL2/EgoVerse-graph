@@ -463,6 +463,7 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
         "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" in launcher
     )
     assert '"$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_DIAGNOSTICS"' in launcher
+    assert "launch_contract.json" in launcher
     assert '"unite_diagnostics": unite_diagnostics' in launcher
     assert not (ROOT / "egomimic/pipeline/stages_unite.py").exists()
     policy_parameters = inspect.signature(

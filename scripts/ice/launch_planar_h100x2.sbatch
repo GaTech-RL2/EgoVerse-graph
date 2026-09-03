@@ -431,6 +431,27 @@ mkdir -p "$ICE_OUTPUT_DIR/checkpoints" "$ICE_OUTPUT_DIR/provenance" \
 ATTEMPT_PROVENANCE=$ICE_OUTPUT_DIR/provenance/restart-$RESTART_COUNT
 test ! -e "$ATTEMPT_PROVENANCE" || die "attempt provenance already exists"
 mkdir -p "$ATTEMPT_PROVENANCE"
+"$ICE_PYTHON" - "$ATTEMPT_PROVENANCE/launch_contract.json" \
+  "$ICE_UNITE_DIAGNOSTICS" "$ICE_EXPECTED_GPU_NAME" "$ICE_EXPECTED_HEAD" <<'PY'
+import json
+import pathlib
+import sys
+
+path, unite_diagnostics, gpu_name, source_head = sys.argv[1:]
+pathlib.Path(path).write_text(
+    json.dumps(
+        {
+            "schema_version": 1,
+            "unite_diagnostics": unite_diagnostics,
+            "expected_gpu_name": gpu_name,
+            "source_head": source_head,
+        },
+        indent=2,
+        sort_keys=True,
+    )
+    + "\n"
+)
+PY
 cp -- "$PREFLIGHT_CONFIG" "$ATTEMPT_PROVENANCE/resolved_config.yaml"
 cp -- "$PREFLIGHT_DATASET" "$ATTEMPT_PROVENANCE/dataset_validation.json"
 cp -- "$ICE_SPLIT_MANIFEST" "$ATTEMPT_PROVENANCE/split_manifest.json"

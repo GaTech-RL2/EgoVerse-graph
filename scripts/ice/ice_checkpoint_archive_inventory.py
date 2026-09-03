@@ -40,6 +40,8 @@ def discover_runs(search_root: Path, max_depth: int) -> dict[Path, list[Path]]:
         dirnames[:] = [name for name in dirnames if name not in PRUNE_DIRS]
         if depth >= max_depth:
             dirnames.clear()
+        if "COMPLETE.json" in filenames:
+            discovered.setdefault(directory.resolve(), [])
         checkpoints = [
             (directory / name).resolve()
             for name in filenames

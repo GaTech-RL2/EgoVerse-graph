@@ -141,6 +141,30 @@ class ArchiveInventoryTest(unittest.TestCase):
             )
             self.assertFalse(report["runs"][0]["complete"])
 
+    def test_completed_run_with_missing_checkpoint_is_not_invisible(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw) / "scratch" / "campaign"
+            run = root / "run"
+            run.mkdir(parents=True)
+            (run / "COMPLETE.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "status": "COMPLETE",
+                        "checkpoint": {"global_step": 10, "sha256": "a" * 64},
+                    }
+                )
+            )
+            report = INVENTORY.build_inventory(
+                root,
+                {"schema_version": 1, "runs": []},
+                {"schema_version": 2, "files": {}},
+                4,
+            )
+            self.assertEqual(report["runs"][0]["status"], "unregistered")
+            self.assertTrue(report["runs"][0]["complete"])
+            self.assertEqual(report["runs"][0]["checkpoint_count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

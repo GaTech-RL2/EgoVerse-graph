@@ -63,3 +63,12 @@ run_provenance:
 evaluator:
   energy_score_max_batches_per_rank: 1
   semantic_blocks: [[0, 2], [2, 4]]
+  native_decoder:
+    _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
+
+# Simulator I/O is an application boundary, not part of PipelineAlgo.
+deployment:
+  observation_adapter:
+    _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
+  action_decoder:
+    _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter

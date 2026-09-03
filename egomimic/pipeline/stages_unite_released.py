@@ -67,10 +67,10 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         "log/*",
     ]
     reads_by_mode = {
-        "rollout": ["sampler/noise", "condition", "embodiment"],
+        "inference": ["sampler/noise", "condition", "embodiment"],
     }
     writes_by_mode = {
-        "rollout": ["sampler/endpoint", "pred_action", "log/*"],
+        "inference": ["sampler/endpoint", "pred_action", "log/*"],
     }
 
     def __init__(
@@ -385,8 +385,6 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             self._released_flow_loss(clean_latent, batch["condition"])
         )
         endpoint = predicted_clean
-        if not self.training:
-            endpoint = self.sample(batch["sampler/noise"], batch["condition"])
         predicted_action = self._decode(endpoint, embodiment)
         batch.update(
             {
@@ -396,9 +394,7 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
                 "unite/predicted_clean_latent": predicted_clean,
                 "unite/reconstructed_action": reconstructed_action,
                 "unite/flow_loss": flow_loss,
-                "log/sampler_unroll_steps": float(
-                    1 if self.training else self._last_sampler_nfe
-                ),
+                "log/sampler_unroll_steps": 1.0,
                 "log/unite_time_mean": sampled_time.detach().mean(),
                 "log/unite_condition_dropout_fraction": dropout_fraction.detach(),
                 "log/unite_cfg_scale": self.cfg_scale,
@@ -417,23 +413,33 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         batch["log/unite_cfg_scale"] = self.cfg_scale
         return batch
 
-    def forward(self, batch: dict) -> dict:
+    def _execute_mode(self, batch: dict, mode: str) -> dict:
         embodiment = self._resolve_domain(batch["embodiment"])
         noise = batch["sampler/noise"]
         self._validate_noise(noise)
         if int(noise.shape[0]) != int(batch["condition"].shape[0]):
             raise ValueError("UNITE noise and condition batch sizes must match")
-        batch = (
-            self._forward_training(batch, embodiment)
-            if "target" in batch
-            else self._forward_rollout(batch, embodiment)
-        )
+        if mode == "train":
+            batch = self._forward_training(batch, embodiment)
+        elif mode == "inference":
+            batch = self._forward_rollout(batch, embodiment)
+        else:
+            raise ValueError(f"Unsupported UNITE execution mode {mode!r}")
         endpoint = batch["sampler/endpoint"]
         prediction = batch["pred_action"]
         batch["log/sampler_noise_rms"] = noise.detach().square().mean().sqrt()
         batch["log/sampler_endpoint_rms"] = endpoint.detach().square().mean().sqrt()
         batch["log/sampler_prediction_rms"] = prediction.detach().square().mean().sqrt()
         return batch
+
+    def execute(self, batch: dict, *, mode: str) -> dict:
+        return self._execute_mode(batch, mode)
+
+    def forward(self, batch: dict) -> dict:
+        """Retain direct-call behavior while graph execution passes mode explicitly."""
+        return self._execute_mode(
+            batch, "train" if self.training else "inference"
+        )
 
 
 class ReleasedRecipeUniteObjective(Stage):

@@ -52,7 +52,7 @@ class _TinyAlgo:
         }
 
     def log_info(self, info):
-        assert "action_loss" in info["losses"]
+        assert "loss" in info["losses"]
         return {}
 
 

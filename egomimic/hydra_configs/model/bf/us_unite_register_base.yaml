@@ -10,20 +10,12 @@ action_horizon: 16
 
 robomimic_model:
   _target_: egomimic.pipeline.algo.PipelineAlgo
-  action_horizon: ${model.action_horizon}
-  domains: [pushshapes_sim_u_socket]
-  ac_keys: {pushshapes_sim_u_socket: actions}
-  rollout_observation_adapters:
-    pushshapes_sim_u_socket:
-      _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
-  rollout_adapters:
-    pushshapes_sim_u_socket:
-      _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
       selector_key: embodiment
-      input_key: obs/state_agent_model
-      output_key: obs/proprio_condition
+      selector_aliases: {19: pushshapes_sim_u_socket}
+      input_key: state_agent_model
+      output_key: proprio_condition
       output_dim: 64
       projections:
         pushshapes_sim_u_socket:
@@ -32,7 +24,9 @@ robomimic_model:
           semantic: x_y_cos_theta_sin_theta
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
       n_obs_steps: 1
-      required_obs_keys: [front_img_1, proprio_condition]
+      inputs:
+        front_img_1: front_img_1
+        proprio_condition: proprio_condition
       encoder:
         _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
         obs_specs:

@@ -179,7 +179,7 @@ def test_joint_step_uses_one_reconstruction_and_fourteen_flow_samples(shared):
         "target": torch.randn(2, 16, 4),
         "condition": torch.randn(2, 14),
         "sampler/noise": torch.randn(2, 4, 16),
-        "embodiment": DOMAIN,
+        "embodiment": torch.tensor([19, 19]),
     }
     output = ReleasedRecipeUniteObjective()(policy(batch))
     for hook in hooks:
@@ -199,7 +199,7 @@ def test_separate_flow_target_is_stop_gradient():
             "target": torch.randn(2, 16, 4),
             "condition": torch.randn(2, 14),
             "sampler/noise": torch.randn(2, 4, 16),
-            "embodiment": DOMAIN,
+            "embodiment": torch.tensor([19, 19]),
         }
     )
     output["unite/flow_loss"].backward()
@@ -212,6 +212,31 @@ def test_separate_flow_target_is_stop_gradient():
         parameter.grad is not None
         for parameter in encoder.denoising_module.parameters()
     )
+
+
+def test_unite_graph_execution_mode_is_explicit(monkeypatch):
+    policy = _policy(True, 4).train()
+    monkeypatch.setattr(
+        policy,
+        "sample",
+        lambda noise, _condition: torch.zeros_like(noise),
+    )
+    monkeypatch.setattr(
+        policy.generative_encoder,
+        "tokenize",
+        lambda *_args, **_kwargs: pytest.fail("inference called the training path"),
+    )
+    output = policy.execute(
+        {
+            "target": torch.randn(2, 16, 4),
+            "condition": torch.randn(2, 14),
+            "sampler/noise": torch.randn(2, 4, 16),
+            "embodiment": torch.tensor([19, 19]),
+        },
+        mode="inference",
+    )
+    assert output["pred_action"].shape == (2, 16, 4)
+    assert "unite/flow_loss" not in output
 
 
 def test_dopri5_has_one_fp32_integrator_with_released_grid(monkeypatch):
@@ -277,6 +302,15 @@ def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_t
     assert model.share_encoder_denoiser is (topology == "shared")
     assert model.num_latent_tokens == num_latent_tokens
     stages = model.robomimic_model.stages
+    assert not {
+        "action_horizon",
+        "domains",
+        "ac_keys",
+        "rollout_adapter",
+        "rollout_adapters",
+        "rollout_observation_adapters",
+        "norm_stats",
+    } & set(model.robomimic_model)
     assert [stage._target_.rsplit(".", 1)[-1] for stage in stages[:4]] == [
         "KeyedFeatureProjection",
         "FusedObsEncoder",
@@ -337,9 +371,14 @@ def test_only_four_rows_and_no_legacy_or_diagnostic_surface():
         "prefix_rewrites": {"policy.stages.3.": "policy.stages.4."},
     }
     assert {"override /evaluator": "eval_planar_v2"} in experiment["defaults"]
-    assert experiment["evaluator"] == {
-        "energy_score_max_batches_per_rank": 1,
-        "semantic_blocks": [[0, 2], [2, 4]],
+    assert experiment["evaluator"]["energy_score_max_batches_per_rank"] == 1
+    assert experiment["evaluator"]["semantic_blocks"] == [[0, 2], [2, 4]]
+    assert experiment["evaluator"]["native_decoder"] == {
+        "_target_": "egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter"
+    }
+    assert set(experiment["deployment"]) == {
+        "observation_adapter",
+        "action_decoder",
     }
     assert experiment["run_provenance"]["energy_score_contract"]["sample_count"] == 32
     assert "unite_diagnostics" not in experiment["evaluator"]
@@ -422,24 +461,32 @@ def test_usocket_keymap_and_proprio_projection_are_explicit():
 
     projection = KeyedFeatureProjection(
         selector_key="embodiment",
-        input_key="obs/state_agent_model",
-        output_key="obs/proprio_condition",
+        selector_aliases={19: DOMAIN},
+        input_key="state_agent_model",
+        output_key="proprio_condition",
         projections={DOMAIN: {"input_dim": 4, "hidden_dim": 8}},
         output_dim=6,
     )
     assert projection.contract() == (
-        ("obs/state_agent_model", "embodiment"),
-        ("obs/proprio_condition",),
+        ("state_agent_model", "embodiment"),
+        ("proprio_condition",),
     )
     batch = {
-        "embodiment": DOMAIN,
-        "obs/state_agent_model": torch.randn(3, 4),
+        "embodiment": torch.tensor([19, 19, 19]),
+        "state_agent_model": torch.randn(3, 4),
     }
-    assert projection(batch)["obs/proprio_condition"].shape == (3, 6)
+    assert projection(batch)["proprio_condition"].shape == (3, 6)
     with pytest.raises(ValueError, match="expected 4"):
         projection(
             {
-                "embodiment": DOMAIN,
-                "obs/state_agent_model": torch.randn(3, 6),
+                "embodiment": torch.tensor([19, 19, 19]),
+                "state_agent_model": torch.randn(3, 6),
+            }
+        )
+    with pytest.raises(ValueError, match="homogeneous"):
+        projection(
+            {
+                "embodiment": torch.tensor([19, 20, 19]),
+                "state_agent_model": torch.randn(3, 4),
             }
         )

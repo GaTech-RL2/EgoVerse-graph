@@ -74,7 +74,7 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         reconstruction = self._mean_loss_terms(losses, "_loss_unite_reconstruction")
         flow = self._mean_loss_terms(losses, "_loss_unite_latent")
         total = reconstruction + flow
-        losses["action_loss"] = total
+        losses["loss"] = total
 
         self.log(
             "Train/UNITE/ReconstructionLoss",

@@ -15,6 +15,9 @@ from typing import Dict, Mapping
 import torch
 import torch.nn as nn
 
+from egomimic.pipeline.core import resolve_homogeneous_scalar
+from egomimic.rldb.embodiment.embodiment import get_embodiment
+
 
 class ConfigurableUniteGenerativeEncoder(nn.Module):
     """One shared backbone for action tokenization and latent denoising."""
@@ -87,13 +90,22 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
         )
         self._validate_backbone_contract(self.denoising_module)
 
-    def _validate_domain(self, embodiment: str) -> str:
-        embodiment = str(embodiment)
-        if embodiment not in self.action_dims:
+    def _validate_domain(self, embodiment) -> str:
+        branch = resolve_homogeneous_scalar(
+            embodiment, label="UNITE branch selector"
+        )
+        if isinstance(branch, int):
+            branch = get_embodiment(branch)
+            if branch is None:
+                raise KeyError("Unknown UNITE branch selector")
+            branch = branch.lower()
+        else:
+            branch = str(branch)
+        if branch not in self.action_dims:
             raise KeyError(
-                f"Unknown UNITE embodiment {embodiment!r}; configured={self.domains}"
+                f"Unknown UNITE branch {branch!r}; configured={self.domains}"
             )
-        return embodiment
+        return branch
 
     def _validate_backbone_contract(self, module: nn.Module) -> None:
         attributes = {
@@ -127,7 +139,7 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
                 f"start={self.in_context_start}, len={self.in_context_len}"
             )
 
-    def _resolve_domain(self, embodiment: str | None) -> str:
+    def _resolve_domain(self, embodiment=None) -> str:
         if embodiment is not None:
             return self._validate_domain(embodiment)
         if len(self.domains) != 1:

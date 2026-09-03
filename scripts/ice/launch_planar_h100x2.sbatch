@@ -201,8 +201,10 @@ if test "$ICE_MODEL" != none; then
 fi
 if test "$ICE_UNITE_H100_FAST" = true; then
   test "$ICE_FAMILY" = unite || die "ICE_UNITE_H100_FAST requires ICE_FAMILY=unite"
-  test "$ICE_MODEL" = bf/us_unite_register_shared_nt8_s42 || \
-    die "ICE_UNITE_H100_FAST requires the shared UNITE N=8 model row"
+  case "$ICE_MODEL" in
+    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt16_s42) ;;
+    *) die "ICE_UNITE_H100_FAST requires a supported shared UNITE N=8 or N=16 model row" ;;
+  esac
   BASE_OVERRIDES+=(
     model.pipeline.stages.4.flow_mini_batch=14
     model.pipeline.stages.4.generative_encoder.gradient_checkpointing=false

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import torch
 from torch import nn
+from torch.func import functional_call
 
 
 def _mlp(input_dim: int, hidden_dim: int, output_dim: int, depth: int) -> nn.Sequential:
@@ -32,10 +33,23 @@ class SyntheticSharedLatentFlow(nn.Module):
         self.decoder = _mlp(latent_dim, codec_width, 3, codec_depth)
         self.field = _mlp(latent_dim + 1, field_width, latent_dim, field_depth)
 
-    def velocity(self, state: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
+    def velocity(
+        self,
+        state: torch.Tensor,
+        time: torch.Tensor,
+        *,
+        detach_parameters: bool = False,
+    ) -> torch.Tensor:
         if time.ndim == 1:
             time = time[:, None]
-        return self.field(torch.cat((state, time.to(state)), dim=-1))
+        field_input = torch.cat((state, time.to(state)), dim=-1)
+        if not detach_parameters:
+            return self.field(field_input)
+        detached = {
+            name: parameter.detach()
+            for name, parameter in self.field.named_parameters()
+        }
+        return functional_call(self.field, detached, (field_input,))
 
     def integrate(self, source: torch.Tensor, steps: int = 32) -> torch.Tensor:
         return self.trajectory(source, steps=steps)[-1]
@@ -59,6 +73,7 @@ class SyntheticSharedLatentFlow(nn.Module):
         flow_samples: int = 14,
         reconstruction_noise_min: float = 0.5,
         reconstruction_noise_max: float = 1.0,
+        reconstruction_updates_field: bool = True,
     ) -> dict[str, torch.Tensor]:
         if source.shape[-1] != self.latent_dim:
             raise ValueError(
@@ -66,8 +81,12 @@ class SyntheticSharedLatentFlow(nn.Module):
             )
         clean = self.encoder(target)
         batch = len(source)
-        source_many = source[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
-        clean_many = clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
+        source_many = (
+            source[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
+        )
+        clean_many = (
+            clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
+        )
         time = torch.rand(batch * flow_samples, 1, device=source.device)
         state = (1.0 - time) * source_many + time * clean_many
         flow = (self.velocity(state, time) - (clean_many - source_many)).square().mean()
@@ -80,7 +99,11 @@ class SyntheticSharedLatentFlow(nn.Module):
             )
             bridge_time = 1.0 - severity
             noisy = severity * source + bridge_time * clean
-            predicted_clean = noisy + severity * self.velocity(noisy, bridge_time)
+            predicted_clean = noisy + severity * self.velocity(
+                noisy,
+                bridge_time,
+                detach_parameters=not reconstruction_updates_field,
+            )
             reconstruction = self.decoder(predicted_clean)
         else:
             raise ValueError(f"unknown method: {method}")
@@ -142,15 +165,15 @@ class SyntheticDirectFlow(nn.Module):
                 f"direct flow expects source and target width {self.latent_dim}"
             )
         batch = len(source)
-        source_many = source[:, None].expand(-1, flow_samples, -1).reshape(
-            -1, self.latent_dim
+        source_many = (
+            source[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
         )
-        target_many = target[:, None].expand(-1, flow_samples, -1).reshape(
-            -1, self.latent_dim
+        target_many = (
+            target[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
         )
         time = torch.rand(batch * flow_samples, 1, device=source.device)
         state = (1.0 - time) * source_many + time * target_many
         flow = (
-            self.velocity(state, time) - (target_many - source_many)
-        ).square().mean()
+            (self.velocity(state, time) - (target_many - source_many)).square().mean()
+        )
         return {"loss": flow, "flow_loss": flow}

@@ -82,6 +82,9 @@ def main() -> None:
                 flow_samples=config["flow_samples"],
                 reconstruction_noise_min=config["reconstruction_noise_range"][0],
                 reconstruction_noise_max=config["reconstruction_noise_range"][1],
+                reconstruction_updates_field=config.get(
+                    "reconstruction_updates_field", True
+                ),
             )
         else:
             losses = model.losses(

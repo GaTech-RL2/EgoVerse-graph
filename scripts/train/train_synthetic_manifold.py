@@ -36,7 +36,9 @@ def main() -> None:
         raise FileExistsError(f"refusing to reuse output directory: {output}")
     (output / "checkpoints").mkdir(parents=True)
     seed = int(config["seed"])
-    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
     data = np.load(config["dataset"], allow_pickle=False)
     train_indices = np.flatnonzero(data["split"] == 0)
     val_indices = np.flatnonzero(data["split"] == 1)
@@ -65,7 +67,11 @@ def main() -> None:
     generator = torch.Generator().manual_seed(seed + 2)
     log_path = output / "metrics.jsonl"
     for step in range(1, config["max_steps"] + 1):
-        chosen = train_indices[torch.randint(len(train_indices), (config["batch_size"],), generator=generator).numpy()]
+        chosen = train_indices[
+            torch.randint(
+                len(train_indices), (config["batch_size"],), generator=generator
+            ).numpy()
+        ]
         batch_source = source[chosen].to(device)
         batch_target = target[chosen].to(device)
         if architecture == "shared_latent":
@@ -83,10 +89,16 @@ def main() -> None:
                 batch_target,
                 flow_samples=config.get("flow_samples", 1),
             )
-        optimizer.zero_grad(set_to_none=True); losses["loss"].backward(); optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
+        losses["loss"].backward()
+        optimizer.step()
         if step == 1 or step % config["log_every"] == 0:
-            row = {"step": step, **{key: float(value.detach()) for key, value in losses.items()}}
-            with log_path.open("a") as stream: stream.write(json.dumps(row) + "\n")
+            row = {
+                "step": step,
+                **{key: float(value.detach()) for key, value in losses.items()},
+            }
+            with log_path.open("a") as stream:
+                stream.write(json.dumps(row) + "\n")
             if wandb_run is not None:
                 wandb_run.log(row, step=step)
         if step % config["checkpoint_every"] == 0 or step == config["max_steps"]:
@@ -108,7 +120,8 @@ def main() -> None:
             )
     model.eval()
     with torch.inference_mode():
-        src = source[val_indices].to(device); tgt = target[val_indices].to(device)
+        src = source[val_indices].to(device)
+        tgt = target[val_indices].to(device)
         if architecture == "shared_latent":
             clean_reconstruction = model.decoder(model.encoder(tgt))
             trajectory = SyntheticTrajectoryEval.export(
@@ -143,16 +156,16 @@ def main() -> None:
         np.savez_compressed(output / "validation_particles.npz", **particles)
     summary = {
         "parameters": sum(p.numel() for p in model.parameters()),
-        "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
+        "trainable_parameters": sum(
+            p.numel() for p in model.parameters() if p.requires_grad
+        ),
     }
-    if architecture == "direct_flow":
-        summary["validation_generation_energy_distance"] = float(
-            energy_distance(generated, tgt)
-        )
-    else:
-        summary["validation_generation_paired_mse"] = float(
-            (generated - tgt).square().mean()
-        )
+    summary["validation_generation_energy_distance"] = float(
+        energy_distance(generated, tgt)
+    )
+    summary["validation_generation_symmetric_nn_mse"] = float(
+        SyntheticTrajectoryEval.symmetric_nearest_neighbor_mse(generated, tgt)
+    )
     if clean_reconstruction is not None:
         summary["validation_reconstruction_mse"] = float(
             (clean_reconstruction - tgt).square().mean()

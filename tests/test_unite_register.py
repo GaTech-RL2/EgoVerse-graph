@@ -309,7 +309,9 @@ def test_released_unite_diagnostics_capture_dopri5_and_shared_blocks(monkeypatch
         assert method == "dopri5"
         assert atol == 1.0e-6 and rtol == 1.0e-3
         assert bool(torch.isfinite(function(times[1], initial)).all())
-        return torch.stack([initial + float(index) / 100.0 for index in range(len(times))])
+        return torch.stack(
+            [initial + float(index) / 100.0 for index in range(len(times))]
+        )
 
     monkeypatch.setitem(sys.modules, "torchdiffeq", SimpleNamespace(odeint=fake_odeint))
     diagnostics = policy.validation_diagnostics(
@@ -470,6 +472,12 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
     assert "ICE_WORLD_SIZE=1" in launcher
     assert "#SBATCH --gres=gpu:1" in launcher
     assert "#SBATCH --constraint=H100|H200" in launcher
+    assert "ICE_GPU_CONTRACT=${ICE_GPU_CONTRACT:-H100_OR_H200}" in launcher
+    assert (
+        "GPU_PROBE_ARGS=(--allowed-gpu-name H100 --allowed-gpu-name H200)" in launcher
+    )
+    assert "GPU_PROBE_ARGS=(--allowed-gpu-name L40S)" in launcher
+    assert '"${GPU_PROBE_ARGS[@]}"' in launcher
     assert "ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}" in launcher
     assert "ICE_UNITE_H100_FAST" not in launcher
     assert "ICE_EXPECTED_GPU_NAME" not in launcher
@@ -478,9 +486,12 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
     assert "runtime.slurm_requeue_owner=runner" in launcher
     assert '"trainer.devices=$ICE_WORLD_SIZE"' in launcher
     assert "export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY" in launcher
-    assert '"evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"' in launcher
+    assert (
+        '"evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"'
+        in launcher
+    )
     assert '--ntasks="${ICE_WORLD_SIZE:?}"' in launcher
-    assert 'test "$ICE_MAX_STEPS" -ge 100' in launcher
+    assert 'test "$ICE_MAX_STEPS" -ge "$ICE_GRADIENT_TELEMETRY_CADENCE"' in launcher
     assert 'test "$ICE_VAL_CHECK_INTERVAL" -le "$ICE_MAX_STEPS"' in launcher
     assert not (ROOT / "egomimic/pipeline/stages_unite.py").exists()
     policy_parameters = inspect.signature(

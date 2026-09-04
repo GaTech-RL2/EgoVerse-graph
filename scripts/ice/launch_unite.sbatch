@@ -76,6 +76,7 @@ ICE_TRAINER_STRATEGY=auto
 ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
 ICE_UNITE_DIAGNOSTICS=${ICE_UNITE_DIAGNOSTICS:-false}
 ICE_GRADIENT_TELEMETRY_CADENCE=${ICE_GRADIENT_TELEMETRY_CADENCE:-100}
+ICE_GPU_CONTRACT=${ICE_GPU_CONTRACT:-H100_OR_H200}
 ICE_TOOL_DIR=${ICE_TOOL_DIR:-$ICE_REPO/scripts/ice}
 ICE_REQUEUE_RUNNER=${ICE_REQUEUE_RUNNER:-$ICE_TOOL_DIR/ice_requeue_runner.py}
 ICE_GPU_PROBE=${ICE_GPU_PROBE:-$ICE_TOOL_DIR/ice_gpu_probe.py}
@@ -99,6 +100,17 @@ esac
 case "$ICE_UNITE_DIAGNOSTICS" in
   true|false) ;;
   *) die "ICE_UNITE_DIAGNOSTICS must be true or false" ;;
+esac
+case "$ICE_GPU_CONTRACT" in
+  H100_OR_H200)
+    ICE_GPU_LABEL='H100|H200'
+    GPU_PROBE_ARGS=(--allowed-gpu-name H100 --allowed-gpu-name H200)
+    ;;
+  L40S)
+    ICE_GPU_LABEL=L40S
+    GPU_PROBE_ARGS=(--allowed-gpu-name L40S)
+    ;;
+  *) die "ICE_GPU_CONTRACT must be H100_OR_H200 or L40S" ;;
 esac
 case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
@@ -492,7 +504,7 @@ ATTEMPT_PROVENANCE=$ICE_OUTPUT_DIR/provenance/restart-$RESTART_COUNT
 test ! -e "$ATTEMPT_PROVENANCE" || die "attempt provenance already exists"
 mkdir -p "$ATTEMPT_PROVENANCE"
 "$ICE_PYTHON" - "$ATTEMPT_PROVENANCE/launch_contract.json" \
-  "$ICE_UNITE_DIAGNOSTICS" "H100|H200" "$ICE_EXPECTED_HEAD" \
+  "$ICE_UNITE_DIAGNOSTICS" "$ICE_GPU_LABEL" "$ICE_EXPECTED_HEAD" \
   "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" "$ICE_TRAIN_BATCH_SIZE" \
   "$ICE_VALID_BATCH_SIZE" <<'PY'
 import json
@@ -558,7 +570,7 @@ export SLURM_EXPORT_ENV=ALL
 
 CUDA_VISIBLE_DEVICES=0 SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
   "$ICE_PYTHON" "$ICE_GPU_PROBE" \
-  --expected-world-size 1 --allowed-gpu-name H100 --allowed-gpu-name H200 \
+  --expected-world-size 1 "${GPU_PROBE_ARGS[@]}" \
   --output "$ATTEMPT_PROVENANCE/gpu_probe_0.json"
 
 read -r -d '' CHILD_CODE <<'BASH' || true

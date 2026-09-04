@@ -28,10 +28,16 @@ def main() -> None:
     data = np.load(config["dataset"], allow_pickle=False)
     train_indices = np.flatnonzero(data["split"] == 0)
     val_indices = np.flatnonzero(data["split"] == 1)
-    source = torch.from_numpy(data["source_2d"]).float()
+    source_key = config.get("source_key", "source_2d")
+    source = torch.from_numpy(data[source_key]).float()
     target = torch.from_numpy(data["target_3d"]).float()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SyntheticSharedLatentFlow(**config["model"]).to(device)
+    if source.shape[-1] != model.latent_dim:
+        raise ValueError(
+            f"dataset {source_key} width {source.shape[-1]} does not match "
+            f"model latent_dim {model.latent_dim}"
+        )
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"])
     wandb_run = None
     if config.get("wandb"):
@@ -55,8 +61,22 @@ def main() -> None:
             if wandb_run is not None:
                 wandb_run.log(row, step=step)
         if step % config["checkpoint_every"] == 0 or step == config["max_steps"]:
-            checkpoint = output / "checkpoints" / f"step-{step:06d}.pt"
-            torch.save({"step": step, "config": config, "model": model.state_dict(), "optimizer": optimizer.state_dict()}, checkpoint)
+            epoch_equivalent = (step * config["batch_size"]) // len(train_indices)
+            checkpoint = (
+                output
+                / "checkpoints"
+                / f"epoch-equivalent-{epoch_equivalent:06d}-global-step-{step:06d}.pt"
+            )
+            torch.save(
+                {
+                    "step": step,
+                    "epoch_equivalent": epoch_equivalent,
+                    "config": config,
+                    "model": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                },
+                checkpoint,
+            )
     model.eval()
     with torch.inference_mode():
         src = source[val_indices].to(device); tgt = target[val_indices].to(device)

@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--major-radius", type=float, default=2.0)
     parser.add_argument("--minor-radius", type=float, default=0.65)
+    parser.add_argument("--source-dim", type=int, default=2)
     parser.add_argument("--train-fraction", type=float, default=0.9)
     parser.add_argument("--val-fraction", type=float, default=0.05)
     args = parser.parse_args()
@@ -35,6 +36,7 @@ def main() -> None:
         seed=args.seed,
         major_radius=args.major_radius,
         minor_radius=args.minor_radius,
+        source_dim=args.source_dim,
     )
     rng = np.random.default_rng(args.seed + 1)
     permutation = rng.permutation(args.count)
@@ -46,6 +48,7 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         args.output,
+        source_latent=batch.source_latent.numpy(),
         source_2d=batch.source_2d.numpy(),
         source_3d=batch.source_3d.numpy(),
         target_3d=batch.target_3d.numpy(),
@@ -55,12 +58,13 @@ def main() -> None:
     digest = hashlib.sha256(args.output.read_bytes()).hexdigest()
     manifest = {
         "schema_version": 1,
-        "kind": "paired_2d_gaussian_to_3d_torus",
+        "kind": f"paired_{args.source_dim}d_gaussian_to_3d_torus",
         "count": args.count,
         "seed": args.seed,
         "major_radius": args.major_radius,
         "minor_radius": args.minor_radius,
-        "source_distribution": "N(0,I_2), embedded as [z0,z1,0] for 3D flow",
+        "source_distribution": f"N(0,I_{args.source_dim}); first two coordinates determine the paired torus target",
+        "source_dim": args.source_dim,
         "target_distribution": "analytic torus with CDF-derived uniform angles",
         "pairing": "deterministic standard-normal-CDF angular parameterization",
         "linear_cfm_velocity": "target_3d - source_3d",

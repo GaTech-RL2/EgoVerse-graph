@@ -55,10 +55,14 @@ class SyntheticSharedLatentFlow(nn.Module):
         reconstruction_noise_min: float = 0.5,
         reconstruction_noise_max: float = 1.0,
     ) -> dict[str, torch.Tensor]:
+        if source.shape[-1] != self.latent_dim:
+            raise ValueError(
+                f"source width {source.shape[-1]} does not match latent_dim {self.latent_dim}"
+            )
         clean = self.encoder(target)
         batch = len(source)
-        source_many = source[:, None].expand(-1, flow_samples, -1).reshape(-1, 2)
-        clean_many = clean[:, None].expand(-1, flow_samples, -1).reshape(-1, 2)
+        source_many = source[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
+        clean_many = clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
         time = torch.rand(batch * flow_samples, 1, device=source.device)
         state = (1.0 - time) * source_many + time * clean_many
         flow = (self.velocity(state, time) - (clean_many - source_many)).square().mean()

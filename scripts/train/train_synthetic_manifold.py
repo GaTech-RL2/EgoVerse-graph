@@ -15,6 +15,7 @@ from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
 )
+from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 
 
 def energy_distance(samples: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
@@ -110,7 +111,14 @@ def main() -> None:
         src = source[val_indices].to(device); tgt = target[val_indices].to(device)
         if architecture == "shared_latent":
             clean_reconstruction = model.decoder(model.encoder(tgt))
-            generated = model.decoder(model.integrate(src, config["inference_steps"]))
+            trajectory = SyntheticTrajectoryEval.export(
+                model,
+                src,
+                tgt,
+                output / "validation_trajectory.npz",
+                steps=config["inference_steps"],
+            )
+            generated = trajectory[-1]
             particles = {
                 "source": src.cpu().numpy(),
                 "target": tgt.cpu().numpy(),
@@ -119,7 +127,14 @@ def main() -> None:
             }
         else:
             clean_reconstruction = None
-            generated = model.integrate(src, config["inference_steps"])
+            trajectory = SyntheticTrajectoryEval.export(
+                model,
+                src,
+                tgt,
+                output / "validation_trajectory.npz",
+                steps=config["inference_steps"],
+            )
+            generated = trajectory[-1]
             particles = {
                 "source": src.cpu().numpy(),
                 "target": tgt.cpu().numpy(),

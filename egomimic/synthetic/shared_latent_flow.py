@@ -38,12 +38,17 @@ class SyntheticSharedLatentFlow(nn.Module):
         return self.field(torch.cat((state, time.to(state)), dim=-1))
 
     def integrate(self, source: torch.Tensor, steps: int = 32) -> torch.Tensor:
+        return self.trajectory(source, steps=steps)[-1]
+
+    def trajectory(self, source: torch.Tensor, steps: int = 32) -> torch.Tensor:
         state = source
+        points = [self.decoder(state)]
         dt = 1.0 / steps
         for index in range(steps):
             time = torch.full((len(state), 1), index * dt, device=state.device)
             state = state + dt * self.velocity(state, time)
-        return state
+            points.append(self.decoder(state))
+        return torch.stack(points)
 
     def losses(
         self,
@@ -112,12 +117,17 @@ class SyntheticDirectFlow(nn.Module):
         return self.field(torch.cat((state, time.to(state)), dim=-1))
 
     def integrate(self, source: torch.Tensor, steps: int = 32) -> torch.Tensor:
+        return self.trajectory(source, steps=steps)[-1]
+
+    def trajectory(self, source: torch.Tensor, steps: int = 32) -> torch.Tensor:
         state = source
+        points = [state]
         dt = 1.0 / steps
         for index in range(steps):
             time = torch.full((len(state), 1), index * dt, device=state.device)
             state = state + dt * self.velocity(state, time)
-        return state
+            points.append(state)
+        return torch.stack(points)
 
     def losses(
         self,

@@ -25,3 +25,12 @@ def test_linear_cfm_bridge_endpoints_and_velocity():
     assert torch.allclose(end, dataset.data.target_3d[indices])
     assert torch.equal(velocity, velocity_end)
     assert torch.allclose(end - start, velocity)
+
+
+def test_four_dimensional_source_keeps_same_torus_coupling():
+    batch = generate_gaussian_torus(64, seed=9, source_dim=4)
+    assert batch.source_latent.shape == (64, 4)
+    assert torch.equal(batch.source_latent[:, :2], batch.source_2d)
+    reference = generate_gaussian_torus(64, seed=9, source_dim=2)
+    assert torch.equal(batch.source_2d, reference.source_2d)
+    assert torch.equal(batch.target_3d, reference.target_3d)

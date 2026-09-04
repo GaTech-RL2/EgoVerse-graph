@@ -24,7 +24,9 @@ def main() -> None:
 
     data = np.load(args.dataset, allow_pickle=False)
     indices = np.flatnonzero(data["split"] == 1)
-    source_2d = torch.from_numpy(data["source_2d"][indices]).float()
+    first_checkpoint = torch.load(args.unite_checkpoint, map_location="cpu", weights_only=False)
+    source_key = first_checkpoint["config"].get("source_key", "source_2d")
+    source_latent = torch.from_numpy(data[source_key][indices]).float()
     source_3d = torch.from_numpy(data["source_3d"][indices]).float()
     target_3d = torch.from_numpy(data["target_3d"][indices]).float()
     times = torch.linspace(0.0, 1.0, args.steps + 1)
@@ -39,7 +41,12 @@ def main() -> None:
         model = SyntheticSharedLatentFlow(**config["model"])
         model.load_state_dict(checkpoint["model"], strict=True)
         model.eval()
-        state = source_2d.clone()
+        checkpoint_source_key = config.get("source_key", "source_2d")
+        if checkpoint_source_key != source_key:
+            raise ValueError(
+                f"checkpoint source keys differ: {source_key} vs {checkpoint_source_key}"
+            )
+        state = source_latent.clone()
         decoded = [model.decoder(state)]
         dt = 1.0 / args.steps
         with torch.inference_mode():

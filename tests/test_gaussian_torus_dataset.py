@@ -9,6 +9,7 @@ def test_gaussian_torus_is_deterministic_and_on_surface():
     first = generate_gaussian_torus(128, seed=7)
     second = generate_gaussian_torus(128, seed=7)
     assert torch.equal(first.source_2d, second.source_2d)
+    assert torch.equal(first.source_gaussian_3d, second.source_gaussian_3d)
     assert torch.equal(first.target_3d, second.target_3d)
     radial = first.target_3d[:, :2].norm(dim=-1)
     residual = (radial - 2.0).square() + first.target_3d[:, 2].square()
@@ -34,3 +35,4 @@ def test_four_dimensional_source_keeps_same_torus_coupling():
     reference = generate_gaussian_torus(64, seed=9, source_dim=2)
     assert torch.equal(batch.source_2d, reference.source_2d)
     assert torch.equal(batch.target_3d, reference.target_3d)
+    assert torch.equal(batch.source_gaussian_3d, reference.source_gaussian_3d)

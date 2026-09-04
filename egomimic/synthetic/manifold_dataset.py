@@ -14,6 +14,7 @@ class GaussianTorusBatch:
     source_latent: torch.Tensor
     source_2d: torch.Tensor
     source_3d: torch.Tensor
+    source_gaussian_3d: torch.Tensor
     target_3d: torch.Tensor
     angles: torch.Tensor
 
@@ -23,7 +24,15 @@ class GaussianParaboloidBatch:
     source_latent: torch.Tensor
     source_2d: torch.Tensor
     source_3d: torch.Tensor
+    source_gaussian_3d: torch.Tensor
     target_3d: torch.Tensor
+
+
+def _independent_gaussian_3d(
+    count: int, seed: int, dtype: torch.dtype
+) -> torch.Tensor:
+    generator = torch.Generator(device="cpu").manual_seed(int(seed) + 10_000)
+    return torch.randn((count, 3), generator=generator, dtype=dtype)
 
 
 def generate_gaussian_torus(
@@ -64,7 +73,14 @@ def generate_gaussian_torus(
         (tube * theta.cos(), tube * theta.sin(), minor_radius * phi.sin()), dim=-1
     )
     source_3d = torch.nn.functional.pad(source_2d, (0, 1))
-    return GaussianTorusBatch(source_latent, source_2d, source_3d, target_3d, angles)
+    return GaussianTorusBatch(
+        source_latent,
+        source_2d,
+        source_3d,
+        _independent_gaussian_3d(count, seed, dtype),
+        target_3d,
+        angles,
+    )
 
 
 def generate_gaussian_paraboloid(
@@ -101,7 +117,11 @@ def generate_gaussian_paraboloid(
     height = curvature * source_2d.square().sum(dim=-1, keepdim=True)
     target_3d = torch.cat((source_2d, height), dim=-1)
     return GaussianParaboloidBatch(
-        source_latent, source_2d, source_3d, target_3d
+        source_latent,
+        source_2d,
+        source_3d,
+        _independent_gaussian_3d(count, seed, dtype),
+        target_3d,
     )
 
 
@@ -119,6 +139,7 @@ class GaussianTorusDataset(Dataset):
             "source_latent": self.data.source_latent[index],
             "source_2d": self.data.source_2d[index],
             "source_3d": self.data.source_3d[index],
+            "source_gaussian_3d": self.data.source_gaussian_3d[index],
             "target_3d": self.data.target_3d[index],
             "angles": self.data.angles[index],
         }
@@ -148,6 +169,7 @@ class GaussianParaboloidDataset(Dataset):
             "source_latent": self.data.source_latent[index],
             "source_2d": self.data.source_2d[index],
             "source_3d": self.data.source_3d[index],
+            "source_gaussian_3d": self.data.source_gaussian_3d[index],
             "target_3d": self.data.target_3d[index],
         }
 

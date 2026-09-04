@@ -10,6 +10,7 @@ def test_gaussian_paraboloid_is_deterministic_and_on_surface():
     first = generate_gaussian_paraboloid(128, seed=7, curvature=0.25)
     second = generate_gaussian_paraboloid(128, seed=7, curvature=0.25)
     torch.testing.assert_close(first.source_latent, second.source_latent)
+    torch.testing.assert_close(first.source_gaussian_3d, second.source_gaussian_3d)
     torch.testing.assert_close(first.target_3d, second.target_3d)
     torch.testing.assert_close(first.target_3d[:, :2], first.source_2d)
     torch.testing.assert_close(
@@ -23,6 +24,9 @@ def test_latent_four_preserves_paired_problem_and_adds_nuisance_dimensions():
     assert wide.source_latent.shape == (64, 4)
     torch.testing.assert_close(wide.source_latent[:, :2], reference.source_latent)
     torch.testing.assert_close(wide.target_3d, reference.target_3d)
+    torch.testing.assert_close(
+        wide.source_gaussian_3d, reference.source_gaussian_3d
+    )
 
 
 def test_dataset_exposes_exact_linear_bridge():

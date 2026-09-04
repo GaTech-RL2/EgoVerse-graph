@@ -25,6 +25,13 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # Preserve the immutable IDs used by the simulator imported from
+    # EgoVerse:bf/2-sim.  The newer articulated PushShapes embodiments use
+    # 19/20 below, so retaining 15-17 is collision-free and keeps old zarr
+    # episodes readable by the shared writer/loader stack.
+    PUSHSHAPES_SIM = 15
+    PUSHSHAPES_SIM_STICK = 16
+    PUSHSHAPES_SIM_SMALL_CIRCLE = 17
     PUSHSHAPES_SIM_U_SOCKET = 19
     PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
 

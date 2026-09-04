@@ -177,6 +177,16 @@ def test_native_action_l1_wraps_angular_residual():
     )
 
 
+def test_native_trajectory_metric_expands_one_target_across_sampler_steps():
+    target = torch.randn(2, 16, 3)
+    predictions = target.unsqueeze(0).expand(17, -1, -1, -1).clone()
+    metric = PlanarActionEval._trajectory_native_mse(
+        predictions, target, decoder=object()
+    )
+    assert metric.shape == (17, 2)
+    torch.testing.assert_close(metric, torch.zeros_like(metric))
+
+
 def test_flow_objective_sums_fourteen_full_mean_terms():
     batch = VelocityFlowObjectiveStage(samples_per_reconstruction=14)(
         {

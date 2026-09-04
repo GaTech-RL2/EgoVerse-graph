@@ -348,12 +348,8 @@ class PlanarActionEval(Eval):
                 [self._native(state, embodiment_id, decoder) for state in decoded],
                 dim=0,
             )
-            native_mse = (
-                self._native_residual(
-                    decoded_native, native_target.unsqueeze(0), decoder
-                )
-                .square()
-                .mean(dim=(-2, -1))
+            native_mse = self._trajectory_native_mse(
+                decoded_native, native_target, decoder
             )
             for step in range(int(states.shape[0])):
                 add_metric(
@@ -540,6 +536,21 @@ class PlanarActionEval(Eval):
     def _native_l1(cls, prediction, target, decoder):
         """Measure native Planar L1 with the same circular theta residual."""
         return cls._native_residual(prediction, target, decoder).abs().mean()
+
+    @classmethod
+    def _trajectory_native_mse(cls, predictions, target, decoder):
+        """Measure every trajectory state against one shared native target."""
+        if predictions.ndim != target.ndim + 1 or predictions.shape[1:] != target.shape:
+            raise ValueError(
+                "native trajectory and target shapes differ: "
+                f"{predictions.shape} != (*, {target.shape})"
+            )
+        expanded_target = target.unsqueeze(0).expand_as(predictions)
+        return (
+            cls._native_residual(predictions, expanded_target, decoder)
+            .square()
+            .mean(dim=(-2, -1))
+        )
 
     def native_action_errors(
         self, normalized_prediction, normalized_target, source_batch

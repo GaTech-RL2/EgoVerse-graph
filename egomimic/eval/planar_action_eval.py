@@ -61,10 +61,13 @@ class PlanarActionEval(Eval):
             energy_score_provenance,
             label="energy_score_provenance",
         )
-        self.unite_diagnostics = self._metadata_copy(
-            unite_diagnostics,
-            label="unite_diagnostics",
-        ) or {}
+        self.unite_diagnostics = (
+            self._metadata_copy(
+                unite_diagnostics,
+                label="unite_diagnostics",
+            )
+            or {}
+        )
         self.unite_diagnostics_enabled = bool(
             self.unite_diagnostics.get("enabled", False)
         )
@@ -178,7 +181,9 @@ class PlanarActionEval(Eval):
     def _configure_unite_diagnostics(self):
         path = Path(str(self.unite_diagnostics.get("noise_seed_bank_path", "")))
         expected = str(self.unite_diagnostics.get("noise_seed_bank_sha256", ""))
-        digest = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+        digest = (
+            hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+        )
         if digest != expected:
             raise ValueError(f"UNITE diagnostic seed-bank identity mismatch: {path}")
         payload = json.loads(path.read_text())
@@ -188,14 +193,11 @@ class PlanarActionEval(Eval):
         self._unite_noise_seeds = seeds
         self._unite_noise_seed_sha256 = digest
         self._unite_noise_levels = [
-            float(value)
-            for value in self.unite_diagnostics.get("raw_noise_levels", [])
+            float(value) for value in self.unite_diagnostics.get("raw_noise_levels", [])
         ]
         if (
             len(self._unite_noise_levels) < 2
-            or any(
-                not 0.0 <= value <= 1.0 for value in self._unite_noise_levels
-            )
+            or any(not 0.0 <= value <= 1.0 for value in self._unite_noise_levels)
             or any(
                 right <= left
                 for left, right in zip(
@@ -298,7 +300,10 @@ class PlanarActionEval(Eval):
         if torch.is_tensor(value):
             return value.detach().float().cpu()
         if isinstance(value, Mapping):
-            return {str(key): PlanarActionEval._cpu_tree(item) for key, item in value.items()}
+            return {
+                str(key): PlanarActionEval._cpu_tree(item)
+                for key, item in value.items()
+            }
         if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
             return [PlanarActionEval._cpu_tree(item) for item in value]
         return copy.deepcopy(value)
@@ -334,15 +339,17 @@ class PlanarActionEval(Eval):
             if states.shape[1:] != clean.shape or decoded.shape[1:] != target.shape:
                 raise ValueError("UNITE diagnostic trajectory shapes do not align")
             latent_mse = (states - clean.unsqueeze(0)).square().mean(dim=(-2, -1))
-            decoded_mse = (decoded - target.float().unsqueeze(0)).square().mean(
-                dim=(-2, -1)
+            decoded_mse = (
+                (decoded - target.float().unsqueeze(0)).square().mean(dim=(-2, -1))
             )
             native_target = self._native(target, embodiment_id)
             decoded_native = torch.stack(
                 [self._native(state, embodiment_id) for state in decoded], dim=0
             )
             native_mse = (
-                (decoded_native - native_target.unsqueeze(0)).square().mean(dim=(-2, -1))
+                (decoded_native - native_target.unsqueeze(0))
+                .square()
+                .mean(dim=(-2, -1))
             )
             for step in range(int(states.shape[0])):
                 add_metric(
@@ -363,7 +370,9 @@ class PlanarActionEval(Eval):
 
             predictions = diagnostic["noise_level_final_predictions"].float()
             clean_flat = clean.reshape(clean.shape[0], -1)
-            prediction_flat = predictions.reshape(predictions.shape[0], predictions.shape[1], -1)
+            prediction_flat = predictions.reshape(
+                predictions.shape[0], predictions.shape[1], -1
+            )
             clean_norm = torch.linalg.vector_norm(clean_flat, dim=1)
             prediction_norm = torch.linalg.vector_norm(prediction_flat, dim=2)
             if bool((clean_norm <= 0).any()) or bool((prediction_norm <= 0).any()):
@@ -464,9 +473,7 @@ class PlanarActionEval(Eval):
             if index == 0:
                 first_result = result
             for source_id in batch:
-                predictions[source_id].append(
-                    result[source_id]["pred_action"].detach()
-                )
+                predictions[source_id].append(result[source_id]["pred_action"].detach())
         if first_result is None:  # guarded by the seed-bank constructor check
             raise RuntimeError("Energy Score seed bank is empty")
         return (
@@ -499,8 +506,8 @@ class PlanarActionEval(Eval):
         return decoder.decode(unnormalized)
 
     @staticmethod
-    def _native_mse(prediction, target, decoder):
-        """Measure native Planar actions with a circular theta residual."""
+    def _native_residual(prediction, target, decoder):
+        """Return native Planar residuals with circular theta handling."""
         if prediction.shape != target.shape:
             raise ValueError(
                 "native prediction and target shapes differ: "
@@ -509,17 +516,38 @@ class PlanarActionEval(Eval):
         # Without a decoder, rotation remains encoded as cos/sin in common-five
         # space, where ordinary subtraction is already wrap-safe.
         if decoder is None or prediction.shape[-1] < 3:
-            return (prediction - target).square().mean()
+            return prediction - target
 
         residual = prediction - target
         theta_residual = torch.atan2(
             torch.sin(residual[..., 2]), torch.cos(residual[..., 2])
         )
-        residual = torch.cat(
+        return torch.cat(
             (residual[..., :2], theta_residual.unsqueeze(-1), residual[..., 3:]),
             dim=-1,
         )
-        return residual.square().mean()
+
+    @classmethod
+    def _native_mse(cls, prediction, target, decoder):
+        """Measure native Planar actions with a circular theta residual."""
+        return cls._native_residual(prediction, target, decoder).square().mean()
+
+    @classmethod
+    def _native_l1(cls, prediction, target, decoder):
+        """Measure native Planar L1 with the same circular theta residual."""
+        return cls._native_residual(prediction, target, decoder).abs().mean()
+
+    def native_action_errors(
+        self, normalized_prediction, normalized_target, source_batch
+    ):
+        """Measure a normalized action pair in the source embodiment's native space."""
+        embodiment_id, _ = self._embodiment(source_batch)
+        decoder = self._native_decoder(embodiment_id)
+        prediction = self._native(normalized_prediction, embodiment_id, decoder)
+        target = self._native(normalized_target, embodiment_id, decoder)
+        return self._native_mse(prediction, target, decoder), self._native_l1(
+            prediction, target, decoder
+        )
 
     def _energy_values(self, samples, target):
         if samples.ndim != 4 or samples.shape[0] != 32:
@@ -603,10 +631,8 @@ class PlanarActionEval(Eval):
         else:
             result = self._forward_with_seed(batch, self.deterministic_seed)
         metrics = {}
-        if (
-            self.unite_diagnostics_enabled
-            and self._unite_diagnostic_batches_done
-            < int(self.unite_diagnostics["max_batches_per_rank"])
+        if self.unite_diagnostics_enabled and self._unite_diagnostic_batches_done < int(
+            self.unite_diagnostics["max_batches_per_rank"]
         ):
             metrics.update(
                 self._unite_metrics_and_artifact(

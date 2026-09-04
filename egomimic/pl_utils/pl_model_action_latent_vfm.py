@@ -8,10 +8,10 @@ from typing import Any
 
 import torch
 
-from egomimic.pipeline.stages_action_latent_vfm import LatentVelocityFieldStage
 from egomimic.pipeline.stages_action_latent_vfm import (
     ActionLatentDecoderStage,
     ActionLatentEncoderStage,
+    LatentVelocityFieldStage,
 )
 from egomimic.pl_utils.pl_model import ModelWrapper
 
@@ -44,9 +44,15 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
         """Expose action-latent trajectories through the shared evaluator API."""
 
         stages = self.model.pipeline.stages
-        encoders = [stage for stage in stages if isinstance(stage, ActionLatentEncoderStage)]
-        velocities = [stage for stage in stages if isinstance(stage, LatentVelocityFieldStage)]
-        decoders = [stage for stage in stages if isinstance(stage, ActionLatentDecoderStage)]
+        encoders = [
+            stage for stage in stages if isinstance(stage, ActionLatentEncoderStage)
+        ]
+        velocities = [
+            stage for stage in stages if isinstance(stage, LatentVelocityFieldStage)
+        ]
+        decoders = [
+            stage for stage in stages if isinstance(stage, ActionLatentDecoderStage)
+        ]
         if tuple(map(len, (encoders, velocities, decoders))) != (1, 1, 1):
             raise RuntimeError(
                 "action-latent diagnostics require one encoder, velocity field, and decoder"
@@ -321,6 +327,22 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
             self._validation_sums[name] = (
                 self._validation_sums.get(name, 0.0) + weighted
             )
+        if self.evaluator is not None:
+            for source, result in predictions.items():
+                target = result["target"]
+                source_count = int(target.shape[0])
+                native_mse, native_l1 = self.evaluator.native_action_errors(
+                    result["reconstruction/pred_action"], target, batch[source]
+                )
+                for name, value in (
+                    ("ReconstructionNativeMSE", native_mse),
+                    ("ReconstructionNativeL1", native_l1),
+                ):
+                    value = self._finite_scalar(value, f"{source!r}/{name}")
+                    weighted = value.detach().double() * source_count
+                    self._validation_sums[name] = (
+                        self._validation_sums.get(name, 0.0) + weighted
+                    )
         self._validation_count += count
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):

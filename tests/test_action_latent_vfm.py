@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from omegaconf import OmegaConf
 
+from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.models.adaln_backbone import AdaLNBackbone
 from egomimic.pipeline.stages_action_latent_vfm import (
     FlowBridgeNoisingStage,
@@ -159,6 +160,21 @@ def test_velocity_endpoint_and_reconstruction_loss_update_local_prediction():
     )
     expected = noisy + (1.0 - time.reshape(-1, 1, 1)) * velocity
     assert torch.allclose(batch["reconstruction/pred_clean_latent"], expected)
+
+
+def test_native_action_l1_wraps_angular_residual():
+    prediction = torch.tensor([[[0.0, 0.0, -torch.pi + 0.1]]])
+    target = torch.tensor([[[0.0, 0.0, torch.pi - 0.1]]])
+    residual = PlanarActionEval._native_residual(prediction, target, decoder=object())
+    torch.testing.assert_close(
+        residual[..., 2], torch.tensor([[0.2]]), atol=1e-6, rtol=0
+    )
+    torch.testing.assert_close(
+        PlanarActionEval._native_l1(prediction, target, decoder=object()),
+        torch.tensor(0.2 / 3),
+        atol=1e-6,
+        rtol=0,
+    )
 
 
 def test_flow_objective_sums_fourteen_full_mean_terms():

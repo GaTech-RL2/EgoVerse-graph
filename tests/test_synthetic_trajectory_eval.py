@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import torch
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
@@ -36,3 +37,20 @@ def test_ground_truth_uses_same_npz_contract(tmp_path):
     torch.testing.assert_close(points[0, :, :2], source)
     torch.testing.assert_close(points[0, :, 2], torch.zeros(5))
     torch.testing.assert_close(points[-1], target)
+
+
+def test_validation_loader_requires_exact_requested_particle_count(tmp_path):
+    dataset = tmp_path / "small.npz"
+    np.savez_compressed(
+        dataset,
+        source_latent=np.zeros((5, 2), dtype=np.float32),
+        target_3d=np.zeros((5, 3), dtype=np.float32),
+        split=np.array([0, 1, 1, 2, 2], dtype=np.uint8),
+    )
+    source, target = SyntheticTrajectoryEval.load_validation_data(
+        dataset, "source_latent", 2
+    )
+    assert source.shape == (2, 2)
+    assert target.shape == (2, 3)
+    with pytest.raises(ValueError, match="requested 3 validation particles"):
+        SyntheticTrajectoryEval.load_validation_data(dataset, "source_latent", 3)

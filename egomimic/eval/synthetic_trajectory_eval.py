@@ -12,6 +12,25 @@ class SyntheticTrajectoryEval:
     """Validate and export one model's display-ready point trajectory."""
 
     @staticmethod
+    def load_validation_data(
+        path: str | Path, source_key: str, particles: int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Load exactly ``particles`` held-out examples or fail explicitly."""
+        if particles <= 0:
+            raise ValueError("particles must be positive")
+        archive = np.load(Path(path), allow_pickle=False)
+        indices = np.flatnonzero(archive["split"] == 1)
+        if len(indices) < particles:
+            raise ValueError(
+                f"requested {particles} validation particles, but {path} "
+                f"contains only {len(indices)}"
+            )
+        selected = indices[:particles]
+        source = torch.from_numpy(archive[source_key][selected]).float()
+        target = torch.from_numpy(archive["target_3d"][selected]).float()
+        return source, target
+
+    @staticmethod
     @torch.inference_mode()
     def evaluate(model, source: torch.Tensor, target: torch.Tensor, *, steps: int):
         points = model.trajectory(source, steps=steps)

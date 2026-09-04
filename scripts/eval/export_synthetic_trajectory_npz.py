@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import numpy as np
 import torch
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
@@ -14,14 +13,6 @@ from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
 )
-
-
-def validation_data(path: Path, source_key: str, limit: int):
-    archive = np.load(path, allow_pickle=False)
-    indices = np.flatnonzero(archive["split"] == 1)[:limit]
-    source = torch.from_numpy(archive[source_key][indices]).float()
-    target = torch.from_numpy(archive["target_3d"][indices]).float()
-    return source, target
 
 
 def main() -> None:
@@ -39,8 +30,9 @@ def main() -> None:
     if args.checkpoint is not None:
         checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
         config = checkpoint["config"]
-        source, target = validation_data(
-            Path(config["dataset"]),
+        dataset = args.dataset if args.dataset is not None else Path(config["dataset"])
+        source, target = SyntheticTrajectoryEval.load_validation_data(
+            dataset,
             config.get("source_key", "source_2d"),
             args.particles,
         )
@@ -59,7 +51,7 @@ def main() -> None:
     else:
         if args.dataset is None:
             raise SystemExit("ground truth export requires --dataset")
-        source, target = validation_data(
+        source, target = SyntheticTrajectoryEval.load_validation_data(
             args.dataset, args.ground_truth_source_key, args.particles
         )
         SyntheticTrajectoryEval.export_linear_ground_truth(

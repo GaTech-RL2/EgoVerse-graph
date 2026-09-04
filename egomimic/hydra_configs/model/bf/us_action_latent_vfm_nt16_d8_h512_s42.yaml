@@ -125,7 +125,9 @@ pipeline:
         num_heads: 4
         mlp_ratio: 4.0
         dropout: 0.0
-        gradient_checkpointing: true
+        # This decoder is only two 32-wide blocks. Disabling checkpointing also
+        # keeps its frozen-parameter monotonic VJP isolated from reconstruction.
+        gradient_checkpointing: false
 
     - _target_: egomimic.pipeline.stages_action_latent_vfm.NoisyReconstructionObjectiveStage
 

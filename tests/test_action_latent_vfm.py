@@ -7,6 +7,7 @@ from omegaconf import OmegaConf
 
 from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.models.adaln_backbone import AdaLNBackbone
+from egomimic.models.unite_action_decoder import UniteActionDecoder
 from egomimic.pipeline.stages_action_latent_vfm import (
     ActionLatentDecoderStage,
     ExpectedMonotonicNoisingStage,
@@ -206,7 +207,16 @@ def test_monotonic_objective_ranks_expected_risk_not_each_sample():
 
 
 def test_monotonic_decoder_path_updates_latent_but_not_decoder_parameters():
-    decoder = nn.Linear(3, 2)
+    decoder = UniteActionDecoder(
+        latent_dim=3,
+        action_dim=2,
+        num_latent_tokens=4,
+        action_horizon=5,
+        hidden_dim=16,
+        depth=2,
+        num_heads=4,
+        gradient_checkpointing=False,
+    )
     stage = ActionLatentDecoderStage(decoder)
     reconstruction_latent = torch.randn(2, 4, 3, requires_grad=True)
     less = torch.randn(2, 4, 3, requires_grad=True)
@@ -446,6 +456,12 @@ def test_graph_is_lint_clean_and_declares_condition_dropout():
     ranking = monotonic_nodes["ExpectedMonotonicRankingObjectiveStage"]
     assert ranking["p"]["margin"] == 0.0
     assert ranking["p"]["weight"] == 1.0
+    decoder = next(
+        node
+        for node in graphs["train"]["nodes"]
+        if node["t"] == "ActionLatentDecoderStage"
+    )
+    assert decoder["p"]["decoder"]["gradient_checkpointing"] is False
     experiment = OmegaConf.load(EXPERIMENT)
     assert experiment.callbacks.model_checkpoint.every_n_train_steps == 40000
     assert experiment.evaluator.unite_diagnostics.enabled is True

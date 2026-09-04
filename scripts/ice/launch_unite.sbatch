@@ -110,7 +110,11 @@ case "$ICE_GPU_CONTRACT" in
     ICE_GPU_LABEL=L40S
     GPU_PROBE_ARGS=(--allowed-gpu-name L40S)
     ;;
-  *) die "ICE_GPU_CONTRACT must be H100_OR_H200 or L40S" ;;
+  A100)
+    ICE_GPU_LABEL=A100
+    GPU_PROBE_ARGS=(--allowed-gpu-name A100)
+    ;;
+  *) die "ICE_GPU_CONTRACT must be H100_OR_H200, L40S, or A100" ;;
 esac
 case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;

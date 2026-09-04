@@ -477,6 +477,7 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
         "GPU_PROBE_ARGS=(--allowed-gpu-name H100 --allowed-gpu-name H200)" in launcher
     )
     assert "GPU_PROBE_ARGS=(--allowed-gpu-name L40S)" in launcher
+    assert "GPU_PROBE_ARGS=(--allowed-gpu-name A100)" in launcher
     assert '"${GPU_PROBE_ARGS[@]}"' in launcher
     assert "ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}" in launcher
     assert "ICE_UNITE_H100_FAST" not in launcher

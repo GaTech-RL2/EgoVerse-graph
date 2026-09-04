@@ -93,6 +93,13 @@ class TokenizePlanarArcLength:
     The final row has only its first field populated with mean arc speed. The
     first waypoint is copied from timestep zero rather than recovered via an
     arc lookup; this preserves stationary grip transitions exactly.
+
+    ``hybrid_rotation_unit`` optionally adds the hybrid Cartesian/angular
+    window rule used by the arc sweep.  The regular SE(2) cumulative clock
+    still supplies interpolation positions.  A separate, unweighted angular
+    clock then limits the fraction of the available Cartesian window.  This
+    is intentionally a dataset-bound Planar transform: generic PipelineAlgo
+    stages do not need to know what an angle or an action represents.
     """
 
     def __init__(
@@ -103,6 +110,7 @@ class TokenizePlanarArcLength:
         resampled_vector_length: int = 100,
         dt: float = 1.0 / 30.0,
         rotation_radius: float = 0.0,
+        hybrid_rotation_unit: float | None = None,
         zero_dist_epsilon: float = 1e-9,
     ):
         if min_distance_unit <= 0 or dt <= 0:
@@ -111,12 +119,21 @@ class TokenizePlanarArcLength:
             raise ValueError("resampled_vector_length must be at least two")
         if rotation_radius < 0:
             raise ValueError("rotation_radius must be non-negative")
+        if hybrid_rotation_unit is not None and (
+            not math.isfinite(hybrid_rotation_unit) or hybrid_rotation_unit <= 0
+        ):
+            raise ValueError("hybrid_rotation_unit must be finite and positive")
         self.action_key = str(action_key)
         self.output_action_key = str(output_action_key)
         self.distance = float(min_distance_unit)
         self.num_waypoints = int(resampled_vector_length)
         self.dt = float(dt)
         self.rotation_radius = float(rotation_radius)
+        self.hybrid_rotation_unit = (
+            None
+            if hybrid_rotation_unit is None
+            else float(hybrid_rotation_unit)
+        )
         self.zero_dist_epsilon = float(zero_dist_epsilon)
 
     @staticmethod
@@ -130,12 +147,36 @@ class TokenizePlanarArcLength:
         grip = actions[:, 3] if actions.shape[1] == 4 else np.zeros(len(actions))
         return xy, theta, grip
 
+    def _window_end(self, cumulative: np.ndarray, theta: np.ndarray) -> float:
+        """Return the cumulative-distance endpoint for this token window."""
+        end = min(self.distance, float(cumulative[-1]))
+        if self.hybrid_rotation_unit is None:
+            return end
+
+        rotation = np.concatenate(
+            (
+                np.zeros(1, dtype=np.float64),
+                np.cumsum(rotation_step_metric_planar(theta)),
+            )
+        )
+        translation_span = float(cumulative[-1])
+        rotation_span = float(rotation[-1])
+        if (
+            translation_span > self.zero_dist_epsilon
+            and rotation_span > self.zero_dist_epsilon
+        ):
+            rotation_fraction = min(
+                1.0, self.hybrid_rotation_unit / rotation_span
+            )
+            end = min(end, translation_span * rotation_fraction)
+        return end
+
     def tokenize(self, actions: np.ndarray) -> np.ndarray:
         xy, theta, grip = self._components(actions)
         weight = lambda_for_radius(self.rotation_radius)
         steps = planar_step_distance(xy, theta, weight)
         cumulative = np.concatenate((np.zeros(1), np.cumsum(steps)))
-        end = min(self.distance, float(cumulative[-1]))
+        end = self._window_end(cumulative, theta)
 
         if end <= self.zero_dist_epsilon:
             xy_waypoints = np.repeat(xy[:1], self.num_waypoints, axis=0)

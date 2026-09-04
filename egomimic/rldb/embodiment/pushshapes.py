@@ -112,6 +112,7 @@ def get_planar_arc_length_transform_list(
     resampled_vector_length: int = 100,
     dt: float = 1.0 / 30.0,
     rotation_radius: float = 0.0,
+    hybrid_rotation_unit: float | None = None,
     **_kwargs,
 ):
     """Create the active Planar SE(2) arc transform."""
@@ -126,6 +127,7 @@ def get_planar_arc_length_transform_list(
             resampled_vector_length=resampled_vector_length,
             dt=dt,
             rotation_radius=rotation_radius,
+            hybrid_rotation_unit=hybrid_rotation_unit,
         )
     ]
 

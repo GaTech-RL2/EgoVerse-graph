@@ -87,8 +87,9 @@ case "$ICE_LAUNCH_MODE" in
   *) die "ICE_LAUNCH_MODE must be preflight, dry-run, or run" ;;
 esac
 case "$ICE_EXPERIMENT" in
-  pusht/planar_v2_usocket_direct_bc|pusht/planar_v2_usocket_arc_bc) ;;
-  *) die "ICE_EXPERIMENT must select the direct or arc U-Socket BC config" ;;
+  pusht/planar_v2_usocket_direct_bc|pusht/planar_v2_usocket_arc_bc|\
+  pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc) ;;
+  *) die "ICE_EXPERIMENT must select a supported U-Socket BC config" ;;
 esac
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 [[ "$ICE_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || die "ICE_EXPECTED_HEAD must be a full commit"
@@ -276,7 +277,11 @@ assert cfg.run_provenance.split_seed == 42
 assert cfg.run_provenance.valid_ratio == 0.01
 assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
 assert cfg.name.startswith("planar_v2_usocket_")
-assert experiment.endswith(("_direct_bc", "_arc_bc"))
+assert experiment in {
+    "pusht/planar_v2_usocket_direct_bc",
+    "pusht/planar_v2_usocket_arc_bc",
+    "pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc",
+}
 PY
 
 "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" \

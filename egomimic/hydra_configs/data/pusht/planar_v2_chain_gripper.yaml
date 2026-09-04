@@ -22,7 +22,8 @@ train_datasets:
         action_target_offset: ${planar.action_target_offset}
         min_distance_unit: ${planar.arc_distance}
         resampled_vector_length: ${planar.arc_waypoints}
-        rotation_radius: 30.0
+        rotation_radius: ${planar.arc_rotation_radius}
+        hybrid_rotation_unit: ${planar.hybrid_rotation_unit}
     mode: train
     valid_ratio: 0.01
     split_seed: ${seed}

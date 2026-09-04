@@ -107,7 +107,7 @@ def main(argv=None):
     parser.add_argument("--fps", type=float, default=10.0)
     parser.add_argument("--seed", type=int, default=420042)
     parser.add_argument("--embodiment-name", default="pushshapes_sim_u_socket")
-    parser.add_argument("--embodiment-id", type=int, default=0)
+    parser.add_argument("--embodiment-id", type=int, required=True)
     parser.add_argument("--gt-alpha", type=float, default=0.6)
     parser.add_argument("--pred-alpha", type=float, default=1.0)
     args = parser.parse_args(argv)

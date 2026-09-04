@@ -18,6 +18,7 @@ from egomimic.pipeline.stages_action_latent_vfm import (
 from egomimic.pl_utils.pl_model_action_latent_vfm import (
     ActionLatentVFMModelWrapper,
 )
+from egomimic.trainHydra import _instantiate_model_wrapper
 from tools.config_graph import build_graph
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -258,6 +259,42 @@ def test_wrapper_weights_components_and_uses_shared_denoiser_telemetry(monkeypat
     assert "log/unite_recon_grad_norm" in logged
     assert "log/unite_denoise_grad_norm" in logged
     torch.testing.assert_close(parameter.grad, before)
+
+
+def test_training_entry_uses_resolved_gradient_telemetry_cadence(monkeypatch):
+    monkeypatch.setattr(
+        ActionLatentVFMModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _MetricAlgo(),
+    )
+    cfg = OmegaConf.create(
+        {
+            "model": {
+                "_target_": (
+                    "egomimic.pl_utils.pl_model_action_latent_vfm."
+                    "ActionLatentVFMModelWrapper"
+                ),
+                "pipeline": {},
+                "gradient_telemetry_cadence": 1,
+                "enable_grad_norm": False,
+            }
+        }
+    )
+
+    wrapper = _instantiate_model_wrapper(cfg)
+
+    assert wrapper.gradient_telemetry_cadence == 1
+    assert wrapper.hparams.gradient_telemetry_cadence == 1
+    logged = {}
+    monkeypatch.setattr(
+        wrapper,
+        "log",
+        lambda name, value, **kwargs: logged.setdefault(name, (value, kwargs)),
+    )
+    wrapper.training_step(OrderedDict((("source", {"count": 2}),)), 0)
+    assert "log/unite_gradient_cosine" in logged
+    assert "log/unite_recon_grad_norm" in logged
+    assert "log/unite_denoise_grad_norm" in logged
 
 
 def test_graph_is_lint_clean_and_declares_condition_dropout():

@@ -26,11 +26,29 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
         ("ReconstructionL1", "log/action_latent_reconstruction_l1"),
     )
 
-    def __init__(self, gradient_telemetry_cadence: int = 100, **kwargs):
+    def __init__(self, gradient_telemetry_cadence: int | None = None, **kwargs):
+        config_tree = kwargs.get("config_tree")
+        configured_cadence = None
+        if config_tree is not None:
+            cfg = self._as_config(config_tree)
+            configured_cadence = cfg.model.get("gradient_telemetry_cadence")
+        if gradient_telemetry_cadence is None:
+            gradient_telemetry_cadence = (
+                self.gradient_telemetry_cadence
+                if configured_cadence is None
+                else configured_cadence
+            )
+        elif configured_cadence is not None and int(gradient_telemetry_cadence) != int(
+            configured_cadence
+        ):
+            raise ValueError(
+                "gradient_telemetry_cadence disagrees with the resolved config_tree"
+            )
         super().__init__(**kwargs)
         self.gradient_telemetry_cadence = int(gradient_telemetry_cadence)
         if self.gradient_telemetry_cadence <= 0:
             raise ValueError("gradient_telemetry_cadence must be positive")
+        self.hparams.gradient_telemetry_cadence = self.gradient_telemetry_cadence
         self._validation_sums = OrderedDict()
         self._validation_count = 0
 

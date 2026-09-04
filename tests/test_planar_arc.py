@@ -60,6 +60,42 @@ def test_rotation_radius_adds_metric_distance():
     assert np.all(weighted > 0)
 
 
+def test_hybrid_rotation_budget_caps_a_shared_cartesian_window():
+    """A small angular budget shortens the common arc window, not a stream."""
+    action = np.array(
+        [[0.0, 0.0, 0.0], [10.0, 0.0, math.pi], [20.0, 0.0, math.pi]]
+    )
+    token = TokenizePlanarArcLength(
+        min_distance_unit=20,
+        resampled_vector_length=3,
+        rotation_radius=0,
+        hybrid_rotation_unit=0.25,
+    ).transform({"actions": action})["actions"]
+
+    # The first pi rotation has unit chordal metric, so its 0.25 budget keeps
+    # only the first quarter of the 20-unit Cartesian future: x=5.
+    np.testing.assert_allclose(token[2, :2], [5.0, 0.0], atol=1e-6)
+
+
+def test_hybrid_rotation_budget_does_not_shorten_translation_only_motion():
+    action = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [20.0, 0.0, 0.0]])
+    legacy = TokenizePlanarArcLength(
+        min_distance_unit=12, resampled_vector_length=3
+    ).transform({"actions": action})["actions"]
+    hybrid = TokenizePlanarArcLength(
+        min_distance_unit=12,
+        resampled_vector_length=3,
+        hybrid_rotation_unit=0.25,
+    ).transform({"actions": action})["actions"]
+    np.testing.assert_allclose(hybrid, legacy)
+
+
+@pytest.mark.parametrize("budget", [0.0, -1.0, float("nan")])
+def test_hybrid_rotation_budget_must_be_positive_and_finite(budget):
+    with pytest.raises(ValueError, match="hybrid_rotation_unit"):
+        TokenizePlanarArcLength(hybrid_rotation_unit=budget)
+
+
 def test_zero_motion_holds_pose_and_grip():
     action = np.repeat(np.array([[4.0, 7.0, 0.5, 0.75]]), 5, axis=0)
     token = TokenizePlanarArcLength(resampled_vector_length=3).transform(

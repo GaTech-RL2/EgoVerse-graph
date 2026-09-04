@@ -35,6 +35,9 @@ planar:
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
   arc_distance: 200.0
   arc_waypoints: 100
+  # Null preserves the ordinary SE(2) arc window.  A positive value enables
+  # the hybrid Cartesian/angular window cap in the Planar dataset transform.
+  hybrid_rotation_unit: null
   batch_size: 16
   encoder:
     _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder

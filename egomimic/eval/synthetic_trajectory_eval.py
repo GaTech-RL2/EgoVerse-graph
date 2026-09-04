@@ -31,6 +31,22 @@ class SyntheticTrajectoryEval:
         return source, target
 
     @staticmethod
+    def symmetric_nearest_neighbor_mse(
+        samples: torch.Tensor, targets: torch.Tensor
+    ) -> torch.Tensor:
+        """Symmetric point-cloud NN loss, covering precision and support recall."""
+        if (
+            samples.ndim != 2
+            or targets.ndim != 2
+            or samples.shape[1:] != targets.shape[1:]
+        ):
+            raise ValueError("samples and targets must have shapes [N,D] and [M,D]")
+        squared_distances = torch.cdist(samples, targets).square()
+        sample_to_target = squared_distances.min(dim=1).values.mean()
+        target_to_sample = squared_distances.min(dim=0).values.mean()
+        return 0.5 * (sample_to_target + target_to_sample)
+
+    @staticmethod
     @torch.inference_mode()
     def evaluate(model, source: torch.Tensor, target: torch.Tensor, *, steps: int):
         points = model.trajectory(source, steps=steps)
@@ -78,9 +94,7 @@ class SyntheticTrajectoryEval:
         if source.shape != target.shape or source.shape[-1] != 3:
             raise ValueError("ground-truth source and target must share shape [N,3]")
         times = torch.linspace(0.0, 1.0, steps + 1, device=source.device)
-        points = torch.stack(
-            [(1.0 - time) * source + time * target for time in times]
-        )
+        points = torch.stack([(1.0 - time) * source + time * target for time in times])
         output = Path(output)
         output.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(

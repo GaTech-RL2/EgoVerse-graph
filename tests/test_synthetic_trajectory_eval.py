@@ -17,9 +17,7 @@ def test_shared_eval_exports_same_npz_contract_for_both_model_families(tmp_path)
     )
     for index, (model, source) in enumerate(models_and_sources):
         output = tmp_path / f"trajectory-{index}.npz"
-        points = SyntheticTrajectoryEval.export(
-            model, source, target, output, steps=3
-        )
+        points = SyntheticTrajectoryEval.export(model, source, target, output, steps=3)
         archive = np.load(output, allow_pickle=False)
         assert set(archive.files) == {"times", "points", "target"}
         assert points.shape == (4, 7, 3)
@@ -54,3 +52,16 @@ def test_validation_loader_requires_exact_requested_particle_count(tmp_path):
     assert target.shape == (2, 3)
     with pytest.raises(ValueError, match="requested 3 validation particles"):
         SyntheticTrajectoryEval.load_validation_data(dataset, "source_latent", 3)
+
+
+def test_symmetric_nearest_neighbor_mse_checks_both_directions():
+    samples = torch.tensor([[0.0, 0.0], [2.0, 0.0]])
+    targets = torch.tensor([[0.0, 0.0], [4.0, 0.0]])
+    loss = SyntheticTrajectoryEval.symmetric_nearest_neighbor_mse(samples, targets)
+    torch.testing.assert_close(loss, torch.tensor(2.0))
+
+    collapsed = torch.zeros(2, 2)
+    collapsed_loss = SyntheticTrajectoryEval.symmetric_nearest_neighbor_mse(
+        collapsed, targets
+    )
+    assert collapsed_loss > 0

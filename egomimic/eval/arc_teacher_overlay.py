@@ -64,11 +64,62 @@ def _draw_path(frame: np.ndarray, xy: np.ndarray, color, alpha: float) -> np.nda
     points[:, 0] = np.clip(points[:, 0], 0, width - 1)
     points[:, 1] = np.clip(points[:, 1], 0, height - 1)
     if len(points) > 1:
-        cv2.polylines(canvas, [points.reshape(-1, 1, 2)], False, color, 2, cv2.LINE_AA)
-    for index, point in enumerate(points):
-        radius = 4 if index == 0 else 2
-        cv2.circle(canvas, tuple(point), radius, color, -1, cv2.LINE_AA)
+        cv2.polylines(canvas, [points.reshape(-1, 1, 2)], False, color, 1, cv2.LINE_AA)
+    # At 96x96, the former 4 px start radius obscured the pusher and target.
+    # Mark only the first waypoint with a one-pixel-radius dot; the polyline
+    # communicates the remaining ordered waypoints without a chain of blobs.
+    if len(points):
+        cv2.circle(canvas, tuple(points[0]), 1, color, -1, cv2.LINE_AA)
     return cv2.addWeighted(canvas, float(alpha), frame, 1.0 - float(alpha), 0)
+
+
+def render_prediction_artifact(
+    artifact_path: Path,
+    video_path: Path,
+    first_frame_path: Path,
+    *,
+    fps: float = 10.0,
+    gt_alpha: float = 0.6,
+    pred_alpha: float = 1.0,
+) -> int:
+    """Render paired GT/prediction paths without running stochastic inference."""
+    artifact_path = Path(artifact_path).resolve(strict=True)
+    video_path = Path(video_path).resolve()
+    first_frame_path = Path(first_frame_path).resolve()
+    for path in (video_path, first_frame_path):
+        if path.exists():
+            raise RuntimeError(f"refusing to overwrite immutable render {path}")
+    data = np.load(artifact_path)
+    images = data["images"]
+    targets = data["target_tokens"]
+    predictions = data["predicted_tokens"]
+    indices = data["frame_indices"]
+    if images.shape[0] == 0 or targets.shape != predictions.shape or targets.shape[1:] != (17, 5):
+        raise RuntimeError(
+            f"invalid arc prediction artifact: images={images.shape}, "
+            f"target={targets.shape}, prediction={predictions.shape}"
+        )
+    if len(images) != len(targets) or len(indices) != len(targets):
+        raise RuntimeError("artifact image, token, and frame counts differ")
+    rendered = []
+    for image, target, pred, index in zip(images, targets, predictions, indices):
+        frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        frame = _draw_path(frame, target[:16, :2], (0, 220, 0), gt_alpha)
+        frame = _draw_path(frame, pred[:16, :2], (0, 0, 255), pred_alpha)
+        cv2.putText(frame, f"GT green | Pred red | frame {int(index)}", (4, 13),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.32, (255, 255, 255), 1, cv2.LINE_AA)
+        rendered.append(frame)
+    height, width = rendered[0].shape[:2]
+    writer = cv2.VideoWriter(str(video_path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    if not writer.isOpened():
+        raise RuntimeError("OpenCV could not open MP4 writer")
+    for frame in rendered:
+        writer.write(frame)
+    writer.release()
+    if not video_path.is_file() or video_path.stat().st_size == 0:
+        raise RuntimeError("overlay video was not written")
+    cv2.imwrite(str(first_frame_path), rendered[0])
+    return len(rendered)
 
 
 def _validate_split(config, split_path: Path, episode_id: str):
@@ -181,24 +232,10 @@ def main(argv=None):
         rng_seed=np.asarray(args.seed, dtype=np.int64),
     )
 
-    rendered = []
-    for image, target, pred, index in zip(images, targets, predictions, indices):
-        frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        frame = _draw_path(frame, target[:16, :2], (0, 220, 0), args.gt_alpha)
-        frame = _draw_path(frame, pred[:16, :2], (0, 0, 255), args.pred_alpha)
-        cv2.putText(frame, f"GT green | Pred red | frame {index}", (4, 13),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.32, (255, 255, 255), 1, cv2.LINE_AA)
-        rendered.append(frame)
-    height, width = rendered[0].shape[:2]
-    writer = cv2.VideoWriter(str(video_path), cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (width, height))
-    if not writer.isOpened():
-        raise RuntimeError("OpenCV could not open MP4 writer")
-    for frame in rendered:
-        writer.write(frame)
-    writer.release()
-    if not video_path.is_file() or video_path.stat().st_size == 0:
-        raise RuntimeError("overlay video was not written")
-    cv2.imwrite(str(first_frame_path), rendered[0])
+    render_prediction_artifact(
+        artifact_path, video_path, first_frame_path,
+        fps=args.fps, gt_alpha=args.gt_alpha, pred_alpha=args.pred_alpha,
+    )
 
     token_mse = float(np.mean(np.square(predictions - targets)))
     xy_rmse = float(np.sqrt(np.mean(np.square(predictions[:, :16, :2] - targets[:, :16, :2]))))

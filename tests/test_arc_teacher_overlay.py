@@ -19,6 +19,13 @@ def test_arc_overlay_keeps_timing_row_out_of_xy_geometry():
     assert '"timing_row_drawn": False' in overlay
 
 
+def test_arc_overlay_uses_small_start_marker_and_supports_artifact_rerender():
+    overlay = (ROOT / "egomimic/eval/arc_teacher_overlay.py").read_text()
+    assert "def render_prediction_artifact" in overlay
+    assert "tuple(points[0]), 1" in overlay
+    assert "for index, point in enumerate(points)" not in overlay
+
+
 def test_arc_overlay_is_validation_split_and_artifact_bound():
     overlay = (ROOT / "egomimic/eval/arc_teacher_overlay.py").read_text()
     assert "episode_id not in valid_ids" in overlay

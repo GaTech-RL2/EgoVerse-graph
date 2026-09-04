@@ -152,26 +152,35 @@ class PipelineRolloutGraph:
         return type(stages[0]).__name__, original
 
     @torch.inference_mode()
+    def predict_tokens(self, batch: dict, *, namespace: str = "teacher_overlay"):
+        """Run the exact checkpoint inference graph and return physical tokens.
+
+        Keeping this path shared with rollout prevents teacher-forced diagnostics
+        from silently acquiring a second normalization or sampler implementation.
+        """
+        work = dict(batch)
+        work["state_agent_obj"] = _apply_stats(
+            work["state_agent_obj"],
+            self.stats["state_agent_obj"],
+            self.norm_mode,
+            inverse=False,
+        )
+        work["embodiment"] = self.embodiment_name
+        result = self.algo.forward_eval({namespace: work})[namespace]
+        if "pred_action" not in result:
+            raise RuntimeError("Pipeline inference graph produced no pred_action")
+        return _apply_stats(
+            result["pred_action"], self.stats["actions"], self.norm_mode, inverse=True
+        )
+
+    @torch.inference_mode()
     def inference_step(self, obs_zarr: dict, t: int, emb_id: int, T_max=None):
         del t, T_max
         if int(emb_id) != self.embodiment_id:
             raise RuntimeError(
                 f"rollout embodiment {emb_id} != configured {self.embodiment_id}"
             )
-        batch = dict(obs_zarr)
-        batch["state_agent_obj"] = _apply_stats(
-            batch["state_agent_obj"],
-            self.stats["state_agent_obj"],
-            self.norm_mode,
-            inverse=False,
-        )
-        batch["embodiment"] = self.embodiment_name
-        result = self.algo.forward_eval({"rollout": batch})["rollout"]
-        if "pred_action" not in result:
-            raise RuntimeError("Pipeline inference graph produced no pred_action")
-        tokens = _apply_stats(
-            result["pred_action"], self.stats["actions"], self.norm_mode, inverse=True
-        )
+        tokens = self.predict_tokens(obs_zarr, namespace="rollout")
         native = self.decoder.decode(tokens, context={})
         if not torch.is_tensor(native):
             native = torch.as_tensor(native)

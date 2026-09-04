@@ -103,6 +103,8 @@ case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_flow42_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt16_s42) ;;
+  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_enc6_s42) ;;
+  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_enc6_dec4_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_fw4_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_rw4_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_dec4_s42) ;;
@@ -226,6 +228,8 @@ if test "$ICE_UNITE_FAST" = true; then
     bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_rw4_s42) ;;
     bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_dec4_s42) ;;
     bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_h384_s42) ;;
+    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_enc6_s42) ;;
+    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_enc6_dec4_s42) ;;
     *) die "ICE_UNITE_FAST requires a supported shared UNITE N=8 or N=16 model row" ;;
   esac
   BASE_OVERRIDES+=(

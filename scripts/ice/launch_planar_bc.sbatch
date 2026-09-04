@@ -87,7 +87,7 @@ case "$ICE_LAUNCH_MODE" in
   *) die "ICE_LAUNCH_MODE must be preflight, dry-run, or run" ;;
 esac
 case "$ICE_EXPERIMENT" in
-  pusht/planar_v2_usocket_direct_bc|pusht/planar_v2_usocket_arc_bc) ;;
+  pusht/planar_v2_usocket_direct_bc|pusht/planar_v2_usocket_arc_bc|pusht/planar_v2_usocket_dp_paper) ;;
   *) die "ICE_EXPERIMENT must select the direct or arc U-Socket BC config" ;;
 esac
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"

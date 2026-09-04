@@ -78,6 +78,8 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     assert dataset.expected_train_episode_count == expected_data["train"]
     assert dataset.expected_valid_episode_count == expected_data["valid"]
     assert dataset.resolver.expected_episode_count == expected_data["total"]
+    assert dataset.resolver.transform_list.rotation_radius == 30.0
+    assert dataset.resolver.transform_list.hybrid_rotation_unit is None
     assert cfg.run_provenance.split_manifest_sha256 == expected_data["manifest_sha256"]
     assert cfg.run_provenance.dataset_observation_alignment == "pre_step"
     assert cfg.planar.observation_horizon == observation_horizon

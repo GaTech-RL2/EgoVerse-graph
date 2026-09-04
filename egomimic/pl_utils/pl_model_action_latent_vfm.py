@@ -9,6 +9,10 @@ from typing import Any
 import torch
 
 from egomimic.pipeline.stages_action_latent_vfm import LatentVelocityFieldStage
+from egomimic.pipeline.stages_action_latent_vfm import (
+    ActionLatentDecoderStage,
+    ActionLatentEncoderStage,
+)
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 
@@ -22,10 +26,81 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
         ("ReconstructionL1", "log/action_latent_reconstruction_l1"),
     )
 
-    def __init__(self, **kwargs):
+    def __init__(self, gradient_telemetry_cadence: int = 100, **kwargs):
         super().__init__(**kwargs)
+        self.gradient_telemetry_cadence = int(gradient_telemetry_cadence)
+        if self.gradient_telemetry_cadence <= 0:
+            raise ValueError("gradient_telemetry_cadence must be positive")
         self._validation_sums = OrderedDict()
         self._validation_count = 0
+
+    @torch.inference_mode()
+    def forward_unite_diagnostics(
+        self,
+        batch: Mapping,
+        *,
+        raw_noise_levels: tuple[float, ...] | list[float],
+    ) -> OrderedDict:
+        """Expose action-latent trajectories through the shared evaluator API."""
+
+        stages = self.model.pipeline.stages
+        encoders = [stage for stage in stages if isinstance(stage, ActionLatentEncoderStage)]
+        velocities = [stage for stage in stages if isinstance(stage, LatentVelocityFieldStage)]
+        decoders = [stage for stage in stages if isinstance(stage, ActionLatentDecoderStage)]
+        if tuple(map(len, (encoders, velocities, decoders))) != (1, 1, 1):
+            raise RuntimeError(
+                "action-latent diagnostics require one encoder, velocity field, and decoder"
+            )
+        encoder, velocity, decoder = encoders[0], velocities[0], decoders[0]
+        diagnostics = OrderedDict()
+        for source, source_batch in batch.items():
+            if not isinstance(source_batch, Mapping):
+                raise TypeError(f"diagnostic source {source!r} must be a mapping")
+            result = dict(source_batch)
+            for stage in stages:
+                if stage is encoder:
+                    break
+                result = stage.execute(result, mode="train")
+            missing = {"target", "condition", "sampler/noise"} - set(result)
+            if missing:
+                raise RuntimeError(
+                    f"diagnostic prefix for {source!r} is missing {sorted(missing)}"
+                )
+            clean, encoder_activations = encoder.encoder.forward_with_activations(
+                result["target"]
+            )
+            states, final_predictions, denoising_activations = (
+                velocity.diagnostic_rollout(
+                    clean_latent=clean,
+                    noise=result["sampler/noise"],
+                    condition=result["condition"],
+                    raw_noise_levels=raw_noise_levels,
+                )
+            )
+            encoder_names = tuple(encoder_activations)
+            denoiser_names = tuple(denoising_activations)
+            if not encoder_names or not denoiser_names:
+                raise RuntimeError("diagnostic activation maps must be non-empty")
+            paired_encoder = OrderedDict()
+            paired_denoiser = OrderedDict()
+            for index, encoder_name in enumerate(encoder_names):
+                denominator = max(1, len(encoder_names) - 1)
+                denoiser_index = round(index * (len(denoiser_names) - 1) / denominator)
+                denoiser_name = denoiser_names[denoiser_index]
+                pair_name = f"{encoder_name}_to_{denoiser_name}"
+                paired_encoder[pair_name] = encoder_activations[encoder_name]
+                paired_denoiser[pair_name] = denoising_activations[denoiser_name]
+            diagnostics[source] = {
+                "clean_latent": clean,
+                "sampler_latents": states,
+                "decoded_actions_normalized": torch.stack(
+                    [decoder.decoder(state) for state in states], dim=0
+                ),
+                "noise_level_final_predictions": final_predictions,
+                "tokenization_activations": paired_encoder,
+                "denoising_activations": paired_denoiser,
+            }
+        return diagnostics
 
     @staticmethod
     def _finite_scalar(value: Any, label: str) -> torch.Tensor:
@@ -205,6 +280,14 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
                 sync_dist=False,
                 batch_size=global_count,
             )
+            self.log(
+                f"Train/UNITE/{name}",
+                value,
+                on_step=True,
+                on_epoch=True,
+                sync_dist=False,
+                batch_size=global_count,
+            )
         if (int(self.global_step) + 1) % self.gradient_telemetry_cadence == 0:
             self._measure_gradient_conflict(
                 components["ReconstructionLoss"], components["FlowLoss"]
@@ -261,6 +344,14 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
                 OrderedDict(
                     (f"Valid/ActionLatentVFM/{name}", value)
                     for name, value in metrics.items()
+                ),
+                on_step=False,
+                on_epoch=True,
+                sync_dist=False,
+            )
+            self.log_dict(
+                OrderedDict(
+                    (f"Valid/UNITE/{name}", value) for name, value in metrics.items()
                 ),
                 on_step=False,
                 on_epoch=True,

@@ -72,6 +72,20 @@ run_provenance:
 evaluator:
   deterministic_seed: 420042
   energy_score_max_batches_per_rank: 1
+  unite_diagnostics:
+    enabled: true
+    validation_view:
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 16
+      world_size: 1
+    provenance:
+      validation_weights: ema
+      action_representation: x_y_cos_theta_sin_theta
+      prediction_horizon: ${model.action_horizon}
+      sampler: fixed_euler
+      sampler_output_points: 17
+      layer_map: encoder_block_00_to_denoiser_block_00_and_encoder_block_01_to_denoiser_block_11
+      activation_capture: real_forward_hooks_no_replay_or_replacement
   energy_score_validation_view:
     definition: first_deterministic_validation_batch_per_ddp_rank
     split_manifest_sha256: ${run_provenance.split_manifest_sha256}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
@@ -162,3 +164,29 @@ class AdaLNBackbone(nn.Module):
             else:
                 hidden = block(hidden, conditioning, None)
         return self.output_projection(self.final_layer(hidden, conditioning))
+
+    def forward_with_activations(
+        self,
+        value: torch.Tensor,
+        time: torch.Tensor,
+        condition: torch.Tensor,
+    ) -> tuple[torch.Tensor, OrderedDict[str, torch.Tensor]]:
+        """Run the ordinary forward path and retain real block outputs."""
+
+        activations: OrderedDict[str, torch.Tensor] = OrderedDict()
+        handles = []
+        for index, block in enumerate(self.blocks):
+            name = f"block_{index:02d}"
+
+            def capture(_module, _inputs, output, *, key=name):
+                activations[key] = output
+
+            handles.append(block.register_forward_hook(capture))
+        try:
+            output = self(value, time, condition)
+        finally:
+            for handle in handles:
+                handle.remove()
+        if len(activations) != len(self.blocks):
+            raise RuntimeError("AdaLN diagnostic activation capture is incomplete")
+        return output, activations

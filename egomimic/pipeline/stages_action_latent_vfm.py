@@ -6,6 +6,7 @@ The pipeline owns no embodiment semantics. Application adapters prepare the
 
 from __future__ import annotations
 
+from collections import OrderedDict
 import math
 
 import torch
@@ -63,6 +64,9 @@ class TinyActionLatentEncoder(nn.Module):
             raise ValueError("encoder hidden_dim must be divisible by num_heads")
         self.action_projection = nn.Linear(self.action_dim, self.hidden_dim)
         self.register_projection = nn.Linear(self.latent_dim, self.hidden_dim)
+        self.register_queries = nn.Parameter(
+            torch.empty(1, self.num_latent_tokens, self.latent_dim).normal_(std=0.02)
+        )
         self.register_buffer(
             "action_positions", _positions(self.action_horizon, self.hidden_dim)
         )
@@ -83,35 +87,47 @@ class TinyActionLatentEncoder(nn.Module):
         )
         self.output_projection = nn.Linear(self.hidden_dim, self.latent_dim)
 
-    def forward(
-        self, actions: torch.Tensor, register_queries: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, actions: torch.Tensor) -> torch.Tensor:
         expected = (self.action_horizon, self.action_dim)
         if actions.ndim != 3 or tuple(actions.shape[1:]) != expected:
             raise ValueError(
                 f"action encoder expected (B, {expected[0]}, {expected[1]}), "
                 f"got {tuple(actions.shape)}"
             )
-        register_shape = (
-            int(actions.shape[0]),
-            self.num_latent_tokens,
-            self.latent_dim,
-        )
-        if tuple(register_queries.shape) != register_shape:
-            raise ValueError(
-                f"action encoder expected register queries {register_shape}, "
-                f"got {tuple(register_queries.shape)}"
-            )
         content = self.action_projection(actions) + self.action_positions.to(actions)
+        register_queries = self.register_queries.expand(int(actions.shape[0]), -1, -1)
         queries = self.register_projection(register_queries.to(actions))
         queries = queries + self.latent_positions.to(queries)
         hidden = self.blocks(torch.cat((queries, content), dim=1))
         return self.output_projection(hidden[:, : self.num_latent_tokens])
 
+    def forward_with_activations(
+        self, actions: torch.Tensor
+    ) -> tuple[torch.Tensor, OrderedDict[str, torch.Tensor]]:
+        """Run the real encoder path and retain its latent-query activations."""
+
+        activations: OrderedDict[str, torch.Tensor] = OrderedDict()
+        handles = []
+        for index, block in enumerate(self.blocks.layers):
+            name = f"block_{index:02d}"
+
+            def capture(_module, _inputs, output, *, key=name):
+                activations[key] = output[:, : self.num_latent_tokens]
+
+            handles.append(block.register_forward_hook(capture))
+        try:
+            output = self(actions)
+        finally:
+            for handle in handles:
+                handle.remove()
+        if len(activations) != len(self.blocks.layers):
+            raise RuntimeError("action encoder diagnostic capture is incomplete")
+        return output, activations
+
 
 class ActionLatentEncoderStage(Stage):
     train_only = True
-    reads = ("target", "sampler/noise")
+    reads = ("target",)
     writes = ("latent/clean",)
 
     def __init__(self, encoder: nn.Module):
@@ -119,7 +135,7 @@ class ActionLatentEncoderStage(Stage):
         self.encoder = encoder
 
     def forward(self, batch: dict) -> dict:
-        batch["latent/clean"] = self.encoder(batch["target"], batch["sampler/noise"])
+        batch["latent/clean"] = self.encoder(batch["target"])
         return batch
 
 
@@ -302,6 +318,69 @@ class LatentVelocityFieldStage(Stage):
             latent = latent + step * self._guided_velocity(latent, time, condition)
         batch["sampler/endpoint"] = latent
         return batch
+
+    def diagnostic_rollout(
+        self,
+        *,
+        clean_latent: torch.Tensor,
+        noise: torch.Tensor,
+        condition: torch.Tensor,
+        raw_noise_levels: tuple[float, ...] | list[float],
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        OrderedDict[str, torch.Tensor],
+    ]:
+        """Return sampler states and fixed-level denoising diagnostics."""
+
+        if tuple(noise.shape) != tuple(clean_latent.shape):
+            raise ValueError("diagnostic clean latent and noise shapes must match")
+        levels = tuple(float(value) for value in raw_noise_levels)
+        if not levels or any(not 0.0 <= value <= 1.0 for value in levels):
+            raise ValueError("diagnostic raw noise levels must be in [0, 1]")
+
+        step = 1.0 / self.num_inference_steps
+        latent = noise
+        sampler_states = [latent]
+        for index in range(self.num_inference_steps):
+            time = torch.full(
+                (int(latent.shape[0]),), index * step, device=latent.device
+            )
+            latent = latent + step * self._guided_velocity(latent, time, condition)
+            sampler_states.append(latent)
+
+        final_predictions = []
+        captured: dict[str, list[torch.Tensor]] = {}
+        for raw_level in levels:
+            start_time = 1.0 - raw_level
+            state = start_time * clean_latent + raw_level * noise
+            remaining_step = raw_level / self.num_inference_steps
+            first_activations = None
+            for index in range(self.num_inference_steps):
+                time = torch.full(
+                    (int(state.shape[0]),),
+                    start_time + index * remaining_step,
+                    device=state.device,
+                )
+                if index == 0:
+                    velocity, first_activations = (
+                        self.denoising_module.forward_with_activations(
+                            state, time, condition
+                        )
+                    )
+                else:
+                    velocity = self.denoising_module(state, time, condition)
+                state = state + remaining_step * velocity
+            if first_activations is None:
+                raise RuntimeError("diagnostic denoising activation capture failed")
+            final_predictions.append(state)
+            for name, value in first_activations.items():
+                captured.setdefault(name, []).append(value)
+        return (
+            torch.stack(sampler_states, dim=0),
+            torch.stack(final_predictions, dim=0),
+            OrderedDict((name, torch.stack(values, dim=0)) for name, values in captured.items()),
+        )
 
 
 class VelocityFlowObjectiveStage(Stage):

@@ -8,6 +8,7 @@ condition_dim: 128
 denoiser_hidden_dim: 512
 action_horizon: 16
 flow_samples_per_reconstruction: 14
+gradient_telemetry_cadence: 100
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo

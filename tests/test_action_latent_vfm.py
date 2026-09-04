@@ -3,6 +3,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
+from omegaconf import OmegaConf
 
 from egomimic.models.adaln_backbone import AdaLNBackbone
 from egomimic.pipeline.stages_action_latent_vfm import (
@@ -81,8 +82,10 @@ def test_action_encoder_maps_h16_actions_to_n16_d8_latent():
         depth=2,
         num_heads=4,
     )
-    output = encoder(torch.randn(3, 16, 4), torch.randn(3, 16, 8))
+    actions = torch.randn(3, 16, 4)
+    output = encoder(actions)
     assert output.shape == (3, 16, 8)
+    torch.testing.assert_close(output, encoder(actions))
 
 
 def test_general_adaln_backbone_has_no_content_or_sampler_contract():
@@ -101,6 +104,35 @@ def test_general_adaln_backbone_has_no_content_or_sampler_contract():
     names = dict(backbone.named_parameters())
     assert not any("content" in name for name in names)
     assert not any("sampler" in name or "velocity" in name for name in names)
+
+
+def test_fixed_euler_diagnostics_capture_real_denoiser_layers():
+    backbone = AdaLNBackbone(
+        input_dim=8,
+        output_dim=8,
+        horizon=16,
+        condition_dim=6,
+        hidden_dim=32,
+        depth=4,
+        num_heads=4,
+        gradient_checkpointing=False,
+    )
+    stage = LatentVelocityFieldStage(
+        denoising_module=backbone,
+        condition_dim=6,
+        num_inference_steps=2,
+        cfg_scale=1.0,
+    ).eval()
+    states, predictions, activations = stage.diagnostic_rollout(
+        clean_latent=torch.randn(3, 16, 8),
+        noise=torch.randn(3, 16, 8),
+        condition=torch.randn(3, 6),
+        raw_noise_levels=[0.0, 0.5, 1.0],
+    )
+    assert states.shape == (3, 3, 16, 8)
+    assert predictions.shape == (3, 3, 16, 8)
+    assert tuple(activations) == tuple(f"block_{index:02d}" for index in range(4))
+    assert all(value.shape == (3, 3, 16, 32) for value in activations.values())
 
 
 def test_fm_detaches_clean_target_but_reconstruction_preserves_encoder_gradient():
@@ -227,3 +259,6 @@ def test_graph_is_lint_clean_and_declares_condition_dropout():
     assert "max_content_tokens" not in velocity["p"]["denoising_module"]
     assert velocity["p"]["denoising_module"]["hidden_dim"] == 512
     assert velocity["p"]["denoising_module"]["depth"] == 12
+    experiment = OmegaConf.load(EXPERIMENT)
+    assert experiment.callbacks.model_checkpoint.every_n_train_steps == 40000
+    assert experiment.evaluator.unite_diagnostics.enabled is True

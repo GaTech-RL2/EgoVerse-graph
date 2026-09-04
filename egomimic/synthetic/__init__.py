@@ -1,5 +1,15 @@
 """Synthetic distribution benchmarks for latent generative models."""
 
-from .manifold_dataset import GaussianTorusDataset, generate_gaussian_torus
+from .manifold_dataset import (
+    GaussianParaboloidDataset,
+    GaussianTorusDataset,
+    generate_gaussian_paraboloid,
+    generate_gaussian_torus,
+)
 
-__all__ = ["GaussianTorusDataset", "generate_gaussian_torus"]
+__all__ = [
+    "GaussianParaboloidDataset",
+    "GaussianTorusDataset",
+    "generate_gaussian_paraboloid",
+    "generate_gaussian_torus",
+]

@@ -18,6 +18,14 @@ class GaussianTorusBatch:
     angles: torch.Tensor
 
 
+@dataclass(frozen=True)
+class GaussianParaboloidBatch:
+    source_latent: torch.Tensor
+    source_2d: torch.Tensor
+    source_3d: torch.Tensor
+    target_3d: torch.Tensor
+
+
 def generate_gaussian_torus(
     count: int,
     *,
@@ -59,6 +67,44 @@ def generate_gaussian_torus(
     return GaussianTorusBatch(source_latent, source_2d, source_3d, target_3d, angles)
 
 
+def generate_gaussian_paraboloid(
+    count: int,
+    *,
+    seed: int = 42,
+    curvature: float = 0.25,
+    source_dim: int = 2,
+    dtype: torch.dtype = torch.float32,
+) -> GaussianParaboloidBatch:
+    """Lift a planar Gaussian onto a smooth, injective 3D paraboloid.
+
+    The first two coordinates are preserved exactly and only the height changes:
+    ``(u, v, 0) -> (u, v, curvature * (u**2 + v**2))``. This avoids the
+    periodic seams and topology change of the torus benchmark, making it a
+    deliberately easy control for the shared-latent training objectives.
+    """
+    if count <= 0:
+        raise ValueError("count must be positive")
+    if source_dim < 2:
+        raise ValueError("source_dim must be at least 2")
+    if curvature <= 0:
+        raise ValueError("curvature must be positive")
+    generator = torch.Generator(device="cpu").manual_seed(int(seed))
+    source_2d = torch.randn((count, 2), generator=generator, dtype=dtype)
+    if source_dim == 2:
+        source_latent = source_2d
+    else:
+        nuisance = torch.randn(
+            (count, source_dim - 2), generator=generator, dtype=dtype
+        )
+        source_latent = torch.cat((source_2d, nuisance), dim=-1)
+    source_3d = torch.nn.functional.pad(source_2d, (0, 1))
+    height = curvature * source_2d.square().sum(dim=-1, keepdim=True)
+    target_3d = torch.cat((source_2d, height), dim=-1)
+    return GaussianParaboloidBatch(
+        source_latent, source_2d, source_3d, target_3d
+    )
+
+
 class GaussianTorusDataset(Dataset):
     """Indexable paired source/target dataset with an exact CFM bridge."""
 
@@ -81,6 +127,33 @@ class GaussianTorusDataset(Dataset):
         self, index: torch.Tensor, time: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Return x_t and the exact constant velocity for linear CFM paths."""
+        source = self.data.source_3d[index]
+        target = self.data.target_3d[index]
+        time = time.to(source).reshape(-1, 1)
+        velocity = target - source
+        return source + time * velocity, velocity
+
+
+class GaussianParaboloidDataset(Dataset):
+    """Indexable paired Gaussian-to-paraboloid control dataset."""
+
+    def __init__(self, count: int, **kwargs):
+        self.data = generate_gaussian_paraboloid(count, **kwargs)
+
+    def __len__(self) -> int:
+        return int(self.data.source_latent.shape[0])
+
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
+        return {
+            "source_latent": self.data.source_latent[index],
+            "source_2d": self.data.source_2d[index],
+            "source_3d": self.data.source_3d[index],
+            "target_3d": self.data.target_3d[index],
+        }
+
+    def cfm_state_velocity(
+        self, index: torch.Tensor, time: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         source = self.data.source_3d[index]
         target = self.data.target_3d[index]
         time = time.to(source).reshape(-1, 1)

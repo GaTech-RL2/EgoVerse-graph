@@ -334,10 +334,15 @@ class PlanarActionEval(Eval):
             embodiment_id, domain = self._embodiment(batch[source_id])
             target = batch[source_id][self.action_key]
             clean = diagnostic["clean_latent"].float()
+            clean_decoded = diagnostic.get("clean_decoded_action_normalized")
+            if clean_decoded is not None:
+                clean_decoded = clean_decoded.float()
             states = diagnostic["sampler_latents"].float()
             decoded = diagnostic["decoded_actions_normalized"].float()
             if states.shape[1:] != clean.shape or decoded.shape[1:] != target.shape:
                 raise ValueError("UNITE diagnostic trajectory shapes do not align")
+            if clean_decoded is not None and clean_decoded.shape != target.shape:
+                raise ValueError("UNITE diagnostic clean reconstruction shape does not align")
             latent_mse = (states - clean.unsqueeze(0)).square().mean(dim=(-2, -1))
             decoded_mse = (
                 (decoded - target.float().unsqueeze(0)).square().mean(dim=(-2, -1))
@@ -347,6 +352,11 @@ class PlanarActionEval(Eval):
             decoded_native = torch.stack(
                 [self._native(state, embodiment_id, decoder) for state in decoded],
                 dim=0,
+            )
+            clean_decoded_native = (
+                self._native(clean_decoded, embodiment_id, decoder)
+                if clean_decoded is not None
+                else None
             )
             native_mse = self._trajectory_native_mse(
                 decoded_native, native_target, decoder
@@ -412,6 +422,8 @@ class PlanarActionEval(Eval):
                     "embodiment_id": embodiment_id,
                     "target_normalized": target,
                     "target_native": native_target,
+                    "clean_decoded_action_normalized": clean_decoded,
+                    "clean_decoded_action_native": clean_decoded_native,
                     "decoded_actions_native": decoded_native,
                     "trajectory_latent_mse_by_condition": latent_mse,
                     "trajectory_decoded_mse_by_condition": decoded_mse,

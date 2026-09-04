@@ -117,6 +117,11 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
                 paired_denoiser[pair_name] = denoising_activations[denoiser_name]
             diagnostics[source] = {
                 "clean_latent": clean,
+                # This is the actual tokenizer reconstruction: decode the
+                # latent produced from the demonstrated action before any
+                # sampling/noising.  Keep it distinct from sampler state 0
+                # (pure noise) and the generated endpoint.
+                "clean_decoded_action_normalized": decoder.decoder(clean),
                 "sampler_latents": states,
                 "decoded_actions_normalized": torch.stack(
                     [decoder.decoder(state) for state in states], dim=0

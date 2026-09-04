@@ -8,6 +8,7 @@ from omegaconf import OmegaConf
 from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.models.adaln_backbone import AdaLNBackbone
 from egomimic.pipeline.stages_action_latent_vfm import (
+    ActionLatentDecoderStage,
     ExpectedMonotonicNoisingStage,
     ExpectedMonotonicRankingObjectiveStage,
     FlowBridgeNoisingStage,
@@ -171,7 +172,7 @@ def test_monotonic_noising_orders_severity_and_shares_noise():
         atol=2e-5,
         rtol=2e-5,
     )
-    assert batch["monotonic/noisy_less"].requires_grad
+    assert not batch["monotonic/noisy_less"].requires_grad
 
 
 def test_monotonic_objective_ranks_expected_risk_not_each_sample():
@@ -202,6 +203,31 @@ def test_monotonic_objective_ranks_expected_risk_not_each_sample():
     violating["loss/action_latent_monotonic"].backward()
     assert less.grad is not None
     assert more.grad is not None
+
+
+def test_monotonic_decoder_path_updates_latent_but_not_decoder_parameters():
+    decoder = nn.Linear(3, 2)
+    stage = ActionLatentDecoderStage(decoder)
+    reconstruction_latent = torch.randn(2, 4, 3, requires_grad=True)
+    less = torch.randn(2, 4, 3, requires_grad=True)
+    more = torch.randn(2, 4, 3, requires_grad=True)
+    output = stage.execute(
+        {
+            "reconstruction/pred_clean_latent": reconstruction_latent,
+            "monotonic/pred_clean_less": less,
+            "monotonic/pred_clean_more": more,
+        },
+        mode="train",
+    )
+    monotonic_loss = (
+        output["monotonic/pred_action_less"].square().mean()
+        + output["monotonic/pred_action_more"].square().mean()
+    )
+    monotonic_loss.backward()
+    assert less.grad is not None
+    assert more.grad is not None
+    assert reconstruction_latent.grad is None
+    assert all(parameter.grad is None for parameter in decoder.parameters())
 
 
 def test_velocity_endpoint_and_reconstruction_loss_update_local_prediction():

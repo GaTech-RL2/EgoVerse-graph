@@ -222,7 +222,10 @@ class ExpectedMonotonicNoisingStage(Stage):
             )
 
     def forward(self, batch: dict) -> dict:
-        clean = batch["latent/clean"]
+        # This auxiliary objective is a vector-field constraint. Keep its
+        # gradient out of the action encoder; the reconstruction objective owns
+        # encoder training.
+        clean = batch["latent/clean"].detach()
         severities = self.severity_min + (
             self.severity_max - self.severity_min
         ) * torch.rand(2, device=clean.device, dtype=torch.float32)
@@ -543,12 +546,21 @@ class ActionLatentDecoderStage(Stage):
         super().__init__()
         self.decoder = decoder
 
+    def _decode_with_frozen_parameters(self, latent: torch.Tensor) -> torch.Tensor:
+        """Backpropagate to latent while excluding decoder parameter gradients."""
+
+        frozen_state = {
+            name: value.detach() for name, value in self.decoder.named_parameters()
+        }
+        frozen_state.update(dict(self.decoder.named_buffers()))
+        return torch.func.functional_call(self.decoder, frozen_state, (latent,))
+
     def execute(self, batch: dict, *, mode: str) -> dict:
         if mode == "train":
             batch["reconstruction/pred_action"] = self.decoder(
                 batch["reconstruction/pred_clean_latent"]
             )
-            paired_action = self.decoder(
+            paired_action = self._decode_with_frozen_parameters(
                 torch.cat(
                     (
                         batch["monotonic/pred_clean_less"],

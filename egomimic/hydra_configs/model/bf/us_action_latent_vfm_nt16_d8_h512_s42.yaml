@@ -1,0 +1,139 @@
+# Latent velocity flow with an explicit action autoencoder.
+# H=16 actions -> N=16, D=8 clean latents -> direct velocity field -> actions.
+_target_: egomimic.pl_utils.pl_model_action_latent_vfm.ActionLatentVFMModelWrapper
+
+num_latent_tokens: 16
+latent_dim: 8
+condition_dim: 128
+denoiser_hidden_dim: 512
+action_horizon: 16
+flow_samples_per_reconstruction: 14
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
+      selector_key: embodiment
+      selector_aliases: {19: pushshapes_sim_u_socket}
+      input_key: state_agent_model
+      output_key: proprio_condition
+      output_dim: 64
+      projections:
+        pushshapes_sim_u_socket:
+          input_dim: 4
+          hidden_dim: 64
+          semantic: x_y_cos_theta_sin_theta
+
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 1
+      inputs:
+        front_img_1: front_img_1
+        proprio_condition: proprio_condition
+      encoder:
+        _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+        obs_specs:
+          proprio_condition: {input_dim: 64, input_slice: [0, 64]}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 84
+            crop_width: 84
+            crop_eval_mode: center
+            crop_sample_mode: v02
+            crop_scope: frame
+            norm_layer: group
+            pool_type: spatial_softmax
+
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+
+    - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+      num_tokens: ${model.num_latent_tokens}
+      latent_dim: ${model.latent_dim}
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.ActionLatentEncoderStage
+      encoder:
+        _target_: egomimic.pipeline.stages_action_latent_vfm.TinyActionLatentEncoder
+        action_dim: 4
+        action_horizon: ${model.action_horizon}
+        num_latent_tokens: ${model.num_latent_tokens}
+        latent_dim: ${model.latent_dim}
+        hidden_dim: 32
+        depth: 2
+        num_heads: 4
+        mlp_ratio: 4.0
+        dropout: 0.0
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.FlowBridgeNoisingStage
+      samples_per_reconstruction: ${model.flow_samples_per_reconstruction}
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.ReconstructionBridgeNoisingStage
+      time_min: 0.5
+      time_max: 1.0
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.LatentVelocityFieldStage
+      condition_dim: ${model.condition_dim}
+      num_inference_steps: 16
+      condition_dropout_probability: 0.3
+      cfg_scale: 4.0
+      denoising_module:
+        _target_: egomimic.models.adaln_backbone.AdaLNBackbone
+        input_dim: ${model.latent_dim}
+        output_dim: ${model.latent_dim}
+        horizon: ${model.num_latent_tokens}
+        condition_dim: ${model.condition_dim}
+        hidden_dim: ${model.denoiser_hidden_dim}
+        depth: 12
+        num_heads: 8
+        mlp_ratio: 4.0
+        qk_norm: true
+        use_rope: true
+        use_rmsnorm: true
+        use_swiglu: true
+        block_norm: true
+        time_fourier_dim: 256
+        trainable_position_embeddings: true
+        dropout: 0.0
+        gradient_checkpointing: true
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.VelocityFlowObjectiveStage
+      samples_per_reconstruction: ${model.flow_samples_per_reconstruction}
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.VelocityEndpointStage
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.ActionLatentDecoderStage
+      decoder:
+        _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
+        latent_dim: ${model.latent_dim}
+        action_dim: 4
+        num_latent_tokens: ${model.num_latent_tokens}
+        action_horizon: ${model.action_horizon}
+        hidden_dim: 32
+        depth: 2
+        num_heads: 4
+        mlp_ratio: 4.0
+        dropout: 0.0
+        gradient_checkpointing: true
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.NoisyReconstructionObjectiveStage
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3.0e-5
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  weight_decay: 1.0e-4
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 8000
+  warmup_start_factor: 0.1
+  eta_min: 3.0e-6

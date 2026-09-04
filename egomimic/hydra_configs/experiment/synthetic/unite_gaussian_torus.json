@@ -1,0 +1,10 @@
+{
+  "method": "unite", "seed": 42,
+  "dataset": "/coc/flash7/paphiwetsa3/experiments/synthetic-gaussian-torus-v1/data/gaussian_torus_4096.npz",
+  "output_dir": "/coc/flash7/paphiwetsa3/experiments/synthetic-gaussian-torus-v1/runs/unite-seed42",
+  "model": {"latent_dim": 2, "codec_width": 32, "codec_depth": 2, "field_width": 128, "field_depth": 4},
+  "flow_samples": 14, "reconstruction_noise_range": [0.5, 1.0],
+  "learning_rate": 0.0003, "batch_size": 512, "max_steps": 20000,
+  "inference_steps": 32, "log_every": 100, "checkpoint_every": 5000,
+  "wandb": {"entity": "rl2-group", "project": "synthetic-shared-latent-flow", "id": "gaussian-torus-unite-s42-v1", "name": "gaussian-torus-unite-s42-v1", "resume": "never"}
+}

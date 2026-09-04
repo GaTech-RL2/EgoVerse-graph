@@ -411,13 +411,31 @@ elif family == "action_latent_vfm":
     assert math.isclose(float(cfg.model.optimizer.lr), 3.0e-5)
     assert int(cfg.model.scheduler.warmup_steps) == 8000
     assert math.isclose(float(cfg.model.scheduler.eta_min), 3.0e-6)
-    stage = cfg.model.pipeline.stages[7]
+    velocity_stages = [
+        stage for stage in cfg.model.pipeline.stages
+        if stage._target_.endswith("LatentVelocityFieldStage")
+    ]
+    assert len(velocity_stages) == 1
+    stage = velocity_stages[0]
     assert stage._target_.endswith("LatentVelocityFieldStage")
     assert math.isclose(float(stage.condition_dropout_probability), 0.3)
     assert stage.denoising_module._target_.endswith("AdaLNBackbone")
     assert (int(stage.denoising_module.input_dim), int(stage.denoising_module.output_dim)) == (8, 8)
     assert int(stage.denoising_module.horizon) == 16
     assert (int(stage.denoising_module.hidden_dim), int(stage.denoising_module.depth)) == (512, 12)
+    monotonic_noising = [
+        item for item in cfg.model.pipeline.stages
+        if item._target_.endswith("ExpectedMonotonicNoisingStage")
+    ]
+    monotonic_objective = [
+        item for item in cfg.model.pipeline.stages
+        if item._target_.endswith("ExpectedMonotonicRankingObjectiveStage")
+    ]
+    assert len(monotonic_noising) == len(monotonic_objective) == 1
+    assert math.isclose(float(monotonic_noising[0].severity_min), 0.0)
+    assert math.isclose(float(monotonic_noising[0].severity_max), 0.5)
+    assert math.isclose(float(monotonic_objective[0].margin), 0.0)
+    assert math.isclose(float(monotonic_objective[0].weight), 1.0)
     assert bool(cfg.evaluator.unite_diagnostics.enabled) is True
     diagnostics = cfg.evaluator.unite_diagnostics
     assert diagnostics.validation_view.split_manifest_sha256 == split_manifest_sha256

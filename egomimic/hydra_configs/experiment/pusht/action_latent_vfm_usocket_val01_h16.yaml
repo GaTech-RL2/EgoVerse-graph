@@ -57,6 +57,14 @@ run_provenance:
     reconstruction_corruption_probability: 1.0
     condition_dropout_probability: 0.3
     flow_samples_per_reconstruction: ${model.flow_samples_per_reconstruction}
+    monotonic_degradation:
+      variable: noise_severity_s_equals_1_minus_bridge_time
+      severity_range: [0.0, 0.5]
+      aggregation: batch_mean_risk_then_hinge
+      shared_noise: true
+      shared_condition_dropout: true
+      margin: ${model.monotonic_margin}
+      weight: ${model.monotonic_loss_weight}
   latent_contract:
     num_tokens: ${model.num_latent_tokens}
     width: ${model.latent_dim}

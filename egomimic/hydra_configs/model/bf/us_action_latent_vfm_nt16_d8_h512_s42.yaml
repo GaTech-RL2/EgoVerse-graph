@@ -8,6 +8,8 @@ condition_dim: 128
 denoiser_hidden_dim: 512
 action_horizon: 16
 flow_samples_per_reconstruction: 14
+monotonic_margin: 0.0
+monotonic_loss_weight: 1.0
 gradient_telemetry_cadence: 100
 
 pipeline:
@@ -77,6 +79,10 @@ pipeline:
       time_min: 0.5
       time_max: 1.0
 
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.ExpectedMonotonicNoisingStage
+      severity_min: 0.0
+      severity_max: 0.5
+
     - _target_: egomimic.pipeline.stages_action_latent_vfm.LatentVelocityFieldStage
       condition_dim: ${model.condition_dim}
       num_inference_steps: 16
@@ -122,6 +128,10 @@ pipeline:
         gradient_checkpointing: true
 
     - _target_: egomimic.pipeline.stages_action_latent_vfm.NoisyReconstructionObjectiveStage
+
+    - _target_: egomimic.pipeline.stages_action_latent_vfm.ExpectedMonotonicRankingObjectiveStage
+      margin: ${model.monotonic_margin}
+      weight: ${model.monotonic_loss_weight}
 
 enable_grad_norm: false
 optimizer:

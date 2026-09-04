@@ -8,6 +8,8 @@ from omegaconf import OmegaConf
 from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.models.adaln_backbone import AdaLNBackbone
 from egomimic.pipeline.stages_action_latent_vfm import (
+    ExpectedMonotonicNoisingStage,
+    ExpectedMonotonicRankingObjectiveStage,
     FlowBridgeNoisingStage,
     LatentVelocityFieldStage,
     ReconstructionBridgeNoisingStage,
@@ -69,6 +71,7 @@ class _MetricAlgo:
                 "target": weight.new_zeros((values["count"], 1, 1)),
                 "loss/action_latent_reconstruction": (weight - 0.0).square(),
                 "loss/action_latent_fm": (weight - 2.0).square(),
+                "loss/action_latent_monotonic": (weight - 1.0).square(),
                 "log/action_latent_reconstruction_l1": weight.detach().abs(),
             }
         return results
@@ -148,19 +151,89 @@ def test_fm_detaches_clean_target_but_reconstruction_preserves_encoder_gradient(
     assert reconstruction["reconstruction/noisy_latent"].requires_grad
 
 
+def test_monotonic_noising_orders_severity_and_shares_noise():
+    clean = torch.randn(8, 16, 8, requires_grad=True)
+    batch = ExpectedMonotonicNoisingStage(0.0, 0.5)({"latent/clean": clean})
+    time_less = batch["monotonic/time_less"]
+    time_more = batch["monotonic/time_more"]
+    assert torch.all(time_less >= time_more)
+    assert torch.all(time_less <= 1.0)
+    assert torch.all(time_more >= 0.5)
+    assert time_less.unique().numel() == 1
+    assert time_more.unique().numel() == 1
+    less_scale = (1.0 - time_less).reshape(-1, 1, 1)
+    more_scale = (1.0 - time_more).reshape(-1, 1, 1)
+    residual_less = batch["monotonic/noisy_less"] - time_less.reshape(-1, 1, 1) * clean
+    residual_more = batch["monotonic/noisy_more"] - time_more.reshape(-1, 1, 1) * clean
+    torch.testing.assert_close(
+        residual_less * more_scale,
+        residual_more * less_scale,
+        atol=2e-5,
+        rtol=2e-5,
+    )
+    assert batch["monotonic/noisy_less"].requires_grad
+
+
+def test_monotonic_objective_ranks_expected_risk_not_each_sample():
+    less = torch.tensor([2.0, 0.0], requires_grad=True).reshape(2, 1, 1)
+    more = torch.tensor([0.0, 3.0], requires_grad=True).reshape(2, 1, 1)
+    less.retain_grad()
+    more.retain_grad()
+    batch = ExpectedMonotonicRankingObjectiveStage(margin=0.0, weight=1.0)(
+        {
+            "monotonic/pred_action_less": less,
+            "monotonic/pred_action_more": more,
+            "target": torch.zeros(2, 1, 1),
+        }
+    )
+    # Sample zero violates the ordering, but the expected risks satisfy it.
+    assert float(batch["log/action_latent_monotonic_risk_less"]) == 2.0
+    assert float(batch["log/action_latent_monotonic_risk_more"]) == 4.5
+    assert float(batch["loss/action_latent_monotonic"]) == 0.0
+
+    violating = ExpectedMonotonicRankingObjectiveStage(margin=0.5, weight=2.0)(
+        {
+            "monotonic/pred_action_less": more,
+            "monotonic/pred_action_more": less,
+            "target": torch.zeros(2, 1, 1),
+        }
+    )
+    assert float(violating["loss/action_latent_monotonic"]) == 6.0
+    violating["loss/action_latent_monotonic"].backward()
+    assert less.grad is not None
+    assert more.grad is not None
+
+
 def test_velocity_endpoint_and_reconstruction_loss_update_local_prediction():
     noisy = torch.randn(2, 16, 8)
     velocity = torch.randn(2, 16, 8, requires_grad=True)
     time = torch.tensor([0.5, 0.75])
+    monotonic_less = torch.randn(2, 16, 8)
+    monotonic_more = torch.randn(2, 16, 8)
+    monotonic_velocity_less = torch.randn(2, 16, 8)
+    monotonic_velocity_more = torch.randn(2, 16, 8)
+    monotonic_time_less = torch.tensor([0.8, 0.9])
+    monotonic_time_more = torch.tensor([0.6, 0.7])
     batch = VelocityEndpointStage()(
         {
             "reconstruction/noisy_latent": noisy,
             "reconstruction/time": time,
             "reconstruction/pred_velocity": velocity,
+            "monotonic/noisy_less": monotonic_less,
+            "monotonic/time_less": monotonic_time_less,
+            "monotonic/pred_velocity_less": monotonic_velocity_less,
+            "monotonic/noisy_more": monotonic_more,
+            "monotonic/time_more": monotonic_time_more,
+            "monotonic/pred_velocity_more": monotonic_velocity_more,
         }
     )
     expected = noisy + (1.0 - time.reshape(-1, 1, 1)) * velocity
     assert torch.allclose(batch["reconstruction/pred_clean_latent"], expected)
+    torch.testing.assert_close(
+        batch["monotonic/pred_clean_less"],
+        monotonic_less
+        + (1.0 - monotonic_time_less.reshape(-1, 1, 1)) * monotonic_velocity_less,
+    )
 
 
 def test_native_action_l1_wraps_angular_residual():
@@ -210,6 +283,8 @@ def test_condition_dropout_replaces_condition_but_not_noisy_latent():
     condition = torch.randn(2, 6)
     fm_latent = torch.randn(4, 16, 8)
     reconstruction_latent = torch.randn(2, 16, 8)
+    monotonic_less = torch.randn(2, 16, 8)
+    monotonic_more = torch.randn(2, 16, 8)
     output = stage.execute(
         {
             "condition": condition,
@@ -218,17 +293,24 @@ def test_condition_dropout_replaces_condition_but_not_noisy_latent():
             "fm/condition_repeat": 2,
             "reconstruction/noisy_latent": reconstruction_latent,
             "reconstruction/time": torch.rand(2),
+            "monotonic/noisy_less": monotonic_less,
+            "monotonic/time_less": torch.rand(2),
+            "monotonic/noisy_more": monotonic_more,
+            "monotonic/time_more": torch.rand(2),
         },
         mode="train",
     )
     assert torch.equal(output["fm/pred_velocity"], fm_latent)
     assert torch.equal(output["reconstruction/pred_velocity"], reconstruction_latent)
+    assert torch.equal(output["monotonic/pred_velocity_less"], monotonic_less)
+    assert torch.equal(output["monotonic/pred_velocity_more"], monotonic_more)
     for observed in denoiser.conditions:
         assert torch.allclose(observed, stage._null_condition_like(observed))
     assert float(output["log/action_latent_fm_condition_drop_fraction"]) == 1.0
     assert (
         float(output["log/action_latent_reconstruction_condition_drop_fraction"]) == 1.0
     )
+    assert float(output["log/action_latent_monotonic_condition_drop_fraction"]) == 1.0
 
 
 def test_wrapper_weights_components_and_uses_shared_denoiser_telemetry(monkeypatch):
@@ -322,6 +404,22 @@ def test_graph_is_lint_clean_and_declares_condition_dropout():
     assert "max_content_tokens" not in velocity["p"]["denoising_module"]
     assert velocity["p"]["denoising_module"]["hidden_dim"] == 512
     assert velocity["p"]["denoising_module"]["depth"] == 12
+    monotonic_nodes = {
+        node["t"]: node
+        for node in graphs["train"]["nodes"]
+        if node["t"].startswith("ExpectedMonotonic")
+    }
+    assert set(monotonic_nodes) == {
+        "ExpectedMonotonicNoisingStage",
+        "ExpectedMonotonicRankingObjectiveStage",
+    }
+    assert not any(
+        node["t"].startswith("ExpectedMonotonic")
+        for node in graphs["inference"]["nodes"]
+    )
+    ranking = monotonic_nodes["ExpectedMonotonicRankingObjectiveStage"]
+    assert ranking["p"]["margin"] == 0.0
+    assert ranking["p"]["weight"] == 1.0
     experiment = OmegaConf.load(EXPERIMENT)
     assert experiment.callbacks.model_checkpoint.every_n_train_steps == 40000
     assert experiment.evaluator.unite_diagnostics.enabled is True

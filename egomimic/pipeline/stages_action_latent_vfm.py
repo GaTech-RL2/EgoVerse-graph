@@ -6,8 +6,8 @@ The pipeline owns no embodiment semantics. Application adapters prepare the
 
 from __future__ import annotations
 
-from collections import OrderedDict
 import math
+from collections import OrderedDict
 
 import torch
 import torch.nn as nn
@@ -195,6 +195,55 @@ class ReconstructionBridgeNoisingStage(Stage):
         return batch
 
 
+class ExpectedMonotonicNoisingStage(Stage):
+    """Create paired bridge states ordered by noise severity.
+
+    The repository's bridge time is a clean fraction, so noise severity is
+    ``s = 1 - t``. Both states use the same Gaussian draw (common random
+    numbers), which preserves their marginals while reducing ranking variance.
+    """
+
+    train_only = True
+    reads = ("latent/clean",)
+    writes = (
+        "monotonic/noisy_less",
+        "monotonic/time_less",
+        "monotonic/noisy_more",
+        "monotonic/time_more",
+    )
+
+    def __init__(self, severity_min: float = 0.0, severity_max: float = 0.5):
+        super().__init__()
+        self.severity_min = float(severity_min)
+        self.severity_max = float(severity_max)
+        if not 0.0 <= self.severity_min < self.severity_max <= 1.0:
+            raise ValueError(
+                "monotonic severity range must satisfy 0 <= min < max <= 1"
+            )
+
+    def forward(self, batch: dict) -> dict:
+        clean = batch["latent/clean"]
+        severities = self.severity_min + (
+            self.severity_max - self.severity_min
+        ) * torch.rand(2, device=clean.device, dtype=torch.float32)
+        severity_less, severity_more = severities.sort().values.unbind()
+        # One severity pair is shared across the minibatch so its two empirical
+        # means estimate R(s_less) and R(s_more), rather than mixing many R(s).
+        time_less = (1.0 - severity_less).expand(int(clean.shape[0]))
+        time_more = (1.0 - severity_more).expand(int(clean.shape[0]))
+        noise = torch.randn_like(clean)
+
+        def bridge(time: torch.Tensor) -> torch.Tensor:
+            time_view = time.reshape(-1, 1, 1).to(clean)
+            return time_view * clean + (1.0 - time_view) * noise
+
+        batch["monotonic/noisy_less"] = bridge(time_less)
+        batch["monotonic/time_less"] = time_less
+        batch["monotonic/noisy_more"] = bridge(time_more)
+        batch["monotonic/time_more"] = time_more
+        return batch
+
+
 class LatentVelocityFieldStage(Stage):
     """Apply one shared AdaLN velocity field in training and integrate at inference."""
 
@@ -205,12 +254,19 @@ class LatentVelocityFieldStage(Stage):
         "fm/condition_repeat",
         "reconstruction/noisy_latent",
         "reconstruction/time",
+        "monotonic/noisy_less",
+        "monotonic/time_less",
+        "monotonic/noisy_more",
+        "monotonic/time_more",
     )
     writes = (
         "fm/pred_velocity",
         "reconstruction/pred_velocity",
         "log/action_latent_fm_condition_drop_fraction",
         "log/action_latent_reconstruction_condition_drop_fraction",
+        "monotonic/pred_velocity_less",
+        "monotonic/pred_velocity_more",
+        "log/action_latent_monotonic_condition_drop_fraction",
     )
     reads_by_mode = {"inference": ("condition", "sampler/noise")}
     writes_by_mode = {"inference": ("sampler/endpoint",)}
@@ -302,11 +358,33 @@ class LatentVelocityFieldStage(Stage):
                 batch["reconstruction/time"],
                 reconstruction_condition,
             )
+            monotonic_condition, monotonic_dropped = self._drop_condition(condition)
+            paired_velocity = self.denoising_module(
+                torch.cat(
+                    (
+                        batch["monotonic/noisy_less"],
+                        batch["monotonic/noisy_more"],
+                    ),
+                    dim=0,
+                ),
+                torch.cat(
+                    (batch["monotonic/time_less"], batch["monotonic/time_more"]),
+                    dim=0,
+                ),
+                torch.cat((monotonic_condition, monotonic_condition), dim=0),
+            )
+            (
+                batch["monotonic/pred_velocity_less"],
+                batch["monotonic/pred_velocity_more"],
+            ) = paired_velocity.chunk(2, dim=0)
             batch["log/action_latent_fm_condition_drop_fraction"] = (
                 fm_dropped.float().mean()
             )
             batch["log/action_latent_reconstruction_condition_drop_fraction"] = (
                 reconstruction_dropped.float().mean()
+            )
+            batch["log/action_latent_monotonic_condition_drop_fraction"] = (
+                monotonic_dropped.float().mean()
             )
             return batch
         latent = batch["sampler/noise"]
@@ -379,7 +457,9 @@ class LatentVelocityFieldStage(Stage):
         return (
             torch.stack(sampler_states, dim=0),
             torch.stack(final_predictions, dim=0),
-            OrderedDict((name, torch.stack(values, dim=0)) for name, values in captured.items()),
+            OrderedDict(
+                (name, torch.stack(values, dim=0)) for name, values in captured.items()
+            ),
         )
 
 
@@ -412,21 +492,50 @@ class VelocityEndpointStage(Stage):
         "reconstruction/noisy_latent",
         "reconstruction/time",
         "reconstruction/pred_velocity",
+        "monotonic/noisy_less",
+        "monotonic/time_less",
+        "monotonic/pred_velocity_less",
+        "monotonic/noisy_more",
+        "monotonic/time_more",
+        "monotonic/pred_velocity_more",
     )
-    writes = ("reconstruction/pred_clean_latent",)
+    writes = (
+        "reconstruction/pred_clean_latent",
+        "monotonic/pred_clean_less",
+        "monotonic/pred_clean_more",
+    )
 
     def forward(self, batch: dict) -> dict:
-        time = batch["reconstruction/time"].reshape(-1, 1, 1)
-        noisy = batch["reconstruction/noisy_latent"]
-        batch["reconstruction/pred_clean_latent"] = (
-            noisy + (1.0 - time.to(noisy)) * batch["reconstruction/pred_velocity"]
-        )
+        def endpoint(prefix: str, suffix: str = "") -> torch.Tensor:
+            key_suffix = f"_{suffix}" if suffix else ""
+            noisy = batch[
+                f"{prefix}/noisy{key_suffix}" if suffix else f"{prefix}/noisy_latent"
+            ]
+            time = batch[f"{prefix}/time{key_suffix}" if suffix else f"{prefix}/time"]
+            velocity = batch[
+                f"{prefix}/pred_velocity{key_suffix}"
+                if suffix
+                else f"{prefix}/pred_velocity"
+            ]
+            return noisy + (1.0 - time.reshape(-1, 1, 1).to(noisy)) * velocity
+
+        batch["reconstruction/pred_clean_latent"] = endpoint("reconstruction")
+        batch["monotonic/pred_clean_less"] = endpoint("monotonic", "less")
+        batch["monotonic/pred_clean_more"] = endpoint("monotonic", "more")
         return batch
 
 
 class ActionLatentDecoderStage(Stage):
-    reads = ("reconstruction/pred_clean_latent",)
-    writes = ("reconstruction/pred_action",)
+    reads = (
+        "reconstruction/pred_clean_latent",
+        "monotonic/pred_clean_less",
+        "monotonic/pred_clean_more",
+    )
+    writes = (
+        "reconstruction/pred_action",
+        "monotonic/pred_action_less",
+        "monotonic/pred_action_more",
+    )
     reads_by_mode = {"inference": ("sampler/endpoint",)}
     writes_by_mode = {"inference": ("pred_action",)}
 
@@ -439,6 +548,19 @@ class ActionLatentDecoderStage(Stage):
             batch["reconstruction/pred_action"] = self.decoder(
                 batch["reconstruction/pred_clean_latent"]
             )
+            paired_action = self.decoder(
+                torch.cat(
+                    (
+                        batch["monotonic/pred_clean_less"],
+                        batch["monotonic/pred_clean_more"],
+                    ),
+                    dim=0,
+                )
+            )
+            (
+                batch["monotonic/pred_action_less"],
+                batch["monotonic/pred_action_more"],
+            ) = paired_action.chunk(2, dim=0)
         else:
             batch["pred_action"] = self.decoder(batch["sampler/endpoint"])
         return batch
@@ -464,4 +586,45 @@ class NoisyReconstructionObjectiveStage(Stage):
         clean = batch["latent/clean"].detach().float()
         batch["log/action_latent_clean_rms"] = clean.square().mean().sqrt()
         batch["log/action_latent_clean_std"] = clean.std(unbiased=False)
+        return batch
+
+
+class ExpectedMonotonicRankingObjectiveStage(Stage):
+    """Penalize violations between batch-mean risks at ordered severities."""
+
+    train_only = True
+    reads = (
+        "monotonic/pred_action_less",
+        "monotonic/pred_action_more",
+        "target",
+    )
+    writes = (
+        "loss/action_latent_monotonic",
+        "log/action_latent_monotonic",
+        "log/action_latent_monotonic_risk_less",
+        "log/action_latent_monotonic_risk_more",
+        "log/action_latent_monotonic_order_gap",
+    )
+
+    def __init__(self, margin: float = 0.0, weight: float = 1.0):
+        super().__init__()
+        self.margin = float(margin)
+        self.weight = float(weight)
+        if not math.isfinite(self.margin) or self.margin < 0.0:
+            raise ValueError("monotonic margin must be finite and non-negative")
+        if not math.isfinite(self.weight) or self.weight < 0.0:
+            raise ValueError("monotonic weight must be finite and non-negative")
+
+    def forward(self, batch: dict) -> dict:
+        target = batch["target"]
+        risk_less = (batch["monotonic/pred_action_less"] - target).square().mean()
+        risk_more = (batch["monotonic/pred_action_more"] - target).square().mean()
+        loss = self.weight * torch.relu(risk_less - risk_more + self.margin)
+        batch["loss/action_latent_monotonic"] = loss
+        batch["log/action_latent_monotonic"] = loss.detach()
+        batch["log/action_latent_monotonic_risk_less"] = risk_less.detach()
+        batch["log/action_latent_monotonic_risk_more"] = risk_more.detach()
+        batch["log/action_latent_monotonic_order_gap"] = (
+            risk_more - risk_less
+        ).detach()
         return batch

@@ -23,6 +23,7 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
     _component_keys = (
         ("ReconstructionLoss", "loss/action_latent_reconstruction"),
         ("FlowLoss", "loss/action_latent_fm"),
+        ("MonotonicLoss", "loss/action_latent_monotonic"),
         ("ReconstructionL1", "log/action_latent_reconstruction_l1"),
     )
 
@@ -152,7 +153,9 @@ class ActionLatentVFMModelWrapper(ModelWrapper):
                 weighted = value * source_count
                 sums[name] = weighted if sums[name] is None else sums[name] + weighted
         values = OrderedDict((name, value / count) for name, value in sums.items())
-        values["TotalLoss"] = values["ReconstructionLoss"] + values["FlowLoss"]
+        values["TotalLoss"] = (
+            values["ReconstructionLoss"] + values["FlowLoss"] + values["MonotonicLoss"]
+        )
         values.move_to_end("TotalLoss", last=False)
         for name, value in values.items():
             self._finite_scalar(value, name)

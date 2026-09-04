@@ -73,6 +73,57 @@ def _draw_path(frame: np.ndarray, xy: np.ndarray, color, alpha: float) -> np.nda
     return cv2.addWeighted(canvas, float(alpha), frame, 1.0 - float(alpha), 0)
 
 
+def _usocket_polygons(token: np.ndarray, width: int, height: int) -> list[np.ndarray]:
+    """Return exact Sim V2 U-socket rectangles projected into image pixels."""
+    import Tsimulation
+    from Tsimulation.pushshapes.shapes import U_SOCKET_RECTS
+
+    if Tsimulation.ACTIVE != "sim_v2":
+        raise RuntimeError(f"silhouette overlay requires TSIM_VERSION=sim_v2, got {Tsimulation.ACTIVE}")
+    token = np.asarray(token, dtype=np.float64)
+    if token.shape != (5,) or not np.isfinite(token).all():
+        raise RuntimeError(f"U-socket pose token must be finite shape (5,), got {token.shape}")
+    x, y = token[:2]
+    theta = math.atan2(float(token[3]), float(token[2]))
+    c, s = math.cos(theta), math.sin(theta)
+    scale = np.array([width / 512.0, height / 512.0], dtype=np.float64)
+    polygons = []
+    for cx, cy, rect_w, rect_h in U_SOCKET_RECTS:
+        hw, hh = rect_w / 2.0, rect_h / 2.0
+        local = np.asarray(
+            [[cx - hw, cy - hh], [cx + hw, cy - hh],
+             [cx + hw, cy + hh], [cx - hw, cy + hh]], dtype=np.float64
+        )
+        rotation = np.asarray([[c, -s], [s, c]], dtype=np.float64)
+        world = local @ rotation.T + np.asarray([x, y])
+        polygons.append(np.rint(world * scale).astype(np.int32).reshape(-1, 1, 2))
+    return polygons
+
+
+def _draw_usocket_silhouettes(
+    frame: np.ndarray,
+    tokens: np.ndarray,
+    color,
+    alpha: float,
+    stride: int,
+) -> np.ndarray:
+    if stride <= 0:
+        raise RuntimeError("silhouette stride must be positive")
+    canvas = frame.copy()
+    height, width = canvas.shape[:2]
+    indices = list(range(0, 16, stride))
+    if 15 not in indices:
+        indices.append(15)
+    # Retain a thin center path, then place exact three-rectangle outlines at
+    # sparse token indices so the 96x96 observation remains readable.
+    points = np.rint(tokens[:16, :2] * np.array([width / 512.0, height / 512.0])).astype(np.int32)
+    cv2.polylines(canvas, [points.reshape(-1, 1, 2)], False, color, 1, cv2.LINE_AA)
+    for index in indices:
+        for polygon in _usocket_polygons(tokens[index], width, height):
+            cv2.polylines(canvas, [polygon], True, color, 1, cv2.LINE_AA)
+    return cv2.addWeighted(canvas, float(alpha), frame, 1.0 - float(alpha), 0)
+
+
 def render_prediction_artifact(
     artifact_path: Path,
     video_path: Path,
@@ -81,6 +132,8 @@ def render_prediction_artifact(
     fps: float = 10.0,
     gt_alpha: float = 0.6,
     pred_alpha: float = 1.0,
+    view: str = "xy",
+    silhouette_stride: int = 4,
 ) -> int:
     """Render paired GT/prediction paths without running stochastic inference."""
     artifact_path = Path(artifact_path).resolve(strict=True)
@@ -101,12 +154,20 @@ def render_prediction_artifact(
         )
     if len(images) != len(targets) or len(indices) != len(targets):
         raise RuntimeError("artifact image, token, and frame counts differ")
+    if view not in {"xy", "silhouette"}:
+        raise RuntimeError(f"view must be 'xy' or 'silhouette', got {view!r}")
     rendered = []
     for image, target, pred, index in zip(images, targets, predictions, indices):
         frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        frame = _draw_path(frame, target[:16, :2], (0, 220, 0), gt_alpha)
-        frame = _draw_path(frame, pred[:16, :2], (0, 0, 255), pred_alpha)
-        cv2.putText(frame, f"GT green | Pred red | frame {int(index)}", (4, 13),
+        if view == "silhouette":
+            frame = _draw_usocket_silhouettes(frame, target, (0, 220, 0), gt_alpha, silhouette_stride)
+            frame = _draw_usocket_silhouettes(frame, pred, (0, 0, 255), pred_alpha, silhouette_stride)
+            label = f"U-socket command: GT green | Pred red | f{int(index)}"
+        else:
+            frame = _draw_path(frame, target[:16, :2], (0, 220, 0), gt_alpha)
+            frame = _draw_path(frame, pred[:16, :2], (0, 0, 255), pred_alpha)
+            label = f"GT green | Pred red | frame {int(index)}"
+        cv2.putText(frame, label, (4, 13),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.32, (255, 255, 255), 1, cv2.LINE_AA)
         rendered.append(frame)
     height, width = rendered[0].shape[:2]
@@ -161,6 +222,8 @@ def main(argv=None):
     parser.add_argument("--embodiment-id", type=int, required=True)
     parser.add_argument("--gt-alpha", type=float, default=0.6)
     parser.add_argument("--pred-alpha", type=float, default=1.0)
+    parser.add_argument("--view", choices=("xy", "silhouette"), default="xy")
+    parser.add_argument("--silhouette-stride", type=int, default=4)
     args = parser.parse_args(argv)
     if args.frame_stride <= 0 or args.max_frames <= 0 or args.fps <= 0:
         raise RuntimeError("frame stride, max frames, and FPS must be positive")
@@ -235,6 +298,7 @@ def main(argv=None):
     render_prediction_artifact(
         artifact_path, video_path, first_frame_path,
         fps=args.fps, gt_alpha=args.gt_alpha, pred_alpha=args.pred_alpha,
+        view=args.view, silhouette_stride=args.silhouette_stride,
     )
 
     token_mse = float(np.mean(np.square(predictions - targets)))
@@ -263,6 +327,8 @@ def main(argv=None):
         "inference_graph": graph.stage_names,
         "token_shape": [17, 5], "drawn_waypoints": 16,
         "timing_row_drawn": False, "native_workspace_size": [512, 512],
+        "render_view": args.view,
+        "silhouette_stride": args.silhouette_stride if args.view == "silhouette" else None,
         "normalization_path": str(graph.norm_path), "normalization_mode": graph.norm_mode,
         "prediction_artifact": str(artifact_path),
         "prediction_artifact_sha256": _sha256(artifact_path),

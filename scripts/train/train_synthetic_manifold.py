@@ -11,7 +11,18 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from egomimic.synthetic.shared_latent_flow import SyntheticSharedLatentFlow
+from egomimic.synthetic.shared_latent_flow import (
+    SyntheticDirectFlow,
+    SyntheticSharedLatentFlow,
+)
+
+
+def energy_distance(samples: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    """Exact empirical energy distance between two validation point clouds."""
+    cross = torch.cdist(samples, targets).mean()
+    within_samples = torch.cdist(samples, samples).mean()
+    within_targets = torch.cdist(targets, targets).mean()
+    return 2.0 * cross - within_samples - within_targets
 
 
 def main() -> None:
@@ -32,7 +43,13 @@ def main() -> None:
     source = torch.from_numpy(data[source_key]).float()
     target = torch.from_numpy(data["target_3d"]).float()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SyntheticSharedLatentFlow(**config["model"]).to(device)
+    architecture = config.get("architecture", "shared_latent")
+    if architecture == "shared_latent":
+        model = SyntheticSharedLatentFlow(**config["model"]).to(device)
+    elif architecture == "direct_flow":
+        model = SyntheticDirectFlow(**config["model"]).to(device)
+    else:
+        raise ValueError(f"unknown architecture: {architecture}")
     if source.shape[-1] != model.latent_dim:
         raise ValueError(
             f"dataset {source_key} width {source.shape[-1]} does not match "
@@ -48,12 +65,23 @@ def main() -> None:
     log_path = output / "metrics.jsonl"
     for step in range(1, config["max_steps"] + 1):
         chosen = train_indices[torch.randint(len(train_indices), (config["batch_size"],), generator=generator).numpy()]
-        losses = model.losses(
-            source[chosen].to(device), target[chosen].to(device),
-            method=config["method"], flow_samples=config["flow_samples"],
-            reconstruction_noise_min=config["reconstruction_noise_range"][0],
-            reconstruction_noise_max=config["reconstruction_noise_range"][1],
-        )
+        batch_source = source[chosen].to(device)
+        batch_target = target[chosen].to(device)
+        if architecture == "shared_latent":
+            losses = model.losses(
+                batch_source,
+                batch_target,
+                method=config["method"],
+                flow_samples=config["flow_samples"],
+                reconstruction_noise_min=config["reconstruction_noise_range"][0],
+                reconstruction_noise_max=config["reconstruction_noise_range"][1],
+            )
+        else:
+            losses = model.losses(
+                batch_source,
+                batch_target,
+                flow_samples=config.get("flow_samples", 1),
+            )
         optimizer.zero_grad(set_to_none=True); losses["loss"].backward(); optimizer.step()
         if step == 1 or step % config["log_every"] == 0:
             row = {"step": step, **{key: float(value.detach()) for key, value in losses.items()}}
@@ -80,19 +108,40 @@ def main() -> None:
     model.eval()
     with torch.inference_mode():
         src = source[val_indices].to(device); tgt = target[val_indices].to(device)
-        clean_reconstruction = model.decoder(model.encoder(tgt))
-        generated = model.decoder(model.integrate(src, config["inference_steps"]))
-        np.savez_compressed(
-            output / "validation_particles.npz",
-            source=src.cpu().numpy(), target=tgt.cpu().numpy(),
-            reconstruction=clean_reconstruction.cpu().numpy(), generation=generated.cpu().numpy(),
-        )
+        if architecture == "shared_latent":
+            clean_reconstruction = model.decoder(model.encoder(tgt))
+            generated = model.decoder(model.integrate(src, config["inference_steps"]))
+            particles = {
+                "source": src.cpu().numpy(),
+                "target": tgt.cpu().numpy(),
+                "reconstruction": clean_reconstruction.cpu().numpy(),
+                "generation": generated.cpu().numpy(),
+            }
+        else:
+            clean_reconstruction = None
+            generated = model.integrate(src, config["inference_steps"])
+            particles = {
+                "source": src.cpu().numpy(),
+                "target": tgt.cpu().numpy(),
+                "generation": generated.cpu().numpy(),
+            }
+        np.savez_compressed(output / "validation_particles.npz", **particles)
     summary = {
         "parameters": sum(p.numel() for p in model.parameters()),
         "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
-        "validation_reconstruction_mse": float((clean_reconstruction - tgt).square().mean()),
-        "validation_generation_paired_mse": float((generated - tgt).square().mean()),
     }
+    if architecture == "direct_flow":
+        summary["validation_generation_energy_distance"] = float(
+            energy_distance(generated, tgt)
+        )
+    else:
+        summary["validation_generation_paired_mse"] = float(
+            (generated - tgt).square().mean()
+        )
+    if clean_reconstruction is not None:
+        summary["validation_reconstruction_mse"] = float(
+            (clean_reconstruction - tgt).square().mean()
+        )
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     if wandb_run is not None:
         wandb_run.log(summary, step=config["max_steps"])

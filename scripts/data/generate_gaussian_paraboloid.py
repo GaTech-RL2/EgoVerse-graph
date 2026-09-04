@@ -50,6 +50,7 @@ def main() -> None:
         source_latent=batch.source_latent.numpy(),
         source_2d=batch.source_2d.numpy(),
         source_3d=batch.source_3d.numpy(),
+        source_gaussian_3d=batch.source_gaussian_3d.numpy(),
         target_3d=batch.target_3d.numpy(),
         split=split,
     )

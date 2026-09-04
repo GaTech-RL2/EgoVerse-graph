@@ -1,0 +1,11 @@
+{
+  "architecture": "direct_flow", "method": "standard_fm", "seed": 42,
+  "dataset": "/coc/flash7/paphiwetsa3/experiments/synthetic-gaussian-torus-codec10k-v1/data/gaussian_torus_direct3d_4096.npz",
+  "source_key": "source_gaussian_3d",
+  "output_dir": "/coc/flash7/paphiwetsa3/experiments/synthetic-gaussian-torus-codec10k-v1/runs/direct-fm3d-seed42",
+  "model": {"data_dim": 3, "field_width": 128, "field_depth": 4},
+  "flow_samples": 1,
+  "learning_rate": 0.0003, "batch_size": 512, "max_steps": 20000,
+  "inference_steps": 32, "log_every": 100, "checkpoint_every": 5000,
+  "wandb": {"entity": "rl2-group", "project": "synthetic-shared-latent-flow", "id": "gaussian-torus-direct-fm3d-s42-v1", "name": "gaussian-torus-direct-fm3d-s42-v1", "resume": "never"}
+}

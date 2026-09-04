@@ -26,5 +26,7 @@ case "$SLURM_ARRAY_TASK_ID" in
 esac
 cd "$SOURCE"
 export PYTHONPATH="$SOURCE" PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1
+export WANDB_DIR=/coc/flash7/paphiwetsa3/experiments/synthetic-gaussian-torus-v1/wandb/task-$SLURM_ARRAY_TASK_ID
+mkdir -p "$WANDB_DIR"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 exec "$PYTHON" scripts/train/train_synthetic_manifold.py --config "$CONFIG"

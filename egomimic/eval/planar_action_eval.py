@@ -342,12 +342,16 @@ class PlanarActionEval(Eval):
             decoded_mse = (
                 (decoded - target.float().unsqueeze(0)).square().mean(dim=(-2, -1))
             )
-            native_target = self._native(target, embodiment_id)
+            decoder = self._native_decoder(embodiment_id)
+            native_target = self._native(target, embodiment_id, decoder)
             decoded_native = torch.stack(
-                [self._native(state, embodiment_id) for state in decoded], dim=0
+                [self._native(state, embodiment_id, decoder) for state in decoded],
+                dim=0,
             )
             native_mse = (
-                (decoded_native - native_target.unsqueeze(0))
+                self._native_residual(
+                    decoded_native, native_target.unsqueeze(0), decoder
+                )
                 .square()
                 .mean(dim=(-2, -1))
             )

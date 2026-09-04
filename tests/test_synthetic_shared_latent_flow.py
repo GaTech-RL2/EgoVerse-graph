@@ -35,3 +35,21 @@ def test_both_objectives_are_finite_and_differentiable():
             assert all(torch.isfinite(value) for value in losses.values())
             losses["loss"].backward()
             assert all(parameter.grad is not None for parameter in model.parameters())
+
+
+def test_vfm_reconstruction_can_freeze_only_field_parameters():
+    model = SyntheticSharedLatentFlow(latent_dim=4)
+    losses = model.losses(
+        torch.randn(8, 4),
+        torch.randn(8, 3),
+        method="vfm",
+        reconstruction_updates_field=False,
+    )
+    losses["reconstruction_loss"].backward(retain_graph=True)
+    assert all(parameter.grad is None for parameter in model.field.parameters())
+    assert all(parameter.grad is not None for parameter in model.encoder.parameters())
+    assert all(parameter.grad is not None for parameter in model.decoder.parameters())
+
+    model.zero_grad(set_to_none=True)
+    losses["flow_loss"].backward()
+    assert all(parameter.grad is not None for parameter in model.field.parameters())

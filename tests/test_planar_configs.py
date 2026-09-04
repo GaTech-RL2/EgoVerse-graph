@@ -8,6 +8,12 @@ from omegaconf import OmegaConf
 
 ROWS = {
     "usocket_arc_bc": ("pushshapes_sim_u_socket", 101, 1, "PlanarFlowSampler"),
+    "usocket_arc_hybrid_D40_M16_R24deg_bc": (
+        "pushshapes_sim_u_socket",
+        17,
+        1,
+        "PlanarFlowSampler",
+    ),
     "chain_arc_bc": ("pushshapes_sim_chain_gripper", 101, 1, "PlanarFlowSampler"),
     "usocket_direct_bc": ("pushshapes_sim_u_socket", 16, 1, "PlanarFlowSampler"),
     "chain_direct_bc": ("pushshapes_sim_chain_gripper", 16, 1, "PlanarFlowSampler"),
@@ -78,8 +84,6 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     assert dataset.expected_train_episode_count == expected_data["train"]
     assert dataset.expected_valid_episode_count == expected_data["valid"]
     assert dataset.resolver.expected_episode_count == expected_data["total"]
-    assert dataset.resolver.transform_list.rotation_radius == 30.0
-    assert dataset.resolver.transform_list.hybrid_rotation_unit is None
     assert cfg.run_provenance.split_manifest_sha256 == expected_data["manifest_sha256"]
     assert cfg.run_provenance.dataset_observation_alignment == "pre_step"
     assert cfg.planar.observation_horizon == observation_horizon
@@ -87,9 +91,20 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     if "arc_bc" in row:
         assert decoder._target_.endswith("PlanarArcWaypointZeroNativeDecoder")
         assert "action_horizon" not in decoder
+    elif "arc_hybrid" in row:
+        assert decoder._target_.endswith("PlanarArcWaypointZeroNativeDecoder")
+        assert decoder.resampled_vector_length == 16
+        assert cfg.planar.arc_distance == 40.0
+        assert cfg.planar.arc_rotation_radius == 0.0
+        assert cfg.planar.hybrid_rotation_unit == 0.14776
+        assert dataset.resolver.transform_list.rotation_radius == 0.0
+        assert dataset.resolver.transform_list.hybrid_rotation_unit == 0.14776
     else:
         assert decoder._target_.endswith("PlanarCommon5NativeDecoder")
         assert decoder.action_horizon == 16
+    if "arc_hybrid" not in row:
+        assert dataset.resolver.transform_list.rotation_radius == 30.0
+        assert dataset.resolver.transform_list.hybrid_rotation_unit is None
     model_yaml = OmegaConf.to_yaml(cfg.model)
     assert implementation in model_yaml
     stage_names = [

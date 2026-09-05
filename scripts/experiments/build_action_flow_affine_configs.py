@@ -154,6 +154,7 @@ def main() -> None:
                     "id": run_id,
                     "name": run_id,
                     "resume": "never",
+                    "dir": str(args.experiment_root / "wandb"),
                 },
                 **overrides,
             }

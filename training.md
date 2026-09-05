@@ -45,6 +45,27 @@ Training-only target, noising, and loss stages are excluded by their contracts;
 the configured denoiser performs reverse sampling. No stage is physically
 swapped at runtime.
 
+A stage whose declared reads are unavailable is a configuration error: the
+runner raises rather than skipping it. Mode restrictions are therefore declared,
+not inferred, with `train_only` or its mirror `inference_only`.
+
+## Action tokenization
+
+Arc-length tokenization can run either in the loader's `transform_list` or as
+graph nodes. The node form makes the boundary visible and lintable:
+
+- `ArcTokenizeStage` takes `ActionTargetBuilder`'s place in the stage list. It
+  reads the loader's time-indexed chunk and writes the arc token as `target`,
+  so it stays the single writer of `target` and the rest of the graph is
+  unchanged -- it simply models a token.
+- `ArcDetokenizeStage` is the inverse. It is `inference_only` and writes
+  `pred_action_native`.
+
+Compare `experiment/pusht/planar_v2_usocket_arc_bc` (tokenized in the loader)
+with `experiment/pusht/planar_v2_usocket_arc_graph_tok` (tokenized in the
+graph). Both are valid; only the second shows the tokenizer in `gt`-style graph
+output and in `tools/config_graph.py`.
+
 ## Data loading
 
 Data configs build one or more datasets and a `CombinedLoader`. Its outer keys

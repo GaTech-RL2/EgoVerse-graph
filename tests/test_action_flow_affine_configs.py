@@ -84,3 +84,36 @@ def test_builder_emits_frozen_six_variant_three_seed_matrix(tmp_path):
     assert len(aggregate["rows"]) == 6
     assert "mean" in aggregate["rows"][0][manifest["primary_metric"]]
     assert "Symmetric NN MSE" in summary_markdown.read_text()
+
+
+def test_builder_run_suffix_produces_distinct_retry_identities(tmp_path):
+    source = Path(__file__).parents[1]
+    training_dataset = tmp_path / "train.npz"
+    evaluation_dataset = tmp_path / "eval.npz"
+    training_dataset.write_bytes(b"train")
+    evaluation_dataset.write_bytes(b"eval")
+    output = tmp_path / "config"
+    subprocess.run(
+        [
+            sys.executable,
+            str(source / "scripts/experiments/build_action_flow_affine_configs.py"),
+            "--output-dir",
+            str(output),
+            "--experiment-root",
+            str(tmp_path / "experiment"),
+            "--training-dataset",
+            str(training_dataset),
+            "--evaluation-dataset",
+            str(evaluation_dataset),
+            "--seeds",
+            "42",
+            "--run-suffix",
+            "smoke-retry1",
+        ],
+        check=True,
+    )
+    config = json.loads(
+        (output / "gaussian-torus-f-nonlinear-path-seed42-smoke-retry1.json").read_text()
+    )
+    assert config["wandb"]["id"].endswith("-smoke-retry1")
+    assert config["output_dir"].endswith("-smoke-retry1")

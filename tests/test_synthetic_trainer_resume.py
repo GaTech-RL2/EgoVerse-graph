@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 
 from scripts.train.train_synthetic_manifold import (
@@ -116,7 +117,13 @@ def test_restore_rng_state_moves_saved_cuda_states_to_cpu(monkeypatch):
     assert captured[0][0].dtype == torch.uint8
 
 
-def test_action_adapter_training_uses_50k_default_and_real_validation(tmp_path):
+@pytest.mark.parametrize(
+    ("adapter_family", "adapter_objective"),
+    (("fixed_affine", "none"), ("nonlinear", "path")),
+)
+def test_action_adapter_training_uses_50k_default_and_real_validation(
+    tmp_path, adapter_family, adapter_objective
+):
     source = Path(__file__).parents[1]
     dataset = tmp_path / "dataset.npz"
     rng = np.random.default_rng(17)
@@ -127,11 +134,11 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(tmp_path):
         target_3d=rng.normal(size=(40, 3)).astype(np.float32),
         split=split,
     )
-    output = tmp_path / "action-adapter-run"
-    config_path = tmp_path / "action-adapter.json"
+    output = tmp_path / f"action-adapter-{adapter_family}"
+    config_path = tmp_path / f"action-adapter-{adapter_family}.json"
     config = {
         "architecture": "action_adapter_flow",
-        "adapter_objective": "none",
+        "adapter_objective": adapter_objective,
         "seed": 42,
         "dataset": str(dataset),
         "evaluation_dataset": str(dataset),
@@ -140,7 +147,9 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(tmp_path):
         "output_dir": str(output),
         "model": {
             "latent_dim": 8,
-            "adapter_family": "fixed_affine",
+            "adapter_family": adapter_family,
+            "residual_width": 8,
+            "residual_depth": 1,
             "field_width": 8,
             "field_depth": 1,
         },

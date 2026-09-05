@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 VARIANTS = {
@@ -109,11 +110,14 @@ def main() -> None:
     parser.add_argument("--max-steps", type=int, default=60_000)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--evaluation-particles", type=int, default=1536)
+    parser.add_argument("--run-suffix", default="")
     args = parser.parse_args()
     if args.output_dir.exists():
         raise FileExistsError(f"refusing to reuse config directory: {args.output_dir}")
     if args.evaluation_particles <= 1:
         raise ValueError("evaluation-particles must exceed one")
+    if args.run_suffix and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.run_suffix):
+        raise ValueError("run-suffix must be a path-safe identifier")
     for label, path in {
         "training dataset": args.training_dataset,
         "evaluation dataset": args.evaluation_dataset,
@@ -124,8 +128,10 @@ def main() -> None:
     written = []
     for variant, overrides in VARIANTS.items():
         for seed in args.seeds:
-            run_id = f"gaussian-torus-{variant}-seed{seed}"
+            suffix = f"-{args.run_suffix}" if args.run_suffix else ""
+            run_id = f"gaussian-torus-{variant}-seed{seed}{suffix}"
             config = {
+                "variant": variant,
                 "seed": seed,
                 "dataset": str(args.training_dataset),
                 "evaluation_dataset": str(args.evaluation_dataset),
@@ -165,6 +171,7 @@ def main() -> None:
         ),
         "pass_threshold": None,
         "checkpoint_every": 50_000,
+        "run_suffix": args.run_suffix,
         "datasets": {
             "training": {
                 "path": str(args.training_dataset.resolve()),

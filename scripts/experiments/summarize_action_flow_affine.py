@@ -32,14 +32,15 @@ def main() -> None:
     for variant in manifest["variants"]:
         summaries = []
         for seed in manifest["seeds"]:
-            matching = [
-                Path(path)
-                for path in manifest["configs"]
-                if Path(path).stem == f"gaussian-torus-{variant}-seed{seed}"
-            ]
+            matching = []
+            for path_text in manifest["configs"]:
+                path = Path(path_text)
+                config = json.loads(path.read_text())
+                if config.get("variant") == variant and config["seed"] == seed:
+                    matching.append((path, config))
             if len(matching) != 1:
                 raise ValueError(f"missing unique config for {variant} seed {seed}")
-            config = json.loads(matching[0].read_text())
+            _, config = matching[0]
             summary_path = Path(config["output_dir"]) / "summary.json"
             if not summary_path.is_file():
                 raise FileNotFoundError(summary_path)

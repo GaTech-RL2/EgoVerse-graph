@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 from pathlib import Path
 
 import numpy as np
@@ -26,15 +27,68 @@ def energy_distance(samples: torch.Tensor, targets: torch.Tensor) -> torch.Tenso
     return 2.0 * cross - within_samples - within_targets
 
 
+_CHECKPOINT_STEP = re.compile(r"global-step-(\d+)\.pt$")
+_RESUME_MUTABLE_CONFIG_KEYS = {"max_steps", "wandb"}
+
+
+def _validate_resume_config(config: dict, saved_config: dict, step: int) -> None:
+    current = {k: v for k, v in config.items() if k not in _RESUME_MUTABLE_CONFIG_KEYS}
+    saved = {
+        k: v for k, v in saved_config.items() if k not in _RESUME_MUTABLE_CONFIG_KEYS
+    }
+    if current != saved:
+        raise ValueError("resume config differs from checkpoint outside max_steps/wandb")
+    if int(config["max_steps"]) <= step:
+        raise ValueError(
+            f"max_steps {config['max_steps']} must exceed checkpoint step {step}"
+        )
+
+
+def _future_checkpoint_steps(checkpoint_dir: Path, start_step: int) -> list[int]:
+    steps = []
+    for path in checkpoint_dir.glob("*.pt"):
+        match = _CHECKPOINT_STEP.search(path.name)
+        if match and int(match.group(1)) > start_step:
+            steps.append(int(match.group(1)))
+    return sorted(steps)
+
+
+def _capture_rng_state(generator: torch.Generator) -> dict:
+    return {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "torch": torch.get_rng_state(),
+        "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
+        "batch_generator": generator.get_state(),
+    }
+
+
+def _restore_rng_state(state: dict, generator: torch.Generator) -> None:
+    random.setstate(state["python"])
+    np.random.set_state(state["numpy"])
+    torch.set_rng_state(state["torch"].cpu())
+    if torch.cuda.is_available() and state.get("cuda"):
+        torch.cuda.set_rng_state_all(state["cuda"])
+    generator.set_state(state["batch_generator"].cpu())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--resume", type=Path)
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
     output = Path(config["output_dir"])
-    if output.exists():
-        raise FileExistsError(f"refusing to reuse output directory: {output}")
-    (output / "checkpoints").mkdir(parents=True)
+    if args.resume is None:
+        if output.exists():
+            raise FileExistsError(f"refusing to reuse output directory: {output}")
+        (output / "checkpoints").mkdir(parents=True)
+    else:
+        if not output.is_dir():
+            raise FileNotFoundError(f"resume output directory does not exist: {output}")
+        expected_parent = (output / "checkpoints").resolve()
+        if args.resume.resolve().parent != expected_parent:
+            raise ValueError("resume checkpoint must belong to output_dir/checkpoints")
     seed = int(config["seed"])
     random.seed(seed)
     np.random.seed(seed)
@@ -59,14 +113,38 @@ def main() -> None:
             f"model latent_dim {model.latent_dim}"
         )
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"])
+    generator = torch.Generator().manual_seed(seed + 2)
+    start_step = 0
+    resume_rng_restored = False
+    if args.resume is not None:
+        checkpoint_state = torch.load(args.resume, map_location=device, weights_only=False)
+        start_step = int(checkpoint_state["step"])
+        _validate_resume_config(config, checkpoint_state["config"], start_step)
+        future_steps = _future_checkpoint_steps(output / "checkpoints", start_step)
+        if future_steps:
+            raise FileExistsError(
+                f"refusing to overwrite checkpoints after resume step: {future_steps}"
+            )
+        model.load_state_dict(checkpoint_state["model"], strict=True)
+        optimizer.load_state_dict(checkpoint_state["optimizer"])
+        if "rng" in checkpoint_state:
+            _restore_rng_state(checkpoint_state["rng"], generator)
+            resume_rng_restored = True
+        else:
+            continuation_seed = seed + start_step
+            random.seed(continuation_seed)
+            np.random.seed(continuation_seed)
+            torch.manual_seed(continuation_seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(continuation_seed)
+            generator.manual_seed(seed + 2 + start_step)
     wandb_run = None
     if config.get("wandb"):
         import wandb
 
         wandb_run = wandb.init(config=config, **config["wandb"])
-    generator = torch.Generator().manual_seed(seed + 2)
     log_path = output / "metrics.jsonl"
-    for step in range(1, config["max_steps"] + 1):
+    for step in range(start_step + 1, config["max_steps"] + 1):
         chosen = train_indices[
             torch.randint(
                 len(train_indices), (config["batch_size"],), generator=generator
@@ -118,6 +196,11 @@ def main() -> None:
                     "config": config,
                     "model": model.state_dict(),
                     "optimizer": optimizer.state_dict(),
+                    "rng": _capture_rng_state(generator),
+                    "resume": {
+                        "checkpoint": str(args.resume) if args.resume else None,
+                        "rng_restored": resume_rng_restored,
+                    },
                 },
                 checkpoint,
             )

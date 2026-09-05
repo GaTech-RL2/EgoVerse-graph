@@ -12,11 +12,12 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
+from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
 from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
 )
-from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 
 
 def energy_distance(samples: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
@@ -37,7 +38,9 @@ def _validate_resume_config(config: dict, saved_config: dict, step: int) -> None
         k: v for k, v in saved_config.items() if k not in _RESUME_MUTABLE_CONFIG_KEYS
     }
     if current != saved:
-        raise ValueError("resume config differs from checkpoint outside max_steps/wandb")
+        raise ValueError(
+            "resume config differs from checkpoint outside max_steps/wandb"
+        )
     if int(config["max_steps"]) <= step:
         raise ValueError(
             f"max_steps {config['max_steps']} must exceed checkpoint step {step}"
@@ -78,6 +81,9 @@ def main() -> None:
     parser.add_argument("--resume", type=Path)
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
+    checkpoint_every = int(config.get("checkpoint_every", 50_000))
+    if checkpoint_every <= 0:
+        raise ValueError("checkpoint_every must be positive")
     output = Path(config["output_dir"])
     if args.resume is None:
         if output.exists():
@@ -105,6 +111,8 @@ def main() -> None:
         model = SyntheticSharedLatentFlow(**config["model"]).to(device)
     elif architecture == "direct_flow":
         model = SyntheticDirectFlow(**config["model"]).to(device)
+    elif architecture == "action_adapter_flow":
+        model = SyntheticActionAdapterFlow(**config["model"]).to(device)
     else:
         raise ValueError(f"unknown architecture: {architecture}")
     if source.shape[-1] != model.latent_dim:
@@ -117,7 +125,9 @@ def main() -> None:
     start_step = 0
     resume_rng_restored = False
     if args.resume is not None:
-        checkpoint_state = torch.load(args.resume, map_location=device, weights_only=False)
+        checkpoint_state = torch.load(
+            args.resume, map_location=device, weights_only=False
+        )
         start_step = int(checkpoint_state["step"])
         _validate_resume_config(config, checkpoint_state["config"], start_step)
         future_steps = _future_checkpoint_steps(output / "checkpoints", start_step)
@@ -164,11 +174,21 @@ def main() -> None:
                     "reconstruction_updates_field", True
                 ),
             )
-        else:
+        elif architecture == "direct_flow":
             losses = model.losses(
                 batch_source,
                 batch_target,
                 flow_samples=config.get("flow_samples", 1),
+            )
+        else:
+            losses = model.losses(
+                batch_target,
+                objective=config["adapter_objective"],
+                flow_samples=config.get("flow_samples", 1),
+                lambda_reconstruction=config.get("lambda_reconstruction", 1.0),
+                lambda_scale=config.get("lambda_scale", 1.0),
+                lambda_path=config.get("lambda_path", 1.0),
+                noise=batch_source,
             )
         optimizer.zero_grad(set_to_none=True)
         losses["loss"].backward()
@@ -182,7 +202,7 @@ def main() -> None:
                 stream.write(json.dumps(row) + "\n")
             if wandb_run is not None:
                 wandb_run.log(row, step=step)
-        if step % config["checkpoint_every"] == 0 or step == config["max_steps"]:
+        if step % checkpoint_every == 0 or step == config["max_steps"]:
             epoch_equivalent = (step * config["batch_size"]) // len(train_indices)
             checkpoint = (
                 output
@@ -206,9 +226,17 @@ def main() -> None:
             )
     model.eval()
     with torch.inference_mode():
-        src = source[val_indices].to(device)
-        tgt = target[val_indices].to(device)
-        if architecture == "shared_latent":
+        if "evaluation_dataset" in config:
+            src, tgt = SyntheticTrajectoryEval.load_validation_data(
+                config["evaluation_dataset"],
+                source_key,
+                int(config["evaluation_particles"]),
+            )
+            src, tgt = src.to(device), tgt.to(device)
+        else:
+            src = source[val_indices].to(device)
+            tgt = target[val_indices].to(device)
+        if architecture in {"shared_latent", "action_adapter_flow"}:
             clean_reconstruction = model.decoder(model.encoder(tgt))
             trajectory = SyntheticTrajectoryEval.export(
                 model,
@@ -256,9 +284,81 @@ def main() -> None:
         summary["validation_reconstruction_mse"] = float(
             (clean_reconstruction - tgt).square().mean()
         )
+    if architecture == "action_adapter_flow":
+        fixed_noise = torch.randn(
+            int(config.get("diagnostic_noise_samples", 4096)),
+            model.latent_dim,
+            generator=torch.Generator(device="cpu").manual_seed(seed + 30_000),
+        ).to(device)
+        decoded_noise = model.decoder(fixed_noise)
+        radii = decoded_noise.norm(dim=-1)
+        singular_values = model.decoder_jacobian_singular_values(fixed_noise[:128])
+        diagnostic_time = torch.linspace(0.0, 1.0, len(tgt), device=device)[:, None]
+        summary.update(
+            {
+                "validation_path_consistency_mse": float(
+                    model.path_consistency_loss(tgt, src, diagnostic_time)
+                ),
+                "validation_scale_loss": float(model.scale_loss(fixed_noise)),
+                "validation_latent_code_rms": float(
+                    model.encoder(tgt).square().mean().sqrt()
+                ),
+                "validation_decoder_jacobian_singular_min": float(
+                    singular_values.min()
+                ),
+                "validation_decoder_jacobian_singular_median": float(
+                    singular_values.median()
+                ),
+                "validation_decoder_jacobian_singular_max": float(
+                    singular_values.max()
+                ),
+                "validation_decoded_noise_radius_q50": float(
+                    torch.quantile(radii, 0.50)
+                ),
+                "validation_decoded_noise_radius_q90": float(
+                    torch.quantile(radii, 0.90)
+                ),
+                "validation_decoded_noise_radius_q99": float(
+                    torch.quantile(radii, 0.99)
+                ),
+                "validation_decoded_noise_radius_max": float(radii.max()),
+                "validation_torus_surface_rmse": float(
+                    SyntheticTrajectoryEval.torus_surface_rmse(
+                        generated,
+                        major_radius=float(config.get("torus_major_radius", 2.0)),
+                        minor_radius=float(config.get("torus_minor_radius", 0.65)),
+                    )
+                ),
+                **{
+                    f"validation_{key}": float(value)
+                    for key, value in SyntheticTrajectoryEval.torus_angular_coverage(
+                        generated,
+                        tgt,
+                        bins=int(config.get("angular_bins", 16)),
+                        major_radius=float(config.get("torus_major_radius", 2.0)),
+                    ).items()
+                },
+            }
+        )
+        trajectory_radii = trajectory.norm(dim=-1)
+        quantiles = torch.tensor([0.5, 0.9, 0.99], device=device)
+        summary["validation_decoded_trajectory_radius_quantiles"] = [
+            [float(value) for value in torch.quantile(row, quantiles)]
+            for row in trajectory_radii
+        ]
+        summary["validation_decoded_trajectory_times"] = [
+            index / (len(trajectory_radii) - 1)
+            for index in range(len(trajectory_radii))
+        ]
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     if wandb_run is not None:
-        wandb_run.log(summary, step=config["max_steps"])
+        # Keep structured trajectory diagnostics in summary.json. W&B summary
+        # logging is deliberately scalar-only so backend coercion cannot turn a
+        # successful training run into a late logging failure.
+        wandb_run.log(
+            {key: value for key, value in summary.items() if np.isscalar(value)},
+            step=config["max_steps"],
+        )
         wandb_run.finish()
 
 

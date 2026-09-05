@@ -4,11 +4,17 @@ import torch
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
+from egomimic.synthetic.multi_action_adapter_flow import (
+    SyntheticMultiActionAdapterFlow,
+)
 from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
 )
-from scripts.eval.export_synthetic_trajectory_npz import resolve_device
+from scripts.eval.export_synthetic_trajectory_npz import (
+    _EmbodimentTrajectoryView,
+    resolve_device,
+)
 
 
 def test_shared_eval_exports_same_npz_contract_for_both_model_families(tmp_path):
@@ -100,3 +106,15 @@ def test_trajectory_export_device_resolution_rejects_missing_cuda(monkeypatch):
     assert resolve_device("auto") == torch.device("cpu")
     with pytest.raises(RuntimeError, match="CUDA was requested"):
         resolve_device("cuda")
+
+
+def test_multi_action_trajectory_view_selects_private_decoder():
+    model = SyntheticMultiActionAdapterFlow(
+        embodiments=["shallow", "steep"], field_width=8, field_depth=1
+    )
+    source = torch.randn(5, 8)
+    view = _EmbodimentTrajectoryView(model, "steep")
+    torch.testing.assert_close(
+        view.trajectory(source, steps=2),
+        model.trajectory(source, embodiment="steep", steps=2),
+    )

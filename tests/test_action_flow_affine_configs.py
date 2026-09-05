@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 
-def test_builder_emits_frozen_six_variant_three_seed_matrix(tmp_path):
+def test_builder_emits_frozen_eleven_variant_three_seed_matrix(tmp_path):
     source = Path(__file__).parents[1]
     output = tmp_path / "config"
     experiment = tmp_path / "experiment"
@@ -29,7 +29,7 @@ def test_builder_emits_frozen_six_variant_three_seed_matrix(tmp_path):
         check=True,
     )
     configs = sorted(output.glob("gaussian-torus-*.json"))
-    assert len(configs) == 18
+    assert len(configs) == 33
     resolved = [json.loads(path.read_text()) for path in configs]
     assert {config["seed"] for config in resolved} == {42, 43, 44}
     assert {config["checkpoint_every"] for config in resolved} == {50_000}
@@ -40,11 +40,12 @@ def test_builder_emits_frozen_six_variant_three_seed_matrix(tmp_path):
     action_configs = [
         config for config in resolved if config["architecture"] == "action_adapter_flow"
     ]
-    assert len(action_configs) == 15
+    assert len(action_configs) == 30
     assert {config["model"]["latent_dim"] for config in action_configs} == {8}
     manifest = json.loads((output / "manifest.json").read_text())
     assert manifest["primary_metric"] == "validation_generation_symmetric_nn_mse"
     assert manifest["pass_threshold"] is None
+    assert len(manifest["variants"]) == 11
     assert manifest["datasets"]["training"] == {
         "path": str(training_dataset.resolve()),
         "sha256": hashlib.sha256(training_dataset.read_bytes()).hexdigest(),
@@ -81,9 +82,24 @@ def test_builder_emits_frozen_six_variant_three_seed_matrix(tmp_path):
         check=True,
     )
     aggregate = json.loads(summary_json.read_text())
-    assert len(aggregate["rows"]) == 6
+    assert len(aggregate["rows"]) == 11
     assert "mean" in aggregate["rows"][0][manifest["primary_metric"]]
     assert "Symmetric NN MSE" in summary_markdown.read_text()
+
+    e_configs = [config for config in resolved if config["variant"].startswith("e-")]
+    g_configs = [config for config in resolved if config["variant"].startswith("g-")]
+    assert {config["lambda_reconstruction"] for config in e_configs} == {
+        1.0,
+        10.0,
+        100.0,
+    }
+    assert {config["lambda_reconstruction"] for config in g_configs} == {
+        1.0,
+        10.0,
+        100.0,
+    }
+    assert {config["lambda_action_velocity"] for config in e_configs} == {0.0}
+    assert {config["lambda_action_velocity"] for config in g_configs} == {1.0}
 
 
 def test_builder_run_suffix_produces_distinct_retry_identities(tmp_path):

@@ -1,6 +1,6 @@
 # Action-flow affine and nonlinear torus comparison
 
-This experiment implements variants A--F from the Action Flow Affine Test Plan.
+This experiment implements variants A--G from the Action Flow Affine Test Plan.
 All adapter variants use an eight-dimensional clean-to-noise latent bridge and
 generate by integrating the learned field backward from `t=1` to `t=0` before
 decoding. The direct baseline retains its existing three-dimensional flow.
@@ -35,6 +35,14 @@ latent scale, Jacobian singular values, and decoded-radius quantiles are
 diagnostics. The config manifest records both dataset SHA-256 values, and config
 generation fails if either frozen dataset is missing. Checkpoints default to
 every 50,000 optimizer steps.
+
+The complete matrix contains 33 runs: A--D and F once per seed, plus matched E
+and G pairs at reconstruction weights 1, 10, and 100. G adds
+`mean(||J_decoder(z_t) (v_theta(z_t,t) - U)||^2) / 3` to latent FM,
+reconstruction, and scale. It keeps gradients through the encoder, decoder JVP,
+and denoiser. Per the user's metric decision, the weight sweep is ranked by
+symmetric NN MSE on the common sufficiently large cloud while reconstruction is
+reported alongside it; no arbitrary binary match threshold is applied.
 
 Dry-run note: an attempted custom evaluation split with the default 0.9 train
 fraction plus 0.2 validation fraction was correctly rejected. The generator's

@@ -119,7 +119,11 @@ def test_restore_rng_state_moves_saved_cuda_states_to_cpu(monkeypatch):
 
 @pytest.mark.parametrize(
     ("adapter_family", "adapter_objective"),
-    (("fixed_affine", "none"), ("nonlinear", "path")),
+    (
+        ("fixed_affine", "none"),
+        ("nonlinear", "path"),
+        ("nonlinear", "action_velocity"),
+    ),
 )
 def test_action_adapter_training_uses_50k_default_and_real_validation(
     tmp_path, adapter_family, adapter_objective
@@ -134,8 +138,8 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(
         target_3d=rng.normal(size=(40, 3)).astype(np.float32),
         split=split,
     )
-    output = tmp_path / f"action-adapter-{adapter_family}"
-    config_path = tmp_path / f"action-adapter-{adapter_family}.json"
+    output = tmp_path / f"action-adapter-{adapter_family}-{adapter_objective}"
+    config_path = tmp_path / f"action-adapter-{adapter_family}-{adapter_objective}.json"
     config = {
         "architecture": "action_adapter_flow",
         "adapter_objective": adapter_objective,
@@ -157,6 +161,7 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(
         "lambda_reconstruction": 0.0,
         "lambda_scale": 0.0,
         "lambda_path": 0.0,
+        "lambda_action_velocity": 1.0,
         "learning_rate": 0.0003,
         "batch_size": 4,
         "max_steps": 2,
@@ -174,6 +179,7 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(
     for key in (
         "validation_generation_symmetric_nn_mse",
         "validation_path_consistency_mse",
+        "validation_action_velocity_mse",
         "validation_scale_loss",
         "validation_torus_surface_rmse",
         "validation_angular_histogram_l1",

@@ -23,6 +23,14 @@ from egomimic.synthetic.shared_latent_flow import (
 )
 
 
+def resolve_device(requested: str) -> torch.device:
+    if requested == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if requested == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is unavailable")
+    return torch.device(requested)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -31,7 +39,9 @@ def main() -> None:
     parser.add_argument("--ground-truth-source-key")
     parser.add_argument("--steps", type=int, default=32)
     parser.add_argument("--particles", type=int, default=128)
+    parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     args = parser.parse_args()
+    device = resolve_device(args.device)
     if (args.checkpoint is None) == (args.ground_truth_source_key is None):
         raise SystemExit(
             "select exactly one of --checkpoint or --ground-truth-source-key"
@@ -46,6 +56,7 @@ def main() -> None:
             config.get("source_key", "source_2d"),
             args.particles,
         )
+        source, target = source.to(device), target.to(device)
         architecture = config.get("architecture", "shared_latent")
         if architecture == "shared_latent":
             model = SyntheticSharedLatentFlow(**config["model"])
@@ -56,7 +67,7 @@ def main() -> None:
         else:
             raise SystemExit(f"unknown architecture: {architecture}")
         model.load_state_dict(checkpoint["model"], strict=True)
-        model.eval()
+        model.to(device).eval()
         SyntheticTrajectoryEval.export(
             model, source, target, args.output, steps=args.steps
         )
@@ -66,6 +77,7 @@ def main() -> None:
         source, target = SyntheticTrajectoryEval.load_validation_data(
             args.dataset, args.ground_truth_source_key, args.particles
         )
+        source, target = source.to(device), target.to(device)
         SyntheticTrajectoryEval.export_linear_ground_truth(
             source, target, args.output, steps=args.steps
         )

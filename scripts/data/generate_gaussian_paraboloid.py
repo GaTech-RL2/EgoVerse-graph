@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """Materialize the paired Gaussian-to-paraboloid control as NPZ + JSON."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from egomimic.synthetic import generate_gaussian_paraboloid
 

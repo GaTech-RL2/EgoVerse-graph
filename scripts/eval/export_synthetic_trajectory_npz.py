@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Export one checkpoint or analytic coupling through SyntheticTrajectoryEval."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import torch
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow

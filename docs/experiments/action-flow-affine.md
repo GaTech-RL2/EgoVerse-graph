@@ -40,3 +40,8 @@ Dry-run note: an attempted custom evaluation split with the default 0.9 train
 fraction plus 0.2 validation fraction was correctly rejected. The generator's
 split-sum validator is the durable guard; keep the documented default 0.9/0.05
 split (or set both fractions so their sum is below one).
+
+Clean-clone note: the first Skynet preflight found that path-invoked scripts
+could resolve an older environment-installed `egomimic` package. Every
+synthetic data/train/export entry point now prepends its own checkout root, and
+a subprocess regression test runs the generator from outside the repository.

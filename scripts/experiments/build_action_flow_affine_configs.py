@@ -199,7 +199,7 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 43, 44])
     parser.add_argument("--max-steps", type=int, default=60_000)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
-    parser.add_argument("--evaluation-particles", type=int, default=1536)
+    parser.add_argument("--evaluation-particles", type=int, default=2048)
     parser.add_argument("--run-suffix", default="")
     args = parser.parse_args()
     if args.output_dir.exists():

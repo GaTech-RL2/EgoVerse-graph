@@ -8,6 +8,7 @@ from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
 )
+from scripts.eval.export_synthetic_trajectory_npz import resolve_device
 
 
 def test_shared_eval_exports_same_npz_contract_for_both_model_families(tmp_path):
@@ -91,3 +92,11 @@ def test_torus_metrics_are_exact_on_uniform_surface_samples():
     coverage = SyntheticTrajectoryEval.torus_angular_coverage(points, points, bins=8)
     torch.testing.assert_close(coverage["angular_histogram_l1"], torch.tensor(0.0))
     torch.testing.assert_close(coverage["angular_support_recall"], torch.tensor(1.0))
+
+
+def test_trajectory_export_device_resolution_rejects_missing_cuda(monkeypatch):
+    assert resolve_device("cpu") == torch.device("cpu")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    assert resolve_device("auto") == torch.device("cpu")
+    with pytest.raises(RuntimeError, match="CUDA was requested"):
+        resolve_device("cuda")

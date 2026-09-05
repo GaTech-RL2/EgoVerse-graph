@@ -18,17 +18,17 @@ python scripts/data/generate_gaussian_torus.py \
   --output /path/to/gaussian_torus_latent8_train.npz \
   --count 4096 --source-dim 8 --seed 42
 python scripts/data/generate_gaussian_torus.py \
-  --output /path/to/gaussian_torus_latent8_eval.npz \
-  --count 32768 --source-dim 8 --seed 4242
+  --output /path/to/gaussian_torus_latent8_eval_40960_seed4242_val2048.npz \
+  --count 40960 --source-dim 8 --seed 4242
 python scripts/experiments/build_action_flow_affine_configs.py \
   --output-dir /path/to/experiment/config \
   --experiment-root /path/to/experiment \
   --training-dataset /path/to/gaussian_torus_latent8_train.npz \
-  --evaluation-dataset /path/to/gaussian_torus_latent8_eval.npz
+  --evaluation-dataset /path/to/gaussian_torus_latent8_eval_40960_seed4242_val2048.npz
 ```
 
 The primary comparison is symmetric nearest-neighbor squared distance computed
-on the identical 1,536-point target cloud for every run. Report all three seeds
+on the identical 2,048-point target cloud for every run. Report all three seeds
 and their mean and standard deviation; there is no separate pass threshold.
 Energy Distance, surface error, angular coverage, reconstruction, path error,
 latent scale, Jacobian singular values, and decoded-radius quantiles are

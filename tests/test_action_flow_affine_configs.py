@@ -33,7 +33,7 @@ def test_builder_emits_frozen_eleven_variant_three_seed_matrix(tmp_path):
     resolved = [json.loads(path.read_text()) for path in configs]
     assert {config["seed"] for config in resolved} == {42, 43, 44}
     assert {config["checkpoint_every"] for config in resolved} == {50_000}
-    assert {config["evaluation_particles"] for config in resolved} == {1536}
+    assert {config["evaluation_particles"] for config in resolved} == {2048}
     assert {config["evaluation_dataset"] for config in resolved} == {
         str(evaluation_dataset)
     }

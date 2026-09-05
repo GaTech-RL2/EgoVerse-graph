@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -59,6 +60,7 @@ def test_paraboloid_surface_metric_is_zero_on_surface():
 
 
 def test_multi_trainer_runs_optimizer_validation_and_immutable_checkpoint(tmp_path):
+    repository = Path(__file__).parents[1]
     source = tmp_path / "source"
     source.mkdir()
     datasets = {}
@@ -110,7 +112,7 @@ def test_multi_trainer_runs_optimizer_validation_and_immutable_checkpoint(tmp_pa
     subprocess.run(
         [
             sys.executable,
-            "scripts/train/train_synthetic_multi_action_flow.py",
+            str(repository / "scripts/train/train_synthetic_multi_action_flow.py"),
             "--config",
             str(config_path),
         ],

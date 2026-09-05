@@ -58,6 +58,16 @@ class SyntheticTrajectoryEval:
         return (tube_radius - minor_radius).square().mean().sqrt()
 
     @staticmethod
+    def paraboloid_surface_rmse(
+        points: torch.Tensor, *, curvature: float
+    ) -> torch.Tensor:
+        """Vertical RMSE to ``z = curvature * (x**2 + y**2)``."""
+        if curvature <= 0:
+            raise ValueError("paraboloid curvature must be positive")
+        expected_height = curvature * points[:, :2].square().sum(dim=-1)
+        return (points[:, 2] - expected_height).square().mean().sqrt()
+
+    @staticmethod
     def torus_angular_coverage(
         samples: torch.Tensor,
         targets: torch.Tensor,

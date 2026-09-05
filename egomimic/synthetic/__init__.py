@@ -1,6 +1,7 @@
 """Synthetic distribution benchmarks for latent generative models."""
 
 from .action_adapter_flow import SyntheticActionAdapterFlow
+from .multi_action_adapter_flow import SyntheticMultiActionAdapterFlow
 from .manifold_dataset import (
     GaussianParaboloidDataset,
     GaussianTorusDataset,
@@ -14,4 +15,5 @@ __all__ = [
     "generate_gaussian_paraboloid",
     "generate_gaussian_torus",
     "SyntheticActionAdapterFlow",
+    "SyntheticMultiActionAdapterFlow",
 ]

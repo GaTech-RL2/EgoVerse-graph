@@ -310,6 +310,40 @@ def main() -> None:
         diagnostic_residual = (
             model.velocity(diagnostic_state, diagnostic_time) - diagnostic_velocity
         )
+        surface_kind = config.get("surface_kind", "torus")
+        if surface_kind == "torus":
+            surface_metrics = {
+                "validation_torus_surface_rmse": float(
+                    SyntheticTrajectoryEval.torus_surface_rmse(
+                        generated,
+                        major_radius=float(config.get("torus_major_radius", 2.0)),
+                        minor_radius=float(config.get("torus_minor_radius", 0.65)),
+                    )
+                ),
+                **{
+                    f"validation_{key}": float(value)
+                    for key, value in SyntheticTrajectoryEval.torus_angular_coverage(
+                        generated,
+                        tgt,
+                        bins=int(config.get("angular_bins", 16)),
+                        major_radius=float(config.get("torus_major_radius", 2.0)),
+                    ).items()
+                },
+            }
+        elif surface_kind == "paraboloid":
+            if "paraboloid_curvature" not in config:
+                raise ValueError(
+                    "paraboloid surface diagnostics require paraboloid_curvature"
+                )
+            surface_metrics = {
+                "validation_paraboloid_surface_rmse": float(
+                    SyntheticTrajectoryEval.paraboloid_surface_rmse(
+                        generated, curvature=float(config["paraboloid_curvature"])
+                    )
+                )
+            }
+        else:
+            raise ValueError(f"unknown surface_kind: {surface_kind}")
         summary.update(
             {
                 "validation_path_consistency_mse": float(
@@ -344,22 +378,7 @@ def main() -> None:
                     torch.quantile(radii, 0.99)
                 ),
                 "validation_decoded_noise_radius_max": float(radii.max()),
-                "validation_torus_surface_rmse": float(
-                    SyntheticTrajectoryEval.torus_surface_rmse(
-                        generated,
-                        major_radius=float(config.get("torus_major_radius", 2.0)),
-                        minor_radius=float(config.get("torus_minor_radius", 0.65)),
-                    )
-                ),
-                **{
-                    f"validation_{key}": float(value)
-                    for key, value in SyntheticTrajectoryEval.torus_angular_coverage(
-                        generated,
-                        tgt,
-                        bins=int(config.get("angular_bins", 16)),
-                        major_radius=float(config.get("torus_major_radius", 2.0)),
-                    ).items()
-                },
+                **surface_metrics,
             }
         )
         trajectory_radii = trajectory.norm(dim=-1)

@@ -48,6 +48,7 @@ def main() -> None:
     np.savez_compressed(
         args.output,
         source_latent=batch.source_latent.numpy(),
+        source_gaussian_latent=batch.source_gaussian_latent.numpy(),
         source_2d=batch.source_2d.numpy(),
         source_3d=batch.source_3d.numpy(),
         source_gaussian_3d=batch.source_gaussian_3d.numpy(),

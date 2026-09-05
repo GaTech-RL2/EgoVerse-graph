@@ -36,3 +36,5 @@ def test_four_dimensional_source_keeps_same_torus_coupling():
     assert torch.equal(batch.source_2d, reference.source_2d)
     assert torch.equal(batch.target_3d, reference.target_3d)
     assert torch.equal(batch.source_gaussian_3d, reference.source_gaussian_3d)
+    assert batch.source_gaussian_latent.shape == (64, 4)
+    assert torch.equal(batch.source_gaussian_3d, batch.source_gaussian_latent[:, :3])

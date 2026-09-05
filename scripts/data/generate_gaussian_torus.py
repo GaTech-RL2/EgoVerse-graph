@@ -49,6 +49,7 @@ def main() -> None:
     np.savez_compressed(
         args.output,
         source_latent=batch.source_latent.numpy(),
+        source_gaussian_latent=batch.source_gaussian_latent.numpy(),
         source_2d=batch.source_2d.numpy(),
         source_3d=batch.source_3d.numpy(),
         source_gaussian_3d=batch.source_gaussian_3d.numpy(),
@@ -64,7 +65,7 @@ def main() -> None:
         "seed": args.seed,
         "major_radius": args.major_radius,
         "minor_radius": args.minor_radius,
-        "source_distribution": f"N(0,I_{args.source_dim}); first two coordinates determine the paired torus target",
+        "source_distribution": f"paired N(0,I_{args.source_dim}) plus independent N(0,I_{args.source_dim}) inference noise; first two paired coordinates determine the torus target",
         "source_dim": args.source_dim,
         "target_distribution": "analytic torus with CDF-derived uniform angles",
         "pairing": "deterministic standard-normal-CDF angular parameterization",

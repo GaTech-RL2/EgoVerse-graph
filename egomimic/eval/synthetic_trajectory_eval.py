@@ -47,6 +47,52 @@ class SyntheticTrajectoryEval:
         return 0.5 * (sample_to_target + target_to_sample)
 
     @staticmethod
+    def torus_surface_rmse(
+        points: torch.Tensor, *, major_radius: float, minor_radius: float
+    ) -> torch.Tensor:
+        """Radial RMSE to the analytic torus surface."""
+        cylindrical_radius = points[:, :2].square().sum(dim=-1).sqrt()
+        tube_radius = torch.sqrt(
+            (cylindrical_radius - major_radius).square() + points[:, 2].square()
+        )
+        return (tube_radius - minor_radius).square().mean().sqrt()
+
+    @staticmethod
+    def torus_angular_coverage(
+        samples: torch.Tensor,
+        targets: torch.Tensor,
+        *,
+        bins: int,
+        major_radius: float = 2.0,
+    ) -> dict[str, torch.Tensor]:
+        """Compare torus angular histograms and occupied target support."""
+        if bins <= 1:
+            raise ValueError("angular coverage requires at least two bins")
+
+        def indices(points: torch.Tensor) -> torch.Tensor:
+            radial = points[:, :2].square().sum(dim=-1).sqrt()
+            theta = torch.atan2(points[:, 1], points[:, 0]).remainder(2 * torch.pi)
+            phi = torch.atan2(points[:, 2], radial - major_radius).remainder(
+                2 * torch.pi
+            )
+            theta_bin = torch.clamp(
+                (theta / (2 * torch.pi) * bins).long(), max=bins - 1
+            )
+            phi_bin = torch.clamp((phi / (2 * torch.pi) * bins).long(), max=bins - 1)
+            return theta_bin * bins + phi_bin
+
+        sample_hist = torch.bincount(indices(samples), minlength=bins * bins).float()
+        target_hist = torch.bincount(indices(targets), minlength=bins * bins).float()
+        sample_hist = sample_hist / sample_hist.sum().clamp_min(1)
+        target_hist = target_hist / target_hist.sum().clamp_min(1)
+        target_support = target_hist > 0
+        covered = (sample_hist > 0) & target_support
+        return {
+            "angular_histogram_l1": (sample_hist - target_hist).abs().sum(),
+            "angular_support_recall": covered.sum() / target_support.sum().clamp_min(1),
+        }
+
+    @staticmethod
     @torch.inference_mode()
     def evaluate(model, source: torch.Tensor, target: torch.Tensor, *, steps: int):
         points = model.trajectory(source, steps=steps)

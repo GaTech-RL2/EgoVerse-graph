@@ -6,7 +6,10 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from scripts.train.train_synthetic_manifold import _capture_rng_state, _restore_rng_state
+from scripts.train.train_synthetic_manifold import (
+    _capture_rng_state,
+    _restore_rng_state,
+)
 
 
 def _run(source: Path, config: Path, resume: Path | None = None) -> None:
@@ -111,3 +114,60 @@ def test_restore_rng_state_moves_saved_cuda_states_to_cpu(monkeypatch):
     assert device_state.cpu_called
     assert captured[0][0].device.type == "cpu"
     assert captured[0][0].dtype == torch.uint8
+
+
+def test_action_adapter_training_uses_50k_default_and_real_validation(tmp_path):
+    source = Path(__file__).parents[1]
+    dataset = tmp_path / "dataset.npz"
+    rng = np.random.default_rng(17)
+    split = np.array([0] * 30 + [1] * 5 + [2] * 5, dtype=np.uint8)
+    np.savez_compressed(
+        dataset,
+        source_gaussian_latent=rng.normal(size=(40, 8)).astype(np.float32),
+        target_3d=rng.normal(size=(40, 3)).astype(np.float32),
+        split=split,
+    )
+    output = tmp_path / "action-adapter-run"
+    config_path = tmp_path / "action-adapter.json"
+    config = {
+        "architecture": "action_adapter_flow",
+        "adapter_objective": "none",
+        "seed": 42,
+        "dataset": str(dataset),
+        "evaluation_dataset": str(dataset),
+        "evaluation_particles": 5,
+        "source_key": "source_gaussian_latent",
+        "output_dir": str(output),
+        "model": {
+            "latent_dim": 8,
+            "adapter_family": "fixed_affine",
+            "field_width": 8,
+            "field_depth": 1,
+        },
+        "flow_samples": 2,
+        "lambda_reconstruction": 0.0,
+        "lambda_scale": 0.0,
+        "lambda_path": 0.0,
+        "learning_rate": 0.0003,
+        "batch_size": 4,
+        "max_steps": 2,
+        "inference_steps": 2,
+        "diagnostic_noise_samples": 16,
+        "angular_bins": 4,
+        "log_every": 1,
+    }
+    config_path.write_text(json.dumps(config))
+    _run(source, config_path)
+    checkpoints = list((output / "checkpoints").glob("*.pt"))
+    assert len(checkpoints) == 1
+    assert checkpoints[0].name.endswith("global-step-000002.pt")
+    summary = json.loads((output / "summary.json").read_text())
+    for key in (
+        "validation_generation_symmetric_nn_mse",
+        "validation_path_consistency_mse",
+        "validation_scale_loss",
+        "validation_torus_surface_rmse",
+        "validation_angular_histogram_l1",
+        "validation_decoder_jacobian_singular_max",
+    ):
+        assert np.isfinite(summary[key])

@@ -51,3 +51,7 @@ created under inference mode and then reused by an autograd Jacobian. Evaluation
 data now loads outside inference mode, and the real subprocess test covers both
 fixed-lift and nonlinear-path diagnostics. Use `--run-suffix` for immutable,
 collision-free retry output and W&B identities.
+
+W&B files are rooted under `<experiment-root>/wandb`; never let the process
+default to a `wandb/` directory inside a clean source checkout. The first smoke
+artifacts that exposed this were preserved rather than deleted.

@@ -276,7 +276,7 @@ assert cfg.run_provenance.split_seed == 42
 assert cfg.run_provenance.valid_ratio == 0.01
 assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
 assert cfg.name.startswith("planar_v2_usocket_")
-assert experiment.endswith(("_direct_bc", "_arc_bc"))
+assert experiment.endswith(("_direct_bc", "_arc_bc", "_dp_paper"))
 PY
 
 "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" \

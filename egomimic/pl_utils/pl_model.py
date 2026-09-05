@@ -11,6 +11,27 @@ from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
 
+def _unwrap_combined_loader_batch(batch):
+    """Undo the extra tuple Lightning leaks when val groups are NESTED.
+
+    ``MultiDataModuleWrapper.val_dataloader`` returns one CombinedLoader per val
+    group. With a single group it returns that loader bare, Lightning iterates
+    it directly and unpacks its ``(batch, batch_idx, dataloader_idx)`` yield, so
+    ``batch`` arrives as the ``{source: data}`` mapping the pipeline expects.
+
+    With two or more groups it returns a LIST of CombinedLoaders. Lightning
+    wraps that list in a sequential CombinedLoader of its own, which treats each
+    inner CombinedLoader as a plain iterable -- so the inner loader's 3-tuple is
+    passed through as the batch and one unpack is not enough. The outer loop
+    still hands us the correct batch_idx and dataloader_idx (the group index),
+    so the inner pair is redundant and dropped. Without this a multi-group run
+    dies at the first val step inside PipelineAlgo, which requires a mapping.
+    """
+    while isinstance(batch, tuple) and len(batch) == 3:
+        batch = batch[0]
+    return batch
+
+
 class ModelWrapper(LightningModule):
     """
     Lightning wrapper for a configured PipelineAlgo.
@@ -260,11 +281,29 @@ class ModelWrapper(LightningModule):
 
         self.evaluator.on_validation_start()
 
+    def _valid_group_name(self, dataloader_idx: int):
+        """Name of the val group Lightning is currently iterating, if known.
+
+        The datamodule owns the positional group list; `dataloader_idx` indexes
+        it. Returns None when there is no datamodule (unit tests instantiate the
+        wrapper directly) or the index is out of range, and the evaluator then
+        keeps its unprefixed metric names.
+        """
+        datamodule = getattr(self.trainer, "datamodule", None) if self._trainer else None
+        names = getattr(datamodule, "valid_group_names", None)
+        if not names or not 0 <= int(dataloader_idx) < len(names):
+            return None
+        return names[int(dataloader_idx)]
+
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """Delegate one processed validation batch to the configured evaluator."""
         if self.evaluator is None:
             return
+        batch = _unwrap_combined_loader_batch(batch)
         batch = self.model.process_batch_for_training(batch)
+        group = self._valid_group_name(dataloader_idx)
+        if group is not None and hasattr(self.evaluator, "set_validation_group"):
+            self.evaluator.set_validation_group(group)
         self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
 
     def on_validation_end(self):

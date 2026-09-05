@@ -22,6 +22,7 @@ from tabulate import tabulate
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.eval.eval import Eval
 from egomimic.pipeline.algo import PipelineAlgo
+from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP, as_valid_groups
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
@@ -195,7 +196,11 @@ def _instantiate_model_wrapper(cfg: DictConfig) -> LightningModule:
     )
 
 
-def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
+def _log_dataset_frame_counts(train_datasets: dict, valid_entries) -> None:
+    """Frame counts per split. ``valid_entries`` is the datamodule's
+    ``iter_valid_datasets()`` -- (group, source, dataset) over EVERY val group,
+    so a run with more than one group reports all of them rather than the one
+    the flat alias happens to point at."""
     rows = []
     for name, ds in train_datasets.items():
         rows.append(("train", name, len(ds)))
@@ -203,12 +208,12 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
         rows.append(
             ("TOTAL", "(train)", sum(len(ds) for ds in train_datasets.values()))
         )
-    for name, ds in valid_datasets.items():
-        rows.append(("valid", name, len(ds)))
-    if valid_datasets:
-        rows.append(
-            ("TOTAL", "(valid)", sum(len(ds) for ds in valid_datasets.values()))
-        )
+    valid_lengths = []
+    for group, source, ds in valid_entries:
+        rows.append((f"valid[{group}]", source, len(ds)))
+        valid_lengths.append(len(ds))
+    if valid_lengths:
+        rows.append(("TOTAL", "(valid)", sum(valid_lengths)))
     table = tabulate(
         rows,
         headers=["Split", "Dataset", "Frames"],
@@ -442,11 +447,21 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.data.train_datasets[dataset_name]
         )
 
-    valid_datasets = {}
-    for dataset_name in cfg.data.valid_datasets:
-        valid_datasets[dataset_name] = hydra.utils.instantiate(
-            cfg.data.valid_datasets[dataset_name]
-        )
+    # `valid_datasets` is either flat ({source: dataset-config}) or grouped
+    # ({group: {source: dataset-config}}). Instantiate one level deeper for the
+    # grouped shape; `MultiDataModuleWrapper` normalises both to groups.
+    valid_group_configs = as_valid_groups(cfg.data.valid_datasets)
+    valid_datasets = {
+        group: {
+            source: hydra.utils.instantiate(dataset_config)
+            for source, dataset_config in members.items()
+        }
+        for group, members in valid_group_configs.items()
+    }
+    if list(valid_datasets) == [DEFAULT_VALID_GROUP]:
+        # Hand the flat shape back unchanged so a single-group config produces
+        # exactly the mapping it did before groups existed.
+        valid_datasets = valid_datasets[DEFAULT_VALID_GROUP]
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     assert "MultiDataModuleWrapper" in cfg.data._target_, (
@@ -505,13 +520,43 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # transform_list aliasing trap.
     for ds in datamodule.train_datasets.values():
         ds.set_norm_stats_from(norm_stats)
-    for ds in datamodule.valid_datasets.values():
-        ds.set_norm_stats_from(norm_stats)
+    # EVERY val group, via the datamodule's own iterator. Do NOT iterate
+    # `datamodule.valid_datasets` here: it is a back-compat alias for a single
+    # group (the default if present, else the first), so it silently skips the
+    # rest. Those datasets would then emit unnormalised samples that the
+    # evaluator unnormalises again, and the resulting metrics look plausible.
+    for _group, _source, _ds in datamodule.iter_valid_datasets():
+        _ds.set_norm_stats_from(norm_stats)
+
+    # Fail loudly rather than silently mis-normalising a split: every train and
+    # val dataset must now share the stats object by reference.
+    _unwired = [
+        f"train/{name}"
+        for name, ds in datamodule.train_datasets.items()
+        if getattr(ds, "norm_stats", None) is not norm_stats.norm_stats
+    ] + [
+        f"{group}/{source}"
+        for group, source, ds in datamodule.iter_valid_datasets()
+        if getattr(ds, "norm_stats", None) is not norm_stats.norm_stats
+    ]
+    if _unwired:
+        raise RuntimeError(
+            "norm stats were not wired to every dataset; these would emit "
+            f"unnormalised samples that the evaluator then unnormalises again: {_unwired}"
+        )
+    log.info(
+        f"norm stats wired to {len(datamodule.train_datasets)} train and "
+        f"{sum(1 for _ in datamodule.iter_valid_datasets())} valid datasets "
+        f"across {len(datamodule.valid_groups)} val group(s): "
+        f"{list(datamodule.valid_groups)}"
+    )
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = _instantiate_model_wrapper(cfg)
 
-    _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)
+    _log_dataset_frame_counts(
+        datamodule.train_datasets, datamodule.iter_valid_datasets()
+    )
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))

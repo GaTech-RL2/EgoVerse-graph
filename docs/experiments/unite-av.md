@@ -8,6 +8,20 @@ is selected explicitly with:
 model=bf/us_unite_av_register_shared_nt8_s42
 ```
 
+The node visualizer graph is generated from this exact config and records both
+identities at the graph root. The policy and objective node sidebars expose the
+four decoder-JVP samples and action-velocity loss weight:
+
+```text
+python tools/config_graph.py docs/experiments/unite-av-config-graph.json \
+  egomimic/hydra_configs/model/bf/us_unite_av_register_shared_nt8_s42.yaml \
+  --mode both \
+  --override data=pusht/unite_usocket_val01_h16_per_emb_proprio \
+  --lint
+```
+
+[Open the renderer input](unite-av-config-graph.json).
+
 Do not use `model=G`.  `unite_register_v1` is the architecture identity;
 `unite_action_velocity_v1` is the objective identity.  Baseline UNITE remains
 `unite_baseline_v1` and executes no decoder JVP.

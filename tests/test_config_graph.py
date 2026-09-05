@@ -219,3 +219,30 @@ def test_cli_emits_renderer_compatible_both_mode_json(
         assert isinstance(graph["edges"], list)
         assert all({"i", "t", "in", "out", "p"} <= set(node) for node in graph["nodes"])
         assert all({"a", "b", "k", "s"} <= set(edge) for edge in graph["edges"])
+
+
+def test_unite_av_identity_and_objective_are_visible_to_renderer() -> None:
+    selected = (
+        Path(__file__).resolve().parents[1]
+        / "egomimic/hydra_configs/model/bf/us_unite_av_register_shared_nt8_s42.yaml"
+    )
+    graph = config_graph.build_graph(
+        selected,
+        overrides=["data=pusht/unite_usocket_val01_h16_per_emb_proprio"],
+    )
+
+    assert graph["lint"] == []
+    assert graph["model_identity"] == {
+        "architecture_id": "unite_register_v1",
+        "objective_id": "unite_action_velocity_v1",
+    }
+    policy = next(
+        node for node in graph["nodes"] if node["t"] == "ReleasedRecipeUniteLatentPolicy"
+    )
+    objective = next(
+        node for node in graph["nodes"] if node["t"] == "ReleasedRecipeUniteObjective"
+    )
+    assert policy["p"]["action_velocity_samples_per_reconstruction"] == 4
+    assert "unite/action_velocity_loss" in policy["out"]
+    assert objective["p"]["action_velocity_weight"] == 1.0
+    assert "unite/action_velocity_loss" in objective["in"]

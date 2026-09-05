@@ -392,6 +392,11 @@ def _build_graph(
     seeds_by_source, seed_source, warnings, details = _seed_keys(
         config, external_reads
     )
+    model_identity = {
+        key: str(value)
+        for key in ("architecture_id", "objective_id")
+        if (value := _select(config, f"model.{key}")) is not None
+    }
     graph: dict[str, Any] = {
         "nodes": nodes,
         "edges": _edges(nodes, seeds_by_source),
@@ -399,6 +404,7 @@ def _build_graph(
         "source_name": selected.name,
         "component_sources": component_sources,
         "mode": mode,
+        "model_identity": model_identity,
         "external_reads": external_reads,
         "seed_keys": sorted({key for keys in seeds_by_source.values() for key in keys}),
         "seed_keys_by_source": seeds_by_source,

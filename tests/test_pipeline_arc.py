@@ -252,3 +252,163 @@ def test_tokenizer_replaces_the_plain_target_builder_rather_than_following_it():
     assert "ActionTargetBuilder" not in names
     writers = [n["t"] for n in graph["nodes"] if "target" in n["out"]]
     assert writers == ["ArcTokenizeStage"]
+
+
+# -- the token's speed is an SE(2) rate, not a translational one -------------
+#
+# Ported from the main repo's `fix(arc): detokenize walked arc length at a
+# chord rate`. There the token carried a chord rate walked against arc
+# positions; here the token carries an SE(2) rate (translation + lambda *
+# rotation) and the decoder must walk the same metric. Same defect class:
+# advancing a rate defined in one metric against positions accumulated in
+# another, which silently rescales how fast the chunk replays.
+
+_RR = 30.0
+
+
+def _rotating_window(steps: int = 40, span: float = 60.0, sweep: float = 2.5):
+    actions = torch.zeros(1, steps, 4, dtype=torch.float64)
+    actions[0, :, 0] = torch.linspace(0.0, span, steps)
+    actions[0, :, 2] = torch.linspace(0.0, sweep, steps)
+    return actions
+
+
+def _rotating_token(waypoints: int = 100):
+    stage = ArcTokenizeStage(
+        min_distance_unit=200.0,
+        resampled_vector_length=waypoints,
+        rotation_radius=_RR,
+        dt=_DT,
+    )
+    return stage.forward({"actions": _rotating_window()})["target"]
+
+
+def _saturation_step(native: torch.Tensor) -> int:
+    moved = torch.diff(native[0, :, 0]).abs() > 1e-9
+    return int(moved.sum().item())
+
+
+def test_detokenize_walks_the_se2_metric_the_token_speed_is_expressed_in():
+    # The 40-step window is 39 intervals; the reconstruction should need about
+    # that many steps, not a third of them.
+    token = _rotating_token()
+    native = ArcDetokenizeStage(
+        resampled_vector_length=100, action_horizon=60, dt=_DT, rotation_radius=_RR
+    ).forward({"pred_action": token})["pred_action_native"]
+    assert _saturation_step(native) == pytest.approx(39, abs=2)
+
+
+def test_ignoring_the_rotation_term_replays_a_rotating_path_too_fast():
+    # Pins the defect itself: at radius 0 the decoder measures translation only,
+    # so it outruns an SE(2) rate and saturates early.
+    token = _rotating_token()
+    fast = ArcDetokenizeStage(
+        resampled_vector_length=100, action_horizon=60, dt=_DT, rotation_radius=0.0
+    ).forward({"pred_action": token})["pred_action_native"]
+    correct = ArcDetokenizeStage(
+        resampled_vector_length=100, action_horizon=60, dt=_DT, rotation_radius=_RR
+    ).forward({"pred_action": token})["pred_action_native"]
+    assert _saturation_step(fast) < _saturation_step(correct) / 2
+
+
+def test_translation_only_and_se2_agree_when_there_is_no_rotation_weight():
+    # lambda == 0 makes the two metrics identical, so a straight-line token
+    # must decode the same either way.
+    token = _tokenizer().forward({"actions": _straight_line()})["target"]
+    a = _detokenizer(rotation_radius=0.0).forward({"pred_action": token})
+    b = _detokenizer(rotation_radius=_RR).forward({"pred_action": token})
+    torch.testing.assert_close(a["pred_action_native"], b["pred_action_native"])
+
+
+def test_arc_positions_match_the_tokenizers_own_step_metric():
+    from egomimic.rldb.zarr.planar_arc import lambda_for_radius, planar_step_distance
+
+    token = _rotating_token()
+    stage = ArcDetokenizeStage(
+        resampled_vector_length=100, action_horizon=60, dt=_DT, rotation_radius=_RR
+    )
+    waypoints = token[:, :100]
+    decoded = stage._arc_positions(waypoints)[0, -1].item()
+    xy = waypoints[0, :, :2].numpy()
+    theta = np.arctan2(waypoints[0, :, 3].numpy(), waypoints[0, :, 2].numpy())
+    expected = planar_step_distance(xy, theta, lambda_for_radius(_RR)).sum()
+    assert decoded == pytest.approx(float(expected), rel=1e-9)
+
+
+def test_detokenize_rejects_a_negative_rotation_radius():
+    with pytest.raises(ValueError, match="rotation_radius must be non-negative"):
+        _detokenizer(rotation_radius=-1.0)
+
+
+def test_configured_graph_gives_both_arc_nodes_the_same_rotation_radius():
+    # A tokenizer and decoder that disagree on lambda is the whole defect, and
+    # nothing in the shapes would reveal it.
+    graph = config_graph.build_graph(_EXPERIMENT, mode="train")
+    tokenize = next(n for n in graph["nodes"] if n["t"] == "ArcTokenizeStage")
+    decode = next(
+        entry
+        for entry in graph["skipped_stages"]
+        if entry["t"] == "ArcDetokenizeStage"
+    )
+    assert decode["reason"] == "inference-only"
+    inference = config_graph.build_graph(_EXPERIMENT, mode="inference")
+    decode_node = next(
+        n for n in inference["nodes"] if n["t"] == "ArcDetokenizeStage"
+    )
+    assert tokenize["p"]["rotation_radius"] == decode_node["p"]["rotation_radius"]
+    assert tokenize["p"]["dt"] == decode_node["p"]["dt"]
+    assert (
+        tokenize["p"]["resampled_vector_length"]
+        == decode_node["p"]["resampled_vector_length"]
+    )
+
+
+# -- the graph tokenizes the RAW window, never a pre-decimated one -----------
+#
+# Ported from `feat(arc): tokenize the raw window directly, stop
+# pre-decimating it`. The main repo interpolated a 200-frame window down to 100
+# rows before tokenizing, so arc length read short and the hardcoded dt was 2x
+# too large. Tokenizing in the graph structurally avoids that -- the loader's
+# dense transform only pads -- and these pin it.
+
+
+def _experiment_config():
+    config, _ = config_graph._load_selected(_EXPERIMENT)
+    return config
+
+
+def test_the_loader_hands_over_the_full_raw_window():
+    from omegaconf import OmegaConf
+
+    config = _experiment_config()
+    raw = OmegaConf.select(config, "planar.raw_action_horizon")
+    for dataset in OmegaConf.select(config, "data.train_datasets").values():
+        assert OmegaConf.select(dataset, "resolver.key_map.action_horizon") == raw
+
+
+def test_the_dense_transform_list_does_not_resample_before_tokenizing():
+    from hydra.utils import instantiate
+    from omegaconf import OmegaConf
+
+    from egomimic.rldb.zarr.action_chunk_transforms import (
+        InterpolateLinear,
+        InterpolatePose,
+    )
+
+    config = _experiment_config()
+    dataset = next(iter(OmegaConf.select(config, "data.train_datasets").values()))
+    transforms = instantiate(OmegaConf.select(dataset, "resolver.transform_list"))
+    assert transforms
+    for transform in transforms:
+        assert not isinstance(transform, (InterpolatePose, InterpolateLinear))
+    # And no tokenizer either: tokenization is the graph's job in this config.
+    assert not any(isinstance(t, TokenizePlanarArcLength) for t in transforms)
+
+
+def test_dt_matches_the_raw_capture_rate():
+    from omegaconf import OmegaConf
+
+    config = _experiment_config()
+    # Rows reaching the tokenizer are real 30 Hz frames, so dt is 1/30. If the
+    # loader ever resampled, this constant would silently be wrong.
+    assert OmegaConf.select(config, "planar.arc_dt") == pytest.approx(1.0 / 30.0)

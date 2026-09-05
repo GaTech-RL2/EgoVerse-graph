@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the frozen three-seed A--F action-flow affine comparison configs."""
+"""Build the frozen three-seed A--G action-flow comparison configs."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ VARIANTS = {
         "lambda_reconstruction": 0.0,
         "lambda_scale": 0.0,
         "lambda_path": 0.0,
+        "lambda_action_velocity": 0.0,
         "model": {
             "latent_dim": 8,
             "adapter_family": "fixed_affine",
@@ -36,6 +37,7 @@ VARIANTS = {
         "lambda_reconstruction": 1.0,
         "lambda_scale": 0.0,
         "lambda_path": 0.0,
+        "lambda_action_velocity": 0.0,
         "model": {
             "latent_dim": 8,
             "adapter_family": "joint_affine",
@@ -50,6 +52,7 @@ VARIANTS = {
         "lambda_reconstruction": 1.0,
         "lambda_scale": 1.0,
         "lambda_path": 0.0,
+        "lambda_action_velocity": 0.0,
         "model": {
             "latent_dim": 8,
             "adapter_family": "joint_affine",
@@ -57,13 +60,48 @@ VARIANTS = {
             "field_depth": 4,
         },
     },
-    "e-nonlinear-reconstruction": {
+    "e-nonlinear-reconstruction-rec1": {
         "architecture": "action_adapter_flow",
         "source_key": "source_gaussian_latent",
         "adapter_objective": "reconstruction",
         "lambda_reconstruction": 1.0,
         "lambda_scale": 1.0,
         "lambda_path": 0.0,
+        "lambda_action_velocity": 0.0,
+        "model": {
+            "latent_dim": 8,
+            "adapter_family": "nonlinear",
+            "residual_width": 32,
+            "residual_depth": 2,
+            "field_width": 128,
+            "field_depth": 4,
+        },
+    },
+    "e-nonlinear-reconstruction-rec10": {
+        "architecture": "action_adapter_flow",
+        "source_key": "source_gaussian_latent",
+        "adapter_objective": "reconstruction",
+        "lambda_reconstruction": 10.0,
+        "lambda_scale": 1.0,
+        "lambda_path": 0.0,
+        "lambda_action_velocity": 0.0,
+        "model": {
+            "latent_dim": 8,
+            "adapter_family": "nonlinear",
+            "residual_width": 32,
+            "residual_depth": 2,
+            "field_width": 128,
+            "field_depth": 4,
+        },
+    },
+    "e-nonlinear-reconstruction-rec100": {
+        "architecture": "action_adapter_flow",
+        "source_key": "source_gaussian_latent",
+        "adapter_objective": "reconstruction",
+        "lambda_reconstruction": 100.0,
+        "lambda_scale": 1.0,
+        "lambda_path": 0.0,
+        "lambda_action_velocity": 0.0,
         "model": {
             "latent_dim": 8,
             "adapter_family": "nonlinear",
@@ -80,6 +118,58 @@ VARIANTS = {
         "lambda_reconstruction": 0.0,
         "lambda_scale": 1.0,
         "lambda_path": 1.0,
+        "lambda_action_velocity": 0.0,
+        "model": {
+            "latent_dim": 8,
+            "adapter_family": "nonlinear",
+            "residual_width": 32,
+            "residual_depth": 2,
+            "field_width": 128,
+            "field_depth": 4,
+        },
+    },
+    "g-nonlinear-action-velocity-rec1": {
+        "architecture": "action_adapter_flow",
+        "source_key": "source_gaussian_latent",
+        "adapter_objective": "action_velocity",
+        "lambda_reconstruction": 1.0,
+        "lambda_scale": 1.0,
+        "lambda_path": 0.0,
+        "lambda_action_velocity": 1.0,
+        "model": {
+            "latent_dim": 8,
+            "adapter_family": "nonlinear",
+            "residual_width": 32,
+            "residual_depth": 2,
+            "field_width": 128,
+            "field_depth": 4,
+        },
+    },
+    "g-nonlinear-action-velocity-rec10": {
+        "architecture": "action_adapter_flow",
+        "source_key": "source_gaussian_latent",
+        "adapter_objective": "action_velocity",
+        "lambda_reconstruction": 10.0,
+        "lambda_scale": 1.0,
+        "lambda_path": 0.0,
+        "lambda_action_velocity": 1.0,
+        "model": {
+            "latent_dim": 8,
+            "adapter_family": "nonlinear",
+            "residual_width": 32,
+            "residual_depth": 2,
+            "field_width": 128,
+            "field_depth": 4,
+        },
+    },
+    "g-nonlinear-action-velocity-rec100": {
+        "architecture": "action_adapter_flow",
+        "source_key": "source_gaussian_latent",
+        "adapter_objective": "action_velocity",
+        "lambda_reconstruction": 100.0,
+        "lambda_scale": 1.0,
+        "lambda_path": 0.0,
+        "lambda_action_velocity": 1.0,
         "model": {
             "latent_dim": 8,
             "adapter_family": "nonlinear",

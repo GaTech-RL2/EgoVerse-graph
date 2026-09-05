@@ -195,6 +195,7 @@ def main() -> None:
                 lambda_reconstruction=config.get("lambda_reconstruction", 1.0),
                 lambda_scale=config.get("lambda_scale", 1.0),
                 lambda_path=config.get("lambda_path", 1.0),
+                lambda_action_velocity=config.get("lambda_action_velocity", 1.0),
                 noise=batch_source,
             )
         optimizer.zero_grad(set_to_none=True)
@@ -301,12 +302,26 @@ def main() -> None:
         radii = decoded_noise.norm(dim=-1)
         singular_values = model.decoder_jacobian_singular_values(fixed_noise[:128])
         diagnostic_time = torch.linspace(0.0, 1.0, len(tgt), device=device)[:, None]
+        diagnostic_clean = model.encoder(tgt)
+        diagnostic_velocity = src - diagnostic_clean
+        diagnostic_state = (
+            (1.0 - diagnostic_time) * diagnostic_clean + diagnostic_time * src
+        )
+        diagnostic_residual = (
+            model.velocity(diagnostic_state, diagnostic_time) - diagnostic_velocity
+        )
         summary.update(
             {
                 "validation_path_consistency_mse": float(
                     model.path_consistency_loss(tgt, src, diagnostic_time)
                 ),
                 "validation_scale_loss": float(model.scale_loss(fixed_noise)),
+                "validation_action_velocity_mse": float(
+                    model.action_velocity_loss(
+                        diagnostic_state,
+                        diagnostic_residual,
+                    )
+                ),
                 "validation_latent_code_rms": float(
                     model.encoder(tgt).square().mean().sqrt()
                 ),

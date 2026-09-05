@@ -170,6 +170,23 @@ class SyntheticActionAdapterFlow(nn.Module):
         endpoint_velocity = self.decoder(noise) - action
         return (decoded_velocity - endpoint_velocity).square().mean()
 
+    def action_velocity_loss(
+        self,
+        state: torch.Tensor,
+        velocity_residual: torch.Tensor,
+    ) -> torch.Tensor:
+        """Measure the latent FM residual in the decoder's action metric.
+
+        For decoder ``g`` and latent residual ``R = v_theta(Z_t, t) - U``, this
+        computes ``E[||J_g(Z_t) R||^2] / 3``.  The differentiable JVP keeps the
+        full gradient path through the field, encoder-derived state and target,
+        and decoder Jacobian.
+        """
+        if state.shape != velocity_residual.shape:
+            raise ValueError("state and velocity_residual must have matching shapes")
+        decoded_residual = self.decoder_jvp(state, velocity_residual)
+        return decoded_residual.square().sum(dim=-1).mean() / 3.0
+
     def scale_loss(self, noise: torch.Tensor) -> torch.Tensor:
         identity = torch.eye(3, device=noise.device, dtype=noise.dtype)
         if self.adapter_family != "nonlinear":
@@ -193,10 +210,11 @@ class SyntheticActionAdapterFlow(nn.Module):
         lambda_reconstruction: float = 1.0,
         lambda_scale: float = 1.0,
         lambda_path: float = 1.0,
+        lambda_action_velocity: float = 1.0,
         noise: torch.Tensor | None = None,
         time: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
-        if objective not in {"none", "reconstruction", "path"}:
+        if objective not in {"none", "reconstruction", "path", "action_velocity"}:
             raise ValueError(f"unknown adapter objective: {objective}")
         if objective == "path" and self.adapter_family != "nonlinear":
             raise ValueError(
@@ -226,22 +244,36 @@ class SyntheticActionAdapterFlow(nn.Module):
             raise ValueError("time does not match the expanded action batch")
         target_velocity = noise_many - clean_many
         state = (1.0 - time) * clean_many + time * noise_many
-        flow_loss = (self.velocity(state, time) - target_velocity).square().mean()
+        velocity_residual = self.velocity(state, time) - target_velocity
+        flow_loss = velocity_residual.square().mean()
         reconstruction_loss = self.reconstruction_loss(action)
         scale_loss = self.scale_loss(base_noise)
         if objective == "path":
             path_loss = self.path_consistency_loss(action_many, noise_many, time)
         else:
             path_loss = torch.zeros((), device=action.device, dtype=action.dtype)
+        if objective == "action_velocity":
+            action_velocity_loss = self.action_velocity_loss(state, velocity_residual)
+        else:
+            action_velocity_loss = torch.zeros(
+                (), device=action.device, dtype=action.dtype
+            )
         total = flow_loss + float(lambda_scale) * scale_loss
         if objective == "reconstruction":
             total = total + float(lambda_reconstruction) * reconstruction_loss
         elif objective == "path":
             total = total + float(lambda_path) * path_loss
+        elif objective == "action_velocity":
+            total = (
+                total
+                + float(lambda_reconstruction) * reconstruction_loss
+                + float(lambda_action_velocity) * action_velocity_loss
+            )
         return {
             "loss": total,
             "flow_loss": flow_loss,
             "reconstruction_loss": reconstruction_loss,
             "scale_loss": scale_loss,
             "path_loss": path_loss,
+            "action_velocity_loss": action_velocity_loss,
         }

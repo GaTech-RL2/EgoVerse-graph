@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate the complete A--F action-flow comparison across seeds."""
+"""Aggregate the complete A--G action-flow comparison across seeds."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ METRICS = (
     "validation_angular_support_recall",
     "validation_reconstruction_mse",
     "validation_path_consistency_mse",
+    "validation_action_velocity_mse",
     "validation_scale_loss",
 )
 

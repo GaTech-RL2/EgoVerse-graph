@@ -120,6 +120,67 @@ def test_path_loss_gradients_reach_both_nonlinear_adapters():
         )
 
 
+def test_action_velocity_loss_matches_explicit_decoder_jacobian_product():
+    model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="nonlinear")
+    _perturb_residual_outputs(model)
+    state = torch.randn(7, 8)
+    residual = torch.randn(7, 8)
+
+    jacobians = torch.func.vmap(torch.func.jacrev(model.decoder))(state)
+    explicit_action_residual = torch.einsum("bai,bi->ba", jacobians, residual)
+    expected = explicit_action_residual.square().sum(dim=-1).mean() / 3.0
+
+    torch.testing.assert_close(model.action_velocity_loss(state, residual), expected)
+
+
+def test_action_velocity_objective_reaches_encoder_decoder_and_field():
+    model = SyntheticActionAdapterFlow(
+        latent_dim=8,
+        adapter_family="nonlinear",
+        field_width=16,
+        field_depth=2,
+    )
+    _perturb_residual_outputs(model)
+    losses = model.losses(
+        torch.randn(10, 3),
+        objective="action_velocity",
+        flow_samples=2,
+        lambda_reconstruction=0.7,
+        lambda_scale=0.2,
+        lambda_action_velocity=0.4,
+    )
+    losses["action_velocity_loss"].backward()
+
+    for module in (model.encoder, model.decoder, model.field):
+        gradients = [
+            parameter.grad
+            for parameter in module.parameters()
+            if parameter.requires_grad
+        ]
+        assert any(
+            gradient is not None and bool(gradient.abs().sum())
+            for gradient in gradients
+        )
+
+
+def test_action_velocity_objective_combines_reconstruction_scale_and_metric_loss():
+    model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="joint_affine")
+    losses = model.losses(
+        torch.randn(9, 3),
+        objective="action_velocity",
+        lambda_reconstruction=0.7,
+        lambda_scale=0.2,
+        lambda_action_velocity=0.4,
+    )
+    expected = (
+        losses["flow_loss"]
+        + 0.7 * losses["reconstruction_loss"]
+        + 0.2 * losses["scale_loss"]
+        + 0.4 * losses["action_velocity_loss"]
+    )
+    torch.testing.assert_close(losses["loss"], expected)
+
+
 def test_affine_path_objective_is_rejected_as_duplicate():
     model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="joint_affine")
     with pytest.raises(ValueError, match="duplicates reconstruction"):

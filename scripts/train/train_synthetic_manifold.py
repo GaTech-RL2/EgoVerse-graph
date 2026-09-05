@@ -232,17 +232,17 @@ def main() -> None:
                 checkpoint,
             )
     model.eval()
+    if "evaluation_dataset" in config:
+        src, tgt = SyntheticTrajectoryEval.load_validation_data(
+            config["evaluation_dataset"],
+            source_key,
+            int(config["evaluation_particles"]),
+        )
+        src, tgt = src.to(device), tgt.to(device)
+    else:
+        src = source[val_indices].to(device)
+        tgt = target[val_indices].to(device)
     with torch.inference_mode():
-        if "evaluation_dataset" in config:
-            src, tgt = SyntheticTrajectoryEval.load_validation_data(
-                config["evaluation_dataset"],
-                source_key,
-                int(config["evaluation_particles"]),
-            )
-            src, tgt = src.to(device), tgt.to(device)
-        else:
-            src = source[val_indices].to(device)
-            tgt = target[val_indices].to(device)
         if architecture in {"shared_latent", "action_adapter_flow"}:
             clean_reconstruction = model.decoder(model.encoder(tgt))
             trajectory = SyntheticTrajectoryEval.export(

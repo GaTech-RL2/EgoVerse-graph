@@ -45,3 +45,9 @@ Clean-clone note: the first Skynet preflight found that path-invoked scripts
 could resolve an older environment-installed `egomimic` package. Every
 synthetic data/train/export entry point now prepends its own checkout root, and
 a subprocess regression test runs the generator from outside the repository.
+
+Smoke retry note: the first nonlinear-path smoke exposed validation tensors
+created under inference mode and then reused by an autograd Jacobian. Evaluation
+data now loads outside inference mode, and the real subprocess test covers both
+fixed-lift and nonlinear-path diagnostics. Use `--run-suffix` for immutable,
+collision-free retry output and W&B identities.

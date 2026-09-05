@@ -1,8 +1,31 @@
 import math
+import subprocess
+import sys
+from pathlib import Path
 
 import torch
 
 from egomimic.synthetic import GaussianTorusDataset, generate_gaussian_torus
+
+
+def test_generator_script_resolves_the_checkout_outside_repo_cwd(tmp_path):
+    source = Path(__file__).parents[1]
+    output = tmp_path / "generated.npz"
+    subprocess.run(
+        [
+            sys.executable,
+            str(source / "scripts/data/generate_gaussian_torus.py"),
+            "--output",
+            str(output),
+            "--count",
+            "32",
+            "--source-dim",
+            "8",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    assert output.is_file()
 
 
 def test_gaussian_torus_is_deterministic_and_on_surface():

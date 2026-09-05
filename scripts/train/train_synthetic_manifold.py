@@ -68,7 +68,7 @@ def _restore_rng_state(state: dict, generator: torch.Generator) -> None:
     np.random.set_state(state["numpy"])
     torch.set_rng_state(state["torch"].cpu())
     if torch.cuda.is_available() and state.get("cuda"):
-        torch.cuda.set_rng_state_all(state["cuda"])
+        torch.cuda.set_rng_state_all([rng_state.cpu() for rng_state in state["cuda"]])
     generator.set_state(state["batch_generator"].cpu())
 
 

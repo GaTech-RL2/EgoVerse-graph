@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from scripts.train.train_synthetic_manifold import _capture_rng_state, _restore_rng_state
+
 
 def _run(source: Path, config: Path, resume: Path | None = None) -> None:
     command = [
@@ -84,3 +86,28 @@ def test_training_resume_preserves_checkpoints_and_appends_metrics(tmp_path):
     assert final["resume"]["checkpoint"] == str(checkpoint)
     assert final["resume"]["rng_restored"] is False
     assert "rng" in final
+
+
+def test_restore_rng_state_moves_saved_cuda_states_to_cpu(monkeypatch):
+    generator = torch.Generator().manual_seed(9)
+    state = _capture_rng_state(generator)
+
+    class DeviceState:
+        def __init__(self):
+            self.cpu_called = False
+
+        def cpu(self):
+            self.cpu_called = True
+            return torch.tensor([1, 2, 3], dtype=torch.uint8)
+
+    device_state = DeviceState()
+    state["cuda"] = [device_state]
+    captured = []
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "set_rng_state_all", captured.append)
+
+    _restore_rng_state(state, generator)
+
+    assert device_state.cpu_called
+    assert captured[0][0].device.type == "cpu"
+    assert captured[0][0].dtype == torch.uint8

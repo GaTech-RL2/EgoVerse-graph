@@ -45,6 +45,41 @@ Training-only target, noising, and loss stages are excluded by their contracts;
 the configured denoiser performs reverse sampling. No stage is physically
 swapped at runtime.
 
+A stage whose declared reads are unavailable is a configuration error: the
+runner raises rather than skipping it. Mode restrictions are therefore declared,
+not inferred, with `train_only` or its mirror `inference_only`.
+
+## Action tokenization
+
+Arc-length tokenization can run either in the loader's `transform_list` or as
+graph nodes. The node form makes the boundary visible and lintable:
+
+- `ArcTokenizeStage` takes `ActionTargetBuilder`'s place in the stage list. It
+  reads the loader's time-indexed chunk and writes the arc token as `target`,
+  so it stays the single writer of `target` and the rest of the graph is
+  unchanged -- it simply models a token.
+- `ArcDetokenizeStage` is the inverse. It is `inference_only` and writes
+  `pred_action_native`.
+
+The two nodes must agree on `rotation_radius`, `dt` and
+`resampled_vector_length`. The token's speed is a rate in the tokenizer's SE(2)
+metric (translation plus `lambda * rotation`), so the polyline the decoder walks
+has to be measured in that same metric; measuring translation alone replays the
+chunk too fast by the ratio between the two lengths, and nothing in the tensor
+shapes reveals it. Keep both nodes pointed at one `planar.*` value rather than
+repeating the number.
+
+Tokenization in the graph also means the tokenizer sees the RAW window: the
+loader's dense transform only pads, so no interpolation stands between the
+episode's 30 Hz frames and the tokenizer, and `arc_dt` is the true capture
+period. A loader-side arc path that resamples before tokenizing would understate
+arc length and make that constant wrong.
+
+Compare `experiment/pusht/planar_v2_usocket_arc_bc` (tokenized in the loader)
+with `experiment/pusht/planar_v2_usocket_arc_graph_tok` (tokenized in the
+graph). Both are valid; only the second shows the tokenizer in `gt`-style graph
+output and in `tools/config_graph.py`.
+
 ## Data loading
 
 Data configs build one or more datasets and a `CombinedLoader`. Its outer keys

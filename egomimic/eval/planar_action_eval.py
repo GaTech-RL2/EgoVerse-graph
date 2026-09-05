@@ -13,6 +13,7 @@ import torch
 
 from egomimic.eval.energy_score import energy_score
 from egomimic.eval.eval import Eval
+from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.pipeline.core import resolve_homogeneous_scalar
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
@@ -21,6 +22,10 @@ _DEFAULT_DETERMINISTIC_SEED = 420042
 
 class PlanarActionEval(Eval):
     """Log deterministic normalized/native MSE and seeded EnergyScore@32."""
+
+    # Class-level so a partially constructed evaluator still namespaces
+    # correctly; `set_validation_group` overrides it per val loop.
+    _validation_group = None
 
     def __init__(
         self,
@@ -129,6 +134,31 @@ class PlanarActionEval(Eval):
             return copy.deepcopy(item)
 
         return to_plain(value)
+
+    def set_validation_group(self, group_name) -> None:
+        """Namespace this val loop's metrics by the group Lightning is running.
+
+        ``ModelWrapper.validation_step`` calls this before each step when the
+        datamodule declares more than one val group. The default group keeps the
+        bare ``Valid/...`` names so existing runs overlay on the same charts.
+        """
+        self._validation_group = (
+            None if group_name in (None, DEFAULT_VALID_GROUP) else str(group_name)
+        )
+
+    def _namespaced(self, metrics: dict) -> dict:
+        """Prefix ``Valid/...`` keys with the current non-default group."""
+        if self._validation_group is None:
+            return metrics
+        suffix = self._validation_group
+        return {
+            (
+                f"Valid_{suffix}/{key[len('Valid/'):]}"
+                if key.startswith("Valid/")
+                else key
+            ): value
+            for key, value in metrics.items()
+        }
 
     def on_validation_start(self):
         self._unite_diagnostic_batches_done = 0
@@ -658,4 +688,6 @@ class PlanarActionEval(Eval):
                     [value[key] for value in scores]
                 ).mean()
             self._save_artifact(batch_idx, sampled, scores_by_source, batch)
-        self.trainer.lightning_module.log_dict(metrics, sync_dist=True)
+        self.trainer.lightning_module.log_dict(
+            self._namespaced(metrics), sync_dist=True
+        )

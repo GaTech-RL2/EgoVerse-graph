@@ -301,6 +301,57 @@ class BatchQuaternionPoseToYPR(Transform):
         return batch
 
 
+def _quat_wxyz_to_rot6d(quat_wxyz: np.ndarray) -> np.ndarray:
+    """(..., 4) wxyz quaternion -> (..., 6) Zhou 6D (first two columns of R)."""
+    xyzw = wxyz_to_xyzw(quat_wxyz)
+    rotmats = R.from_quat(xyzw.reshape(-1, 4)).as_matrix()  # (N, 3, 3)
+    rot6d = np.concatenate([rotmats[:, :, 0], rotmats[:, :, 1]], axis=-1)
+    return rot6d.reshape(*quat_wxyz.shape[:-1], 6)
+
+
+class QuaternionPoseTo6D(Transform):
+    """Single pose xyz+quat(wxyz) (7,) -> xyz + Zhou 6D rotation (9,)."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.shape != (7,):
+            raise ValueError(
+                f"QuaternionPoseTo6D expects shape (7,), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        batch[self.output_key] = np.concatenate(
+            [pose[:3], _quat_wxyz_to_rot6d(pose[3:7])], axis=0
+        )
+        return batch
+
+
+class BatchQuaternionPoseTo6D(Transform):
+    """Batch poses xyz+quat(wxyz) (N, 7) -> xyz + Zhou 6D rotation (N, 9).
+
+    The 3x3 rotation matrix's last column is dropped, leaving two 3-vectors.
+    """
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.ndim != 2 or pose.shape[-1] != 7:
+            raise ValueError(
+                f"BatchQuaternionPoseTo6D expects shape (N, 7), got {pose.shape} "
+                f"for key '{self.pose_key}'"
+            )
+        batch[self.output_key] = np.concatenate(
+            [pose[:, :3], _quat_wxyz_to_rot6d(pose[:, 3:7])], axis=1
+        )
+        return batch
+
+
 class BatchYPRToQuaternionPose(Transform):
     """Convert a batch of poses from xyz + ypr to xyz + quat(x,y,z,w)."""
 

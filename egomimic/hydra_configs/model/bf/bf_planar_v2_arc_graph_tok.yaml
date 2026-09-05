@@ -62,6 +62,10 @@ pipeline:
       action_horizon: ${planar.action_horizon}
       native_action_dim: 3
       dt: ${planar.arc_dt}
+      # Must be the tokenizer's radius: the token's speed is a rate in the
+      # SE(2) metric this lambda defines, so the polyline the decoder walks has
+      # to be measured the same way.
+      rotation_radius: ${planar.arc_rotation_radius}
 
 enable_grad_norm: false
 optimizer:

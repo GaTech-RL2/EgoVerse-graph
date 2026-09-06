@@ -205,3 +205,18 @@ def test_only_reconstruction_weight_differs_across_sweep():
             "pipeline"
         ]["stages"][-1]["reconstruction_weight"]
         assert candidate == reference
+
+
+def test_recon10_warmup_row_changes_only_the_objective_schedule():
+    reference = OmegaConf.to_container(
+        _compose("action_flow_bc_usocket_recon10_s42"), resolve=True
+    )
+    candidate = OmegaConf.to_container(
+        _compose("action_flow_bc_usocket_recon10_warmup10k_s42"), resolve=True
+    )
+
+    assert candidate["model"]["reconstruction_only_warmup_steps"] == 10000
+    del candidate["model"]["reconstruction_only_warmup_steps"]
+    candidate["name"] = reference["name"]
+    candidate["description"] = reference["description"]
+    assert candidate == reference

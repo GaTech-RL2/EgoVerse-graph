@@ -48,9 +48,26 @@ class ActionFlowModelWrapper(ModelWrapper):
         self,
         *,
         gradient_telemetry_cadence: int | None = None,
+        reconstruction_only_warmup_steps: int = 0,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
+        if (
+            isinstance(reconstruction_only_warmup_steps, bool)
+            or not isinstance(reconstruction_only_warmup_steps, int)
+            or reconstruction_only_warmup_steps < 0
+        ):
+            raise ValueError(
+                "reconstruction_only_warmup_steps must be a nonnegative integer"
+            )
+        self.reconstruction_only_warmup_steps = reconstruction_only_warmup_steps
+        self.save_hyperparameters(
+            {
+                "reconstruction_only_warmup_steps": (
+                    reconstruction_only_warmup_steps
+                )
+            }
+        )
         config_tree = getattr(self.hparams, "config_tree", None)
         configured = None
         if config_tree is not None:
@@ -95,6 +112,57 @@ class ActionFlowModelWrapper(ModelWrapper):
             ):
                 raise ValueError("flow_samples_per_content must be a positive integer")
         self.flow_samples_per_content = configured_samples
+
+    def _objective_reconstruction_weight(self) -> float:
+        direct = getattr(self.model, "reconstruction_weight", None)
+        if direct is not None:
+            return float(direct)
+        stages = getattr(getattr(self.model, "pipeline", None), "stages", ())
+        weight = next(
+            (
+                float(stage.reconstruction_weight)
+                for stage in stages
+                if all(
+                    hasattr(stage, name)
+                    for name in (
+                        "flow_weight",
+                        "reconstruction_weight",
+                        "action_velocity_weight",
+                    )
+                )
+            ),
+            None,
+        )
+        if weight is None:
+            raise RuntimeError("Action Flow reconstruction objective stage is missing")
+        return weight
+
+    def _apply_reconstruction_only_warmup(
+        self,
+        predictions: Mapping,
+        *,
+        optimizer_step: int | None = None,
+    ) -> bool:
+        """Gate the optimizer scalar while retaining raw component telemetry."""
+
+        step = int(self.global_step) if optimizer_step is None else int(optimizer_step)
+        active = step < self.reconstruction_only_warmup_steps
+        if not active:
+            return False
+        reconstruction_weight = self._objective_reconstruction_weight()
+        for source, result in predictions.items():
+            if not isinstance(result, Mapping):
+                raise TypeError(
+                    f"Action Flow result for source {source!r} must be a mapping"
+                )
+            reconstruction = self._finite_scalar(
+                result.get("log/action_flow_reconstruction"),
+                f"{source!r}/reconstruction warmup",
+            )
+            scheduled_total = reconstruction_weight * reconstruction
+            result["loss/action_flow"] = scheduled_total
+            result["log/action_flow_total"] = scheduled_total
+        return True
 
     def _action_flow_topology(self) -> tuple[Any, Any, Any]:
         """Resolve the exact registered encoder, field, and decoder stages."""
@@ -480,6 +548,7 @@ class ActionFlowModelWrapper(ModelWrapper):
         processed = time.time()
         predictions = self.model.forward_training(batch)
         forwarded = time.time()
+        reconstruction_only = self._apply_reconstruction_only_warmup(predictions)
         per_source, components, optimizer_loss, count = self._source_values(predictions)
         measured = time.time()
 
@@ -499,6 +568,16 @@ class ActionFlowModelWrapper(ModelWrapper):
         self._log_components(per_source, components, count)
         self._log_extra_metrics(predictions, optimizer_loss)
         self._log_compute_contract()
+        self._log_telemetry(
+            "Schedule/ReconstructionOnly", float(reconstruction_only)
+        )
+        self._log_telemetry(
+            "Schedule/EffectiveFlowWeight", 0.0 if reconstruction_only else 1.0
+        )
+        self._log_telemetry(
+            "Schedule/EffectiveActionVelocityWeight",
+            0.0 if reconstruction_only else 1.0,
+        )
         next_step = int(self.global_step) + 1
         if (
             self.gradient_telemetry_cadence
@@ -516,6 +595,15 @@ class ActionFlowModelWrapper(ModelWrapper):
         super().on_after_backward()
 
     def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        checkpoint["action_flow_loss_schedule"] = {
+            "joint_objective_begins_at_global_step": (
+                self.reconstruction_only_warmup_steps
+            ),
+            "reconstruction_only_optimizer_steps": (
+                self.reconstruction_only_warmup_steps
+            ),
+            "schema_version": 1,
+        }
         if self._gradient_route_manifest is not None:
             checkpoint["action_flow_gradient_route_manifest"] = (
                 self._gradient_route_manifest

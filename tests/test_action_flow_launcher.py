@@ -66,6 +66,10 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "pusht/action_flow_bc_usocket_recon1_s42" in source
     assert "pusht/action_flow_bc_usocket_recon10_s42" in source
     assert "pusht/action_flow_bc_usocket_recon100_s42" in source
+    assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
+    assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42" in source
+    assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42" in source
+    assert "expected_name = {" not in source
     assert "MAX_STEPS=240000" in source
     assert "VALIDATE_EVERY=10000" in source
     assert "CHECKPOINT_EVERY=40000" in source

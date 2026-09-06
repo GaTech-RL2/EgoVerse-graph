@@ -15,6 +15,7 @@ Run on an A40 node:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import OrderedDict
 from collections.abc import Mapping
@@ -468,7 +469,58 @@ def load_algo_from_ckpt(
 
     norm_state = hparams.get("norm_stats_state")
     if norm_state is None:
-        raise RuntimeError("hyper_parameters has no norm_stats_state")
+        wrapper_target = str(OmegaConf.select(cfg, "model._target_", default=""))
+        if not wrapper_target.endswith("ActionFlowModelWrapper") or full_cfg is None:
+            raise RuntimeError("hyper_parameters has no norm_stats_state")
+        norm_path = Path(
+            str(OmegaConf.select(full_cfg, "norm_stats.precomputed_norm_path"))
+        ).resolve(strict=True)
+        expected_norm_sha = str(
+            OmegaConf.select(
+                full_cfg,
+                "run_provenance.normalization_sha256",
+                default="",
+            )
+        )
+        actual_norm_sha = hashlib.sha256(norm_path.read_bytes()).hexdigest()
+        if not expected_norm_sha or actual_norm_sha != expected_norm_sha:
+            raise RuntimeError(
+                "Action Flow normalization identity mismatch: "
+                f"actual={actual_norm_sha} expected={expected_norm_sha}"
+            )
+        payload = json.loads(norm_path.read_text())
+        if set(payload.get("stats", {})) != {"19"}:
+            raise RuntimeError("Action Flow normalization must contain only embodiment 19")
+        norm_state = {
+            "norm_mode": str(OmegaConf.select(full_cfg, "norm_stats.norm_mode")),
+            "embodiments": [19],
+            "key_types": {
+                19: {
+                    "front_img_1": "camera_keys",
+                    "state_agent_obj": "proprio_keys",
+                    "actions": "action_keys",
+                }
+            },
+            "zarr_keys": {
+                19: {
+                    "front_img_1": "front_img_1",
+                    "state_agent_obj": "state_agent_obj",
+                    "actions": "actions",
+                }
+            },
+            "shapes": {
+                19: {
+                    "front_img_1": (3, 96, 96),
+                    "state_agent_obj": (6,),
+                    "actions": (16, 4),
+                }
+            },
+            "norm_stats": {19: payload["stats"]["19"]},
+        }
+        print(
+            "[load] using hash-pinned Action Flow train-only normalization "
+            f"({actual_norm_sha})"
+        )
     norm_stats = MultiDataset.from_state(norm_state)
     legacy_cfg = OmegaConf.select(cfg, "model.robomimic_model")
     pipeline_cfg = OmegaConf.select(cfg, "model.pipeline")

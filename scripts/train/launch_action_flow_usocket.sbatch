@@ -191,9 +191,14 @@ test -z "$(git -C "$AF_REPO" status --porcelain=v1 --untracked-files=all)" || \
   die "source repository must be exactly clean"
 test -s "$AF_REPO/egomimic/hydra_configs/experiment/$AF_EXPERIMENT.yaml" || \
   die "selected experiment config is unavailable"
+if test -n "${AF_EXTRA_PYTHONPATH:-}"; then
+  absolute_path AF_EXTRA_PYTHONPATH "$AF_EXTRA_PYTHONPATH"
+  test -d "$AF_EXTRA_PYTHONPATH" || die "extra Python path is unavailable"
+fi
 
 export PATH="$(dirname "$AF_PYTHON"):$PATH"
-export PYTHONPATH=$AF_REPO
+export PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
+export AF_EXTRA_PYTHONPATH
 export AF_REPO AF_PYTHON AF_EXPERIMENT AF_OUTPUT_DIR AF_DATASET_DIR
 export AF_WANDB_ENTITY AF_WANDB_PROJECT AF_WANDB_RUN_ID AF_WANDB_NAME
 export AF_WANDB_GROUP AF_WANDB_TAGS
@@ -849,7 +854,8 @@ else
   test -z "${ICE_RESUME_CHECKPOINT_SHA256:-}${ICE_RESUME_GLOBAL_STEP:-}"
 fi
 cd "$AF_REPO"
-export PYTHONPATH=$AF_REPO HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
+export PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
+export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
 export WANDB_MODE=online WANDB_SILENT=true MUJOCO_GL=egl
 exec "$SRUN" --nodes=1 --ntasks=1 --gpus-per-task=1 \
   --cpus-per-task="${SLURM_CPUS_PER_TASK:?}" --kill-on-bad-exit=1 --unbuffered \

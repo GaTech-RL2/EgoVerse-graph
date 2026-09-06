@@ -54,6 +54,11 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "/coc/" not in source
     assert "/storage/ice" not in source
     assert "/storage/project" not in source
+    assert 'absolute_path AF_EXTRA_PYTHONPATH "$AF_EXTRA_PYTHONPATH"' in source
+    assert (
+        'PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"'
+        in source
+    )
 
 
 def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():

@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_bc_usocket_recon10_warmup10k_s42
+  - _self_
+
+name: action_flow_bc_usocket_recon10_warmup10k_flow001_s42
+description: h16_z8_adaln12x512_k14_recon10_flow001_action1_recon_only_10k_then_joint
+
+model:
+  flow_weight: 0.01
+
+run_provenance:
+  objective:
+    flow_weight: ${model.flow_weight}

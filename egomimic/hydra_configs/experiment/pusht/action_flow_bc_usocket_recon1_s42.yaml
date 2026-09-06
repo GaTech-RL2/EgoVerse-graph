@@ -167,7 +167,7 @@ run_provenance:
     prediction_horizon: 16
     native_decoder: atan2
   objective:
-    flow_weight: 1.0
+    flow_weight: ${model.flow_weight}
     reconstruction_weight: ${model.reconstruction_weight}
     action_velocity_weight: 1.0
     flow_samples_per_content: ${model.flow_samples_per_content}

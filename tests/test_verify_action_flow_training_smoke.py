@@ -588,7 +588,9 @@ def test_checkpoint_gate_strictly_reloads_exact_action_flow_wrapper(
         lambda *_args: {"manifest_sha256": "f" * 64},
     )
 
-    result = MODULE._validate_checkpoint(tmp_path)
+    result = MODULE._validate_checkpoint(
+        tmp_path, reconstruction_weight=1.0, flow_weight=1.0
+    )
 
     assert result["global_step"] == 2
     assert result["parameter_count"] == MODULE.EXPECTED_PARAMETER_COUNT
@@ -678,4 +680,6 @@ def test_checkpoint_gate_rejects_missing_scheduler(tmp_path):
     (checkpoint_dir / "last.ckpt").symlink_to(immutable.name)
 
     with pytest.raises(MODULE.SmokeVerificationError, match="scheduler state"):
-        MODULE._validate_checkpoint(tmp_path)
+        MODULE._validate_checkpoint(
+            tmp_path, reconstruction_weight=1.0, flow_weight=1.0
+        )

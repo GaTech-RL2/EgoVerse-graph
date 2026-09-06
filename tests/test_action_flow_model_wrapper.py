@@ -26,10 +26,14 @@ class _ToyPipeline(nn.Module):
 
 
 class _ToyAlgo:
-    def __init__(self, *, reconstruction_weight=1.0, total_metric_delta=0.0):
+    def __init__(
+        self, *, reconstruction_weight=1.0, flow_weight=1.0, total_metric_delta=0.0
+    ):
         self.nets = nn.ModuleDict({"pipeline": _ToyPipeline()})
         self.device = torch.device("cpu")
         self.reconstruction_weight = float(reconstruction_weight)
+        self.flow_weight = float(flow_weight)
+        self.action_velocity_weight = 1.0
         self.total_metric_delta = float(total_metric_delta)
         self.process_count = 0
 
@@ -45,7 +49,11 @@ class _ToyAlgo:
             reconstruction = anchor * anchor.new_tensor(values["reconstruction"])
             reconstruction_l1 = anchor * anchor.new_tensor(values["reconstruction_l1"])
             action_velocity = anchor * anchor.new_tensor(values["action_velocity"])
-            total = fm + self.reconstruction_weight * reconstruction + action_velocity
+            total = (
+                self.flow_weight * fm
+                + self.reconstruction_weight * reconstruction
+                + action_velocity
+            )
             results[source] = {
                 "target": values["target"],
                 "loss/action_flow": total,
@@ -235,8 +243,24 @@ def test_reconstruction_only_warmup_is_loaded_from_training_config_tree(monkeypa
     assert checkpoint["action_flow_loss_schedule"] == {
         "joint_objective_begins_at_global_step": 2,
         "reconstruction_only_optimizer_steps": 2,
+        "joint_flow_weight": 1.0,
+        "joint_reconstruction_weight": 10.0,
+        "joint_action_velocity_weight": 1.0,
         "schema_version": 1,
     }
+
+
+def test_joint_flow_weight_is_applied_and_logged(monkeypatch):
+    wrapper = ActionFlowModelWrapper(
+        pipeline=_ToyAlgo(reconstruction_weight=10.0, flow_weight=0.01),
+        gradient_telemetry_cadence=0,
+    )
+    logged = _capture_logs(monkeypatch, wrapper)
+
+    loss = wrapper.training_step(_batch(), batch_idx=0)
+
+    assert float(loss) == pytest.approx(56.04)
+    assert float(logged["Train/ActionFlow/Schedule/EffectiveFlowWeight"][0]) == 0.01
 
 
 @pytest.mark.parametrize("value", [-1, 1.5, True])

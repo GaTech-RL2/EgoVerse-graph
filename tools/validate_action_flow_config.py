@@ -359,7 +359,9 @@ def _validate_dimensions_and_modules(
     _exact(bridge.samples_per_content, 14, "bridge samples per content")
     _float(bridge.condition_dropout_probability, 0.3, "bridge condition dropout")
     _exact(field_stage.num_inference_steps, 16, "inference field evaluations")
-    _float(objective.flow_weight, 1.0, "FM weight")
+    flow_weight = float(config.model.flow_weight)
+    _require(flow_weight in {0.01, 1.0}, "unsupported FM weight")
+    _float(objective.flow_weight, flow_weight, "FM weight")
     _float(objective.action_velocity_weight, 1.0, "action-velocity weight")
     _float(
         objective.reconstruction_weight,
@@ -710,7 +712,11 @@ def _validate_data_and_launch(
     )
 
     objective = provenance.objective
-    _float(objective.flow_weight, 1.0, "provenance FM weight")
+    _float(
+        objective.flow_weight,
+        float(config.model.flow_weight),
+        "provenance FM weight",
+    )
     _float(objective.action_velocity_weight, 1.0, "provenance action weight")
     _float(
         objective.reconstruction_weight,
@@ -971,7 +977,7 @@ def validate_config(
             "action_velocity_weight": 1.0,
             "condition_dropout_probability": 0.3,
             "flow_samples_per_content": 14,
-            "flow_weight": 1.0,
+            "flow_weight": float(config.model.flow_weight),
             "reconstruction_weight": reconstruction_weight,
             "reconstruction_only_warmup_steps": int(
                 OmegaConf.select(

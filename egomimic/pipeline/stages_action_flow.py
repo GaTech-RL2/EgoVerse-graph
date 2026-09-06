@@ -1,0 +1,533 @@
+"""Generic Pipeline stages for latent conditional flow with a learned codec."""
+
+from __future__ import annotations
+
+import math
+
+import torch
+import torch.nn as nn
+from torch.func import jvp
+
+from egomimic.pipeline.core import Stage
+
+
+def _key(value: str, *, label: str) -> str:
+    value = str(value)
+    if not value:
+        raise ValueError(f"{label} must be non-empty")
+    return value
+
+
+def _tensor(batch: dict, key: str) -> torch.Tensor:
+    value = batch[key]
+    if not torch.is_tensor(value):
+        raise TypeError(f"{key} must be a tensor, got {type(value).__name__}")
+    return value
+
+
+def _module(value: nn.Module, *, label: str) -> nn.Module:
+    if not isinstance(value, nn.Module):
+        raise TypeError(f"{label} must be an nn.Module, got {type(value).__name__}")
+    return value
+
+
+class ContentEncoderStage(Stage):
+    """Encode paired target content into a clean latent endpoint."""
+
+    train_only = True
+
+    def __init__(
+        self,
+        encoder: nn.Module,
+        input_key: str = "target",
+        output_key: str = "action_flow/clean_latent",
+    ):
+        super().__init__()
+        self.encoder = _module(encoder, label="encoder")
+        self.input_key = _key(input_key, label="input_key")
+        self.output_key = _key(output_key, label="output_key")
+        self.reads = (self.input_key,)
+        self.writes = (self.output_key,)
+
+    def forward(self, batch: dict) -> dict:
+        content = _tensor(batch, self.input_key)
+        if content.ndim < 2 or int(content.shape[0]) <= 0:
+            raise ValueError(
+                f"{self.input_key} must have shape (B, ...), got {tuple(content.shape)}"
+            )
+        clean = self.encoder(content)
+        if not torch.is_tensor(clean) or clean.ndim < 2:
+            shape = tuple(clean.shape) if torch.is_tensor(clean) else None
+            raise ValueError(f"encoder output must have shape (B, ...), got {shape}")
+        if int(clean.shape[0]) != int(content.shape[0]):
+            raise ValueError(
+                "encoder output batch does not match target content: "
+                f"{clean.shape[0]} != {content.shape[0]}"
+            )
+        batch[self.output_key] = clean
+        return batch
+
+
+class LatentBridgeStage(Stage):
+    """Construct clean-to-Gaussian bridges with shared base-sample coupling."""
+
+    train_only = True
+
+    def __init__(
+        self,
+        samples_per_content: int = 14,
+        condition_dropout_probability: float = 0.3,
+        clean_key: str = "action_flow/clean_latent",
+        noise_key: str = "sampler/noise",
+        condition_key: str = "condition",
+        state_key: str = "action_flow/state",
+        time_key: str = "action_flow/time",
+        expanded_noise_key: str = "action_flow/noise",
+        target_velocity_key: str = "action_flow/target_velocity",
+        repeated_condition_key: str = "action_flow/condition",
+        condition_drop_mask_key: str = "action_flow/condition_drop_mask",
+        base_condition_drop_mask_key: str = ("action_flow/base_condition_drop_mask"),
+        base_index_key: str = "action_flow/base_index",
+    ):
+        super().__init__()
+        self.samples_per_content = int(samples_per_content)
+        self.condition_dropout_probability = float(condition_dropout_probability)
+        if self.samples_per_content <= 0:
+            raise ValueError("samples_per_content must be positive")
+        if not 0.0 <= self.condition_dropout_probability <= 1.0:
+            raise ValueError("condition_dropout_probability must be in [0, 1]")
+
+        self.clean_key = _key(clean_key, label="clean_key")
+        self.noise_key = _key(noise_key, label="noise_key")
+        self.condition_key = _key(condition_key, label="condition_key")
+        self.state_key = _key(state_key, label="state_key")
+        self.time_key = _key(time_key, label="time_key")
+        self.expanded_noise_key = _key(expanded_noise_key, label="expanded_noise_key")
+        self.target_velocity_key = _key(
+            target_velocity_key, label="target_velocity_key"
+        )
+        self.repeated_condition_key = _key(
+            repeated_condition_key, label="repeated_condition_key"
+        )
+        self.condition_drop_mask_key = _key(
+            condition_drop_mask_key, label="condition_drop_mask_key"
+        )
+        self.base_condition_drop_mask_key = _key(
+            base_condition_drop_mask_key,
+            label="base_condition_drop_mask_key",
+        )
+        self.base_index_key = _key(base_index_key, label="base_index_key")
+        self.reads = (self.clean_key, self.noise_key, self.condition_key)
+        self.writes = (
+            self.state_key,
+            self.time_key,
+            self.expanded_noise_key,
+            self.target_velocity_key,
+            self.repeated_condition_key,
+            self.condition_drop_mask_key,
+            self.base_condition_drop_mask_key,
+            self.base_index_key,
+        )
+
+    def _base_drop_mask(self, batch_size: int, device: torch.device) -> torch.Tensor:
+        probability = self.condition_dropout_probability
+        if probability == 0.0:
+            return torch.zeros(batch_size, dtype=torch.bool, device=device)
+        if probability == 1.0:
+            return torch.ones(batch_size, dtype=torch.bool, device=device)
+        return torch.rand(batch_size, device=device) < probability
+
+    def forward(self, batch: dict) -> dict:
+        clean = _tensor(batch, self.clean_key)
+        base_noise = _tensor(batch, self.noise_key)
+        condition = _tensor(batch, self.condition_key)
+        if clean.ndim < 2 or int(clean.shape[0]) <= 0:
+            raise ValueError(
+                f"{self.clean_key} must have shape (B, ...), got {tuple(clean.shape)}"
+            )
+        if tuple(base_noise.shape) != tuple(clean.shape):
+            raise ValueError(
+                "base Gaussian noise must match the clean latent shape: "
+                f"{tuple(base_noise.shape)} != {tuple(clean.shape)}"
+            )
+        batch_size = int(clean.shape[0])
+        if condition.ndim < 2 or int(condition.shape[0]) != batch_size:
+            raise ValueError(
+                f"{self.condition_key} must have first dimension {batch_size}, "
+                f"got {tuple(condition.shape)}"
+            )
+        if clean.device != base_noise.device or clean.device != condition.device:
+            raise ValueError("clean latent, noise, and condition must share a device")
+
+        count = self.samples_per_content
+        base_index = torch.arange(batch_size, device=clean.device).repeat_interleave(
+            count
+        )
+        clean_many = clean.index_select(0, base_index)
+        noise_many = base_noise.to(dtype=clean.dtype).index_select(0, base_index)
+        condition_many = condition.index_select(0, base_index)
+
+        time = torch.rand(
+            batch_size,
+            count,
+            dtype=torch.float32,
+            device=clean.device,
+        ).reshape(-1)
+        time_view = time.to(dtype=clean.dtype).reshape(-1, *([1] * (clean.ndim - 1)))
+        state = (1.0 - time_view) * clean_many + time_view * noise_many
+        target_velocity = noise_many - clean_many
+
+        base_mask = self._base_drop_mask(batch_size, clean.device)
+        repeated_mask = base_mask.index_select(0, base_index)
+        batch[self.state_key] = state
+        batch[self.time_key] = time
+        batch[self.expanded_noise_key] = noise_many
+        batch[self.target_velocity_key] = target_velocity
+        batch[self.repeated_condition_key] = condition_many
+        batch[self.condition_drop_mask_key] = repeated_mask
+        batch[self.base_condition_drop_mask_key] = base_mask
+        batch[self.base_index_key] = base_index
+        return batch
+
+
+class ConditionalVelocityStage(Stage):
+    """Predict bridge velocity in training and integrate it during inference."""
+
+    def __init__(
+        self,
+        field: nn.Module,
+        num_inference_steps: int = 16,
+        state_key: str = "action_flow/state",
+        time_key: str = "action_flow/time",
+        condition_key: str = "action_flow/condition",
+        condition_drop_mask_key: str = "action_flow/condition_drop_mask",
+        target_velocity_key: str = "action_flow/target_velocity",
+        predicted_velocity_key: str = "action_flow/predicted_velocity",
+        residual_key: str = "action_flow/velocity_residual",
+        inference_noise_key: str = "sampler/noise",
+        inference_condition_key: str = "condition",
+        generated_latent_key: str = "action_flow/generated_latent",
+        trajectory_key: str = "action_flow/trajectory",
+        inference_steps_log_key: str = "log/action_flow_inference_steps",
+    ):
+        super().__init__()
+        self.field = _module(field, label="field")
+        self.num_inference_steps = int(num_inference_steps)
+        if self.num_inference_steps <= 0:
+            raise ValueError("num_inference_steps must be positive")
+
+        self.state_key = _key(state_key, label="state_key")
+        self.time_key = _key(time_key, label="time_key")
+        self.condition_key = _key(condition_key, label="condition_key")
+        self.condition_drop_mask_key = _key(
+            condition_drop_mask_key, label="condition_drop_mask_key"
+        )
+        self.target_velocity_key = _key(
+            target_velocity_key, label="target_velocity_key"
+        )
+        self.predicted_velocity_key = _key(
+            predicted_velocity_key, label="predicted_velocity_key"
+        )
+        self.residual_key = _key(residual_key, label="residual_key")
+        self.inference_noise_key = _key(
+            inference_noise_key, label="inference_noise_key"
+        )
+        self.inference_condition_key = _key(
+            inference_condition_key, label="inference_condition_key"
+        )
+        self.generated_latent_key = _key(
+            generated_latent_key, label="generated_latent_key"
+        )
+        self.trajectory_key = _key(trajectory_key, label="trajectory_key")
+        self.inference_steps_log_key = _key(
+            inference_steps_log_key, label="inference_steps_log_key"
+        )
+
+        self.reads = (
+            self.state_key,
+            self.time_key,
+            self.condition_key,
+            self.condition_drop_mask_key,
+            self.target_velocity_key,
+        )
+        self.writes = (self.predicted_velocity_key, self.residual_key)
+        self.reads_by_mode = {
+            "inference": (self.inference_noise_key, self.inference_condition_key)
+        }
+        self.writes_by_mode = {
+            "inference": (
+                self.generated_latent_key,
+                self.trajectory_key,
+                self.inference_steps_log_key,
+            )
+        }
+
+    @staticmethod
+    def _validate_call_inputs(
+        state: torch.Tensor,
+        time: torch.Tensor,
+        condition: torch.Tensor,
+        drop_mask: torch.Tensor,
+    ) -> None:
+        batch_size = int(state.shape[0])
+        if state.ndim < 2 or batch_size <= 0:
+            raise ValueError(f"flow state must have shape (B, ...), got {state.shape}")
+        if time.ndim != 1 or int(time.shape[0]) != batch_size:
+            raise ValueError(f"flow time must have shape ({batch_size},)")
+        if condition.ndim < 2 or int(condition.shape[0]) != batch_size:
+            raise ValueError(f"flow condition must have first dimension {batch_size}")
+        if drop_mask.dtype != torch.bool or tuple(drop_mask.shape) != (batch_size,):
+            raise ValueError(f"condition drop mask must have shape ({batch_size},)")
+        if not (state.device == time.device == condition.device == drop_mask.device):
+            raise ValueError("flow inputs must share a device")
+
+    def _predict(
+        self,
+        state: torch.Tensor,
+        time: torch.Tensor,
+        condition: torch.Tensor,
+        drop_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        self._validate_call_inputs(state, time, condition, drop_mask)
+        prediction = self.field(
+            state,
+            time,
+            condition,
+            condition_drop_mask=drop_mask,
+        )
+        if not torch.is_tensor(prediction) or prediction.shape != state.shape:
+            shape = tuple(prediction.shape) if torch.is_tensor(prediction) else None
+            raise ValueError(
+                "velocity field output must match the latent state shape: "
+                f"{shape} != {tuple(state.shape)}"
+            )
+        return prediction
+
+    def _forward_train(self, batch: dict) -> dict:
+        state = _tensor(batch, self.state_key)
+        time = _tensor(batch, self.time_key)
+        condition = _tensor(batch, self.condition_key)
+        drop_mask = _tensor(batch, self.condition_drop_mask_key)
+        target_velocity = _tensor(batch, self.target_velocity_key)
+        if target_velocity.shape != state.shape:
+            raise ValueError("target velocity must match the latent state shape")
+        prediction = self._predict(state, time, condition, drop_mask)
+        batch[self.predicted_velocity_key] = prediction
+        batch[self.residual_key] = prediction - target_velocity
+        return batch
+
+    def _forward_inference(self, batch: dict) -> dict:
+        state = _tensor(batch, self.inference_noise_key)
+        condition = _tensor(batch, self.inference_condition_key)
+        if state.ndim < 2 or int(state.shape[0]) <= 0:
+            raise ValueError(f"{self.inference_noise_key} must have shape (B, ...)")
+        batch_size = int(state.shape[0])
+        if condition.ndim < 2 or int(condition.shape[0]) != batch_size:
+            raise ValueError(
+                f"{self.inference_condition_key} must have first dimension {batch_size}"
+            )
+        if state.device != condition.device:
+            raise ValueError("inference noise and condition must share a device")
+
+        trajectory = [state]
+        drop_mask = torch.zeros(batch_size, dtype=torch.bool, device=state.device)
+        step_size = 1.0 / self.num_inference_steps
+        for index in range(self.num_inference_steps):
+            time = torch.full(
+                (batch_size,),
+                1.0 - index * step_size,
+                dtype=torch.float32,
+                device=state.device,
+            )
+            state = state - step_size * self._predict(state, time, condition, drop_mask)
+            trajectory.append(state)
+
+        batch[self.generated_latent_key] = state
+        batch[self.trajectory_key] = torch.stack(trajectory)
+        batch[self.inference_steps_log_key] = state.new_tensor(
+            float(self.num_inference_steps)
+        )
+        return batch
+
+    def execute(self, batch: dict, *, mode: str) -> dict:
+        if mode == "train":
+            return self._forward_train(batch)
+        if mode == "inference":
+            return self._forward_inference(batch)
+        raise ValueError(f"unsupported flow execution mode {mode!r}")
+
+    def forward(self, batch: dict) -> dict:
+        return self._forward_train(batch)
+
+
+class ContentDecoderStage(Stage):
+    """Decode clean content and map latent residuals through the decoder JVP."""
+
+    def __init__(
+        self,
+        decoder: nn.Module,
+        clean_key: str = "action_flow/clean_latent",
+        state_key: str = "action_flow/state",
+        residual_key: str = "action_flow/velocity_residual",
+        reconstruction_key: str = "action_flow/reconstruction",
+        decoded_residual_key: str = "action_flow/decoded_velocity_residual",
+        inference_latent_key: str = "action_flow/generated_latent",
+        prediction_key: str = "pred_action",
+    ):
+        super().__init__()
+        self.decoder = _module(decoder, label="decoder")
+        self.clean_key = _key(clean_key, label="clean_key")
+        self.state_key = _key(state_key, label="state_key")
+        self.residual_key = _key(residual_key, label="residual_key")
+        self.reconstruction_key = _key(reconstruction_key, label="reconstruction_key")
+        self.decoded_residual_key = _key(
+            decoded_residual_key, label="decoded_residual_key"
+        )
+        self.inference_latent_key = _key(
+            inference_latent_key, label="inference_latent_key"
+        )
+        self.prediction_key = _key(prediction_key, label="prediction_key")
+        self.reads = (self.clean_key, self.state_key, self.residual_key)
+        self.writes = (self.reconstruction_key, self.decoded_residual_key)
+        self.reads_by_mode = {"inference": (self.inference_latent_key,)}
+        self.writes_by_mode = {"inference": (self.prediction_key,)}
+
+    def _decode(self, value: torch.Tensor, *, label: str) -> torch.Tensor:
+        decoded = self.decoder(value)
+        if not torch.is_tensor(decoded) or decoded.ndim < 2:
+            shape = tuple(decoded.shape) if torch.is_tensor(decoded) else None
+            raise ValueError(f"decoder {label} must have shape (B, ...), got {shape}")
+        if int(decoded.shape[0]) != int(value.shape[0]):
+            raise ValueError(f"decoder {label} batch does not match its input")
+        return decoded
+
+    def _forward_train(self, batch: dict) -> dict:
+        clean = _tensor(batch, self.clean_key)
+        state = _tensor(batch, self.state_key)
+        residual = _tensor(batch, self.residual_key)
+        if state.shape != residual.shape:
+            raise ValueError(
+                "latent state and velocity residual must have matching shapes"
+            )
+        reconstruction = self._decode(clean, label="reconstruction")
+        decoded_residual = jvp(self.decoder, (state,), (residual,))[1]
+        if not torch.is_tensor(decoded_residual) or decoded_residual.ndim < 2:
+            shape = (
+                tuple(decoded_residual.shape)
+                if torch.is_tensor(decoded_residual)
+                else None
+            )
+            raise ValueError(f"decoder JVP must have shape (B, ...), got {shape}")
+        if int(decoded_residual.shape[0]) != int(state.shape[0]):
+            raise ValueError("decoder JVP batch does not match the bridge state")
+        batch[self.reconstruction_key] = reconstruction
+        batch[self.decoded_residual_key] = decoded_residual
+        return batch
+
+    def _forward_inference(self, batch: dict) -> dict:
+        latent = _tensor(batch, self.inference_latent_key)
+        batch[self.prediction_key] = self._decode(latent, label="prediction")
+        return batch
+
+    def execute(self, batch: dict, *, mode: str) -> dict:
+        if mode == "train":
+            return self._forward_train(batch)
+        if mode == "inference":
+            return self._forward_inference(batch)
+        raise ValueError(f"unsupported decoder execution mode {mode!r}")
+
+    def forward(self, batch: dict) -> dict:
+        return self._forward_train(batch)
+
+
+class ActionFlowObjectiveStage(Stage):
+    """Compute component means and one explicitly weighted optimizer loss."""
+
+    train_only = True
+
+    def __init__(
+        self,
+        flow_weight: float = 1.0,
+        reconstruction_weight: float = 1.0,
+        action_velocity_weight: float = 1.0,
+        target_key: str = "target",
+        residual_key: str = "action_flow/velocity_residual",
+        reconstruction_key: str = "action_flow/reconstruction",
+        decoded_residual_key: str = "action_flow/decoded_velocity_residual",
+        loss_key: str = "loss/action_flow",
+        log_prefix: str = "log/action_flow",
+    ):
+        super().__init__()
+        self.flow_weight = float(flow_weight)
+        self.reconstruction_weight = float(reconstruction_weight)
+        self.action_velocity_weight = float(action_velocity_weight)
+        weights = (
+            self.flow_weight,
+            self.reconstruction_weight,
+            self.action_velocity_weight,
+        )
+        if any(not math.isfinite(weight) or weight < 0.0 for weight in weights):
+            raise ValueError("objective weights must be finite and non-negative")
+        if not any(weight > 0.0 for weight in weights):
+            raise ValueError("at least one objective weight must be positive")
+
+        self.target_key = _key(target_key, label="target_key")
+        self.residual_key = _key(residual_key, label="residual_key")
+        self.reconstruction_key = _key(reconstruction_key, label="reconstruction_key")
+        self.decoded_residual_key = _key(
+            decoded_residual_key, label="decoded_residual_key"
+        )
+        self.loss_key = _key(loss_key, label="loss_key")
+        self.log_prefix = _key(log_prefix, label="log_prefix").rstrip("/")
+        self.total_log_key = f"{self.log_prefix}_total"
+        self.flow_log_key = f"{self.log_prefix}_fm"
+        self.reconstruction_log_key = f"{self.log_prefix}_reconstruction"
+        self.reconstruction_l1_log_key = f"{self.log_prefix}_reconstruction_l1"
+        self.action_velocity_log_key = f"{self.log_prefix}_action_velocity"
+        self.reads = (
+            self.target_key,
+            self.residual_key,
+            self.reconstruction_key,
+            self.decoded_residual_key,
+        )
+        self.writes = (
+            self.loss_key,
+            self.total_log_key,
+            self.flow_log_key,
+            self.reconstruction_log_key,
+            self.reconstruction_l1_log_key,
+            self.action_velocity_log_key,
+        )
+
+    def forward(self, batch: dict) -> dict:
+        target = _tensor(batch, self.target_key)
+        residual = _tensor(batch, self.residual_key)
+        reconstruction = _tensor(batch, self.reconstruction_key)
+        decoded_residual = _tensor(batch, self.decoded_residual_key)
+        if reconstruction.shape != target.shape:
+            raise ValueError(
+                "decoded clean content must match the target shape: "
+                f"{tuple(reconstruction.shape)} != {tuple(target.shape)}"
+            )
+        if residual.ndim < 2 or int(residual.shape[0]) <= 0:
+            raise ValueError("velocity residual must have shape (B, ...)")
+        if decoded_residual.ndim < 2 or int(decoded_residual.shape[0]) <= 0:
+            raise ValueError("decoded velocity residual must have shape (B, ...)")
+
+        flow = residual.square().mean()
+        reconstruction_error = reconstruction - target
+        reconstruction_loss = reconstruction_error.square().mean()
+        reconstruction_l1 = reconstruction_error.abs().mean()
+        action_velocity = decoded_residual.square().mean()
+        total = (
+            self.flow_weight * flow
+            + self.reconstruction_weight * reconstruction_loss
+            + self.action_velocity_weight * action_velocity
+        )
+        batch[self.loss_key] = total
+        batch[self.total_log_key] = total
+        batch[self.flow_log_key] = flow
+        batch[self.reconstruction_log_key] = reconstruction_loss
+        batch[self.reconstruction_l1_log_key] = reconstruction_l1
+        batch[self.action_velocity_log_key] = action_velocity
+        return batch

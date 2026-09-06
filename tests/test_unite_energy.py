@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from types import SimpleNamespace
 
 import pytest
 import torch
 
+from egomimic.eval.energy_score import (
+    USOCKET_ENERGY_DISTANCE_CONFIG,
+    normalize_usocket_energy_distance_config,
+    usocket_energy_distance_metadata,
+)
 from egomimic.eval.planar_action_eval import PlanarActionEval
+from egomimic.pipeline.pushshapes import USocketRotVecNativeDecoder
 
 
 class _IdentityNormalizer:
@@ -15,6 +22,22 @@ class _IdentityNormalizer:
     def unnormalize(values, embodiment_id):
         assert embodiment_id == 19
         return values
+
+
+class _AffineActionNormalizer:
+    def __init__(self, scale, bias):
+        self.scale = torch.as_tensor(scale)
+        self.bias = torch.as_tensor(bias)
+
+    def unnormalize(self, values, embodiment_id):
+        assert embodiment_id == 19
+        return {
+            key: value * self.scale.to(value) + self.bias.to(value)
+            for key, value in values.items()
+        }
+
+    def normalize_tensor(self, value):
+        return (value - self.bias.to(value)) / self.scale.to(value)
 
 
 class _NestedRandomModel:
@@ -42,6 +65,75 @@ def _evaluator(tmp_path, **kwargs):
         semantic_blocks=((0, 2), (2, 4)),
         deterministic_seed=0,
         **kwargs,
+    )
+
+
+def _typed_evaluator(tmp_path):
+    path, digest = _write_seed_bank(tmp_path)
+    run_dir = tmp_path / "typed-run"
+    config_path = run_dir / ".hydra" / "config.yaml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text("name: typed-usocket-test\n")
+    content_manifest_path = run_dir / "content-manifest.json"
+    content_manifest_payload = {
+        "schema_version": 1,
+        "status": "ZARR_CONTENT_MANIFEST",
+        "aggregate_sha256": "d" * 64,
+    }
+    content_manifest_path.write_text(
+        json.dumps(content_manifest_payload, sort_keys=True, separators=(",", ":"))
+    )
+    split_hash = "c" * 64
+    provenance = {
+        "source_commit": "a" * 40,
+        "normalization_sha256": "b" * 64,
+        "split_manifest_sha256": split_hash,
+        "resolved_config_path": str(config_path),
+        "wandb": {
+            "entity": "rl2-group",
+            "project": "pushshapes-action-flow",
+            "run_id": "typed-energy-test",
+        },
+        "distance_contract": USOCKET_ENERGY_DISTANCE_CONFIG,
+        "dataset_content": {
+            "manifest_path": str(content_manifest_path),
+            "manifest_sha256": hashlib.sha256(
+                content_manifest_path.read_bytes()
+            ).hexdigest(),
+            "aggregate_sha256": content_manifest_payload["aggregate_sha256"],
+        },
+        "action_representation": "x_y_cos_theta_sin_theta",
+    }
+    evaluator = PlanarActionEval(
+        seed_bank_path=str(path),
+        seed_bank_sha256=digest,
+        artifact_root=str(run_dir / "energy"),
+        semantic_blocks=((0, 2), (2, 4)),
+        deterministic_seed=0,
+        native_decoder=USocketRotVecNativeDecoder(),
+        energy_score_distance=USOCKET_ENERGY_DISTANCE_CONFIG,
+        energy_score_validation_view={
+            "definition": "first_deterministic_validation_batch_per_rank",
+            "split_manifest_sha256": split_hash,
+            "per_rank_batch_size": 2,
+            "world_size": 1,
+        },
+        energy_score_provenance=provenance,
+    )
+    evaluator.bind_data_context(normalizer=_IdentityNormalizer())
+    return evaluator, run_dir, config_path, content_manifest_path
+
+
+def _rotvec(theta, *, batch_size=2, horizon=16):
+    theta = torch.full((batch_size, horizon), float(theta))
+    return torch.stack(
+        (
+            torch.zeros_like(theta),
+            torch.zeros_like(theta),
+            torch.cos(theta),
+            torch.sin(theta),
+        ),
+        dim=-1,
     )
 
 
@@ -101,6 +193,168 @@ def test_energy_seed_bank_hash_and_seed_identity_are_strict(tmp_path):
         first_result["validation/usocket"]["pred_action"], expected_first_sample
     )
     torch.testing.assert_close(actual_next_random, expected_next_random)
+
+
+def test_typed_usocket_energy_uses_wrapped_native_theta_over_complete_h16(tmp_path):
+    evaluator, _, _, _ = _typed_evaluator(tmp_path)
+    normalizer = _AffineActionNormalizer(
+        scale=[5.0, 7.0, 2.0, 4.0],
+        bias=[1.0, -2.0, 0.25, -0.75],
+    )
+    evaluator.bind_data_context(normalizer=normalizer)
+    target = normalizer.normalize_tensor(_rotvec(math.pi - 0.01))
+    prediction = normalizer.normalize_tensor(_rotvec(-math.pi + 0.01))
+    samples = prediction.unsqueeze(0).repeat(32, 1, 1, 1)
+
+    values = evaluator._energy_values(samples, target, embodiment_id=19)
+
+    expected = torch.tensor(0.01 / math.pi)
+    torch.testing.assert_close(values["accuracy"], expected, atol=1.0e-7, rtol=0.0)
+    torch.testing.assert_close(values["diversity"], torch.zeros(()))
+    torch.testing.assert_close(values["score"], expected, atol=1.0e-7, rtol=0.0)
+
+
+def test_typed_usocket_energy_weights_xy_and_circular_theta_equally(tmp_path):
+    evaluator, _, _, _ = _typed_evaluator(tmp_path)
+    target = _rotvec(0.0)
+    translated = target.clone()
+    translated[..., :2] = 1.0
+    rotated = _rotvec(math.pi)
+
+    translation_score = evaluator._energy_values(
+        translated.unsqueeze(0).repeat(32, 1, 1, 1),
+        target,
+        embodiment_id=19,
+    )["score"]
+    rotation_score = evaluator._energy_values(
+        rotated.unsqueeze(0).repeat(32, 1, 1, 1),
+        target,
+        embodiment_id=19,
+    )["score"]
+
+    torch.testing.assert_close(translation_score, torch.tensor(0.5))
+    torch.testing.assert_close(rotation_score, torch.tensor(0.5))
+
+    short_target = target[:, :-1]
+    with pytest.raises(ValueError, match="complete normalized chunks"):
+        evaluator._energy_values(
+            short_target.unsqueeze(0).repeat(32, 1, 1, 1),
+            short_target,
+            embodiment_id=19,
+        )
+
+
+def test_typed_usocket_energy_contract_rejects_undeclared_weight_knobs():
+    contract = {
+        **USOCKET_ENERGY_DISTANCE_CONFIG,
+        "semantic_weights": {
+            **USOCKET_ENERGY_DISTANCE_CONFIG["semantic_weights"],
+            "undeclared": 0.0,
+        },
+    }
+
+    with pytest.raises(ValueError, match="semantic weight keys differ"):
+        normalize_usocket_energy_distance_config(contract)
+
+
+def test_typed_usocket_energy_artifact_binds_full_metric_identity(tmp_path):
+    evaluator, run_dir, config_path, content_manifest_path = _typed_evaluator(tmp_path)
+    target = _rotvec(math.pi - 0.01)
+    prediction = _rotvec(-math.pi + 0.01)
+    samples = prediction.unsqueeze(0).repeat(32, 1, 1, 1)
+    batch = _batch(target)
+    batch["validation/usocket"]["episode_hash"] = ["episode-a", "episode-b"]
+    batch["validation/usocket"]["frame_index"] = torch.tensor([3, 9])
+    evaluator.model = SimpleNamespace()
+    evaluator.trainer = SimpleNamespace(
+        current_epoch=0,
+        global_step=2,
+        global_rank=0,
+        precision="bf16-mixed",
+        lightning_module=SimpleNamespace(log_dict=lambda *_args, **_kwargs: None),
+    )
+    evaluator._seeded_predictions = lambda _batch: (
+        {"validation/usocket": samples},
+        {"validation/usocket": {"pred_action": samples[0]}},
+    )
+
+    evaluator.on_validation_step(batch, batch_idx=0)
+
+    artifact_path = run_dir / "energy/epoch-0-step-2/rank-0-batch-0.pt"
+    artifact = torch.load(artifact_path, map_location="cpu", weights_only=False)
+    assert artifact["schema_version"] == 2
+    assert artifact["distance"] == usocket_energy_distance_metadata(
+        USOCKET_ENERGY_DISTANCE_CONFIG
+    )
+    assert artifact["identity"]["metric"] == {
+        "name": "EnergyScore@32",
+        "sample_count": 32,
+        "deterministic_seed": 0,
+    }
+    assert artifact["identity"]["source_commit"] == "a" * 40
+    assert artifact["identity"]["normalization_sha256"] == "b" * 64
+    assert artifact["identity"]["split_manifest_sha256"] == "c" * 64
+    assert (
+        artifact["identity"]["resolved_config_sha256"]
+        == hashlib.sha256(config_path.read_bytes()).hexdigest()
+    )
+    assert artifact["identity"]["wandb"] == {
+        "entity": "rl2-group",
+        "project": "pushshapes-action-flow",
+        "run_id": "typed-energy-test",
+    }
+    assert artifact["identity"]["dataset_content"] == {
+        "manifest_path": str(content_manifest_path.resolve()),
+        "manifest_sha256": hashlib.sha256(
+            content_manifest_path.read_bytes()
+        ).hexdigest(),
+        "aggregate_sha256": "d" * 64,
+    }
+    assert artifact["identity"]["validation_view"] == {
+        "definition": "first_deterministic_validation_batch_per_rank",
+        "split_manifest_sha256": "c" * 64,
+        "per_rank_batch_size": 2,
+        "world_size": 1,
+    }
+    assert artifact["identity"]["checkpoint_binding"] == {
+        "global_step": 2,
+        "checkpoint_sha256": None,
+        "sha256_status": (
+            "unavailable_during_validation_artifact_write; post-run_smoke_"
+            "verifier_binds_checkpoint_and_artifact_by_global_step_and_records_"
+            "both_file_hashes"
+        ),
+    }
+    encoded_identity = json.dumps(
+        artifact["identity"],
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode()
+    assert artifact["identity_sha256"] == hashlib.sha256(encoded_identity).hexdigest()
+    domain = artifact["domains"]["pushshapes_sim_u_socket"]
+    assert domain["native_predictions"].shape == (32, 2, 16, 3)
+    assert domain["native_targets"].shape == (2, 16, 3)
+    assert [item["episode_hash"] for item in domain["condition_ids"]] == [
+        "episode-a",
+        "episode-b",
+    ]
+    assert [item["frame_index"] for item in domain["condition_ids"]] == [3, 9]
+    assert artifact["identity"]["validation_conditions"] == {
+        "pushshapes_sim_u_socket": domain["condition_ids"]
+    }
+
+
+def test_typed_usocket_energy_identity_rejects_mutated_content_manifest(tmp_path):
+    evaluator, _, _, content_manifest_path = _typed_evaluator(tmp_path)
+    content_manifest_path.write_text('{"aggregate_sha256":"e"}')
+
+    with pytest.raises(ValueError, match="manifest hash differs"):
+        evaluator._typed_artifact_identity(
+            domains={"pushshapes_sim_u_socket": {"condition_ids": []}},
+            global_step=2,
+        )
 
 
 def test_energy_artifact_records_provenance_and_per_condition_outputs(tmp_path):

@@ -141,3 +141,16 @@ def get_usocket_rotvec_action_state_transform_list(
         ThetaToRotVec(keys=[action_key], angle_col=2),
         PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
     ]
+
+
+def get_usocket_rotvec_action_transform_list(action_key: str = "actions"):
+    """Encode only the U-Socket action angle as cosine/sine.
+
+    This adapter is for models whose observation pathway consumes the native
+    three-coordinate agent state while their target pathway uses the smooth
+    four-coordinate ``[x, y, cos(theta), sin(theta)]`` representation.  Keeping
+    this conversion at the dataset boundary prevents generic Pipeline stages
+    from acquiring robot- or embodiment-specific behavior.
+    """
+
+    return [ThetaToRotVec(keys=[action_key], angle_col=2)]

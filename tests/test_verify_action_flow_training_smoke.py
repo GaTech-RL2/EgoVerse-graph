@@ -150,6 +150,9 @@ def _history_row():
     row["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"] = 14.0
     row["Train/ActionFlow/Compute/DecoderJVPCallsPerStep"] = 1.0
     row["Train/ActionFlow/Compute/PeakAllocatedBytes"] = 1024.0
+    row["Train/ActionFlow/Schedule/ReconstructionOnly"] = 0.0
+    row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = 1.0
+    row["Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"] = 1.0
     for base in (
         "Valid/MSE",
         "Valid/Native_MSE",

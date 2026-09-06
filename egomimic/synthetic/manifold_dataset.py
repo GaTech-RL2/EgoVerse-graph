@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 @dataclass(frozen=True)
 class GaussianTorusBatch:
     source_latent: torch.Tensor
+    source_gaussian_latent: torch.Tensor
     source_2d: torch.Tensor
     source_3d: torch.Tensor
     source_gaussian_3d: torch.Tensor
@@ -22,17 +23,29 @@ class GaussianTorusBatch:
 @dataclass(frozen=True)
 class GaussianParaboloidBatch:
     source_latent: torch.Tensor
+    source_gaussian_latent: torch.Tensor
     source_2d: torch.Tensor
     source_3d: torch.Tensor
     source_gaussian_3d: torch.Tensor
     target_3d: torch.Tensor
 
 
-def _independent_gaussian_3d(
-    count: int, seed: int, dtype: torch.dtype
+def _independent_gaussian(
+    count: int, dimension: int, seed: int, dtype: torch.dtype
 ) -> torch.Tensor:
     generator = torch.Generator(device="cpu").manual_seed(int(seed) + 10_000)
-    return torch.randn((count, 3), generator=generator, dtype=dtype)
+    return torch.randn((count, dimension), generator=generator, dtype=dtype)
+
+
+def _independent_gaussian_pair(
+    count: int, latent_dim: int, seed: int, dtype: torch.dtype
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return matching 3D and latent noise with identical first coordinates."""
+    noise_3d = _independent_gaussian(count, 3, seed, dtype)
+    if latent_dim <= 3:
+        return noise_3d, noise_3d[:, :latent_dim]
+    extra = _independent_gaussian(count, latent_dim - 3, seed + 10_000, dtype)
+    return noise_3d, torch.cat((noise_3d, extra), dim=-1)
 
 
 def generate_gaussian_torus(
@@ -73,11 +86,15 @@ def generate_gaussian_torus(
         (tube * theta.cos(), tube * theta.sin(), minor_radius * phi.sin()), dim=-1
     )
     source_3d = torch.nn.functional.pad(source_2d, (0, 1))
+    source_gaussian_3d, source_gaussian_latent = _independent_gaussian_pair(
+        count, source_dim, seed, dtype
+    )
     return GaussianTorusBatch(
         source_latent,
+        source_gaussian_latent,
         source_2d,
         source_3d,
-        _independent_gaussian_3d(count, seed, dtype),
+        source_gaussian_3d,
         target_3d,
         angles,
     )
@@ -116,11 +133,15 @@ def generate_gaussian_paraboloid(
     source_3d = torch.nn.functional.pad(source_2d, (0, 1))
     height = curvature * source_2d.square().sum(dim=-1, keepdim=True)
     target_3d = torch.cat((source_2d, height), dim=-1)
+    source_gaussian_3d, source_gaussian_latent = _independent_gaussian_pair(
+        count, source_dim, seed, dtype
+    )
     return GaussianParaboloidBatch(
         source_latent,
+        source_gaussian_latent,
         source_2d,
         source_3d,
-        _independent_gaussian_3d(count, seed, dtype),
+        source_gaussian_3d,
         target_3d,
     )
 
@@ -137,6 +158,7 @@ class GaussianTorusDataset(Dataset):
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         return {
             "source_latent": self.data.source_latent[index],
+            "source_gaussian_latent": self.data.source_gaussian_latent[index],
             "source_2d": self.data.source_2d[index],
             "source_3d": self.data.source_3d[index],
             "source_gaussian_3d": self.data.source_gaussian_3d[index],
@@ -167,6 +189,7 @@ class GaussianParaboloidDataset(Dataset):
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         return {
             "source_latent": self.data.source_latent[index],
+            "source_gaussian_latent": self.data.source_gaussian_latent[index],
             "source_2d": self.data.source_2d[index],
             "source_3d": self.data.source_3d[index],
             "source_gaussian_3d": self.data.source_gaussian_3d[index],

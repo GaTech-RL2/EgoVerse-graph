@@ -190,6 +190,22 @@ def test_history_gate_requires_components_gradients_and_scheduled_validation():
     assert result["train"]["Train/ActionFlow/FlowMatchingLoss"] == 1.25
 
 
+def test_history_gate_accepts_float32_flow_weight_telemetry():
+    row = _history_row()
+    row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = float(
+        torch.tensor(0.01)
+    )
+    for suffix in ("", f"/{MODULE.SOURCE_LABEL}"):
+        row[f"Train/ActionFlow/TotalLoss{suffix}_step"] = 2.5125
+    row["Valid/ActionFlow/TotalLoss"] = 3.015
+
+    result = MODULE._validate_history(
+        {2: row}, reconstruction_weight=1.0, flow_weight=0.01
+    )
+
+    assert result["train_step"] == 2
+
+
 def test_history_gate_rejects_missing_gradient_telemetry():
     row = _history_row()
     del row["Train/ActionFlow/GradientCosine/FM__ActionVelocity"]

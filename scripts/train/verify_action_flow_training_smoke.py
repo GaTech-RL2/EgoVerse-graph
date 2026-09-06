@@ -1123,7 +1123,7 @@ def _validate_history(
             train["Train/ActionFlow/Schedule/EffectiveFlowWeight"],
             flow_weight,
             rel_tol=0.0,
-            abs_tol=1.0e-12,
+            abs_tol=1.0e-6,
         )
         and train[
             "Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"
@@ -1234,7 +1234,7 @@ def _validate_history(
         label="scheduled validation",
     )
     expected_valid_total = (
-        valid["Valid/ActionFlow/FlowMatchingLoss"]
+        flow_weight * valid["Valid/ActionFlow/FlowMatchingLoss"]
         + reconstruction_weight * valid["Valid/ActionFlow/ReconstructionLoss"]
         + valid["Valid/ActionFlow/ActionVelocityLoss"]
     )

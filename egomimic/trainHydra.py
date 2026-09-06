@@ -127,7 +127,17 @@ def _instantiate_trainer_plugins(cfg: DictConfig) -> List[Any]:
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     model_cfg = OmegaConf.create(OmegaConf.to_container(cfg.model, resolve=True))
-    return OmegaConf.create({"model": model_cfg})
+    config_tree = {"model": model_cfg}
+    if cfg.get("run_provenance") is not None:
+        run_provenance = OmegaConf.to_container(
+            cfg.run_provenance,
+            resolve=True,
+        )
+        wandb_run_id = OmegaConf.select(cfg, "logger.wandb.id", default=None)
+        if wandb_run_id is not None:
+            run_provenance["run_id"] = str(wandb_run_id)
+        config_tree["run_provenance"] = run_provenance
+    return OmegaConf.create(config_tree)
 
 
 def _validate_run_config(cfg: DictConfig) -> str:

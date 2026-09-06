@@ -75,6 +75,8 @@ ICE_WORLD_SIZE=1
 ICE_TRAINER_STRATEGY=auto
 ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
 ICE_UNITE_DIAGNOSTICS=${ICE_UNITE_DIAGNOSTICS:-false}
+ICE_GRADIENT_TELEMETRY_CADENCE=${ICE_GRADIENT_TELEMETRY_CADENCE:-100}
+ICE_GPU_CONTRACT=${ICE_GPU_CONTRACT:-H100_OR_H200}
 ICE_TOOL_DIR=${ICE_TOOL_DIR:-$ICE_REPO/scripts/ice}
 ICE_REQUEUE_RUNNER=${ICE_REQUEUE_RUNNER:-$ICE_TOOL_DIR/ice_requeue_runner.py}
 ICE_GPU_PROBE=${ICE_GPU_PROBE:-$ICE_TOOL_DIR/ice_gpu_probe.py}
@@ -99,10 +101,29 @@ case "$ICE_UNITE_DIAGNOSTICS" in
   true|false) ;;
   *) die "ICE_UNITE_DIAGNOSTICS must be true or false" ;;
 esac
+case "$ICE_GPU_CONTRACT" in
+  H100_OR_H200)
+    ICE_GPU_LABEL='H100|H200'
+    GPU_PROBE_ARGS=(--allowed-gpu-name H100 --allowed-gpu-name H200)
+    ;;
+  L40S)
+    ICE_GPU_LABEL=L40S
+    GPU_PROBE_ARGS=(--allowed-gpu-name L40S)
+    ;;
+  A100)
+    ICE_GPU_LABEL=A100
+    GPU_PROBE_ARGS=(--allowed-gpu-name A100)
+    ;;
+  *) die "ICE_GPU_CONTRACT must be H100_OR_H200, L40S, or A100" ;;
+esac
 case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_flow42_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt16_s42) ;;
+  pusht/action_latent_vfm_usocket_val01_h16:bf/us_action_latent_vfm_nt16_d8_h512_s42)
+    ICE_FAMILY=action_latent_vfm
+    ICE_UNITE_DIAGNOSTICS=true
+    ;;
   *) die "unsupported UNITE experiment or model row" ;;
 esac
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
@@ -117,11 +138,12 @@ positive_number ICE_LIMIT_VAL_BATCHES "$ICE_LIMIT_VAL_BATCHES"
 positive_integer ICE_CHECKPOINT_EVERY_N_STEPS "$ICE_CHECKPOINT_EVERY_N_STEPS"
 positive_integer ICE_TRAIN_BATCH_SIZE "$ICE_TRAIN_BATCH_SIZE"
 positive_integer ICE_VALID_BATCH_SIZE "$ICE_VALID_BATCH_SIZE"
+positive_integer ICE_GRADIENT_TELEMETRY_CADENCE "$ICE_GRADIENT_TELEMETRY_CADENCE"
 positive_integer ICE_MAX_RESTARTS "$ICE_MAX_RESTARTS"
 positive_integer ICE_SEED "$ICE_SEED"
 if test "$ICE_UNITE_DIAGNOSTICS" = true; then
-  test "$ICE_MAX_STEPS" -ge 100 || \
-    die "ICE_UNITE_DIAGNOSTICS requires at least 100 optimizer steps to exercise cadence-100 gradient telemetry"
+  test "$ICE_MAX_STEPS" -ge "$ICE_GRADIENT_TELEMETRY_CADENCE" || \
+    die "ICE_UNITE_DIAGNOSTICS requires a gradient-telemetry event within the run budget"
   test "$ICE_VAL_CHECK_INTERVAL" -le "$ICE_MAX_STEPS" || \
     die "ICE_UNITE_DIAGNOSTICS requires scheduled validation within the smoke budget"
 fi
@@ -232,13 +254,20 @@ if test "$ICE_UNITE_FAST" = true; then
   )
 fi
 if test "$ICE_UNITE_DIAGNOSTICS" = true; then
-  test "$ICE_MODEL" = bf/us_unite_register_shared_nt16_s42 || \
-    die "ICE_UNITE_DIAGNOSTICS requires the shared UNITE N=16 model row"
+  case "$ICE_MODEL" in
+    bf/us_unite_register_shared_nt16_s42|bf/us_action_latent_vfm_nt16_d8_h512_s42) ;;
+    *) die "ICE_UNITE_DIAGNOSTICS requires a supported latent-diagnostic row" ;;
+  esac
   BASE_OVERRIDES+=(
     evaluator.unite_diagnostics.enabled=true
     "evaluator.unite_diagnostics.validation_view.split_manifest_sha256=$ICE_EXPECTED_SPLIT_MANIFEST_SHA256"
     "evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"
     "evaluator.unite_diagnostics.validation_view.per_rank_batch_size=$ICE_VALID_BATCH_SIZE"
+  )
+fi
+if test "$ICE_FAMILY" = action_latent_vfm; then
+  BASE_OVERRIDES+=(
+    "model.gradient_telemetry_cadence=$ICE_GRADIENT_TELEMETRY_CADENCE"
   )
 fi
 if test -n "${ICE_NORM_STATS_PATH:-}"; then
@@ -370,6 +399,50 @@ elif family == "unite":
         assert diagnostics.provenance.sampler == "dopri5"
     else:
         assert bool(cfg.evaluator.unite_diagnostics.enabled) is False
+elif family == "action_latent_vfm":
+    assert experiment == "pusht/action_latent_vfm_usocket_val01_h16"
+    assert cfg.name == "action_latent_vfm_usocket_h16"
+    assert cfg.model._target_.endswith("ActionLatentVFMModelWrapper")
+    assert int(cfg.model.num_latent_tokens) == 16
+    assert int(cfg.model.latent_dim) == 8
+    assert int(cfg.model.action_horizon) == 16
+    assert int(cfg.model.flow_samples_per_reconstruction) == 14
+    assert int(cfg.model.gradient_telemetry_cadence) > 0
+    assert math.isclose(float(cfg.model.optimizer.lr), 3.0e-5)
+    assert int(cfg.model.scheduler.warmup_steps) == 8000
+    assert math.isclose(float(cfg.model.scheduler.eta_min), 3.0e-6)
+    velocity_stages = [
+        stage for stage in cfg.model.pipeline.stages
+        if stage._target_.endswith("LatentVelocityFieldStage")
+    ]
+    assert len(velocity_stages) == 1
+    stage = velocity_stages[0]
+    assert stage._target_.endswith("LatentVelocityFieldStage")
+    assert math.isclose(float(stage.condition_dropout_probability), 0.3)
+    assert stage.denoising_module._target_.endswith("AdaLNBackbone")
+    assert (int(stage.denoising_module.input_dim), int(stage.denoising_module.output_dim)) == (8, 8)
+    assert int(stage.denoising_module.horizon) == 16
+    assert (int(stage.denoising_module.hidden_dim), int(stage.denoising_module.depth)) == (512, 12)
+    monotonic_noising = [
+        item for item in cfg.model.pipeline.stages
+        if item._target_.endswith("ExpectedMonotonicNoisingStage")
+    ]
+    monotonic_objective = [
+        item for item in cfg.model.pipeline.stages
+        if item._target_.endswith("ExpectedMonotonicRankingObjectiveStage")
+    ]
+    assert len(monotonic_noising) == len(monotonic_objective) == 1
+    assert math.isclose(float(monotonic_noising[0].severity_min), 0.0)
+    assert math.isclose(float(monotonic_noising[0].severity_max), 0.5)
+    assert math.isclose(float(monotonic_objective[0].margin), 0.0)
+    assert math.isclose(float(monotonic_objective[0].weight), 1.0)
+    assert bool(cfg.evaluator.unite_diagnostics.enabled) is True
+    diagnostics = cfg.evaluator.unite_diagnostics
+    assert diagnostics.validation_view.split_manifest_sha256 == split_manifest_sha256
+    assert int(diagnostics.validation_view.world_size) == world_size
+    assert int(diagnostics.validation_view.per_rank_batch_size) == int(valid_batch_size)
+    assert diagnostics.provenance.sampler == "fixed_euler"
+    assert int(diagnostics.provenance.sampler_output_points) == 17
 else:
     raise AssertionError(family)
 PY
@@ -453,7 +526,7 @@ ATTEMPT_PROVENANCE=$ICE_OUTPUT_DIR/provenance/restart-$RESTART_COUNT
 test ! -e "$ATTEMPT_PROVENANCE" || die "attempt provenance already exists"
 mkdir -p "$ATTEMPT_PROVENANCE"
 "$ICE_PYTHON" - "$ATTEMPT_PROVENANCE/launch_contract.json" \
-  "$ICE_UNITE_DIAGNOSTICS" "H100|H200" "$ICE_EXPECTED_HEAD" \
+  "$ICE_UNITE_DIAGNOSTICS" "$ICE_GPU_LABEL" "$ICE_EXPECTED_HEAD" \
   "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" "$ICE_TRAIN_BATCH_SIZE" \
   "$ICE_VALID_BATCH_SIZE" <<'PY'
 import json
@@ -519,7 +592,7 @@ export SLURM_EXPORT_ENV=ALL
 
 CUDA_VISIBLE_DEVICES=0 SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
   "$ICE_PYTHON" "$ICE_GPU_PROBE" \
-  --expected-world-size 1 --allowed-gpu-name H100 --allowed-gpu-name H200 \
+  --expected-world-size 1 "${GPU_PROBE_ARGS[@]}" \
   --output "$ATTEMPT_PROVENANCE/gpu_probe_0.json"
 
 read -r -d '' CHILD_CODE <<'BASH' || true

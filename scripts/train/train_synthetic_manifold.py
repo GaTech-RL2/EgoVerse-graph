@@ -196,6 +196,7 @@ def main() -> None:
                 lambda_scale=config.get("lambda_scale", 1.0),
                 lambda_path=config.get("lambda_path", 1.0),
                 lambda_action_velocity=config.get("lambda_action_velocity", 1.0),
+                clean_gradient_mode=config.get("clean_gradient_mode", "full"),
                 noise=batch_source,
             )
         optimizer.zero_grad(set_to_none=True)

@@ -148,3 +148,5 @@ def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():
     assert "++logger.wandb.offline=false" in source
     assert "++logger.wandb.name=$AF_WANDB_NAME" in source
     assert "++logger.wandb.resume=allow" in source
+    for key in ("entity", "project", "group", "id", "tags"):
+        assert f"++logger.wandb.{key}=" in source

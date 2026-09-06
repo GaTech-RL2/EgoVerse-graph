@@ -136,3 +136,12 @@ def test_second_preflight_can_reuse_the_first_train_only_normalization():
     assert 'if test -z "${AF_NORM_STATS_PATH:-}"; then' in source
     assert 'test -s "$EFFECTIVE_NORM_FILE"' in source
     assert 'normalization SHA-256 mismatch' in source
+
+
+def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():
+    source = _source()
+    assert "AF_CACHED_DATASET_VALIDATION" in source
+    assert "AF_EXPECTED_CACHED_DATASET_VALIDATION_SHA256" in source
+    assert 'payload["status"] == "DATASET_VALIDATED"' in source
+    assert "'~logger'" in source
+    assert "logger=null" not in source

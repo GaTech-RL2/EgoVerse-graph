@@ -30,6 +30,17 @@ class GaussianParaboloidBatch:
     target_3d: torch.Tensor
 
 
+@dataclass(frozen=True)
+class GaussianSphereCubeBatch:
+    source_latent: torch.Tensor
+    source_gaussian_latent: torch.Tensor
+    source_3d: torch.Tensor
+    source_gaussian_3d: torch.Tensor
+    surface_uniform: torch.Tensor
+    sphere_target_3d: torch.Tensor
+    cube_target_3d: torch.Tensor
+
+
 def _independent_gaussian(
     count: int, dimension: int, seed: int, dtype: torch.dtype
 ) -> torch.Tensor:
@@ -143,6 +154,75 @@ def generate_gaussian_paraboloid(
         source_3d,
         source_gaussian_3d,
         target_3d,
+    )
+
+
+def generate_gaussian_sphere_cube(
+    count: int,
+    *,
+    seed: int = 42,
+    sphere_radius: float = 2.0,
+    cube_half_extent: float = math.sqrt(12.0 / 5.0),
+    source_dim: int = 8,
+    dtype: torch.dtype = torch.float32,
+) -> GaussianSphereCubeBatch:
+    """Generate matched uniform sphere- and cube-surface distributions.
+
+    The sphere and cube use the same three base Gaussian coordinates after a
+    standard-normal CDF transform. The cube face and its two within-face
+    coordinates are uniform, so all six equal-area faces receive equal mass.
+    ``cube_half_extent=sphere_radius*sqrt(3/5)`` matches expected squared
+    distance from the origin across the two surface distributions.
+    """
+    if count <= 0:
+        raise ValueError("count must be positive")
+    if source_dim < 3:
+        raise ValueError("source_dim must be at least 3")
+    if sphere_radius <= 0 or cube_half_extent <= 0:
+        raise ValueError("surface scales must be positive")
+    generator = torch.Generator(device="cpu").manual_seed(int(seed))
+    source_latent = torch.randn((count, source_dim), generator=generator, dtype=dtype)
+    source_3d = source_latent[:, :3]
+    surface_uniform = 0.5 * (
+        1.0 + torch.erf(source_latent[:, :3] / math.sqrt(2.0))
+    )
+
+    sphere_z = 1.0 - 2.0 * surface_uniform[:, 0]
+    sphere_phi = 2.0 * math.pi * surface_uniform[:, 1]
+    sphere_xy_radius = torch.sqrt(torch.clamp(1.0 - sphere_z.square(), min=0.0))
+    sphere_target_3d = sphere_radius * torch.stack(
+        (
+            sphere_xy_radius * sphere_phi.cos(),
+            sphere_xy_radius * sphere_phi.sin(),
+            sphere_z,
+        ),
+        dim=-1,
+    )
+
+    face_coordinate = torch.clamp(surface_uniform[:, 0] * 6.0, max=6.0 - 1e-6)
+    face = face_coordinate.long()
+    axis = torch.div(face, 2, rounding_mode="floor")
+    sign = torch.where(face.remainder(2) == 0, -1.0, 1.0).to(dtype)
+    free_coordinates = cube_half_extent * (2.0 * surface_uniform[:, 1:3] - 1.0)
+    cube_target_3d = torch.empty((count, 3), dtype=dtype)
+    for fixed_axis in range(3):
+        mask = axis == fixed_axis
+        remaining = [index for index in range(3) if index != fixed_axis]
+        cube_target_3d[mask, fixed_axis] = cube_half_extent * sign[mask]
+        cube_target_3d[mask, remaining[0]] = free_coordinates[mask, 0]
+        cube_target_3d[mask, remaining[1]] = free_coordinates[mask, 1]
+
+    source_gaussian_3d, source_gaussian_latent = _independent_gaussian_pair(
+        count, source_dim, seed, dtype
+    )
+    return GaussianSphereCubeBatch(
+        source_latent,
+        source_gaussian_latent,
+        source_3d,
+        source_gaussian_3d,
+        surface_uniform,
+        sphere_target_3d,
+        cube_target_3d,
     )
 
 

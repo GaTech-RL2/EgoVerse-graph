@@ -52,6 +52,17 @@ workflow:
       GPUS_PER_RUN: "{{gpus_per_run}}"
       RUN_DESC: "{{run_desc}}"
       SMOKE_STEPS: "{{smoke_steps}}"
+      # Checkpoint every N STEPS. Note the override forms: every_n_train_steps
+      # needs a LEADING + because it is absent from the shipped config (a plain
+      # override raises "Could not override"), and the braces in the filename
+      # must be backslash-escaped or hydra's grammar rejects them with
+      # "mismatched input '{'". The shipped config pairs save_top_k=-1 (keep
+      # everything) with every_n_epochs=100, and this run is step-based
+      # (max_epochs=-1, max_steps=240000), so epoch-triggered saving is nearly
+      # inert and "keep everything" keeps almost nothing. The filename also has
+      # to carry the step: 'epoch_{epoch}' would make every checkpoint within
+      # one epoch collide on a single name and overwrite.
+      CKPT_EVERY: "{{ckpt_every}}"
       NUM_GPU: "{{num_gpu}}"
       BATCH_SIZE: "{{batch_size}}"
       NUM_WORKERS: "{{num_workers}}"
@@ -250,6 +261,10 @@ workflow:
               +experiment/pusht@_global_="$CFG" \
               $DATA_OV \
               trainer.devices="$GPUS_PER_RUN" \
+              callbacks.model_checkpoint.every_n_epochs=0 \
+              +callbacks.model_checkpoint.every_n_train_steps="$CKPT_EVERY" \
+              callbacks.model_checkpoint.save_top_k=-1 \
+              callbacks.model_checkpoint.filename=step_\\{step\\} \
               logger.wandb.entity="$WANDB_ENTITY" \
               name="$CFG" description="${CFG}_${RUN_DESC}" \
               > "/tmp/run_${CFG}.log" 2>&1 ) &

@@ -886,7 +886,7 @@ if test "$AF_RUN_KIND" = smoke; then
       "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
     --expected-dataset-content-aggregate-sha256 \
       "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" \
-    --expected-config-sha256 "$(sha256 "$ATTEMPT/resolved_config.yaml")" \
+    --expected-config-sha256 "$(sha256 "$AF_OUTPUT_DIR/.hydra/config.yaml")" \
     --expected-preflight-sha256 "$AF_EXPECTED_PREFLIGHT_SHA256"
   printf '[smoke] ALL_PASS result=%s wandb=https://wandb.ai/%s/%s/runs/%s\n' \
     "$AF_OUTPUT_DIR/SMOKE_RESULT.json" "$AF_WANDB_ENTITY" \

@@ -98,6 +98,10 @@ def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
     assert "--expected-constraint 'H100|H200'" in source
     assert "--expected-reconstruction-weight" in source
     assert "--expected-config-sha256" in source
+    assert (
+        '--expected-config-sha256 "$(sha256 '
+        '"$AF_OUTPUT_DIR/.hydra/config.yaml")"' in source
+    )
     assert "--expected-normalization-sha256" in source
     assert "--expected-content-manifest-sha256" in source
     assert "--expected-dataset-content-aggregate-sha256" in source

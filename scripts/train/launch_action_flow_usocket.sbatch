@@ -167,6 +167,15 @@ test "$(sha256 "$AF_SPLIT_MANIFEST")" = "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" || 
 test "$(sha256 "$AF_CONTENT_MANIFEST")" = \
   "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" || \
   die "content manifest SHA-256 mismatch"
+if test -n "${AF_CACHED_DATASET_VALIDATION:-}"; then
+  required AF_EXPECTED_CACHED_DATASET_VALIDATION_SHA256
+  absolute_path AF_CACHED_DATASET_VALIDATION "$AF_CACHED_DATASET_VALIDATION"
+  test -s "$AF_CACHED_DATASET_VALIDATION" || \
+    die "cached dataset validation is unavailable"
+  test "$(sha256 "$AF_CACHED_DATASET_VALIDATION")" = \
+    "$AF_EXPECTED_CACHED_DATASET_VALIDATION_SHA256" || \
+    die "cached dataset validation SHA-256 mismatch"
+fi
 test "$(git -C "$AF_REPO" rev-parse HEAD)" = "$AF_EXPECTED_HEAD" || \
   die "source HEAD mismatch"
 test -z "$(git -C "$AF_REPO" status --porcelain=v1 --untracked-files=all)" || \
@@ -313,15 +322,40 @@ if test "$AF_LAUNCH_MODE" = preflight; then
     --lock-input "$AF_REPO/pyproject.toml" \
     --lock-input "$AF_REPO/uv.lock" \
     --output "$AF_OUTPUT_DIR/runtime-lock.json"
-  "$AF_PYTHON" "$AF_DATASET_VALIDATOR" \
-    --repo "$AF_REPO" \
-    --dataset-root "$AF_DATASET_DIR" \
-    --manifest "$AF_SPLIT_MANIFEST" \
-    --expected-manifest-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
-    --content-manifest "$AF_CONTENT_MANIFEST" \
-    --expected-content-manifest-sha256 \
+  if test -n "${AF_CACHED_DATASET_VALIDATION:-}"; then
+    cp -- "$AF_CACHED_DATASET_VALIDATION" \
+      "$AF_OUTPUT_DIR/dataset_validation.json"
+    "$AF_PYTHON" - "$AF_OUTPUT_DIR/dataset_validation.json" \
+      "$AF_DATASET_DIR" "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
       "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
-    --output "$AF_OUTPUT_DIR/dataset_validation.json"
+      "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" <<'PY'
+import json
+import sys
+
+path, dataset, split_sha, content_sha, aggregate_sha = sys.argv[1:]
+payload = json.load(open(path))
+inventory = payload["physical_inventory"]
+content = payload["content_identity"]
+assert payload["status"] == "DATASET_VALIDATED"
+assert payload["manifest_sha256"] == split_sha
+assert inventory["dataset_root"] == dataset
+assert inventory["id_overlap_count"] == 0
+assert inventory["resolved_path_overlap_count"] == 0
+assert inventory["union_matches_inventory"] is True
+assert content["manifest_sha256"] == content_sha
+assert content["aggregate_sha256"] == aggregate_sha
+PY
+  else
+    "$AF_PYTHON" "$AF_DATASET_VALIDATOR" \
+      --repo "$AF_REPO" \
+      --dataset-root "$AF_DATASET_DIR" \
+      --manifest "$AF_SPLIT_MANIFEST" \
+      --expected-manifest-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
+      --content-manifest "$AF_CONTENT_MANIFEST" \
+      --expected-content-manifest-sha256 \
+        "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
+      --output "$AF_OUTPUT_DIR/dataset_validation.json"
+  fi
   (
     cd "$AF_REPO"
     "$AF_PYTHON" "$AF_CONFIG_VALIDATOR" \
@@ -334,7 +368,7 @@ if test "$AF_LAUNCH_MODE" = preflight; then
     if test -z "${AF_NORM_STATS_PATH:-}"; then
       HYDRA_FULL_ERROR=1 "$AF_PYTHON" -m egomimic.trainHydra \
         "${BASE_OVERRIDES[@]}" norm_stats_only=true \
-        trainer.accelerator=cpu trainer.devices=1 logger=null \
+        trainer.accelerator=cpu trainer.devices=1 '~logger' \
         "hydra.run.dir=$AF_OUTPUT_DIR/norm_materialize"
     fi
   )

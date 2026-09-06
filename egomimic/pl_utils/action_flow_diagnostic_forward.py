@@ -357,10 +357,17 @@ def _diagnostic_source(
     decoded_generated = decoder(generated)
 
     def decode_leading(value: torch.Tensor) -> torch.Tensor:
-        leading = value.shape[:-2]
-        flattened = value.reshape(-1, *value.shape[-2:])
-        decoded = decoder(flattened)
-        return decoded.reshape(*leading, *decoded.shape[-2:])
+        if value.ndim < 3:
+            raise ValueError("Action Flow diagnostic decoder input must be batched")
+        outer_shape = value.shape[:-3]
+        if not outer_shape:
+            return decoder(value)
+        grouped = value.reshape(-1, *value.shape[-3:])
+        # Preserve the logical validation batch for every trajectory/noise level.
+        # Flattening outer axes into B can select a different BF16 GEMM kernel and
+        # make identical endpoint tensors decode differently by batch geometry.
+        decoded = torch.stack([decoder(group) for group in grouped])
+        return decoded.reshape(*outer_shape, *decoded.shape[1:])
 
     decoded_fixed_states = decode_leading(fixed_states_tensor)
     decoded_predicted_clean = decode_leading(predicted_clean_tensor)

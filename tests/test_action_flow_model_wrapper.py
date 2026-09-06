@@ -466,6 +466,14 @@ class _TinyField(nn.Module):
         return hidden
 
 
+class _BatchSensitiveDecoder(_TinySequenceModule):
+    """Expose accidental coalescing of diagnostic outer axes into the batch."""
+
+    def forward(self, value):
+        decoded = super().forward(value)
+        return decoded + decoded.new_tensor(float(value.shape[0]) * 1.0e-3)
+
+
 def _diagnostic_wrapper():
     torch.manual_seed(9)
     encoder = _TinySequenceModule()
@@ -571,6 +579,31 @@ def test_action_flow_diagnostics_are_deterministic_complete_and_ad_safe():
     torch.testing.assert_close(
         first["decoder_jacobian/fixed_singular_values"][-1],
         first["decoder_jacobian/noise_singular_values"],
+    )
+
+
+def test_action_flow_diagnostic_decoding_preserves_logical_batch_geometry():
+    wrapper, _, _, _ = _diagnostic_wrapper()
+    decoder = _BatchSensitiveDecoder()
+    wrapper.model.pipeline.stages[2].decoder = decoder
+    result = wrapper.forward_action_flow_diagnostics(
+        {
+            "opaque_source": {
+                "target": torch.randn(3, 2, 2),
+                "condition": torch.randn(3, 2),
+            }
+        },
+        raw_noise_levels=[0.0, 0.5, 1.0],
+        noise_seed=7,
+        jacobian_samples=1,
+        capture_activations=False,
+    )["opaque_source"]
+
+    torch.testing.assert_close(
+        result["decoded/fixed_states"][0], result["decoded/reconstruction"]
+    )
+    torch.testing.assert_close(
+        result["decoded/trajectory"][0], result["decoded/noise"]
     )
 
 

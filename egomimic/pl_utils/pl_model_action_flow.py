@@ -127,7 +127,7 @@ class ActionFlowModelWrapper(ModelWrapper):
                 raise ValueError("flow_samples_per_content must be a positive integer")
         self.flow_samples_per_content = configured_samples
 
-    def _objective_weight(self, name: str) -> float:
+    def _objective_weight(self, name: str, *, default: float | None = None) -> float:
         direct = getattr(self.model, name, None)
         if direct is not None:
             return float(direct)
@@ -148,6 +148,8 @@ class ActionFlowModelWrapper(ModelWrapper):
             None,
         )
         if weight is None:
+            if default is not None:
+                return float(default)
             raise RuntimeError(f"Action Flow objective weight {name!r} is missing")
         return weight
 
@@ -590,13 +592,15 @@ class ActionFlowModelWrapper(ModelWrapper):
         )
         self._log_telemetry(
             "Schedule/EffectiveFlowWeight",
-            0.0 if reconstruction_only else self._objective_weight("flow_weight"),
+            0.0
+            if reconstruction_only
+            else self._objective_weight("flow_weight", default=1.0),
         )
         self._log_telemetry(
             "Schedule/EffectiveActionVelocityWeight",
             0.0
             if reconstruction_only
-            else self._objective_weight("action_velocity_weight"),
+            else self._objective_weight("action_velocity_weight", default=1.0),
         )
         next_step = int(self.global_step) + 1
         if (
@@ -622,12 +626,14 @@ class ActionFlowModelWrapper(ModelWrapper):
             "reconstruction_only_optimizer_steps": (
                 self.reconstruction_only_warmup_steps
             ),
-            "joint_flow_weight": self._objective_weight("flow_weight"),
+            "joint_flow_weight": self._objective_weight(
+                "flow_weight", default=1.0
+            ),
             "joint_reconstruction_weight": self._objective_weight(
                 "reconstruction_weight"
             ),
             "joint_action_velocity_weight": self._objective_weight(
-                "action_velocity_weight"
+                "action_velocity_weight", default=1.0
             ),
             "schema_version": 1,
         }

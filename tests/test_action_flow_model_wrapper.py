@@ -260,7 +260,9 @@ def test_joint_flow_weight_is_applied_and_logged(monkeypatch):
     loss = wrapper.training_step(_batch(), batch_idx=0)
 
     assert float(loss) == pytest.approx(56.04)
-    assert float(logged["Train/ActionFlow/Schedule/EffectiveFlowWeight"][0]) == 0.01
+    assert float(
+        logged["Train/ActionFlow/Schedule/EffectiveFlowWeight"][0]
+    ) == pytest.approx(0.01)
 
 
 @pytest.mark.parametrize("value", [-1, 1.5, True])

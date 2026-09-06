@@ -9,11 +9,16 @@ from torch.func import jacrev, jvp, vmap
 from .shared_latent_flow import _mlp
 
 
-def _fixed_lift(latent_dim: int, *, dtype: torch.dtype = torch.float32) -> torch.Tensor:
-    if latent_dim < 3:
-        raise ValueError("action-adapter latent_dim must be at least 3")
-    lift = torch.zeros(latent_dim, 3, dtype=dtype)
-    lift[:3] = torch.eye(3, dtype=dtype)
+def _fixed_lift(
+    latent_dim: int,
+    action_dim: int = 3,
+    *,
+    dtype: torch.dtype = torch.float32,
+) -> torch.Tensor:
+    if action_dim <= 0 or latent_dim < action_dim:
+        raise ValueError("require 0 < action_dim <= latent_dim")
+    lift = torch.zeros(latent_dim, action_dim, dtype=dtype)
+    lift[:action_dim] = torch.eye(action_dim, dtype=dtype)
     return lift
 
 

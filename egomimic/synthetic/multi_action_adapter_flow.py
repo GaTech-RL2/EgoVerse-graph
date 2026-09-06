@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 import torch
 from torch import nn
@@ -23,6 +23,7 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
         self,
         *,
         embodiments: Iterable[str],
+        action_dims: Mapping[str, int] | None = None,
         latent_dim: int = 8,
         residual_width: int = 32,
         residual_depth: int = 2,
@@ -37,13 +38,21 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
             raise ValueError("embodiment names must be non-empty and cannot contain dots")
         self.embodiments = tuple(names)
         self.latent_dim = int(latent_dim)
-        lift = _fixed_lift(self.latent_dim)
+        if action_dims is None:
+            resolved_action_dims = {name: 3 for name in names}
+        else:
+            resolved_action_dims = {str(name): int(dim) for name, dim in action_dims.items()}
+            if set(resolved_action_dims) != set(names):
+                raise ValueError("action_dims must exactly match embodiments")
+        if any(dim <= 0 or dim > self.latent_dim for dim in resolved_action_dims.values()):
+            raise ValueError("each action dimension must be in [1, latent_dim]")
+        self.action_dims = resolved_action_dims
         self.encoders = nn.ModuleDict(
             {
                 name: ResidualActionAdapter(
-                    3,
+                    self.action_dims[name],
                     self.latent_dim,
-                    lift,
+                    _fixed_lift(self.latent_dim, self.action_dims[name]),
                     residual_width=residual_width,
                     residual_depth=residual_depth,
                 )
@@ -54,8 +63,8 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
             {
                 name: ResidualActionAdapter(
                     self.latent_dim,
-                    3,
-                    lift.T,
+                    self.action_dims[name],
+                    _fixed_lift(self.latent_dim, self.action_dims[name]).T,
                     residual_width=residual_width,
                     residual_depth=residual_depth,
                 )
@@ -123,11 +132,15 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
         if len(noise) <= 1:
             raise ValueError("scale loss requires at least two samples")
         decoded = self.decode(embodiment, noise)
+        action_dim = self.action_dims[embodiment]
         mean = decoded.mean(dim=0)
         centered = decoded - mean
         covariance = centered.T @ centered / (len(decoded) - 1)
-        identity = torch.eye(3, device=noise.device, dtype=noise.dtype)
-        return mean.square().sum() / 3.0 + (covariance - identity).square().sum() / 3.0
+        identity = torch.eye(action_dim, device=noise.device, dtype=noise.dtype)
+        return (
+            mean.square().sum() / action_dim
+            + (covariance - identity).square().sum() / action_dim
+        )
 
     def losses_for_embodiment(
         self,
@@ -173,7 +186,7 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
             .square()
             .sum(dim=-1)
             .mean()
-            / 3.0
+            / self.action_dims[embodiment]
         )
         total = (
             flow_loss

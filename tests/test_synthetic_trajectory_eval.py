@@ -118,3 +118,18 @@ def test_multi_action_trajectory_view_selects_private_decoder():
         view.trajectory(source, steps=2),
         model.trajectory(source, embodiment="steep", steps=2),
     )
+def test_checkerboard_mode_metrics_detect_probability_match_and_missing_mode():
+    centers = torch.tensor([[-1.0, -1.0], [1.0, 1.0]])
+    targets = torch.tensor([[-1.0, -1.0], [-1.0, -1.0], [1.0, 1.0]])
+    matched = SyntheticTrajectoryEval.checkerboard_mode_metrics(
+        targets.clone(), targets, centers=centers
+    )
+    assert matched["mode_probability_l1"] == 0
+    assert matched["mode_probability_js"] == 0
+    assert matched["mode_support_recall"] == 1
+    collapsed = SyntheticTrajectoryEval.checkerboard_mode_metrics(
+        targets[:2], targets, centers=centers
+    )
+    assert collapsed["mode_probability_l1"] > 0
+    assert collapsed["mode_probability_js"] > 0
+    assert collapsed["mode_support_recall"] == 0.5

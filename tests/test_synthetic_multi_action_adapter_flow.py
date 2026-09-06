@@ -43,6 +43,27 @@ def test_private_decoders_share_one_generated_latent_path():
     torch.testing.assert_close(shallow, steep)
 
 
+def test_private_adapters_support_different_action_dimensions():
+    model = SyntheticMultiActionAdapterFlow(
+        embodiments=["torus", "checkerboard"],
+        action_dims={"torus": 3, "checkerboard": 2},
+        field_width=16,
+        field_depth=2,
+    )
+    noise = torch.randn(5, 8)
+    assert model.trajectory(noise, embodiment="torus", steps=3).shape == (4, 5, 3)
+    assert model.trajectory(noise, embodiment="checkerboard", steps=3).shape == (
+        4,
+        5,
+        2,
+    )
+    for name, dimension in model.action_dims.items():
+        losses = model.losses_for_embodiment(
+            name, torch.randn(6, dimension), flow_samples=2
+        )
+        assert all(bool(torch.isfinite(value)) for value in losses.values())
+
+
 def test_paraboloid_surface_metric_is_zero_on_surface():
     from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 
@@ -65,30 +86,43 @@ def test_multi_trainer_runs_optimizer_validation_and_immutable_checkpoint(tmp_pa
     source.mkdir()
     datasets = {}
     evaluations = {}
+    target_keys = {}
     rng = np.random.default_rng(5)
-    for name, curvature in (("shallow", 0.125), ("steep", 0.5)):
+    for name, curvature, action_dim in (
+        ("shallow", 0.125, 3),
+        ("planar", None, 2),
+    ):
         latent = rng.normal(size=(24, 8)).astype(np.float32)
         xy = rng.normal(size=(24, 2)).astype(np.float32)
-        target = np.concatenate(
-            [xy, curvature * np.square(xy).sum(axis=1, keepdims=True)], axis=1
-        ).astype(np.float32)
+        if action_dim == 3:
+            target = np.concatenate(
+                [xy, curvature * np.square(xy).sum(axis=1, keepdims=True)], axis=1
+            ).astype(np.float32)
+            target_key = "target_3d"
+        else:
+            target = xy
+            target_key = "target_2d"
         split = np.array([0] * 20 + [1] * 4, dtype=np.uint8)
         path = source / f"{name}.npz"
         np.savez_compressed(
             path,
             source_gaussian_latent=latent,
-            target_3d=target,
             split=split,
+            **{target_key: target},
         )
         datasets[name] = str(path)
         evaluations[name] = str(path)
+        target_keys[name] = target_key
     output = tmp_path / "run"
     config = {
         "seed": 42,
         "output_dir": str(output),
         "datasets": datasets,
         "evaluation_datasets": evaluations,
-        "curvatures": {"shallow": 0.125, "steep": 0.5},
+        "target_keys": target_keys,
+        "surface_specs": {
+            "shallow": {"kind": "paraboloid", "curvature": 0.125}
+        },
         "source_key": "source_gaussian_latent",
         "batch_size_per_embodiment": 4,
         "flow_samples": 2,
@@ -99,7 +133,8 @@ def test_multi_trainer_runs_optimizer_validation_and_immutable_checkpoint(tmp_pa
         "inference_steps": 2,
         "evaluation_particles": 4,
         "model": {
-            "embodiments": ["shallow", "steep"],
+            "embodiments": ["shallow", "planar"],
+            "action_dims": {"shallow": 3, "planar": 2},
             "latent_dim": 8,
             "residual_width": 8,
             "residual_depth": 1,
@@ -120,7 +155,7 @@ def test_multi_trainer_runs_optimizer_validation_and_immutable_checkpoint(tmp_pa
     )
     assert list((output / "checkpoints").glob("epoch-equivalent-*-global-step-000001.pt"))
     summary = json.loads((output / "summary.json").read_text())
-    assert set(summary["embodiments"]) == {"shallow", "steep"}
+    assert set(summary["embodiments"]) == {"shallow", "planar"}
     assert summary["shared_field_parameters"] > 0
-    for name in ("shallow", "steep"):
+    for name in ("shallow", "planar"):
         assert (output / f"validation_trajectory_{name}.npz").is_file()

@@ -13,7 +13,10 @@ class SyntheticTrajectoryEval:
 
     @staticmethod
     def load_validation_data(
-        path: str | Path, source_key: str, particles: int
+        path: str | Path,
+        source_key: str,
+        particles: int,
+        target_key: str = "target_3d",
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Load exactly ``particles`` held-out examples or fail explicitly."""
         if particles <= 0:
@@ -27,8 +30,45 @@ class SyntheticTrajectoryEval:
             )
         selected = indices[:particles]
         source = torch.from_numpy(archive[source_key][selected]).float()
-        target = torch.from_numpy(archive["target_3d"][selected]).float()
+        target = torch.from_numpy(archive[target_key][selected]).float()
         return source, target
+
+    @staticmethod
+    def checkerboard_mode_metrics(
+        samples: torch.Tensor,
+        targets: torch.Tensor,
+        *,
+        centers: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        """Measure disconnected-mode coverage and empirical probability error."""
+        if samples.ndim != 2 or targets.ndim != 2 or centers.ndim != 2:
+            raise ValueError("checkerboard inputs must be rank-two tensors")
+        if samples.shape[1] != 2 or targets.shape[1] != 2 or centers.shape[1] != 2:
+            raise ValueError("checkerboard metrics require 2D points")
+        if len(centers) < 2:
+            raise ValueError("checkerboard metrics require multiple centers")
+
+        def histogram(points: torch.Tensor) -> torch.Tensor:
+            assignments = torch.cdist(points, centers).argmin(dim=1)
+            counts = torch.bincount(assignments, minlength=len(centers)).float()
+            return counts / counts.sum().clamp_min(1)
+
+        generated = histogram(samples)
+        reference = histogram(targets)
+        support = reference > 0
+        covered = (generated > 0) & support
+        midpoint = 0.5 * (generated + reference)
+
+        def kl(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+            mask = left > 0
+            return (left[mask] * (left[mask] / right[mask]).log()).sum()
+
+        return {
+            "mode_probability_l1": (generated - reference).abs().sum(),
+            "mode_probability_js": 0.5
+            * (kl(generated, midpoint) + kl(reference, midpoint)),
+            "mode_support_recall": covered.sum() / support.sum().clamp_min(1),
+        }
 
     @staticmethod
     def symmetric_nearest_neighbor_mse(
@@ -107,6 +147,12 @@ class SyntheticTrajectoryEval:
         if kind == "cube":
             return cls.cube_surface_rmse(
                 points, half_extent=float(specification["half_extent"])
+            )
+        if kind == "torus":
+            return cls.torus_surface_rmse(
+                points,
+                major_radius=float(specification["major_radius"]),
+                minor_radius=float(specification["minor_radius"]),
             )
         raise ValueError(f"unknown analytic surface kind: {kind}")
 

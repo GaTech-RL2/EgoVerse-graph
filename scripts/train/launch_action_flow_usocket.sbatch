@@ -90,12 +90,15 @@ fi
 case "$AF_EXPERIMENT" in
   pusht/action_flow_bc_usocket_recon1_s42)
     AF_RECONSTRUCTION_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42
     ;;
   pusht/action_flow_bc_usocket_recon10_s42)
     AF_RECONSTRUCTION_WEIGHT=10
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42
     ;;
   pusht/action_flow_bc_usocket_recon100_s42)
     AF_RECONSTRUCTION_WEIGHT=100
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42
     ;;
   *) die "AF_EXPERIMENT must select an approved recon-1, recon-10, or recon-100 config" ;;
 esac
@@ -678,7 +681,8 @@ export SRUN
     > "$ATTEMPT/resolved_config.yaml"
 )
 "$AF_PYTHON" - "$ATTEMPT/resolved_config.yaml" "$AF_RUN_KIND" \
-  "$AF_EXPERIMENT" "$AF_RECONSTRUCTION_WEIGHT" "$AF_DATASET_DIR" \
+  "$AF_EXPERIMENT" "$AF_EXPECTED_CONFIG_NAME" \
+  "$AF_RECONSTRUCTION_WEIGHT" "$AF_DATASET_DIR" \
   "$AF_NORM_STATS_PATH" "$AF_CLUSTER_LABEL" "$AF_EXPECTED_HEAD" \
   "$AF_EXPECTED_LAUNCHER_SHA256" "$AF_EXPECTED_NORM_SHA256" \
   "$AF_EXPECTED_PREFLIGHT_SHA256" "$AF_EFFECTIVE_SMOKE_SHA256" \
@@ -695,6 +699,7 @@ from omegaconf import OmegaConf
     path,
     run_kind,
     experiment,
+    expected_name,
     reconstruction,
     dataset,
     norm,
@@ -710,10 +715,6 @@ from omegaconf import OmegaConf
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
-expected_name = {
-    "pusht/action_flow_bc_usocket_recon1_s42": "action_flow_bc_usocket_recon1_s42",
-    "pusht/action_flow_bc_usocket_recon10_s42": "action_flow_bc_usocket_recon10_s42",
-}[experiment]
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster

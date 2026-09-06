@@ -48,27 +48,41 @@ class ActionFlowModelWrapper(ModelWrapper):
         self,
         *,
         gradient_telemetry_cadence: int | None = None,
-        reconstruction_only_warmup_steps: int = 0,
+        reconstruction_only_warmup_steps: int | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
+        config_tree = getattr(self.hparams, "config_tree", None)
+        configured_warmup_steps = None
+        if config_tree is not None:
+            configured_warmup_steps = self._as_config(config_tree).model.get(
+                "reconstruction_only_warmup_steps", None
+            )
+        effective_warmup_steps = (
+            reconstruction_only_warmup_steps
+            if reconstruction_only_warmup_steps is not None
+            else (
+                0
+                if configured_warmup_steps is None
+                else configured_warmup_steps
+            )
+        )
         if (
-            isinstance(reconstruction_only_warmup_steps, bool)
-            or not isinstance(reconstruction_only_warmup_steps, int)
-            or reconstruction_only_warmup_steps < 0
+            isinstance(effective_warmup_steps, bool)
+            or not isinstance(effective_warmup_steps, int)
+            or effective_warmup_steps < 0
         ):
             raise ValueError(
                 "reconstruction_only_warmup_steps must be a nonnegative integer"
             )
-        self.reconstruction_only_warmup_steps = reconstruction_only_warmup_steps
+        self.reconstruction_only_warmup_steps = effective_warmup_steps
         self.save_hyperparameters(
             {
                 "reconstruction_only_warmup_steps": (
-                    reconstruction_only_warmup_steps
+                    effective_warmup_steps
                 )
             }
         )
-        config_tree = getattr(self.hparams, "config_tree", None)
         configured = None
         if config_tree is not None:
             configured = self._as_config(config_tree).model.get(

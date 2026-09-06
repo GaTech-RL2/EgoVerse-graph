@@ -213,6 +213,32 @@ def test_reconstruction_only_warmup_then_joint_objective(monkeypatch):
     assert float(components["TotalLoss"]) == pytest.approx(60.0)
 
 
+def test_reconstruction_only_warmup_is_loaded_from_training_config_tree(monkeypatch):
+    monkeypatch.setattr(
+        ActionFlowModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(reconstruction_weight=10.0),
+    )
+    wrapper = ActionFlowModelWrapper(
+        config_tree={
+            "model": {
+                "pipeline": {},
+                "reconstruction_only_warmup_steps": 2,
+            }
+        },
+        gradient_telemetry_cadence=0,
+    )
+
+    assert wrapper.reconstruction_only_warmup_steps == 2
+    checkpoint = {}
+    wrapper.on_save_checkpoint(checkpoint)
+    assert checkpoint["action_flow_loss_schedule"] == {
+        "joint_objective_begins_at_global_step": 2,
+        "reconstruction_only_optimizer_steps": 2,
+        "schema_version": 1,
+    }
+
+
 @pytest.mark.parametrize("value", [-1, 1.5, True])
 def test_reconstruction_only_warmup_rejects_invalid_steps(value):
     with pytest.raises(ValueError, match="nonnegative integer"):

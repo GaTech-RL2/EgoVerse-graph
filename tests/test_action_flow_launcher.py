@@ -56,10 +56,11 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "/storage/project" not in source
 
 
-def test_launcher_accepts_only_the_approved_pair_and_pins_training_semantics():
+def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     source = _source()
     assert "pusht/action_flow_bc_usocket_recon1_s42" in source
     assert "pusht/action_flow_bc_usocket_recon10_s42" in source
+    assert "pusht/action_flow_bc_usocket_recon100_s42" in source
     assert "MAX_STEPS=240000" in source
     assert "VALIDATE_EVERY=10000" in source
     assert "CHECKPOINT_EVERY=40000" in source

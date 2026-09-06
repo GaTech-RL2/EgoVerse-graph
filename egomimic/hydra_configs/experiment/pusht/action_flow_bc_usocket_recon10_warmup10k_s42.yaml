@@ -8,3 +8,7 @@ description: h16_z8_adaln12x512_k14_recon10_action1_recon_only_10k_then_joint
 
 model:
   reconstruction_only_warmup_steps: 10000
+
+run_provenance:
+  objective:
+    reconstruction_only_warmup_steps: ${model.reconstruction_only_warmup_steps}

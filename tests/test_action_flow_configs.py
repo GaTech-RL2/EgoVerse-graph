@@ -217,6 +217,12 @@ def test_recon10_warmup_row_changes_only_the_objective_schedule():
 
     assert candidate["model"]["reconstruction_only_warmup_steps"] == 10000
     del candidate["model"]["reconstruction_only_warmup_steps"]
+    assert (
+        candidate["run_provenance"]["objective"].pop(
+            "reconstruction_only_warmup_steps"
+        )
+        == 10000
+    )
     candidate["name"] = reference["name"]
     candidate["description"] = reference["description"]
     assert candidate == reference

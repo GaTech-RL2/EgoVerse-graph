@@ -717,6 +717,21 @@ def _validate_data_and_launch(
         float(config.model.reconstruction_weight),
         "provenance reconstruction weight",
     )
+    warmup_steps = int(
+        OmegaConf.select(
+            config, "model.reconstruction_only_warmup_steps", default=0
+        )
+    )
+    _require(
+        warmup_steps in {0, 10_000},
+        "reconstruction-only warmup must be exactly 0 or 10000 steps",
+    )
+    recorded_warmup = OmegaConf.select(
+        config,
+        "run_provenance.objective.reconstruction_only_warmup_steps",
+        default=0,
+    )
+    _exact(int(recorded_warmup), warmup_steps, "provenance objective warmup")
     _exact(int(objective.flow_samples_per_content), 14, "provenance bridge samples")
     _float(objective.decoded_noise_scale_weight, 0.0, "decoded-noise scale weight")
     _float(objective.monotonic_weight, 0.0, "monotonicity weight")
@@ -958,6 +973,13 @@ def validate_config(
             "flow_samples_per_content": 14,
             "flow_weight": 1.0,
             "reconstruction_weight": reconstruction_weight,
+            "reconstruction_only_warmup_steps": int(
+                OmegaConf.select(
+                    config,
+                    "model.reconstruction_only_warmup_steps",
+                    default=0,
+                )
+            ),
         },
         "optimization": optimization,
         "parameters": parameters,

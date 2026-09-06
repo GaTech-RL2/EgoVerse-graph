@@ -159,3 +159,7 @@ def test_multi_trainer_runs_optimizer_validation_and_immutable_checkpoint(tmp_pa
     assert summary["shared_field_parameters"] > 0
     for name in ("shallow", "planar"):
         assert (output / f"validation_trajectory_{name}.npz").is_file()
+        values = summary["embodiments"][name]
+        assert values["validation_decoder_jacobian_singular_min"] > 0.0
+        assert values["validation_decoder_jacobian_singular_median"] > 0.0
+        assert values["validation_decoder_jacobian_singular_max"] > 0.0

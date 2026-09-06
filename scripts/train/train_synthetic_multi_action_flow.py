@@ -186,7 +186,10 @@ def main() -> None:
         ),
         "embodiments": {},
     }
-    with torch.inference_mode():
+    # Use no_grad for ordinary validation, but keep autograd re-enableable for
+    # decoder Jacobian diagnostics. inference_mode would silently make jacrev
+    # report zero Jacobians even for the initialized identity projection.
+    with torch.no_grad():
         for name in names:
             source, target = SyntheticTrajectoryEval.load_validation_data(
                 evaluation_paths[name],
@@ -213,9 +216,10 @@ def main() -> None:
                     "kind": "paraboloid",
                     "curvature": float(config["curvatures"][name]),
                 }
-            singular_values = model.decoder_jacobian_singular_values(
-                name, source[:128]
-            )
+            with torch.enable_grad():
+                singular_values = model.decoder_jacobian_singular_values(
+                    name, source[:128]
+                )
             embodiment_summary = {
                 "validation_generation_energy_distance": float(
                     energy_distance(generated, target)

@@ -14,11 +14,6 @@ from typing import Any
 
 import torch
 
-from egomimic.eval.artifact_paths import (
-    artifact_destination,
-    artifact_execution_identity,
-)
-
 
 def _plain(value: Any, *, label: str) -> dict[str, Any]:
     if not isinstance(value, Mapping):
@@ -121,7 +116,6 @@ class ActionFlowDiagnostics:
         if not artifact_root:
             raise ValueError("Action Flow diagnostics need an artifact root")
         self.artifact_root = Path(artifact_root).expanduser().resolve()
-        self.artifact_execution = artifact_execution_identity()
 
         seed_path = Path(str(config.get("noise_seed_bank_path", ""))).expanduser()
         expected_seed_hash = str(config.get("noise_seed_bank_sha256", ""))
@@ -214,19 +208,6 @@ class ActionFlowDiagnostics:
             raise ValueError(
                 "Action Flow diagnostics require validation_view and provenance"
             )
-        raw_latent_shape = self.provenance.get("latent_shape")
-        self.latent_shape: tuple[int, int] | None = None
-        if raw_latent_shape is not None:
-            if (
-                not isinstance(raw_latent_shape, Sequence)
-                or isinstance(raw_latent_shape, (str, bytes))
-                or len(raw_latent_shape) != 2
-            ):
-                raise ValueError("provenance.latent_shape must be [tokens, width]")
-            latent_tokens, latent_width = map(int, raw_latent_shape)
-            if latent_tokens <= 0 or latent_width <= 0:
-                raise ValueError("provenance.latent_shape values must be positive")
-            self.latent_shape = (latent_tokens, latent_width)
         native_error = config.get("native_error")
         self.native_error = (
             None if native_error is None else _plain(native_error, label="native_error")
@@ -515,7 +496,7 @@ class ActionFlowDiagnostics:
 
         target = _tensor(diagnostic, "target", ndim=3).float()
         condition = _tensor(diagnostic, "condition", ndim=2)
-        batch_size, action_horizon, action_dim = map(int, target.shape)
+        batch_size, horizon, action_dim = map(int, target.shape)
         if batch_size <= 0 or condition.shape[0] != batch_size:
             raise ValueError("Action Flow diagnostic target/condition batch mismatch")
         if batch_size != self.expected_sample_count:
@@ -538,10 +519,7 @@ class ActionFlowDiagnostics:
 
         def latent(key: str, *, leading: tuple[int, ...] = ()) -> torch.Tensor:
             value = _tensor(diagnostic, key, ndim=3 + len(leading)).float()
-            latent_tokens = (
-                action_horizon if self.latent_shape is None else self.latent_shape[0]
-            )
-            expected_prefix = (*leading, batch_size, latent_tokens)
+            expected_prefix = (*leading, batch_size, horizon)
             if tuple(value.shape[: len(expected_prefix)]) != expected_prefix:
                 raise ValueError(f"Action Flow diagnostic {key!r} shape mismatch")
             return value
@@ -550,10 +528,6 @@ class ActionFlowDiagnostics:
         latent_dim = int(clean.shape[-1])
         if latent_dim <= 0:
             raise ValueError("Action Flow latent width must be positive")
-        if self.latent_shape is not None and latent_dim != self.latent_shape[1]:
-            raise ValueError(
-                "Action Flow diagnostic latent width differs from provenance"
-            )
         noise = latent("latent/noise")
         generated = latent("latent/generated")
         if noise.shape != clean.shape or generated.shape != clean.shape:
@@ -588,7 +562,7 @@ class ActionFlowDiagnostics:
 
         def decoded(key: str, *, leading: tuple[int, ...] = ()) -> torch.Tensor:
             value = _tensor(diagnostic, key, ndim=3 + len(leading)).float()
-            expected = (*leading, batch_size, action_horizon, action_dim)
+            expected = (*leading, batch_size, horizon, action_dim)
             if tuple(value.shape) != expected:
                 raise ValueError(f"Action Flow diagnostic {key!r} shape mismatch")
             return value
@@ -971,12 +945,12 @@ class ActionFlowDiagnostics:
             if encoder_activations.shape[:3] != (
                 encoder_indices.numel(),
                 batch_size,
-                clean.shape[1],
+                horizon,
             ) or field_activations.shape[:4] != (
                 level_count,
                 field_indices.numel(),
                 batch_size,
-                clean.shape[1],
+                horizon,
             ):
                 raise ValueError("Action Flow activation tensor shapes do not align")
             encoder_positions = {
@@ -1087,10 +1061,10 @@ class ActionFlowDiagnostics:
     ) -> dict[str, torch.Tensor]:
         if not self.should_run():
             return {}
-        if not hasattr(model, "run_diagnostic"):
+        if not hasattr(model, "forward_action_flow_diagnostics"):
             raise AttributeError(
                 "Action Flow diagnostics require "
-                "model.run_diagnostic(...)"
+                "model.forward_action_flow_diagnostics(...)"
             )
         if set(source_labels) != set(batch):
             raise ValueError("Action Flow diagnostic source labels do not match batch")
@@ -1117,8 +1091,7 @@ class ActionFlowDiagnostics:
         with torch.random.fork_rng(devices=list(cuda_devices)):
             torch.manual_seed(noise_seed)
             with torch.inference_mode(False):
-                diagnostics = model.run_diagnostic(
-                    "action_flow",
+                diagnostics = model.forward_action_flow_diagnostics(
                     batch,
                     raw_noise_levels=self.noise_levels,
                     noise_seed=noise_seed,
@@ -1161,9 +1134,10 @@ class ActionFlowDiagnostics:
         for base, values in macro.items():
             metrics[base] = torch.stack(values).mean()
 
-        destination = artifact_destination(
-            self.artifact_root, self.artifact_execution,
-            epoch=epoch, global_step=global_step, rank=rank, batch_idx=batch_idx,
+        destination = (
+            self.artifact_root
+            / f"epoch-{int(epoch)}-step-{int(global_step)}"
+            / f"rank-{rank}-batch-{int(batch_idx)}.pt"
         )
         statistics = {
             "latent_covariance": "rows_are_condition_times_horizon_tokens",
@@ -1180,7 +1154,6 @@ class ActionFlowDiagnostics:
         payload = {
             "schema_version": 1,
             "metric": "ActionFlowValidationDiagnostics",
-            "execution": self.artifact_execution,
             "identity": self.identity,
             "identity_sha256": self.identity_sha256,
             "global_step": int(global_step),

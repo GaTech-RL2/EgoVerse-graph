@@ -70,6 +70,7 @@ class _PreNormSequenceBlock(nn.Module):
             nn.Linear(feedforward_dim, hidden_dim),
             nn.Dropout(dropout),
         )
+
     def forward(self, value: torch.Tensor) -> torch.Tensor:
         value = value + self.attention_dropout(
             self.attention(self.attention_norm(value))

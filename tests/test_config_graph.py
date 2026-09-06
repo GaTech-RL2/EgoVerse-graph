@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -219,3 +222,33 @@ def test_cli_emits_renderer_compatible_both_mode_json(
         assert isinstance(graph["edges"], list)
         assert all({"i", "t", "in", "out", "p"} <= set(node) for node in graph["nodes"])
         assert all({"a", "b", "k", "s"} <= set(edge) for edge in graph["edges"])
+
+
+def test_cli_resolves_repo_imports_without_pythonpath(tmp_path: Path) -> None:
+    output = tmp_path / "action-flow.graph.json"
+    experiment = (
+        _TOOL.parents[1]
+        / "egomimic/hydra_configs/experiment/pusht/"
+        "action_flow_bc_usocket_recon1_s42.yaml"
+    )
+    environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(_TOOL),
+            str(output),
+            str(experiment),
+            "--mode",
+            "both",
+            "--lint",
+        ],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert output.is_file()

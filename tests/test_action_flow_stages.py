@@ -159,42 +159,6 @@ def test_base_noise_and_bridge_times_are_resampled_online():
         assert torch.equal(output["action_flow/noise"], base_noise[base_index])
 
 
-def test_decoded_noise_moment_objective_updates_only_decoder_path():
-    decoder_module = _LastDimLinear(3, 4)
-    decoder = ContentDecoderStage(decoder_module, decode_noise=True)
-    objective = ActionFlowObjectiveStage(
-        flow_weight=0.0,
-        reconstruction_weight=0.0,
-        action_velocity_weight=0.0,
-        moment_weight=1.0,
-    )
-    clean = torch.randn(2, 5, 3, requires_grad=True)
-    state = torch.randn(4, 5, 3, requires_grad=True)
-    residual = torch.randn(4, 5, 3, requires_grad=True)
-    output = decoder(
-        {
-            "target": torch.randn(2, 5, 4),
-            "sampler/noise": torch.randn(2, 5, 3),
-            "action_flow/clean_latent": clean,
-            "action_flow/state": state,
-            "action_flow/velocity_residual": residual,
-        }
-    )
-    output = objective(output)
-    output["loss/action_flow"].backward()
-
-    assert clean.grad is not None and float(clean.grad.abs().sum()) == 0.0
-    assert state.grad is not None and float(state.grad.abs().sum()) == 0.0
-    assert residual.grad is not None and float(residual.grad.abs().sum()) == 0.0
-    gradients = [parameter.grad for parameter in decoder_module.parameters()]
-    assert any(
-        gradient is not None
-        and bool(torch.isfinite(gradient).all())
-        and float(gradient.abs().sum()) > 0.0
-        for gradient in gradients
-    )
-
-
 def test_training_objective_preserves_all_joint_gradient_routes():
     encoder = _LastDimLinear(4, 3)
     field = _TinyField(latent_dim=3, condition_dim=5)
@@ -299,21 +263,6 @@ def test_objective_averages_k_samples_and_applies_only_declared_weights():
     assert float(rec10["loss/action_flow"]) == pytest.approx(23.0)
 
 
-def test_objective_can_sum_fourteen_flow_sample_means_like_released_unite():
-    values = {
-        "target": torch.zeros(2, 3, 4),
-        "action_flow/reconstruction": torch.ones(2, 3, 4),
-        "action_flow/velocity_residual": torch.full((28, 3, 8), 2.0),
-        "action_flow/decoded_velocity_residual": torch.full((28, 3, 4), 3.0),
-    }
-    output = ActionFlowObjectiveStage(
-        flow_aggregation="sum_samples",
-        flow_samples_per_content=14,
-    )(values)
-    assert float(output["log/action_flow_fm"]) == pytest.approx(56.0)
-    assert float(output["loss/action_flow"]) == pytest.approx(66.0)
-
-
 def test_reverse_euler_is_unguided_and_uses_the_same_field_and_decoder():
     field = _ConstantField(2.0)
     velocity = ConditionalVelocityStage(field, num_inference_steps=4)
@@ -392,6 +341,7 @@ def test_stage_source_keeps_the_pipeline_boundary_generic():
         "action_key",
         "egomimic.models",
         "unite",
+        ".detach(",
         "monotonic",
         "scale_loss",
         "noisy_reconstruction",

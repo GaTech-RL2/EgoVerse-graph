@@ -12,7 +12,6 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
-from egomimic.eval.pipeline_diagnostics import ActionFlowDiagnosticProvider
 from egomimic.eval.planar_action_eval import (
     USOCKET_NATIVE_ERROR_CONFIG,
     PlanarActionEval,
@@ -24,19 +23,9 @@ from egomimic.pipeline.stages_action_flow import (
     ContentDecoderStage,
     ContentEncoderStage,
 )
-from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.pl_utils.training_behavior_action_flow import (
-    ActionFlowTrainingBehavior,
-)
+from egomimic.pl_utils.pl_model_action_flow import ActionFlowModelWrapper
 
 _CONFIG_DIR = Path(__file__).parents[1] / "egomimic/hydra_configs"
-
-
-@pytest.fixture(autouse=True)
-def _isolate_scheduler_execution_identity(monkeypatch):
-    """Keep artifact-path tests independent of the scheduler running pytest."""
-    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
-    monkeypatch.delenv("SLURM_RESTART_COUNT", raising=False)
 
 
 class _IdentityNormalizer:
@@ -102,19 +91,8 @@ def _diagnostic(
     nonfinite=False,
     include_activations=True,
     action_dim=2,
-    latent_tokens=2,
-    action_horizon=None,
-    zero_clean=False,
 ):
-    batch_size, horizon, latent_dim = 6, latent_tokens, 3
-    action_horizon = horizon if action_horizon is None else int(action_horizon)
-    if action_horizon % horizon:
-        raise ValueError("test action_horizon must be a multiple of latent_tokens")
-
-    def decode_action(value):
-        decoded = _decode(value, action_dim)
-        return decoded.repeat_interleave(action_horizon // horizon, dim=-2)
-
+    batch_size, horizon, latent_dim = 6, 2, 3
     levels = torch.tensor([0.0, 0.5, 1.0])
     clean = (
         torch.arange(batch_size * horizon * latent_dim, dtype=torch.float32)
@@ -122,8 +100,6 @@ def _diagnostic(
         .div(10.0)
         .add(0.25)
     )
-    if zero_clean:
-        clean = torch.zeros_like(clean)
     noise = torch.flip(clean, dims=(0,)).neg().sub(0.5)
     fixed_states = torch.stack(
         [(1.0 - level) * clean + level * noise for level in levels]
@@ -133,7 +109,7 @@ def _diagnostic(
     generated = fixed_final[-1]
     middle = 0.5 * (noise + generated)
     trajectory = torch.stack((noise, middle, generated))
-    target = decode_action(clean)
+    target = _decode(clean, action_dim)
     diagnostic = {
         "schema": "action-flow-validation-diagnostics/v1",
         "source": "validation/usocket",
@@ -159,12 +135,12 @@ def _diagnostic(
         "field/velocity_residual": torch.full_like(fixed_states, 0.125),
         "latent/trajectory": trajectory,
         "decoded/reconstruction": target,
-        "decoded/noise": decode_action(noise),
-        "decoded/generated": decode_action(generated),
-        "decoded/fixed_states": decode_action(fixed_states),
-        "decoded/predicted_clean": decode_action(predicted_clean),
-        "decoded/fixed_final": decode_action(fixed_final),
-        "decoded/trajectory": decode_action(trajectory),
+        "decoded/noise": _decode(noise, action_dim),
+        "decoded/generated": _decode(generated, action_dim),
+        "decoded/fixed_states": _decode(fixed_states, action_dim),
+        "decoded/predicted_clean": _decode(predicted_clean, action_dim),
+        "decoded/fixed_final": _decode(fixed_final, action_dim),
+        "decoded/trajectory": _decode(trajectory, action_dim),
         "fixed_level_field_evaluations": torch.tensor([0, 1, 2]),
         "decoder_jacobian/clean_singular_values": torch.tensor(
             [[2.0, 1.0, 0.5, 0.25], [1.8, 0.9, 0.4, 0.2]]
@@ -216,8 +192,7 @@ class _DiagnosticModel:
             for source, source_batch in batch.items()
         }
 
-    def run_diagnostic(self, capability, batch, **kwargs):
-        assert capability == "action_flow"
+    def forward_action_flow_diagnostics(self, batch, **kwargs):
         assert not torch.is_inference_mode_enabled()
         self.calls.append(kwargs)
         return {source: self.diagnostic for source in batch}
@@ -346,89 +321,6 @@ def test_planar_evaluator_logs_and_hashes_action_flow_diagnostics(tmp_path):
         evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=7)
 
 
-def test_action_flow_diagnostics_allow_latent_tokens_to_differ_from_action_horizon(
-    tmp_path,
-):
-    diagnostic = _diagnostic(latent_tokens=2, action_horizon=4)
-    config = _config(tmp_path)
-    config["provenance"]["latent_shape"] = [2, 3]
-    evaluator = PlanarActionEval(
-        energy_score_enabled=False,
-        action_flow_diagnostics={"enabled": True, **config},
-    )
-    evaluator.bind_data_context(normalizer=_IdentityNormalizer())
-    evaluator.model = _DiagnosticModel(diagnostic)
-    logged = {}
-    evaluator.trainer = SimpleNamespace(
-        current_epoch=0,
-        global_step=1,
-        global_rank=0,
-        precision="bf16-mixed",
-        lightning_module=SimpleNamespace(
-            log_dict=lambda metrics, **_kwargs: logged.update(metrics)
-        ),
-    )
-    evaluator.on_validation_start()
-
-    evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=0)
-
-    assert "Valid/ActionFlow/CleanReconstructionMSE" in logged
-    artifact = tmp_path / "action-flow-artifacts/epoch-0-step-1/rank-0-batch-0.pt"
-    payload = torch.load(artifact, map_location="cpu", weights_only=False)
-    saved = payload["sources"]["pushshapes_sim_u_socket"]["diagnostic"]
-    assert saved["latent/clean"].shape == (6, 2, 3)
-    assert saved["target"].shape == (6, 4, 2)
-
-
-def test_action_flow_diagnostics_reject_undefined_zero_target_cosine(tmp_path):
-    diagnostic = _diagnostic(zero_clean=True)
-    runner = ActionFlowDiagnostics(_config(tmp_path))
-
-    with pytest.raises(ValueError, match="zero clean-latent norm"):
-        runner.run(
-            model=_DiagnosticModel(diagnostic),
-            batch=_batch(diagnostic["target"]),
-            batch_idx=0,
-            rank=0,
-            epoch=0,
-            global_step=1,
-            precision="bf16-mixed",
-            source_labels={"validation/usocket": "usocket"},
-        )
-
-
-def test_action_flow_artifacts_preserve_slurm_attempts_and_same_attempt_refusal(tmp_path, monkeypatch):
-    diagnostic = _diagnostic()
-    legacy = tmp_path / "action-flow-artifacts/epoch-3-step-41/rank-0-batch-7.pt"
-    legacy.parent.mkdir(parents=True)
-    legacy.write_bytes(b"historical diagnostic")
-    for job_id, restart in (("5714540", 0), ("5714540", 1), ("5715500", 0)):
-        monkeypatch.setenv("SLURM_JOB_ID", job_id)
-        monkeypatch.setenv("SLURM_RESTART_COUNT", str(restart))
-        evaluator = PlanarActionEval(
-            energy_score_enabled=False,
-            action_flow_diagnostics={"enabled": True, **_config(tmp_path)},
-        )
-        evaluator.bind_data_context(normalizer=_IdentityNormalizer())
-        evaluator.model = _DiagnosticModel(diagnostic)
-        evaluator.trainer = SimpleNamespace(
-            current_epoch=3, global_step=41, global_rank=0, precision="32-true",
-            lightning_module=SimpleNamespace(log_dict=lambda *_args, **_kwargs: None),
-        )
-        evaluator.on_validation_start()
-        evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=7)
-        artifact = legacy.parent.parent / f"job-{job_id}-restart-{restart}" / legacy.parent.name / legacy.name
-        payload = torch.load(artifact, map_location="cpu", weights_only=False)
-        assert payload["execution"] == {"slurm_job_id": job_id, "slurm_restart_count": restart}
-        assert payload["identity_sha256"] == evaluator._action_flow_diagnostics.identity_sha256
-        sidecar = json.loads(Path(f"{artifact}.sha256").read_text())
-        assert sidecar["sha256"] == hashlib.sha256(artifact.read_bytes()).hexdigest()
-        evaluator.on_validation_start()
-        with pytest.raises(FileExistsError, match="refusing to overwrite"):
-            evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=7)
-    assert legacy.read_bytes() == b"historical diagnostic"
-
-
 def test_planar_action_flow_diagnostics_emit_native_circular_errors(tmp_path):
     diagnostic = _diagnostic(action_dim=4)
     config = _config(tmp_path, native_error=USOCKET_NATIVE_ERROR_CONFIG)
@@ -503,7 +395,7 @@ def test_native_action_flow_error_wraps_theta_at_pi_boundary():
 
 def test_action_flow_consumer_matches_real_wrapper_schema(tmp_path):
     torch.manual_seed(91)
-    wrapper = ModelWrapper(
+    wrapper = ActionFlowModelWrapper(
         pipeline=PipelineAlgo(
             stages=[
                 ContentEncoderStage(_TwoBlockCodec()),
@@ -512,10 +404,7 @@ def test_action_flow_consumer_matches_real_wrapper_schema(tmp_path):
             ],
             device="cpu",
         ),
-        training_behavior=ActionFlowTrainingBehavior(
-            gradient_telemetry_cadence=0
-        ),
-        diagnostic_provider=ActionFlowDiagnosticProvider(),
+        gradient_telemetry_cadence=0,
     )
     wrapper.eval()
     runner = ActionFlowDiagnostics(_config(tmp_path, activation_layer_map={0: 0, 1: 1}))
@@ -543,21 +432,13 @@ def test_action_flow_consumer_matches_real_wrapper_schema(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("experiment", "expected_activation_layers"),
+    "experiment",
     (
-        (
-            "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
-            ((0, 0), (1, 13)),
-        ),
-        (
-            "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
-            ((0, 0), (1, 11)),
-        ),
+        "action_flow_bc_usocket_recon1_s42",
+        "action_flow_bc_usocket_recon10_s42",
     ),
 )
-def test_real_action_flow_config_constructs_strict_diagnostics(
-    tmp_path, experiment, expected_activation_layers
-):
+def test_real_action_flow_config_constructs_strict_diagnostics(tmp_path, experiment):
     with initialize_config_dir(
         version_base=None, config_dir=str(_CONFIG_DIR.resolve())
     ):
@@ -582,7 +463,7 @@ def test_real_action_flow_config_constructs_strict_diagnostics(
     assert runner.noise_levels == [0.0, 0.25, 0.5, 0.75, 1.0]
     assert runner.max_samples == 16
     assert runner.jacobian_samples == 2
-    assert runner.activation_layer_map == expected_activation_layers
+    assert runner.activation_layer_map == ((0, 0), (1, 11))
     assert runner.cknna_k == 10
 
 
@@ -638,14 +519,9 @@ def test_action_flow_diagnostic_config_fails_closed(tmp_path, overrides, match):
         ActionFlowDiagnostics(_config(tmp_path, **overrides))
 
 
-@pytest.mark.parametrize("restart", [None, 0, 1])
 def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
-    tmp_path, monkeypatch, restart,
+    tmp_path,
 ):
-    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
-    if restart is not None:
-        monkeypatch.setenv("SLURM_JOB_ID", "5714540")
-        monkeypatch.setenv("SLURM_RESTART_COUNT", str(restart))
     evaluator = PlanarActionEval(energy_score_enabled=False)
     evaluator.bind_data_context(normalizer=_IdentityNormalizer())
     evaluator.unite_diagnostics = {"artifact_root": str(tmp_path / "legacy-diagnostic")}
@@ -658,7 +534,7 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
     clean = torch.cat((target, torch.ones_like(target[..., :1])), dim=-1)
     feature = torch.arange(1, 7, dtype=torch.float32)[:, None, None].repeat(1, 2, 3)
     evaluator.model = SimpleNamespace(
-        run_diagnostic=lambda capability, _batch, raw_noise_levels: {
+        forward_unite_diagnostics=lambda _batch, raw_noise_levels: {
             "validation/usocket": {
                 "clean_latent": clean,
                 "sampler_latents": torch.stack((clean + 1.0, clean)),
@@ -669,7 +545,7 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
                     "layer": torch.stack((feature, feature * 2.0))
                 },
             }
-        } if capability == "unite" else None
+        }
     )
     evaluator.trainer = SimpleNamespace(
         current_epoch=1,
@@ -681,14 +557,5 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
     metrics = evaluator._unite_metrics_and_artifact(batch, batch_idx=0)
 
     assert "Valid/DenoisingTrajectory/DecodedNativeMSE/step_0" in metrics
-    root = tmp_path / "legacy-diagnostic"
-    if restart is not None:
-        root = root / f"job-5714540-restart-{restart}"
-    artifact = root / "epoch-1-step-2/rank-0-batch-0.pt"
+    artifact = tmp_path / "legacy-diagnostic/epoch-1-step-2/rank-0-batch-0.pt"
     assert artifact.is_file()
-    payload = torch.load(artifact, map_location="cpu", weights_only=False)
-    assert payload["execution"] == (
-        None if restart is None else {"slurm_job_id": "5714540", "slurm_restart_count": restart}
-    )
-    with pytest.raises(FileExistsError, match="refusing to overwrite"):
-        evaluator._unite_metrics_and_artifact(batch, batch_idx=0)

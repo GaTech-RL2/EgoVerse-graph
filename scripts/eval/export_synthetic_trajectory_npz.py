@@ -17,6 +17,9 @@ if str(_REPOSITORY_ROOT) not in sys.path:
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
+from egomimic.synthetic.multi_action_adapter_flow import (
+    SyntheticMultiActionAdapterFlow,
+)
 from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
@@ -31,11 +34,27 @@ def resolve_device(requested: str) -> torch.device:
     return torch.device(requested)
 
 
+class _EmbodimentTrajectoryView:
+    """Expose one private decoder while retaining the checkpoint's shared field."""
+
+    def __init__(
+        self, model: SyntheticMultiActionAdapterFlow, embodiment: str
+    ) -> None:
+        self.model = model
+        self.embodiment = embodiment
+
+    def trajectory(self, source: torch.Tensor, *, steps: int) -> torch.Tensor:
+        return self.model.trajectory(
+            source, embodiment=self.embodiment, steps=steps
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--dataset", type=Path)
+    parser.add_argument("--embodiment")
     parser.add_argument("--ground-truth-source-key")
     parser.add_argument("--steps", type=int, default=32)
     parser.add_argument("--particles", type=int, default=128)
@@ -50,26 +69,51 @@ def main() -> None:
     if args.checkpoint is not None:
         checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
         config = checkpoint["config"]
-        dataset = args.dataset if args.dataset is not None else Path(config["dataset"])
+        architecture = config.get("architecture", "shared_latent")
+        if architecture == "multi_action_adapter_flow":
+            if args.embodiment is None:
+                raise SystemExit("multi-action export requires --embodiment")
+            configured_datasets = config.get(
+                "evaluation_datasets", config["datasets"]
+            )
+            if args.embodiment not in configured_datasets:
+                raise SystemExit(f"unknown embodiment: {args.embodiment}")
+            dataset = (
+                args.dataset
+                if args.dataset is not None
+                else Path(configured_datasets[args.embodiment])
+            )
+        else:
+            if args.embodiment is not None:
+                raise SystemExit("--embodiment is only valid for multi-action export")
+            dataset = (
+                args.dataset if args.dataset is not None else Path(config["dataset"])
+            )
         source, target = SyntheticTrajectoryEval.load_validation_data(
             dataset,
             config.get("source_key", "source_2d"),
             args.particles,
         )
         source, target = source.to(device), target.to(device)
-        architecture = config.get("architecture", "shared_latent")
         if architecture == "shared_latent":
             model = SyntheticSharedLatentFlow(**config["model"])
         elif architecture == "direct_flow":
             model = SyntheticDirectFlow(**config["model"])
         elif architecture == "action_adapter_flow":
             model = SyntheticActionAdapterFlow(**config["model"])
+        elif architecture == "multi_action_adapter_flow":
+            model = SyntheticMultiActionAdapterFlow(**config["model"])
         else:
             raise SystemExit(f"unknown architecture: {architecture}")
         model.load_state_dict(checkpoint["model"], strict=True)
         model.to(device).eval()
+        trajectory_model = (
+            _EmbodimentTrajectoryView(model, args.embodiment)
+            if architecture == "multi_action_adapter_flow"
+            else model
+        )
         SyntheticTrajectoryEval.export(
-            model, source, target, args.output, steps=args.steps
+            trajectory_model, source, target, args.output, steps=args.steps
         )
     else:
         if args.dataset is None:

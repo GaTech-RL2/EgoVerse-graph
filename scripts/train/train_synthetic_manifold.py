@@ -45,6 +45,7 @@ if str(_REPOSITORY_ROOT) not in sys.path:
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
+from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionFlow
 from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
@@ -153,6 +154,8 @@ def main() -> None:
         model = SyntheticDirectFlow(**config["model"]).to(device)
     elif architecture == "action_adapter_flow":
         model = SyntheticActionAdapterFlow(**config["model"]).to(device)
+    elif architecture == "decoder_inversion_flow":
+        model = SyntheticDecoderInversionFlow(**config["model"]).to(device)
     else:
         raise ValueError(f"unknown architecture: {architecture}")
     if source.shape[-1] != model.latent_dim:
@@ -220,7 +223,7 @@ def main() -> None:
                 batch_target,
                 flow_samples=config.get("flow_samples", 1),
             )
-        else:
+        elif architecture == "action_adapter_flow":
             losses = model.losses(
                 batch_target,
                 objective=config["adapter_objective"],
@@ -230,6 +233,15 @@ def main() -> None:
                 lambda_path=config.get("lambda_path", 1.0),
                 lambda_action_velocity=config.get("lambda_action_velocity", 1.0),
                 clean_gradient_mode=config.get("clean_gradient_mode", "full"),
+                noise=batch_source,
+            )
+        else:
+            losses = model.losses(
+                batch_target,
+                flow_samples=config.get("flow_samples", 1),
+                inversion_steps=config["inversion_steps"],
+                inversion_step_size=config["inversion_step_size"],
+                lambda_scale=config.get("lambda_scale", 1.0),
                 noise=batch_source,
             )
         optimizer.zero_grad(set_to_none=True)
@@ -333,7 +345,7 @@ def main() -> None:
         summary["validation_reconstruction_mse"] = float(
             (clean_reconstruction - tgt).square().mean()
         )
-    if architecture == "action_adapter_flow":
+    if architecture in {"action_adapter_flow", "decoder_inversion_flow"}:
         fixed_noise = torch.randn(
             int(config.get("diagnostic_noise_samples", 4096)),
             model.latent_dim,
@@ -343,14 +355,60 @@ def main() -> None:
         radii = decoded_noise.norm(dim=-1)
         singular_values = model.decoder_jacobian_singular_values(fixed_noise[:128])
         diagnostic_time = torch.linspace(0.0, 1.0, len(tgt), device=device)[:, None]
-        diagnostic_clean = model.encoder(tgt)
-        diagnostic_velocity = src - diagnostic_clean
+        if architecture == "action_adapter_flow":
+            diagnostic_clean = model.encoder(tgt)
+            inversion_metrics = {}
+        else:
+            diagnostic_initialization = torch.randn(
+                len(tgt),
+                model.latent_dim,
+                generator=torch.Generator(device="cpu").manual_seed(seed + 40_000),
+            ).to(device)
+            with torch.enable_grad():
+                diagnostic_clean, inversion_metrics = model.infer_codes(
+                    tgt,
+                    diagnostic_initialization,
+                    steps=int(config["inversion_steps"]),
+                    step_size=float(config["inversion_step_size"]),
+                    create_graph=False,
+                )
+            diagnostic_clean = diagnostic_clean.detach()
+            inversion_metrics = {
+                f"validation_{key}": float(value.detach())
+                for key, value in inversion_metrics.items()
+            }
+            per_example_rmse = (
+                model.decoder(diagnostic_clean) - tgt
+            ).square().mean(dim=-1).sqrt()
+            inversion_metrics["validation_inversion_failure_rate"] = float(
+                (
+                    per_example_rmse
+                    > float(config.get("inversion_failure_rmse", 0.1))
+                )
+                .float()
+                .mean()
+            )
         diagnostic_state = (
             (1.0 - diagnostic_time) * diagnostic_clean + diagnostic_time * src
         )
-        diagnostic_residual = (
-            model.velocity(diagnostic_state, diagnostic_time) - diagnostic_velocity
-        )
+        if architecture == "action_adapter_flow":
+            diagnostic_velocity = src - diagnostic_clean
+            diagnostic_residual = (
+                model.velocity(diagnostic_state, diagnostic_time)
+                - diagnostic_velocity
+            )
+            diagnostic_action_velocity_mse = model.action_velocity_loss(
+                diagnostic_state,
+                diagnostic_residual,
+            )
+        else:
+            diagnostic_action_residual = model.decoder_jvp(
+                diagnostic_state,
+                model.velocity(diagnostic_state, diagnostic_time),
+            ) - (model.decoder(src) - tgt)
+            diagnostic_action_velocity_mse = (
+                diagnostic_action_residual.square().mean()
+            )
         surface_kind = config.get("surface_kind", "torus")
         if surface_kind == "torus":
             surface_metrics = {
@@ -405,16 +463,23 @@ def main() -> None:
             {
                 "validation_path_consistency_mse": float(
                     model.path_consistency_loss(tgt, src, diagnostic_time)
+                    if architecture == "action_adapter_flow"
+                    else (
+                        model.decoder_jvp(
+                            diagnostic_state,
+                            src - diagnostic_clean,
+                        )
+                        - (model.decoder(src) - tgt)
+                    )
+                    .square()
+                    .mean()
                 ),
                 "validation_scale_loss": float(model.scale_loss(fixed_noise)),
                 "validation_action_velocity_mse": float(
-                    model.action_velocity_loss(
-                        diagnostic_state,
-                        diagnostic_residual,
-                    )
+                    diagnostic_action_velocity_mse
                 ),
                 "validation_latent_code_rms": float(
-                    model.encoder(tgt).square().mean().sqrt()
+                    diagnostic_clean.square().mean().sqrt()
                 ),
                 "validation_decoder_jacobian_singular_min": float(
                     singular_values.min()
@@ -435,6 +500,13 @@ def main() -> None:
                     torch.quantile(radii, 0.99)
                 ),
                 "validation_decoded_noise_radius_max": float(radii.max()),
+                "validation_decoded_noise_mean_norm": float(
+                    decoded_noise.mean(dim=0).norm()
+                ),
+                "validation_generated_endpoint_spread": float(
+                    generated.var(dim=0, unbiased=True).mean()
+                ),
+                **inversion_metrics,
                 **surface_metrics,
             }
         )

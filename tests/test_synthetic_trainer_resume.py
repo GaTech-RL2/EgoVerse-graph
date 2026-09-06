@@ -186,3 +186,68 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(
         "validation_decoder_jacobian_singular_max",
     ):
         assert np.isfinite(summary[key])
+
+
+@pytest.mark.parametrize("decoder_family", ("joint_affine", "nonlinear"))
+def test_decoder_inversion_training_has_real_inversion_diagnostics(
+    tmp_path, decoder_family
+):
+    source = Path(__file__).parents[1]
+    dataset = tmp_path / "dataset.npz"
+    rng = np.random.default_rng(23)
+    split = np.array([0] * 30 + [1] * 5 + [2] * 5, dtype=np.uint8)
+    np.savez_compressed(
+        dataset,
+        source_gaussian_latent=rng.normal(size=(40, 8)).astype(np.float32),
+        target_3d=rng.normal(size=(40, 3)).astype(np.float32),
+        split=split,
+    )
+    output = tmp_path / f"decoder-inversion-{decoder_family}"
+    config_path = tmp_path / f"decoder-inversion-{decoder_family}.json"
+    config = {
+        "architecture": "decoder_inversion_flow",
+        "seed": 42,
+        "dataset": str(dataset),
+        "evaluation_dataset": str(dataset),
+        "evaluation_particles": 5,
+        "source_key": "source_gaussian_latent",
+        "output_dir": str(output),
+        "model": {
+            "latent_dim": 8,
+            "decoder_family": decoder_family,
+            "residual_width": 8,
+            "residual_depth": 1,
+            "field_width": 8,
+            "field_depth": 1,
+        },
+        "flow_samples": 2,
+        "inversion_steps": 2,
+        "inversion_step_size": 0.5,
+        "inversion_failure_rmse": 0.1,
+        "lambda_scale": 1.0,
+        "learning_rate": 0.0003,
+        "batch_size": 4,
+        "max_steps": 2,
+        "inference_steps": 2,
+        "diagnostic_noise_samples": 16,
+        "angular_bins": 4,
+        "log_every": 1,
+    }
+    config_path.write_text(json.dumps(config))
+    _run(source, config_path)
+    summary = json.loads((output / "summary.json").read_text())
+    for key in (
+        "validation_generation_symmetric_nn_mse",
+        "validation_action_velocity_mse",
+        "validation_inversion_before_mse",
+        "validation_inversion_after_mse",
+        "validation_inversion_failure_rate",
+        "validation_path_consistency_mse",
+        "validation_decoded_noise_mean_norm",
+        "validation_generated_endpoint_spread",
+    ):
+        assert np.isfinite(summary[key])
+    assert (
+        summary["validation_inversion_after_mse"]
+        <= summary["validation_inversion_before_mse"]
+    )

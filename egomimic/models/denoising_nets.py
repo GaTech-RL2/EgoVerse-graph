@@ -295,6 +295,29 @@ class ConditionalUnet1D(nn.Module):
         """
         sample = einops.rearrange(sample, "b h t -> b t h")
 
+        # Pad the time axis up to a multiple of 2**(len(down_dims) - 1).
+        #
+        # Each down_modules entry halves T and stashes a skip; each up_modules
+        # entry concatenates that skip back. torch.cat needs the lengths to
+        # agree exactly, so a T that is not a multiple of the total
+        # downsampling factor comes back off-by-one and raises
+        #   "Sizes of tensors must match except in dimension 1.
+        #    Expected size 18 but got size 17"
+        # T=33 goes 33 -> 17 -> 9, then up 9 -> 18 against a skip of 17.
+        #
+        # This bites any odd T: 17 (the M=16 arc token: 16 waypoints + 1 timing
+        # row) fails exactly as 33 (M=32) does, so arc-token configs could never
+        # reach a tensor. Replicate-pad the tail and trim it off the output, so
+        # the padding cannot introduce an edge discontinuity the convolutions
+        # would see as signal.
+        # NB the rearrange above turns (B, T, D) into (B, D, T): channels are
+        # dim 1 and TIME is dim 2. Pad dim 2.
+        _T = sample.shape[2]
+        _factor = 2 ** max(len(self.down_modules) - 1, 0)
+        _pad = (-_T) % _factor
+        if _pad:
+            sample = torch.cat([sample, sample[:, :, -1:].expand(-1, -1, _pad)], dim=2)
+
         # 1. time
         timesteps = timestep
         if not torch.is_tensor(timesteps):
@@ -339,6 +362,9 @@ class ConditionalUnet1D(nn.Module):
 
         x = self.final_conv(x)
         x = einops.rearrange(x, "b t h -> b h t")
+        if _pad:
+            # back to (B, T, D): trim the padded tail off the TIME axis, dim 1
+            x = x[:, :_T, :]
         return x
 
 

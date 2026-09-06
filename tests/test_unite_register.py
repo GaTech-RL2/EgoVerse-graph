@@ -389,6 +389,10 @@ def test_four_rows_are_thin_overlays_of_one_resolved_base(topology, num_latent_t
     model = root.model
     assert model.share_encoder_denoiser is (topology == "shared")
     assert model.num_latent_tokens == num_latent_tokens
+    assert model.optimizer.lr == pytest.approx(3.0e-5)
+    assert model.scheduler.base_lr_1 == pytest.approx(3.0e-5)
+    assert model.scheduler.base_lr_2 == pytest.approx(3.0e-6)
+    assert model.scheduler.final_lr == pytest.approx(3.0e-6)
     stages = model.pipeline.stages
     assert not {
         "action_horizon",

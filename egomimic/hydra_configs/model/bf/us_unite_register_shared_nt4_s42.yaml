@@ -130,7 +130,7 @@ enable_grad_norm: false
 optimizer:
   _target_: egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer
   _partial_: true
-  lr: 1.0e-4
+  lr: 3.0e-5
   betas: [0.9, 0.999]
   eps: 1.0e-6
   adamw_weight_decay: 0.0
@@ -143,10 +143,10 @@ scheduler:
   warmup_steps: 8000
   decay_start_1_steps: 12000
   decay_end_1_steps: 20000
-  # The released 600-epoch recipe starts phase two at epoch 3000. Its 240k-step
-  # translation is therefore intentionally beyond this run; terminal LR is 5e-5.
+  # PushShapes UNITE uses one shared default schedule for every register row:
+  # warm up to 3e-5, decay to 3e-6, and remain at that minimum.
   decay_start_2_steps: 1200000
   decay_end_2_steps: 1200000
-  base_lr_1: 1.0e-4
-  base_lr_2: 5.0e-5
-  final_lr: 1.0e-5
+  base_lr_1: 3.0e-5
+  base_lr_2: 3.0e-6
+  final_lr: 3.0e-6

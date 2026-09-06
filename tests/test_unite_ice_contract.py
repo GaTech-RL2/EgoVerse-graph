@@ -41,6 +41,7 @@ def test_clean_rows_bind_energy_view_to_world_size(resolved_config, shared, toke
     }
     assert result["energy_score_conditions"] == 32
     assert result["diagnostics"] == "ABSENT"
+    assert result["learning_rate"] == {"peak": 3.0e-5, "minimum": 3.0e-6}
 
 
 def test_single_gpu_view_is_supported_when_total_is_32(resolved_config):
@@ -81,6 +82,13 @@ def test_contract_rejects_scientific_drift(resolved_config):
     )
     policy.flow_steps_per_reconstruction = 13
     with pytest.raises(ValueError, match="unsupported UNITE"):
+        validate_unite_config(config, expected_world_size=2)
+
+
+def test_contract_rejects_unite_learning_rate_drift(resolved_config):
+    config = OmegaConf.create(OmegaConf.to_container(resolved_config, resolve=False))
+    config.model.optimizer.lr = 1.0e-4
+    with pytest.raises(ValueError, match="peak=3e-5 and min=3e-6"):
         validate_unite_config(config, expected_world_size=2)
 
 

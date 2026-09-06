@@ -91,19 +91,30 @@ case "$AF_EXPERIMENT" in
   pusht/action_flow_bc_usocket_recon1_s42)
     AF_RECONSTRUCTION_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
   pusht/action_flow_bc_usocket_recon10_s42)
     AF_RECONSTRUCTION_WEIGHT=10
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
+  pusht/action_flow_bc_usocket_recon10_warmup10k_s42)
+    AF_RECONSTRUCTION_WEIGHT=10
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_warmup10k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=10000
     ;;
   pusht/action_flow_bc_usocket_recon100_s42)
     AF_RECONSTRUCTION_WEIGHT=100
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
   *) die "AF_EXPERIMENT must select an approved recon-1, recon-10, or recon-100 config" ;;
 esac
 
-if test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
+if test "$AF_EXPERIMENT" = \
+  pusht/action_flow_bc_usocket_recon10_warmup10k_s42; then
+  AF_COMPARISON_EXPERIMENT=
+elif test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
   AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_recon10_s42
 else
   AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_recon1_s42
@@ -221,6 +232,11 @@ if test "$AF_RUN_KIND" = smoke; then
   CHECKPOINT_EVERY=1
   LOG_EVERY=1
   TELEMETRY_EVERY=2
+  if test "$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS" -gt 0; then
+    RECONSTRUCTION_ONLY_WARMUP_STEPS=1
+  else
+    RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+  fi
 else
   MAX_STEPS=240000
   VALIDATE_EVERY=10000
@@ -229,6 +245,7 @@ else
   CHECKPOINT_EVERY=40000
   LOG_EVERY=10
   TELEMETRY_EVERY=100
+  RECONSTRUCTION_ONLY_WARMUP_STEPS=$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS
 fi
 
 BASE_OVERRIDES=(
@@ -260,6 +277,9 @@ BASE_OVERRIDES=(
   trainer.num_sanity_val_steps=0
   "trainer.log_every_n_steps=$LOG_EVERY"
   model.gradient_telemetry_cadence="$TELEMETRY_EVERY"
+  ++model.reconstruction_only_warmup_steps="$RECONSTRUCTION_ONLY_WARMUP_STEPS"
+  "++run_provenance.objective.requested_full_reconstruction_only_warmup_steps=$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS"
+  "++run_provenance.objective.effective_reconstruction_only_warmup_steps=$RECONSTRUCTION_ONLY_WARMUP_STEPS"
   ++callbacks.model_checkpoint.monitor=null
   callbacks.model_checkpoint.save_top_k=-1
   callbacks.model_checkpoint.save_last=link
@@ -375,10 +395,14 @@ PY
   fi
   (
     cd "$AF_REPO"
-    "$AF_PYTHON" "$AF_CONFIG_VALIDATOR" \
-      --experiment "$AF_EXPERIMENT" \
-      --compare-experiment "$AF_COMPARISON_EXPERIMENT" \
+    CONFIG_VALIDATOR_ARGS=(
+      --experiment "$AF_EXPERIMENT"
       --output "$AF_OUTPUT_DIR/action_flow_pair_preflight.json"
+    )
+    if test -n "$AF_COMPARISON_EXPERIMENT"; then
+      CONFIG_VALIDATOR_ARGS+=(--compare-experiment "$AF_COMPARISON_EXPERIMENT")
+    fi
+    "$AF_PYTHON" "$AF_CONFIG_VALIDATOR" "${CONFIG_VALIDATOR_ARGS[@]}"
     HYDRA_FULL_ERROR=1 "$AF_PYTHON" -m egomimic.trainHydra \
       "${BASE_OVERRIDES[@]}" --cfg job --resolve \
       > "$AF_OUTPUT_DIR/resolved_config.yaml"
@@ -571,6 +595,13 @@ assert payload["preflight"]["sha256"] == preflight_sha
 assert payload["checkpoint"]["global_step"] == 2
 assert payload["checkpoint"]["file_size_bytes"] > 0
 assert payload["checkpoint"]["gradient_routes"]["manifest_sha256"]
+if experiment.endswith("_warmup10k_s42"):
+    assert payload["checkpoint"]["loss_schedule"] == {
+        "joint_objective_begins_at_global_step": 1,
+        "reconstruction_only_optimizer_steps": 1,
+        "schema_version": 1,
+    }
+    assert payload["metrics"]["warmup_step"] is not None
 assert payload["wandb"]["exit_code"] == 0
 assert payload["gpu_probes"]
 assert all(
@@ -687,7 +718,9 @@ export SRUN
   "$AF_EXPECTED_LAUNCHER_SHA256" "$AF_EXPECTED_NORM_SHA256" \
   "$AF_EXPECTED_PREFLIGHT_SHA256" "$AF_EFFECTIVE_SMOKE_SHA256" \
   "$AF_CONTENT_MANIFEST" "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
-  "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" <<'PY'
+  "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" \
+  "$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS" \
+  "$RECONSTRUCTION_ONLY_WARMUP_STEPS" <<'PY'
 import math
 import pathlib
 import sys
@@ -712,9 +745,13 @@ from omegaconf import OmegaConf
     content_manifest,
     content_manifest_sha,
     content_aggregate_sha,
+    full_warmup_steps,
+    effective_warmup_steps,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
+full_warmup_steps = int(full_warmup_steps)
+effective_warmup_steps = int(effective_warmup_steps)
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -737,6 +774,15 @@ assert cfg.model.flow_samples_per_content == 14
 assert math.isclose(cfg.model.condition_dropout_probability, 0.3)
 assert cfg.model.num_inference_steps == 16
 assert math.isclose(cfg.model.reconstruction_weight, reconstruction)
+assert cfg.model.reconstruction_only_warmup_steps == effective_warmup_steps
+assert (
+    cfg.run_provenance.objective.effective_reconstruction_only_warmup_steps
+    == effective_warmup_steps
+)
+assert (
+    cfg.run_provenance.objective.requested_full_reconstruction_only_warmup_steps
+    == full_warmup_steps
+)
 stages = cfg.model.pipeline.stages
 assert [str(stage._target_).rsplit(".", 1)[-1] for stage in stages] == [
     "FusedObsEncoder",

@@ -7,10 +7,34 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
+import signal
 import sys
 from pathlib import Path
+
+
+class _CheckpointRequests:
+    """Latch signals until a completed optimizer step can be saved safely."""
+
+    def __init__(self) -> None:
+        self.received = 0
+        self.saved = 0
+
+    def request(self, _signum: int, _frame: object) -> None:
+        self.received += 1
+
+    def install(self) -> None:
+        if hasattr(signal, "SIGUSR2"):
+            signal.signal(signal.SIGUSR2, self.request)
+
+
+_checkpoint_requests = _CheckpointRequests()
+if __name__ == "__main__":
+    # Imports/model initialization can exceed the scheduler's warning interval.
+    # Do not reset this latch in main(), or an early request would be lost.
+    _checkpoint_requests.install()
 
 import numpy as np
 import torch
@@ -80,6 +104,15 @@ def _restore_rng_state(state: dict, generator: torch.Generator) -> None:
     if torch.cuda.is_available() and state.get("cuda"):
         torch.cuda.set_rng_state_all([rng_state.cpu() for rng_state in state["cuda"]])
     generator.set_state(state["batch_generator"].cpu())
+
+
+def _atomic_torch_save(state: dict, checkpoint: Path) -> None:
+    temporary = checkpoint.with_name(f".{checkpoint.name}.tmp.{os.getpid()}")
+    try:
+        torch.save(state, temporary)
+        os.replace(temporary, checkpoint)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def main() -> None:
@@ -196,6 +229,7 @@ def main() -> None:
                 lambda_scale=config.get("lambda_scale", 1.0),
                 lambda_path=config.get("lambda_path", 1.0),
                 lambda_action_velocity=config.get("lambda_action_velocity", 1.0),
+                clean_gradient_mode=config.get("clean_gradient_mode", "full"),
                 noise=batch_source,
             )
         optimizer.zero_grad(set_to_none=True)
@@ -210,14 +244,19 @@ def main() -> None:
                 stream.write(json.dumps(row) + "\n")
             if wandb_run is not None:
                 wandb_run.log(row, step=step)
-        if step % checkpoint_every == 0 or step == config["max_steps"]:
+        requested = _checkpoint_requests.received
+        if (
+            step % checkpoint_every == 0
+            or step == config["max_steps"]
+            or requested != _checkpoint_requests.saved
+        ):
             epoch_equivalent = (step * config["batch_size"]) // len(train_indices)
             checkpoint = (
                 output
                 / "checkpoints"
                 / f"epoch-equivalent-{epoch_equivalent:06d}-global-step-{step:06d}.pt"
             )
-            torch.save(
+            _atomic_torch_save(
                 {
                     "step": step,
                     "epoch_equivalent": epoch_equivalent,
@@ -232,6 +271,8 @@ def main() -> None:
                 },
                 checkpoint,
             )
+            # A signal received during serialization belongs to the next save.
+            _checkpoint_requests.saved = requested
     model.eval()
     if "evaluation_dataset" in config:
         src, tgt = SyntheticTrajectoryEval.load_validation_data(

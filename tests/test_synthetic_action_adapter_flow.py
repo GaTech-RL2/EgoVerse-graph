@@ -103,6 +103,44 @@ def test_loss_uses_the_supplied_fixed_noise_cloud_for_all_flow_samples():
     torch.testing.assert_close(losses["flow_loss"], expected)
 
 
+def test_clean_gradient_modes_keep_forward_loss_identical_and_change_encoder_route():
+    model = SyntheticActionAdapterFlow(
+        latent_dim=8, adapter_family="nonlinear", field_width=16, field_depth=2
+    )
+    action, noise, time = torch.randn(12, 3), torch.randn(12, 8), torch.rand(36, 1)
+    losses = {}
+    gradients = {}
+    for mode in ("full", "target_stopgrad", "all_stopgrad"):
+        model.zero_grad(set_to_none=True)
+        losses[mode] = model.losses(
+            action,
+            objective="action_velocity",
+            flow_samples=3,
+            noise=noise,
+            time=time,
+            clean_gradient_mode=mode,
+        )["flow_loss"]
+        losses[mode].backward()
+        gradients[mode] = sum(
+            float(parameter.grad.abs().sum())
+            for parameter in model.encoder.parameters()
+            if parameter.grad is not None
+        )
+    torch.testing.assert_close(losses["full"], losses["target_stopgrad"])
+    torch.testing.assert_close(losses["full"], losses["all_stopgrad"])
+    assert gradients["full"] > 0
+    assert gradients["target_stopgrad"] > 0
+    assert gradients["all_stopgrad"] == 0
+
+
+def test_unknown_clean_gradient_mode_is_rejected():
+    model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="nonlinear")
+    with pytest.raises(ValueError, match="unknown clean gradient mode"):
+        model.losses(
+            torch.randn(8, 3), objective="action_velocity", clean_gradient_mode="bad"
+        )
+
+
 def test_path_loss_gradients_reach_both_nonlinear_adapters():
     model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="nonlinear")
     _perturb_residual_outputs(model)

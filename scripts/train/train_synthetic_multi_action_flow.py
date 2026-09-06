@@ -117,6 +117,7 @@ def main() -> None:
                 lambda_reconstruction=float(config.get("lambda_reconstruction", 100.0)),
                 lambda_scale=float(config.get("lambda_scale", 1.0)),
                 lambda_action_velocity=float(config.get("lambda_action_velocity", 1.0)),
+                clean_gradient_mode=str(config.get("clean_gradient_mode", "full")),
                 noise=noise,
             )
         total = torch.stack([losses["loss"] for losses in per_embodiment.values()]).mean()

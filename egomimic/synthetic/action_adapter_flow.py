@@ -211,6 +211,7 @@ class SyntheticActionAdapterFlow(nn.Module):
         lambda_scale: float = 1.0,
         lambda_path: float = 1.0,
         lambda_action_velocity: float = 1.0,
+        clean_gradient_mode: str = "full",
         noise: torch.Tensor | None = None,
         time: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
@@ -222,6 +223,8 @@ class SyntheticActionAdapterFlow(nn.Module):
             )
         if flow_samples <= 0:
             raise ValueError("flow_samples must be positive")
+        if clean_gradient_mode not in {"full", "target_stopgrad", "all_stopgrad"}:
+            raise ValueError(f"unknown clean gradient mode: {clean_gradient_mode}")
         clean = self.encoder(action)
         clean_many = (
             clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
@@ -242,8 +245,10 @@ class SyntheticActionAdapterFlow(nn.Module):
             time = torch.rand(len(clean_many), 1, device=action.device)
         if time.shape != (len(clean_many), 1):
             raise ValueError("time does not match the expanded action batch")
-        target_velocity = noise_many - clean_many
-        state = (1.0 - time) * clean_many + time * noise_many
+        target_clean = clean_many if clean_gradient_mode == "full" else clean_many.detach()
+        state_clean = clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        target_velocity = noise_many - target_clean
+        state = (1.0 - time) * state_clean + time * noise_many
         velocity_residual = self.velocity(state, time) - target_velocity
         flow_loss = velocity_residual.square().mean()
         reconstruction_loss = self.reconstruction_loss(action)

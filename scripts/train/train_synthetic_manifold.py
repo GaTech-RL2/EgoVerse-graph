@@ -14,6 +14,28 @@ import signal
 import sys
 from pathlib import Path
 
+
+class _CheckpointRequests:
+    """Latch signals until a completed optimizer step can be saved safely."""
+
+    def __init__(self) -> None:
+        self.received = 0
+        self.saved = 0
+
+    def request(self, _signum: int, _frame: object) -> None:
+        self.received += 1
+
+    def install(self) -> None:
+        if hasattr(signal, "SIGUSR2"):
+            signal.signal(signal.SIGUSR2, self.request)
+
+
+_checkpoint_requests = _CheckpointRequests()
+if __name__ == "__main__":
+    # Imports/model initialization can exceed the scheduler's warning interval.
+    # Do not reset this latch in main(), or an early request would be lost.
+    _checkpoint_requests.install()
+
 import numpy as np
 import torch
 
@@ -166,14 +188,6 @@ def main() -> None:
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(continuation_seed)
             generator.manual_seed(seed + 2 + start_step)
-    checkpoint_requested = False
-
-    def request_checkpoint(_signum: int, _frame: object) -> None:
-        nonlocal checkpoint_requested
-        checkpoint_requested = True
-
-    if hasattr(signal, "SIGUSR2"):
-        signal.signal(signal.SIGUSR2, request_checkpoint)
     wandb_run = None
     if config.get("wandb"):
         import wandb
@@ -230,10 +244,11 @@ def main() -> None:
                 stream.write(json.dumps(row) + "\n")
             if wandb_run is not None:
                 wandb_run.log(row, step=step)
+        requested = _checkpoint_requests.received
         if (
             step % checkpoint_every == 0
             or step == config["max_steps"]
-            or checkpoint_requested
+            or requested != _checkpoint_requests.saved
         ):
             epoch_equivalent = (step * config["batch_size"]) // len(train_indices)
             checkpoint = (
@@ -256,7 +271,8 @@ def main() -> None:
                 },
                 checkpoint,
             )
-            checkpoint_requested = False
+            # A signal received during serialization belongs to the next save.
+            _checkpoint_requests.saved = requested
     model.eval()
     if "evaluation_dataset" in config:
         src, tgt = SyntheticTrajectoryEval.load_validation_data(

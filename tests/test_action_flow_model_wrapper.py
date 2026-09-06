@@ -185,6 +185,44 @@ def test_action_flow_wrapper_uses_only_explicit_optimizer_total(monkeypatch):
     assert float(logged["Train/MSE/source_b"][0]) == pytest.approx(6.0)
 
 
+def test_reconstruction_only_warmup_then_joint_objective(monkeypatch):
+    wrapper = ActionFlowModelWrapper(
+        pipeline=_ToyAlgo(reconstruction_weight=10.0),
+        gradient_telemetry_cadence=0,
+        reconstruction_only_warmup_steps=2,
+    )
+    logged = _capture_logs(monkeypatch, wrapper)
+
+    warmup_loss = wrapper.training_step(_batch(), batch_idx=0)
+    assert float(warmup_loss) == pytest.approx(50.0)
+    assert float(logged["Train/ActionFlow/FlowMatchingLoss"][0]) == pytest.approx(4.0)
+    assert float(logged["Train/ActionFlow/ActionVelocityLoss"][0]) == pytest.approx(
+        6.0
+    )
+    assert float(logged["Train/ActionFlow/Schedule/ReconstructionOnly"][0]) == 1.0
+    assert float(logged["Train/ActionFlow/Schedule/EffectiveFlowWeight"][0]) == 0.0
+
+    predictions = wrapper.model.forward_training(
+        wrapper.model.process_batch_for_training(_batch())
+    )
+    assert not wrapper._apply_reconstruction_only_warmup(
+        predictions, optimizer_step=2
+    )
+    _, components, joint_loss, _ = wrapper._source_values(predictions)
+    assert float(joint_loss) == pytest.approx(60.0)
+    assert float(components["TotalLoss"]) == pytest.approx(60.0)
+
+
+@pytest.mark.parametrize("value", [-1, 1.5, True])
+def test_reconstruction_only_warmup_rejects_invalid_steps(value):
+    with pytest.raises(ValueError, match="nonnegative integer"):
+        ActionFlowModelWrapper(
+            pipeline=_ToyAlgo(reconstruction_weight=10.0),
+            gradient_telemetry_cadence=0,
+            reconstruction_only_warmup_steps=value,
+        )
+
+
 def test_action_flow_wrapper_rejects_total_metric_drift(monkeypatch):
     wrapper = ActionFlowModelWrapper(
         pipeline=_ToyAlgo(total_metric_delta=1.0),

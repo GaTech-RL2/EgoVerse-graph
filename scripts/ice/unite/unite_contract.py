@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -21,6 +22,8 @@ EXPECTED_ROWS = {
     (False, 4, 14),
     (False, 8, 14),
 }
+EXPECTED_PEAK_LR = 3.0e-5
+EXPECTED_MIN_LR = 3.0e-6
 
 
 def _select(config: Any, key: str, *, required: bool = True) -> Any:
@@ -103,6 +106,31 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
     if latent_dim != 16:
         raise ValueError("clean UNITE register sweep requires latent_dim=16")
 
+    optimizer_lr = _finite_positive(
+        _select(config, "model.optimizer.lr"), "model.optimizer.lr"
+    )
+    scheduler_peak_lr = _finite_positive(
+        _select(config, "model.scheduler.base_lr_1"),
+        "model.scheduler.base_lr_1",
+    )
+    scheduler_min_lr = _finite_positive(
+        _select(config, "model.scheduler.base_lr_2"),
+        "model.scheduler.base_lr_2",
+    )
+    scheduler_final_lr = _finite_positive(
+        _select(config, "model.scheduler.final_lr"),
+        "model.scheduler.final_lr",
+    )
+    if not (
+        math.isclose(optimizer_lr, EXPECTED_PEAK_LR)
+        and math.isclose(scheduler_peak_lr, EXPECTED_PEAK_LR)
+        and math.isclose(scheduler_min_lr, EXPECTED_MIN_LR)
+        and math.isclose(scheduler_final_lr, EXPECTED_MIN_LR)
+    ):
+        raise ValueError(
+            "clean UNITE learning-rate contract requires peak=3e-5 and min=3e-6"
+        )
+
     if int(policy.dopri5_output_points) != 50:
         raise ValueError("clean UNITE Dopri5 contract requires 50 output points")
     if float(policy.reconstruction_noising_start) != 0.7:
@@ -153,6 +181,7 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
         },
         "world_size": world_size,
         "flow_steps_per_reconstruction": flow_steps,
+        "learning_rate": {"peak": EXPECTED_PEAK_LR, "minimum": EXPECTED_MIN_LR},
         "reconstruction_noising_start": 0.7,
         "sampler": {"name": "dopri5", "output_points": 50},
         "energy_score_conditions": 32,

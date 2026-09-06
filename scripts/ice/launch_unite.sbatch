@@ -237,6 +237,14 @@ BASE_OVERRIDES=(
 if test "$ICE_MODEL" != none; then
   BASE_OVERRIDES+=("model=$ICE_MODEL")
 fi
+if test "$ICE_FAMILY" = unite; then
+  BASE_OVERRIDES+=(
+    model.optimizer.lr=3.0e-5
+    model.scheduler.base_lr_1=3.0e-5
+    model.scheduler.base_lr_2=3.0e-6
+    model.scheduler.final_lr=3.0e-6
+  )
+fi
 if test "$ICE_UNITE_FAST" = true; then
   case "$ICE_MODEL" in
     bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt16_s42) ;;
@@ -247,10 +255,6 @@ if test "$ICE_UNITE_FAST" = true; then
     model.pipeline.stages.4.generative_encoder.gradient_checkpointing=false
     model.pipeline.stages.4.generative_encoder.backbone_config.gradient_checkpointing=false
     model.pipeline.stages.4.decoders.pushshapes_sim_u_socket.gradient_checkpointing=false
-    model.optimizer.lr=3.0e-5
-    model.scheduler.base_lr_1=3.0e-5
-    model.scheduler.base_lr_2=3.0e-6
-    model.scheduler.final_lr=3.0e-6
   )
 fi
 if test "$ICE_UNITE_DIAGNOSTICS" = true; then
@@ -379,16 +383,16 @@ elif family == "unite":
     assert int(cfg.evaluator.energy_score_max_batches_per_rank) == 1
     assert int(cfg.evaluator.energy_score_validation_view.world_size) == world_size
     assert int(cfg.evaluator.energy_score_validation_view.per_rank_batch_size) == int(valid_batch_size)
+    assert math.isclose(float(cfg.model.optimizer.lr), 3.0e-5)
+    assert math.isclose(float(cfg.model.scheduler.base_lr_1), 3.0e-5)
+    assert math.isclose(float(cfg.model.scheduler.base_lr_2), 3.0e-6)
+    assert math.isclose(float(cfg.model.scheduler.final_lr), 3.0e-6)
     if h100_fast == "true":
         policy = cfg.model.pipeline.stages[4]
         assert int(policy.flow_mini_batch) == 14
         assert bool(policy.generative_encoder.gradient_checkpointing) is False
         assert bool(policy.generative_encoder.backbone_config.gradient_checkpointing) is False
         assert bool(policy.decoders.pushshapes_sim_u_socket.gradient_checkpointing) is False
-        assert math.isclose(float(cfg.model.optimizer.lr), 3.0e-5)
-        assert math.isclose(float(cfg.model.scheduler.base_lr_1), 3.0e-5)
-        assert math.isclose(float(cfg.model.scheduler.base_lr_2), 3.0e-6)
-        assert math.isclose(float(cfg.model.scheduler.final_lr), 3.0e-6)
     if unite_diagnostics == "true":
         diagnostics = cfg.evaluator.unite_diagnostics
         assert bool(diagnostics.enabled) is True

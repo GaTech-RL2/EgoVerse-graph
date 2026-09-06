@@ -99,6 +99,89 @@ def test_nonlinear_action_loss_backpropagates_through_inversion_to_decoder_and_f
         )
 
 
+def test_conditional_relifting_matches_two_code_jvp_regression():
+    model = _small_model("nonlinear")
+    with torch.no_grad():
+        model.decoder.residual[-1].weight.normal_(std=0.02)
+        model.decoder.residual[-1].bias.normal_(std=0.02)
+    action = torch.randn(5, 3)
+    noise = torch.randn(5, 8)
+    initialization = torch.randn(5, 8)
+    relift_initialization = torch.randn(15, 8)
+    time = torch.rand(15, 1)
+    losses = model.losses(
+        action,
+        flow_samples=3,
+        inversion_steps=2,
+        inversion_step_size=0.5,
+        lambda_scale=0.0,
+        noise=noise,
+        time=time,
+        initialization=initialization,
+        relift_initialization=relift_initialization,
+        training_objective="conditional_relifting",
+    )
+    clean, _ = model.infer_codes(
+        action,
+        initialization.detach().clone(),
+        steps=2,
+        step_size=0.5,
+        create_graph=True,
+    )
+    clean_many = clean[:, None].expand(-1, 3, -1).reshape(-1, 8)
+    noise_many = noise[:, None].expand(-1, 3, -1).reshape(-1, 8)
+    reference_state = (1.0 - time) * clean_many + time * noise_many
+    reference_action = model.decoder(reference_state)
+    target = model.decoder_jvp(reference_state, noise_many - clean_many)
+    relifted, _ = model.infer_codes(
+        reference_action,
+        relift_initialization.detach().clone(),
+        steps=2,
+        step_size=0.5,
+        create_graph=True,
+    )
+    prediction = model.decoder_jvp(relifted, model.velocity(relifted, time))
+    torch.testing.assert_close(
+        losses["action_velocity_loss"], (prediction - target).square().mean()
+    )
+    assert "relift_inversion_after_mse" in losses
+
+
+def test_conditional_relifting_gradients_reach_decoder_and_field():
+    model = _small_model("nonlinear")
+    with torch.no_grad():
+        model.decoder.residual[-1].weight.normal_(std=0.02)
+        model.decoder.residual[-1].bias.normal_(std=0.02)
+    losses = model.losses(
+        torch.randn(6, 3),
+        flow_samples=2,
+        inversion_steps=2,
+        inversion_step_size=0.5,
+        lambda_scale=0.0,
+        training_objective="conditional_relifting",
+    )
+    losses["loss"].backward()
+    for module in (model.decoder, model.field):
+        assert any(
+            parameter.grad is not None and bool(parameter.grad.abs().sum())
+            for parameter in module.parameters()
+            if parameter.requires_grad
+        )
+
+
+def test_unknown_training_objective_is_rejected():
+    model = _small_model("joint_affine")
+    with pytest.raises(ValueError, match="unknown training objective"):
+        model.losses(
+            torch.randn(3, 3),
+            flow_samples=1,
+            inversion_steps=1,
+            inversion_step_size=1.0,
+            lambda_scale=0.0,
+            training_objective="bad",
+        )
+
+
 @pytest.mark.parametrize(("steps", "step_size"), ((0, 0.5), (1, 0.0), (1, -0.1)))
 def test_inversion_rejects_invalid_hyperparameters(steps, step_size):
     model = _small_model("joint_affine")

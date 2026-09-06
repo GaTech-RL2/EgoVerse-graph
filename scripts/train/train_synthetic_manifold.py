@@ -243,6 +243,9 @@ def main() -> None:
                 inversion_step_size=config["inversion_step_size"],
                 lambda_scale=config.get("lambda_scale", 1.0),
                 noise=batch_source,
+                training_objective=config.get(
+                    "training_objective", "endpoint_difference"
+                ),
             )
         optimizer.zero_grad(set_to_none=True)
         losses["loss"].backward()
@@ -400,6 +403,76 @@ def main() -> None:
             diagnostic_action_velocity_mse = model.action_velocity_loss(
                 diagnostic_state,
                 diagnostic_residual,
+            )
+        elif config.get("training_objective") == "conditional_relifting":
+            reference_action = model.decoder(diagnostic_state)
+            reference_action_velocity = model.decoder_jvp(
+                diagnostic_state,
+                src - diagnostic_clean,
+            )
+            diagnostic_relift_initialization = torch.randn(
+                len(tgt),
+                model.latent_dim,
+                generator=torch.Generator(device="cpu").manual_seed(seed + 50_000),
+            ).to(device)
+            with torch.enable_grad():
+                diagnostic_relifted, relift_metrics = model.infer_codes(
+                    reference_action,
+                    diagnostic_relift_initialization,
+                    steps=int(config["inversion_steps"]),
+                    step_size=float(config["inversion_step_size"]),
+                    create_graph=False,
+                )
+            diagnostic_relifted = diagnostic_relifted.detach()
+            relift_metrics = {
+                f"validation_relift_{key}": float(value.detach())
+                for key, value in relift_metrics.items()
+            }
+            relift_rmse = (
+                model.decoder(diagnostic_relifted) - reference_action
+            ).square().mean(dim=-1).sqrt()
+            relift_metrics["validation_relift_inversion_failure_rate"] = float(
+                (
+                    relift_rmse
+                    > float(config.get("inversion_failure_rmse", 0.1))
+                )
+                .float()
+                .mean()
+            )
+            second_relift_initialization = torch.randn(
+                len(tgt),
+                model.latent_dim,
+                generator=torch.Generator(device="cpu").manual_seed(seed + 60_000),
+            ).to(device)
+            with torch.enable_grad():
+                second_relifted, _ = model.infer_codes(
+                    reference_action,
+                    second_relift_initialization,
+                    steps=int(config["inversion_steps"]),
+                    step_size=float(config["inversion_step_size"]),
+                    create_graph=False,
+                )
+            second_relifted = second_relifted.detach()
+            first_prediction = model.decoder_jvp(
+                diagnostic_relifted,
+                model.velocity(diagnostic_relifted, diagnostic_time),
+            )
+            second_prediction = model.decoder_jvp(
+                second_relifted,
+                model.velocity(second_relifted, diagnostic_time),
+            )
+            relift_metrics["validation_relift_velocity_disagreement_mse"] = float(
+                (first_prediction - second_prediction).square().mean()
+            )
+            relift_metrics["validation_relift_code_pair_rms"] = float(
+                (diagnostic_relifted - second_relifted).square().mean().sqrt()
+            )
+            inversion_metrics.update(relift_metrics)
+            diagnostic_action_residual = (
+                first_prediction - reference_action_velocity
+            )
+            diagnostic_action_velocity_mse = (
+                diagnostic_action_residual.square().mean()
             )
         else:
             diagnostic_action_residual = model.decoder_jvp(

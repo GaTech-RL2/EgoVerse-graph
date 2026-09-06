@@ -4,6 +4,7 @@ import torch
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
+from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionFlow
 from egomimic.synthetic.multi_action_adapter_flow import (
     SyntheticMultiActionAdapterFlow,
 )
@@ -26,6 +27,7 @@ def test_shared_eval_exports_same_npz_contract_for_both_model_families(tmp_path)
             SyntheticActionAdapterFlow(latent_dim=8, adapter_family="fixed_affine"),
             torch.randn(7, 8),
         ),
+        (SyntheticDecoderInversionFlow(latent_dim=8), torch.randn(7, 8)),
     )
     for index, (model, source) in enumerate(models_and_sources):
         output = tmp_path / f"trajectory-{index}.npz"

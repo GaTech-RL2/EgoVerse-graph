@@ -342,6 +342,22 @@ def main() -> None:
                     )
                 )
             }
+        elif surface_kind == "sphere":
+            surface_metrics = {
+                "validation_sphere_surface_rmse": float(
+                    SyntheticTrajectoryEval.sphere_surface_rmse(
+                        generated, radius=float(config["sphere_radius"])
+                    )
+                )
+            }
+        elif surface_kind == "cube":
+            surface_metrics = {
+                "validation_cube_surface_rmse": float(
+                    SyntheticTrajectoryEval.cube_surface_rmse(
+                        generated, half_extent=float(config["cube_half_extent"])
+                    )
+                )
+            }
         else:
             raise ValueError(f"unknown surface_kind: {surface_kind}")
         summary.update(

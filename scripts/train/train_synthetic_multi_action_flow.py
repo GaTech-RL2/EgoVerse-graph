@@ -193,12 +193,19 @@ def main() -> None:
                 steps=int(config["inference_steps"]),
             )
             generated = trajectory[-1]
-            curvature = float(config["curvatures"][name])
+            if "surface_specs" in config:
+                surface_spec = config["surface_specs"][name]
+            else:
+                surface_spec = {
+                    "kind": "paraboloid",
+                    "curvature": float(config["curvatures"][name]),
+                }
+            surface_kind = surface_spec["kind"]
             singular_values = model.decoder_jacobian_singular_values(
                 name, source[:128]
             )
-            summary["embodiments"][name] = {
-                "curvature": curvature,
+            embodiment_summary = {
+                "surface_spec": surface_spec,
                 "validation_generation_energy_distance": float(
                     energy_distance(generated, target)
                 ),
@@ -210,9 +217,9 @@ def main() -> None:
                 "validation_reconstruction_mse": float(
                     (reconstruction - target).square().mean()
                 ),
-                "validation_paraboloid_surface_rmse": float(
-                    SyntheticTrajectoryEval.paraboloid_surface_rmse(
-                        generated, curvature=curvature
+                "validation_surface_rmse": float(
+                    SyntheticTrajectoryEval.analytic_surface_rmse(
+                        generated, surface_spec
                     )
                 ),
                 "validation_latent_code_rms": float(
@@ -228,12 +235,19 @@ def main() -> None:
                     singular_values.max()
                 ),
             }
+            embodiment_summary[f"validation_{surface_kind}_surface_rmse"] = (
+                embodiment_summary["validation_surface_rmse"]
+            )
+            if surface_kind == "paraboloid":
+                embodiment_summary["curvature"] = float(surface_spec["curvature"])
+            summary["embodiments"][name] = embodiment_summary
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     if wandb_run is not None:
         scalar_summary = {
             f"{name}/{key}": value
             for name, values in summary["embodiments"].items()
             for key, value in values.items()
+            if isinstance(value, (int, float))
         }
         wandb_run.log(scalar_summary, step=int(config["max_steps"]))
         wandb_run.finish()

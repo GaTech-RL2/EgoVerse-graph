@@ -78,8 +78,6 @@ def parse_scontrol_record(text: str) -> dict[str, str]:
         value = match.group(2).strip()
         if key in fields:
             raise ContractError(f"scontrol record repeats field {key}")
-        if not value:
-            raise ContractError(f"scontrol field {key} is empty")
         fields[key] = value
         cursor = match.end()
     if line[cursor:].strip():
@@ -168,9 +166,12 @@ def _integer_field(fields: dict[str, str], key: str) -> int:
 
 def _required_field(fields: dict[str, str], key: str) -> str:
     try:
-        return fields[key]
+        value = fields[key]
     except KeyError as exc:
         raise ContractError(f"required scontrol field {key} is absent") from exc
+    if not value:
+        raise ContractError(f"required scontrol field {key} is empty")
+    return value
 
 
 def evaluate_contract(

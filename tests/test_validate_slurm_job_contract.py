@@ -204,6 +204,21 @@ def test_parser_rejects_multiline_and_duplicate_fields():
         module.parse_scontrol_record("JobId=1 JobId=2")
 
 
+def test_parser_accepts_empty_unrelated_slurm_fields():
+    module = _load_module()
+    fields = module.parse_scontrol_record(_record(StdErr=""))
+    assert fields["StdErr"] == ""
+    _, _, failures = module.evaluate_contract(fields, **_expectations())
+    assert failures == []
+
+
+def test_contract_still_rejects_empty_required_fields():
+    module = _load_module()
+    fields = module.parse_scontrol_record(_record(Account=""))
+    with pytest.raises(module.ContractError, match="required scontrol field Account is empty"):
+        module.evaluate_contract(fields, **_expectations())
+
+
 @pytest.mark.parametrize(
     ("raw", "seconds"),
     [("3-00:00:00", 3 * 86400), ("16:00:00", 16 * 3600), ("30", 1800)],
@@ -211,4 +226,3 @@ def test_parser_rejects_multiline_and_duplicate_fields():
 def test_slurm_duration_forms(raw, seconds):
     module = _load_module()
     assert module.parse_slurm_duration(raw) == seconds
-

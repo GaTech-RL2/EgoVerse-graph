@@ -1,0 +1,307 @@
+# EgoVerse arc-tokenizer cotrain on OSMO — 1 node x 8 L40S, no submitit.
+#
+# Differences vs the PACE commands:
+#   * no `-m` / `hydra/launcher=submitit_pace_l40s` — Lightning DDP runs the 8
+#     ranks directly inside this container (`launch_params.gpus_per_node=8`
+#     feeds `trainer/ddp.yaml`'s `devices`).
+#   * per-GPU batch_size 32 -> 4 (32/8) on both train and valid dataloaders.
+#   * no pre-staged dataset. data/arc_tests_cotrain*.yaml use S3EpisodeResolver,
+#     which resolves the episode set from SQL and syncs it from R2 into
+#     ${paths.dataset_dir} on its own — /storage/project/r-dxu345-0 (PACE) does
+#     not exist on OSMO, so the configs do the download.
+#   * norm stats are computed ONCE on 1 GPU, then the 8-GPU run consumes the
+#     JSON. trainHydra.py:127 computes stats unguarded by rank, so letting all
+#     8 DDP ranks do it would be 8x redundant work over 862 episodes plus a
+#     write race on norm_stats.json. This also means the dataset download
+#     happens once, in a single process, before the 8-rank run starts.
+#
+# `bounds_check: false` (no-bounds) and `lr: 3e-4` + `scheduler: null`
+# (constant LR) are already baked into the data/model configs on the
+# rpunamiya/arc-length-tokenizer branch — no override needed.
+
+workflow:
+  # Set per submission so the two variants are distinguishable in
+  # `osmo workflow list` without cross-referencing the trailing counter.
+  # Convention: arc-<variant>-<hardware>, e.g.
+  #   arc-baseline-cart-8xl40s
+  #   arc-tok-d20m15-8xl40s
+  name: "{{job_name}}"
+
+  tasks:
+  - name: train
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    # egoverse-aws is what setup_secret.sh needs to pull the R2 keys and
+    # SECRETS_ARN (the DB password S3EpisodeResolver reads through
+    # create_default_engine) out of Secrets Manager.
+    # See osmo/README.md for the `osmo credential set` commands.
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+      egoverse-wandb:
+        WANDB_API_KEY: wandb_api_key
+
+    environment:
+      BRANCH: "{{branch}}"
+      # Space-separated experiment config names under experiment/pusht/.
+      CONFIGS: "{{configs}}"
+      GPUS_PER_RUN: "{{gpus_per_run}}"
+      RUN_DESC: "{{run_desc}}"
+      SMOKE_STEPS: "{{smoke_steps}}"
+      NUM_GPU: "{{num_gpu}}"
+      BATCH_SIZE: "{{batch_size}}"
+      NUM_WORKERS: "{{num_workers}}"
+      # Space-separated embodiments present in the data config. Human-only
+      # keypoint configs have no eva_bimanual, and overriding a key that is
+      # not in the struct is a hard hydra error.
+      EMBODIMENTS: "{{embodiments}}"
+      # Sweep runs cap epochs to rank configs without paying the full 2000.
+      MAX_EPOCHS: "{{max_epochs}}"
+      JOB_NAME: "{{job_name}}"
+      # logger/wandb.yaml hardcodes entity rl2-group (the Georgia Tech team).
+      # An API key that lacks access to it fails at wandb.init() with
+      # "CommError: permission denied" — after the dataset pull and norm-stats
+      # phase have already run, so get this right before submitting.
+      WANDB_ENTITY: "{{wandb_entity}}"
+      WORKDIR: /workspace
+      DATASET_DIR: /workspace/pushshapes
+      PUSHSHAPES_ROOT: /workspace/pushshapes
+      GAP_ROW: "{{gap_row}}"
+      N_PER_EMB: "{{n_per_emb}}"
+      NCCL_DEBUG: WARN
+      TOKENIZERS_PARALLELISM: "false"
+      HYDRA_FULL_ERROR: "1"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        # ---------------------------------------------------------------- deps
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        # uv (EgoVerse ships a uv.lock; torch 2.7.1 comes from the lock, so the
+        # base image only needs a working CUDA driver + glibc)
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+
+        # s5cmd — what S3EpisodeResolver._sync_s3_to_local shells out to
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+
+        # awscli — setup_secret.sh calls `aws secretsmanager`
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        # --------------------------------------------------------------- clone
+        mkdir -p "$WORKDIR" && cd "$WORKDIR"
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse-graph.git" EgoVerse
+        cd "$WORKDIR/EgoVerse"
+        git rev-parse HEAD
+
+        uv sync --frozen
+        source .venv/bin/activate
+
+        # --------------------------------------------------------- credentials
+        # Writes ~/.egoverse_env with R2_* (for the s5cmd sync) and SECRETS_ARN
+        # (for the SQL episode table). Both are what S3EpisodeResolver needs.
+        bash ./egomimic/utils/aws/setup_secret.sh
+        test -s "$HOME/.egoverse_env"
+
+        # ---------------------------------------------------------- preflight
+        # wandb.init() is not reached until phase 2, i.e. after the ~155GB pull
+        # and the norm-stats phase (~2.5h). A key without access to
+        # $WANDB_ENTITY fails there and throws all of it away, so check the
+        # entity is writable up front and fail in seconds instead.
+        python - <<'PY'
+        import os, sys, wandb
+        entity = os.environ["WANDB_ENTITY"]
+        api = wandb.Api()
+        # api.viewer.teams is a list of plain strings, not objects.
+        teams = [t if isinstance(t, str) else getattr(t, "name", str(t))
+                 for t in (getattr(api.viewer, "teams", None) or [])]
+        ents = sorted({e for e in (api.default_entity, *teams) if e})
+        print(f"wandb user={api.viewer.username} default={api.default_entity} entities={ents}")
+        if entity not in ents:
+            sys.exit(f"FATAL: wandb key has no access to entity '{entity}'. Accessible: {ents}")
+        print(f"wandb entity '{entity}' OK")
+        PY
+
+        mkdir -p "$DATASET_DIR"
+
+        # ------------------------------------------------ checkpoint persistence
+        # ModelCheckpoint writes to ${paths.output_dir}/checkpoints inside
+        # /workspace, which is node-local and ephemeral, and this workflow
+        # declares no outputs -- so checkpoints die with the container. Two
+        # completed 20h runs were lost that way. Push them to R2 continuously.
+        cat > /tmp/ckpt_sync.sh <<'CSEOF'
+        #!/bin/bash
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        DEST="s3://rldb/staged/pushshapes_cotrain11/$1"
+        while true; do
+          # logs/<run_name>/<timestamp>/checkpoints -> keep runs in separate
+          # prefixes. Packed runs share this container, so a single DEST would
+          # have four runs overwriting one another's last.ckpt.
+          for d in $(find /workspace/EgoVerse/logs -type d -name checkpoints 2>/dev/null); do
+            RN=$(basename $(dirname $(dirname "$d")))
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 sync "$d/" "$DEST/$RN/checkpoints/" >>/tmp/ckpt_sync.log 2>&1
+          done
+          for f in $(find /workspace/EgoVerse/logs -name norm_stats.json 2>/dev/null); do
+            RN=$(basename $(dirname $(dirname "$f")))
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$f" "$DEST/$RN/norm_stats.json" >>/tmp/ckpt_sync.log 2>&1
+          done
+          sleep 420
+        done
+        CSEOF
+        chmod +x /tmp/ckpt_sync.sh
+        (setsid nohup /tmp/ckpt_sync.sh "$JOB_NAME" >/dev/null 2>&1 &)
+
+        # DataLoader workers exhaust the default FD limit under load; two sweep
+        # cells died with "Too many open files" in the norm-stats phase.
+        ulimit -n 65536 || true
+
+        # ------------------------------------------- stage the U-Socket corpus
+        # The config points at a PACE path that does not exist here. The R2
+        # mirror holds the RAW 3000; the canonical corpus is the 2999-episode
+        # "clean" set, which is the raw set MINUS exactly one episode. Diffed
+        # against the split manifest's union: the only difference is
+        # episode_T_u_socket_obs0_000270, and nothing in the manifest is absent
+        # from R2. Drop that one and the loader's own guards
+        # (expected_episode_count 2999 and expected_episode_names_sha256) verify
+        # the result, so a wrong corpus fails loudly instead of training.
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        unset AWS_SESSION_TOKEN
+
+        DATA=/workspace/usocket_clean
+        mkdir -p "$DATA"
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 64 \
+          cp "s3://rldb/processed_v3/pushshapes_sim/u_socket_3000_v2/*" "$DATA/"
+        echo "pulled $(find "$DATA" -maxdepth 1 -name 'episode_*' -type d | wc -l) episodes"
+        rm -rf "$DATA/episode_T_u_socket_obs0_000270.zarr" \
+               "$DATA/episode_T_u_socket_obs0_000270"
+        N=$(find "$DATA" -maxdepth 1 -name 'episode_*' -type d | wc -l)
+        echo "after dropping the raw-only episode: $N"
+        if [ "$N" -ne 2999 ]; then
+          echo "FATAL: expected 2999 episodes, found $N"; exit 1
+        fi
+        du -sh "$DATA"
+
+        DATA_OV="data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA \
+                 data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA"
+
+        drain_pids () {
+          for dp in $1; do
+            while kill -0 "$dp" 2>/dev/null; do sleep 20; done
+          done
+        }
+
+        # ---- smoke EVERY config first: one optimizer step plus a REAL
+        # validation. num_sanity_val_steps is 0 and val_check_interval is 10000,
+        # so an inference-graph or detokenizer fault would otherwise stay hidden
+        # until step 10k of a 240k run -- nine times over.
+        for CFG in $CONFIGS; do
+          echo "===== smoke $CFG ====="
+          python egomimic/trainHydra.py \
+            +experiment/pusht@_global_="$CFG" \
+            $DATA_OV \
+            trainer.devices=1 trainer.strategy=auto \
+            trainer.max_steps="$SMOKE_STEPS" trainer.max_epochs=-1 \
+            trainer.val_check_interval="$SMOKE_STEPS" \
+            trainer.limit_val_batches=2 trainer.num_sanity_val_steps=2 \
+            ~logger \
+            name="smoke_${CFG}" description="smoke_${RUN_DESC}" \
+            || { echo "FATAL: smoke failed for $CFG"; exit 1; }
+        done
+        echo "all smokes passed"
+
+        # ---- full runs, GPUS_PER_RUN each, in back-to-back waves
+        WAVE=$((NUM_GPU / GPUS_PER_RUN))
+        echo "wave size: $WAVE concurrent runs on $NUM_GPU GPUs"
+        RC=0
+        run_wave () {
+        PIDS=""; i=0
+        for CFG in $1; do
+          LO=$((i * GPUS_PER_RUN))
+          DEVS=$(seq -s, $LO $((LO + GPUS_PER_RUN - 1)))
+          PORT=$((29500 + i * 17))
+          ( CUDA_VISIBLE_DEVICES="$DEVS" MASTER_PORT=$PORT \
+            python egomimic/trainHydra.py \
+              +experiment/pusht@_global_="$CFG" \
+              $DATA_OV \
+              trainer.devices="$GPUS_PER_RUN" \
+              logger.wandb.entity="$WANDB_ENTITY" \
+              name="$CFG" description="${CFG}_${RUN_DESC}" \
+              > "/tmp/run_${CFG}.log" 2>&1 ) &
+          PIDS="$PIDS $!"
+          echo "launched $CFG on GPU(s) $DEVS port $PORT"
+          i=$((i + 1))
+        done
+        FIRST=$(echo $1 | awk '{print $1}')
+        touch "/tmp/run_${FIRST}.log"; tail -f "/tmp/run_${FIRST}.log" & TAILPID=$!
+        drain_pids "$PIDS"
+        for p in $PIDS; do
+          if ! wait $p 2>/dev/null; then RC=1; echo "run $p exited nonzero"; fi
+        done
+        kill $TAILPID 2>/dev/null || true
+        }
+
+        BATCH=""
+        for CFG in $CONFIGS; do
+          BATCH="$BATCH $CFG"
+          if [ "$(echo $BATCH | wc -w)" -eq "$WAVE" ]; then
+            echo "===== wave:$BATCH ====="; run_wave "$BATCH"; BATCH=""
+          fi
+        done
+        if [ -n "$BATCH" ]; then echo "===== final wave:$BATCH ====="; run_wave "$BATCH"; fi
+
+        for CFG in $CONFIGS; do echo "=== tail $CFG ==="; tail -20 "/tmp/run_${CFG}.log" || true; done
+
+        bash -c 'set -a; source "$HOME/.egoverse_env"; set +a
+          export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+          export AWS_DEFAULT_REGION=auto
+          for d in $(find /workspace/EgoVerse/logs -type d -name checkpoints 2>/dev/null); do
+            RN=$(basename $(dirname $(dirname "$d")))
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
+              sync "$d/" "s3://rldb/staged/usocket_arc_graph_sweep/'"$JOB_NAME"'/$RN/checkpoints/"
+          done' || true
+        echo "checkpoints flushed"
+        exit $RC
+
+  # groot-l40s-03 nodes are 126 CPU / 988Gi mem / 3163Gi storage / 8 GPU, but
+  # per-node free capacity varies a lot, so these are sized to fit most nodes
+  # rather than only the emptiest. 862 episodes x ~180MB is ~155GB of zarr;
+  # 400Gi leaves room for the uv env, checkpoints and logs.
+  # num_workers=4 keeps dataloader workers at 8 ranks x 2 embodiments x 4 = 64,
+  # which fits the 80 CPU request (the config default of 6 would need ~120).
+  # cpu was 100, but most nodes in this pool sit at 84/126 free, so that only
+  # matched the emptiest few and cost ~6-8 min of queueing per submission.
+  resources:
+    default:
+      cpu: {{cpu}}
+      gpu: {{num_gpu}}
+      memory: {{memory}}
+      storage: {{storage}}
+
+  timeout:
+    queue_timeout: 1d

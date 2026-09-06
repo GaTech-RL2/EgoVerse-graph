@@ -209,10 +209,10 @@ def test_only_reconstruction_weight_differs_across_sweep():
 
 def test_recon10_warmup_row_changes_only_the_objective_schedule():
     reference = OmegaConf.to_container(
-        _compose("action_flow_bc_usocket_recon10_s42"), resolve=True
+        _compose("action_flow_bc_usocket_recon10_s42"), resolve=False
     )
     candidate = OmegaConf.to_container(
-        _compose("action_flow_bc_usocket_recon10_warmup10k_s42"), resolve=True
+        _compose("action_flow_bc_usocket_recon10_warmup10k_s42"), resolve=False
     )
 
     assert candidate["model"]["reconstruction_only_warmup_steps"] == 10000

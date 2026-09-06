@@ -103,6 +103,7 @@ def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
     assert "--expected-dataset-content-aggregate-sha256" in source
     assert "--expected-preflight-sha256" in source
     assert "callbacks.model_checkpoint.save_last=link" in source
+    assert "single-gpu,$AF_RUN_KIND" in source
 
 
 def test_full_and_smoke_share_the_requeue_and_strict_checkpoint_path():

@@ -90,29 +90,38 @@ fi
 case "$AF_EXPERIMENT" in
   pusht/action_flow_bc_usocket_recon1_s42)
     AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
   pusht/action_flow_bc_usocket_recon10_s42)
     AF_RECONSTRUCTION_WEIGHT=10
+    AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
   pusht/action_flow_bc_usocket_recon10_warmup10k_s42)
     AF_RECONSTRUCTION_WEIGHT=10
+    AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_warmup10k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=10000
+    ;;
+  pusht/action_flow_bc_usocket_recon10_warmup10k_flow001_s42)
+    AF_RECONSTRUCTION_WEIGHT=10
+    AF_FLOW_WEIGHT=0.01
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_warmup10k_flow001_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=10000
     ;;
   pusht/action_flow_bc_usocket_recon100_s42)
     AF_RECONSTRUCTION_WEIGHT=100
+    AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
   *) die "AF_EXPERIMENT must select an approved recon-1, recon-10, or recon-100 config" ;;
 esac
 
-if test "$AF_EXPERIMENT" = \
-  pusht/action_flow_bc_usocket_recon10_warmup10k_s42; then
+if [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
   AF_COMPARISON_EXPERIMENT=
 elif test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
   AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_recon10_s42
@@ -713,7 +722,7 @@ export SRUN
 )
 "$AF_PYTHON" - "$ATTEMPT/resolved_config.yaml" "$AF_RUN_KIND" \
   "$AF_EXPERIMENT" "$AF_EXPECTED_CONFIG_NAME" \
-  "$AF_RECONSTRUCTION_WEIGHT" "$AF_DATASET_DIR" \
+  "$AF_RECONSTRUCTION_WEIGHT" "$AF_FLOW_WEIGHT" "$AF_DATASET_DIR" \
   "$AF_NORM_STATS_PATH" "$AF_CLUSTER_LABEL" "$AF_EXPECTED_HEAD" \
   "$AF_EXPECTED_LAUNCHER_SHA256" "$AF_EXPECTED_NORM_SHA256" \
   "$AF_EXPECTED_PREFLIGHT_SHA256" "$AF_EFFECTIVE_SMOKE_SHA256" \
@@ -734,6 +743,7 @@ from omegaconf import OmegaConf
     experiment,
     expected_name,
     reconstruction,
+    flow_weight,
     dataset,
     norm,
     cluster,
@@ -750,6 +760,7 @@ from omegaconf import OmegaConf
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
+flow_weight = float(flow_weight)
 full_warmup_steps = int(full_warmup_steps)
 effective_warmup_steps = int(effective_warmup_steps)
 assert cfg.name == expected_name
@@ -774,6 +785,7 @@ assert cfg.model.flow_samples_per_content == 14
 assert math.isclose(cfg.model.condition_dropout_probability, 0.3)
 assert cfg.model.num_inference_steps == 16
 assert math.isclose(cfg.model.reconstruction_weight, reconstruction)
+assert math.isclose(cfg.model.flow_weight, flow_weight)
 assert cfg.model.reconstruction_only_warmup_steps == effective_warmup_steps
 assert (
     cfg.run_provenance.objective.effective_reconstruction_only_warmup_steps
@@ -799,7 +811,8 @@ assert stages[4].samples_per_content == 14
 assert math.isclose(stages[4].condition_dropout_probability, 0.3)
 assert stages[5].num_inference_steps == 16
 assert stages[5].field.time_scale == 1000.0
-assert stages[7].flow_weight == stages[7].action_velocity_weight == 1.0
+assert math.isclose(stages[7].flow_weight, flow_weight)
+assert stages[7].action_velocity_weight == 1.0
 assert math.isclose(stages[7].reconstruction_weight, reconstruction)
 optimizer, scheduler = cfg.model.optimizer, cfg.model.scheduler
 assert optimizer._target_ == "torch.optim.AdamW" and optimizer._partial_ is True
@@ -942,6 +955,7 @@ if test "$AF_RUN_KIND" = smoke; then
     --expected-head "$AF_EXPECTED_HEAD" \
     --expected-experiment "$AF_EXPERIMENT" \
     --expected-reconstruction-weight "$AF_RECONSTRUCTION_WEIGHT" \
+    --expected-flow-weight "$AF_FLOW_WEIGHT" \
     --expected-split-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
     --expected-normalization-sha256 "$AF_EXPECTED_NORM_SHA256" \
     --expected-content-manifest-sha256 \

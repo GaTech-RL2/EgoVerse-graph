@@ -9,6 +9,7 @@ flow_samples_per_content: 14
 condition_dropout_probability: 0.3
 num_inference_steps: 16
 reconstruction_weight: 1.0
+flow_weight: 1.0
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
@@ -84,7 +85,7 @@ pipeline:
         feedforward_dim: 80
         dropout: 0.0
     - _target_: egomimic.pipeline.stages_action_flow.ActionFlowObjectiveStage
-      flow_weight: 1.0
+      flow_weight: ${model.flow_weight}
       reconstruction_weight: ${model.reconstruction_weight}
       action_velocity_weight: 1.0
 

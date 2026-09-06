@@ -51,18 +51,27 @@ APPROVED_EXPERIMENTS = {
     "pusht/action_flow_bc_usocket_recon1_s42": (
         "action_flow_bc_usocket_recon1_s42",
         1.0,
+        1.0,
     ),
     "pusht/action_flow_bc_usocket_recon10_s42": (
         "action_flow_bc_usocket_recon10_s42",
         10.0,
+        1.0,
     ),
     "pusht/action_flow_bc_usocket_recon10_warmup10k_s42": (
         "action_flow_bc_usocket_recon10_warmup10k_s42",
         10.0,
+        1.0,
+    ),
+    "pusht/action_flow_bc_usocket_recon10_warmup10k_flow001_s42": (
+        "action_flow_bc_usocket_recon10_warmup10k_flow001_s42",
+        10.0,
+        0.01,
     ),
     "pusht/action_flow_bc_usocket_recon100_s42": (
         "action_flow_bc_usocket_recon100_s42",
         100.0,
+        1.0,
     ),
 }
 EXPECTED_STAGE_TARGETS = (
@@ -246,7 +255,7 @@ def _validate_config(
     expected_dataset_content_aggregate_sha256: str | None = None,
 ) -> tuple[DictConfig, dict[str, Any]]:
     _require(experiment in APPROVED_EXPERIMENTS, f"unapproved experiment: {experiment}")
-    expected_name, reconstruction_weight = APPROVED_EXPERIMENTS[experiment]
+    expected_name, reconstruction_weight, flow_weight = APPROVED_EXPERIMENTS[experiment]
     config = OmegaConf.load(config_path)
 
     _exact(config, "name", expected_name)
@@ -312,7 +321,7 @@ def _validate_config(
     ):
         _exact(config, path, expected)
 
-    if experiment.endswith("_warmup10k_s42"):
+    if "_warmup10k_" in experiment or experiment.endswith("_warmup10k_s42"):
         _exact(config, "model.reconstruction_only_warmup_steps", 1)
         _exact(
             config,
@@ -331,7 +340,8 @@ def _validate_config(
         ("model.pipeline.stages.4.condition_dropout_probability", 0.3),
         ("model.pipeline.stages.5.field.time_scale", 1_000.0),
         ("model.pipeline.stages.5.field.condition_dropout_probability", 0.3),
-        ("model.pipeline.stages.7.flow_weight", 1.0),
+        ("model.flow_weight", flow_weight),
+        ("model.pipeline.stages.7.flow_weight", flow_weight),
         ("model.pipeline.stages.7.reconstruction_weight", reconstruction_weight),
         ("model.pipeline.stages.7.action_velocity_weight", 1.0),
         ("model.reconstruction_weight", reconstruction_weight),
@@ -342,7 +352,7 @@ def _validate_config(
         ("model.scheduler.eta_min", 3.0e-6),
         ("trainer.gradient_clip_val", 3.0),
         ("run_provenance.valid_ratio", 0.01),
-        ("run_provenance.objective.flow_weight", 1.0),
+        ("run_provenance.objective.flow_weight", flow_weight),
         ("run_provenance.objective.reconstruction_weight", reconstruction_weight),
         ("run_provenance.objective.action_velocity_weight", 1.0),
         ("run_provenance.objective.decoded_noise_scale_weight", 0.0),
@@ -806,7 +816,9 @@ def _validate_gradient_route_manifest(
     }
 
 
-def _validate_checkpoint(run_dir: Path) -> dict[str, Any]:
+def _validate_checkpoint(
+    run_dir: Path, *, reconstruction_weight: float, flow_weight: float
+) -> dict[str, Any]:
     checkpoint_dir = run_dir / "checkpoints"
     last_path = checkpoint_dir / "last.ckpt"
     _require(last_path.is_file(), f"missing smoke checkpoint: {last_path}")
@@ -853,6 +865,9 @@ def _validate_checkpoint(run_dir: Path) -> dict[str, Any]:
             == {
                 "joint_objective_begins_at_global_step": 1,
                 "reconstruction_only_optimizer_steps": 1,
+                "joint_flow_weight": flow_weight,
+                "joint_reconstruction_weight": reconstruction_weight,
+                "joint_action_velocity_weight": 1.0,
                 "schema_version": 1,
             },
             f"unexpected Action Flow loss schedule: {loss_schedule}",
@@ -1032,6 +1047,7 @@ def _validate_history(
     rows: Mapping[int, Mapping[str, float]],
     *,
     reconstruction_weight: float = 1.0,
+    flow_weight: float = 1.0,
     expect_reconstruction_warmup: bool = False,
 ) -> dict[str, Any]:
     component_names = (
@@ -1103,7 +1119,12 @@ def _validate_history(
         "latest smoke optimizer step is not joint",
     )
     _require(
-        train["Train/ActionFlow/Schedule/EffectiveFlowWeight"] == 1.0
+        math.isclose(
+            train["Train/ActionFlow/Schedule/EffectiveFlowWeight"],
+            flow_weight,
+            rel_tol=0.0,
+            abs_tol=1.0e-12,
+        )
         and train[
             "Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"
         ]
@@ -1112,7 +1133,7 @@ def _validate_history(
     )
     for suffix in ("", f"/{SOURCE_LABEL}"):
         expected_total = (
-            train[f"Train/ActionFlow/FlowMatchingLoss{suffix}"]
+            flow_weight * train[f"Train/ActionFlow/FlowMatchingLoss{suffix}"]
             + reconstruction_weight
             * train[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
             + train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
@@ -1669,6 +1690,7 @@ def verify_smoke(
     expected_content_manifest_sha256: str | None = None,
     expected_dataset_content_aggregate_sha256: str | None = None,
     expected_reconstruction_weight: float | None = None,
+    expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
     run_dir = Path(run_dir).expanduser().resolve(strict=True)
@@ -1689,16 +1711,27 @@ def verify_smoke(
             expected_dataset_content_aggregate_sha256
         ),
     )
+    approved_reconstruction_weight = APPROVED_EXPERIMENTS[experiment][1]
+    approved_flow_weight = APPROVED_EXPERIMENTS[experiment][2]
     if expected_reconstruction_weight is not None:
-        approved_weight = APPROVED_EXPERIMENTS[experiment][1]
         _require(
             math.isclose(
                 float(expected_reconstruction_weight),
-                approved_weight,
+                approved_reconstruction_weight,
                 rel_tol=0.0,
                 abs_tol=1.0e-12,
             ),
             "requested reconstruction weight disagrees with approved experiment",
+        )
+    if expected_flow_weight is not None:
+        _require(
+            math.isclose(
+                float(expected_flow_weight),
+                approved_flow_weight,
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            ),
+            "requested flow weight disagrees with approved experiment",
         )
     preflight = _validate_preflight(
         run_dir=run_dir,
@@ -1711,14 +1744,21 @@ def verify_smoke(
         dataset_content_aggregate_sha256=identities["dataset_content_aggregate_sha256"],
     )
     gpu_probes = _validate_gpu_probes(run_dir)
-    checkpoint = _validate_checkpoint(run_dir)
-    expect_reconstruction_warmup = experiment.endswith("_warmup10k_s42")
+    checkpoint = _validate_checkpoint(
+        run_dir,
+        reconstruction_weight=approved_reconstruction_weight,
+        flow_weight=approved_flow_weight,
+    )
+    expect_reconstruction_warmup = "warmup10k" in experiment
     if expect_reconstruction_warmup:
         _require(
             checkpoint["loss_schedule"]
             == {
                 "joint_objective_begins_at_global_step": 1,
                 "reconstruction_only_optimizer_steps": 1,
+                "joint_flow_weight": approved_flow_weight,
+                "joint_reconstruction_weight": approved_reconstruction_weight,
+                "joint_action_velocity_weight": 1.0,
                 "schema_version": 1,
             },
             "checkpoint does not preserve the scaled smoke loss schedule",
@@ -1733,6 +1773,7 @@ def verify_smoke(
     metrics = _validate_history(
         rows,
         reconstruction_weight=APPROVED_EXPERIMENTS[experiment][1],
+        flow_weight=APPROVED_EXPERIMENTS[experiment][2],
         expect_reconstruction_warmup=expect_reconstruction_warmup,
     )
     artifacts = _validate_artifacts(
@@ -1793,6 +1834,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-content-manifest-sha256")
     parser.add_argument("--expected-dataset-content-aggregate-sha256")
     parser.add_argument("--expected-reconstruction-weight", type=float)
+    parser.add_argument("--expected-flow-weight", type=float)
     parser.add_argument("--expected-preflight-sha256")
     return parser
 
@@ -1812,6 +1854,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.expected_dataset_content_aggregate_sha256
             ),
             expected_reconstruction_weight=args.expected_reconstruction_weight,
+            expected_flow_weight=args.expected_flow_weight,
             expected_preflight_sha256=args.expected_preflight_sha256,
         )
     except Exception as error:

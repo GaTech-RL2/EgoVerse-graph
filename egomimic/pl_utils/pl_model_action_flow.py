@@ -127,14 +127,14 @@ class ActionFlowModelWrapper(ModelWrapper):
                 raise ValueError("flow_samples_per_content must be a positive integer")
         self.flow_samples_per_content = configured_samples
 
-    def _objective_reconstruction_weight(self) -> float:
-        direct = getattr(self.model, "reconstruction_weight", None)
+    def _objective_weight(self, name: str) -> float:
+        direct = getattr(self.model, name, None)
         if direct is not None:
             return float(direct)
         stages = getattr(getattr(self.model, "pipeline", None), "stages", ())
         weight = next(
             (
-                float(stage.reconstruction_weight)
+                float(getattr(stage, name))
                 for stage in stages
                 if all(
                     hasattr(stage, name)
@@ -148,8 +148,11 @@ class ActionFlowModelWrapper(ModelWrapper):
             None,
         )
         if weight is None:
-            raise RuntimeError("Action Flow reconstruction objective stage is missing")
+            raise RuntimeError(f"Action Flow objective weight {name!r} is missing")
         return weight
+
+    def _objective_reconstruction_weight(self) -> float:
+        return self._objective_weight("reconstruction_weight")
 
     def _apply_reconstruction_only_warmup(
         self,
@@ -586,11 +589,14 @@ class ActionFlowModelWrapper(ModelWrapper):
             "Schedule/ReconstructionOnly", float(reconstruction_only)
         )
         self._log_telemetry(
-            "Schedule/EffectiveFlowWeight", 0.0 if reconstruction_only else 1.0
+            "Schedule/EffectiveFlowWeight",
+            0.0 if reconstruction_only else self._objective_weight("flow_weight"),
         )
         self._log_telemetry(
             "Schedule/EffectiveActionVelocityWeight",
-            0.0 if reconstruction_only else 1.0,
+            0.0
+            if reconstruction_only
+            else self._objective_weight("action_velocity_weight"),
         )
         next_step = int(self.global_step) + 1
         if (
@@ -615,6 +621,13 @@ class ActionFlowModelWrapper(ModelWrapper):
             ),
             "reconstruction_only_optimizer_steps": (
                 self.reconstruction_only_warmup_steps
+            ),
+            "joint_flow_weight": self._objective_weight("flow_weight"),
+            "joint_reconstruction_weight": self._objective_weight(
+                "reconstruction_weight"
+            ),
+            "joint_action_velocity_weight": self._objective_weight(
+                "action_velocity_weight"
             ),
             "schema_version": 1,
         }

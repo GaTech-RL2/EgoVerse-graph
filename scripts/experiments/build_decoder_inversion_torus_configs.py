@@ -27,6 +27,14 @@ def main() -> None:
     parser.add_argument("--max-steps", type=int, default=200_000)
     parser.add_argument("--inversion-steps", type=int, required=True)
     parser.add_argument("--inversion-step-size", type=float, required=True)
+    parser.add_argument(
+        "--training-objective",
+        choices=("endpoint_difference", "conditional_relifting"),
+        default="endpoint_difference",
+    )
+    parser.add_argument(
+        "--wandb-project", default="synthetic-action-flow-decoder-inversion"
+    )
     args = parser.parse_args()
     if args.output_dir.exists():
         raise FileExistsError(args.output_dir)
@@ -38,14 +46,19 @@ def main() -> None:
     args.output_dir.mkdir(parents=True)
 
     configs = []
+    method_label = (
+        "decoder-inversion"
+        if args.training_objective == "endpoint_difference"
+        else "conditional-relifting"
+    )
     for family in ("joint_affine", "nonlinear"):
         label = "affine" if family == "joint_affine" else family
         run_id = (
-            f"gaussian-torus-decoder-inversion-{label}-k{args.inversion_steps}"
+            f"gaussian-torus-{method_label}-{label}-k{args.inversion_steps}"
             f"-h{args.inversion_step_size:g}-seed{args.seed}-v1"
         )
         config = {
-            "variant": f"decoder-inversion-{label}",
+            "variant": f"{method_label}-{label}",
             "seed": args.seed,
             "architecture": "decoder_inversion_flow",
             "dataset": str(args.training_dataset),
@@ -54,6 +67,7 @@ def main() -> None:
             "source_key": "source_gaussian_latent",
             "inversion_steps": args.inversion_steps,
             "inversion_step_size": args.inversion_step_size,
+            "training_objective": args.training_objective,
             "inversion_failure_rmse": 0.1,
             "lambda_scale": 1.0,
             "model": {
@@ -78,7 +92,7 @@ def main() -> None:
             "checkpoint_every": 50_000,
             "wandb": {
                 "entity": "rl2-group",
-                "project": "synthetic-action-flow-decoder-inversion",
+                "project": args.wandb_project,
                 "id": run_id,
                 "name": run_id,
                 "resume": "never",
@@ -91,13 +105,14 @@ def main() -> None:
 
     manifest = {
         "schema_version": 1,
-        "task": "torus decoder-inversion Action Flow trial",
+        "task": f"torus {method_label} Action Flow trial",
         "seed": args.seed,
         "max_steps": args.max_steps,
         "inversion": {
             "steps": args.inversion_steps,
             "step_size": args.inversion_step_size,
         },
+        "training_objective": args.training_objective,
         "variants": ["affine", "nonlinear"],
         "primary_metric": "validation_generation_symmetric_nn_mse",
         "controls": {

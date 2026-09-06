@@ -18,6 +18,7 @@ class SyntheticDecoderInversionFlow(nn.Module):
     """Shared latent field trained through an unrolled private-decoder search."""
 
     _DECODER_FAMILIES = {"joint_affine", "nonlinear"}
+    _TRAINING_OBJECTIVES = {"endpoint_difference", "conditional_relifting"}
 
     def __init__(
         self,
@@ -138,9 +139,13 @@ class SyntheticDecoderInversionFlow(nn.Module):
         noise: torch.Tensor | None = None,
         time: torch.Tensor | None = None,
         initialization: torch.Tensor | None = None,
+        relift_initialization: torch.Tensor | None = None,
+        training_objective: str = "endpoint_difference",
     ) -> dict[str, torch.Tensor]:
         if flow_samples <= 0:
             raise ValueError("flow_samples must be positive")
+        if training_objective not in self._TRAINING_OBJECTIVES:
+            raise ValueError(f"unknown training objective: {training_objective}")
         flow_noise = torch.randn(len(action), self.latent_dim, device=action.device)
         if noise is not None:
             if noise.shape != flow_noise.shape:
@@ -163,9 +168,35 @@ class SyntheticDecoderInversionFlow(nn.Module):
         if time.shape != (len(clean_many), 1):
             raise ValueError("time does not match the expanded action batch")
         state = (1.0 - time) * clean_many + time * noise_many
-        predicted_action_velocity = self.decoder_jvp(state, self.velocity(state, time))
-        endpoint_difference = self.decoder(noise_many) - action_many
-        action_loss = (predicted_action_velocity - endpoint_difference).square().mean()
+        if training_objective == "endpoint_difference":
+            predicted_action_velocity = self.decoder_jvp(
+                state, self.velocity(state, time)
+            )
+            target_action_velocity = self.decoder(noise_many) - action_many
+            relift_metrics = {}
+        else:
+            reference_action = self.decoder(state)
+            target_action_velocity = self.decoder_jvp(
+                state, noise_many - clean_many
+            )
+            if relift_initialization is None:
+                relift_initialization = torch.randn_like(state)
+            relifted, relift_metrics = self.infer_codes(
+                reference_action,
+                relift_initialization,
+                steps=inversion_steps,
+                step_size=inversion_step_size,
+                create_graph=True,
+            )
+            relift_metrics = {
+                f"relift_{key}": value for key, value in relift_metrics.items()
+            }
+            predicted_action_velocity = self.decoder_jvp(
+                relifted, self.velocity(relifted, time)
+            )
+        action_loss = (
+            predicted_action_velocity - target_action_velocity
+        ).square().mean()
         scale_loss = self.scale_loss(flow_noise)
         zero = torch.zeros((), device=action.device, dtype=action.dtype)
         return {
@@ -176,4 +207,5 @@ class SyntheticDecoderInversionFlow(nn.Module):
             "path_loss": zero,
             "action_velocity_loss": action_loss,
             **inversion,
+            **relift_metrics,
         }

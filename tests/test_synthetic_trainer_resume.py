@@ -189,8 +189,11 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(
 
 
 @pytest.mark.parametrize("decoder_family", ("joint_affine", "nonlinear"))
+@pytest.mark.parametrize(
+    "training_objective", ("endpoint_difference", "conditional_relifting")
+)
 def test_decoder_inversion_training_has_real_inversion_diagnostics(
-    tmp_path, decoder_family
+    tmp_path, decoder_family, training_objective
 ):
     source = Path(__file__).parents[1]
     dataset = tmp_path / "dataset.npz"
@@ -202,8 +205,10 @@ def test_decoder_inversion_training_has_real_inversion_diagnostics(
         target_3d=rng.normal(size=(40, 3)).astype(np.float32),
         split=split,
     )
-    output = tmp_path / f"decoder-inversion-{decoder_family}"
-    config_path = tmp_path / f"decoder-inversion-{decoder_family}.json"
+    output = tmp_path / f"decoder-inversion-{decoder_family}-{training_objective}"
+    config_path = tmp_path / (
+        f"decoder-inversion-{decoder_family}-{training_objective}.json"
+    )
     config = {
         "architecture": "decoder_inversion_flow",
         "seed": 42,
@@ -223,6 +228,7 @@ def test_decoder_inversion_training_has_real_inversion_diagnostics(
         "flow_samples": 2,
         "inversion_steps": 2,
         "inversion_step_size": 0.5,
+        "training_objective": training_objective,
         "inversion_failure_rmse": 0.1,
         "lambda_scale": 1.0,
         "learning_rate": 0.0003,
@@ -251,3 +257,11 @@ def test_decoder_inversion_training_has_real_inversion_diagnostics(
         summary["validation_inversion_after_mse"]
         <= summary["validation_inversion_before_mse"]
     )
+    if training_objective == "conditional_relifting":
+        for key in (
+            "validation_relift_inversion_after_mse",
+            "validation_relift_inversion_failure_rate",
+            "validation_relift_velocity_disagreement_mse",
+            "validation_relift_code_pair_rms",
+        ):
+            assert np.isfinite(summary[key])

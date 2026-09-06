@@ -68,6 +68,49 @@ class SyntheticTrajectoryEval:
         return (points[:, 2] - expected_height).square().mean().sqrt()
 
     @staticmethod
+    def sphere_surface_rmse(points: torch.Tensor, *, radius: float) -> torch.Tensor:
+        """Euclidean RMSE to a sphere centered at the origin."""
+        if radius <= 0:
+            raise ValueError("sphere radius must be positive")
+        return (points.norm(dim=-1) - radius).square().mean().sqrt()
+
+    @staticmethod
+    def cube_surface_rmse(
+        points: torch.Tensor, *, half_extent: float
+    ) -> torch.Tensor:
+        """Euclidean RMSE to the boundary of an axis-aligned cube."""
+        if half_extent <= 0:
+            raise ValueError("cube half-extent must be positive")
+        absolute = points.abs()
+        excess = torch.clamp(absolute - half_extent, min=0.0)
+        outside_distance = excess.square().sum(dim=-1).sqrt()
+        inside_distance = half_extent - absolute.max(dim=-1).values
+        distance = torch.where(
+            (excess > 0).any(dim=-1), outside_distance, inside_distance
+        )
+        return distance.square().mean().sqrt()
+
+    @classmethod
+    def analytic_surface_rmse(
+        cls, points: torch.Tensor, specification: dict
+    ) -> torch.Tensor:
+        """Dispatch an explicit analytic surface-distance specification."""
+        kind = specification.get("kind")
+        if kind == "paraboloid":
+            return cls.paraboloid_surface_rmse(
+                points, curvature=float(specification["curvature"])
+            )
+        if kind == "sphere":
+            return cls.sphere_surface_rmse(
+                points, radius=float(specification["radius"])
+            )
+        if kind == "cube":
+            return cls.cube_surface_rmse(
+                points, half_extent=float(specification["half_extent"])
+            )
+        raise ValueError(f"unknown analytic surface kind: {kind}")
+
+    @staticmethod
     def torus_angular_coverage(
         samples: torch.Tensor,
         targets: torch.Tensor,

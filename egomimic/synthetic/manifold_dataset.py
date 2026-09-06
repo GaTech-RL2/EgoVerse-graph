@@ -41,6 +41,15 @@ class GaussianSphereCubeBatch:
     cube_target_3d: torch.Tensor
 
 
+@dataclass(frozen=True)
+class GaussianCheckerboardBatch:
+    source_gaussian_latent: torch.Tensor
+    target_2d: torch.Tensor
+    mode_indices: torch.Tensor
+    mode_centers: torch.Tensor
+    mode_weights: torch.Tensor
+
+
 def _independent_gaussian(
     count: int, dimension: int, seed: int, dtype: torch.dtype
 ) -> torch.Tensor:
@@ -223,6 +232,60 @@ def generate_gaussian_sphere_cube(
         surface_uniform,
         sphere_target_3d,
         cube_target_3d,
+    )
+
+
+def generate_gaussian_checkerboard(
+    count: int,
+    *,
+    seed: int = 42,
+    source_dim: int = 8,
+    cluster_std: float = 0.12,
+    dtype: torch.dtype = torch.float32,
+) -> GaussianCheckerboardBatch:
+    """Generate an asymmetric, disconnected 2D checkerboard mixture.
+
+    Eight Gaussian islands occupy alternating cells of a 4x4 grid. Unequal
+    probabilities make mode-weight preservation observable rather than testing
+    support coverage alone. Source noise is drawn from an independent RNG.
+    """
+    if count <= 0:
+        raise ValueError("count must be positive")
+    if source_dim < 2:
+        raise ValueError("source_dim must be at least 2")
+    if cluster_std <= 0:
+        raise ValueError("cluster_std must be positive")
+    centers = torch.tensor(
+        [
+            [-2.25, -2.25],
+            [0.75, -2.25],
+            [-0.75, -0.75],
+            [2.25, -0.75],
+            [-2.25, 0.75],
+            [0.75, 0.75],
+            [-0.75, 2.25],
+            [2.25, 2.25],
+        ],
+        dtype=dtype,
+    )
+    weights = torch.tensor(
+        [0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.18, 0.22], dtype=dtype
+    )
+    generator = torch.Generator(device="cpu").manual_seed(int(seed))
+    mode_indices = torch.multinomial(
+        weights, count, replacement=True, generator=generator
+    )
+    jitter = torch.randn((count, 2), generator=generator, dtype=dtype)
+    target_2d = centers[mode_indices] + float(cluster_std) * jitter
+    source_gaussian_latent = _independent_gaussian(
+        count, source_dim, seed, dtype
+    )
+    return GaussianCheckerboardBatch(
+        source_gaussian_latent,
+        target_2d,
+        mode_indices,
+        centers,
+        weights,
     )
 
 

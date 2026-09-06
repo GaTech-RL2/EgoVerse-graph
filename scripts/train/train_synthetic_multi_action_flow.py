@@ -25,11 +25,13 @@ from egomimic.synthetic.multi_action_adapter_flow import (
 from scripts.train.train_synthetic_manifold import energy_distance
 
 
-def _load_dataset(path: str | Path, source_key: str) -> dict[str, torch.Tensor]:
+def _load_dataset(
+    path: str | Path, source_key: str, target_key: str
+) -> dict[str, torch.Tensor]:
     archive = np.load(path, allow_pickle=False)
     return {
         "source": torch.from_numpy(archive[source_key]).float(),
-        "target": torch.from_numpy(archive["target_3d"]).float(),
+        "target": torch.from_numpy(archive[target_key]).float(),
         "train_indices": torch.from_numpy(
             np.flatnonzero(archive["split"] == 0)
         ).long(),
@@ -46,7 +48,7 @@ def _export_trajectory(
     steps: int,
 ) -> torch.Tensor:
     trajectory = model.trajectory(source, embodiment=embodiment, steps=steps)
-    expected = (steps + 1, len(target), 3)
+    expected = (steps + 1, len(target), target.shape[-1])
     if tuple(trajectory.shape) != expected or not bool(torch.isfinite(trajectory).all()):
         raise RuntimeError(f"invalid {embodiment} trajectory: {tuple(trajectory.shape)}")
     np.savez_compressed(
@@ -80,14 +82,20 @@ def main() -> None:
         raise ValueError("dataset order must exactly match model embodiments")
     if set(evaluation_paths) != set(names):
         raise ValueError("evaluation datasets must match training embodiments")
+    target_keys = config.get("target_keys", {name: "target_3d" for name in names})
+    if set(target_keys) != set(names):
+        raise ValueError("target_keys must exactly match training embodiments")
     datasets = {
-        name: _load_dataset(path, source_key) for name, path in dataset_paths.items()
+        name: _load_dataset(path, source_key, target_keys[name])
+        for name, path in dataset_paths.items()
     }
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SyntheticMultiActionAdapterFlow(**config["model"]).to(device)
     for name, dataset in datasets.items():
         if dataset["source"].shape[-1] != model.latent_dim:
             raise ValueError(f"{name} source width does not match latent_dim")
+        if dataset["target"].shape[-1] != model.action_dims[name]:
+            raise ValueError(f"{name} target width does not match action_dims")
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"])
     generator = torch.Generator().manual_seed(seed + 2)
     wandb_run = None
@@ -178,10 +186,16 @@ def main() -> None:
         ),
         "embodiments": {},
     }
-    with torch.inference_mode():
+    # Use no_grad for ordinary validation, but keep autograd re-enableable for
+    # decoder Jacobian diagnostics. inference_mode would silently make jacrev
+    # report zero Jacobians even for the initialized identity projection.
+    with torch.no_grad():
         for name in names:
             source, target = SyntheticTrajectoryEval.load_validation_data(
-                evaluation_paths[name], source_key, int(config["evaluation_particles"])
+                evaluation_paths[name],
+                source_key,
+                int(config["evaluation_particles"]),
+                target_keys[name],
             )
             source, target = source.to(device), target.to(device)
             reconstruction = model.decode(name, model.encode(name, target))
@@ -194,19 +208,19 @@ def main() -> None:
                 steps=int(config["inference_steps"]),
             )
             generated = trajectory[-1]
-            if "surface_specs" in config:
+            surface_spec = None
+            if "surface_specs" in config and name in config["surface_specs"]:
                 surface_spec = config["surface_specs"][name]
-            else:
+            elif "curvatures" in config:
                 surface_spec = {
                     "kind": "paraboloid",
                     "curvature": float(config["curvatures"][name]),
                 }
-            surface_kind = surface_spec["kind"]
-            singular_values = model.decoder_jacobian_singular_values(
-                name, source[:128]
-            )
+            with torch.enable_grad():
+                singular_values = model.decoder_jacobian_singular_values(
+                    name, source[:128]
+                )
             embodiment_summary = {
-                "surface_spec": surface_spec,
                 "validation_generation_energy_distance": float(
                     energy_distance(generated, target)
                 ),
@@ -217,11 +231,6 @@ def main() -> None:
                 ),
                 "validation_reconstruction_mse": float(
                     (reconstruction - target).square().mean()
-                ),
-                "validation_surface_rmse": float(
-                    SyntheticTrajectoryEval.analytic_surface_rmse(
-                        generated, surface_spec
-                    )
                 ),
                 "validation_latent_code_rms": float(
                     model.encode(name, target).square().mean().sqrt()
@@ -236,11 +245,36 @@ def main() -> None:
                     singular_values.max()
                 ),
             }
-            embodiment_summary[f"validation_{surface_kind}_surface_rmse"] = (
-                embodiment_summary["validation_surface_rmse"]
-            )
-            if surface_kind == "paraboloid":
-                embodiment_summary["curvature"] = float(surface_spec["curvature"])
+            if surface_spec is not None:
+                embodiment_summary["surface_spec"] = surface_spec
+                surface_kind = surface_spec["kind"]
+                if surface_kind == "checkerboard_gaussian_mixture":
+                    centers = torch.tensor(
+                        surface_spec["centers"], device=device, dtype=generated.dtype
+                    )
+                    mode_metrics = SyntheticTrajectoryEval.checkerboard_mode_metrics(
+                        generated, target, centers=centers
+                    )
+                    embodiment_summary.update(
+                        {
+                            f"validation_{key}": float(value)
+                            for key, value in mode_metrics.items()
+                        }
+                    )
+                else:
+                    surface_rmse = float(
+                        SyntheticTrajectoryEval.analytic_surface_rmse(
+                            generated, surface_spec
+                        )
+                    )
+                    embodiment_summary["validation_surface_rmse"] = surface_rmse
+                    embodiment_summary[
+                        f"validation_{surface_kind}_surface_rmse"
+                    ] = surface_rmse
+                    if surface_kind == "paraboloid":
+                        embodiment_summary["curvature"] = float(
+                            surface_spec["curvature"]
+                        )
             summary["embodiments"][name] = embodiment_summary
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     if wandb_run is not None:

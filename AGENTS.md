@@ -1,7 +1,10 @@
 # Repo Agent Rules
 
 ## Shell / Command Execution
-to run commands in the interactive shell make sure to source emimic/bin/activate
+To run commands in the interactive shell, source `emimic/bin/activate` when it
+exists. In worktrees where `emimic` is absent and the checked project
+environment is `.venv`, source `.venv/bin/activate` instead; verify the selected
+activation file exists before running project Python tooling.
 
 Apply this before running project Python tooling (for example: `python`, `pytest`, `pip`).
 

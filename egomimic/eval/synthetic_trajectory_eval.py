@@ -47,6 +47,105 @@ class SyntheticTrajectoryEval:
         return 0.5 * (sample_to_target + target_to_sample)
 
     @staticmethod
+    def torus_surface_rmse(
+        points: torch.Tensor, *, major_radius: float, minor_radius: float
+    ) -> torch.Tensor:
+        """Radial RMSE to the analytic torus surface."""
+        cylindrical_radius = points[:, :2].square().sum(dim=-1).sqrt()
+        tube_radius = torch.sqrt(
+            (cylindrical_radius - major_radius).square() + points[:, 2].square()
+        )
+        return (tube_radius - minor_radius).square().mean().sqrt()
+
+    @staticmethod
+    def paraboloid_surface_rmse(
+        points: torch.Tensor, *, curvature: float
+    ) -> torch.Tensor:
+        """Vertical RMSE to ``z = curvature * (x**2 + y**2)``."""
+        if curvature <= 0:
+            raise ValueError("paraboloid curvature must be positive")
+        expected_height = curvature * points[:, :2].square().sum(dim=-1)
+        return (points[:, 2] - expected_height).square().mean().sqrt()
+
+    @staticmethod
+    def sphere_surface_rmse(points: torch.Tensor, *, radius: float) -> torch.Tensor:
+        """Euclidean RMSE to a sphere centered at the origin."""
+        if radius <= 0:
+            raise ValueError("sphere radius must be positive")
+        return (points.norm(dim=-1) - radius).square().mean().sqrt()
+
+    @staticmethod
+    def cube_surface_rmse(
+        points: torch.Tensor, *, half_extent: float
+    ) -> torch.Tensor:
+        """Euclidean RMSE to the boundary of an axis-aligned cube."""
+        if half_extent <= 0:
+            raise ValueError("cube half-extent must be positive")
+        absolute = points.abs()
+        excess = torch.clamp(absolute - half_extent, min=0.0)
+        outside_distance = excess.square().sum(dim=-1).sqrt()
+        inside_distance = half_extent - absolute.max(dim=-1).values
+        distance = torch.where(
+            (excess > 0).any(dim=-1), outside_distance, inside_distance
+        )
+        return distance.square().mean().sqrt()
+
+    @classmethod
+    def analytic_surface_rmse(
+        cls, points: torch.Tensor, specification: dict
+    ) -> torch.Tensor:
+        """Dispatch an explicit analytic surface-distance specification."""
+        kind = specification.get("kind")
+        if kind == "paraboloid":
+            return cls.paraboloid_surface_rmse(
+                points, curvature=float(specification["curvature"])
+            )
+        if kind == "sphere":
+            return cls.sphere_surface_rmse(
+                points, radius=float(specification["radius"])
+            )
+        if kind == "cube":
+            return cls.cube_surface_rmse(
+                points, half_extent=float(specification["half_extent"])
+            )
+        raise ValueError(f"unknown analytic surface kind: {kind}")
+
+    @staticmethod
+    def torus_angular_coverage(
+        samples: torch.Tensor,
+        targets: torch.Tensor,
+        *,
+        bins: int,
+        major_radius: float = 2.0,
+    ) -> dict[str, torch.Tensor]:
+        """Compare torus angular histograms and occupied target support."""
+        if bins <= 1:
+            raise ValueError("angular coverage requires at least two bins")
+
+        def indices(points: torch.Tensor) -> torch.Tensor:
+            radial = points[:, :2].square().sum(dim=-1).sqrt()
+            theta = torch.atan2(points[:, 1], points[:, 0]).remainder(2 * torch.pi)
+            phi = torch.atan2(points[:, 2], radial - major_radius).remainder(
+                2 * torch.pi
+            )
+            theta_bin = torch.clamp(
+                (theta / (2 * torch.pi) * bins).long(), max=bins - 1
+            )
+            phi_bin = torch.clamp((phi / (2 * torch.pi) * bins).long(), max=bins - 1)
+            return theta_bin * bins + phi_bin
+
+        sample_hist = torch.bincount(indices(samples), minlength=bins * bins).float()
+        target_hist = torch.bincount(indices(targets), minlength=bins * bins).float()
+        sample_hist = sample_hist / sample_hist.sum().clamp_min(1)
+        target_hist = target_hist / target_hist.sum().clamp_min(1)
+        target_support = target_hist > 0
+        covered = (sample_hist > 0) & target_support
+        return {
+            "angular_histogram_l1": (sample_hist - target_hist).abs().sum(),
+            "angular_support_recall": covered.sum() / target_support.sum().clamp_min(1),
+        }
+
+    @staticmethod
     @torch.inference_mode()
     def evaluate(model, source: torch.Tensor, target: torch.Tensor, *, steps: int):
         points = model.trajectory(source, steps=steps)

@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 @dataclass(frozen=True)
 class GaussianTorusBatch:
     source_latent: torch.Tensor
+    source_gaussian_latent: torch.Tensor
     source_2d: torch.Tensor
     source_3d: torch.Tensor
     source_gaussian_3d: torch.Tensor
@@ -22,17 +23,40 @@ class GaussianTorusBatch:
 @dataclass(frozen=True)
 class GaussianParaboloidBatch:
     source_latent: torch.Tensor
+    source_gaussian_latent: torch.Tensor
     source_2d: torch.Tensor
     source_3d: torch.Tensor
     source_gaussian_3d: torch.Tensor
     target_3d: torch.Tensor
 
 
-def _independent_gaussian_3d(
-    count: int, seed: int, dtype: torch.dtype
+@dataclass(frozen=True)
+class GaussianSphereCubeBatch:
+    source_latent: torch.Tensor
+    source_gaussian_latent: torch.Tensor
+    source_3d: torch.Tensor
+    source_gaussian_3d: torch.Tensor
+    surface_uniform: torch.Tensor
+    sphere_target_3d: torch.Tensor
+    cube_target_3d: torch.Tensor
+
+
+def _independent_gaussian(
+    count: int, dimension: int, seed: int, dtype: torch.dtype
 ) -> torch.Tensor:
     generator = torch.Generator(device="cpu").manual_seed(int(seed) + 10_000)
-    return torch.randn((count, 3), generator=generator, dtype=dtype)
+    return torch.randn((count, dimension), generator=generator, dtype=dtype)
+
+
+def _independent_gaussian_pair(
+    count: int, latent_dim: int, seed: int, dtype: torch.dtype
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return matching 3D and latent noise with identical first coordinates."""
+    noise_3d = _independent_gaussian(count, 3, seed, dtype)
+    if latent_dim <= 3:
+        return noise_3d, noise_3d[:, :latent_dim]
+    extra = _independent_gaussian(count, latent_dim - 3, seed + 10_000, dtype)
+    return noise_3d, torch.cat((noise_3d, extra), dim=-1)
 
 
 def generate_gaussian_torus(
@@ -73,11 +97,15 @@ def generate_gaussian_torus(
         (tube * theta.cos(), tube * theta.sin(), minor_radius * phi.sin()), dim=-1
     )
     source_3d = torch.nn.functional.pad(source_2d, (0, 1))
+    source_gaussian_3d, source_gaussian_latent = _independent_gaussian_pair(
+        count, source_dim, seed, dtype
+    )
     return GaussianTorusBatch(
         source_latent,
+        source_gaussian_latent,
         source_2d,
         source_3d,
-        _independent_gaussian_3d(count, seed, dtype),
+        source_gaussian_3d,
         target_3d,
         angles,
     )
@@ -116,12 +144,85 @@ def generate_gaussian_paraboloid(
     source_3d = torch.nn.functional.pad(source_2d, (0, 1))
     height = curvature * source_2d.square().sum(dim=-1, keepdim=True)
     target_3d = torch.cat((source_2d, height), dim=-1)
+    source_gaussian_3d, source_gaussian_latent = _independent_gaussian_pair(
+        count, source_dim, seed, dtype
+    )
     return GaussianParaboloidBatch(
         source_latent,
+        source_gaussian_latent,
         source_2d,
         source_3d,
-        _independent_gaussian_3d(count, seed, dtype),
+        source_gaussian_3d,
         target_3d,
+    )
+
+
+def generate_gaussian_sphere_cube(
+    count: int,
+    *,
+    seed: int = 42,
+    sphere_radius: float = 2.0,
+    cube_half_extent: float = math.sqrt(12.0 / 5.0),
+    source_dim: int = 8,
+    dtype: torch.dtype = torch.float32,
+) -> GaussianSphereCubeBatch:
+    """Generate matched uniform sphere- and cube-surface distributions.
+
+    The sphere and cube use the same three base Gaussian coordinates after a
+    standard-normal CDF transform. The cube face and its two within-face
+    coordinates are uniform, so all six equal-area faces receive equal mass.
+    ``cube_half_extent=sphere_radius*sqrt(3/5)`` matches expected squared
+    distance from the origin across the two surface distributions.
+    """
+    if count <= 0:
+        raise ValueError("count must be positive")
+    if source_dim < 3:
+        raise ValueError("source_dim must be at least 3")
+    if sphere_radius <= 0 or cube_half_extent <= 0:
+        raise ValueError("surface scales must be positive")
+    generator = torch.Generator(device="cpu").manual_seed(int(seed))
+    source_latent = torch.randn((count, source_dim), generator=generator, dtype=dtype)
+    source_3d = source_latent[:, :3]
+    surface_uniform = 0.5 * (
+        1.0 + torch.erf(source_latent[:, :3] / math.sqrt(2.0))
+    )
+
+    sphere_z = 1.0 - 2.0 * surface_uniform[:, 0]
+    sphere_phi = 2.0 * math.pi * surface_uniform[:, 1]
+    sphere_xy_radius = torch.sqrt(torch.clamp(1.0 - sphere_z.square(), min=0.0))
+    sphere_target_3d = sphere_radius * torch.stack(
+        (
+            sphere_xy_radius * sphere_phi.cos(),
+            sphere_xy_radius * sphere_phi.sin(),
+            sphere_z,
+        ),
+        dim=-1,
+    )
+
+    face_coordinate = torch.clamp(surface_uniform[:, 0] * 6.0, max=6.0 - 1e-6)
+    face = face_coordinate.long()
+    axis = torch.div(face, 2, rounding_mode="floor")
+    sign = torch.where(face.remainder(2) == 0, -1.0, 1.0).to(dtype)
+    free_coordinates = cube_half_extent * (2.0 * surface_uniform[:, 1:3] - 1.0)
+    cube_target_3d = torch.empty((count, 3), dtype=dtype)
+    for fixed_axis in range(3):
+        mask = axis == fixed_axis
+        remaining = [index for index in range(3) if index != fixed_axis]
+        cube_target_3d[mask, fixed_axis] = cube_half_extent * sign[mask]
+        cube_target_3d[mask, remaining[0]] = free_coordinates[mask, 0]
+        cube_target_3d[mask, remaining[1]] = free_coordinates[mask, 1]
+
+    source_gaussian_3d, source_gaussian_latent = _independent_gaussian_pair(
+        count, source_dim, seed, dtype
+    )
+    return GaussianSphereCubeBatch(
+        source_latent,
+        source_gaussian_latent,
+        source_3d,
+        source_gaussian_3d,
+        surface_uniform,
+        sphere_target_3d,
+        cube_target_3d,
     )
 
 
@@ -137,6 +238,7 @@ class GaussianTorusDataset(Dataset):
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         return {
             "source_latent": self.data.source_latent[index],
+            "source_gaussian_latent": self.data.source_gaussian_latent[index],
             "source_2d": self.data.source_2d[index],
             "source_3d": self.data.source_3d[index],
             "source_gaussian_3d": self.data.source_gaussian_3d[index],
@@ -167,6 +269,7 @@ class GaussianParaboloidDataset(Dataset):
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         return {
             "source_latent": self.data.source_latent[index],
+            "source_gaussian_latent": self.data.source_gaussian_latent[index],
             "source_2d": self.data.source_2d[index],
             "source_3d": self.data.source_3d[index],
             "source_gaussian_3d": self.data.source_gaussian_3d[index],

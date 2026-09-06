@@ -3,9 +3,17 @@ import pytest
 import torch
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
+from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
+from egomimic.synthetic.multi_action_adapter_flow import (
+    SyntheticMultiActionAdapterFlow,
+)
 from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
+)
+from scripts.eval.export_synthetic_trajectory_npz import (
+    _EmbodimentTrajectoryView,
+    resolve_device,
 )
 
 
@@ -14,6 +22,10 @@ def test_shared_eval_exports_same_npz_contract_for_both_model_families(tmp_path)
     models_and_sources = (
         (SyntheticSharedLatentFlow(latent_dim=2), torch.randn(7, 2)),
         (SyntheticDirectFlow(data_dim=3), torch.randn(7, 3)),
+        (
+            SyntheticActionAdapterFlow(latent_dim=8, adapter_family="fixed_affine"),
+            torch.randn(7, 8),
+        ),
     )
     for index, (model, source) in enumerate(models_and_sources):
         output = tmp_path / f"trajectory-{index}.npz"
@@ -65,3 +77,44 @@ def test_symmetric_nearest_neighbor_mse_checks_both_directions():
         collapsed, targets
     )
     assert collapsed_loss > 0
+
+
+def test_torus_metrics_are_exact_on_uniform_surface_samples():
+    theta = torch.linspace(0, 2 * torch.pi, 32)[:-1]
+    phi = torch.linspace(0, 2 * torch.pi, 32)[:-1]
+    theta, phi = torch.meshgrid(theta, phi, indexing="ij")
+    tube = 2.0 + 0.65 * phi.cos()
+    points = torch.stack(
+        (tube * theta.cos(), tube * theta.sin(), 0.65 * phi.sin()), dim=-1
+    ).reshape(-1, 3)
+    torch.testing.assert_close(
+        SyntheticTrajectoryEval.torus_surface_rmse(
+            points, major_radius=2.0, minor_radius=0.65
+        ),
+        torch.tensor(0.0),
+        atol=2e-7,
+        rtol=0,
+    )
+    coverage = SyntheticTrajectoryEval.torus_angular_coverage(points, points, bins=8)
+    torch.testing.assert_close(coverage["angular_histogram_l1"], torch.tensor(0.0))
+    torch.testing.assert_close(coverage["angular_support_recall"], torch.tensor(1.0))
+
+
+def test_trajectory_export_device_resolution_rejects_missing_cuda(monkeypatch):
+    assert resolve_device("cpu") == torch.device("cpu")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    assert resolve_device("auto") == torch.device("cpu")
+    with pytest.raises(RuntimeError, match="CUDA was requested"):
+        resolve_device("cuda")
+
+
+def test_multi_action_trajectory_view_selects_private_decoder():
+    model = SyntheticMultiActionAdapterFlow(
+        embodiments=["shallow", "steep"], field_width=8, field_depth=1
+    )
+    source = torch.randn(5, 8)
+    view = _EmbodimentTrajectoryView(model, "steep")
+    torch.testing.assert_close(
+        view.trajectory(source, steps=2),
+        model.trajectory(source, embodiment="steep", steps=2),
+    )

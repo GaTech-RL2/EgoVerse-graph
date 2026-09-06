@@ -145,4 +145,6 @@ def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():
     assert 'payload["status"] == "DATASET_VALIDATED"' in source
     assert "'~logger'" in source
     assert "logger=null" not in source
-    assert "+logger.wandb.offline=false" in source
+    assert "++logger.wandb.offline=false" in source
+    assert "++logger.wandb.name=$AF_WANDB_NAME" in source
+    assert "++logger.wandb.resume=allow" in source

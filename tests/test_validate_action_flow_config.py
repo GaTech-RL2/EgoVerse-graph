@@ -111,6 +111,20 @@ def test_pair_diff_is_only_the_declared_reconstruction_setting():
     } == {1.0, 10.0}
 
 
+def test_recon100_diff_is_only_the_declared_reconstruction_setting():
+    report = preflight.validate_pair(
+        "pusht/action_flow_bc_usocket_recon1_s42",
+        "pusht/action_flow_bc_usocket_recon100_s42",
+        config_root=CONFIG_ROOT,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["comparison"]["only_declared_reconstruction_differences"] is True
+    assert {
+        item["objective"]["reconstruction_weight"] for item in report["experiments"]
+    } == {1.0, 100.0}
+
+
 @pytest.mark.parametrize(
     ("path", "value", "message"),
     [

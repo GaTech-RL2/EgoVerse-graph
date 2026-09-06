@@ -94,8 +94,17 @@ case "$AF_EXPERIMENT" in
   pusht/action_flow_bc_usocket_recon10_s42)
     AF_RECONSTRUCTION_WEIGHT=10
     ;;
-  *) die "AF_EXPERIMENT must select the approved recon-1 or recon-10 config" ;;
+  pusht/action_flow_bc_usocket_recon100_s42)
+    AF_RECONSTRUCTION_WEIGHT=100
+    ;;
+  *) die "AF_EXPERIMENT must select an approved recon-1, recon-10, or recon-100 config" ;;
 esac
+
+if test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
+  AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_recon10_s42
+else
+  AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_recon1_s42
+fi
 
 [[ "$AF_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || \
   die "AF_EXPECTED_HEAD must be a full lowercase commit"
@@ -359,8 +368,8 @@ PY
   (
     cd "$AF_REPO"
     "$AF_PYTHON" "$AF_CONFIG_VALIDATOR" \
-      --experiment pusht/action_flow_bc_usocket_recon1_s42 \
-      --compare-experiment pusht/action_flow_bc_usocket_recon10_s42 \
+      --experiment "$AF_EXPERIMENT" \
+      --compare-experiment "$AF_COMPARISON_EXPERIMENT" \
       --output "$AF_OUTPUT_DIR/action_flow_pair_preflight.json"
     HYDRA_FULL_ERROR=1 "$AF_PYTHON" -m egomimic.trainHydra \
       "${BASE_OVERRIDES[@]}" --cfg job --resolve \

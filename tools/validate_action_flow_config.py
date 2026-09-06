@@ -367,8 +367,8 @@ def _validate_dimensions_and_modules(
         "reconstruction weight",
     )
     _require(
-        float(config.model.reconstruction_weight) in {1.0, 10.0},
-        "initial reconstruction weight must be exactly 1 or 10",
+        float(config.model.reconstruction_weight) in {1.0, 10.0, 100.0},
+        "reconstruction weight must be exactly 1, 10, or 100",
     )
 
     parameters = {
@@ -1035,13 +1035,14 @@ def validate_pair(
         ALLOWED_PAIR_DIFFERENCES,
         "paired experiment differences",
     )
-    _exact(
-        {
-            first["objective"]["reconstruction_weight"],
-            second["objective"]["reconstruction_weight"],
-        },
-        {1.0, 10.0},
-        "paired reconstruction weights",
+    paired_weights = {
+        first["objective"]["reconstruction_weight"],
+        second["objective"]["reconstruction_weight"],
+    }
+    _require(len(paired_weights) == 2, "paired reconstruction weights must differ")
+    _require(
+        paired_weights <= {1.0, 10.0, 100.0},
+        "paired reconstruction weights must be approved",
     )
     return {
         "comparison": {

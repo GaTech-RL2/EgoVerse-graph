@@ -31,7 +31,7 @@ HEAD = "a" * 40
 
 
 def _resolved_smoke_config(tmp_path: Path, *, reconstruction_weight: float = 1.0):
-    suffix = "1" if reconstruction_weight == 1.0 else "10"
+    suffix = {1.0: "1", 10.0: "10", 100.0: "100"}[reconstruction_weight]
     experiment = f"pusht/action_flow_bc_usocket_recon{suffix}_s42"
     cfg = compose_experiment(experiment)
     run_dir = tmp_path / "run"

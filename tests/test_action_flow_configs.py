@@ -45,6 +45,7 @@ def test_action_only_adapter_preserves_native_state_and_encodes_target_angle():
     [
         ("action_flow_bc_usocket_recon1_s42", 1.0),
         ("action_flow_bc_usocket_recon10_s42", 10.0),
+        ("action_flow_bc_usocket_recon100_s42", 100.0),
     ],
 )
 def test_action_flow_pair_composes_to_exact_shared_contract(
@@ -189,16 +190,18 @@ def test_action_flow_pair_composes_to_exact_shared_contract(
     assert not any(token in yaml for token in forbidden)
 
 
-def test_only_reconstruction_weight_differs_between_initial_pair():
-    left = _compose("action_flow_bc_usocket_recon1_s42")
-    right = _compose("action_flow_bc_usocket_recon10_s42")
-    left_model = OmegaConf.to_container(left.model, resolve=True)
-    right_model = OmegaConf.to_container(right.model, resolve=True)
-
-    assert left_model["reconstruction_weight"] == 1.0
-    assert right_model["reconstruction_weight"] == 10.0
-    left_model["reconstruction_weight"] = right_model["reconstruction_weight"]
-    left_model["pipeline"]["stages"][-1]["reconstruction_weight"] = right_model[
-        "pipeline"
-    ]["stages"][-1]["reconstruction_weight"]
-    assert left_model == right_model
+def test_only_reconstruction_weight_differs_across_sweep():
+    reference = OmegaConf.to_container(
+        _compose("action_flow_bc_usocket_recon1_s42").model, resolve=True
+    )
+    for suffix, expected_weight in (("10", 10.0), ("100", 100.0)):
+        candidate = OmegaConf.to_container(
+            _compose(f"action_flow_bc_usocket_recon{suffix}_s42").model,
+            resolve=True,
+        )
+        assert candidate["reconstruction_weight"] == expected_weight
+        candidate["reconstruction_weight"] = reference["reconstruction_weight"]
+        candidate["pipeline"]["stages"][-1]["reconstruction_weight"] = reference[
+            "pipeline"
+        ]["stages"][-1]["reconstruction_weight"]
+        assert candidate == reference

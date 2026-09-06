@@ -56,6 +56,10 @@ APPROVED_EXPERIMENTS = {
         "action_flow_bc_usocket_recon10_s42",
         10.0,
     ),
+    "pusht/action_flow_bc_usocket_recon100_s42": (
+        "action_flow_bc_usocket_recon100_s42",
+        100.0,
+    ),
 }
 EXPECTED_STAGE_TARGETS = (
     "egomimic.pipeline.stages_sampler.FusedObsEncoder",

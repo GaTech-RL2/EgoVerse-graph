@@ -549,7 +549,7 @@ def test_checkpoint_gate_strictly_reloads_exact_action_flow_wrapper(
     checkpoint_dir = tmp_path / "checkpoints"
     checkpoint_dir.mkdir()
     payload = _checkpoint_payload()
-    immutable = checkpoint_dir / "epoch-0-step-2.ckpt"
+    immutable = checkpoint_dir / "epoch-epoch=0-step-step=2.ckpt"
     torch.save(payload, immutable)
     (checkpoint_dir / "last.ckpt").symlink_to(immutable.name)
 
@@ -670,7 +670,7 @@ def test_checkpoint_gate_rejects_missing_scheduler(tmp_path):
     checkpoint_dir.mkdir()
     payload = _checkpoint_payload()
     payload["lr_schedulers"] = []
-    immutable = checkpoint_dir / "epoch-0-step-2.ckpt"
+    immutable = checkpoint_dir / "epoch-epoch=0-step-step=2.ckpt"
     torch.save(payload, immutable)
     (checkpoint_dir / "last.ckpt").symlink_to(immutable.name)
 

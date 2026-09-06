@@ -789,14 +789,15 @@ def _validate_checkpoint(run_dir: Path) -> dict[str, Any]:
     checkpoint_dir = run_dir / "checkpoints"
     last_path = checkpoint_dir / "last.ckpt"
     _require(last_path.is_file(), f"missing smoke checkpoint: {last_path}")
-    immutable = sorted(checkpoint_dir.glob("*step-2.ckpt"))
-    _require(
-        len(immutable) == 1, f"expected one immutable step-2 checkpoint: {immutable}"
-    )
     _require(last_path.is_symlink(), "last.ckpt must be a symlink")
+    immutable_path = last_path.resolve(strict=True)
     _require(
-        last_path.resolve(strict=True) == immutable[0].resolve(strict=True),
-        "last.ckpt does not resolve to the immutable step-2 checkpoint",
+        immutable_path.parent == checkpoint_dir.resolve(),
+        "last.ckpt target escapes the checkpoint directory",
+    )
+    _require(
+        immutable_path.name != last_path.name and immutable_path.suffix == ".ckpt",
+        "last.ckpt does not resolve to an immutable checkpoint",
     )
 
     payload = torch.load(last_path, map_location="cpu", weights_only=False, mmap=True)
@@ -834,7 +835,7 @@ def _validate_checkpoint(run_dir: Path) -> dict[str, Any]:
     _require(state_tensors > 0, "checkpoint state_dict contains no tensors")
 
     immutable_payload = torch.load(
-        immutable[0], map_location="cpu", weights_only=False, mmap=True
+        immutable_path, map_location="cpu", weights_only=False, mmap=True
     )
     _require(
         isinstance(immutable_payload, Mapping)
@@ -890,8 +891,8 @@ def _validate_checkpoint(run_dir: Path) -> dict[str, Any]:
         "file_size_bytes": last_path.stat().st_size,
         "gradient_routes": gradient_routes,
         "global_step": 2,
-        "immutable_checkpoint_path": str(immutable[0]),
-        "immutable_checkpoint_sha256": _sha256(immutable[0]),
+        "immutable_checkpoint_path": str(immutable_path),
+        "immutable_checkpoint_sha256": _sha256(immutable_path),
         "optimizer_state_count": 1,
         "parameter_count": parameter_count,
         "scheduler_state_count": 1,

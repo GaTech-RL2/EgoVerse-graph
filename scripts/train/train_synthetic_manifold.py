@@ -45,6 +45,9 @@ if str(_REPOSITORY_ROOT) not in sys.path:
 
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
+from egomimic.synthetic.action_space_jacobian_flow import (
+    SyntheticActionSpaceJacobianFlow,
+)
 from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionFlow
 from egomimic.synthetic.gradient_surgery import (
     ENCODER_GRADIENT_SURGERIES,
@@ -167,6 +170,8 @@ def main() -> None:
         model = SyntheticDirectFlow(**config["model"]).to(device)
     elif architecture == "action_adapter_flow":
         model = SyntheticActionAdapterFlow(**config["model"]).to(device)
+    elif architecture == "action_space_jacobian_flow":
+        model = SyntheticActionSpaceJacobianFlow(**config["model"]).to(device)
     elif architecture == "decoder_inversion_flow":
         model = SyntheticDecoderInversionFlow(**config["model"]).to(device)
     else:
@@ -247,6 +252,12 @@ def main() -> None:
                 lambda_action_velocity=config.get("lambda_action_velocity", 1.0),
                 clean_gradient_mode=config.get("clean_gradient_mode", "full"),
                 noise=batch_source,
+            )
+        elif architecture == "action_space_jacobian_flow":
+            losses = model.losses(
+                batch_target,
+                flow_samples=config.get("flow_samples", 1),
+                seed=batch_source,
             )
         else:
             losses = model.losses(
@@ -371,7 +382,78 @@ def main() -> None:
         summary["validation_reconstruction_mse"] = float(
             (clean_reconstruction - tgt).square().mean()
         )
-    if architecture in {"action_adapter_flow", "decoder_inversion_flow"}:
+    if architecture == "action_space_jacobian_flow":
+        fixed_noise = torch.randn(
+            int(config.get("diagnostic_noise_samples", 4096)),
+            model.latent_dim,
+            generator=torch.Generator(device="cpu").manual_seed(seed + 30_000),
+        ).to(device)
+        decoded_noise = model.decoder(fixed_noise)
+        radii = decoded_noise.norm(dim=-1)
+        singular_values = model.decoder_jacobian_singular_values(fixed_noise[:128])
+        diagnostic_time = torch.linspace(0.0, 1.0, len(tgt), device=device)[:, None]
+        diagnostic_source = model.decoder(src)
+        diagnostic_state = (
+            (1.0 - diagnostic_time) * tgt + diagnostic_time * diagnostic_source
+        )
+        diagnostic_action_velocity_mse = (
+            model.action_velocity(diagnostic_state, src, diagnostic_time)
+            - (diagnostic_source - tgt)
+        ).square().mean()
+        surface_kind = config.get("surface_kind", "torus")
+        if surface_kind != "torus":
+            raise ValueError(
+                "action_space_jacobian_flow currently validates the torus diagnostic"
+            )
+        summary.update(
+            {
+                "validation_action_velocity_mse": float(
+                    diagnostic_action_velocity_mse
+                ),
+                "validation_decoder_jacobian_singular_min": float(
+                    singular_values.min()
+                ),
+                "validation_decoder_jacobian_singular_median": float(
+                    singular_values.median()
+                ),
+                "validation_decoder_jacobian_singular_max": float(
+                    singular_values.max()
+                ),
+                "validation_decoded_noise_radius_q50": float(
+                    torch.quantile(radii, 0.50)
+                ),
+                "validation_decoded_noise_radius_q90": float(
+                    torch.quantile(radii, 0.90)
+                ),
+                "validation_decoded_noise_radius_q99": float(
+                    torch.quantile(radii, 0.99)
+                ),
+                "validation_decoded_noise_radius_max": float(radii.max()),
+                "validation_decoded_noise_mean_norm": float(
+                    decoded_noise.mean(dim=0).norm()
+                ),
+                "validation_generated_endpoint_spread": float(
+                    generated.var(dim=0, unbiased=True).mean()
+                ),
+                "validation_torus_surface_rmse": float(
+                    SyntheticTrajectoryEval.torus_surface_rmse(
+                        generated,
+                        major_radius=float(config.get("torus_major_radius", 2.0)),
+                        minor_radius=float(config.get("torus_minor_radius", 0.65)),
+                    )
+                ),
+                **{
+                    f"validation_{key}": float(value)
+                    for key, value in SyntheticTrajectoryEval.torus_angular_coverage(
+                        generated,
+                        tgt,
+                        bins=int(config.get("angular_bins", 16)),
+                        major_radius=float(config.get("torus_major_radius", 2.0)),
+                    ).items()
+                },
+            }
+        )
+    elif architecture in {"action_adapter_flow", "decoder_inversion_flow"}:
         fixed_noise = torch.randn(
             int(config.get("diagnostic_noise_samples", 4096)),
             model.latent_dim,

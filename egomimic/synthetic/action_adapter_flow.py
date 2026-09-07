@@ -212,9 +212,18 @@ class SyntheticActionAdapterFlow(nn.Module):
         lambda_path: float = 1.0,
         lambda_action_velocity: float = 1.0,
         clean_gradient_mode: str = "full",
+        flow_clean_gradient_mode: str | None = None,
         noise: torch.Tensor | None = None,
         time: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
+        """Compute coupled losses, optionally changing only latent-FM gradients.
+
+        ``clean_gradient_mode`` preserves the historical routing shared by the
+        latent and action losses. ``flow_clean_gradient_mode=None`` inherits
+        that mode. An explicit override affects only latent FM; Action Flow
+        retains its original state and target routes. In particular, retaining
+        ``clean_gradient_mode='full'`` keeps all Action Flow encoder gradients.
+        """
         if objective not in {"none", "reconstruction", "path", "action_velocity"}:
             raise ValueError(f"unknown adapter objective: {objective}")
         if objective == "path" and self.adapter_family != "nonlinear":
@@ -225,6 +234,16 @@ class SyntheticActionAdapterFlow(nn.Module):
             raise ValueError("flow_samples must be positive")
         if clean_gradient_mode not in {"full", "target_stopgrad", "all_stopgrad"}:
             raise ValueError(f"unknown clean gradient mode: {clean_gradient_mode}")
+        if flow_clean_gradient_mode is not None and flow_clean_gradient_mode not in {
+            "full", "target_stopgrad", "all_stopgrad"
+        }:
+            raise ValueError(
+                f"unknown flow clean gradient mode: {flow_clean_gradient_mode}"
+            )
+        flow_mode = (
+            clean_gradient_mode
+            if flow_clean_gradient_mode is None else flow_clean_gradient_mode
+        )
         clean = self.encoder(action)
         clean_many = (
             clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
@@ -249,8 +268,25 @@ class SyntheticActionAdapterFlow(nn.Module):
         state_clean = clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
         target_velocity = noise_many - target_clean
         state = (1.0 - time) * state_clean + time * noise_many
-        velocity_residual = self.velocity(state, time) - target_velocity
-        flow_loss = velocity_residual.square().mean()
+        predicted_velocity = self.velocity(state, time)
+        velocity_residual = predicted_velocity - target_velocity
+        if flow_mode == clean_gradient_mode:
+            # Preserve the original single forward and its exact gradient graph.
+            flow_target_velocity = target_velocity
+            flow_predicted_velocity = predicted_velocity
+            flow_residual = velocity_residual
+        else:
+            flow_target_clean = (
+                clean_many if flow_mode == "full" else clean_many.detach()
+            )
+            flow_state_clean = (
+                clean_many.detach() if flow_mode == "all_stopgrad" else clean_many
+            )
+            flow_target_velocity = noise_many - flow_target_clean
+            flow_state = (1.0 - time) * flow_state_clean + time * noise_many
+            flow_predicted_velocity = self.velocity(flow_state, time)
+            flow_residual = flow_predicted_velocity - flow_target_velocity
+        flow_loss = flow_residual.square().mean()
         reconstruction_loss = self.reconstruction_loss(action)
         scale_loss = self.scale_loss(base_noise)
         if objective == "path":
@@ -274,6 +310,18 @@ class SyntheticActionAdapterFlow(nn.Module):
                 + float(lambda_reconstruction) * reconstruction_loss
                 + float(lambda_action_velocity) * action_velocity_loss
             )
+        with torch.no_grad():
+            clean_values = clean.detach()
+            batch_diagnostics = {
+                "clean_code_rms": clean_values.square().mean().sqrt(),
+                "clean_code_centered_rms": (
+                    clean_values - clean_values.mean(dim=0)
+                ).square().mean().sqrt(),
+                "flow_target_rms": flow_target_velocity.detach().square().mean().sqrt(),
+                "predicted_velocity_rms": (
+                    flow_predicted_velocity.detach().square().mean().sqrt()
+                ),
+            }
         return {
             "loss": total,
             "flow_loss": flow_loss,
@@ -281,4 +329,5 @@ class SyntheticActionAdapterFlow(nn.Module):
             "scale_loss": scale_loss,
             "path_loss": path_loss,
             "action_velocity_loss": action_velocity_loss,
+            **batch_diagnostics,
         }

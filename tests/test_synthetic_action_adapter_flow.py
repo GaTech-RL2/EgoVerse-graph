@@ -172,6 +172,127 @@ def test_unknown_clean_gradient_mode_is_rejected():
         )
 
 
+@pytest.mark.parametrize("flow_mode", ("target_stopgrad", "all_stopgrad"))
+def test_latent_only_stopgrad_preserves_action_encoder_and_all_field_gradients(flow_mode):
+    torch.manual_seed(57)
+    model = SyntheticActionAdapterFlow(
+        latent_dim=8, adapter_family="nonlinear", residual_width=8,
+        residual_depth=1, field_width=8, field_depth=1,
+    ).double()
+    _perturb_residual_outputs(model)
+    inputs = {
+        "action": torch.randn(7, 3, dtype=torch.float64),
+        "noise": torch.randn(7, 8, dtype=torch.float64),
+        "time": torch.rand(14, 1, dtype=torch.float64),
+        "objective": "action_velocity", "flow_samples": 2,
+        "clean_gradient_mode": "full",
+    }
+    full = model.losses(**inputs)
+    changed = model.losses(**inputs, flow_clean_gradient_mode=flow_mode)
+    for key in full:
+        torch.testing.assert_close(full[key], changed[key])
+    encoder_parameters = tuple(model.encoder.parameters())
+    action_full = torch.autograd.grad(
+        full["action_velocity_loss"], encoder_parameters, retain_graph=True
+    )
+    action_changed = torch.autograd.grad(
+        changed["action_velocity_loss"], encoder_parameters, retain_graph=True
+    )
+    assert sum(gradient.abs().sum() for gradient in action_full) > 0
+    for original, preserved in zip(action_full, action_changed):
+        torch.testing.assert_close(original, preserved)
+    # This override must remove only the requested latent route. A missing
+    # encoder dependency is expected solely for all-stopgrad's latent loss.
+    flow_gradients = torch.autograd.grad(
+        changed["flow_loss"], encoder_parameters, retain_graph=True, allow_unused=True
+    )
+    if flow_mode == "all_stopgrad":
+        assert all(gradient is None or not bool(gradient.abs().sum())
+                   for gradient in flow_gradients)
+    else:
+        assert all(gradient is not None for gradient in flow_gradients)
+        assert sum(gradient.abs().sum() for gradient in flow_gradients) > 0
+    field_parameters = tuple(model.field.parameters())
+    for loss_key in ("flow_loss", "action_velocity_loss", "loss"):
+        original = torch.autograd.grad(full[loss_key], field_parameters, retain_graph=True)
+        preserved = torch.autograd.grad(changed[loss_key], field_parameters, retain_graph=True)
+        for first, second in zip(original, preserved):
+            torch.testing.assert_close(first, second)
+
+
+@pytest.mark.parametrize("legacy_mode", ("full", "target_stopgrad", "all_stopgrad"))
+def test_latent_override_none_inherits_legacy_mode_and_reuses_field(legacy_mode):
+    model = SyntheticActionAdapterFlow(
+        latent_dim=8, adapter_family="nonlinear", residual_width=8,
+        residual_depth=1, field_width=8, field_depth=1,
+    )
+    _perturb_residual_outputs(model)
+    inputs = {
+        "action": torch.randn(7, 3), "noise": torch.randn(7, 8),
+        "time": torch.rand(14, 1), "objective": "action_velocity",
+        "flow_samples": 2, "clean_gradient_mode": legacy_mode,
+    }
+    field_calls = []
+    handle = model.field.register_forward_hook(lambda *_: field_calls.append(True))
+    try:
+        inherited = model.losses(**inputs)
+        assert len(field_calls) == 1
+        explicit = model.losses(**inputs, flow_clean_gradient_mode=legacy_mode)
+        assert len(field_calls) == 2
+        other_mode = "all_stopgrad" if legacy_mode != "all_stopgrad" else "full"
+        model.losses(**inputs, flow_clean_gradient_mode=other_mode)
+        assert len(field_calls) == 4
+    finally:
+        handle.remove()
+    for key in inherited:
+        torch.testing.assert_close(inherited[key], explicit[key])
+    for key in ("flow_loss", "action_velocity_loss"):
+        first = torch.autograd.grad(
+            inherited[key], tuple(model.encoder.parameters()),
+            retain_graph=True, allow_unused=True,
+        )
+        second = torch.autograd.grad(
+            explicit[key], tuple(model.encoder.parameters()),
+            retain_graph=True, allow_unused=True,
+        )
+        for original, same in zip(first, second):
+            if original is None:
+                assert same is None
+            else:
+                torch.testing.assert_close(original, same)
+
+
+def test_invalid_latent_only_gradient_mode_is_rejected():
+    model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="nonlinear")
+    with pytest.raises(ValueError, match="unknown flow clean gradient mode"):
+        model.losses(torch.randn(7, 3), objective="action_velocity",
+                     flow_clean_gradient_mode="bad")
+
+
+def test_latent_scale_diagnostics_are_detached_and_use_the_actual_batch():
+    model = SyntheticActionAdapterFlow(
+        latent_dim=8, adapter_family="nonlinear", field_width=8, field_depth=1
+    ).double()
+    action = torch.randn(7, 3, dtype=torch.float64)
+    noise = torch.randn(7, 8, dtype=torch.float64)
+    time = torch.rand(14, 1, dtype=torch.float64)
+    losses = model.losses(action, noise=noise, time=time, flow_samples=2,
+                          objective="action_velocity", flow_clean_gradient_mode="all_stopgrad")
+    clean = model.encoder(action)
+    expanded_clean = clean.repeat_interleave(2, dim=0)
+    expanded_noise = noise.repeat_interleave(2, dim=0)
+    state = (1 - time) * expanded_clean + time * expanded_noise
+    expected = {
+        "clean_code_rms": clean.square().mean().sqrt(),
+        "clean_code_centered_rms": (clean - clean.mean(0)).square().mean().sqrt(),
+        "flow_target_rms": (expanded_noise - expanded_clean).square().mean().sqrt(),
+        "predicted_velocity_rms": model.velocity(state, time).square().mean().sqrt(),
+    }
+    for key, value in expected.items():
+        torch.testing.assert_close(losses[key], value)
+        assert not losses[key].requires_grad and losses[key].grad_fn is None
+
+
 def test_asymmetric_gradient_projection_removes_only_conflicting_component():
     flow = (torch.tensor([-2.0, 3.0]), torch.tensor([1.0]))
     reconstruction = (torch.tensor([1.0, 0.0]), torch.tensor([0.0]))

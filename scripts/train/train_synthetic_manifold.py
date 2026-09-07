@@ -132,6 +132,40 @@ def _atomic_torch_save(state: dict, checkpoint: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _flow_clean_gradient_kwargs(config: dict) -> dict:
+    # Absence must preserve the legacy clean_gradient_mode semantics.
+    if "flow_clean_gradient_mode" not in config:
+        return {}
+    return {"flow_clean_gradient_mode": config["flow_clean_gradient_mode"]}
+
+
+def _periodic_generation_metrics(model, source, target, *, steps: int) -> dict:
+    """Measure current generation without advancing training RNGs or mode state."""
+    python_rng = random.getstate()
+    numpy_rng = np.random.get_state()
+    training_modes = [(module, module.training) for module in model.modules()]
+    devices = [source.device.index] if source.is_cuda else []
+    if source.is_cuda:
+        torch.cuda.synchronize(source.device)
+    started = time.monotonic()
+    try:
+        with torch.random.fork_rng(devices=devices), torch.no_grad():
+            model.eval()
+            points = SyntheticTrajectoryEval.evaluate(model, source, target, steps=steps)
+            score = float(SyntheticTrajectoryEval.symmetric_nearest_neighbor_mse(
+                points[-1], target
+            ))
+    finally:
+        random.setstate(python_rng)
+        np.random.set_state(numpy_rng)
+        for module, training in training_modes:
+            module.training = training
+    return {
+        "generation_symmetric_nn_mse": score,
+        "generation_eval_seconds": time.monotonic() - started,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
@@ -141,6 +175,13 @@ def main() -> None:
     checkpoint_every = int(config.get("checkpoint_every", 50_000))
     if checkpoint_every <= 0:
         raise ValueError("checkpoint_every must be positive")
+    generation_log_every = int(config.get("generation_log_every", 0))
+    if generation_log_every < 0:
+        raise ValueError("generation_log_every must be nonnegative")
+    if generation_log_every and not all(
+        key in config for key in ("evaluation_dataset", "evaluation_particles", "inference_steps")
+    ):
+        raise ValueError("periodic generation requires explicit evaluation data, count and steps")
     output = Path(config["output_dir"])
     if args.resume is None:
         if output.exists():
@@ -234,6 +275,12 @@ def main() -> None:
 
         wandb_run = wandb.init(config=config, **config["wandb"])
     log_path = output / "metrics.jsonl"
+    generation_data = None
+    if generation_log_every:
+        generation_source, generation_target = SyntheticTrajectoryEval.load_validation_data(
+            config["evaluation_dataset"], source_key, int(config["evaluation_particles"])
+        )
+        generation_data = generation_source.to(device), generation_target.to(device)
     training_started = time.monotonic()
     for step in range(start_step + 1, config["max_steps"] + 1):
         chosen = train_indices[
@@ -277,6 +324,7 @@ def main() -> None:
                 lambda_action_velocity=config.get("lambda_action_velocity", 1.0),
                 clean_gradient_mode=config.get("clean_gradient_mode", "full"),
                 noise=batch_source,
+                **_flow_clean_gradient_kwargs(config),
             )
         elif architecture in {"endpoint_lift_flow", "gaussian_relift_flow"}:
             objective_args = (
@@ -335,15 +383,23 @@ def main() -> None:
             losses["loss"].backward()
             gradient_metrics = {}
         optimizer.step()
-        if log_step:
-            row = {
-                "step": step,
-                **{key: float(value.detach()) for key, value in losses.items()},
-                **{
+        generation_step = (
+            generation_log_every > 0
+            and step % generation_log_every == 0
+            and step < config["max_steps"]
+        )
+        if log_step or generation_step:
+            row = {"step": step}
+            if log_step:
+                row.update({key: float(value.detach()) for key, value in losses.items()})
+                row.update({
                     key: float(value.detach())
                     for key, value in gradient_metrics.items()
-                },
-            }
+                })
+            if generation_step:
+                row.update(_periodic_generation_metrics(
+                    model, *generation_data, steps=int(config["inference_steps"])
+                ))
             elapsed = time.monotonic() - training_started
             row["training_elapsed_seconds"] = elapsed
             row["training_steps_per_second"] = (step - start_step) / elapsed

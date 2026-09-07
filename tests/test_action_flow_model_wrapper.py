@@ -26,10 +26,14 @@ class _ToyPipeline(nn.Module):
 
 
 class _ToyAlgo:
-    def __init__(self, *, reconstruction_weight=1.0, total_metric_delta=0.0):
+    def __init__(
+        self, *, reconstruction_weight=1.0, flow_weight=1.0, total_metric_delta=0.0
+    ):
         self.nets = nn.ModuleDict({"pipeline": _ToyPipeline()})
         self.device = torch.device("cpu")
         self.reconstruction_weight = float(reconstruction_weight)
+        self.flow_weight = float(flow_weight)
+        self.action_velocity_weight = 1.0
         self.total_metric_delta = float(total_metric_delta)
         self.process_count = 0
 
@@ -45,7 +49,11 @@ class _ToyAlgo:
             reconstruction = anchor * anchor.new_tensor(values["reconstruction"])
             reconstruction_l1 = anchor * anchor.new_tensor(values["reconstruction_l1"])
             action_velocity = anchor * anchor.new_tensor(values["action_velocity"])
-            total = fm + self.reconstruction_weight * reconstruction + action_velocity
+            total = (
+                self.flow_weight * fm
+                + self.reconstruction_weight * reconstruction
+                + action_velocity
+            )
             results[source] = {
                 "target": values["target"],
                 "loss/action_flow": total,
@@ -183,6 +191,88 @@ def test_action_flow_wrapper_uses_only_explicit_optimizer_total(monkeypatch):
     assert float(logged["Train/MSE"][0]) == pytest.approx(5.0)
     assert float(logged["Train/MSE/source_a"][0]) == pytest.approx(2.0)
     assert float(logged["Train/MSE/source_b"][0]) == pytest.approx(6.0)
+
+
+def test_reconstruction_only_warmup_then_joint_objective(monkeypatch):
+    wrapper = ActionFlowModelWrapper(
+        pipeline=_ToyAlgo(reconstruction_weight=10.0),
+        gradient_telemetry_cadence=0,
+        reconstruction_only_warmup_steps=2,
+    )
+    logged = _capture_logs(monkeypatch, wrapper)
+
+    warmup_loss = wrapper.training_step(_batch(), batch_idx=0)
+    assert float(warmup_loss) == pytest.approx(50.0)
+    assert float(logged["Train/ActionFlow/FlowMatchingLoss"][0]) == pytest.approx(4.0)
+    assert float(logged["Train/ActionFlow/ActionVelocityLoss"][0]) == pytest.approx(
+        6.0
+    )
+    assert float(logged["Train/ActionFlow/Schedule/ReconstructionOnly"][0]) == 1.0
+    assert float(logged["Train/ActionFlow/Schedule/EffectiveFlowWeight"][0]) == 0.0
+
+    predictions = wrapper.model.forward_training(
+        wrapper.model.process_batch_for_training(_batch())
+    )
+    assert not wrapper._apply_reconstruction_only_warmup(
+        predictions, optimizer_step=2
+    )
+    _, components, joint_loss, _ = wrapper._source_values(predictions)
+    assert float(joint_loss) == pytest.approx(60.0)
+    assert float(components["TotalLoss"]) == pytest.approx(60.0)
+
+
+def test_reconstruction_only_warmup_is_loaded_from_training_config_tree(monkeypatch):
+    monkeypatch.setattr(
+        ActionFlowModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(reconstruction_weight=10.0),
+    )
+    wrapper = ActionFlowModelWrapper(
+        config_tree={
+            "model": {
+                "pipeline": {},
+                "reconstruction_only_warmup_steps": 2,
+            }
+        },
+        gradient_telemetry_cadence=0,
+    )
+
+    assert wrapper.reconstruction_only_warmup_steps == 2
+    checkpoint = {}
+    wrapper.on_save_checkpoint(checkpoint)
+    assert checkpoint["action_flow_loss_schedule"] == {
+        "joint_objective_begins_at_global_step": 2,
+        "reconstruction_only_optimizer_steps": 2,
+        "joint_flow_weight": 1.0,
+        "joint_reconstruction_weight": 10.0,
+        "joint_action_velocity_weight": 1.0,
+        "schema_version": 1,
+    }
+
+
+def test_joint_flow_weight_is_applied_and_logged(monkeypatch):
+    wrapper = ActionFlowModelWrapper(
+        pipeline=_ToyAlgo(reconstruction_weight=10.0, flow_weight=0.01),
+        gradient_telemetry_cadence=0,
+    )
+    logged = _capture_logs(monkeypatch, wrapper)
+
+    loss = wrapper.training_step(_batch(), batch_idx=0)
+
+    assert float(loss) == pytest.approx(56.04)
+    assert float(
+        logged["Train/ActionFlow/Schedule/EffectiveFlowWeight"][0]
+    ) == pytest.approx(0.01)
+
+
+@pytest.mark.parametrize("value", [-1, 1.5, True])
+def test_reconstruction_only_warmup_rejects_invalid_steps(value):
+    with pytest.raises(ValueError, match="nonnegative integer"):
+        ActionFlowModelWrapper(
+            pipeline=_ToyAlgo(reconstruction_weight=10.0),
+            gradient_telemetry_cadence=0,
+            reconstruction_only_warmup_steps=value,
+        )
 
 
 def test_action_flow_wrapper_rejects_total_metric_drift(monkeypatch):

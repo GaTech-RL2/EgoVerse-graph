@@ -150,6 +150,9 @@ def _history_row():
     row["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"] = 14.0
     row["Train/ActionFlow/Compute/DecoderJVPCallsPerStep"] = 1.0
     row["Train/ActionFlow/Compute/PeakAllocatedBytes"] = 1024.0
+    row["Train/ActionFlow/Schedule/ReconstructionOnly"] = 0.0
+    row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = 1.0
+    row["Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"] = 1.0
     for base in (
         "Valid/MSE",
         "Valid/Native_MSE",
@@ -185,6 +188,22 @@ def test_history_gate_requires_components_gradients_and_scheduled_validation():
     assert result["train_step"] == 2
     assert result["valid_step"] == 2
     assert result["train"]["Train/ActionFlow/FlowMatchingLoss"] == 1.25
+
+
+def test_history_gate_accepts_float32_flow_weight_telemetry():
+    row = _history_row()
+    row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = float(
+        torch.tensor(0.01)
+    )
+    for suffix in ("", f"/{MODULE.SOURCE_LABEL}"):
+        row[f"Train/ActionFlow/TotalLoss{suffix}_step"] = 2.5125
+    row["Valid/ActionFlow/TotalLoss"] = 3.015
+
+    result = MODULE._validate_history(
+        {2: row}, reconstruction_weight=1.0, flow_weight=0.01
+    )
+
+    assert result["train_step"] == 2
 
 
 def test_history_gate_rejects_missing_gradient_telemetry():
@@ -585,7 +604,9 @@ def test_checkpoint_gate_strictly_reloads_exact_action_flow_wrapper(
         lambda *_args: {"manifest_sha256": "f" * 64},
     )
 
-    result = MODULE._validate_checkpoint(tmp_path)
+    result = MODULE._validate_checkpoint(
+        tmp_path, reconstruction_weight=1.0, flow_weight=1.0
+    )
 
     assert result["global_step"] == 2
     assert result["parameter_count"] == MODULE.EXPECTED_PARAMETER_COUNT
@@ -675,4 +696,6 @@ def test_checkpoint_gate_rejects_missing_scheduler(tmp_path):
     (checkpoint_dir / "last.ckpt").symlink_to(immutable.name)
 
     with pytest.raises(MODULE.SmokeVerificationError, match="scheduler state"):
-        MODULE._validate_checkpoint(tmp_path)
+        MODULE._validate_checkpoint(
+            tmp_path, reconstruction_weight=1.0, flow_weight=1.0
+        )

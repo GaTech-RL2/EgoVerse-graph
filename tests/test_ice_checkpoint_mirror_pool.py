@@ -106,6 +106,13 @@ class MirrorPoolTest(unittest.TestCase):
         self.assertIn("SLURM_ARRAY_TASK_ID", wrapper)
         self.assertIn("ICE_MIRROR_POOL_SIZE", wrapper)
         self.assertIn('"${ICE_MIRROR_PYTHON}" "${ICE_MIRROR_POOL_SCRIPT}"', wrapper)
+        self.assertIn(
+            'export PATH="$(dirname "${ICE_MIRROR_PYTHON}"):${PATH}"', wrapper
+        )
+        self.assertIn(
+            'export PYTHONPATH="${ICE_MIRROR_PYTHONPATH}${PYTHONPATH:+:${PYTHONPATH}}"',
+            wrapper,
+        )
         self.assertIn("ICE_MIRROR_INVENTORY_ROOT", wrapper)
 
     def test_nonblocking_claim_allows_only_one_worker(self):

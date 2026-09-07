@@ -110,6 +110,17 @@ def test_action_flow_pair_composes_to_exact_shared_contract(
     assert cfg.run_provenance.split_manifest_sha256 == (
         "3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313"
     )
+
+
+def test_action_flow_warmup_flow001_changes_only_requested_objective_weight():
+    cfg = _compose("action_flow_bc_usocket_recon10_warmup10k_flow001_s42")
+
+    assert cfg.model.reconstruction_only_warmup_steps == 10_000
+    assert cfg.model.reconstruction_weight == 10.0
+    assert cfg.model.flow_weight == pytest.approx(0.01)
+    assert cfg.model.pipeline.stages[-1].flow_weight == pytest.approx(0.01)
+    assert cfg.model.pipeline.stages[-1].action_velocity_weight == 1.0
+    assert cfg.run_provenance.objective.flow_weight == pytest.approx(0.01)
     assert cfg.run_provenance.content_manifest_path == (
         "egomimic/hydra_configs/data/pusht/manifests/"
         "usocket_3000_v2_clean_content_v1.json"
@@ -205,3 +216,30 @@ def test_only_reconstruction_weight_differs_across_sweep():
             "pipeline"
         ]["stages"][-1]["reconstruction_weight"]
         assert candidate == reference
+
+
+def test_recon10_warmup_row_changes_only_the_objective_schedule():
+    reference_cfg = _compose("action_flow_bc_usocket_recon10_s42")
+    candidate_cfg = _compose("action_flow_bc_usocket_recon10_warmup10k_s42")
+    reference = OmegaConf.to_container(
+        reference_cfg, resolve=False
+    )
+    candidate = OmegaConf.to_container(
+        candidate_cfg, resolve=False
+    )
+
+    assert candidate["model"]["reconstruction_only_warmup_steps"] == 10000
+    assert (
+        candidate_cfg.run_provenance.objective.reconstruction_only_warmup_steps
+        == 10000
+    )
+    del candidate["model"]["reconstruction_only_warmup_steps"]
+    assert (
+        candidate["run_provenance"]["objective"].pop(
+            "reconstruction_only_warmup_steps"
+        )
+        == "${model.reconstruction_only_warmup_steps}"
+    )
+    candidate["name"] = reference["name"]
+    candidate["description"] = reference["description"]
+    assert candidate == reference

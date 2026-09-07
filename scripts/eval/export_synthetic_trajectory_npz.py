@@ -20,8 +20,13 @@ from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
 from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionFlow
 from egomimic.synthetic.endpoint_lift_flow import SyntheticEndpointLiftFlow
 from egomimic.synthetic.gaussian_relift_flow import SyntheticGaussianReliftFlow
+from egomimic.synthetic.latent_bridge_likelihood import SyntheticLatentBridgeLikelihood
 from egomimic.synthetic.multi_action_adapter_flow import (
     SyntheticMultiActionAdapterFlow,
+)
+from egomimic.synthetic.noninvertible_endpoint_flow import (
+    SyntheticGraphSectionFlow,
+    SyntheticMMDEndpointFlow,
 )
 from egomimic.synthetic.projected_invertible_flow import (
     SyntheticProjectedInvertibleFlow,
@@ -115,6 +120,12 @@ def main() -> None:
             model = SyntheticEndpointLiftFlow(**config["model"])
         elif architecture == "gaussian_relift_flow":
             model = SyntheticGaussianReliftFlow(**config["model"])
+        elif architecture == "mmd_endpoint_flow":
+            model = SyntheticMMDEndpointFlow(**config["model"])
+        elif architecture == "graph_section_flow":
+            model = SyntheticGraphSectionFlow(**config["model"])
+        elif architecture == "latent_bridge_likelihood":
+            model = SyntheticLatentBridgeLikelihood(**config["model"])
         elif architecture == "multi_action_adapter_flow":
             model = SyntheticMultiActionAdapterFlow(**config["model"])
         else:

@@ -107,15 +107,22 @@ def process_checkpoint(
 ) -> bool:
     """Process one claimed checkpoint; return whether it is remotely verified."""
     prior = read_entry(state_dir, checkpoint)
+    rejection: dict[str, Any] = {}
     info = core.stable_valid_info(
         checkpoint,
         Path(row["validator"]).expanduser().resolve(),
         cached=prior,
+        rejection=rejection,
     )
     if info is None:
         log_event(
             state_dir,
-            {"event": "checkpoint_not_stably_valid", "run_id": row["id"], "path": str(checkpoint)},
+            {
+                "event": "checkpoint_not_stably_valid",
+                "run_id": row["id"],
+                "path": str(checkpoint),
+                **rejection,
+            },
         )
         return False
 
@@ -184,9 +191,14 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
     infos: list[core.CheckpointInfo] = []
     for checkpoint in core.candidates(row):
         prior = read_entry(state_dir, checkpoint)
-        info = core.stable_valid_info(checkpoint, validator, cached=prior)
+        rejection: dict[str, Any] = {}
+        info = core.stable_valid_info(checkpoint, validator, cached=prior, rejection=rejection)
         if info is None:
             ok = False
+            log_event(state_dir, {
+                "event": "prune_refused_local_validation", "run_id": row["id"],
+                "path": str(checkpoint), **rejection,
+            })
         else:
             infos.append(info)
     infos.sort(key=lambda item: (item.global_step, item.mtime_ns, str(item.path)), reverse=True)
@@ -199,11 +211,18 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
             if not entry or not entry.get("remote_verified"):
                 ok = False
                 continue
-            current = core.stable_valid_info(info.path, validator, force=True)
+            rejection = {}
+            current = core.stable_valid_info(info.path, validator, force=True, rejection=rejection)
+            if current is None:
+                ok = False
+                log_event(state_dir, {
+                    "event": "prune_refused_local_validation", "run_id": row["id"],
+                    "path": str(info.path), **rejection,
+                })
+                continue
             remote_path = entry.get("remote_path")
             if (
-                current is None
-                or current.sha256 != entry.get("sha256")
+                current.sha256 != entry.get("sha256")
                 or not isinstance(remote_path, str)
                 or core.remote_sha(args.ssh, args.remote_host, remote_path) != current.sha256
             ):
@@ -231,9 +250,11 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
     return ok
 
 
-def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]) -> bool:
+def maintain(
+    args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any], *, cycle_errors: int = 0,
+) -> bool:
     """Publish pressure and completion state; optionally perform guarded pruning."""
-    ok = True
+    ok = cycle_errors == 0
     if args.inventory_search_root is not None:
         try:
             report = inventory.build_inventory(
@@ -263,6 +284,7 @@ def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]
             "used_fraction": fraction,
             "pressure": pressure,
             "worker_count": args.worker_count,
+            "cycle_errors": cycle_errors,
             "updated_at_unix": time.time(),
         }
     except Exception as exc:
@@ -273,6 +295,7 @@ def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]
             "pressure": "unknown",
             "error": str(exc),
             "worker_count": args.worker_count,
+            "cycle_errors": cycle_errors + 1,
             "updated_at_unix": time.time(),
         }
         log_event(state_dir, {"event": "scratch_usage_error", "error": str(exc)})
@@ -400,9 +423,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                         continue
                     if not process_checkpoint(args, args.state_dir, row, checkpoint):
                         errors += 1
+        core.atomic_json(args.state_dir / f"worker-{args.worker_index}-status.json", {
+            "worker_index": args.worker_index,
+            "cycle_errors": errors,
+            "updated_at_unix": time.time(),
+        })
         if args.worker_index == 0:
             with LockedFile(args.state_dir / "maintenance.lock", blocking=False) as reservation:
-                if reservation is not None and maintain(args, args.state_dir, manifest):
+                if reservation is not None and maintain(
+                    args, args.state_dir, manifest, cycle_errors=errors,
+                ):
                     return 0
         if args.once:
             return 0 if errors == 0 else 1

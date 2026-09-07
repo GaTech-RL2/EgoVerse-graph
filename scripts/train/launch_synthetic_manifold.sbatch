@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 #SBATCH --job-name=synthetic-torus
 #SBATCH --account=hoffman-lab
 #SBATCH --partition=hoffman-lab

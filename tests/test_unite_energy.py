@@ -103,6 +103,38 @@ def test_energy_seed_bank_hash_and_seed_identity_are_strict(tmp_path):
     torch.testing.assert_close(actual_next_random, expected_next_random)
 
 
+def test_energy_artifacts_preserve_replayed_validation_across_slurm_attempts(tmp_path, monkeypatch):
+    target = torch.zeros(2, 2, 4)
+    samples = target.unsqueeze(0).repeat(32, 1, 1, 1)
+    batch = _batch(target)
+    legacy = tmp_path / "artifacts/epoch-0-step-20001/rank-0-batch-0.pt"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_bytes(b"historical validation artifact")
+    saved_paths = []
+    for job_id, restart_count in (("5691426", 0), ("5691426", 1), ("5692000", 0)):
+        monkeypatch.setenv("SLURM_JOB_ID", job_id)
+        monkeypatch.setenv("SLURM_RESTART_COUNT", str(restart_count))
+        evaluator = _evaluator(tmp_path)
+        evaluator.trainer = SimpleNamespace(current_epoch=0, global_step=20001, global_rank=0)
+        scores = {"validation/usocket": evaluator._energy_values(samples, target)}
+        predictions = {"validation/usocket": samples}
+        evaluator._save_artifact(0, predictions, scores, batch)
+        with pytest.raises(FileExistsError, match="refusing to overwrite"):
+            evaluator._save_artifact(0, predictions, scores, batch)
+        saved_paths.append(
+            tmp_path / "artifacts" / f"job-{job_id}-restart-{restart_count}"
+            / "epoch-0-step-20001/rank-0-batch-0.pt"
+        )
+    assert legacy.read_bytes() == b"historical validation artifact"
+    assert len(set(saved_paths)) == 3
+    for path in saved_paths:
+        payload = torch.load(path, map_location="cpu", weights_only=True)
+        assert payload["epoch"] == 0 and payload["global_step"] == 20001
+        assert payload["execution"]["slurm_job_id"] in ("5691426", "5692000")
+        assert payload["execution"]["slurm_restart_count"] in (0, 1)
+        torch.testing.assert_close(payload["domains"]["pushshapes_sim_u_socket"]["predictions"], samples)
+
+
 def test_energy_artifact_records_provenance_and_per_condition_outputs(tmp_path):
     validation_view = {
         "definition": "first_energy_score_batch_per_ddp_rank",

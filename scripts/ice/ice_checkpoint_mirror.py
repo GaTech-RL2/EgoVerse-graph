@@ -214,7 +214,16 @@ def stable_valid_info(
     *,
     cached: dict[str, Any] | None = None,
     force: bool = False,
+    rejection: dict[str, Any] | None = None,
 ) -> CheckpointInfo | None:
+    """Return stable metadata, optionally recording why a candidate was deferred."""
+    if rejection is not None:
+        rejection.clear()
+
+    def reject(reason: str, **details: Any) -> None:
+        if rejection is not None:
+            rejection.update(reason=reason, **details)
+
     if not force:
         cached_info = info_from_cache(path, cached)
         if cached_info is not None:
@@ -228,27 +237,38 @@ def stable_valid_info(
             stderr=subprocess.PIPE,
             check=False,
         )
-    except (FileNotFoundError, OSError):
+    except (FileNotFoundError, OSError) as exc:
+        reject("checkpoint_or_validator_unavailable", error=str(exc))
         return None
     if valid.returncode != 0:
+        reject(
+            "validator_failed",
+            validator_returncode=valid.returncode,
+            validator_stderr_tail=valid.stderr[-2048:],
+        )
         return None
     try:
         metadata = parse_validator_metadata(valid.stdout, path)
         digest = sha256_file(path)
         after = path.stat()
-    except (ValueError, FileNotFoundError, OSError):
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        reject("invalid_metadata_or_unreadable_checkpoint", error=str(exc))
         return None
     if stat_identity(before) != stat_identity(after):
+        reject("checkpoint_changed_during_validation")
         return None
     expected_digest = metadata.get("sha256")
     if expected_digest is not None and str(expected_digest).lower() != digest:
+        reject("validator_sha256_mismatch")
         return None
     expected_path = metadata.get("checkpoint_path")
     if expected_path is not None:
         try:
             if Path(str(expected_path)).expanduser().resolve(strict=True) != path:
+                reject("validator_checkpoint_path_mismatch")
                 return None
-        except (FileNotFoundError, OSError):
+        except (FileNotFoundError, OSError) as exc:
+            reject("validator_checkpoint_path_unavailable", error=str(exc))
             return None
     enriched = dict(metadata)
     enriched["checkpoint_path"] = str(path)
@@ -494,8 +514,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 infos: list[CheckpointInfo] = []
                 for checkpoint in row_candidates:
                     prior = state["files"].get(str(checkpoint))
-                    info = stable_valid_info(checkpoint, validator, cached=prior)
+                    rejection: dict[str, Any] = {}
+                    info = stable_valid_info(checkpoint, validator, cached=prior, rejection=rejection)
                     if info is None:
+                        cycle_errors += 1
                         unresolved = True
                         append_event(
                             events_path,
@@ -503,6 +525,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 "event": "checkpoint_not_stably_valid",
                                 "run_id": row["id"],
                                 "path": str(checkpoint),
+                                **rejection,
                             },
                         )
                         continue
@@ -572,9 +595,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                         prior = state["files"].get(str(info.path))
                         if not prior or not prior.get("remote_verified"):
                             continue
-                        current = stable_valid_info(info.path, validator, force=True)
+                        rejection = {}
+                        current = stable_valid_info(info.path, validator, force=True, rejection=rejection)
                         if current is None or current.sha256 != prior.get("sha256"):
+                            cycle_errors += 1
                             unresolved = True
+                            append_event(
+                                events_path,
+                                {
+                                    "event": "prune_refused_local_validation",
+                                    "run_id": row["id"],
+                                    "path": str(info.path),
+                                    **(rejection or {"reason": "checkpoint_sha256_changed"}),
+                                },
+                            )
                             continue
                         remote_path = prior.get("remote_path")
                         remote_digest = (

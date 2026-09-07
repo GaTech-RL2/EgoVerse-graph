@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 #SBATCH --job-name=synthetic-codec10k
 #SBATCH --array=0-3
 #SBATCH --nodes=1

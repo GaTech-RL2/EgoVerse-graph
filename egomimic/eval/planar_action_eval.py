@@ -83,6 +83,7 @@ class PlanarActionEval(Eval):
         ):
             raise ValueError("energy_score_max_batches_per_rank must be positive")
         self.artifact_root = None if artifact_root is None else Path(artifact_root)
+        self.artifact_execution = self._artifact_execution_identity()
         self.seeds = []
         self.seed_bank_sha256 = None
         if self.energy_score_enabled:
@@ -135,6 +136,35 @@ class PlanarActionEval(Eval):
 
     def on_validation_start(self):
         self._unite_diagnostic_batches_done = 0
+
+    @staticmethod
+    def _artifact_execution_identity():
+        job_id = os.environ.get("SLURM_JOB_ID")
+        if job_id is None:
+            return None
+        if not job_id.isdigit():
+            raise ValueError("SLURM_JOB_ID must be numeric for artifact provenance")
+        restart_count = int(os.environ.get("SLURM_RESTART_COUNT", "0"))
+        if restart_count < 0:
+            raise ValueError("SLURM_RESTART_COUNT must be nonnegative")
+        return {"slurm_job_id": job_id, "slurm_restart_count": restart_count}
+
+    def _artifact_destination(self, root, batch_idx):
+        root = Path(root)
+        if self.artifact_execution is not None:
+            execution = self.artifact_execution
+            root = root / (
+                f"job-{execution['slurm_job_id']}"
+                f"-restart-{execution['slurm_restart_count']}"
+            )
+        # A restored checkpoint can replay validation at the same optimizer
+        # step. Preserve the previous attempt while retaining duplicate-write
+        # rejection within this execution.
+        return (
+            root
+            / f"epoch-{int(self.trainer.current_epoch)}-step-{int(self.trainer.global_step)}"
+            / f"rank-{int(self.trainer.global_rank)}-batch-{int(batch_idx)}.pt"
+        )
 
     def on_validation_end(self):
         return None
@@ -436,11 +466,7 @@ class PlanarActionEval(Eval):
             metrics[base] = torch.stack(values).mean()
 
         root = Path(str(self.unite_diagnostics["artifact_root"])).resolve()
-        destination = (
-            root
-            / f"epoch-{int(self.trainer.current_epoch)}-step-{int(self.trainer.global_step)}"
-            / f"rank-{rank}-batch-{int(batch_idx)}.pt"
-        )
+        destination = self._artifact_destination(root, batch_idx)
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_suffix(".tmp")
         if destination.exists() or temporary.exists():
@@ -449,6 +475,7 @@ class PlanarActionEval(Eval):
             {
                 "schema_version": 1,
                 "metric": "ReleasedUNITETrainingDiagnostics",
+                "execution": self.artifact_execution,
                 "global_step": int(self.trainer.global_step),
                 "epoch": int(self.trainer.current_epoch),
                 "rank": rank,
@@ -588,11 +615,7 @@ class PlanarActionEval(Eval):
         return values
 
     def _save_artifact(self, batch_idx, samples, scores, batch):
-        destination = (
-            self.artifact_root
-            / f"epoch-{int(self.trainer.current_epoch)}-step-{int(self.trainer.global_step)}"
-            / f"rank-{int(self.trainer.global_rank)}-batch-{int(batch_idx)}.pt"
-        )
+        destination = self._artifact_destination(self.artifact_root, batch_idx)
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_suffix(".tmp")
         if destination.exists() or temporary.exists():
@@ -622,6 +645,7 @@ class PlanarActionEval(Eval):
             {
                 "schema_version": 1,
                 "metric": "EnergyScore@32",
+                "execution": self.artifact_execution,
                 "sample_count": 32,
                 "seed_bank": self.seeds,
                 "seed_bank_sha256": self.seed_bank_sha256,

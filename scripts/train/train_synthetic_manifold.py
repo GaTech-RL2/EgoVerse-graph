@@ -46,6 +46,10 @@ if str(_REPOSITORY_ROOT) not in sys.path:
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
 from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionFlow
+from egomimic.synthetic.gradient_surgery import (
+    ENCODER_GRADIENT_SURGERIES,
+    backward_with_encoder_gradient_surgery,
+)
 from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
@@ -148,6 +152,15 @@ def main() -> None:
     target = torch.from_numpy(data["target_3d"]).float()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     architecture = config.get("architecture", "shared_latent")
+    encoder_gradient_surgery = config.get("encoder_gradient_surgery", "none")
+    if encoder_gradient_surgery not in ENCODER_GRADIENT_SURGERIES:
+        raise ValueError(
+            f"unknown encoder gradient surgery: {encoder_gradient_surgery}"
+        )
+    if encoder_gradient_surgery != "none" and architecture != "action_adapter_flow":
+        raise ValueError(
+            "encoder gradient surgery is only supported for action_adapter_flow"
+        )
     if architecture == "shared_latent":
         model = SyntheticSharedLatentFlow(**config["model"]).to(device)
     elif architecture == "direct_flow":
@@ -248,12 +261,22 @@ def main() -> None:
                 ),
             )
         optimizer.zero_grad(set_to_none=True)
-        losses["loss"].backward()
+        if architecture == "action_adapter_flow":
+            gradient_metrics = backward_with_encoder_gradient_surgery(
+                losses, model, encoder_gradient_surgery
+            )
+        else:
+            losses["loss"].backward()
+            gradient_metrics = {}
         optimizer.step()
         if step == 1 or step % config["log_every"] == 0:
             row = {
                 "step": step,
                 **{key: float(value.detach()) for key, value in losses.items()},
+                **{
+                    key: float(value.detach())
+                    for key, value in gradient_metrics.items()
+                },
             }
             with log_path.open("a") as stream:
                 stream.write(json.dumps(row) + "\n")

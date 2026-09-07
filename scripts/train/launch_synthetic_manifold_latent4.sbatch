@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 #SBATCH --job-name=synthetic-torus-z4
 #SBATCH --array=0-1
 #SBATCH --nodes=1

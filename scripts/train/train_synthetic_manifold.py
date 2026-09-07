@@ -44,6 +44,7 @@ _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPOSITORY_ROOT))
 
+from egomimic.eval.noninvertible_diagnostics import noninvertible_diagnostics
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
 from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionFlow
@@ -52,6 +53,11 @@ from egomimic.synthetic.gaussian_relift_flow import SyntheticGaussianReliftFlow
 from egomimic.synthetic.gradient_surgery import (
     ENCODER_GRADIENT_SURGERIES,
     backward_with_encoder_gradient_surgery,
+)
+from egomimic.synthetic.latent_bridge_likelihood import SyntheticLatentBridgeLikelihood
+from egomimic.synthetic.noninvertible_endpoint_flow import (
+    SyntheticGraphSectionFlow,
+    SyntheticMMDEndpointFlow,
 )
 from egomimic.synthetic.projected_invertible_flow import (
     SyntheticProjectedInvertibleFlow,
@@ -181,6 +187,12 @@ def main() -> None:
         model = SyntheticEndpointLiftFlow(**config["model"]).to(device)
     elif architecture == "gaussian_relift_flow":
         model = SyntheticGaussianReliftFlow(**config["model"]).to(device)
+    elif architecture == "mmd_endpoint_flow":
+        model = SyntheticMMDEndpointFlow(**config["model"]).to(device)
+    elif architecture == "graph_section_flow":
+        model = SyntheticGraphSectionFlow(**config["model"]).to(device)
+    elif architecture == "latent_bridge_likelihood":
+        model = SyntheticLatentBridgeLikelihood(**config["model"]).to(device)
     else:
         raise ValueError(f"unknown architecture: {architecture}")
     if source.shape[-1] != model.latent_dim:
@@ -286,6 +298,21 @@ def main() -> None:
                 lambda_scale=config.get("lambda_scale", 1.0),
                 lambda_latent_flow=config.get("lambda_latent_flow", 0.0),
                 noise=batch_source,
+            )
+        elif architecture in {
+            "mmd_endpoint_flow", "graph_section_flow", "latent_bridge_likelihood"
+        }:
+            objective_args = {}
+            if architecture != "latent_bridge_likelihood":
+                objective_args["lambda_scale"] = config.get("lambda_scale", 1.0)
+            if architecture == "mmd_endpoint_flow":
+                objective_args["lambda_endpoint"] = config.get("lambda_endpoint", 10.0)
+            losses = model.losses(
+                batch_target,
+                flow_samples=config.get("flow_samples", 1),
+                noise=batch_source,
+                return_diagnostics=log_step,
+                **objective_args,
             )
         else:
             losses = model.losses(
@@ -420,6 +447,10 @@ def main() -> None:
     summary["training_elapsed_seconds"] = training_elapsed
     if device.type == "cuda":
         summary["peak_cuda_memory_bytes"] = torch.cuda.max_memory_allocated(device)
+    if architecture in {
+        "mmd_endpoint_flow", "graph_section_flow", "latent_bridge_likelihood"
+    } or config.get("noninvertible_diagnostics", False):
+        summary.update(noninvertible_diagnostics(model, src, tgt, trajectory, config))
     if architecture in {"endpoint_lift_flow", "gaussian_relift_flow"}:
         with torch.no_grad(), torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
             torch.manual_seed(seed + 30_000)

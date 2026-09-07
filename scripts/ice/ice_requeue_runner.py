@@ -1546,11 +1546,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     {
                         "status": "COMPLETE" if code == 0 else "CHILD_FAILED_NO_REQUEUE",
                         "child_exit_code": code,
+                        "child_exit_signal": signal.Signals(-code).name if code < 0 else None,
                         "finished_at_unix": time.time(),
                     }
                 )
                 atomic_json(attempt_dir / "attempt.json", record)
-                return code
+                # Popen uses negative signal numbers; returning those directly
+                # wraps SIGTERM (-15) to shell exit 241 instead of the expected
+                # 143. Preserve the raw code above and report shell semantics.
+                return 128 - code if code < 0 else code
             time.sleep(args.poll_seconds)
     finally:
         lock_stream.close()

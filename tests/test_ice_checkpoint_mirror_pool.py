@@ -187,6 +187,41 @@ class MirrorPoolTest(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertFalse((state / "mirror-complete.json").exists())
 
+    def test_rejected_candidate_is_reported_and_blocks_completion(self):
+        for worker_index in (0, 1):
+            with self.subTest(worker_index=worker_index), tempfile.TemporaryDirectory() as raw:
+                scratch, run, state, checkpoint, manifest = make_layout(Path(raw))
+                invalid = run / "step-100.ckpt"
+                invalid.write_text("incomplete checkpoint")
+                remote: dict[str, str] = {}
+
+                def fake_mirror(path, digest, *args, **kwargs):
+                    destination = f"/remote/{digest}"
+                    remote[destination] = digest
+                    return destination
+
+                with (
+                    mock.patch.object(POOL.core, "mirror_one", side_effect=fake_mirror),
+                    mock.patch.object(POOL.core, "remote_sha", side_effect=lambda ssh, host, path: remote.get(path)),
+                    mock.patch.object(POOL.core, "scratch_bytes", return_value=100),
+                ):
+                    code = POOL.main(worker_args(manifest, state, scratch, index=worker_index))
+                self.assertEqual(code, 1)
+                self.assertTrue(checkpoint.exists())
+                self.assertTrue(invalid.exists())
+                self.assertFalse((state / "mirror-complete.json").exists())
+                status = json.loads((state / f"worker-{worker_index}-status.json").read_text())
+                self.assertEqual(status["cycle_errors"], 1)
+                events = [json.loads(line) for line in (state / "mirror-events.jsonl").read_text().splitlines()]
+                rejected = [event for event in events if event["event"] == "checkpoint_not_stably_valid"]
+                self.assertEqual(len(rejected), 1)
+                self.assertEqual(rejected[0]["reason"], "validator_failed")
+                self.assertEqual(rejected[0]["validator_returncode"], 1)
+                self.assertIn("JSONDecodeError", rejected[0]["validator_stderr_tail"])
+                if worker_index == 0:
+                    pressure = json.loads((state / "storage-pressure.json").read_text())
+                    self.assertEqual(pressure["cycle_errors"], 1)
+
     def test_completion_requires_exact_terminal_checkpoint(self):
         with tempfile.TemporaryDirectory() as raw:
             scratch, run, state, checkpoint, manifest = make_layout(Path(raw))

@@ -2,6 +2,10 @@ import pytest
 import torch
 
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
+from egomimic.synthetic.gradient_surgery import (
+    backward_with_encoder_gradient_surgery,
+    project_flow_gradient_against_reconstruction,
+)
 
 
 def _perturb_residual_outputs(model: SyntheticActionAdapterFlow) -> None:
@@ -133,12 +137,112 @@ def test_clean_gradient_modes_keep_forward_loss_identical_and_change_encoder_rou
     assert gradients["all_stopgrad"] == 0
 
 
+def test_all_stopgrad_also_removes_action_velocity_encoder_gradient():
+    model = SyntheticActionAdapterFlow(
+        latent_dim=8, adapter_family="nonlinear", field_width=16, field_depth=2
+    )
+    _perturb_residual_outputs(model)
+    action, noise, time = torch.randn(12, 3), torch.randn(12, 8), torch.rand(36, 1)
+    gradients = {}
+    for mode in ("target_stopgrad", "all_stopgrad"):
+        model.zero_grad(set_to_none=True)
+        action_velocity_loss = model.losses(
+            action,
+            objective="action_velocity",
+            flow_samples=3,
+            noise=noise,
+            time=time,
+            clean_gradient_mode=mode,
+        )["action_velocity_loss"]
+        action_velocity_loss.backward()
+        gradients[mode] = sum(
+            float(parameter.grad.abs().sum())
+            for parameter in model.encoder.parameters()
+            if parameter.grad is not None
+        )
+    assert gradients["target_stopgrad"] > 0
+    assert gradients["all_stopgrad"] == 0
+
+
 def test_unknown_clean_gradient_mode_is_rejected():
     model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="nonlinear")
     with pytest.raises(ValueError, match="unknown clean gradient mode"):
         model.losses(
             torch.randn(8, 3), objective="action_velocity", clean_gradient_mode="bad"
         )
+
+
+def test_asymmetric_gradient_projection_removes_only_conflicting_component():
+    flow = (torch.tensor([-2.0, 3.0]), torch.tensor([1.0]))
+    reconstruction = (torch.tensor([1.0, 0.0]), torch.tensor([0.0]))
+    projected, metrics = project_flow_gradient_against_reconstruction(
+        flow, reconstruction
+    )
+
+    torch.testing.assert_close(projected[0], torch.tensor([0.0, 3.0]))
+    torch.testing.assert_close(projected[1], flow[1])
+    assert metrics["encoder_flow_projection_active"] == 1
+    assert metrics["encoder_flow_reconstruction_gradient_cosine"] < 0
+
+    aligned, aligned_metrics = project_flow_gradient_against_reconstruction(
+        (torch.tensor([2.0, 3.0]),), (torch.tensor([1.0, 0.0]),)
+    )
+    torch.testing.assert_close(aligned[0], torch.tensor([2.0, 3.0]))
+    assert aligned_metrics["encoder_flow_projection_active"] == 0
+
+
+def test_gradient_surgery_replaces_only_encoder_flow_gradient():
+    model = SyntheticActionAdapterFlow(
+        latent_dim=8,
+        adapter_family="nonlinear",
+        residual_width=8,
+        residual_depth=1,
+        field_width=8,
+        field_depth=1,
+    )
+    _perturb_residual_outputs(model)
+    losses = model.losses(
+        torch.randn(7, 3),
+        objective="action_velocity",
+        flow_samples=2,
+        lambda_reconstruction=1.0,
+    )
+    parameters = tuple(model.encoder.parameters())
+    flow = torch.autograd.grad(losses["flow_loss"], parameters, retain_graph=True)
+    reconstruction = torch.autograd.grad(
+        losses["reconstruction_loss"], parameters, retain_graph=True
+    )
+    total = torch.autograd.grad(losses["loss"], parameters, retain_graph=True)
+    projected, _ = project_flow_gradient_against_reconstruction(
+        flow, reconstruction
+    )
+
+    model.zero_grad(set_to_none=True)
+    metrics = backward_with_encoder_gradient_surgery(
+        losses, model, "protect_reconstruction_from_flow"
+    )
+
+    for parameter, total_gradient, flow_gradient, projected_gradient in zip(
+        parameters, total, flow, projected, strict=True
+    ):
+        torch.testing.assert_close(
+            parameter.grad,
+            total_gradient - flow_gradient + projected_gradient,
+        )
+    projected_dot = sum(
+        (flow_gradient * reconstruction_gradient).sum()
+        for flow_gradient, reconstruction_gradient in zip(
+            projected, reconstruction, strict=True
+        )
+    )
+    assert projected_dot >= -1e-6
+    assert set(metrics) == {
+        "encoder_flow_reconstruction_gradient_cosine",
+        "encoder_flow_projection_active",
+        "encoder_flow_gradient_norm",
+        "encoder_flow_projected_gradient_norm",
+        "encoder_reconstruction_gradient_norm",
+    }
 
 
 def test_path_loss_gradients_reach_both_nonlinear_adapters():

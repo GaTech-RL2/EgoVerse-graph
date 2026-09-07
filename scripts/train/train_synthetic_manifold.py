@@ -355,6 +355,7 @@ def main() -> None:
                 objective_args["lambda_scale"] = config.get("lambda_scale", 1.0)
             if architecture == "mmd_endpoint_flow":
                 objective_args["lambda_endpoint"] = config.get("lambda_endpoint", 10.0)
+                objective_args.update(_flow_clean_gradient_kwargs(config))
             losses = model.losses(
                 batch_target,
                 flow_samples=config.get("flow_samples", 1),

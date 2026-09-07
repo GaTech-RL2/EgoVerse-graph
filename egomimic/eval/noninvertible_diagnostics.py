@@ -77,6 +77,8 @@ losses retain their own path-noise scale value under ``validation_scale_loss``.
                 arguments["lambda_scale"] = config.get("lambda_scale", 1.0)
             if architecture == "mmd_endpoint_flow":
                 arguments["lambda_endpoint"] = config.get("lambda_endpoint", 10.0)
+                if "flow_clean_gradient_mode" in config:
+                    arguments["flow_clean_gradient_mode"] = config["flow_clean_gradient_mode"]
             losses = model.losses(
                 target, flow_samples=1, noise=source, return_diagnostics=True,
                 **arguments,

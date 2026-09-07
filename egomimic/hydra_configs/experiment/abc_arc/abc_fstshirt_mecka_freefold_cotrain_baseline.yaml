@@ -12,7 +12,7 @@ defaults:
   - override /model: abc_arc/yam_mecka_cotrain_dp_baseline
   - override /data: abc_arc/abc_fstshirt_mecka_freefold_baseline_cotrain
   - override /evaluator: eval_bimanual_cartesian
-  - override hydra/launcher: submitit_pace
+  - override /hydra/launcher: submitit_pace
   - _self_
 
 name: abc_fstshirt_mecka_freefold_cotrain_baseline

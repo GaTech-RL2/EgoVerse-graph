@@ -8,7 +8,7 @@ defaults:
   - override /model: abc/yam_bimanual_dp
   - override /data: abc_arc/abc_fstshirt_bc
   - override /evaluator: null
-  - override hydra/launcher: submitit_pace
+  - override /hydra/launcher: submitit_pace
   - _self_
 
 name: abc_yam_fstshirt_dp
@@ -36,7 +36,12 @@ logger:
 abc:
   # eef_frame + euler => [L xyz ypr g, R xyz ypr g].
   action_dim: 14
-  action_horizon: 16
+  # Yam's cartesian transform list interpolates every action chunk to
+  # `chunk_length` (default 100), and the data config does not override it, so
+  # the loader hands the graph a (100, 14) target. The diffusion stages
+  # validate the target's width, so this MUST match -- 16 aborts on the first
+  # batch. Matches the sibling cotrain baseline model, which hardcodes 100.
+  action_horizon: 100
   # FusedObsEncoder output: 64 image features + the 14D proprio pose.
   condition_dim: 78
   encoder:

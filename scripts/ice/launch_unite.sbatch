@@ -583,7 +583,9 @@ with path.open("rb") as stream:
         digest.update(chunk)
 assert digest.hexdigest() == expected_sha
 PY
-  checkpoint_override="ckpt_path=$ICE_RESUME_CHECKPOINT"
+  # Checkpoint filenames carry '=' (epoch=.../step=...), which Hydra's override
+  # grammar rejects unquoted; single-quote the value.
+  checkpoint_override="ckpt_path='$ICE_RESUME_CHECKPOINT'"
   wandb_resume=must
 else
   test -z "${ICE_RESUME_CHECKPOINT_SHA256:-}${ICE_RESUME_GLOBAL_STEP:-}"

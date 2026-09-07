@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 # Real two-GPU optimizer + scheduled-validation smoke for clean Planar V2 DP cotraining.
 
 set -Eeuo pipefail

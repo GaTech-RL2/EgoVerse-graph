@@ -119,7 +119,10 @@ class _GeometricEndpointFlow(nn.Module):
             points.append(self.decoder(state))
         return torch.stack(points)
 
-    def _geometric_losses(self, action, *, flow_samples, lambda_scale, noise, time):
+    def _geometric_losses(
+        self, action, *, flow_samples, lambda_scale, noise, time,
+        flow_clean_gradient_mode=None,
+    ):
         self._require_forward_ad()
         if action.ndim != 2 or action.shape[1] != self.action_dim:
             raise ValueError("action must have shape [batch, action_dim]")
@@ -139,7 +142,20 @@ class _GeometricEndpointFlow(nn.Module):
         state = (1 - time) * clean_many + time * noise_many
         target = noise_many - clean_many
         residual = self.velocity(state, time) - target
-        latent_loss = residual.square().mean()
+        if flow_clean_gradient_mode in (None, "full"):
+            # Keep the legacy shared forward and gradient graph exactly.
+            flow_residual = residual
+        else:
+            # Only latent FM gets a distinct graph. The Action Flow state,
+            # target, residual and decoder JVP above/below stay fully attached.
+            flow_state_clean = (
+                clean_many.detach()
+                if flow_clean_gradient_mode == "all_stopgrad" else clean_many
+            )
+            flow_state = (1 - time) * flow_state_clean + time * noise_many
+            flow_target = noise_many - clean_many.detach()
+            flow_residual = self.velocity(flow_state, time) - flow_target
+        latent_loss = flow_residual.square().mean()
         action_loss = self.decoder_jvp(state, residual).square().mean()
         scale = self.scale_loss(noise)
         zero = action.new_zeros(())
@@ -184,10 +200,21 @@ Finite MMD weights are an optimization experiment, not an exact constraint.
     def losses(
         self, action, *, flow_samples=14, noise=None, time=None,
         lambda_endpoint=10.0, lambda_scale=1.0, return_diagnostics=False,
+        flow_clean_gradient_mode=None,
     ):
+        """Optionally stop clean-code gradients in latent FM alone.
+
+        None/full preserve the original computation. target_stopgrad detaches
+        only the latent target; all_stopgrad also detaches the latent FM state.
+        Action Flow, endpoint MMD and noise-scale gradients are unchanged.
+        """
+        if flow_clean_gradient_mode not in {
+            None, "full", "target_stopgrad", "all_stopgrad"
+        }:
+            raise ValueError(f"unknown flow clean gradient mode: {flow_clean_gradient_mode}")
         losses, clean = self._geometric_losses(
             action, flow_samples=flow_samples, lambda_scale=lambda_scale,
-            noise=noise, time=time,
+            noise=noise, time=time, flow_clean_gradient_mode=flow_clean_gradient_mode,
         )
         endpoint = self.decoder(clean)
         endpoint_mmd2 = paired_multiscale_mmd2(

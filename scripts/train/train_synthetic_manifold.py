@@ -12,6 +12,7 @@ import random
 import re
 import signal
 import sys
+import time
 from pathlib import Path
 
 
@@ -46,6 +47,8 @@ if str(_REPOSITORY_ROOT) not in sys.path:
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
 from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionFlow
+from egomimic.synthetic.endpoint_lift_flow import SyntheticEndpointLiftFlow
+from egomimic.synthetic.gaussian_relift_flow import SyntheticGaussianReliftFlow
 from egomimic.synthetic.gradient_surgery import (
     ENCODER_GRADIENT_SURGERIES,
     backward_with_encoder_gradient_surgery,
@@ -174,6 +177,10 @@ def main() -> None:
         model = SyntheticDecoderInversionFlow(**config["model"]).to(device)
     elif architecture == "projected_invertible_flow":
         model = SyntheticProjectedInvertibleFlow(**config["model"]).to(device)
+    elif architecture == "endpoint_lift_flow":
+        model = SyntheticEndpointLiftFlow(**config["model"]).to(device)
+    elif architecture == "gaussian_relift_flow":
+        model = SyntheticGaussianReliftFlow(**config["model"]).to(device)
     else:
         raise ValueError(f"unknown architecture: {architecture}")
     if source.shape[-1] != model.latent_dim:
@@ -215,6 +222,7 @@ def main() -> None:
 
         wandb_run = wandb.init(config=config, **config["wandb"])
     log_path = output / "metrics.jsonl"
+    training_started = time.monotonic()
     for step in range(start_step + 1, config["max_steps"] + 1):
         chosen = train_indices[
             torch.randint(
@@ -223,6 +231,11 @@ def main() -> None:
         ]
         batch_source = source[chosen].to(device)
         batch_target = target[chosen].to(device)
+        if config.get("training_noise", "dataset") == "fresh_gaussian":
+            batch_source = torch.randn_like(batch_source)
+        elif config.get("training_noise", "dataset") != "dataset":
+            raise ValueError("training_noise must be dataset or fresh_gaussian")
+        log_step = step == 1 or step % config["log_every"] == 0
         if architecture == "shared_latent":
             losses = model.losses(
                 batch_source,
@@ -253,6 +266,19 @@ def main() -> None:
                 clean_gradient_mode=config.get("clean_gradient_mode", "full"),
                 noise=batch_source,
             )
+        elif architecture in {"endpoint_lift_flow", "gaussian_relift_flow"}:
+            objective_args = (
+                {"objective": config["endpoint_objective"]}
+                if architecture == "endpoint_lift_flow" else {}
+            )
+            losses = model.losses(
+                batch_target,
+                flow_samples=config.get("flow_samples", 1),
+                lambda_scale=config.get("lambda_scale", 1.0),
+                noise=batch_source,
+                return_diagnostics=log_step,
+                **objective_args,
+            )
         elif architecture == "projected_invertible_flow":
             losses = model.losses(
                 batch_target,
@@ -282,7 +308,7 @@ def main() -> None:
             losses["loss"].backward()
             gradient_metrics = {}
         optimizer.step()
-        if step == 1 or step % config["log_every"] == 0:
+        if log_step:
             row = {
                 "step": step,
                 **{key: float(value.detach()) for key, value in losses.items()},
@@ -291,6 +317,13 @@ def main() -> None:
                     for key, value in gradient_metrics.items()
                 },
             }
+            elapsed = time.monotonic() - training_started
+            row["training_elapsed_seconds"] = elapsed
+            row["training_steps_per_second"] = (step - start_step) / elapsed
+            if device.type == "cuda":
+                row["peak_cuda_memory_bytes"] = torch.cuda.max_memory_allocated(device)
+            if not all(np.isfinite(value) for value in row.values()):
+                raise FloatingPointError(f"non-finite logged training metric at step {step}")
             with log_path.open("a") as stream:
                 stream.write(json.dumps(row) + "\n")
             if wandb_run is not None:
@@ -324,6 +357,9 @@ def main() -> None:
             )
             # A signal received during serialization belongs to the next save.
             _checkpoint_requests.saved = requested
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    training_elapsed = time.monotonic() - training_started
     model.eval()
     if "evaluation_dataset" in config:
         src, tgt = SyntheticTrajectoryEval.load_validation_data(
@@ -335,7 +371,8 @@ def main() -> None:
     else:
         src = source[val_indices].to(device)
         tgt = target[val_indices].to(device)
-    with torch.inference_mode():
+    # JVP-defined samplers need forward AD, which inference_mode disables.
+    with torch.no_grad():
         if architecture in {"shared_latent", "action_adapter_flow"}:
             clean_reconstruction = model.decoder(model.encoder(tgt))
             trajectory = SyntheticTrajectoryEval.export(
@@ -380,6 +417,47 @@ def main() -> None:
     summary["validation_generation_symmetric_nn_mse"] = float(
         SyntheticTrajectoryEval.symmetric_nearest_neighbor_mse(generated, tgt)
     )
+    summary["training_elapsed_seconds"] = training_elapsed
+    if device.type == "cuda":
+        summary["peak_cuda_memory_bytes"] = torch.cuda.max_memory_allocated(device)
+    if architecture in {"endpoint_lift_flow", "gaussian_relift_flow"}:
+        with torch.no_grad(), torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
+            torch.manual_seed(seed + 30_000)
+            fixed_noise = torch.randn(
+                int(config.get("diagnostic_noise_samples", 4096)), model.latent_dim,
+                device=device,
+            )
+            aux = torch.randn(len(tgt), model.latent_dim - model.action_dim, device=device)
+            clean = model.exact_lift(tgt, aux)
+            decoded_noise = model.decoder(fixed_noise)
+            singular = model.decoder_jacobian_singular_values(fixed_noise[:128])
+            objective_args = ({"objective": config["endpoint_objective"]}
+                              if architecture == "endpoint_lift_flow" else {})
+            validation_losses = model.losses(
+                tgt, noise=src, aux_noise=aux, flow_samples=1,
+                lambda_scale=config.get("lambda_scale", 1.0),
+                return_diagnostics=True, **objective_args,
+            )
+            summary.update({f"validation_{key}": float(value) for key, value in validation_losses.items()})
+            summary.update({
+                "validation_path_noise_scale_loss": float(validation_losses["scale_loss"]),
+                "validation_scale_loss": float(model.scale_loss(fixed_noise)),
+                "validation_exact_lift_mse": float((model.decoder(clean) - tgt).square().mean()),
+                "validation_decoder_jacobian_singular_min": float(singular.min()),
+                "validation_decoder_jacobian_singular_median": float(singular.median()),
+                "validation_decoder_jacobian_singular_max": float(singular.max()),
+                "validation_decoded_noise_mean_norm": float(decoded_noise.mean(0).norm()),
+                "validation_decoded_noise_radius_q50": float(decoded_noise.norm(dim=-1).median()),
+                "validation_decoded_noise_radius_q99": float(torch.quantile(decoded_noise.norm(dim=-1), .99)),
+                "validation_generated_endpoint_spread": float(generated.var(dim=0).mean()),
+                "validation_trajectory_max_displacement": float((trajectory[-1] - trajectory[0]).norm(dim=-1).max()),
+                "validation_torus_surface_rmse": float(SyntheticTrajectoryEval.torus_surface_rmse(
+                    generated, major_radius=float(config.get("torus_major_radius", 2.0)),
+                    minor_radius=float(config.get("torus_minor_radius", .65)))),
+                **{f"validation_{key}": float(value) for key, value in SyntheticTrajectoryEval.torus_angular_coverage(
+                    generated, tgt, bins=int(config.get("angular_bins", 16)),
+                    major_radius=float(config.get("torus_major_radius", 2.0))).items()},
+            })
     if clean_reconstruction is not None:
         summary["validation_reconstruction_mse"] = float(
             (clean_reconstruction - tgt).square().mean()
@@ -666,6 +744,8 @@ def main() -> None:
             index / (len(trajectory_radii) - 1)
             for index in range(len(trajectory_radii))
         ]
+    if not all(np.isfinite(value) for value in summary.values() if np.isscalar(value)):
+        raise FloatingPointError("non-finite terminal validation metric")
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     if wandb_run is not None:
         # Keep structured trajectory diagnostics in summary.json. W&B summary

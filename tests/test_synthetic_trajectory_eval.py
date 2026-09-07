@@ -51,6 +51,43 @@ def test_ground_truth_uses_same_npz_contract(tmp_path):
     torch.testing.assert_close(points[-1], target)
 
 
+@pytest.mark.parametrize("operation", ["evaluate", "export"])
+def test_shared_eval_preserves_jvp_defined_particle_motion(tmp_path, operation):
+    class JvpVelocityModel:
+        def trajectory(self, source, *, steps):
+            self.reverse_grad_enabled = torch.is_grad_enabled()
+            state = source
+            points = [state]
+            for _ in range(steps):
+                _, velocity = torch.func.jvp(
+                    lambda latent: 2.0 * latent,
+                    (state,),
+                    (torch.ones_like(state),),
+                )
+                state = state + velocity / steps
+                points.append(state)
+            return torch.stack(points)
+
+    model = JvpVelocityModel()
+    source = torch.zeros(2, 3, requires_grad=True)
+    target = torch.full((2, 3), 2.0)
+    output = tmp_path / "jvp-motion.npz"
+    if operation == "evaluate":
+        points = SyntheticTrajectoryEval.evaluate(model, source, target, steps=4)
+    else:
+        points = SyntheticTrajectoryEval.export(
+            model, source, target, output, steps=4
+        )
+        with np.load(output, allow_pickle=False) as archive:
+            np.testing.assert_array_equal(archive["points"], points.numpy())
+            np.testing.assert_array_equal(archive["target"], target.numpy())
+
+    expected = torch.linspace(0.0, 2.0, 5)[:, None, None].expand(5, 2, 3)
+    torch.testing.assert_close(points, expected)
+    assert not model.reverse_grad_enabled
+    assert not points.requires_grad
+
+
 def test_validation_loader_requires_exact_requested_particle_count(tmp_path):
     dataset = tmp_path / "small.npz"
     np.savez_compressed(

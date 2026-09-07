@@ -146,8 +146,9 @@ class SyntheticTrajectoryEval:
         }
 
     @staticmethod
-    @torch.inference_mode()
+    @torch.no_grad()
     def evaluate(model, source: torch.Tensor, target: torch.Tensor, *, steps: int):
+        # JVP-defined velocities require forward AD, which inference_mode disables.
         points = model.trajectory(source, steps=steps)
         expected = (steps + 1, len(target), 3)
         if tuple(points.shape) != expected:

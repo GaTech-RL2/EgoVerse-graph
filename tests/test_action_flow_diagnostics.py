@@ -321,6 +321,38 @@ def test_planar_evaluator_logs_and_hashes_action_flow_diagnostics(tmp_path):
         evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=7)
 
 
+def test_action_flow_artifacts_preserve_slurm_attempts_and_same_attempt_refusal(tmp_path, monkeypatch):
+    diagnostic = _diagnostic()
+    legacy = tmp_path / "action-flow-artifacts/epoch-3-step-41/rank-0-batch-7.pt"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_bytes(b"historical diagnostic")
+    for job_id, restart in (("5714540", 0), ("5714540", 1), ("5715500", 0)):
+        monkeypatch.setenv("SLURM_JOB_ID", job_id)
+        monkeypatch.setenv("SLURM_RESTART_COUNT", str(restart))
+        evaluator = PlanarActionEval(
+            energy_score_enabled=False,
+            action_flow_diagnostics={"enabled": True, **_config(tmp_path)},
+        )
+        evaluator.bind_data_context(normalizer=_IdentityNormalizer())
+        evaluator.model = _DiagnosticModel(diagnostic)
+        evaluator.trainer = SimpleNamespace(
+            current_epoch=3, global_step=41, global_rank=0, precision="32-true",
+            lightning_module=SimpleNamespace(log_dict=lambda *_args, **_kwargs: None),
+        )
+        evaluator.on_validation_start()
+        evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=7)
+        artifact = legacy.parent.parent / f"job-{job_id}-restart-{restart}" / legacy.parent.name / legacy.name
+        payload = torch.load(artifact, map_location="cpu", weights_only=False)
+        assert payload["execution"] == {"slurm_job_id": job_id, "slurm_restart_count": restart}
+        assert payload["identity_sha256"] == evaluator._action_flow_diagnostics.identity_sha256
+        sidecar = json.loads(Path(f"{artifact}.sha256").read_text())
+        assert sidecar["sha256"] == hashlib.sha256(artifact.read_bytes()).hexdigest()
+        evaluator.on_validation_start()
+        with pytest.raises(FileExistsError, match="refusing to overwrite"):
+            evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=7)
+    assert legacy.read_bytes() == b"historical diagnostic"
+
+
 def test_planar_action_flow_diagnostics_emit_native_circular_errors(tmp_path):
     diagnostic = _diagnostic(action_dim=4)
     config = _config(tmp_path, native_error=USOCKET_NATIVE_ERROR_CONFIG)
@@ -519,9 +551,14 @@ def test_action_flow_diagnostic_config_fails_closed(tmp_path, overrides, match):
         ActionFlowDiagnostics(_config(tmp_path, **overrides))
 
 
+@pytest.mark.parametrize("restart", [None, 0, 1])
 def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
-    tmp_path,
+    tmp_path, monkeypatch, restart,
 ):
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    if restart is not None:
+        monkeypatch.setenv("SLURM_JOB_ID", "5714540")
+        monkeypatch.setenv("SLURM_RESTART_COUNT", str(restart))
     evaluator = PlanarActionEval(energy_score_enabled=False)
     evaluator.bind_data_context(normalizer=_IdentityNormalizer())
     evaluator.unite_diagnostics = {"artifact_root": str(tmp_path / "legacy-diagnostic")}
@@ -557,5 +594,14 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
     metrics = evaluator._unite_metrics_and_artifact(batch, batch_idx=0)
 
     assert "Valid/DenoisingTrajectory/DecodedNativeMSE/step_0" in metrics
-    artifact = tmp_path / "legacy-diagnostic/epoch-1-step-2/rank-0-batch-0.pt"
+    root = tmp_path / "legacy-diagnostic"
+    if restart is not None:
+        root = root / f"job-5714540-restart-{restart}"
+    artifact = root / "epoch-1-step-2/rank-0-batch-0.pt"
     assert artifact.is_file()
+    payload = torch.load(artifact, map_location="cpu", weights_only=False)
+    assert payload["execution"] == (
+        None if restart is None else {"slurm_job_id": "5714540", "slurm_restart_count": restart}
+    )
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        evaluator._unite_metrics_and_artifact(batch, batch_idx=0)

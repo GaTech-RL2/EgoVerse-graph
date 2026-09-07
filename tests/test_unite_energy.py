@@ -124,6 +124,32 @@ def _typed_evaluator(tmp_path):
     return evaluator, run_dir, config_path, content_manifest_path
 
 
+def test_energy_artifacts_preserve_validation_across_slurm_attempts(tmp_path, monkeypatch):
+    target = torch.zeros(2, 2, 4)
+    samples = target.unsqueeze(0).repeat(32, 1, 1, 1)
+    batch = _batch(target)
+    legacy = tmp_path / "artifacts/epoch-0-step-20001/rank-0-batch-0.pt"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_bytes(b"historical validation artifact")
+    saved_paths = []
+    for job_id, restart in (("5691426", 0), ("5691426", 1), ("5692000", 0)):
+        monkeypatch.setenv("SLURM_JOB_ID", job_id)
+        monkeypatch.setenv("SLURM_RESTART_COUNT", str(restart))
+        evaluator = _evaluator(tmp_path)
+        evaluator.trainer = SimpleNamespace(current_epoch=0, global_step=20001, global_rank=0)
+        scores = {"validation/usocket": evaluator._energy_values(samples, target, 19)}
+        evaluator._save_artifact(0, {"validation/usocket": samples}, scores, batch)
+        with pytest.raises(FileExistsError, match="refusing to overwrite"):
+            evaluator._save_artifact(0, {"validation/usocket": samples}, scores, batch)
+        path = tmp_path / "artifacts" / f"job-{job_id}-restart-{restart}" / "epoch-0-step-20001/rank-0-batch-0.pt"
+        saved_paths.append(path)
+        payload = torch.load(path, map_location="cpu", weights_only=True)
+        assert payload["execution"] == {"slurm_job_id": job_id, "slurm_restart_count": restart}
+        torch.testing.assert_close(payload["domains"]["pushshapes_sim_u_socket"]["predictions"], samples)
+    assert legacy.read_bytes() == b"historical validation artifact"
+    assert len(set(saved_paths)) == 3
+
+
 def _rotvec(theta, *, batch_size=2, horizon=16):
     theta = torch.full((batch_size, horizon), float(theta))
     return torch.stack(

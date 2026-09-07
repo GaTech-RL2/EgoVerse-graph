@@ -94,6 +94,13 @@ status and signal names and never requeues a cancellation or ordinary child
 failure. A failed upstream dependency automatically retires the dependent
 request; it does not permit bypassing its smoke gate.
 
+In this Action Flow branch, `egomimic/eval/artifact_paths.py` supplies the same
+namespace rule to EnergyScore, UNITE diagnostics, and Action Flow diagnostics.
+The Action Flow smoke verifier selects the active job/restart namespace and
+checks its payload identity. Offline verification requires one unambiguous
+artifact. Update readers alongside writers when changing artifact paths;
+legacy typed/native metric schemas and sidecar hashes remain unchanged.
+
 ## Clean task files by dependency
 
 Before any removal, record exact paths, file count/bytes, active-job consumers,

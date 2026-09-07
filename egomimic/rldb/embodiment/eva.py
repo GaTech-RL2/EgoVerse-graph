@@ -518,3 +518,64 @@ def _build_eva_bimanual_transform_list(
         ]
     )
     return transform_list
+
+
+# Where the arc tokenizer stashes the untokenized chunk it consumed, so
+# validation can score against the real thing instead of a reconstruction.
+# Nothing trains on it. It is not declared in any keymap, but MultiDataset's
+# `_infer_key_type` classifies post-transform keys by name and anything starting
+# with "actions" is inferred to be an action key -- so it does get normalized on
+# the way in, and the evaluator's `norm_stats.unnormalize` puts it back in
+# metres. Renaming it to something not starting with "actions" would skip both
+# halves; keep the two in step either way.
+UNTOKENIZED_ACTION_KEY = "actions_cartesian_untokenized"
+
+
+def _append_arc_tokenizer(
+    transform_list: list[Transform],
+    *,
+    min_distance_unit: float,
+    resampled_vector_length: int,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
+    dt: float | None = None,
+    action_key: str = "actions_cartesian",
+    preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
+) -> list[Transform]:
+    """Splice the arc-length tokenizer in before the final NumpyToTensor.
+
+    The tokenizer works on numpy arrays, so it has to run before the cast;
+    NumpyToTensor then converts the (M+1, 14) result to a torch tensor.
+
+    ``rotation_mode`` must be ``euler``: the tokenizer's chunk layout is a
+    hard-coded 14D ``[xyz(3), ypr(3), grip(1)] x 2``, and it SLERPs through
+    the ypr slots. quat (16D) and 6D (20D) chunks are rejected here rather
+    than at the first batch, where the shape check fires deep inside a run.
+    """
+    if rotation_mode != "euler":
+        raise ValueError(
+            "the arc-length tokenizer only supports rotation_mode='euler' "
+            f"(its chunk layout is 14D [xyz, ypr, grip] x 2); got {rotation_mode!r}"
+        )
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    kwargs = {} if dt is None else {"dt": float(dt)}
+    tokenize = TokenizeBimanualArcLengthCartesian(
+        action_key=action_key,
+        output_action_key=action_key,
+        min_distance_unit=float(min_distance_unit),
+        resampled_vector_length=int(resampled_vector_length),
+        preserve_action_key=preserve_action_key,
+        **kwargs,
+    )
+    for i in range(len(transform_list) - 1, -1, -1):
+        if isinstance(transform_list[i], NumpyToTensor):
+            # The preserved chunk has to ride through the same cast as
+            # everything else or it reaches the collate fn as a numpy array.
+            if preserve_action_key is not None:
+                transform_list[i].keys = list(transform_list[i].keys) + [
+                    preserve_action_key
+                ]
+            return transform_list[:i] + [tokenize] + transform_list[i:]
+    return transform_list + [tokenize]

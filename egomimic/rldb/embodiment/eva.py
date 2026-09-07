@@ -540,6 +540,7 @@ def _append_arc_tokenizer(
     dt: float | None = None,
     action_key: str = "actions_cartesian",
     preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
+    velocity_mode: str = "mean",
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
 
@@ -567,6 +568,7 @@ def _append_arc_tokenizer(
         min_distance_unit=float(min_distance_unit),
         resampled_vector_length=int(resampled_vector_length),
         preserve_action_key=preserve_action_key,
+        velocity_mode=velocity_mode,
         **kwargs,
     )
     for i in range(len(transform_list) - 1, -1, -1):

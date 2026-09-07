@@ -103,11 +103,36 @@ def test_geometric_loss_keeps_encoder_target_state_and_decoder_gradients(model_t
     target = noise - many
     residual = model.velocity(state, inputs["time"]) - target
     expected = residual.square().mean() + model.decoder_jvp(state, residual).square().mean()
-    expected_gradients = torch.autograd.grad(expected, tuple(model.parameters()), retain_graph=True)
-    for observed, reference in zip(actual_gradients, expected_gradients):
+    expected_gradients = torch.autograd.grad(
+        expected, tuple(model.parameters()), retain_graph=True, allow_unused=True
+    )
+    # Pure geometric FM is invariant to an additive decoder translation. Its
+    # JVP graph therefore omits these output biases, while 0*scale/endpoint in
+    # the implementation materializes their mathematically zero gradients.
+    # Do not excuse unused tensors elsewhere: they would hide a broken route.
+    translation_biases = (
+        (model.decoder.linear.bias, model.decoder.residual[-1].bias)
+        if model_type is SyntheticMMDEndpointFlow else (model.residual[-1].bias,)
+    )
+    allowed_unused = {id(parameter) for parameter in translation_biases}
+    for (name, parameter), observed, reference in zip(
+        model.named_parameters(), actual_gradients, expected_gradients
+    ):
+        if reference is None:
+            assert id(parameter) in allowed_unused, f"unexpected disconnected parameter: {name}"
+            reference = torch.zeros_like(parameter)
+            torch.testing.assert_close(observed, reference, rtol=0, atol=0)
         torch.testing.assert_close(observed, reference)
     for tensor in (clean, state, target):
         assert torch.autograd.grad(expected, tensor, retain_graph=True)[0].abs().sum() > 0
+    full_clean_gradient = torch.autograd.grad(expected, clean, retain_graph=True)[0]
+    detached_residual = model.velocity(state, inputs["time"]) - target.detach()
+    detached_loss = (
+        detached_residual.square().mean()
+        + model.decoder_jvp(state, detached_residual).square().mean()
+    )
+    detached_clean_gradient = torch.autograd.grad(detached_loss, clean)[0]
+    assert not torch.allclose(full_clean_gradient, detached_clean_gradient, rtol=1e-8, atol=1e-10)
     named_gradients = dict(zip((name for name, _ in model.named_parameters()), actual_gradients))
     prefixes = ("encoder", "decoder", "field") if model_type is SyntheticMMDEndpointFlow else ("graph", "residual", "field")
     for prefix in prefixes:

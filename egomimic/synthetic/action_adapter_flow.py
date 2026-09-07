@@ -201,6 +201,42 @@ class SyntheticActionAdapterFlow(nn.Module):
             covariance = centered.T @ centered / (len(decoded) - 1)
         return mean.square().sum() / 3.0 + (covariance - identity).square().sum() / 3.0
 
+    def noise_augmented_reconstruction_loss(
+        self,
+        action: torch.Tensor,
+        *,
+        t_min: float = 0.7,
+        probability: float = 0.5,
+    ) -> torch.Tensor:
+        """Released UNITE's noise augmentation before decoding.
+
+        For a random subset of the batch (``probability``), decode
+        ``z = t z_0 + (1 - t) eps`` with ``t ~ U[t_min, 1]`` instead of the clean
+        code, so the decoder learns to tolerate off-manifold latents. The
+        encoder stays attached, exactly as in the clean reconstruction loss.
+        """
+        if not 0.0 <= t_min <= 1.0 or not 0.0 <= probability <= 1.0:
+            raise ValueError("noise augmentation t_min and probability must be in [0, 1]")
+        clean = self.encoder(action)
+        t = torch.empty(len(clean), 1, device=clean.device, dtype=clean.dtype).uniform_(
+            t_min, 1.0
+        )
+        apply = (torch.rand(len(clean), 1, device=clean.device) < probability).to(
+            clean.dtype
+        )
+        t = apply * t + (1.0 - apply)
+        noisy = t * clean + (1.0 - t) * torch.randn_like(clean)
+        return (self.decoder(noisy) - action).square().mean()
+
+    @staticmethod
+    def _route_clean(clean_many: torch.Tensor, mode: str) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return (target_clean, state_clean) for a clean-gradient mode."""
+        if mode not in {"full", "target_stopgrad", "all_stopgrad"}:
+            raise ValueError(f"unknown clean gradient mode: {mode}")
+        target_clean = clean_many if mode == "full" else clean_many.detach()
+        state_clean = clean_many.detach() if mode == "all_stopgrad" else clean_many
+        return target_clean, state_clean
+
     def losses(
         self,
         action: torch.Tensor,
@@ -212,6 +248,10 @@ class SyntheticActionAdapterFlow(nn.Module):
         lambda_path: float = 1.0,
         lambda_action_velocity: float = 1.0,
         clean_gradient_mode: str = "full",
+        action_velocity_clean_gradient_mode: str | None = None,
+        reconstruction_noise_aug: bool = False,
+        noise_aug_t_min: float = 0.7,
+        noise_aug_probability: float = 0.5,
         noise: torch.Tensor | None = None,
         time: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
@@ -225,6 +265,10 @@ class SyntheticActionAdapterFlow(nn.Module):
             raise ValueError("flow_samples must be positive")
         if clean_gradient_mode not in {"full", "target_stopgrad", "all_stopgrad"}:
             raise ValueError(f"unknown clean gradient mode: {clean_gradient_mode}")
+        # The action-velocity term may attach to the encoder independently of
+        # the flow term; by default it follows the flow term.
+        if action_velocity_clean_gradient_mode is None:
+            action_velocity_clean_gradient_mode = clean_gradient_mode
         clean = self.encoder(action)
         clean_many = (
             clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
@@ -245,20 +289,32 @@ class SyntheticActionAdapterFlow(nn.Module):
             time = torch.rand(len(clean_many), 1, device=action.device)
         if time.shape != (len(clean_many), 1):
             raise ValueError("time does not match the expanded action batch")
-        target_clean = clean_many if clean_gradient_mode == "full" else clean_many.detach()
-        state_clean = clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        target_clean, state_clean = self._route_clean(clean_many, clean_gradient_mode)
         target_velocity = noise_many - target_clean
         state = (1.0 - time) * state_clean + time * noise_many
         velocity_residual = self.velocity(state, time) - target_velocity
         flow_loss = velocity_residual.square().mean()
-        reconstruction_loss = self.reconstruction_loss(action)
+        if reconstruction_noise_aug:
+            reconstruction_loss = self.noise_augmented_reconstruction_loss(
+                action, t_min=noise_aug_t_min, probability=noise_aug_probability
+            )
+        else:
+            reconstruction_loss = self.reconstruction_loss(action)
         scale_loss = self.scale_loss(base_noise)
         if objective == "path":
             path_loss = self.path_consistency_loss(action_many, noise_many, time)
         else:
             path_loss = torch.zeros((), device=action.device, dtype=action.dtype)
         if objective == "action_velocity":
-            action_velocity_loss = self.action_velocity_loss(state, velocity_residual)
+            if action_velocity_clean_gradient_mode == clean_gradient_mode:
+                av_state, av_residual = state, velocity_residual
+            else:
+                av_target, av_state_clean = self._route_clean(
+                    clean_many, action_velocity_clean_gradient_mode
+                )
+                av_state = (1.0 - time) * av_state_clean + time * noise_many
+                av_residual = self.velocity(av_state, time) - (noise_many - av_target)
+            action_velocity_loss = self.action_velocity_loss(av_state, av_residual)
         else:
             action_velocity_loss = torch.zeros(
                 (), device=action.device, dtype=action.dtype

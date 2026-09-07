@@ -213,6 +213,7 @@ def main() -> None:
                 reconstruction_updates_field=config.get(
                     "reconstruction_updates_field", True
                 ),
+                clean_gradient_mode=config.get("clean_gradient_mode", "full"),
             )
         elif architecture == "direct_flow":
             losses = model.losses(
@@ -230,6 +231,14 @@ def main() -> None:
                 lambda_path=config.get("lambda_path", 1.0),
                 lambda_action_velocity=config.get("lambda_action_velocity", 1.0),
                 clean_gradient_mode=config.get("clean_gradient_mode", "full"),
+                action_velocity_clean_gradient_mode=config.get(
+                    "action_velocity_clean_gradient_mode"
+                ),
+                reconstruction_noise_aug=bool(
+                    config.get("reconstruction_noise_aug", False)
+                ),
+                noise_aug_t_min=float(config.get("noise_aug_t_min", 0.7)),
+                noise_aug_probability=float(config.get("noise_aug_probability", 0.5)),
                 noise=batch_source,
             )
         optimizer.zero_grad(set_to_none=True)

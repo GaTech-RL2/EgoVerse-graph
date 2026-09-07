@@ -232,3 +232,50 @@ def test_reverse_time_trajectory_decodes_every_state():
     trajectory = model.trajectory(torch.randn(6, 8), steps=4)
     assert trajectory.shape == (5, 6, 3)
     assert torch.isfinite(trajectory).all()
+
+
+def test_action_velocity_clean_gradient_mode_routes_independently():
+    torch.manual_seed(2)
+    model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="nonlinear")
+    _perturb_residual_outputs(model)
+    action = torch.randn(6, 3)
+    noise = torch.randn(6, 8)
+    time = torch.rand(12, 1)
+    enc = list(model.encoder.parameters())
+    # flow fully detached, AV attached
+    losses = model.losses(
+        action, objective="action_velocity", flow_samples=2, noise=noise, time=time,
+        clean_gradient_mode="all_stopgrad", action_velocity_clean_gradient_mode="full",
+    )
+    flow_grads = torch.autograd.grad(losses["flow_loss"], enc, allow_unused=True, retain_graph=True)
+    assert all(g is None or g.abs().sum() == 0 for g in flow_grads)
+    av_grads = torch.autograd.grad(losses["action_velocity_loss"], enc, allow_unused=True)
+    assert any(g is not None and g.abs().sum() > 0 for g in av_grads)
+    reference = model.losses(action, objective="action_velocity", flow_samples=2, noise=noise, time=time)
+    for key in reference:
+        torch.testing.assert_close(reference[key], losses[key])
+    # mirror: flow attached, AV detached
+    losses = model.losses(
+        action, objective="action_velocity", flow_samples=2, noise=noise, time=time,
+        clean_gradient_mode="full", action_velocity_clean_gradient_mode="all_stopgrad",
+    )
+    av_grads = torch.autograd.grad(losses["action_velocity_loss"], enc, allow_unused=True, retain_graph=True)
+    assert all(g is None or g.abs().sum() == 0 for g in av_grads)
+    flow_grads = torch.autograd.grad(losses["flow_loss"], enc, allow_unused=True)
+    assert any(g is not None and g.abs().sum() > 0 for g in flow_grads)
+
+
+def test_noise_augmented_reconstruction():
+    torch.manual_seed(3)
+    model = SyntheticActionAdapterFlow(latent_dim=8, adapter_family="nonlinear")
+    _perturb_residual_outputs(model)
+    action = torch.randn(64, 3)
+    clean = model.reconstruction_loss(action)
+    off = model.noise_augmented_reconstruction_loss(action, probability=0.0)
+    torch.testing.assert_close(off, clean)
+    on = model.noise_augmented_reconstruction_loss(action, t_min=0.7, probability=1.0)
+    assert on > clean
+    grads = torch.autograd.grad(on, list(model.encoder.parameters()), allow_unused=True)
+    assert any(g is not None and g.abs().sum() > 0 for g in grads)
+    losses = model.losses(action, objective="reconstruction", flow_samples=1, reconstruction_noise_aug=True)
+    assert torch.isfinite(losses["loss"])

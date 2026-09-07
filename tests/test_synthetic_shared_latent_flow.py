@@ -53,3 +53,25 @@ def test_vfm_reconstruction_can_freeze_only_field_parameters():
     model.zero_grad(set_to_none=True)
     losses["flow_loss"].backward()
     assert all(parameter.grad is not None for parameter in model.field.parameters())
+
+
+def test_shared_latent_clean_gradient_mode():
+    import torch
+
+    from egomimic.synthetic.shared_latent_flow import SyntheticSharedLatentFlow
+
+    torch.manual_seed(0)
+    model = SyntheticSharedLatentFlow(latent_dim=2, codec_width=8, codec_depth=1, field_width=8, field_depth=1)
+    source = torch.randn(5, 2)
+    target = torch.randn(5, 3)
+    enc = list(model.encoder.parameters())
+    torch.manual_seed(1)
+    attached = model.losses(source, target, method="unite", flow_samples=2)
+    torch.manual_seed(1)
+    detached = model.losses(source, target, method="unite", flow_samples=2, clean_gradient_mode="all_stopgrad")
+    for key in attached:
+        torch.testing.assert_close(attached[key], detached[key])
+    grads = torch.autograd.grad(detached["flow_loss"], enc, allow_unused=True, retain_graph=True)
+    assert all(g is None or g.abs().sum() == 0 for g in grads)
+    grads = torch.autograd.grad(detached["reconstruction_loss"], enc, allow_unused=True)
+    assert any(g is not None and g.abs().sum() > 0 for g in grads)

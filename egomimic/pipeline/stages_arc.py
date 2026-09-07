@@ -35,7 +35,9 @@ from egomimic.pipeline.core import Stage
 from egomimic.rldb.zarr.planar_arc import (
     PLANAR_ACTION_DIM,
     TokenizePlanarArcLength,
+    arc_token_rows,
     lambda_for_radius,
+    validate_velocity_mode,
 )
 
 
@@ -71,6 +73,7 @@ class ArcTokenizeStage(Stage):
         dt: float = 1.0 / 30.0,
         rotation_radius: float = 0.0,
         hybrid_rotation_unit: float | None = None,
+        velocity_mode: str = "mean",
     ):
         super().__init__()
         self.action_key = str(action_key)
@@ -78,6 +81,7 @@ class ArcTokenizeStage(Stage):
             raise ValueError("action_key must be non-empty")
         self.reads = (self.action_key,)
         self.num_waypoints = int(resampled_vector_length)
+        self.velocity_mode = validate_velocity_mode(velocity_mode)
         self.tokenizer = TokenizePlanarArcLength(
             action_key="actions",
             output_action_key="actions",
@@ -86,6 +90,7 @@ class ArcTokenizeStage(Stage):
             dt=dt,
             rotation_radius=rotation_radius,
             hybrid_rotation_unit=hybrid_rotation_unit,
+            velocity_mode=self.velocity_mode,
         )
 
     def forward(self, batch: dict) -> dict:
@@ -141,9 +146,11 @@ class ArcDetokenizeStage(Stage):
         dt: float = 1.0 / 30.0,
         native_action_dim: int = 3,
         rotation_radius: float = 0.0,
+        velocity_mode: str = "mean",
         zero_dist_epsilon: float = 1e-9,
     ):
         super().__init__()
+        self.velocity_mode = validate_velocity_mode(velocity_mode)
         self.num_waypoints = int(resampled_vector_length)
         self.action_horizon = int(action_horizon)
         self.dt = float(dt)
@@ -182,28 +189,81 @@ class ArcDetokenizeStage(Stage):
         zero = torch.zeros_like(steps[:, :1])
         return torch.cat((zero, torch.cumsum(steps, dim=1)), dim=1)
 
-    def forward(self, batch: dict) -> dict:
-        tokens = _as_batched(batch["pred_action"], "ArcDetokenizeStage input")
-        expected = (self.num_waypoints + 1, PLANAR_ACTION_DIM)
-        if tuple(tokens.shape[1:]) != expected:
-            raise ValueError(
-                f"ArcDetokenizeStage expects (B, {expected[0]}, {expected[1]}), "
-                f"got {tuple(tokens.shape)}"
-            )
-
-        waypoints = tokens[:, : self.num_waypoints]
+    def _targets_from_mean(
+        self, tokens: torch.Tensor, cumulative: torch.Tensor
+    ) -> torch.Tensor:
+        """Constant-speed arc positions from the single mean-rate row."""
         speed = tokens[:, self.num_waypoints, 0].clamp_min(0.0)
-        cumulative = self._arc_positions(waypoints)
         total = cumulative[:, -1]
-
-        # Where along the polyline each output step lands. A zero-speed token
-        # stays at 0 and so replays the first waypoint for the whole horizon.
         steps = torch.arange(
             self.action_horizon, device=tokens.device, dtype=tokens.dtype
         )
-        targets = torch.minimum(
-            speed[:, None] * self.dt * steps[None, :], total[:, None]
+        # A zero-speed token stays at 0 and replays the first waypoint.
+        return torch.minimum(speed[:, None] * self.dt * steps[None, :], total[:, None])
+
+    def _targets_from_per_waypoint(
+        self, tokens: torch.Tensor, cumulative: torch.Tensor
+    ) -> torch.Tensor:
+        """Arc positions recovered by integrating the per-interval rates.
+
+        Each interval takes ``arc_distance / rate`` seconds, so accumulating
+        those gives the elapsed time at every waypoint. Sampling that curve at
+        ``k * dt`` inverts it back to an arc position per control step, which is
+        what lets a non-uniform chunk replay at its original pace.
+        """
+        rates = tokens[:, self.num_waypoints :, 0].clamp_min(0.0)
+        interval_arc = cumulative[:, 1:] - cumulative[:, :-1]
+        interval_rate = rates[:, :-1]
+        moving = interval_arc > self.zero_dist_epsilon
+        usable = interval_rate > self.zero_dist_epsilon
+        duration = torch.zeros_like(interval_arc)
+        duration = torch.where(
+            moving & usable,
+            interval_arc / interval_rate.clamp_min(self.zero_dist_epsilon),
+            duration,
         )
+        # A predicted nonzero interval with zero rate must hold, not teleport:
+        # give it more time than the horizon so sampling never crosses it.
+        stalled = self.dt * (self.action_horizon + 1)
+        duration = torch.where(
+            moving & ~usable, torch.full_like(duration, stalled), duration
+        )
+        elapsed = torch.cat(
+            (torch.zeros_like(duration[:, :1]), torch.cumsum(duration, dim=1)), dim=1
+        )
+        steps = torch.arange(
+            self.action_horizon, device=tokens.device, dtype=tokens.dtype
+        )
+        time_targets = (self.dt * steps)[None, :].expand(len(tokens), -1)
+        # Invert time -> arc by interpolating the cumulative-time curve.
+        upper = torch.searchsorted(
+            elapsed.contiguous(), time_targets.contiguous(), right=True
+        ).clamp(1, self.num_waypoints - 1)
+        lower = upper - 1
+        t_lo = torch.gather(elapsed, 1, lower)
+        t_hi = torch.gather(elapsed, 1, upper)
+        alpha = ((time_targets - t_lo) / (t_hi - t_lo).clamp_min(self.zero_dist_epsilon))
+        alpha = alpha.clamp(0.0, 1.0)
+        s_lo = torch.gather(cumulative, 1, lower)
+        s_hi = torch.gather(cumulative, 1, upper)
+        return s_lo + alpha * (s_hi - s_lo)
+
+    def forward(self, batch: dict) -> dict:
+        tokens = _as_batched(batch["pred_action"], "ArcDetokenizeStage input")
+        rows = arc_token_rows(self.num_waypoints, self.velocity_mode)
+        expected = (rows, PLANAR_ACTION_DIM)
+        if tuple(tokens.shape[1:]) != expected:
+            raise ValueError(
+                f"ArcDetokenizeStage expects (B, {expected[0]}, {expected[1]}) for "
+                f"velocity_mode={self.velocity_mode!r}, got {tuple(tokens.shape)}"
+            )
+
+        waypoints = tokens[:, : self.num_waypoints]
+        cumulative = self._arc_positions(waypoints)
+        if self.velocity_mode == "mean":
+            targets = self._targets_from_mean(tokens, cumulative)
+        else:
+            targets = self._targets_from_per_waypoint(tokens, cumulative)
 
         # Bracket each target between the two waypoints it falls between and
         # interpolate. searchsorted needs a contiguous, increasing key.
@@ -228,6 +288,11 @@ class ArcDetokenizeStage(Stage):
         native = torch.cat((decoded[..., :2], theta, decoded[..., 4:5]), dim=-1)
 
         batch["pred_action_native"] = native[..., : self.native_action_dim]
-        batch["log/ArcSpeed"] = speed.mean()
-        batch["log/ArcChunkDistance"] = total.mean()
+        if self.velocity_mode == "mean":
+            batch["log/ArcSpeed"] = tokens[:, self.num_waypoints, 0].clamp_min(0.0).mean()
+        else:
+            batch["log/ArcSpeed"] = (
+                tokens[:, self.num_waypoints :, 0].clamp_min(0.0).mean()
+            )
+        batch["log/ArcChunkDistance"] = cumulative[:, -1].mean()
         return batch

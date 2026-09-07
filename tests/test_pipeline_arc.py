@@ -412,3 +412,207 @@ def test_dt_matches_the_raw_capture_rate():
     # Rows reaching the tokenizer are real 30 Hz frames, so dt is 1/30. If the
     # loader ever resampled, this constant would silently be wrong.
     assert OmegaConf.select(config, "planar.arc_dt") == pytest.approx(1.0 / 30.0)
+
+
+# -- velocity_mode: granular per-waypoint rates ------------------------------
+#
+# `mean` carries one arc speed for the whole chunk, which is exact only when
+# the chunk is traversed at constant speed. `per_waypoint` carries a local rate
+# per interval, recovered from the bracketing source frames, so a chunk that
+# accelerates, decelerates or dwells replays at its original pace.
+
+from egomimic.rldb.zarr.planar_arc import (  # noqa: E402
+    VELOCITY_MODES,
+    arc_token_rows,
+    validate_velocity_mode,
+)
+
+
+def _shaped(kind: str, steps: int = 120) -> torch.Tensor:
+    """(1, T, 3) native planar actions with a chosen speed profile."""
+    t = np.linspace(0.0, 1.0, steps)
+    a = np.zeros((steps, 3))
+    if kind == "constant":
+        a[:, 0] = t * 150.0
+    elif kind == "accelerating":
+        a[:, 0] = (t**2) * 150.0
+    elif kind == "decelerating":
+        a[:, 0] = np.sqrt(t) * 150.0
+    elif kind == "dwell_then_move":
+        a[:, 0] = np.clip((t - 0.5) / 0.5, 0.0, 1.0) * 150.0
+    else:
+        raise ValueError(kind)
+    a[:, 2] = t * 1.2
+    return torch.from_numpy(a[None])
+
+
+def _round_trip(kind: str, mode: str, *, horizon: int = 16):
+    tok = ArcTokenizeStage(
+        min_distance_unit=200.0, resampled_vector_length=32, dt=_DT,
+        rotation_radius=_RR, velocity_mode=mode,
+    )
+    det = ArcDetokenizeStage(
+        resampled_vector_length=32, action_horizon=horizon, dt=_DT,
+        rotation_radius=_RR, native_action_dim=3, velocity_mode=mode,
+    )
+    actions = _shaped(kind)
+    token = tok.forward({"actions": actions.clone()})["target"]
+    decoded = det.forward({"pred_action": token})["pred_action_native"][0].numpy()
+    return token, decoded, actions[0, :horizon].numpy()
+
+
+def _errors(decoded, truth):
+    xy = float(np.linalg.norm(decoded[:, :2] - truth[:, :2], axis=-1).mean())
+    d = decoded[:, 2] - truth[:, 2]
+    ang = float(np.abs(np.arctan2(np.sin(d), np.cos(d))).mean())
+    return xy, ang
+
+
+def test_arc_token_rows_is_the_single_source_of_truth():
+    assert arc_token_rows(32, "mean") == 33
+    assert arc_token_rows(32, "per_waypoint") == 64
+
+
+def test_arc_token_rows_rejects_an_unknown_mode():
+    with pytest.raises(ValueError, match="velocity_mode must be one of"):
+        arc_token_rows(32, "per_step")
+
+
+def test_validate_velocity_mode_accepts_every_declared_mode():
+    for mode in VELOCITY_MODES:
+        assert validate_velocity_mode(mode) == mode
+
+
+def test_mean_stays_the_default_so_existing_runs_are_untouched():
+    assert ArcTokenizeStage().velocity_mode == "mean"
+    assert ArcDetokenizeStage().velocity_mode == "mean"
+    token, _, _ = _round_trip("constant", "mean")
+    assert token.shape[1] == arc_token_rows(32, "mean")
+
+
+@pytest.mark.parametrize("mode", VELOCITY_MODES)
+def test_token_width_follows_the_mode(mode):
+    token, _, _ = _round_trip("constant", mode)
+    assert tuple(token.shape[1:]) == (arc_token_rows(32, mode), PLANAR_ACTION_DIM)
+
+
+def test_both_modes_are_exact_on_constant_speed():
+    # A single mean rate is a complete description here, so the granular mode
+    # must not be WORSE -- that would mean its rate recovery is broken.
+    _, mean_out, truth = _round_trip("constant", "mean")
+    _, gran_out, _ = _round_trip("constant", "per_waypoint")
+    mean_xy, _ = _errors(mean_out, truth)
+    gran_xy, _ = _errors(gran_out, truth)
+    # Tolerance is relative to the 150-unit path: both are exact to ~1e-5.
+    assert mean_xy < 1e-3 and gran_xy < 1e-3
+
+
+@pytest.mark.parametrize("kind", ["accelerating", "decelerating", "dwell_then_move"])
+def test_granular_beats_mean_on_non_uniform_motion(kind):
+    _, mean_out, truth = _round_trip(kind, "mean")
+    _, gran_out, _ = _round_trip(kind, "per_waypoint")
+    mean_xy, mean_ang = _errors(mean_out, truth)
+    gran_xy, gran_ang = _errors(gran_out, truth)
+    assert gran_xy < mean_xy, f"{kind}: {gran_xy} !< {mean_xy}"
+    assert gran_ang <= mean_ang + 1e-6
+
+
+def test_granular_recovers_a_decelerating_chunk_the_mean_mode_mangles():
+    # The widest gap measured: one mean rate overshoots badly when the chunk
+    # front-loads its travel.
+    _, mean_out, truth = _round_trip("decelerating", "mean")
+    _, gran_out, _ = _round_trip("decelerating", "per_waypoint")
+    mean_xy, _ = _errors(mean_out, truth)
+    gran_xy, _ = _errors(gran_out, truth)
+    assert mean_xy > 5.0
+    assert gran_xy < 1.0
+
+
+def test_granular_rate_rows_are_populated_and_non_negative():
+    token, _, _ = _round_trip("accelerating", "per_waypoint")
+    rates = token[0, 32:, 0].numpy()
+    assert (rates >= 0).all()
+    assert (rates > 0).any()
+    # Reserved columns stay zero so the block keeps the waypoint width.
+    assert np.allclose(token[0, 32:, 1:].numpy(), 0.0)
+
+
+def test_granular_rates_track_the_speed_profile():
+    accel = _round_trip("accelerating", "per_waypoint")[0][0, 32:, 0].numpy()
+    decel = _round_trip("decelerating", "per_waypoint")[0][0, 32:, 0].numpy()
+    # Accelerating chunks end faster than they start; decelerating, the reverse.
+    assert accel[-2] > accel[0]
+    assert decel[-2] < decel[0]
+
+
+def test_a_stalled_interval_cannot_traverse_the_path():
+    # A nonzero-distance interval with a zero predicted rate gets more time than
+    # the whole horizon, so sampling stays inside that first interval. It creeps
+    # rather than freezing -- what the guard rules out is the jump to the end.
+    det = ArcDetokenizeStage(
+        resampled_vector_length=32, action_horizon=16, dt=_DT,
+        rotation_radius=0.0, native_action_dim=3, velocity_mode="per_waypoint",
+    )
+    token = torch.zeros(1, 64, PLANAR_ACTION_DIM, dtype=torch.float64)
+    token[0, :32, 0] = torch.linspace(0.0, 50.0, 32)  # real travel
+    token[0, :32, 2] = 1.0                            # cos(theta)=1
+    token[0, 32:, 0] = 0.0                            # every rate zero
+    out = det.forward({"pred_action": token})["pred_action_native"][0].numpy()
+    travelled = float(out[-1, 0] - out[0, 0])
+    one_interval = 50.0 / 31.0
+    assert 0.0 <= travelled <= one_interval, travelled
+    assert travelled < 0.05 * 50.0  # a few percent of the path, not all of it
+
+
+def test_detokenize_rejects_the_other_modes_token_width():
+    mean_det = ArcDetokenizeStage(resampled_vector_length=32, action_horizon=16)
+    with pytest.raises(ValueError, match="velocity_mode='mean'"):
+        mean_det.forward({"pred_action": torch.zeros(1, 64, PLANAR_ACTION_DIM)})
+    gran_det = ArcDetokenizeStage(
+        resampled_vector_length=32, action_horizon=16, velocity_mode="per_waypoint"
+    )
+    with pytest.raises(ValueError, match="velocity_mode='per_waypoint'"):
+        gran_det.forward({"pred_action": torch.zeros(1, 33, PLANAR_ACTION_DIM)})
+
+
+@pytest.mark.parametrize("mode", VELOCITY_MODES)
+def test_native_decoder_sizes_itself_from_the_mode(mode):
+    from egomimic.pipeline.pushshapes import PlanarArcWaypointZeroNativeDecoder
+
+    decoder = PlanarArcWaypointZeroNativeDecoder(
+        resampled_vector_length=32, native_action_dim=3, velocity_mode=mode
+    )
+    rows = arc_token_rows(32, mode)
+    assert decoder.decode(torch.zeros(2, rows, PLANAR_ACTION_DIM)).shape == (2, 1, 3)
+    with pytest.raises(ValueError, match="velocity_mode"):
+        decoder.decode(torch.zeros(2, rows + 1, PLANAR_ACTION_DIM))
+
+
+def test_experiment_token_rows_match_its_declared_velocity_mode():
+    """`planar.arc_token_rows` must equal what the mode implies.
+
+    The diffusion stages validate the target's width against this value, and
+    the repo registers no arithmetic resolver, so the row count is written out
+    by hand. This is the guard that catches it drifting from the mode -- a
+    mismatch otherwise surfaces as a shape error on the first training batch.
+    """
+    from omegaconf import OmegaConf
+
+    config, _ = config_graph._load_selected(_EXPERIMENT)
+    planar = OmegaConf.select(config, "planar")
+    assert planar.arc_token_rows == arc_token_rows(
+        planar.arc_waypoints, planar.arc_velocity_mode
+    )
+
+
+def test_experiment_wires_one_velocity_mode_everywhere():
+    """Tokenizer, decoder and eval decoder must read the same knob."""
+    from omegaconf import OmegaConf
+
+    config, _ = config_graph._load_selected(_EXPERIMENT)
+    mode = OmegaConf.select(config, "planar.arc_velocity_mode")
+    stages = OmegaConf.select(config, "model.pipeline.stages")
+    seen = [s.velocity_mode for s in stages if "velocity_mode" in s]
+    assert len(seen) == 2, "expected the tokenize and detokenize nodes"
+    assert set(seen) == {mode}
+    assert OmegaConf.select(config, "planar.eval_native_decoder.velocity_mode") == mode

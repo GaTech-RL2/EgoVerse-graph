@@ -32,6 +32,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
+from egomimic.eval.artifact_paths import artifact_execution_identity  # noqa: E402
 from egomimic.eval.energy_score import (  # noqa: E402
     USOCKET_ENERGY_DISTANCE_CONFIG,
     normalize_usocket_energy_distance_config,
@@ -1264,6 +1265,12 @@ def _artifact_root(config: DictConfig, path: str, run_dir: Path) -> Path:
 
 
 def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, Any]]:
+    execution = artifact_execution_identity()
+    if execution is not None:
+        root = root / (
+            f"job-{execution['slurm_job_id']}"
+            f"-restart-{execution['slurm_restart_count']}"
+        )
     _require(root.is_dir(), f"missing {label} artifact root: {root}")
     leftovers = [
         path
@@ -1272,13 +1279,25 @@ def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, An
         and (path.suffix in {".tmp", ".temporary"} or ".temporary" in path.name)
     ]
     _require(not leftovers, f"unfinished {label} artifacts: {leftovers}")
-    candidates = sorted(root.glob("epoch-*-step-2/rank-0-batch-*.pt"))
+    candidates = sorted([
+        *root.glob("epoch-*-step-2/rank-0-batch-*.pt"),
+        *([] if execution is not None else root.glob("job-*-restart-*/epoch-*-step-2/rank-0-batch-*.pt")),
+    ])
     _require(
         len(candidates) == 1, f"expected one step-2 {label} artifact: {candidates}"
     )
     payload = torch.load(candidates[0], map_location="cpu", weights_only=False)
     _require(isinstance(payload, Mapping), f"{label} artifact is not a mapping")
     _require(payload.get("global_step") == 2, f"{label} artifact is not step 2")
+    namespace = candidates[0].parent.parent.name
+    if namespace.startswith("job-"):
+        recorded = payload.get("execution")
+        _require(isinstance(recorded, Mapping), f"{label} artifact lacks execution identity")
+        expected_namespace = (
+            f"job-{recorded.get('slurm_job_id')}"
+            f"-restart-{recorded.get('slurm_restart_count')}"
+        )
+        _require(namespace == expected_namespace, f"{label} artifact execution identity mismatch")
     _finite_tree(payload, f"{label} artifact")
     return candidates[0], payload
 

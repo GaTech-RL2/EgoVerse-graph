@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 # Portable one-GPU launcher for the approved U-Socket Action Flow pair.
 #
 # Cluster-specific account, partition, QoS, source, runtime, data, and output

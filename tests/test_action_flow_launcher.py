@@ -21,6 +21,7 @@ def test_launcher_has_valid_shell_syntax():
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
+    assert "#SBATCH --kill-on-invalid-dep=yes" in _source()
 
 
 def test_launcher_uses_the_maintained_dataset_validator_success_token():

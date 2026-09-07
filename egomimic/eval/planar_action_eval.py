@@ -14,6 +14,10 @@ from pathlib import Path
 import torch
 
 from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
+from egomimic.eval.artifact_paths import (
+    artifact_destination,
+    artifact_execution_identity,
+)
 from egomimic.eval.energy_score import (
     USOCKET_NATIVE_DECODER,
     energy_score,
@@ -1012,6 +1016,7 @@ class PlanarActionEval(Eval):
         payload = {
             "schema_version": 1,
             "metric": "EnergyScore@32",
+            "execution": self.artifact_execution,
             "sample_count": 32,
             "seed_bank": self.seeds,
             "seed_bank_sha256": self.seed_bank_sha256,

@@ -425,6 +425,28 @@ def test_artifact_gate_verifies_energy_and_diagnostic_immutability(tmp_path):
     assert result["action_flow_diagnostics"]["path"] == str(diagnostic_path)
 
 
+def test_artifact_gate_selects_exact_slurm_attempt_and_checks_execution(tmp_path, monkeypatch):
+    root = tmp_path / "artifacts"
+    for restart in (0, 1):
+        artifact = root / f"job-5714540-restart-{restart}" / "epoch-0-step-2/rank-0-batch-0.pt"
+        artifact.parent.mkdir(parents=True)
+        torch.save({
+            "global_step": 2,
+            "execution": {"slurm_job_id": "5714540", "slurm_restart_count": restart},
+        }, artifact)
+    monkeypatch.setenv("SLURM_JOB_ID", "5714540")
+    monkeypatch.setenv("SLURM_RESTART_COUNT", "1")
+    selected, payload = MODULE._step_two_artifact(root, label="test")
+    assert "job-5714540-restart-1" in str(selected)
+    payload["execution"]["slurm_restart_count"] = 0
+    torch.save(payload, selected)
+    with pytest.raises(MODULE.SmokeVerificationError, match="execution identity mismatch"):
+        MODULE._step_two_artifact(root, label="test")
+    monkeypatch.delenv("SLURM_JOB_ID")
+    with pytest.raises(MODULE.SmokeVerificationError, match="expected one step-2"):
+        MODULE._step_two_artifact(root, label="test")
+
+
 def test_artifact_gate_rejects_tampered_diagnostic_sidecar(tmp_path):
     config, identities, checkpoint, diagnostic_path = _write_artifacts(tmp_path)
     sidecar = Path(f"{diagnostic_path}.sha256")

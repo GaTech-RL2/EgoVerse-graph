@@ -14,6 +14,11 @@ from typing import Any
 
 import torch
 
+from egomimic.eval.artifact_paths import (
+    artifact_destination,
+    artifact_execution_identity,
+)
+
 
 def _plain(value: Any, *, label: str) -> dict[str, Any]:
     if not isinstance(value, Mapping):
@@ -116,6 +121,7 @@ class ActionFlowDiagnostics:
         if not artifact_root:
             raise ValueError("Action Flow diagnostics need an artifact root")
         self.artifact_root = Path(artifact_root).expanduser().resolve()
+        self.artifact_execution = artifact_execution_identity()
 
         seed_path = Path(str(config.get("noise_seed_bank_path", ""))).expanduser()
         expected_seed_hash = str(config.get("noise_seed_bank_sha256", ""))
@@ -1134,10 +1140,9 @@ class ActionFlowDiagnostics:
         for base, values in macro.items():
             metrics[base] = torch.stack(values).mean()
 
-        destination = (
-            self.artifact_root
-            / f"epoch-{int(epoch)}-step-{int(global_step)}"
-            / f"rank-{rank}-batch-{int(batch_idx)}.pt"
+        destination = artifact_destination(
+            self.artifact_root, self.artifact_execution,
+            epoch=epoch, global_step=global_step, rank=rank, batch_idx=batch_idx,
         )
         statistics = {
             "latent_covariance": "rows_are_condition_times_horizon_tokens",
@@ -1154,6 +1159,7 @@ class ActionFlowDiagnostics:
         payload = {
             "schema_version": 1,
             "metric": "ActionFlowValidationDiagnostics",
+            "execution": self.artifact_execution,
             "identity": self.identity,
             "identity_sha256": self.identity_sha256,
             "global_step": int(global_step),

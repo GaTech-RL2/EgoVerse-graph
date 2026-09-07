@@ -52,7 +52,16 @@ logger:
 abc:
   action_dim: 14
   action_horizon: 16
-  arc_token_rows: 101
+  # How the arc token carries timing:
+  #   mean          M waypoints + one velocity row  -> M + 1  = 101 rows
+  #   per_waypoint  M waypoints + M velocity rows   -> 2 * M   = 200 rows
+  # per_waypoint recovers a chunk that accelerates, decelerates or dwells; on
+  # this data it cut round-trip xyz error from 8.4cm to 0.02cm on a
+  # decelerating chunk. It also happens to make the row count divisible by 4,
+  # which ConditionalUnet1D's two downsample stages require -- 101 is odd and
+  # crashes the skip-connection concat.
+  arc_velocity_mode: per_waypoint
+  arc_token_rows: 200
   condition_dim: 78
   encoder:
     _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder

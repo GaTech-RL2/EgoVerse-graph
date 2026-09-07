@@ -25,6 +25,8 @@ def _evaluator():
     ev.action_key = "actions_cartesian"
     ev.min_distance_unit = _D
     ev.resampled_vector_length = _M
+    # These cases build mean-mode tokens ((M+1, 14)).
+    ev.velocity_mode = "mean"
     ev.action_horizon = _H
     ev._tokenizer = TokenizeBimanualArcLengthCartesian(
         action_key="actions_cartesian",
@@ -163,9 +165,14 @@ def test_arc_experiment_evaluator_matches_its_data_tokenizer():
 
 
 def test_arc_experiment_model_horizon_matches_the_token_row_count():
+    from egomimic.rldb.zarr.arc_length_tokenizer import bimanual_arc_token_rows
+
     cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
     tok = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
-    expected_rows = int(tok.resampled_vector_length) + 1
+    # Row count follows the velocity mode, so derive it rather than assume M+1.
+    expected_rows = bimanual_arc_token_rows(
+        int(tok.resampled_vector_length), cfg.abc.arc_velocity_mode
+    )
     assert cfg.abc.arc_token_rows == expected_rows
     # All three diffusion stages must agree, or training aborts on batch one.
     for stage in cfg.model.pipeline.stages:
@@ -186,3 +193,100 @@ def test_baseline_experiment_still_uses_the_time_indexed_evaluator():
     cfg = _compose("abc_arc/abc_fstshirt_bc")
     target = OmegaConf.select(cfg, "evaluator._target_")
     assert target is None or not str(target).endswith("ArcBimanualCartesianEval")
+
+
+# -- per-waypoint velocity mode ---------------------------------------------
+
+
+def _granular_evaluator():
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    ev = ArcBimanualCartesianEval.__new__(ArcBimanualCartesianEval)
+    ev.action_key = "actions_cartesian"
+    ev.min_distance_unit = _D
+    ev.resampled_vector_length = _M
+    ev.action_horizon = _H
+    ev.velocity_mode = "per_waypoint"
+    ev._tokenizer = TokenizeBimanualArcLengthCartesian(
+        action_key="actions_cartesian", output_action_key="actions_cartesian",
+        min_distance_unit=_D, resampled_vector_length=_M,
+        preserve_action_key=None, velocity_mode="per_waypoint",
+    )
+    return ev
+
+
+def _granular_token(steps: int = 200) -> np.ndarray:
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    tok = TokenizeBimanualArcLengthCartesian(
+        action_key="a", output_action_key="a", min_distance_unit=_D,
+        resampled_vector_length=_M, preserve_action_key=None,
+        velocity_mode="per_waypoint",
+    )
+    return np.asarray(tok.transform({"a": _raw_chunk(steps)})["a"])
+
+
+def test_granular_token_has_two_m_rows():
+    from egomimic.rldb.zarr.arc_length_tokenizer import bimanual_arc_token_rows
+
+    assert _granular_token().shape == (bimanual_arc_token_rows(_M, "per_waypoint"), 14)
+    assert _granular_token().shape[0] == 2 * _M
+
+
+def test_granular_viz_source_converts_to_pose_rows():
+    out = _granular_evaluator()._viz_source(
+        torch.from_numpy(_granular_token()[None]).float(), 7
+    )
+    assert out.shape == (1, _H, 14)
+
+
+def test_granular_viz_source_rejects_a_mean_mode_token():
+    # The two layouts are not interchangeable; catch the mismatch loudly.
+    with pytest.raises(ValueError, match="arc tokens"):
+        _granular_evaluator()._viz_source(torch.zeros(1, _M + 1, 14), 7)
+
+
+def test_mean_viz_source_rejects_a_granular_token():
+    with pytest.raises(ValueError, match="arc tokens"):
+        _evaluator()._viz_source(torch.zeros(1, 2 * _M, 14), 7)
+
+
+def test_granular_beats_mean_on_a_decelerating_chunk():
+    """The reason to switch: one token-wide rate mistimes non-uniform motion."""
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    steps = 200
+    t = np.linspace(0.0, 1.0, steps)
+    chunk = np.zeros((steps, 14))
+    profile = np.sqrt(t)  # front-loaded travel
+    for base in (0, 7):
+        chunk[:, base + 0] = profile * 0.6
+        chunk[:, base + 3] = profile * 0.5
+        chunk[:, base + 6] = profile
+    truth = chunk[:_H, :3]
+
+    def err(mode):
+        tk = TokenizeBimanualArcLengthCartesian(
+            action_key="a", output_action_key="a", min_distance_unit=_D,
+            resampled_vector_length=_M, preserve_action_key=None,
+            velocity_mode=mode,
+        )
+        token = np.asarray(tk.transform({"a": chunk.copy()})["a"])
+        out = tk.detokenize(token, _H)
+        return float(np.linalg.norm(out[:, :3] - truth, axis=-1).mean())
+
+    assert err("per_waypoint") < err("mean")
+
+
+def test_experiment_wires_one_velocity_mode_across_data_and_evaluator():
+    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
+    mode = cfg.abc.arc_velocity_mode
+    assert cfg.evaluator.velocity_mode == mode
+    for split in ("train_datasets", "valid_datasets"):
+        assert cfg.data[split].yam_bimanual.resolver.transform_list.velocity_mode == mode

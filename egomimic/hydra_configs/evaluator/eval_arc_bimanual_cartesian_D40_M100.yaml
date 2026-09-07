@@ -29,6 +29,9 @@ min_distance_unit: 0.40
 resampled_vector_length: 100
 # Control steps to reconstruct for the overlay.
 action_horizon: 100
+# MUST match the data config's tokenizer: it sets the token's row count and how
+# detokenize recovers timing.
+velocity_mode: ${abc.arc_velocity_mode}
 
 revert_transforms:
   yam_bimanual:

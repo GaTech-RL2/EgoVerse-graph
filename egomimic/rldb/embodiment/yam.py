@@ -142,6 +142,9 @@ class Yam(Embodiment):
         min_distance_unit: float = 0.60,
         resampled_vector_length: int = 20,
         chunk_length: int | None = None,
+        # How the arc token carries timing; see
+        # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
+        velocity_mode: str = "mean",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -203,6 +206,7 @@ class Yam(Embodiment):
                 min_distance_unit=min_distance_unit,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
+                velocity_mode=velocity_mode,
             )
         return transform_list
 

@@ -44,6 +44,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         resampled_vector_length: int,
         action_horizon: int = 100,
         dt: float = 1.0 / 30.0,
+        velocity_mode: str = "mean",
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -53,6 +54,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
 
         self.min_distance_unit = float(min_distance_unit)
         self.resampled_vector_length = int(resampled_vector_length)
+        self.velocity_mode = str(velocity_mode)
         self.action_horizon = int(action_horizon)
         if self.action_horizon <= 0:
             raise ValueError("action_horizon must be positive")
@@ -63,12 +65,19 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
             resampled_vector_length=self.resampled_vector_length,
             dt=float(dt),
             preserve_action_key=None,
+            velocity_mode=self.velocity_mode,
         )
 
     def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:
         """(B, M+1, 14) arc tokens -> (B, action_horizon, 14) pose rows."""
         del embodiment_id
-        expected_rows = self.resampled_vector_length + 1
+        from egomimic.rldb.zarr.arc_length_tokenizer import (
+            bimanual_arc_token_rows,
+        )
+
+        expected_rows = bimanual_arc_token_rows(
+            self.resampled_vector_length, self.velocity_mode
+        )
         if actions.ndim != 3 or int(actions.shape[1]) != expected_rows:
             raise ValueError(
                 f"{type(self).__name__} expects (B, {expected_rows}, D) arc "

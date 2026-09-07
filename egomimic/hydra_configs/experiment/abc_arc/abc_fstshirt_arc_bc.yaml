@@ -14,7 +14,7 @@ defaults:
   - override /model: abc_arc/yam_bimanual_dp_arc_D40_M100
   - override /data: abc_arc/abc_fstshirt_arc_bc_D40_M100
   - override /evaluator: null
-  - override hydra/launcher: submitit_pace
+  - override /hydra/launcher: submitit_pace
   - _self_
 
 name: abc_fstshirt_arc_bc

@@ -16,7 +16,7 @@ defaults:
   - override /model: abc/yam_bimanual_dp
   - override /data: abc_arc/abc_fstshirt_bc
   - override /evaluator: null
-  - override hydra/launcher: submitit_pace
+  - override /hydra/launcher: submitit_pace
   - _self_
 
 name: abc_fstshirt_bc
@@ -53,7 +53,13 @@ logger:
 
 abc:
   action_dim: 14
-  action_horizon: 16
+  # Yam's cartesian transform list interpolates every action chunk to
+  # `chunk_length` (default 100), and the data config does not override it, so
+  # the loader hands the graph a (100, 14) target. The diffusion stages
+  # validate the target's width, so this MUST match -- 16 aborts on the first
+  # batch with "Diffusion target must be (32, 16, 14), got (32, 100, 14)".
+  # Matches the sibling cotrain baseline model, which hardcodes 100.
+  action_horizon: 100
   condition_dim: 78
   encoder:
     _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder

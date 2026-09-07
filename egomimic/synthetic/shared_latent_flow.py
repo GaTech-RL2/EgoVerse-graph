@@ -74,7 +74,10 @@ class SyntheticSharedLatentFlow(nn.Module):
         reconstruction_noise_min: float = 0.5,
         reconstruction_noise_max: float = 1.0,
         reconstruction_updates_field: bool = True,
+        clean_gradient_mode: str = "full",
     ) -> dict[str, torch.Tensor]:
+        if clean_gradient_mode not in {"full", "target_stopgrad", "all_stopgrad"}:
+            raise ValueError(f"unknown clean gradient mode: {clean_gradient_mode}")
         if source.shape[-1] != self.latent_dim:
             raise ValueError(
                 f"source width {source.shape[-1]} does not match latent_dim {self.latent_dim}"
@@ -87,9 +90,16 @@ class SyntheticSharedLatentFlow(nn.Module):
         clean_many = (
             clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
         )
+        # Same stop-gradient routing as SyntheticActionAdapterFlow: the flow
+        # target and/or bridge state can be detached so the flow loss stops
+        # shaping the encoder (only reconstruction does).
+        target_clean = clean_many if clean_gradient_mode == "full" else clean_many.detach()
+        state_clean = (
+            clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        )
         time = torch.rand(batch * flow_samples, 1, device=source.device)
-        state = (1.0 - time) * source_many + time * clean_many
-        flow = (self.velocity(state, time) - (clean_many - source_many)).square().mean()
+        state = (1.0 - time) * source_many + time * state_clean
+        flow = (self.velocity(state, time) - (target_clean - source_many)).square().mean()
 
         if method == "unite":
             reconstruction = self.decoder(clean)

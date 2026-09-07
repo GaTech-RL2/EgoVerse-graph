@@ -67,6 +67,8 @@ ICE_EXPECTED_ACCOUNT=${ICE_EXPECTED_ACCOUNT:-coc}
 ICE_EXPECTED_PARTITION=${ICE_EXPECTED_PARTITION:-ice-gpu}
 ICE_EXPECTED_QOS=${ICE_EXPECTED_QOS:-coc-ice}
 ICE_MAX_RESTARTS=${ICE_MAX_RESTARTS:-32}
+ICE_UNITE_LR=${ICE_UNITE_LR:-}
+ICE_UNITE_LR_FINAL=${ICE_UNITE_LR_FINAL:-}
 ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
 ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-unite-ice}
 ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,unite,ice]'}
@@ -248,6 +250,18 @@ if test "$ICE_UNITE_FAST" = true; then
     model.scheduler.final_lr=3.0e-6
   )
 fi
+if test -n "$ICE_UNITE_LR"; then
+  test "$ICE_FAMILY" = unite || die "ICE_UNITE_LR applies to the unite family only"
+  test -n "$ICE_UNITE_LR_FINAL" || die "ICE_UNITE_LR requires ICE_UNITE_LR_FINAL"
+  # Explicit learning-rate schedule (peak -> terminal), applied after the FAST
+  # block so it wins over the FAST default of 3e-5 -> 3e-6.
+  BASE_OVERRIDES+=(
+    "model.optimizer.lr=$ICE_UNITE_LR"
+    "model.scheduler.base_lr_1=$ICE_UNITE_LR"
+    "model.scheduler.base_lr_2=$ICE_UNITE_LR_FINAL"
+    "model.scheduler.final_lr=$ICE_UNITE_LR_FINAL"
+  )
+fi
 if test "$ICE_UNITE_DIAGNOSTICS" = true; then
   test "$ICE_MODEL" = bf/us_unite_register_shared_nt16_s42 || \
     die "ICE_UNITE_DIAGNOSTICS requires the shared UNITE N=16 model row"
@@ -304,7 +318,7 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
   "$ICE_LIMIT_VAL_BATCHES" "$ICE_CHECKPOINT_EVERY_N_STEPS" \
   "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_FAST" \
   "$ICE_UNITE_DIAGNOSTICS" "$ICE_WORLD_SIZE" "$ICE_TRAIN_BATCH_SIZE" \
-  "$ICE_VALID_BATCH_SIZE" <<'PY'
+  "$ICE_VALID_BATCH_SIZE" "$ICE_UNITE_LR" "$ICE_UNITE_LR_FINAL" <<'PY'
 import math
 import pathlib
 import sys
@@ -326,6 +340,8 @@ from omegaconf import OmegaConf
     world_size,
     train_batch_size,
     valid_batch_size,
+    unite_lr,
+    unite_lr_final,
 ) = sys.argv[1:]
 world_size = int(world_size)
 cfg = OmegaConf.load(pathlib.Path(path))
@@ -373,10 +389,13 @@ elif family == "unite":
         assert bool(policy.generative_encoder.gradient_checkpointing) is False
         assert bool(policy.generative_encoder.backbone_config.gradient_checkpointing) is False
         assert bool(policy.decoders.pushshapes_sim_u_socket.gradient_checkpointing) is False
-        assert math.isclose(float(cfg.model.optimizer.lr), 3.0e-5)
-        assert math.isclose(float(cfg.model.scheduler.base_lr_1), 3.0e-5)
-        assert math.isclose(float(cfg.model.scheduler.base_lr_2), 3.0e-6)
-        assert math.isclose(float(cfg.model.scheduler.final_lr), 3.0e-6)
+        expected_lr, expected_final = 3.0e-5, 3.0e-6
+        if unite_lr:
+            expected_lr, expected_final = float(unite_lr), float(unite_lr_final)
+        assert math.isclose(float(cfg.model.optimizer.lr), expected_lr)
+        assert math.isclose(float(cfg.model.scheduler.base_lr_1), expected_lr)
+        assert math.isclose(float(cfg.model.scheduler.base_lr_2), expected_final)
+        assert math.isclose(float(cfg.model.scheduler.final_lr), expected_final)
     if unite_diagnostics == "true":
         diagnostics = cfg.evaluator.unite_diagnostics
         assert bool(diagnostics.enabled) is True

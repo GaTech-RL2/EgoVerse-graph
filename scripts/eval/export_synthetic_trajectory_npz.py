@@ -18,6 +18,8 @@ if str(_REPOSITORY_ROOT) not in sys.path:
 from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
 from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionFlow
+from egomimic.synthetic.endpoint_lift_flow import SyntheticEndpointLiftFlow
+from egomimic.synthetic.gaussian_relift_flow import SyntheticGaussianReliftFlow
 from egomimic.synthetic.multi_action_adapter_flow import (
     SyntheticMultiActionAdapterFlow,
 )
@@ -109,6 +111,10 @@ def main() -> None:
             model = SyntheticDecoderInversionFlow(**config["model"])
         elif architecture == "projected_invertible_flow":
             model = SyntheticProjectedInvertibleFlow(**config["model"])
+        elif architecture == "endpoint_lift_flow":
+            model = SyntheticEndpointLiftFlow(**config["model"])
+        elif architecture == "gaussian_relift_flow":
+            model = SyntheticGaussianReliftFlow(**config["model"])
         elif architecture == "multi_action_adapter_flow":
             model = SyntheticMultiActionAdapterFlow(**config["model"])
         else:

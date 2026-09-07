@@ -463,6 +463,21 @@ def test_artifact_gate_rejects_tampered_diagnostic_sidecar(tmp_path):
         )
 
 
+def test_artifact_gate_accepts_unique_origin_from_separate_validation_job(tmp_path, monkeypatch):
+    root = tmp_path / "artifacts"
+    artifact = root / "job-5714540-restart-1/epoch-0-step-2/rank-0-batch-0.pt"
+    artifact.parent.mkdir(parents=True)
+    torch.save({
+        "global_step": 2,
+        "execution": {"slurm_job_id": "5714540", "slurm_restart_count": 1},
+    }, artifact)
+    monkeypatch.setenv("SLURM_JOB_ID", "5719999")
+    monkeypatch.setenv("SLURM_RESTART_COUNT", "0")
+    selected, payload = MODULE._step_two_artifact(root, label="test")
+    assert selected == artifact
+    assert payload["execution"]["slurm_job_id"] == "5714540"
+
+
 def test_preflight_gate_binds_source_experiment_split_and_normalization(tmp_path):
     experiment = "pusht/action_flow_bc_usocket_recon1_s42"
     split_hash = "b" * 64

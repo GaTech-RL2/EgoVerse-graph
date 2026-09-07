@@ -1267,10 +1267,16 @@ def _artifact_root(config: DictConfig, path: str, run_dir: Path) -> Path:
 def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, Any]]:
     execution = artifact_execution_identity()
     if execution is not None:
-        root = root / (
+        attempt_root = root / (
             f"job-{execution['slurm_job_id']}"
             f"-restart-{execution['slurm_restart_count']}"
         )
+        if attempt_root.is_dir():
+            root = attempt_root
+        else:
+            # Posthoc verification may run in a separate CPU allocation.
+            # Its scheduler ID is not the job that produced these artifacts.
+            execution = None
     _require(root.is_dir(), f"missing {label} artifact root: {root}")
     leftovers = [
         path

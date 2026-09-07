@@ -114,9 +114,12 @@ upload of different checkpoints proceed concurrently without duplicate
 transfers. Short state and event locks prevent lost updates.
 
 `ICE_MIRROR_PYTHON` is mandatory and must be the absolute interpreter that can
-import every validator dependency. The wrappers never infer Python from
-`PATH`; this prevents a healthy monitor from silently rejecting checkpoints
-because a site interpreter lacks PyTorch.
+import every validator dependency. `ICE_MIRROR_PYTHONPATH` is also mandatory
+and must identify the exact absolute model-source checkout needed for strict
+reload. The wrappers invoke the monitor with the pinned interpreter, prepend
+its directory to `PATH`, and prepend the source to `PYTHONPATH`, so executable
+validators using `#!/usr/bin/env python3` resolve the same runtime and model
+implementation instead of silently falling back to incomplete site defaults.
 
 Set `ICE_MIRROR_INVENTORY_ROOT` to a bounded project or campaign directory to
 publish `archive-inventory.json` in the shared state directory. The inventory

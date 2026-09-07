@@ -21,14 +21,19 @@ set -euo pipefail
 : "${ICE_MIRROR_REMOTE_HOST:?set ICE_MIRROR_REMOTE_HOST}"
 : "${ICE_MIRROR_POOL_SCRIPT:?set the exact absolute ice_checkpoint_mirror_pool.py path}"
 : "${ICE_MIRROR_PYTHON:?set the exact absolute Python with validator dependencies}"
+: "${ICE_MIRROR_PYTHONPATH:?set the exact absolute model source path}"
 : "${ICE_MIRROR_POOL_SIZE:?set ICE_MIRROR_POOL_SIZE to the exact array task count}"
 : "${SLURM_ARRAY_TASK_ID:?submit this wrapper as a Slurm array}"
 : "${SLURM_ARRAY_TASK_COUNT:?submit this wrapper as a Slurm array}"
 
 [[ "${ICE_MIRROR_POOL_SCRIPT}" = /* ]]
 [[ "${ICE_MIRROR_PYTHON}" = /* ]]
+[[ "${ICE_MIRROR_PYTHONPATH}" = /* ]]
 test -r "${ICE_MIRROR_POOL_SCRIPT}"
 test -x "${ICE_MIRROR_PYTHON}"
+test -d "${ICE_MIRROR_PYTHONPATH}"
+export PATH="$(dirname "${ICE_MIRROR_PYTHON}"):${PATH}"
+export PYTHONPATH="${ICE_MIRROR_PYTHONPATH}${PYTHONPATH:+:${PYTHONPATH}}"
 [[ "${ICE_MIRROR_POOL_SIZE}" =~ ^[0-9]+$ ]]
 (( ICE_MIRROR_POOL_SIZE >= 2 ))
 (( SLURM_ARRAY_TASK_COUNT == ICE_MIRROR_POOL_SIZE ))

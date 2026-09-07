@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 #SBATCH --job-name=ice-ckpt-mirror
 #SBATCH --account=coc
 #SBATCH --partition=ice-cpu
@@ -41,6 +42,9 @@ ARGS=(
 )
 if [[ "${ICE_MIRROR_PRUNE:-0}" == "1" ]]; then
   ARGS+=(--prune-after-verify)
+fi
+if [[ "${ICE_MIRROR_ONCE:-0}" == "1" ]]; then
+  ARGS+=(--once)
 fi
 if [[ -n "${ICE_MIRROR_POLL_SECONDS:-}" ]]; then
   ARGS+=(--poll-seconds "${ICE_MIRROR_POLL_SECONDS}")

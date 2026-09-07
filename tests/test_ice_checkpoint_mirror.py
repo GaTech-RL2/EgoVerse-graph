@@ -117,7 +117,45 @@ class CheckpointMetadataTest(unittest.TestCase):
             bad_validator = root / "bad_validator"
             bad_validator.write_text("#!/bin/sh\nprintf 'not-json\\n'\n")
             bad_validator.chmod(0o700)
-            self.assertIsNone(MODULE.stable_valid_info(checkpoint.resolve(), bad_validator))
+            rejection = {}
+            self.assertIsNone(MODULE.stable_valid_info(
+                checkpoint.resolve(), bad_validator, rejection=rejection,
+            ))
+            self.assertEqual(rejection["reason"], "invalid_metadata_or_unreadable_checkpoint")
+
+    def test_validator_failure_preserves_bounded_stderr_and_returncode(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            checkpoint = root / "x.ckpt"
+            write_checkpoint(checkpoint, 7)
+            validator = root / "bad_validator"
+            validator.write_text("#!/bin/sh\nprintf '%s' '" + "x" * 3000
+                                 + "ModuleNotFoundError: No module named torch' >&2\nexit 9\n")
+            validator.chmod(0o700)
+            rejection = {}
+            self.assertIsNone(MODULE.stable_valid_info(checkpoint, validator, rejection=rejection))
+            self.assertEqual(rejection["reason"], "validator_failed")
+            self.assertEqual(rejection["validator_returncode"], 9)
+            self.assertEqual(len(rejection["validator_stderr_tail"]), 2048)
+            self.assertIn("No module named torch", rejection["validator_stderr_tail"])
+            self.assertTrue(checkpoint.exists())
+
+    def test_changing_checkpoint_remains_deferred_with_explicit_reason(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            checkpoint = root / "x.ckpt"
+            write_checkpoint(checkpoint, 7)
+            validator = make_validator(root)
+
+            def changing_validator(*args, **kwargs):
+                checkpoint.write_text(json.dumps({"global_step": 777777}))
+                return subprocess.CompletedProcess(args[0], 0, '{"global_step": 7}', "")
+
+            rejection = {}
+            with mock.patch.object(MODULE.subprocess, "run", side_effect=changing_validator):
+                self.assertIsNone(MODULE.stable_valid_info(checkpoint, validator, rejection=rejection))
+            self.assertEqual(rejection, {"reason": "checkpoint_changed_during_validation"})
+            self.assertTrue(checkpoint.exists())
 
     def test_specific_absolute_rejects_relative_path(self):
         with self.assertRaisesRegex(SystemExit, "specific absolute"):
@@ -165,6 +203,13 @@ class MirrorSafetyTest(unittest.TestCase):
             self.assertTrue(second.exists())
             self.assertTrue(corrupt_a.exists())
             self.assertTrue(corrupt_b.exists())
+            pressure = json.loads((state / "storage-pressure.json").read_text())
+            self.assertEqual(pressure["cycle_errors"], 2)
+            rejected = [json.loads(line) for line in (state / "mirror-events.jsonl").read_text().splitlines()
+                        if json.loads(line)["event"] == "checkpoint_not_stably_valid"]
+            self.assertEqual(len(rejected), 2)
+            self.assertTrue(all(event["validator_returncode"] == 3 for event in rejected))
+            self.assertTrue(all(event["reason"] == "validator_failed" for event in rejected))
 
     def test_prune_rechecks_remote_sha_immediately(self):
         with tempfile.TemporaryDirectory() as raw:

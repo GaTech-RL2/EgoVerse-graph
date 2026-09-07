@@ -200,7 +200,14 @@ def test_pipeline_algo_rejects_malformed_grouped_input():
         algo.process_batch_for_training({"source": torch.zeros(1)})
 
 
-def test_pipeline_algo_moves_nested_tensors_without_changing_dtype():
+def test_pipeline_algo_downcasts_float64_but_keeps_integer_dtypes():
+    """float64 -> float32 on move; integer metadata is left alone.
+
+    Zarr stamps poses as float64 and autocast does not downcast Double, so a
+    float64 tensor would reach a bf16 Linear unchanged and raise. The downcast
+    is deliberate; only floating tensors are touched, so index-like metadata
+    keeps its width.
+    """
     algo = PipelineAlgo(stages=[], device="cpu")
     processed = algo.process_batch_for_training(
         {
@@ -211,7 +218,7 @@ def test_pipeline_algo_moves_nested_tensors_without_changing_dtype():
         }
     )
 
-    assert processed["source"]["value"].dtype == torch.float64
+    assert processed["source"]["value"].dtype == torch.float32
     assert processed["source"]["metadata"]["index"].dtype == torch.int16
 
 

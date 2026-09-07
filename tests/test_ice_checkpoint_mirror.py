@@ -91,6 +91,13 @@ class CheckpointMetadataTest(unittest.TestCase):
     def test_cpu_wrapper_forwards_configured_du_timeout(self):
         wrapper = SBATCH_PATH.read_text()
         self.assertIn('"${ICE_MIRROR_PYTHON}" "${ICE_MIRROR_SCRIPT}"', wrapper)
+        self.assertIn(
+            'export PATH="$(dirname "${ICE_MIRROR_PYTHON}"):${PATH}"', wrapper
+        )
+        self.assertIn(
+            'export PYTHONPATH="${ICE_MIRROR_PYTHONPATH}${PYTHONPATH:+:${PYTHONPATH}}"',
+            wrapper,
+        )
         self.assertIn('if [[ -n "${ICE_MIRROR_DU_TIMEOUT_SECONDS:-}" ]]', wrapper)
         self.assertIn(
             'ARGS+=(--du-timeout-seconds "${ICE_MIRROR_DU_TIMEOUT_SECONDS}")',

@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 
 import torch
@@ -59,6 +60,57 @@ def _wandb_history(path: Path) -> tuple[dict[int, dict[str, float]], int]:
         store.close()
     assert exits and exits[-1] == 0, exits
     return rows, exits[-1]
+
+
+def _artifact_order(path: Path, root: Path) -> tuple[int, ...]:
+    parts = path.relative_to(root).parts
+    job_id, restart = -1, 0
+    if len(parts) == 3:
+        attempt = re.fullmatch(r"job-(\d+)-restart-(\d+)", parts[0])
+        if attempt is None:
+            raise ValueError(f"unrecognized EnergyScore execution path: {path}")
+        job_id, restart = map(int, attempt.groups())
+        parts = parts[1:]
+    if len(parts) != 2:
+        raise ValueError(f"unrecognized EnergyScore artifact path: {path}")
+    progress = re.fullmatch(r"epoch-(\d+)-step-(\d+)", parts[0])
+    unit = re.fullmatch(r"rank-(\d+)-batch-(\d+)\.pt", parts[1])
+    if progress is None or unit is None:
+        raise ValueError(f"unrecognized EnergyScore artifact identity: {path}")
+    epoch, step = map(int, progress.groups())
+    rank, batch = map(int, unit.groups())
+    return job_id, restart, step, epoch, rank, batch
+
+
+def _verified_energy_artifact(run_dir, *, expected_step, seed_bank_sha256, domains):
+    root = run_dir / "validation_predictions/energy_score"
+    artifacts = list(root.glob("**/*.pt"))
+    if not artifacts:
+        raise ValueError("smoke has no EnergyScore artifact")
+    path = max(artifacts, key=lambda item: _artifact_order(item, root))
+    job_id, restart, step, epoch, rank, batch = _artifact_order(path, root)
+    if step != expected_step:
+        raise ValueError(f"latest execution artifact step {step} != checkpoint {expected_step}")
+    artifact = torch.load(path, map_location="cpu", weights_only=False)
+    if artifact.get("schema_version") != 1 or artifact.get("metric") != "EnergyScore@32":
+        raise ValueError("unsupported EnergyScore artifact schema or metric")
+    for key, expected in (("global_step", step), ("epoch", epoch), ("rank", rank), ("batch_idx", batch)):
+        if artifact.get(key) != expected:
+            raise ValueError(f"EnergyScore {key} differs from artifact path")
+    expected_execution = (
+        None if job_id == -1
+        else {"slurm_job_id": str(job_id), "slurm_restart_count": restart}
+    )
+    if artifact.get("execution") != expected_execution:
+        raise ValueError("EnergyScore execution differs from artifact path")
+    seeds = artifact.get("seed_bank")
+    if not isinstance(seeds, list) or len(seeds) != 32 or len(set(seeds)) != 32:
+        raise ValueError("EnergyScore artifact requires a seed_bank of 32 unique seeds")
+    if artifact.get("seed_bank_sha256") != seed_bank_sha256:
+        raise ValueError("EnergyScore seed-bank identity differs from resolved config")
+    if set(artifact.get("domains", {})) != set(domains):
+        raise ValueError("EnergyScore artifact domains differ from smoke contract")
+    return path, len(artifacts)
 
 
 def main() -> None:
@@ -138,12 +190,10 @@ def main() -> None:
     }
     assert all(math.isfinite(value) for value in checked.values()), checked
 
-    artifacts = sorted(run_dir.glob("validation_predictions/energy_score/**/*.pt"))
-    assert artifacts
-    artifact = torch.load(artifacts[-1], map_location="cpu", weights_only=False)
-    assert artifact["metric"] == "EnergyScore@32"
-    assert len(artifact["seeds"]) == 32 and len(set(artifact["seeds"])) == 32
-    assert set(artifact["domains"]) == set(labels)
+    artifact_path, artifact_count = _verified_energy_artifact(
+        run_dir, expected_step=2,
+        seed_bank_sha256=str(cfg.evaluator.seed_bank_sha256), domains=labels,
+    )
 
     result = {
         "status": "passed",
@@ -157,8 +207,9 @@ def main() -> None:
         "checkpoint_sha256": _sha256(checkpoint_path),
         "wandb_stream_sha256": _sha256(streams[0]),
         "wandb_exit_code": exit_code,
-        "energy_artifact_count": len(artifacts),
-        "energy_artifact_sha256": _sha256(artifacts[-1]),
+        "energy_artifact_count": artifact_count,
+        "energy_artifact_path": str(artifact_path),
+        "energy_artifact_sha256": _sha256(artifact_path),
         "metrics": checked,
     }
     destination = run_dir / "SMOKE_RESULT.json"

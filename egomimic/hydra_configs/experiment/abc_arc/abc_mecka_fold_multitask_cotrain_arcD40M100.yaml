@@ -12,7 +12,7 @@ defaults:
   - override /model: abc_arc/yam_mecka_cotrain_dp_300M_arc_D40_M100
   - override /data: abc_arc/abc_mecka_fold_multitask_arc_cotrain_D40_M100
   - override /evaluator: null
-  - override hydra/launcher: submitit_pace
+  - override /hydra/launcher: submitit_pace
   - _self_
 
 name: abc_mecka_fold_multitask_cotrain_arcD40M100

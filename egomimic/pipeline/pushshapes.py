@@ -6,7 +6,11 @@ import numpy as np
 import torch
 
 from egomimic.rldb.zarr.action_chunk_transforms import PlanarAgentStateToRotVec4
-from egomimic.rldb.zarr.planar_arc import PLANAR_ACTION_DIM
+from egomimic.rldb.zarr.planar_arc import (
+    PLANAR_ACTION_DIM,
+    arc_token_rows,
+    validate_velocity_mode,
+)
 
 
 def _common5_to_native(actions, native_action_dim: int):
@@ -60,14 +64,26 @@ class PlanarCommon5NativeDecoder:
 
 
 class PlanarArcWaypointZeroNativeDecoder:
-    """Decode the anchored first waypoint from a Planar arc token."""
+    """Decode the anchored first waypoint from a Planar arc token.
+
+    ``velocity_mode`` only changes how many rows the token has -- waypoint zero
+    is row zero either way -- but it has to be declared so the shape check
+    stays meaningful. It must match the tokenizer's mode; sizing comes from
+    ``arc_token_rows`` so the two cannot disagree about the layout.
+    """
 
     preserves_decoded_timing = True
     action_horizon = 1
 
-    def __init__(self, resampled_vector_length: int, native_action_dim: int):
+    def __init__(
+        self,
+        resampled_vector_length: int,
+        native_action_dim: int,
+        velocity_mode: str = "mean",
+    ):
         self.num_waypoints = int(resampled_vector_length)
         self.native_action_dim = int(native_action_dim)
+        self.velocity_mode = validate_velocity_mode(velocity_mode)
         if self.num_waypoints < 2:
             raise ValueError("resampled_vector_length must be at least two")
 
@@ -83,10 +99,14 @@ class PlanarArcWaypointZeroNativeDecoder:
             if not torch.is_tensor(actions) and np.asarray(actions).ndim == 2
             else value
         )
-        expected = (self.num_waypoints + 1, PLANAR_ACTION_DIM)
+        expected = (
+            arc_token_rows(self.num_waypoints, self.velocity_mode),
+            PLANAR_ACTION_DIM,
+        )
         if value.ndim != 3 or tuple(value.shape[1:]) != expected:
             raise ValueError(
-                f"expected (B, {expected[0]}, {expected[1]}), got {value.shape}"
+                f"expected (B, {expected[0]}, {expected[1]}) for velocity_mode="
+                f"{self.velocity_mode!r}, got {value.shape}"
             )
         return _common5_to_native(value[:, :1], self.native_action_dim)
 

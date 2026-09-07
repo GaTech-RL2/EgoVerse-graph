@@ -1,0 +1,46 @@
+# Cartesian bimanual validation for ARC-TOKENIZED runs (loader-side
+# arc_tokenizer_cartesian). The twin of eval_bimanual_cartesian.
+#
+# The model predicts (M+1, 14) arc tokens. Rows 0..M-1 are waypoints; row M is
+# a VELOCITY token. The revert transforms rotate and translate every row they
+# receive, so handing them a raw token turns that velocity into a position and
+# the overlay shows the arm teleporting -- while still rendering, which is what
+# makes it easy to miss. ArcBimanualCartesianEval detokenizes first, so the
+# revert only ever sees rows that really are poses.
+#
+# min_distance_unit and resampled_vector_length MUST match the data config's
+# tokenizer, or the reconstruction replays at the wrong speed.
+#
+#   Valid/MSE, Valid/Native_MSE stay in TOKEN space (pred and target are both
+#   tokens there, so the comparison is apples-to-apples).
+
+defaults:
+  - viz@viz_func: cartesian/base
+  - _self_
+
+_target_: egomimic.eval.arc_bimanual_cartesian_eval.ArcBimanualCartesianEval
+
+action_key: actions_cartesian
+obs_pose_key: observations.state.ee_pose
+image_key: observations.images.front_img_1
+
+# Must match data/abc_arc/abc_fstshirt_arc_bc_D40_M100.yaml.
+min_distance_unit: 0.40
+resampled_vector_length: 100
+# Control steps to reconstruct for the overlay.
+action_horizon: 100
+
+revert_transforms:
+  yam_bimanual:
+    _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+    to_camera_frame: true
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    is_quat: false
+    gripper_padded: true
+
+video_output_dir: null
+video_chunk_frames: 1000
+max_episode_frames: 6000
+deterministic_seed: 420042

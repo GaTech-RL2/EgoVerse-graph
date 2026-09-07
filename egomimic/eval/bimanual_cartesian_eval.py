@@ -228,6 +228,17 @@ class BimanualCartesianEval(Eval):
             {self.obs_pose_key: normalized}, embodiment_id
         )[self.obs_pose_key]
 
+    def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:
+        """Rows to hand the revert transforms. Identity for a time-indexed run.
+
+        A subclass whose action space is NOT a stack of poses must override
+        this. The revert transforms rotate AND translate every row they are
+        given, so any row that is not a pose comes out as a position -- see
+        ArcBimanualCartesianEval, where row M is a velocity.
+        """
+        del embodiment_id
+        return actions
+
     def _revert_to_camframe(
         self, *, actions: torch.Tensor, obs_pose: torch.Tensor, embodiment_name: str
     ) -> torch.Tensor | None:
@@ -445,6 +456,9 @@ class BimanualCartesianEval(Eval):
 
         pred_native = self._native(pred_normalized, embodiment_id).detach().cpu()
         gt_native = self._native(gt_normalized, embodiment_id).detach().cpu()
+        # Everything downstream treats these rows as poses, so convert first.
+        pred_native = self._viz_source(pred_native, embodiment_id)
+        gt_native = self._viz_source(gt_native, embodiment_id)
 
         # Unnormalize the obs pose and drop an optional T_obs=1 axis. The revert
         # transforms expect per-sample obs of shape (D,), not (T_obs, D).

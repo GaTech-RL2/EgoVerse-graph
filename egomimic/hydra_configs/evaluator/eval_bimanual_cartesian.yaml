@@ -13,8 +13,9 @@
 #   Valid/Native_MSE                 macro mean, unnormalized action-chunk MSE
 #   Valid/Native_MSE/{embodiment}    per-embodiment native MSE
 #
-# For the arc twins (loader-side arc tokenization) use the D40/M100 arc
-# evaluator instead, once the arc-tok data path lands in this repo.
+# This is the TIME-INDEXED (baseline) evaluator. For the loader-side arc
+# twins use eval_arc_bimanual_cartesian_D40_M100 instead: an arc token's last
+# row is a velocity, and reverting it to camera frame yields a position.
 
 defaults:
   - viz@viz_func: cartesian/base

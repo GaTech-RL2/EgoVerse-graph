@@ -21,6 +21,9 @@ from egomimic.synthetic.decoder_inversion_flow import SyntheticDecoderInversionF
 from egomimic.synthetic.multi_action_adapter_flow import (
     SyntheticMultiActionAdapterFlow,
 )
+from egomimic.synthetic.projected_invertible_flow import (
+    SyntheticProjectedInvertibleFlow,
+)
 from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
@@ -104,6 +107,8 @@ def main() -> None:
             model = SyntheticActionAdapterFlow(**config["model"])
         elif architecture == "decoder_inversion_flow":
             model = SyntheticDecoderInversionFlow(**config["model"])
+        elif architecture == "projected_invertible_flow":
+            model = SyntheticProjectedInvertibleFlow(**config["model"])
         elif architecture == "multi_action_adapter_flow":
             model = SyntheticMultiActionAdapterFlow(**config["model"])
         else:

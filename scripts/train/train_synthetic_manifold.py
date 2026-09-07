@@ -50,6 +50,9 @@ from egomimic.synthetic.gradient_surgery import (
     ENCODER_GRADIENT_SURGERIES,
     backward_with_encoder_gradient_surgery,
 )
+from egomimic.synthetic.projected_invertible_flow import (
+    SyntheticProjectedInvertibleFlow,
+)
 from egomimic.synthetic.shared_latent_flow import (
     SyntheticDirectFlow,
     SyntheticSharedLatentFlow,
@@ -169,6 +172,8 @@ def main() -> None:
         model = SyntheticActionAdapterFlow(**config["model"]).to(device)
     elif architecture == "decoder_inversion_flow":
         model = SyntheticDecoderInversionFlow(**config["model"]).to(device)
+    elif architecture == "projected_invertible_flow":
+        model = SyntheticProjectedInvertibleFlow(**config["model"]).to(device)
     else:
         raise ValueError(f"unknown architecture: {architecture}")
     if source.shape[-1] != model.latent_dim:
@@ -246,6 +251,14 @@ def main() -> None:
                 lambda_path=config.get("lambda_path", 1.0),
                 lambda_action_velocity=config.get("lambda_action_velocity", 1.0),
                 clean_gradient_mode=config.get("clean_gradient_mode", "full"),
+                noise=batch_source,
+            )
+        elif architecture == "projected_invertible_flow":
+            losses = model.losses(
+                batch_target,
+                flow_samples=config.get("flow_samples", 1),
+                lambda_scale=config.get("lambda_scale", 1.0),
+                lambda_latent_flow=config.get("lambda_latent_flow", 0.0),
                 noise=batch_source,
             )
         else:
@@ -371,7 +384,11 @@ def main() -> None:
         summary["validation_reconstruction_mse"] = float(
             (clean_reconstruction - tgt).square().mean()
         )
-    if architecture in {"action_adapter_flow", "decoder_inversion_flow"}:
+    if architecture in {
+        "action_adapter_flow",
+        "decoder_inversion_flow",
+        "projected_invertible_flow",
+    }:
         fixed_noise = torch.randn(
             int(config.get("diagnostic_noise_samples", 4096)),
             model.latent_dim,
@@ -384,6 +401,39 @@ def main() -> None:
         if architecture == "action_adapter_flow":
             diagnostic_clean = model.encoder(tgt)
             inversion_metrics = {}
+        elif architecture == "projected_invertible_flow":
+            diagnostic_null_noise = torch.randn(
+                len(tgt),
+                model.latent_dim,
+                generator=torch.Generator(device="cpu").manual_seed(seed + 40_000),
+            ).to(device)
+            diagnostic_clean = model.exact_lift(tgt, diagnostic_null_noise)
+            projection = model.projection()
+            projected_velocity = model.velocity(
+                diagnostic_clean, diagnostic_time
+            ) @ projection.T
+            full_velocity = model.velocity(diagnostic_clean, diagnostic_time)
+            null_velocity = full_velocity - projected_velocity @ projection
+            inversion_metrics = {
+                "validation_exact_lift_mse": float(
+                    (model.decode(diagnostic_clean) - tgt).square().mean()
+                ),
+                "validation_projection_orthonormality_max_error": float(
+                    (
+                        projection @ projection.T
+                        - torch.eye(
+                            model.action_dim,
+                            device=device,
+                            dtype=projection.dtype,
+                        )
+                    )
+                    .abs()
+                    .max()
+                ),
+                "validation_null_velocity_rms": float(
+                    null_velocity.square().mean().sqrt()
+                ),
+            }
         else:
             diagnostic_initialization = torch.randn(
                 len(tgt),
@@ -417,7 +467,7 @@ def main() -> None:
         diagnostic_state = (
             (1.0 - diagnostic_time) * diagnostic_clean + diagnostic_time * src
         )
-        if architecture == "action_adapter_flow":
+        if architecture in {"action_adapter_flow", "projected_invertible_flow"}:
             diagnostic_velocity = src - diagnostic_clean
             diagnostic_residual = (
                 model.velocity(diagnostic_state, diagnostic_time)

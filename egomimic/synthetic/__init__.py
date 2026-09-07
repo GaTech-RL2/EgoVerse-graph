@@ -10,6 +10,7 @@ from .manifold_dataset import (
     generate_gaussian_torus,
 )
 from .multi_action_adapter_flow import SyntheticMultiActionAdapterFlow
+from .projected_invertible_flow import SyntheticProjectedInvertibleFlow
 
 __all__ = [
     "GaussianParaboloidDataset",
@@ -20,4 +21,5 @@ __all__ = [
     "SyntheticActionAdapterFlow",
     "SyntheticDecoderInversionFlow",
     "SyntheticMultiActionAdapterFlow",
+    "SyntheticProjectedInvertibleFlow",
 ]

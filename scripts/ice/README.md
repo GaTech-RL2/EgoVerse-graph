@@ -103,6 +103,7 @@ exclusive `ice-cpu` node per array element:
 export ICE_MIRROR_POOL_SIZE=4
 export ICE_MIRROR_POOL_SCRIPT=/absolute/repo/scripts/ice/ice_checkpoint_mirror_pool.py
 export ICE_MIRROR_PYTHON=/absolute/environment/bin/python
+export ICE_MIRROR_PYTHONPATH=/absolute/exact/model-source
 sbatch --array=0-3%4 scripts/ice/ice_checkpoint_mirror_pool.sbatch
 ```
 
@@ -120,6 +121,23 @@ reload. The wrappers invoke the monitor with the pinned interpreter, prepend
 its directory to `PATH`, and prepend the source to `PYTHONPATH`, so executable
 validators using `#!/usr/bin/env python3` resolve the same runtime and model
 implementation instead of silently falling back to incomplete site defaults.
+
+Both mirror modes record validator rejection reasons and return codes in
+`mirror-events.jsonl`. The single worker counts rejected candidates in
+`storage-pressure.json`'s `cycle_errors`. Each pool worker publishes its own
+`worker-N-status.json`; inspect every worker's timestamp/errors, since worker
+zero's pressure report is not an aggregate of the whole pool.
+
+For a finite archive pass after a producer has stopped, the single-node wrapper
+accepts `ICE_MIRROR_ONCE=1`. It processes existing candidates, verifies remote
+hashes, and exits nonzero if any candidate is unresolved. This does not mark an
+unfinished training run complete. It avoids leaving a service requeueing forever
+for a phase that never started. Leave pruning disabled for first deployment.
+
+All maintained batch entrypoints request `--kill-on-invalid-dep=yes`: a failed
+smoke should cancel its dependent request rather than leave a permanent
+`DependencyNeverSatisfied` queue entry. When an outer wrapper is submitted,
+include this option on that outer `sbatch` too; inner directives are ignored.
 
 Set `ICE_MIRROR_INVENTORY_ROOT` to a bounded project or campaign directory to
 publish `archive-inventory.json` in the shared state directory. The inventory

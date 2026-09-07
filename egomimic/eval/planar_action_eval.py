@@ -14,6 +14,10 @@ from pathlib import Path
 import torch
 
 from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
+from egomimic.eval.artifact_paths import (
+    artifact_destination,
+    artifact_execution_identity,
+)
 from egomimic.eval.energy_score import (
     USOCKET_NATIVE_DECODER,
     energy_score,
@@ -160,6 +164,7 @@ class PlanarActionEval(Eval):
         ):
             raise ValueError("energy_score_max_batches_per_rank must be positive")
         self.artifact_root = None if artifact_root is None else Path(artifact_root)
+        self.artifact_execution = artifact_execution_identity()
         self.seeds = []
         self.seed_bank_sha256 = None
         if self.energy_score_enabled:
@@ -225,6 +230,13 @@ class PlanarActionEval(Eval):
 
     def on_validation_end(self):
         return None
+
+    def _artifact_destination(self, root, batch_idx):
+        return artifact_destination(
+            root, self.artifact_execution,
+            epoch=self.trainer.current_epoch, global_step=self.trainer.global_step,
+            rank=self.trainer.global_rank, batch_idx=batch_idx,
+        )
 
     def bind_data_context(self, *, normalizer):
         """Attach data-owned normalization without putting it on PipelineAlgo."""
@@ -513,11 +525,7 @@ class PlanarActionEval(Eval):
             metrics[base] = torch.stack(values).mean()
 
         root = Path(str(self.unite_diagnostics["artifact_root"])).resolve()
-        destination = (
-            root
-            / f"epoch-{int(self.trainer.current_epoch)}-step-{int(self.trainer.global_step)}"
-            / f"rank-{rank}-batch-{int(batch_idx)}.pt"
-        )
+        destination = self._artifact_destination(root, batch_idx)
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_suffix(".tmp")
         if destination.exists() or temporary.exists():
@@ -526,6 +534,7 @@ class PlanarActionEval(Eval):
             {
                 "schema_version": 1,
                 "metric": "ReleasedUNITETrainingDiagnostics",
+                "execution": self.artifact_execution,
                 "global_step": int(self.trainer.global_step),
                 "epoch": int(self.trainer.current_epoch),
                 "rank": rank,
@@ -911,11 +920,7 @@ class PlanarActionEval(Eval):
         return functions
 
     def _save_artifact(self, batch_idx, samples, scores, batch):
-        destination = (
-            self.artifact_root
-            / f"epoch-{int(self.trainer.current_epoch)}-step-{int(self.trainer.global_step)}"
-            / f"rank-{int(self.trainer.global_rank)}-batch-{int(batch_idx)}.pt"
-        )
+        destination = self._artifact_destination(self.artifact_root, batch_idx)
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_suffix(".tmp")
         if destination.exists() or temporary.exists():
@@ -964,6 +969,7 @@ class PlanarActionEval(Eval):
         payload = {
             "schema_version": 1,
             "metric": "EnergyScore@32",
+            "execution": self.artifact_execution,
             "sample_count": 32,
             "seed_bank": self.seeds,
             "seed_bank_sha256": self.seed_bank_sha256,

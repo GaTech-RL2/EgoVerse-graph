@@ -28,7 +28,7 @@ from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.ema_callback import EMACallback
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.utils.logging_utils import log_hyperparameters
+from egomimic.utils.logging_utils import configure_runner_wandb, log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.slurm_requeue import SaveOnlySignalCheckpoint
 from egomimic.utils.utils import extras, task_wrapper
@@ -435,6 +435,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     :return: A tuple with metrics and dict with all instantiated objects.
     """
     mode = _validate_run_config(cfg)
+    if mode == "train":
+        configure_runner_wandb(cfg)
 
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):

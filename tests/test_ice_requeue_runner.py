@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -799,6 +800,42 @@ class RunnerSafetyTest(unittest.TestCase):
             self.assertEqual(metadata["global_step"], 12)
             self.assertEqual(metadata["checkpoint_path"], str(checkpoint.resolve()))
             self.assertEqual(exported["ICE_REQUEUE_OWNER"], "child")
+
+    def test_child_signal_has_shell_exit_status_without_requeue(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            state = root / "state" / "run"
+            validator = make_validator(root)
+            write_checkpoint(root / "step-12.ckpt", 12)
+            scontrol_log = root / "scontrol.log"
+            fake_scontrol = root / "scontrol"
+            fake_scontrol.write_text(
+                "#!/bin/sh\n"
+                f"touch {shlex.quote(str(scontrol_log))}\n"
+            )
+            fake_scontrol.chmod(0o700)
+            env = os.environ.copy()
+            env.update({"SLURM_JOB_ID": "993", "SLURM_RESTART_COUNT": "0"})
+            args = base_args(
+                state,
+                str(root / "*.ckpt"),
+                validator,
+                [sys.executable, "-c", "import os,signal; os.kill(os.getpid(), signal.SIGTERM)"],
+                owner="runner",
+            )
+            args[args.index("--"):args.index("--")] = ["--scontrol", str(fake_scontrol)]
+            result = subprocess.run(
+                [sys.executable, str(MODULE_PATH), *args],
+                env=env, text=True, capture_output=True, check=False, timeout=10,
+            )
+            self.assertEqual(result.returncode, 128 + signal.SIGTERM, result.stderr)
+            self.assertFalse(scontrol_log.exists())
+            attempt = json.loads(
+                (state / "requeue" / "job-993-restart-000" / "attempt.json").read_text()
+            )
+            self.assertEqual(attempt["status"], "CHILD_FAILED_NO_REQUEUE")
+            self.assertEqual(attempt["child_exit_code"], -signal.SIGTERM)
+            self.assertEqual(attempt["child_exit_signal"], "SIGTERM")
 
     def test_signal_baseline_waits_for_post_signal_checkpoint(self):
         with tempfile.TemporaryDirectory() as raw:

@@ -61,6 +61,19 @@ graph nodes. The node form makes the boundary visible and lintable:
 - `ArcDetokenizeStage` is the inverse. It is `inference_only` and writes
   `pred_action_native`.
 
+`planar.arc_velocity_mode` selects how the token carries timing, and both arc
+nodes plus the evaluator's native decoder read that one value:
+
+- `mean` (default) — M waypoints plus a single mean-speed row, `M + 1` rows.
+  Exact when the chunk is traversed at constant speed, lossy otherwise.
+- `per_waypoint` — M waypoints plus M local-rate rows, `2 * M` rows. Each rate
+  is measured from the bracketing source frames, so a chunk that accelerates,
+  decelerates or dwells replays at its original pace.
+
+`arc_token_rows` must move with the mode (the repo registers no arithmetic
+resolver, so it is written out by hand and a test guards it). The token width
+differs between modes, so checkpoints and norm stats do not transfer.
+
 The two nodes must agree on `rotation_radius`, `dt` and
 `resampled_vector_length`. The token's speed is a rate in the tokenizer's SE(2)
 metric (translation plus `lambda * rotation`), so the polyline the decoder walks

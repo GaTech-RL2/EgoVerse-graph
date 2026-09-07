@@ -30,6 +30,8 @@ pipeline:
       rotation_radius: ${planar.arc_rotation_radius}
       hybrid_rotation_unit: ${planar.hybrid_rotation_unit}
       dt: ${planar.arc_dt}
+      # One knob for the whole codec -- see planar.arc_velocity_mode.
+      velocity_mode: ${planar.arc_velocity_mode}
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
       action_horizon: ${planar.arc_token_rows}
       action_dim: 5
@@ -62,6 +64,7 @@ pipeline:
       action_horizon: ${planar.action_horizon}
       native_action_dim: 3
       dt: ${planar.arc_dt}
+      velocity_mode: ${planar.arc_velocity_mode}
       # Must be the tokenizer's radius: the token's speed is a rate in the
       # SE(2) metric this lambda defines, so the polyline the decoder walks has
       # to be measured the same way.

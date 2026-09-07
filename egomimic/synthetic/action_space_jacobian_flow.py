@@ -80,6 +80,24 @@ class SyntheticActionSpaceJacobianFlow(nn.Module):
     def decoder_jacobian_singular_values(self, seed: torch.Tensor) -> torch.Tensor:
         return torch.linalg.svdvals(vmap(jacrev(self.decoder))(seed))
 
+    def scale_loss(self, seed: torch.Tensor) -> torch.Tensor:
+        """Match decoded Gaussian-seed mean/covariance to a unit 3D Gaussian."""
+        if seed.shape != (len(seed), self.latent_dim):
+            raise ValueError("seed must have shape [batch, latent_dim]")
+        if len(seed) <= 1:
+            raise ValueError("nonlinear scale loss requires at least two samples")
+        decoded = self.decoder(seed)
+        mean = decoded.mean(dim=0)
+        centered = decoded - mean
+        covariance = centered.T @ centered / (len(decoded) - 1)
+        identity = torch.eye(
+            self.action_dim, device=seed.device, dtype=seed.dtype
+        )
+        return (
+            mean.square().sum() / self.action_dim
+            + (covariance - identity).square().sum() / self.action_dim
+        )
+
     def trajectory(self, seed: torch.Tensor, steps: int = 32) -> torch.Tensor:
         if seed.shape[-1] != self.latent_dim:
             raise ValueError("seed width does not match latent_dim")
@@ -101,6 +119,7 @@ class SyntheticActionSpaceJacobianFlow(nn.Module):
         action: torch.Tensor,
         *,
         flow_samples: int = 1,
+        lambda_scale: float = 0.0,
         seed: torch.Tensor | None = None,
         time: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
@@ -127,12 +146,13 @@ class SyntheticActionSpaceJacobianFlow(nn.Module):
         target_velocity = source - action_many
         prediction = self.action_velocity(state, seed_many, time)
         flow = (prediction - target_velocity).square().mean()
+        scale = self.scale_loss(seed)
         zero = torch.zeros((), device=action.device, dtype=action.dtype)
         return {
-            "loss": flow,
+            "loss": flow + float(lambda_scale) * scale,
             "flow_loss": flow,
             "reconstruction_loss": zero,
-            "scale_loss": zero,
+            "scale_loss": scale,
             "path_loss": zero,
             "action_velocity_loss": flow,
         }

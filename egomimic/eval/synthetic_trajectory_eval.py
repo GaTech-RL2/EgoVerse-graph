@@ -146,7 +146,8 @@ class SyntheticTrajectoryEval:
         }
 
     @staticmethod
-    @torch.inference_mode()
+    # torch.inference_mode disables forward-mode AD and zeroes torch.func.jvp.
+    @torch.no_grad()
     def evaluate(model, source: torch.Tensor, target: torch.Tensor, *, steps: int):
         points = model.trajectory(source, steps=steps)
         expected = (steps + 1, len(target), 3)

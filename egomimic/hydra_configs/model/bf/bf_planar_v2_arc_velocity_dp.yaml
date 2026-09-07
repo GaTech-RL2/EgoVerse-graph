@@ -1,16 +1,3 @@
-# Planar DP over arc-length tokens, with tokenization INSIDE the graph.
-#
-# The difference from bf_planar_v2_dp_standard is two nodes, not a different
-# model. `ArcTokenizeStage` takes ActionTargetBuilder's place -- it is the only
-# writer of `target`, so everything downstream is the ordinary DP chain and
-# simply models an arc token instead of a time-indexed chunk.
-# `ArcDetokenizeStage` is the inverse and reads `pred_action`, which exists only
-# in the inference graph, so the dependency resolver drops it from training on
-# its own rather than through a mode flag.
-#
-# Contrast with experiment/pusht/planar_v2_usocket_arc_bc, where the same
-# tokenization happens in the loader's transform_list: there the stage list
-# gives no sign the target is a token, and the linter cannot see the boundary.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
 pipeline:
@@ -22,13 +9,7 @@ pipeline:
         front_img_1: front_img_1
         state_agent_obj: state_agent_obj
       encoder: ${planar.encoder}
-    # Tokenize into two M-row streams: [x,y,0,0,v] then [0,0,cos,sin,omega].
-    - _target_: egomimic.pipeline.stages_arc.ArcTokenizeStage
-      action_key: actions
-      min_distance_unit: ${planar.arc_distance}
-      resampled_vector_length: ${planar.arc_waypoints}
-      rotation_distance_unit: ${planar.arc_rotation_distance}
-      dt: ${planar.arc_dt}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
       action_horizon: ${planar.arc_token_rows}
       action_dim: 5
@@ -55,12 +36,6 @@ pipeline:
           kernel_size: 3
         noise_scheduler: *arc_scheduler
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
-    # Detokenize: arc token -> time-indexed native chunk (inference only).
-    - _target_: egomimic.pipeline.stages_arc.ArcDetokenizeStage
-      resampled_vector_length: ${planar.arc_waypoints}
-      action_horizon: ${planar.action_horizon}
-      native_action_dim: 3
-      dt: ${planar.arc_dt}
 
 enable_grad_norm: false
 optimizer:

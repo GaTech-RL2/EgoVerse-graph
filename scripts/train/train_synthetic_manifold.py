@@ -257,6 +257,7 @@ def main() -> None:
             losses = model.losses(
                 batch_target,
                 flow_samples=config.get("flow_samples", 1),
+                lambda_scale=config.get("lambda_scale", 0.0),
                 seed=batch_source,
             )
         else:
@@ -333,7 +334,8 @@ def main() -> None:
     else:
         src = source[val_indices].to(device)
         tgt = target[val_indices].to(device)
-    with torch.inference_mode():
+    # Keep forward-mode AD active for models whose velocity uses torch.func.jvp.
+    with torch.no_grad():
         if architecture in {"shared_latent", "action_adapter_flow"}:
             clean_reconstruction = model.decoder(model.encoder(tgt))
             trajectory = SyntheticTrajectoryEval.export(
@@ -410,6 +412,7 @@ def main() -> None:
                 "validation_action_velocity_mse": float(
                     diagnostic_action_velocity_mse
                 ),
+                "validation_scale_loss": float(model.scale_loss(fixed_noise)),
                 "validation_decoder_jacobian_singular_min": float(
                     singular_values.min()
                 ),

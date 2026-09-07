@@ -221,6 +221,7 @@ def test_action_space_jacobian_training_has_no_reconstruction_and_real_validatio
             "field_depth": 1,
         },
         "flow_samples": 2,
+        "lambda_scale": 1.0,
         "learning_rate": 0.0003,
         "batch_size": 4,
         "max_steps": 2,
@@ -233,6 +234,9 @@ def test_action_space_jacobian_training_has_no_reconstruction_and_real_validatio
     _run(source, config_path)
     metrics = [json.loads(row) for row in (output / "metrics.jsonl").read_text().splitlines()]
     assert all(row["reconstruction_loss"] == 0.0 for row in metrics)
+    assert all(row["scale_loss"] > 0.0 for row in metrics)
+    trajectory = np.load(output / "validation_trajectory.npz")["points"]
+    assert float(np.abs(trajectory[-1] - trajectory[0]).max()) > 0.0
     summary = json.loads((output / "summary.json").read_text())
     assert "validation_reconstruction_mse" not in summary
     for key in (

@@ -1,6 +1,7 @@
 import torch
 from torch.func import jacrev, vmap
 
+from egomimic.eval.synthetic_trajectory_eval import SyntheticTrajectoryEval
 from egomimic.synthetic.action_space_jacobian_flow import (
     SyntheticActionSpaceJacobianFlow,
 )
@@ -50,6 +51,25 @@ def test_loss_is_action_space_cfm_through_seed_decoder_jacobian():
     torch.testing.assert_close(losses["reconstruction_loss"], torch.tensor(0.0))
 
 
+def test_standard_scale_regularizer_matches_decoded_noise_moments():
+    model = _small_model()
+    seed = torch.randn(17, 8)
+    decoded = model.decoder(seed)
+    mean = decoded.mean(dim=0)
+    centered = decoded - mean
+    covariance = centered.T @ centered / (len(decoded) - 1)
+    expected = mean.square().sum() / 3.0 + (
+        covariance - torch.eye(3)
+    ).square().sum() / 3.0
+    torch.testing.assert_close(model.scale_loss(seed), expected)
+
+    action = torch.randn(17, 3)
+    losses = model.losses(action, seed=seed, lambda_scale=1.0)
+    torch.testing.assert_close(
+        losses["loss"], losses["flow_loss"] + losses["scale_loss"]
+    )
+
+
 def test_only_action_loss_updates_decoder_and_shared_field():
     model = _small_model()
     with torch.no_grad():
@@ -71,3 +91,15 @@ def test_sampling_integrates_actions_while_seed_stays_fixed():
     assert trajectory.shape == (5, 6, 3)
     torch.testing.assert_close(trajectory[0], model.decoder(seed))
     assert torch.isfinite(trajectory).all()
+
+
+def test_shared_evaluator_preserves_decoder_jvp():
+    model = _small_model("joint_affine")
+    with torch.no_grad():
+        for parameter in model.field.parameters():
+            parameter.zero_()
+        model.field[-1].bias.fill_(1.0)
+    seed = torch.randn(6, 8)
+    target = torch.randn(6, 3)
+    trajectory = SyntheticTrajectoryEval.evaluate(model, seed, target, steps=4)
+    assert float((trajectory[-1] - trajectory[0]).abs().max()) > 0.0

@@ -43,6 +43,9 @@ train_datasets:
         rotation_mode: euler
         min_distance_unit: 0.40
         resampled_vector_length: 100
+        # One knob, read by the evaluator too. per_waypoint keeps a local rate
+        # per interval instead of one token-wide mean.
+        velocity_mode: ${abc.arc_velocity_mode}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -72,6 +75,9 @@ valid_datasets:
         rotation_mode: euler
         min_distance_unit: 0.40
         resampled_vector_length: 100
+        # One knob, read by the evaluator too. per_waypoint keeps a local rate
+        # per interval instead of one token-wide mean.
+        velocity_mode: ${abc.arc_velocity_mode}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

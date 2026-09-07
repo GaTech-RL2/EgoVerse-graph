@@ -410,7 +410,11 @@ else:
     raise AssertionError(family)
 PY
 
-"$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" \
+# The preflight dry-run uses an empty throwaway state dir, so it must not see
+# Slurm's restart count: on a requeued attempt the runner would otherwise
+# refuse ("required resume checkpoint is unavailable") before the real
+# runner below ever looks at $ICE_OUTPUT_DIR/runner-state.
+SLURM_RESTART_COUNT=0 "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" \
   --state-dir "$PREFLIGHT_ROOT/runner/state" \
   --checkpoint-glob "$PREFLIGHT_ROOT/checkpoints/*.ckpt" \
   --checkpoint-validator "$ICE_CHECKPOINT_VALIDATOR" \

@@ -20,12 +20,17 @@ set -euo pipefail
 : "${ICE_MIRROR_REMOTE_HOST:?set ICE_MIRROR_REMOTE_HOST}"
 : "${ICE_MIRROR_SCRIPT:?set the exact absolute ice_checkpoint_mirror.py path}"
 : "${ICE_MIRROR_PYTHON:?set the exact absolute Python with validator dependencies}"
+: "${ICE_MIRROR_PYTHONPATH:?set the exact absolute model source path}"
 
 [[ "${ICE_MIRROR_SCRIPT}" = /* ]]
 [[ "${ICE_MIRROR_PYTHON}" = /* ]]
+[[ "${ICE_MIRROR_PYTHONPATH}" = /* ]]
 test -f "${ICE_MIRROR_SCRIPT}"
 test -r "${ICE_MIRROR_SCRIPT}"
 test -x "${ICE_MIRROR_PYTHON}"
+test -d "${ICE_MIRROR_PYTHONPATH}"
+export PATH="$(dirname "${ICE_MIRROR_PYTHON}"):${PATH}"
+export PYTHONPATH="${ICE_MIRROR_PYTHONPATH}${PYTHONPATH:+:${PYTHONPATH}}"
 
 ARGS=(
   --manifest "${ICE_MIRROR_MANIFEST}"

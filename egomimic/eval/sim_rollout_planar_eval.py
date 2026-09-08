@@ -1,0 +1,246 @@
+"""Closed-loop PushShapes rollout scoring for planar policies.
+
+NON-PROTOCOL. This is a repo-local harness, not the canonical
+``bf_eval_par.sbatch``. It follows the SUBSTANCE of the sim_v2 eval protocol
+(2026-09-08) -- data-derived p99 budget, PEAK coverage, SR@0.80 and SR@0.95,
+40 level-0 rollouts on seeds 0-39, sim_v2 physics -- so its numbers answer
+"which tokenizer yields a better policy". They must never be pooled with, or
+reported as, canonical protocol results.
+
+It exists because the two halves of a rollout live in different repos:
+EgoVerse-graph owns the ARC tokenizer, the detokenizer and the native decoder
+but has no rollout evaluator and no simulator; EgoVerse owns eval_sim.py and
+Tsimulation but has none of the ARC modules. Tsimulation is imported here off
+PYTHONPATH, the same way the codec replay grid does it.
+
+Plugged in as ``cfg.evaluator`` under ``mode=eval`` so trainHydra performs the
+model construction, strict checkpoint load and norm-stats binding; hand-rolling
+those is what the norm_mode=quantile trap punishes.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+
+from egomimic.eval.eval import Eval
+
+LABEL = "NON-PROTOCOL_REPO_LOCAL_ROLLOUT_NOT_COMPARABLE"
+
+
+def _env_to_zarr_oriented(obs_env: dict) -> dict:
+    """PushShapes obs -> dataset keys for a controlled-angle agent.
+
+    U-Socket stores [agent_x, agent_y, agent_angle, obj_x, obj_y, obj_angle];
+    the encoder slices [0,3). Mirrors EgoVerse's _env_to_zarr_pushshapes_oriented.
+    """
+    state = np.concatenate(
+        [obs_env["agent_pos"], obs_env["agent_angle"], obs_env["object_pose"]],
+        axis=0,
+    ).astype(np.float32)
+    image = np.transpose(obs_env["image"], (2, 0, 1)).astype(np.float32) / 255.0
+    return {"state_agent_obj": state, "front_img_1": image}
+
+
+class SimRolloutPlanarEval(Eval):
+    def __init__(
+        self,
+        dataset_dir: str,
+        budget_path: str,
+        embodiment_name: str = "pushshapes_sim_u_socket",
+        action_key: str = "actions",
+        native_decoder=None,
+        n_episodes: int = 40,
+        seed_base: int = 0,
+        level: int = 0,
+        replan_every: int = 8,
+        chunk_start: int = 0,
+        expected_sampler_steps: int | None = None,
+        results_path: str | None = None,
+    ):
+        if replan_every <= 0:
+            raise ValueError("replan_every must be positive")
+        if chunk_start < 0:
+            raise ValueError("chunk_start must be non-negative")
+        self.dataset_dir = Path(dataset_dir)
+        self.budget_path = Path(budget_path)
+        self.embodiment_name = str(embodiment_name)
+        self.action_key = str(action_key)
+        self.native_decoder = native_decoder
+        self.n_episodes = int(n_episodes)
+        self.seed_base = int(seed_base)
+        self.level = int(level)
+        self.replan_every = int(replan_every)
+        self.chunk_start = int(chunk_start)
+        self.expected_sampler_steps = expected_sampler_steps
+        self.results_path = results_path
+        self.normalizer = None
+        self._done = False
+
+    def bind_data_context(self, *, normalizer):
+        self.normalizer = normalizer
+
+    # ---------------------------------------------------------------- helpers
+    def _budget(self) -> int:
+        payload = json.loads(self.budget_path.read_text())
+        if payload.get("statistic") != "p99":
+            raise ValueError(
+                f"protocol revision 3 requires statistic=p99, got "
+                f"{payload.get('statistic')!r}"
+            )
+        row = payload["by_level"][str(self.level)]
+        return int(row["budget"]), payload
+
+    def _env_args(self) -> dict:
+        """Take env_args from the corpus so the eval env matches training."""
+        import zarr
+
+        episodes = sorted(self.dataset_dir.glob("episode_*.zarr"))
+        if not episodes:
+            raise FileNotFoundError(f"no episodes under {self.dataset_dir}")
+        store = zarr.open_group(str(episodes[0]), mode="r")
+        return json.loads(dict(store.attrs)["task_description"])["env_args"]
+
+    def _make_env(self, env_args: dict):
+        from Tsimulation.pushshapes import get_env
+
+        env = get_env("v2")(
+            object_shape=env_args["object_shape"],
+            pusher_shape=env_args["pusher_shape"],
+            obstacle_level=self.level,
+            image_size=env_args.get("image_size", 96),
+            render_mode=None,
+        )
+        env._skip_obs_render = False  # the policy needs the image
+        return env
+
+    def _emb_id(self) -> int:
+        from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+        return get_embodiment_id(self.embodiment_name)
+
+    def _predict_chunk(self, obs: dict, emb_id: int, device) -> np.ndarray:
+        """obs (unnormalized env frame) -> native action chunk (H, 3)."""
+        normalized = self.normalizer.normalize(
+            {k: torch.from_numpy(v) for k, v in obs.items()}, emb_id
+        )
+        # FusedObsEncoder requires (batch, n_obs, ...); n_obs is 1 here.
+        batch = {
+            self.embodiment_name: {
+                k: v.unsqueeze(0).unsqueeze(0).to(device)
+                for k, v in normalized.items()
+            }
+        }
+        batch[self.embodiment_name]["embodiment"] = torch.tensor([emb_id], device=device)
+        with torch.no_grad():
+            out = self.model.forward_eval(batch)
+        token = out[self.embodiment_name]["pred_action"].detach()
+        token = self.normalizer.unnormalize({self.action_key: token}, emb_id)[
+            self.action_key
+        ]
+        native = self.native_decoder.decode(token)
+        native = np.asarray(native.squeeze(0).cpu(), dtype=np.float32)
+        return native
+
+    # ------------------------------------------------------------- Eval hooks
+    def on_validation_start(self):
+        if self._done:
+            return
+        self._done = True
+        budget, budget_payload = self._budget()
+        env_args = self._env_args()
+        emb_id = self._emb_id()
+        device = self.trainer.lightning_module.device
+        env = self._make_env(env_args)
+
+        print(f"[sim] {LABEL}")
+        print(
+            f"[sim] budget={budget} level={self.level} "
+            f"statistic={budget_payload.get('statistic')} "
+            f"multiplier={budget_payload.get('multiplier')} "
+            f"dataset={budget_payload.get('dataset')} "
+            f"content_sha256={budget_payload.get('content_sha256')}"
+        )
+        print(
+            f"[sim] replan_every={self.replan_every} chunk_start={self.chunk_start} "
+            f"sampler_steps={self.expected_sampler_steps} "
+            f"episodes={self.n_episodes} seed_base={self.seed_base}"
+        )
+        print(f"[sim] env_args={json.dumps(env_args, sort_keys=True)}")
+
+        peaks: list[float] = []
+        for ep in range(self.n_episodes):
+            seed = self.seed_base + ep
+            env.reset(seed=seed)
+            peak = 0.0
+            chunk: np.ndarray | None = None
+            cursor = 0
+            aborted = False
+            for t in range(budget):
+                if chunk is None or cursor >= len(chunk):
+                    obs = _env_to_zarr_oriented(env._get_obs())
+                    native = self._predict_chunk(obs, emb_id, device)
+                    chunk = native[self.chunk_start : self.chunk_start + self.replan_every]
+                    if len(chunk) == 0:
+                        raise ValueError(
+                            f"empty execution chunk: decoded {native.shape} with "
+                            f"start={self.chunk_start} replan={self.replan_every}"
+                        )
+                    cursor = 0
+                action = np.asarray(chunk[cursor], dtype=np.float32).reshape(-1)
+                cursor += 1
+                if not np.all(np.isfinite(action)):
+                    print(
+                        f"[sim] WARNING: non-finite action t={t} emb{emb_id} "
+                        f"ep{ep} (raw={action.tolist()}); abort 0-cov."
+                    )
+                    peak = 0.0
+                    aborted = True
+                    break
+                _, _, term, trunc, info = env.step(action)
+                peak = max(peak, float(info.get("coverage", 0.0)))
+                if term or trunc:
+                    break
+            peaks.append(float(peak))
+            print(f"[sim] ep{ep} seed={seed} peak={peak:.4f} aborted={aborted}")
+        env.close()
+
+        arr = np.asarray(peaks, dtype=np.float64)
+        summary = {
+            "label": LABEL,
+            "embodiment": self.embodiment_name,
+            "level": self.level,
+            "episodes": int(arr.size),
+            "budget": budget,
+            "budget_provenance": budget_payload,
+            "replan_every": self.replan_every,
+            "chunk_start": self.chunk_start,
+            "sampler_steps": self.expected_sampler_steps,
+            "seed_base": self.seed_base,
+            "peak_coverage_mean": float(arr.mean()),
+            "peak_coverage_median": float(np.median(arr)),
+            "SR@0.80": float((arr >= 0.80).mean()),
+            "SR@0.95": float((arr >= 0.95).mean()),
+            "ep_coverages": [round(float(v), 4) for v in arr],
+        }
+        print(
+            f"[sim] emb{emb_id} ep_coverages: "
+            + " ".join(f"{v:.4f}" for v in arr)
+        )
+        print("[sim] SUMMARY " + json.dumps(summary, sort_keys=True))
+        if self.results_path:
+            Path(self.results_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(self.results_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+        self._summary = summary
+
+    def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
+        return {}
+
+    def on_validation_end(self):
+        return {}

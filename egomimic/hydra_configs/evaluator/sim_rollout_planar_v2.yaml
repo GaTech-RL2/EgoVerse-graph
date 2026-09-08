@@ -1,0 +1,14 @@
+# NON-PROTOCOL repo-local rollout scorer. See sim_rollout_planar_eval.py.
+_target_: egomimic.eval.sim_rollout_planar_eval.SimRolloutPlanarEval
+dataset_dir: ???
+budget_path: ???
+embodiment_name: pushshapes_sim_u_socket
+action_key: actions
+native_decoder: ${planar.eval_native_decoder}
+n_episodes: 40
+seed_base: 0
+level: 0
+replan_every: 8
+chunk_start: 0
+expected_sampler_steps: 100
+results_path: ${paths.output_dir}/sim_rollout_results.json

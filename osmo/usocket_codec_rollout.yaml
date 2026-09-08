@@ -1,0 +1,221 @@
+# Closed-loop rollout scoring for the three U-Socket codec checkpoints.
+#
+# NON-PROTOCOL. The canonical bf_eval_par.sbatch lives on Skynet and there is
+# no registered inference contract for the arc-velocity family, so this is a
+# repo-local harness following the protocol's SUBSTANCE (p99 budget, PEAK
+# coverage, SR@0.80 + SR@0.95, 40 level-0 rollouts on seeds 0-39, sim_v2).
+# Its numbers must never be pooled with canonical results.
+#
+# Needs both repos, as the codec grid job did: EgoVerse-graph owns the ARC
+# modules and the policy; EgoVerse owns Tsimulation. Neither owns both.
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: rollout
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+
+    environment:
+      BRANCH: "{{branch}}"
+      SIM_COMMIT: "{{sim_commit}}"
+      JOB_NAME: "{{job_name}}"
+      EXPERIMENTS: "{{experiments}}"
+      CKPT_JOBS: "{{ckpt_jobs}}"
+      N_EPISODES: "{{n_episodes}}"
+      REPLAN_EVERY: "8"
+      CHUNK_START: "0"
+      SAMPLER_STEPS: "100"
+      EXPECTED_EPISODES: "2999"
+      TSIM_VERSION: sim_v2
+      SDL_VIDEODRIVER: dummy
+      PYTHONUNBUFFERED: "1"
+      HYDRA_FULL_ERROR: "1"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        mkdir -p /workspace && cd /workspace
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse-graph.git" src
+        SOURCE_ROOT=/workspace/src
+        echo "source commit: $(git -C "$SOURCE_ROOT" rev-parse HEAD)"
+
+        git clone --filter=blob:none --no-checkout \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" sim
+        git -C /workspace/sim checkout --detach "$SIM_COMMIT"
+        [ "$(git -C /workspace/sim rev-parse HEAD)" = "$SIM_COMMIT" ]
+
+        cd "$SOURCE_ROOT"
+        uv sync --frozen
+        source .venv/bin/activate
+        # Tsimulation imports these at module scope; they are in neither lock.
+        uv pip install "pymunk==7.3.0" gymnasium pygame shapely
+
+        mkdir -p /workspace/sim_import
+        ln -sfn /workspace/sim/Tsimulation /workspace/sim_import/Tsimulation
+        export PYTHONPATH="/workspace/sim_import:$SOURCE_ROOT"
+        python -c "
+        import os
+        from Tsimulation.pushshapes import env as e
+        assert getattr(e,'SIM_VERSION',None)==2, 'expected sim_v2'
+        print('Tsimulation OK, SIM_VERSION=2')
+        "
+
+        bash ./egomimic/utils/aws/setup_secret.sh
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        unset AWS_SESSION_TOKEN
+        S5="s5cmd --endpoint-url $R2_ENDPOINT_URL"
+
+        # ---------------------------------------------- corpus (for budget + loader)
+        DATA=/workspace/usocket_clean
+        mkdir -p "$DATA"
+        $S5 --numworkers 64 cp "s3://rldb/processed_v3/pushshapes_sim/u_socket_3000_v2/*" "$DATA/"
+        rm -rf "$DATA/episode_T_u_socket_obs0_000270.zarr" "$DATA/episode_T_u_socket_obs0_000270"
+        N=$(find "$DATA" -maxdepth 1 -name 'episode_*' -type d | wc -l)
+        echo "episodes staged: $N"
+        [ "$N" -eq "$EXPECTED_EPISODES" ] || { echo "FATAL: expected $EXPECTED_EPISODES got $N"; exit 1; }
+
+        # ---------------------------------------------- budget (protocol rev 3)
+        BUDGET=/workspace/budgets/u_socket_3000_v2_clean_p99.json
+        python "$SOURCE_ROOT/scripts/eval/usocket_arc_rollout/episode_budget.py" \
+          "$DATA" --out "$BUDGET"
+
+        # ---------------------------------------------- checkpoints
+        CK=/workspace/ckpts
+        mkdir -p "$CK"
+        for J in $CKPT_JOBS; do
+          $S5 --numworkers 32 cp "s3://rldb/staged/usocket_codec/$J/*" "$CK/" || true
+        done
+        echo "--- checkpoint tree ---"
+        find "$CK" -name "*.ckpt" | head -40
+        find "$CK" -name "norm_stats.json" | head -20
+
+        DATA_OV="data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA \
+                 data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA"
+
+        # Resolve every checkpoint up front so a missing artifact fails before
+        # any rollout time is spent.
+        declare -A CKPT_OF NORM_OF
+        for EXP in $EXPERIMENTS; do
+          CKPT=$(find "$CK" -path "*${EXP}*" -name "last.ckpt" | head -1)
+          [ -n "$CKPT" ] || CKPT=$(find "$CK" -path "*${EXP}*" -name "*.ckpt" | sort | tail -1)
+          NORM=$(find "$CK" -path "*${EXP}*" -name "norm_stats.json" | head -1)
+          if [ -z "$CKPT" ] || [ -z "$NORM" ]; then
+            echo "FATAL: missing artifacts for $EXP (ckpt='$CKPT' norm='$NORM')"
+            echo "--- available ---"; find "$CK" -name '*.ckpt' -o -name 'norm_stats.json' | head -40
+            exit 1
+          fi
+          CKPT_OF[$EXP]="$CKPT"; NORM_OF[$EXP]="$NORM"
+          echo "$EXP"
+          echo "  ckpt   : $CKPT"
+          echo "  sha256 : $(sha256sum "$CKPT" | cut -d' ' -f1)"
+          echo "  norm   : $NORM"
+          python -c "
+        import torch,sys
+        c=torch.load(sys.argv[1],map_location='cpu',weights_only=False)
+        print('  epoch  :', c.get('epoch'), 'global_step:', c.get('global_step'))
+        " "$CKPT"
+        done
+
+        run_eval () {
+          local EXP="$1" NEPS="$2" TAG="$3"
+          python egomimic/trainHydra.py \
+            +experiment=pusht/"$EXP" \
+            mode=eval \
+            ckpt_path="${CKPT_OF[$EXP]}" \
+            $DATA_OV \
+            norm_stats.precomputed_norm_path="${NORM_OF[$EXP]}" \
+            evaluator=sim_rollout_planar_v2 \
+            evaluator.dataset_dir="$DATA" \
+            evaluator.budget_path="$BUDGET" \
+            evaluator.n_episodes="$NEPS" \
+            evaluator.replan_every="$REPLAN_EVERY" \
+            evaluator.chunk_start="$CHUNK_START" \
+            evaluator.expected_sampler_steps="$SAMPLER_STEPS" \
+            launch_params.gpus_per_node=1 \
+            trainer.limit_val_batches=1 \
+            trainer.num_sanity_val_steps=0 \
+            ~logger \
+            name="${TAG}_${EXP}" \
+            > "/tmp/${TAG}_${EXP}.log" 2>&1
+        }
+
+        # ---- smoke EVERY model at one episode first. A bad obs mapping,
+        # normalization mismatch or decoder shape fault fails identically for
+        # all three, so discovery should cost one episode, not 120.
+        for EXP in $EXPERIMENTS; do
+          echo "===== smoke $EXP ====="
+          if ! run_eval "$EXP" 1 smoke; then
+            echo "FATAL: smoke failed for $EXP"; tail -60 "/tmp/smoke_${EXP}.log"; exit 1
+          fi
+          grep -E "^\[sim\]" "/tmp/smoke_${EXP}.log" | tail -8
+        done
+        echo "all smokes passed"
+
+        RC=0
+        for EXP in $EXPERIMENTS; do
+          echo "================ $EXP (${N_EPISODES} episodes) ================"
+          run_eval "$EXP" "$N_EPISODES" rollout || RC=1
+          grep -E "^\[sim\]" "/tmp/rollout_${EXP}.log" | tail -50 || tail -40 "/tmp/rollout_${EXP}.log"
+        done
+
+        echo "================ ALL RESULTS ================"
+        for EXP in $EXPERIMENTS; do
+          echo "--- $EXP"
+          grep -E "\[sim\] SUMMARY" "/tmp/rollout_${EXP}.log" || echo "  (no summary)"
+        done
+
+        DEST="s3://rldb/staged/usocket_codec_rollout/$JOB_NAME"
+        $S5 cp "$BUDGET" "$DEST/budget.json" || true
+        for f in $(find /workspace/src/logs -name sim_rollout_results.json 2>/dev/null); do
+          RN=$(basename $(dirname $(dirname "$f")))
+          $S5 cp "$f" "$DEST/$RN/sim_rollout_results.json" || true
+        done
+        for EXP in $EXPERIMENTS; do
+          $S5 cp "/tmp/rollout_${EXP}.log" "$DEST/logs/rollout_${EXP}.log" || true
+        done
+        echo "results at $DEST"
+        exit $RC
+
+  resources:
+    default:
+      cpu: {{cpu}}
+      gpu: {{num_gpu}}
+      memory: {{memory}}
+      storage: {{storage}}
+
+  timeout:
+    queue_timeout: 1d

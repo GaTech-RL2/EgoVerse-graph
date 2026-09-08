@@ -26,6 +26,9 @@ import torch
 
 from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
 
+# Canonical bimanual cartesian width; an arc token keeps it.
+_BIMANUAL_DIM = 14
+
 
 class ArcBimanualCartesianEval(BimanualCartesianEval):
     """Detokenize arc rows before they reach the revert transforms.
@@ -78,22 +81,49 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         )
 
     def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:
-        """(B, M+1, 14) arc tokens -> (B, action_horizon, 14) pose rows."""
-        del embodiment_id
+        """Rows to hand the revert transforms.
+
+        Arc tokens are detokenized first, because row M is a velocity and the
+        revert would turn it into a position. A BASELINE run's prediction is
+        already poses, so it passes straight through -- this evaluator serves
+        both arms, and the overlay path needs the same predicate the metrics
+        path uses or a baseline run dies here on a shape check meant for
+        misconfiguration.
+        """
         from egomimic.rldb.zarr.arc_length_tokenizer import (
             bimanual_arc_token_rows,
         )
 
-        expected_rows = bimanual_arc_token_rows(
-            self.resampled_vector_length, self.velocity_mode
-        )
-        if actions.ndim != 3 or int(actions.shape[1]) != expected_rows:
-            raise ValueError(
-                f"{type(self).__name__} expects (B, {expected_rows}, D) arc "
-                f"tokens for M={self.resampled_vector_length}, got "
-                f"{tuple(actions.shape)}. This is the shape check that catches a "
-                "time-indexed run pointed at the arc evaluator."
+        if not self._is_arc(actions):
+            expected_rows = bimanual_arc_token_rows(
+                self.resampled_vector_length, self.velocity_mode
             )
+            if actions.ndim == 3 and int(actions.shape[-1]) != _BIMANUAL_DIM:
+                # Not a bimanual chunk at all: that IS a misconfiguration.
+                raise ValueError(
+                    f"{type(self).__name__} expects (B, T, {_BIMANUAL_DIM}) "
+                    f"rows, got {tuple(actions.shape)}. Arc tokens for M="
+                    f"{self.resampled_vector_length} would be "
+                    f"{expected_rows} rows."
+                )
+            # A row count matching the OTHER velocity mode's token is a
+            # data/evaluator mode mismatch, not a baseline chunk. Passing it
+            # through would score arc tokens as if they were poses and read
+            # plausibly, so it stays a hard error.
+            other = {"mean": "per_waypoint", "per_waypoint": "mean"}[
+                self.velocity_mode
+            ]
+            if actions.ndim == 3 and int(actions.shape[-2]) == (
+                bimanual_arc_token_rows(self.resampled_vector_length, other)
+            ):
+                raise ValueError(
+                    f"{type(self).__name__} is configured for velocity_mode="
+                    f"{self.velocity_mode!r} ({expected_rows} arc tokens) but "
+                    f"got {tuple(actions.shape)}, which is the row count for "
+                    f"{other!r}. The evaluator and the data config disagree."
+                )
+            return super()._viz_source(actions, embodiment_id)
+        del embodiment_id
         native = actions.detach().cpu().numpy().astype(np.float64, copy=False)
         decoded = np.stack(
             [

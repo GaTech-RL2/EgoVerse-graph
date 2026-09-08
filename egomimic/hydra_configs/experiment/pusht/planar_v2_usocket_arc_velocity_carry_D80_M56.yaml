@@ -5,7 +5,7 @@ defaults:
   - _self_
 
 name: planar_v2_usocket_arc_velocity_carry_D80_M56
-description: loader_native_arc_velocity_CARRY_sharedclock_D80_M56_DDIM100_obs1
+description: arcvel_carry_sc_D80_M56_DDIM100_obs1
 
 planar:
   raw_action_horizon: 80

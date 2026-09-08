@@ -5,7 +5,7 @@ defaults:
   - _self_
 
 name: planar_v2_usocket_arc_velocity_stacked_D56_M56_R26deg
-description: loader_native_arc_velocity_STACKED_D56_M56_R26deg_DDIM100_obs1
+description: arcvel_stack_D56_M56_R26deg_DDIM100_obs1
 
 planar:
   raw_action_horizon: 80

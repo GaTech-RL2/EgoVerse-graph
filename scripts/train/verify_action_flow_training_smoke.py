@@ -45,18 +45,22 @@ from egomimic.eval.planar_action_eval import (  # noqa: E402
 from egomimic.pl_utils.pl_model_action_flow import (  # noqa: E402
     ActionFlowModelWrapper,
 )
+from scripts.train.validate_slurm_job_contract import (  # noqa: E402
+    GPU_PROFILES,
+    gpu_name_allowed,
+    validate_gpu_profile,
+)
 from tools.validate_action_flow_config import (  # noqa: E402
-    CANDIDATE_METHODS,
+    GRAPH_METHOD,
     LEGACY_METHOD,
     LIKELIHOOD_METHOD,
-    GRAPH_METHOD,
     STOPGRAD_METHOD,
     PreflightError,
+    _validate_dimensions_and_modules,
     action_flow_method,
     method_stage_targets,
     method_wrapper_target,
     validate_method_contract,
-    _validate_dimensions_and_modules,
 )
 
 SCHEMA_VERSION = 1
@@ -1905,7 +1909,10 @@ def _validate_preflight(
     }
 
 
-def _validate_gpu_probes(run_dir: Path) -> list[dict[str, Any]]:
+def _validate_gpu_probes(
+    run_dir: Path, gpu_profile: str = "h100-h200"
+) -> list[dict[str, Any]]:
+    _require(gpu_profile in GPU_PROFILES, "unsupported smoke GPU profile")
     candidates = sorted(run_dir.glob("provenance/restart-*/gpu_probe.json"))
     _require(candidates, "smoke has no scheduled one-GPU BF16 probe")
     records = []
@@ -1934,12 +1941,26 @@ def _validate_gpu_probes(run_dir: Path) -> list[dict[str, Any]]:
         )
         gpu_name = str(payload.get("gpu_name", ""))
         _require(
-            "H100" in gpu_name or "H200" in gpu_name,
-            f"smoke did not use an H100 or H200: {gpu_name!r}",
+            gpu_name_allowed(gpu_name, gpu_profile),
+            f"smoke GPU does not match {gpu_profile!r}: {gpu_name!r}",
         )
-        records.append(
-            {"gpu_name": gpu_name, "path": str(path), "sha256": _sha256(path)}
-        )
+        record = {"gpu_name": gpu_name, "path": str(path), "sha256": _sha256(path)}
+        if gpu_profile == "smoke-bf16":
+            contract_path = path.with_name("SLURM_JOB_CONTRACT.json")
+            _require(contract_path.is_file(), "alternate smoke GPU lacks Slurm proof")
+            contract = json.loads(contract_path.read_text())
+            expected = contract.get("expected", {})
+            _require(
+                contract.get("status") == "SLURM_JOB_CONTRACT_VALIDATED"
+                and not contract.get("failures")
+                and expected.get("gpu_profile") == gpu_profile
+                and expected.get("run_kind") == "smoke",
+                "alternate smoke GPU has invalid Slurm/profile proof",
+            )
+            validate_gpu_profile(gpu_profile, "smoke", expected.get("constraint", ""))
+            record["slurm_contract_path"] = str(contract_path)
+            record["slurm_contract_sha256"] = _sha256(contract_path)
+        records.append(record)
     return records
 
 
@@ -1956,6 +1977,7 @@ def verify_smoke(
     expected_reconstruction_weight: float | None = None,
     expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
+    gpu_profile: str = "h100-h200",
 ) -> dict[str, Any]:
     run_dir = Path(run_dir).expanduser().resolve(strict=True)
     _require(run_dir.is_dir(), f"run directory is not a directory: {run_dir}")
@@ -2013,7 +2035,12 @@ def verify_smoke(
         content_manifest_sha256=identities["content_manifest_sha256"],
         dataset_content_aggregate_sha256=identities["dataset_content_aggregate_sha256"],
     )
-    gpu_probes = _validate_gpu_probes(run_dir)
+    _require(
+        OmegaConf.select(config, "run_provenance.gpu_profile", default="h100-h200")
+        == gpu_profile,
+        "smoke GPU profile disagrees with resolved provenance",
+    )
+    gpu_probes = _validate_gpu_probes(run_dir, gpu_profile)
     checkpoint = _validate_checkpoint(
         run_dir,
         reconstruction_weight=approved_reconstruction_weight,
@@ -2059,6 +2086,7 @@ def verify_smoke(
         "experiment": experiment,
         "action_flow_method": method,
         "gpu_probes": gpu_probes,
+        "gpu_profile": gpu_profile,
         "identities": identities,
         "metrics": metrics,
         "preflight": preflight,
@@ -2110,6 +2138,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-reconstruction-weight", type=float)
     parser.add_argument("--expected-flow-weight", type=float)
     parser.add_argument("--expected-preflight-sha256")
+    parser.add_argument("--gpu-profile", choices=GPU_PROFILES, default="h100-h200")
     return parser
 
 
@@ -2130,6 +2159,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             expected_reconstruction_weight=args.expected_reconstruction_weight,
             expected_flow_weight=args.expected_flow_weight,
             expected_preflight_sha256=args.expected_preflight_sha256,
+            gpu_profile=args.gpu_profile,
         )
     except Exception as error:
         print(f"[action-flow-smoke] FAIL: {error}", file=sys.stderr)

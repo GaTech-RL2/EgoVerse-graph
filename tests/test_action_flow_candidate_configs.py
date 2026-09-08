@@ -15,6 +15,7 @@ from egomimic.pl_utils.pl_model_action_flow import ActionFlowModelWrapper
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic/hydra_configs"
 ROWS = [
     ("latent_fm_sg_recon1", "latent_fm_stopgrad", 1.0),
+    ("latent_fm_sg_recon1_lr1e5", "latent_fm_stopgrad", 1.0),
     ("graph_section", "graph_section_diagnostic", 0.0),
 ]
 
@@ -44,7 +45,10 @@ def test_candidate_row_instantiates_exact_dimensions_and_shared_codec(
     assert cfg.run_provenance.objective.decoded_noise_scale_weight == 0
     assert cfg.model.flow_samples_per_content == 14
     assert cfg.model.condition_dropout_probability == 0.3
-    assert cfg.model.optimizer.lr == 3e-5
+    expected_lr = 1e-5 if row.endswith("lr1e5") else 3e-5
+    expected_eta_min = 1e-6 if row.endswith("lr1e5") else 3e-6
+    assert cfg.model.optimizer.lr == expected_lr
+    assert cfg.model.scheduler.eta_min == expected_eta_min
 
     algo = hydra.utils.instantiate(cfg.model.pipeline, device="cpu")
     stages = algo.pipeline.stages

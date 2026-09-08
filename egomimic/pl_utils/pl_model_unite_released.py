@@ -18,10 +18,14 @@ class ReleasedUniteModelWrapper(ModelWrapper):
     """Optimize the joint UNITE objective and report normalized components."""
 
     gradient_telemetry_cadence = 100
-    _component_keys = (
+    _baseline_component_keys = (
         ("ReconstructionLoss", "loss/unite_reconstruction"),
         ("FlowLoss", "loss/unite_latent"),
         ("ReconstructionL1", "log/unite_reconstruction_l1"),
+    )
+    _action_velocity_component = (
+        "ActionVelocityLoss",
+        "loss/unite_action_velocity",
     )
     _content_only = ("content_projection.", "content_pos_emb")
 
@@ -35,8 +39,62 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         if configured is not None and not isinstance(configured, bool):
             raise TypeError("model.share_encoder_denoiser must be a boolean")
         self._configured_share_encoder_denoiser = configured
+        self._unite_contract = self._resolve_unite_contract(cfg)
         self._unite_validation_sums = OrderedDict()
         self._unite_validation_count = 0
+
+    @staticmethod
+    def _resolve_unite_contract(cfg) -> dict[str, Any] | None:
+        if cfg is None:
+            return None
+        model = cfg.model
+        architecture_id = str(model.get("architecture_id", ""))
+        objective_id = str(model.get("objective_id", ""))
+        samples = int(model.get("action_velocity_samples_per_reconstruction", 0))
+        weight = float(model.get("action_velocity_weight", 0.0))
+        if architecture_id != "unite_register_v1":
+            raise ValueError(
+                "Released UNITE requires model.architecture_id=unite_register_v1"
+            )
+        allowed = {"unite_baseline_v1", "unite_action_velocity_v1"}
+        if objective_id not in allowed:
+            raise ValueError(
+                f"Unknown UNITE objective_id {objective_id!r}; expected {sorted(allowed)}"
+            )
+        enabled = objective_id == "unite_action_velocity_v1"
+        if enabled != (samples > 0 and weight > 0.0):
+            raise ValueError(
+                "UNITE objective identity disagrees with its action-velocity settings"
+            )
+        if not enabled and (samples != 0 or weight != 0.0):
+            raise ValueError("Baseline UNITE must disable every action-velocity setting")
+        return {
+            "architecture_id": architecture_id,
+            "objective_id": objective_id,
+            "action_velocity_samples_per_reconstruction": samples,
+            "action_velocity_weight": weight,
+        }
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        if self._unite_contract is not None:
+            checkpoint["unite_contract"] = dict(self._unite_contract)
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        if self._unite_contract is None:
+            return
+        recorded = checkpoint.get("unite_contract")
+        if recorded is None:
+            if self._unite_contract["objective_id"] == "unite_action_velocity_v1":
+                raise RuntimeError(
+                    "UNITE-AV full-state resume requires a checkpoint with an exact "
+                    "unite_contract; use an explicit weights-only warm start otherwise"
+                )
+            return
+        if dict(recorded) != self._unite_contract:
+            raise RuntimeError(
+                "UNITE checkpoint contract mismatch: "
+                f"recorded={dict(recorded)!r} current={self._unite_contract!r}"
+            )
 
     @torch.inference_mode()
     def forward_eval(self, batch: Mapping) -> OrderedDict:
@@ -382,7 +440,16 @@ class ReleasedUniteModelWrapper(ModelWrapper):
     ) -> tuple[OrderedDict[str, torch.Tensor], int]:
         if not isinstance(predictions, Mapping) or not predictions:
             raise RuntimeError("UNITE received no source predictions")
-        sums = OrderedDict((name, None) for name, _ in self._component_keys)
+        component_keys = self._baseline_component_keys
+        if self._unite_contract is not None and (
+            self._unite_contract["objective_id"] == "unite_action_velocity_v1"
+        ):
+            component_keys = (
+                *component_keys[:2],
+                self._action_velocity_component,
+                *component_keys[2:],
+            )
+        sums = OrderedDict((name, None) for name, _ in component_keys)
         count = 0
         for source, result in predictions.items():
             if not isinstance(result, Mapping):
@@ -394,13 +461,17 @@ class ReleasedUniteModelWrapper(ModelWrapper):
             if source_count <= 0:
                 raise RuntimeError(f"UNITE source {source!r} has no samples")
             count += source_count
-            for name, key in self._component_keys:
+            for name, key in component_keys:
                 value = self._finite_scalar(result.get(key), f"{source!r}/{key}")
                 weighted = value * source_count
                 sums[name] = weighted if sums[name] is None else sums[name] + weighted
         components = OrderedDict((name, value / count) for name, value in sums.items())
         components["TotalLoss"] = (
-            components["ReconstructionLoss"] + components["FlowLoss"]
+            components["ReconstructionLoss"]
+            + components["FlowLoss"]
+            + components.get(
+                "ActionVelocityLoss", components["FlowLoss"].new_zeros(())
+            )
         )
         components.move_to_end("TotalLoss", last=False)
         for name, value in components.items():

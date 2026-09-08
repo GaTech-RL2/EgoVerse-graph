@@ -1,0 +1,9 @@
+defaults:
+  - /model/bf/us_unite_register_shared_nt8_s42@_here_
+  - _self_
+
+# UNITE remains the architecture; AV is an explicit objective identity.
+architecture_id: unite_register_v1
+objective_id: unite_action_velocity_v1
+action_velocity_samples_per_reconstruction: 4
+action_velocity_weight: 1.0

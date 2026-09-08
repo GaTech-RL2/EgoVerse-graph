@@ -1,0 +1,9 @@
+defaults:
+  - /model/bf/us_unite_av_register_shared_nt8_s42@_here_
+  - _self_
+
+# UNITE-AV on the un-shared backbone. The original AV rows were measured on
+# the shared layout at the FAST learning rate; both of those choices are now
+# known to depress closed-loop success, so Elmo\x27s action-velocity objective
+# deserves a retest on the layout that actually works.
+share_encoder_denoiser: false

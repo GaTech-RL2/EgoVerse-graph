@@ -1,44 +1,32 @@
 # Action Flow objective with the released separate-UNITE H384 architecture.
-_target_: egomimic.pl_utils.pl_model.ModelWrapper
-training_behavior:
-  _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
-diagnostic_provider:
-  _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
+_target_: egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper
 
 action_horizon: 16
-action_dim: ${planar.action_model_dim}
+action_dim: 4
 num_latent_tokens: 8
 latent_dim: 16
 condition_dim: 128
 hidden_dim: 384
-denoiser_hidden_dim: ${model.hidden_dim}
-denoiser_num_heads: 12
 flow_samples_per_content: 14
 flow_mini_batch: 14
 condition_dropout_probability: 0.1
-flow_loss_aggregation: mean
-cfg_scale: 1.0
-cfg_interval: [0.0, 1.0]
 num_inference_steps: 50
 reconstruction_weight: 1.0
 flow_weight: 1.0
-decoded_noise_scale_weight: 0.0
-decode_noise: false
 action_flow_method: latent_fm_stopgrad_unite
 optimizer_named_parameters: true
-gradient_checkpointing: true
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
       selector_key: embodiment
-      selector_aliases: {19: pushshapes_action_flow, 20: pushshapes_action_flow}
+      selector_aliases: {19: pushshapes_sim_u_socket}
       input_key: state_agent_model
       output_key: proprio_condition
       output_dim: 64
       projections:
-        pushshapes_action_flow:
+        pushshapes_sim_u_socket:
           input_dim: 4
           hidden_dim: 64
           semantic: x_y_cos_theta_sin_theta
@@ -106,11 +94,11 @@ pipeline:
           trainable_content_position_embeddings: false
           trainable_condition_position_embeddings: false
           trainable_in_context_position_embeddings: true
-          gradient_checkpointing: ${model.gradient_checkpointing}
+          gradient_checkpointing: true
     - _target_: egomimic.pipeline.stages_action_flow.LatentBridgeStage
       samples_per_content: ${model.flow_samples_per_content}
       condition_dropout_probability: ${model.condition_dropout_probability}
-      time_sampling: lognormal_shifted
+      time_sampling: unite_lognormal_shifted
       lognorm_mu: 0.0
       lognorm_sigma: 1.0
       timestep_shift_alpha: 0.5
@@ -123,8 +111,6 @@ pipeline:
       timestep_shift_alpha: 0.5
       dopri5_atol: 1.0e-6
       dopri5_rtol: 1.0e-3
-      cfg_scale: ${model.cfg_scale}
-      cfg_interval: ${model.cfg_interval}
       field:
         _target_: egomimic.models.action_flow_unite.UniteActionFlowVelocityField
         input_dim: ${model.latent_dim}
@@ -140,9 +126,9 @@ pipeline:
           condition_dim: ${model.condition_dim}
           max_condition_tokens: 1
           max_content_tokens: ${model.action_horizon}
-          hidden_dim: ${model.denoiser_hidden_dim}
+          hidden_dim: ${model.hidden_dim}
           depth: 12
-          num_heads: ${model.denoiser_num_heads}
+          num_heads: 12
           mlp_ratio: 4.0
           qk_norm: true
           use_rope: true
@@ -158,11 +144,10 @@ pipeline:
           trainable_content_position_embeddings: false
           trainable_condition_position_embeddings: false
           trainable_in_context_position_embeddings: true
-          gradient_checkpointing: ${model.gradient_checkpointing}
+          gradient_checkpointing: true
     - _target_: egomimic.pipeline.stages_action_flow.ContentDecoderStage
       reconstruction_noising_start: 0.7
       reconstruction_noising_probability: 0.5
-      decode_noise: ${model.decode_noise}
       decoder:
         _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
         latent_dim: ${model.latent_dim}
@@ -174,15 +159,12 @@ pipeline:
         num_heads: 12
         mlp_ratio: 4.0
         dropout: 0.0
-        gradient_checkpointing: ${model.gradient_checkpointing}
+        gradient_checkpointing: true
     - _target_: egomimic.pipeline.stages_action_flow.ActionFlowObjectiveStage
       residual_key: action_flow/fm_velocity_residual
       flow_weight: ${model.flow_weight}
       reconstruction_weight: ${model.reconstruction_weight}
       action_velocity_weight: 1.0
-      moment_weight: ${model.decoded_noise_scale_weight}
-      flow_aggregation: ${model.flow_loss_aggregation}
-      flow_samples_per_content: ${model.flow_samples_per_content}
 
 enable_grad_norm: false
 gradient_telemetry_cadence: 100

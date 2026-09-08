@@ -207,3 +207,74 @@ class ContextFreeSequenceDecoder(_ContextFreeSequenceCodec):
             feedforward_dim=feedforward_dim,
             dropout=dropout,
         )
+
+
+class GraphSectionSequenceCodec(nn.Module):
+    """Restricted exact-section diagnostic with one shared learned graph.
+
+    ``encode(A) = (A, f(A))`` and
+    ``decode(x, h) = x + R(x, h) - R(x, f(x))``. Both small sequence
+    Transformers are context-free. This keeps raw coordinates in the latent
+    and is a restricted diagnostic, not a general action-interface solution.
+    Construct this codec once and share it between encoder/decoder stages;
+    independently instantiating two copies would break the section identity.
+    """
+
+    def __init__(
+        self,
+        action_dim: int,
+        latent_dim: int,
+        horizon: int,
+        hidden_dim: int = 20,
+        depth: int = 2,
+        num_heads: int = 4,
+        feedforward_dim: int = 80,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.action_dim = int(action_dim)
+        self.latent_dim = int(latent_dim)
+        self.horizon = int(horizon)
+        self.input_dim = self.latent_dim
+        self.output_dim = self.action_dim
+        if self.action_dim <= 0 or self.latent_dim <= self.action_dim:
+            raise ValueError("graph section requires latent_dim > action_dim > 0")
+        if float(dropout) != 0.0:
+            raise ValueError("graph section requires dropout=0 for exact reconstruction")
+        self.graph = ContextFreeSequenceEncoder(
+            input_dim=self.action_dim,
+            latent_dim=self.latent_dim - self.action_dim,
+            horizon=self.horizon,
+            hidden_dim=hidden_dim,
+            depth=depth,
+            num_heads=num_heads,
+            feedforward_dim=feedforward_dim,
+            dropout=0.0,
+        )
+        self.residual = ContextFreeSequenceDecoder(
+            latent_dim=self.latent_dim,
+            output_dim=self.action_dim,
+            horizon=self.horizon,
+            hidden_dim=hidden_dim,
+            depth=depth,
+            num_heads=num_heads,
+            feedforward_dim=feedforward_dim,
+            dropout=0.0,
+        )
+
+    def encode(self, content: torch.Tensor) -> torch.Tensor:
+        return torch.cat((content, self.graph(content)), dim=-1)
+
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
+        if latent.ndim != 3 or tuple(latent.shape[1:]) != (
+            self.horizon,
+            self.latent_dim,
+        ):
+            raise ValueError(
+                f"expected sequence shape (B, {self.horizon}, {self.latent_dim}), "
+                f"got {tuple(latent.shape)}"
+            )
+        content = latent[..., : self.action_dim]
+        section = self.encode(content)
+        # Subtract before adding content so equal residuals cancel exactly.
+        return content + (self.residual(latent) - self.residual(section))

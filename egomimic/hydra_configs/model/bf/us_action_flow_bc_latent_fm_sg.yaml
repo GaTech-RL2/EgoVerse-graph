@@ -11,6 +11,8 @@ num_inference_steps: 16
 reconstruction_weight: 1.0
 flow_weight: 1.0
 action_flow_method: latent_fm_stopgrad
+codec_hidden_dim: 20
+codec_feedforward_dim: 80
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
@@ -50,10 +52,10 @@ pipeline:
         input_dim: ${model.action_dim}
         latent_dim: ${model.latent_dim}
         horizon: ${model.action_horizon}
-        hidden_dim: 20
+        hidden_dim: ${model.codec_hidden_dim}
         depth: 2
         num_heads: 4
-        feedforward_dim: 80
+        feedforward_dim: ${model.codec_feedforward_dim}
         dropout: 0.0
     - _target_: egomimic.pipeline.stages_action_flow.LatentBridgeStage
       samples_per_content: ${model.flow_samples_per_content}
@@ -81,10 +83,10 @@ pipeline:
         latent_dim: ${model.latent_dim}
         output_dim: ${model.action_dim}
         horizon: ${model.action_horizon}
-        hidden_dim: 20
+        hidden_dim: ${model.codec_hidden_dim}
         depth: 2
         num_heads: 4
-        feedforward_dim: 80
+        feedforward_dim: ${model.codec_feedforward_dim}
         dropout: 0.0
     - _target_: egomimic.pipeline.stages_action_flow.ActionFlowObjectiveStage
       residual_key: action_flow/fm_velocity_residual

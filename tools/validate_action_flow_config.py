@@ -92,6 +92,7 @@ GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
 CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -502,12 +503,20 @@ def _validate_dimensions_and_modules(
     _require(isinstance(field_stage.field, AdaLNSequenceField), "wrong field v")
     _require(isinstance(decoder, ContextFreeSequenceDecoder), "wrong g")
     field = field_stage.field
+    codec_profile = (int(encoder.hidden_dim), int(encoder.feedforward_dim))
+    expected_codec_profile = (
+        (44, 176)
+        if str(config.name)
+        == "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
+        else (20, 80)
+    )
+    _exact(codec_profile, expected_codec_profile, "typed reconstruction codec profile")
     codec_expected = {
         "horizon": 16,
-        "hidden_dim": 20,
+        "hidden_dim": expected_codec_profile[0],
         "depth": 2,
         "num_heads": 4,
-        "feedforward_dim": 80,
+        "feedforward_dim": expected_codec_profile[1],
     }
     for label, codec in (("encoder E", encoder), ("decoder g", decoder)):
         for attribute, expected in codec_expected.items():
@@ -613,8 +622,20 @@ def _validate_dimensions_and_modules(
         "field_v": _parameter_manifest(field),
         "decoder_g": _parameter_manifest(decoder),
     }
-    _require(parameters["encoder_e"]["total"] <= 12_000, "E exceeds 12K")
-    _require(parameters["decoder_g"]["total"] <= 12_000, "g exceeds 12K")
+    codec_parameter_counts = (
+        parameters["encoder_e"]["total"],
+        parameters["decoder_g"]["total"],
+    )
+    expected_codec_parameter_counts = (
+        (48_980, 48_976)
+        if expected_codec_profile == (44, 176)
+        else (10_748, 10_744)
+    )
+    _exact(
+        codec_parameter_counts,
+        expected_codec_parameter_counts,
+        "typed reconstruction codec parameter counts",
+    )
     _require(
         39_000_000 <= parameters["field_v"]["total"] <= 41_000_000,
         "field v must contain 39M to 41M parameters",

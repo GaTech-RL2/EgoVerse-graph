@@ -1,0 +1,66 @@
+# Count what the scripted-collection jobs actually produced in R2.
+# Log fetches truncate at ~5k lines, so episode counts cannot be recovered
+# from the collection logs; this asks the bucket directly.
+workflow:
+  name: "{{job_name}}"
+  tasks:
+  - name: inv
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+    environment:
+      BRANCH: "{{branch}}"
+      PREFIX: "{{prefix}}"
+      PYTHONUNBUFFERED: "1"
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        set -euxo pipefail
+        apt-get update
+        apt-get install -y --no-install-recommends git curl unzip ca-certificates
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/a.zip
+        unzip -q /tmp/a.zip -d /tmp && /tmp/aws/install --update
+        mkdir -p /workspace && cd /workspace
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse-graph.git" src
+        cd src
+        bash ./egomimic/utils/aws/setup_secret.sh
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        unset AWS_SESSION_TOKEN
+        S5="s5cmd --endpoint-url $R2_ENDPOINT_URL"
+
+        echo "===== top level of $PREFIX ====="
+        $S5 ls "$PREFIX" || true
+
+        echo "===== per-job episode counts ====="
+        # One line per (job, gap, embodiment) with a distinct-episode count.
+        for J in $($S5 ls "$PREFIX" | awk '{print $NF}' | grep '/$'); do
+          echo "--- $J"
+          $S5 ls "${PREFIX}${J}*" 2>/dev/null \
+            | awk '{print $NF}' \
+            | grep -oE '[a-z]+/[a-z_]+/T_shard[0-9]+/episode_[A-Za-z0-9_]+\.zarr' \
+            | sed -E 's|([a-z]+)/([a-z_]+)/T_shard[0-9]+/(episode_[A-Za-z0-9_]+)\.zarr|\1 \2 \3|' \
+            | sort -u | awk '{print $1, $2}' | sort | uniq -c || true
+        done
+        echo "===== done ====="
+  resources:
+    default:
+      cpu: {{cpu}}
+      gpu: {{num_gpu}}
+      memory: {{memory}}
+      storage: {{storage}}
+  timeout:
+    queue_timeout: 1d

@@ -51,6 +51,7 @@ def _resolved_smoke_config(
         cfg.trainer.val_check_interval = 1
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
+        cfg.trainer.precision = "bf16"
         cfg.callbacks.model_checkpoint.every_n_train_steps = 1
         cfg.model.gradient_telemetry_cadence = 2
         cfg.norm_stats.precomputed_norm_path = str(normalization)
@@ -143,6 +144,31 @@ def test_config_gate_accepts_option_a_200m_adamw_contract(tmp_path, monkeypatch)
     assert config.model.optimizer._target_ == "torch.optim.AdamW"
     assert config.model.optimizer.lr == pytest.approx(1.0e-5)
     assert config.model.optimizer_named_parameters is False
+
+
+def test_config_gate_accepts_unite_h384_contract(tmp_path, monkeypatch):
+    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
+        tmp_path,
+        experiment="pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
+    )
+    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+
+    config, _ = MODULE._validate_config(
+        config_path=config_path,
+        experiment=experiment,
+        run_dir=run_dir,
+        expected_head=HEAD,
+        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        expected_split_sha256=None,
+        expected_normalization_sha256=normalization_hash,
+    )
+
+    assert config.model.latent_dim == 16
+    assert config.model.condition_dim == 128
+    assert config.model.pipeline.stages[6].field.backbone.hidden_dim == 384
+    assert config.model.pipeline.stages[6].field.backbone.depth == 12
+    assert config.model.optimizer.lr == pytest.approx(1.0e-4)
+    assert config.norm_stats.norm_mode == "minmax"
 
 
 @pytest.mark.parametrize(

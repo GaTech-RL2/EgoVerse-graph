@@ -93,10 +93,13 @@ LEGACY_METHOD = "action_flow_joint"
 LIKELIHOOD_METHOD = "gaussian_bridge_likelihood"
 GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
+SCALED_MUON_RECON5_CONFIG_NAME = (
+    "action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42"
+)
 SCALED_MUON_CONFIG_NAMES = frozenset(
     {
         "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
-        "action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42",
+        SCALED_MUON_RECON5_CONFIG_NAME,
     }
 )
 CANDIDATE_METHODS = {
@@ -171,8 +174,15 @@ def validate_method_contract(config: DictConfig, experiment: str | None = None) 
             "all_stopgrad",
             "FM-only reference detachment",
         )
+        expected_reconstruction_weight = (
+            5.0
+            if str(config.name) == SCALED_MUON_RECON5_CONFIG_NAME
+            else 1.0
+        )
         _float(
-            config.model.reconstruction_weight, 1.0, "candidate reconstruction weight"
+            config.model.reconstruction_weight,
+            expected_reconstruction_weight,
+            "candidate reconstruction weight",
         )
     elif method == GRAPH_METHOD:
         _exact(

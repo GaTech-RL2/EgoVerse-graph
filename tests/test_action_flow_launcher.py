@@ -114,7 +114,7 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
 def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
     source = _source()
     assert "MAX_STEPS=2" in source
-    assert "VALIDATE_EVERY=1" in source
+    assert "VALIDATE_EVERY=2" in source
     assert "LIMIT_VAL_BATCHES=1" in source
     assert "CHECKPOINT_EVERY=1" in source
     assert "TELEMETRY_EVERY=2" in source

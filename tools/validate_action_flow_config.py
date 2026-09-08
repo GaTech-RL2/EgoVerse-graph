@@ -92,6 +92,7 @@ GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
 CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -502,12 +503,23 @@ def _validate_dimensions_and_modules(
     _require(isinstance(field_stage.field, AdaLNSequenceField), "wrong field v")
     _require(isinstance(decoder, ContextFreeSequenceDecoder), "wrong g")
     field = field_stage.field
+    codec_profile = (
+        int(config.model.codec_hidden_dim),
+        int(config.model.codec_feedforward_dim),
+    )
+    expected_codec_profile = (
+        (44, 176)
+        if str(config.name)
+        == "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
+        else (20, 80)
+    )
+    _exact(codec_profile, expected_codec_profile, "typed reconstruction codec profile")
     codec_expected = {
         "horizon": 16,
-        "hidden_dim": 20,
+        "hidden_dim": expected_codec_profile[0],
         "depth": 2,
         "num_heads": 4,
-        "feedforward_dim": 80,
+        "feedforward_dim": expected_codec_profile[1],
     }
     for label, codec in (("encoder E", encoder), ("decoder g", decoder)):
         for attribute, expected in codec_expected.items():

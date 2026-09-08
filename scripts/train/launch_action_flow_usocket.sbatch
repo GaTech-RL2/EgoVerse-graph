@@ -107,6 +107,13 @@ case "$AF_EXPERIMENT" in
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
+  pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42)
+    AF_METHOD=latent_fm_stopgrad
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
   pusht/action_flow_bc_usocket_bridge_likelihood_s42)
     AF_METHOD=gaussian_bridge_likelihood
     # Transport placeholders only; no FM/reconstruction flags enter this model.
@@ -883,7 +890,12 @@ _validate_topology(cfg, pipeline)
 _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
 count = sum(parameter.numel() for parameter in pipeline.nets.parameters())
 if method in (LEGACY_METHOD, STOPGRAD_METHOD):
-    assert count == 50_725_221, count
+    expected_count = (
+        50_801_685
+        if experiment.endswith("_codec98k_s42")
+        else 50_725_221
+    )
+    assert count == expected_count, count
 print(f"[run-preflight] PASS kind={run_kind} parameters={count}")
 PY
 sha256sum "$ATTEMPT/resolved_config.yaml" > "$ATTEMPT/resolved_config.sha256"

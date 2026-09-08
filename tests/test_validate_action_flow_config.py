@@ -77,6 +77,21 @@ def test_real_action_flow_config_instantiates_and_passes_full_preflight():
     )
 
 
+def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
+    report, _ = preflight.validate_experiment(
+        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",
+        config_root=CONFIG_ROOT,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["config_name"] == (
+        "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
+    )
+    assert report["parameters"]["encoder_e"]["total"] == 48_980
+    assert report["parameters"]["decoder_g"]["total"] == 48_976
+    assert report["parameters"]["pipeline_total"]["total"] == 50_801_685
+
+
 def test_resolved_hash_is_stable_and_uses_runtime_sentinels():
     first = preflight.compose_experiment(
         "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT

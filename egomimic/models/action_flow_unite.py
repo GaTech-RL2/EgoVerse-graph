@@ -52,6 +52,12 @@ class UniteActionFlowContentEncoder(nn.Module):
         )
         self.output_norm = nn.LayerNorm(self.latent_dim)
 
+    @property
+    def blocks(self) -> nn.ModuleList:
+        """Expose released backbone blocks to maintained diagnostics."""
+
+        return self.backbone.blocks
+
     def forward(self, content: torch.Tensor) -> torch.Tensor:
         expected = (self.action_horizon, self.input_dim)
         if content.ndim != 3 or tuple(content.shape[1:]) != expected:
@@ -116,6 +122,12 @@ class UniteActionFlowVelocityField(nn.Module):
             torch.empty(self.condition_dim).normal_(std=0.02)
         )
         self.output_norm = nn.LayerNorm(self.output_dim)
+
+    @property
+    def blocks(self) -> nn.ModuleList:
+        """Expose released backbone blocks to maintained diagnostics."""
+
+        return self.backbone.blocks
 
     def apply_condition_dropout(
         self,

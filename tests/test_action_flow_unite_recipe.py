@@ -73,6 +73,8 @@ def test_unite_action_flow_adapters_preserve_compact_register_contract():
     )
     assert latent.shape == velocity.shape == (3, 2, 4)
     assert encoder.backbone is not field.backbone
+    assert encoder.blocks is encoder.backbone.blocks
+    assert field.blocks is field.backbone.blocks
 
 
 def test_unite_bridge_maps_shifted_clean_fraction_to_action_flow_time():

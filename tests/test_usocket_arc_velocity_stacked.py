@@ -75,3 +75,39 @@ def test_stacked_decoder_preserves_device_and_shape():
     assert decoded.shape == (2, H, 3)
     assert decoded.device == token.device
     assert torch.isfinite(decoded).all()
+
+
+def test_carry_shares_the_translation_clock_and_refuses_a_budget():
+    """The shared-clock ablation must have no angular budget at all."""
+    import pytest
+
+    from egomimic.rldb.embodiment.usocket_arc_velocity import (
+        get_usocket_arc_velocity_carry_transform_list,
+    )
+    from egomimic.rldb.zarr.planar_arc import TokenizeUSocketArcVelocityCarry
+
+    # A dead knob is the failure this family already shipped once, so the carry
+    # variant refuses R rather than silently ignoring it.
+    with pytest.raises(ValueError, match="rotation_distance_unit"):
+        TokenizeUSocketArcVelocityCarry(
+            min_distance_unit=D, resampled_vector_length=M, rotation_distance_unit=R
+        )
+    with pytest.raises(ValueError, match="angular budget"):
+        get_usocket_arc_velocity_carry_transform_list(rotation_distance_unit=R)
+
+    actions = _episode(7)
+    carry = get_usocket_arc_velocity_carry_transform_list(
+        min_distance_unit=D, resampled_vector_length=M
+    )[0]
+    token = carry.transform({"actions": actions.copy()})["actions"]
+    assert token.shape == (M, 6)
+    assert np.isfinite(token).all()
+
+    # Sharing the clock must actually change the rotation stream relative to
+    # the independent-clock tokenizer, otherwise the ablation is a no-op.
+    hybrid = TokenizeUSocketArcVelocityStacked(**KW).transform(
+        {"actions": actions.copy()}
+    )["actions"]
+    assert np.abs(token[:, 3:] - hybrid[:, 3:]).max() > 1e-6
+    # Translation is sampled identically in both.
+    np.testing.assert_allclose(token[:, :3], hybrid[:, :3], atol=1e-12)

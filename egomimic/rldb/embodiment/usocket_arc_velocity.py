@@ -17,6 +17,7 @@ from egomimic.pipeline.stages_arc import (
 from egomimic.rldb.zarr.planar_arc import (
     TokenizeUSocketArcVelocity,
     TokenizeUSocketArcVelocityStacked,
+    TokenizeUSocketArcVelocityCarry,
 )
 
 
@@ -119,3 +120,31 @@ class USocketArcLocalVelocityStackedNativeDecoder(USocketArcLocalVelocityNativeD
             native_action_dim=native_action_dim,
             dt=dt,
         )
+
+
+def get_usocket_arc_velocity_carry_transform_list(
+    keys: list[str] | None = None,
+    min_distance_unit: float = 80.0,
+    resampled_vector_length: int = 56,
+    dt: float = 1.0 / 30.0,
+    rotation_distance_unit: float | None = None,
+    **_kwargs,
+):
+    """Loader transform for the shared-clock (no angular budget) ablation."""
+    keys = keys or ["actions"]
+    if len(keys) != 1:
+        raise ValueError("U-Socket ARC tokenization requires exactly one action key")
+    if rotation_distance_unit is not None:
+        raise ValueError(
+            "the carry variant has no angular budget; set "
+            "planar.arc_rotation_distance to null for this experiment"
+        )
+    return [
+        TokenizeUSocketArcVelocityCarry(
+            action_key=keys[0],
+            output_action_key=keys[0],
+            min_distance_unit=min_distance_unit,
+            resampled_vector_length=resampled_vector_length,
+            dt=dt,
+        )
+    ]

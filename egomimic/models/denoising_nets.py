@@ -295,6 +295,22 @@ class ConditionalUnet1D(nn.Module):
         """
         sample = einops.rearrange(sample, "b h t -> b t h")
 
+        # NB the rearrange above turns (B, T, D) into (B, D, T): channels are
+        # dim 1 and TIME is dim 2. Each down module halves the time axis, so an
+        # input length not divisible by 2**(len(down_modules)-1) leaves the skip
+        # connection and the upsampled feature map at different lengths
+        # ("Sizes of tensors must match except in dimension 1"). Pad the time
+        # axis by REPEATING the last step, run the net, then trim back. When the
+        # length already divides evenly _pad is 0 and this is a no-op, so
+        # existing configurations stay bit-identical.
+        _T = sample.shape[2]
+        _factor = 2 ** max(len(self.down_modules) - 1, 0)
+        _pad = (-_T) % _factor
+        if _pad:
+            sample = torch.cat(
+                [sample, sample[:, :, -1:].expand(-1, -1, _pad)], dim=2
+            )
+
         # 1. time
         timesteps = timestep
         if not torch.is_tensor(timesteps):
@@ -339,6 +355,8 @@ class ConditionalUnet1D(nn.Module):
 
         x = self.final_conv(x)
         x = einops.rearrange(x, "b t h -> b h t")
+        if _pad:
+            x = x[:, :_T, :]
         return x
 
 

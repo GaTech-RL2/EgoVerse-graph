@@ -290,6 +290,59 @@ class TokenizeUSocketArcVelocityStacked(TokenizeUSocketArcVelocity):
         return token
 
 
+class TokenizeUSocketArcVelocityCarry(TokenizeUSocketArcVelocityStacked):
+    """Ablation: rotation carried on the TRANSLATION clock, no angular budget.
+
+    Emits the same ``[M, 6] = [x, y, v_xy, cos, sin, omega]`` token, but theta is
+    sampled against the translation arc clock instead of its own. There is no
+    second cumulative clock and no angular distance budget, so ``R`` does not
+    exist for this variant.
+
+    This is the baseline for "does the independent rotation clock earn its
+    keep?". The hybrid codec's whole premise is that translation and rotation
+    deserve separate arc parameterizations with separate budgets; if this
+    variant matches it, that premise is not paying for itself.
+
+    ``omega`` here is still the local signed angular rate per interval, so the
+    decoder is unchanged -- only the sampling positions differ.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # R is meaningless on a shared clock. Accepting it silently is exactly
+        # the dead-knob failure this codec family already shipped once, so
+        # refuse it rather than ignore it.
+        rotation = kwargs.get("rotation_distance_unit")
+        if rotation is not None:
+            raise ValueError(
+                "TokenizeUSocketArcVelocityCarry has no angular budget; "
+                "rotation_distance_unit must be None"
+            )
+        super().__init__(*args, **kwargs)
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        translation_end = min(self.distance, float(translation_arc[-1]))
+
+        xy_waypoints, linear_speed = self._sample_stream(
+            xy, translation_arc, translation_end, signed_rate=False
+        )
+        # Same clock, same end: theta rides along with translation.
+        theta_waypoints, angular_velocity = self._sample_stream(
+            theta[:, None], translation_arc, translation_end, signed_rate=True
+        )
+
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_STACKED_DIM))
+        token[:, 0:2] = xy_waypoints
+        token[:, 2] = linear_speed
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = angular_velocity
+        return token
+
+
 class TokenizePlanarArcLength:
     """Legacy robot/Planar SE(2) tokenizer; its schema remains unchanged."""
 

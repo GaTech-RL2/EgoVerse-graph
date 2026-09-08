@@ -77,6 +77,24 @@ def test_unite_action_flow_adapters_preserve_compact_register_contract():
     assert field.blocks is field.backbone.blocks
 
 
+def test_unite_diagnostic_activations_align_registers_after_context_insertion():
+    encoder = UniteActionFlowContentEncoder(
+        backbone=_backbone(),
+        action_dim=3,
+        action_horizon=4,
+        latent_dim=4,
+        num_latent_tokens=2,
+        condition_dim=8,
+    )
+    before = torch.randn(3, 6, 32)
+    after = torch.randn(3, 10, 32)
+    assert encoder.canonicalize_diagnostic_block_output(before, 0).shape == (3, 2, 32)
+    torch.testing.assert_close(
+        encoder.canonicalize_diagnostic_block_output(after, 1),
+        after[:, 4:6],
+    )
+
+
 def test_unite_bridge_maps_shifted_clean_fraction_to_action_flow_time():
     torch.manual_seed(7)
     stage = LatentBridgeStage(

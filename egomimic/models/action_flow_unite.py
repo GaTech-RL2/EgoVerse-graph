@@ -58,6 +58,16 @@ class UniteActionFlowContentEncoder(nn.Module):
 
         return self.backbone.blocks
 
+    def canonicalize_diagnostic_block_output(
+        self, output: torch.Tensor, block_index: int
+    ) -> torch.Tensor:
+        """Return aligned register activations across in-context insertion."""
+
+        start = self.backbone.in_context_start
+        if start is not None and block_index >= start:
+            output = output[:, self.backbone.in_context_len :]
+        return output[:, : self.num_latent_tokens]
+
     def forward(self, content: torch.Tensor) -> torch.Tensor:
         expected = (self.action_horizon, self.input_dim)
         if content.ndim != 3 or tuple(content.shape[1:]) != expected:
@@ -128,6 +138,16 @@ class UniteActionFlowVelocityField(nn.Module):
         """Expose released backbone blocks to maintained diagnostics."""
 
         return self.backbone.blocks
+
+    def canonicalize_diagnostic_block_output(
+        self, output: torch.Tensor, block_index: int
+    ) -> torch.Tensor:
+        """Return aligned register activations across in-context insertion."""
+
+        start = self.backbone.in_context_start
+        if start is not None and block_index >= start:
+            output = output[:, self.backbone.in_context_len :]
+        return output[:, : self.horizon]
 
     def apply_condition_dropout(
         self,

@@ -97,6 +97,7 @@ class SimRolloutPlanarEval(Eval):
         self.normalizer = None
         self._done = False
         self._logged_shapes = False
+        self._n_obs = 1
         # trainHydra's eval mode copies this straight onto cfg.trainer before
         # building the trainer. Every Eval implementation must supply it.
         # The rollouts run in on_validation_start, so one val batch is only
@@ -164,9 +165,13 @@ class SimRolloutPlanarEval(Eval):
         for key, value in normalized.items():
             tensor = value if torch.is_tensor(value) else torch.as_tensor(value)
             per_frame = tuple(obs[key].shape)
-            inner[key] = (
-                tensor.reshape(1, 1, *per_frame).to(device=device, dtype=torch.float32)
-            )
+            # FusedObsEncoder.forward is asymmetric: when n_obs_steps == 1 it
+            # only checks the batch dim and does NOT collapse an obs axis, so
+            # the batch must be (B, *per_frame) with no obs axis at all. Adding
+            # one leaves it in place and the encoder returns (1, 1, 67) instead
+            # of (1, 67). For n_obs > 1 it does reshape (B, T, ...) itself.
+            shape = (1, *per_frame) if self._n_obs == 1 else (1, self._n_obs, *per_frame)
+            inner[key] = tensor.reshape(*shape).to(device=device, dtype=torch.float32)
         if not self._logged_shapes:
             self._logged_shapes = True
             for key in sorted(inner):
@@ -207,6 +212,18 @@ class SimRolloutPlanarEval(Eval):
             return
         self._done = True
         t_start = time.time()
+        # Read the observation horizon off the built graph rather than assuming
+        # it, since it decides the batch layout above.
+        self._n_obs = 1
+        for stage in getattr(self.model, "stages", None) or []:
+            if hasattr(stage, "n_obs_steps"):
+                self._n_obs = int(stage.n_obs_steps)
+                break
+        if self._n_obs != 1:
+            raise NotImplementedError(
+                f"n_obs_steps={self._n_obs} needs an observation history; this "
+                "harness only builds single-frame observations."
+            )
         budget, budget_payload = self._budget()
         env_args = self._env_args()
         emb_id = self._emb_id()

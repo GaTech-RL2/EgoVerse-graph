@@ -660,3 +660,132 @@ class PlanarAgentStateToRotVec4(Transform):
                     axis=-1,
                 )
         return batch
+
+
+def _to_float64_numpy(value) -> np.ndarray:
+    """Detach a numeric value into a NumPy FP64 compute buffer (BF16-safe)."""
+    if torch.is_tensor(value):
+        cpu_value = value.detach().cpu()
+        if cpu_value.dtype == torch.bfloat16:
+            cpu_value = cpu_value.float()
+        value = cpu_value.numpy()
+    return np.asarray(value, dtype=np.float64)
+
+
+def _restore_numeric_type(value: np.ndarray, template):
+    """Restore a NumPy compute result to ``template``'s type/device/dtype."""
+    value = np.ascontiguousarray(value)
+    if torch.is_tensor(template):
+        dtype = template.dtype if template.is_floating_point() else torch.float32
+        return torch.from_numpy(value).to(device=template.device, dtype=dtype)
+    template_array = np.asarray(template)
+    dtype = (
+        template_array.dtype
+        if np.issubdtype(template_array.dtype, np.floating)
+        else np.float32
+    )
+    return value.astype(dtype, copy=False)
+
+
+class ChainGripperNative4ToPoints6(Transform):
+    """Map native ``[x, y, theta, grip]`` chunks to ordered ``[L, C, R]`` points.
+
+    ChainGripper analogue of :class:`ThetaToRotVec`: the dataset stays in its
+    native control space and the six-number point target is derived at load
+    time through the simulator's forward kinematics (ported to
+    ``egomimic.rldb.zarr.chain_gripper_points``).
+    """
+
+    def __init__(self, keys: list[str], world_size: float = 512.0):
+        self.keys = list(keys)
+        self.world_size = float(world_size)
+        if self.world_size <= 0.0:
+            raise ValueError("world_size must be positive")
+
+    def transform(self, batch: dict) -> dict:
+        from egomimic.rldb.zarr.chain_gripper_points import pose_control_to_points
+
+        for key in self.keys:
+            if key not in batch:
+                continue
+            template = batch[key]
+            controls = _to_float64_numpy(template)
+            if controls.ndim == 0 or controls.shape[-1] != 4:
+                raise ValueError(
+                    "ChainGripperNative4ToPoints6 expects key "
+                    f"'{key}' to have last dimension 4, got {controls.shape}"
+                )
+            points = pose_control_to_points(controls, world_size=self.world_size)
+            batch[key] = _restore_numeric_type(points, template)
+        return batch
+
+
+class ChainGripperPoints6ToNative4(Transform):
+    """Sequentially project ordered ChainGripper points to native controls.
+
+    Model predictions generally do not lie on the 4-DOF kinematic manifold, so
+    each ``(..., horizon, 6)`` trajectory is projected one timestep at a time
+    through the simulator's constrained IK. The latest ``x, y, theta`` from the
+    rollout state (``context_state_key``) seeds the first timestep when no
+    explicit ``previous_control_key`` is present.
+    """
+
+    def __init__(
+        self,
+        keys: list[str],
+        world_size: float = 512.0,
+        grid_size: int = 33,
+        refinements: int = 6,
+        context_state_key: str = "state_agent_obj",
+        previous_control_key: str = "previous_control",
+    ):
+        self.keys = list(keys)
+        self.world_size = float(world_size)
+        self.grid_size = int(grid_size)
+        self.refinements = int(refinements)
+        self.context_state_key = str(context_state_key)
+        self.previous_control_key = str(previous_control_key)
+        self.last_projection_diagnostics: dict | None = None
+
+    def _initial_previous(self, batch: dict, trajectory_count: int):
+        for key, width in ((self.previous_control_key, 4), (self.context_state_key, 3)):
+            if key not in batch:
+                continue
+            array = _to_float64_numpy(batch[key])
+            rows = array.reshape(-1, array.shape[-1])
+            if rows.shape[0] % trajectory_count != 0 or rows.shape[-1] < width:
+                raise ValueError(
+                    f"rollout context {key!r} shape {array.shape} cannot seed "
+                    f"{trajectory_count} trajectories"
+                )
+            last = rows.reshape(trajectory_count, -1, rows.shape[-1])[:, -1]
+            previous = np.zeros((trajectory_count, 4), dtype=np.float64)
+            previous[:, :width] = last[:, :width]
+            return previous
+        return None
+
+    def transform(self, batch: dict) -> dict:
+        from egomimic.rldb.zarr.chain_gripper_points import project_point_trajectories
+
+        self.last_projection_diagnostics = None
+        for key in self.keys:
+            if key not in batch:
+                continue
+            template = batch[key]
+            points = _to_float64_numpy(template)
+            if points.ndim < 2 or points.shape[-1] != 6:
+                raise ValueError(
+                    "ChainGripperPoints6ToNative4 expects (..., horizon, 6), "
+                    f"got {points.shape}"
+                )
+            trajectory_count = int(np.prod(points.shape[:-2])) if points.ndim > 2 else 1
+            controls, diagnostics = project_point_trajectories(
+                points,
+                initial_previous_control=self._initial_previous(batch, trajectory_count),
+                world_size=self.world_size,
+                grid_size=self.grid_size,
+                refinements=self.refinements,
+            )
+            batch[key] = _restore_numeric_type(controls, template)
+            self.last_projection_diagnostics = diagnostics
+        return batch

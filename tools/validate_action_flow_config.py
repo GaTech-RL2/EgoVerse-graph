@@ -86,6 +86,195 @@ EXPECTED_INFERENCE_TYPES = (
     ConditionalVelocityStage,
     ContentDecoderStage,
 )
+LEGACY_METHOD = "action_flow_joint"
+LIKELIHOOD_METHOD = "gaussian_bridge_likelihood"
+GRAPH_METHOD = "graph_section_diagnostic"
+STOPGRAD_METHOD = "latent_fm_stopgrad"
+CANDIDATE_METHODS = {
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
+    "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
+}
+LIKELIHOOD_STAGE_TARGETS = EXPECTED_STAGE_TARGETS[:3] + tuple(
+    f"egomimic.pipeline.stages_action_flow_likelihood.{name}"
+    for name in (
+        "LikelihoodReferenceStage",
+        "GaussianBridgeNoisingStage",
+        "ConditionalReverseMeanStage",
+        "LikelihoodDecoderStage",
+        "GaussianBridgeObjectiveStage",
+    )
+)
+
+
+def action_flow_method(config: DictConfig, experiment: str | None = None) -> str:
+    """Fail closed on typed method drift; old named configs keep their contract."""
+    method = str(
+        OmegaConf.select(config, "train.action_flow_method", default=LEGACY_METHOD)
+    )
+    model_method = str(
+        OmegaConf.select(config, "model.action_flow_method", default=LEGACY_METHOD)
+    )
+    _exact(model_method, method, "model/train action_flow_method")
+    _require(
+        method in {LEGACY_METHOD, *CANDIDATE_METHODS.values()},
+        "unknown action_flow_method",
+    )
+    if experiment is not None:
+        _exact(
+            method,
+            CANDIDATE_METHODS.get(experiment, LEGACY_METHOD),
+            "experiment action_flow_method",
+        )
+    return method
+
+
+def method_stage_targets(method: str) -> tuple[str, ...]:
+    return (
+        LIKELIHOOD_STAGE_TARGETS
+        if method == LIKELIHOOD_METHOD
+        else EXPECTED_STAGE_TARGETS
+    )
+
+
+def method_wrapper_target(method: str) -> str:
+    if method == LIKELIHOOD_METHOD:
+        return "egomimic.pl_utils.pl_model_action_flow_likelihood.ActionFlowLikelihoodModelWrapper"
+    return "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper"
+
+
+def validate_method_contract(config: DictConfig, experiment: str | None = None) -> str:
+    """Small shared scientific gate used by CPU preflight and the real launcher."""
+    method = action_flow_method(config, experiment)
+    _exact(str(config.model._target_), method_wrapper_target(method), "model wrapper")
+    stages = config.model.pipeline.stages
+    _exact(
+        tuple(str(stage._target_) for stage in stages),
+        method_stage_targets(method),
+        "stage topology",
+    )
+    if method == STOPGRAD_METHOD:
+        _exact(
+            str(stages[5].flow_clean_gradient_mode),
+            "all_stopgrad",
+            "FM-only reference detachment",
+        )
+        _float(
+            config.model.reconstruction_weight, 1.0, "candidate reconstruction weight"
+        )
+    elif method == GRAPH_METHOD:
+        _exact(
+            str(config.model.pipeline._target_),
+            "egomimic.models.action_flow_graph.build_graph_section_pipeline",
+            "shared graph codec factory",
+        )
+        _exact(
+            bool(config.model.pipeline._recursive_),
+            False,
+            "graph codec factory recursion",
+        )
+        _float(
+            config.model.reconstruction_weight,
+            0.0,
+            "graph diagnostic reconstruction weight",
+        )
+        _exact(
+            bool(config.evaluator.action_flow_diagnostics.capture_activations),
+            False,
+            "graph diagnostic activation capture",
+        )
+    elif method == LIKELIHOOD_METHOD:
+        for stage_index, key, expected in (
+            (4, "num_levels", 32),
+            (3, "interior_samples_per_content", 14),
+            (4, "sigma_min", 0.1),
+            (4, "sigma_max", 1.0),
+            (4, "rho", 0.95),
+            (6, "tau", 0.02),
+        ):
+            _float(
+                stages[stage_index][key],
+                expected,
+                f"likelihood stage {stage_index}.{key}",
+            )
+            _float(config.model[key], expected, f"likelihood model {key}")
+            _float(
+                config.run_provenance.objective[key],
+                expected,
+                f"likelihood provenance {key}",
+            )
+        for index in (3, 5, 7):
+            _exact(
+                int(stages[index].num_levels), 32, f"likelihood stage {index} levels"
+            )
+        for key, expected in (("sigma_min", 0.1), ("sigma_max", 1.0), ("rho", 0.95)):
+            _float(stages[5][key], expected, f"reverse-chain {key}")
+        _float(stages[7].tau, 0.02, "boundary likelihood output noise")
+        _exact(int(config.model.num_inference_steps), 32, "likelihood inference steps")
+        objective = config.run_provenance.objective
+        _exact(
+            str(objective.target_mean_gradients),
+            "attached",
+            "learned reference target gradients",
+        )
+        _exact(
+            str(objective.reduction),
+            "sum_all_horizon_coordinates_then_batch_mean",
+            "likelihood coordinate reduction",
+        )
+        _exact(int(objective.interior_level_multiplier), 31, "interior multiplier")
+        _float(
+            objective.boundary_per_coordinate_mse_multiplier,
+            80000.0,
+            "boundary MSE multiplier",
+        )
+        _exact(
+            str(config.run_provenance.inference.sampler),
+            "gaussian_bridge_reverse_chain",
+            "likelihood sampler",
+        )
+        _exact(
+            int(config.run_provenance.inference.steps), 32, "likelihood sampler steps"
+        )
+        _exact(
+            int(config.run_provenance.inference.latent_innovations),
+            31,
+            "reverse-chain innovations",
+        )
+        _float(
+            config.run_provenance.inference.output_noise_std,
+            0.02,
+            "Gaussian action output noise",
+        )
+        for key in (
+            "flow_weight",
+            "reconstruction_weight",
+            "action_velocity_weight",
+            "reconstruction_only_warmup_steps",
+        ):
+            _require(key not in config.model, f"likelihood model must not carry {key}")
+        _exact(
+            bool(config.evaluator.action_flow_diagnostics.enabled),
+            False,
+            "ODE diagnostics are not likelihood diagnostics",
+        )
+    if method != LEGACY_METHOD and method != LIKELIHOOD_METHOD:
+        _float(config.model.flow_weight, 1.0, "candidate flow weight")
+        _float(
+            stages[7].action_velocity_weight, 1.0, "candidate action velocity weight"
+        )
+        _exact(
+            int(
+                OmegaConf.select(
+                    config, "model.reconstruction_only_warmup_steps", default=0
+                )
+            ),
+            0,
+            "candidate joint-from-step-zero objective",
+        )
+    return method
+
+
 FORBIDDEN_PIPELINE_KEYS = frozenset(
     {
         "ac_keys",
@@ -274,6 +463,7 @@ def _validate_dimensions_and_modules(
     _exact(int(config.model.latent_dim), 8, "model latent dimension")
     _exact(int(config.model.condition_dim), 67, "model condition dimension")
 
+    method = action_flow_method(config)
     observation = stages[0]
     noise = stages[1]
     encoder_stage = stages[3]
@@ -281,12 +471,36 @@ def _validate_dimensions_and_modules(
     field_stage = stages[5]
     decoder_stage = stages[6]
     objective = stages[7]
-    _require(isinstance(encoder_stage.encoder, ContextFreeSequenceEncoder), "wrong E")
-    _require(isinstance(field_stage.field, AdaLNSequenceField), "wrong field v")
-    _require(isinstance(decoder_stage.decoder, ContextFreeSequenceDecoder), "wrong g")
+    if method == GRAPH_METHOD:
+        from egomimic.models.action_flow_codec import GraphSectionSequenceCodec
 
-    encoder = encoder_stage.encoder
-    decoder = decoder_stage.decoder
+        _require(
+            isinstance(decoder_stage.decoder, GraphSectionSequenceCodec),
+            "wrong graph codec",
+        )
+        _require(
+            encoder_stage.encoder.graph is decoder_stage.decoder.graph,
+            "graph encoder/decoder must share the identical graph map",
+        )
+        encoder, decoder = decoder_stage.decoder.graph, decoder_stage.decoder.residual
+    elif method == LIKELIHOOD_METHOD:
+        from egomimic.models.action_flow_likelihood import TimeDependentSequenceMean
+
+        _require(
+            isinstance(encoder_stage.mean_encoder, TimeDependentSequenceMean),
+            "wrong reference mean",
+        )
+        _exact(
+            tuple(inspect.signature(encoder_stage.mean_encoder.forward).parameters),
+            ("action", "time"),
+            "context-free learned reference signature",
+        )
+        encoder, decoder = encoder_stage.mean_encoder.network, decoder_stage.decoder
+    else:
+        encoder, decoder = encoder_stage.encoder, decoder_stage.decoder
+    _require(isinstance(encoder, ContextFreeSequenceEncoder), "wrong E")
+    _require(isinstance(field_stage.field, AdaLNSequenceField), "wrong field v")
+    _require(isinstance(decoder, ContextFreeSequenceDecoder), "wrong g")
     field = field_stage.field
     codec_expected = {
         "horizon": 16,
@@ -299,8 +513,16 @@ def _validate_dimensions_and_modules(
         for attribute, expected in codec_expected.items():
             _exact(getattr(codec, attribute), expected, f"{label} {attribute}")
         _float(codec.dropout, 0.0, f"{label} dropout")
-    _exact(encoder.input_dim, 4, "encoder E input dimension")
-    _exact(encoder.output_dim, 8, "encoder E output dimension")
+    _exact(
+        encoder.input_dim,
+        5 if method == LIKELIHOOD_METHOD else 4,
+        "encoder E input dimension",
+    )
+    _exact(
+        encoder.output_dim,
+        4 if method == GRAPH_METHOD else 8,
+        "encoder E output dimension",
+    )
     _exact(decoder.input_dim, 8, "decoder g input dimension")
     _exact(decoder.output_dim, 4, "decoder g output dimension")
     _exact(
@@ -356,22 +578,34 @@ def _validate_dimensions_and_modules(
     _exact(image_width, 64, "observation image-feature width")
     _exact(low_dim_width + image_width, 67, "observation condition width")
 
-    _exact(bridge.samples_per_content, 14, "bridge samples per content")
+    if method == LIKELIHOOD_METHOD:
+        _exact(
+            encoder_stage.interior_samples_per_content,
+            14,
+            "interior samples per content",
+        )
+        _exact(
+            int(config.model.num_inference_steps), 32, "reverse-chain field evaluations"
+        )
+    else:
+        _exact(bridge.samples_per_content, 14, "bridge samples per content")
+        _exact(field_stage.num_inference_steps, 16, "inference field evaluations")
     _float(bridge.condition_dropout_probability, 0.3, "bridge condition dropout")
-    _exact(field_stage.num_inference_steps, 16, "inference field evaluations")
-    flow_weight = float(config.model.flow_weight)
-    _require(flow_weight in {0.01, 1.0}, "unsupported FM weight")
-    _float(objective.flow_weight, flow_weight, "FM weight")
-    _float(objective.action_velocity_weight, 1.0, "action-velocity weight")
-    _float(
-        objective.reconstruction_weight,
-        float(config.model.reconstruction_weight),
-        "reconstruction weight",
-    )
-    _require(
-        float(config.model.reconstruction_weight) in {1.0, 10.0, 100.0},
-        "reconstruction weight must be exactly 1, 10, or 100",
-    )
+    if method != LIKELIHOOD_METHOD:
+        flow_weight = float(config.model.flow_weight)
+        _require(flow_weight in {0.01, 1.0}, "unsupported FM weight")
+        _float(objective.flow_weight, flow_weight, "FM weight")
+        _float(objective.action_velocity_weight, 1.0, "action-velocity weight")
+        _float(
+            objective.reconstruction_weight,
+            float(config.model.reconstruction_weight),
+            "reconstruction weight",
+        )
+        _require(
+            float(config.model.reconstruction_weight)
+            in ({0.0} if method == GRAPH_METHOD else {1.0, 10.0, 100.0}),
+            "unsupported reconstruction weight",
+        )
 
     parameters = {
         "observation_encoder": _parameter_manifest(observation),
@@ -405,11 +639,12 @@ def _validate_topology(
 ) -> dict[str, Any]:
     stage_configs = tuple(config.model.pipeline.stages)
     stage_targets = tuple(str(stage._target_) for stage in stage_configs)
-    _exact(stage_targets, EXPECTED_STAGE_TARGETS, "configured stage topology")
+    expected_targets = method_stage_targets(action_flow_method(config))
+    _exact(stage_targets, expected_targets, "configured stage topology")
     stages = tuple(pipeline_algo.pipeline.stages)
     _exact(
-        tuple(type(stage) for stage in stages),
-        EXPECTED_STAGE_TYPES,
+        tuple(f"{type(stage).__module__}.{type(stage).__name__}" for stage in stages),
+        expected_targets,
         "instantiated stage topology",
     )
 
@@ -431,24 +666,16 @@ def _validate_topology(
         not blocked_inference,
         f"inference graph has blocked stages: {blocked_inference}",
     )
-    _exact(tuple(type(stage) for stage in train), EXPECTED_STAGE_TYPES, "train plan")
+    _exact(tuple(train), tuple(stages), "train plan")
     _exact(
-        tuple(type(stage) for stage in inference),
-        EXPECTED_INFERENCE_TYPES,
+        tuple(inference),
+        tuple(stages[index] for index in (0, 1, 5, 6)),
         "inference plan",
     )
-    train_field = next(
-        stage for stage in train if isinstance(stage, ConditionalVelocityStage)
-    )
-    inference_field = next(
-        stage for stage in inference if isinstance(stage, ConditionalVelocityStage)
-    )
-    train_decoder = next(
-        stage for stage in train if isinstance(stage, ContentDecoderStage)
-    )
-    inference_decoder = next(
-        stage for stage in inference if isinstance(stage, ContentDecoderStage)
-    )
+    train_field = next(stage for stage in train if stage is stages[5])
+    inference_field = next(stage for stage in inference if stage is stages[5])
+    train_decoder = next(stage for stage in train if stage is stages[6])
+    inference_decoder = next(stage for stage in inference if stage is stages[6])
     _require(train_field is inference_field, "train/inference field stage was copied")
     _require(
         train_decoder is inference_decoder, "train/inference decoder stage was copied"
@@ -711,38 +938,71 @@ def _validate_data_and_launch(
         "evaluator dataset aggregate content hash provenance",
     )
 
+    method = action_flow_method(config)
     objective = provenance.objective
-    _float(
-        objective.flow_weight,
-        float(config.model.flow_weight),
-        "provenance FM weight",
-    )
-    _float(objective.action_velocity_weight, 1.0, "provenance action weight")
-    _float(
-        objective.reconstruction_weight,
-        float(config.model.reconstruction_weight),
-        "provenance reconstruction weight",
-    )
-    warmup_steps = int(
-        OmegaConf.select(
-            config, "model.reconstruction_only_warmup_steps", default=0
+    if method == LIKELIHOOD_METHOD:
+        for key in (
+            "num_levels",
+            "interior_samples_per_content",
+            "sigma_min",
+            "sigma_max",
+            "rho",
+            "tau",
+        ):
+            _float(objective[key], config.model[key], f"likelihood provenance {key}")
+        _exact(
+            str(objective.reduction),
+            "sum_all_horizon_coordinates_then_batch_mean",
+            "likelihood coordinate reduction",
         )
-    )
-    _require(
-        warmup_steps in {0, 10_000},
-        "reconstruction-only warmup must be exactly 0 or 10000 steps",
-    )
-    recorded_warmup = OmegaConf.select(
-        config,
-        "run_provenance.objective.reconstruction_only_warmup_steps",
-        default=0,
-    )
-    _exact(int(recorded_warmup), warmup_steps, "provenance objective warmup")
-    _exact(int(objective.flow_samples_per_content), 14, "provenance bridge samples")
-    _float(objective.decoded_noise_scale_weight, 0.0, "decoded-noise scale weight")
-    _float(objective.monotonic_weight, 0.0, "monotonicity weight")
-    _exact(str(provenance.inference.sampler), "reverse_euler", "inference sampler")
-    _exact(int(provenance.inference.steps), 16, "inference sampler steps")
+        _exact(
+            int(objective.interior_level_multiplier), 31, "interior level multiplier"
+        )
+        _float(
+            objective.boundary_per_coordinate_mse_multiplier,
+            80000.0,
+            "boundary NLL coordinate multiplier",
+        )
+        _exact(
+            str(provenance.inference.sampler),
+            "gaussian_bridge_reverse_chain",
+            "inference sampler",
+        )
+        _exact(int(provenance.inference.steps), 32, "reverse-chain levels")
+        _exact(int(provenance.inference.latent_innovations), 31, "latent innovations")
+        _float(provenance.inference.output_noise_std, 0.02, "Gaussian output noise")
+    else:
+        _float(
+            objective.flow_weight,
+            float(config.model.flow_weight),
+            "provenance FM weight",
+        )
+        _float(objective.action_velocity_weight, 1.0, "provenance action weight")
+        _float(
+            objective.reconstruction_weight,
+            float(config.model.reconstruction_weight),
+            "provenance reconstruction weight",
+        )
+        warmup_steps = int(
+            OmegaConf.select(
+                config, "model.reconstruction_only_warmup_steps", default=0
+            )
+        )
+        _require(
+            warmup_steps in {0, 10_000},
+            "reconstruction-only warmup must be exactly 0 or 10000 steps",
+        )
+        recorded_warmup = OmegaConf.select(
+            config,
+            "run_provenance.objective.reconstruction_only_warmup_steps",
+            default=0,
+        )
+        _exact(int(recorded_warmup), warmup_steps, "provenance objective warmup")
+        _exact(int(objective.flow_samples_per_content), 14, "provenance bridge samples")
+        _float(objective.decoded_noise_scale_weight, 0.0, "decoded-noise scale weight")
+        _float(objective.monotonic_weight, 0.0, "monotonicity weight")
+        _exact(str(provenance.inference.sampler), "reverse_euler", "inference sampler")
+        _exact(int(provenance.inference.steps), 16, "inference sampler steps")
     _exact(
         bool(provenance.inference.classifier_free_guidance),
         False,
@@ -802,103 +1062,114 @@ def _validate_data_and_launch(
     )
     _exact(evaluator_distance, distance, "evaluator EnergyScore distance provenance")
 
-    diagnostics = config.evaluator.action_flow_diagnostics
-    _exact(bool(diagnostics.enabled), True, "Action Flow diagnostics enabled")
-    _exact(
-        [float(value) for value in diagnostics.raw_noise_levels],
-        [0.0, 0.25, 0.5, 0.75, 1.0],
-        "Action Flow diagnostic noise levels",
-    )
-    _exact(int(diagnostics.max_batches_per_rank), 1, "diagnostic batch limit")
-    _exact(int(diagnostics.max_samples), 16, "diagnostic sample limit")
-    _exact(int(diagnostics.jacobian_samples), 2, "diagnostic Jacobian sample limit")
-    _exact(bool(diagnostics.capture_activations), True, "activation capture")
-    _exact(
-        {
-            int(key): int(value)
-            for key, value in diagnostics.activation_layer_map.items()
-        },
-        {0: 0, 1: 11},
-        "diagnostic activation layer map",
-    )
-    _exact(int(diagnostics.cknna_k), 10, "diagnostic CKNNA k")
-    try:
-        native_error = normalize_usocket_native_error_config(
-            OmegaConf.to_container(diagnostics.native_error, resolve=True)
+    if action_flow_method(config) != LIKELIHOOD_METHOD:
+        diagnostics = config.evaluator.action_flow_diagnostics
+        _exact(bool(diagnostics.enabled), True, "Action Flow diagnostics enabled")
+        _exact(
+            [float(value) for value in diagnostics.raw_noise_levels],
+            [0.0, 0.25, 0.5, 0.75, 1.0],
+            "Action Flow diagnostic noise levels",
         )
-    except (TypeError, ValueError) as error:
-        raise PreflightError(str(error)) from error
-    _exact(native_error, USOCKET_NATIVE_ERROR_CONFIG, "diagnostic native error")
-    _exact(
-        diagnostics.provenance.source_commit,
-        provenance.source_commit,
-        "diagnostic source commit provenance",
-    )
-    _exact(
-        diagnostics.provenance.normalization_sha256,
-        provenance.normalization_sha256,
-        "diagnostic normalization provenance",
-    )
-    _exact(
-        str(diagnostics.provenance.split_manifest_sha256),
-        str(provenance.split_manifest_sha256),
-        "diagnostic split provenance",
-    )
-    diagnostic_content = OmegaConf.to_container(
-        diagnostics.provenance.dataset_content,
-        resolve=True,
-    )
-    _require(
-        isinstance(diagnostic_content, Mapping),
-        "diagnostic dataset-content provenance must be a mapping",
-    )
-    _exact(
-        set(diagnostic_content),
-        {"aggregate_sha256", "manifest_sha256"},
-        "diagnostic dataset-content provenance keys",
-    )
-    _exact(
-        str(diagnostic_content["manifest_sha256"]).lower(),
-        configured_content_manifest_sha256,
-        "diagnostic dataset-content manifest provenance",
-    )
-    _exact(
-        str(diagnostic_content["aggregate_sha256"]).lower(),
-        configured_aggregate_sha256,
-        "diagnostic dataset aggregate content provenance",
-    )
-    _exact(
-        str(diagnostics.validation_view.split_manifest_sha256),
-        str(provenance.split_manifest_sha256),
-        "diagnostic validation-view split provenance",
-    )
-    _exact(
-        int(diagnostics.validation_view.per_rank_batch_size),
-        16,
-        "diagnostic validation batch size",
-    )
-    _exact(
-        int(diagnostics.validation_view.world_size),
-        1,
-        "diagnostic validation world size",
-    )
-    _exact(
-        str(diagnostics.noise_seed_bank_sha256),
-        str(provenance.energy_score_contract.seed_bank_sha256),
-        "diagnostic seed-bank hash",
-    )
-    seed_bank = Path(config_root) / "evaluator" / "energy_score_seed_bank_k32_v1.json"
-    _require(seed_bank.is_file(), f"diagnostic seed bank missing: {seed_bank}")
-    _exact(
-        _sha256(seed_bank),
-        str(diagnostics.noise_seed_bank_sha256),
-        "diagnostic seed-bank file hash",
-    )
-    _exact(
-        str(diagnostics.provenance.decoder_jacobian_evaluation),
-        "declared_bridge_state_at_each_fixed_noise_level",
-        "diagnostic Jacobian evaluation point",
-    )
+        _exact(int(diagnostics.max_batches_per_rank), 1, "diagnostic batch limit")
+        _exact(int(diagnostics.max_samples), 16, "diagnostic sample limit")
+        _exact(int(diagnostics.jacobian_samples), 2, "diagnostic Jacobian sample limit")
+        _exact(
+            bool(diagnostics.capture_activations),
+            action_flow_method(config) != GRAPH_METHOD,
+            "activation capture",
+        )
+        _exact(
+            {
+                int(key): int(value)
+                for key, value in diagnostics.activation_layer_map.items()
+            },
+            {} if action_flow_method(config) == GRAPH_METHOD else {0: 0, 1: 11},
+            "diagnostic activation layer map",
+        )
+        _exact(
+            int(diagnostics.cknna_k),
+            0 if action_flow_method(config) == GRAPH_METHOD else 10,
+            "diagnostic CKNNA k",
+        )
+        try:
+            native_error = normalize_usocket_native_error_config(
+                OmegaConf.to_container(diagnostics.native_error, resolve=True)
+            )
+        except (TypeError, ValueError) as error:
+            raise PreflightError(str(error)) from error
+        _exact(native_error, USOCKET_NATIVE_ERROR_CONFIG, "diagnostic native error")
+        _exact(
+            diagnostics.provenance.source_commit,
+            provenance.source_commit,
+            "diagnostic source commit provenance",
+        )
+        _exact(
+            diagnostics.provenance.normalization_sha256,
+            provenance.normalization_sha256,
+            "diagnostic normalization provenance",
+        )
+        _exact(
+            str(diagnostics.provenance.split_manifest_sha256),
+            str(provenance.split_manifest_sha256),
+            "diagnostic split provenance",
+        )
+        diagnostic_content = OmegaConf.to_container(
+            diagnostics.provenance.dataset_content,
+            resolve=True,
+        )
+        _require(
+            isinstance(diagnostic_content, Mapping),
+            "diagnostic dataset-content provenance must be a mapping",
+        )
+        _exact(
+            set(diagnostic_content),
+            {"aggregate_sha256", "manifest_sha256"},
+            "diagnostic dataset-content provenance keys",
+        )
+        _exact(
+            str(diagnostic_content["manifest_sha256"]).lower(),
+            configured_content_manifest_sha256,
+            "diagnostic dataset-content manifest provenance",
+        )
+        _exact(
+            str(diagnostic_content["aggregate_sha256"]).lower(),
+            configured_aggregate_sha256,
+            "diagnostic dataset aggregate content provenance",
+        )
+        _exact(
+            str(diagnostics.validation_view.split_manifest_sha256),
+            str(provenance.split_manifest_sha256),
+            "diagnostic validation-view split provenance",
+        )
+        _exact(
+            int(diagnostics.validation_view.per_rank_batch_size),
+            16,
+            "diagnostic validation batch size",
+        )
+        _exact(
+            int(diagnostics.validation_view.world_size),
+            1,
+            "diagnostic validation world size",
+        )
+        _exact(
+            str(diagnostics.noise_seed_bank_sha256),
+            str(provenance.energy_score_contract.seed_bank_sha256),
+            "diagnostic seed-bank hash",
+        )
+        seed_bank = (
+            Path(config_root) / "evaluator" / "energy_score_seed_bank_k32_v1.json"
+        )
+        _require(seed_bank.is_file(), f"diagnostic seed bank missing: {seed_bank}")
+        _exact(
+            _sha256(seed_bank),
+            str(diagnostics.noise_seed_bank_sha256),
+            "diagnostic seed-bank file hash",
+        )
+        _exact(
+            str(diagnostics.provenance.decoder_jacobian_evaluation),
+            "declared_bridge_state_at_each_fixed_noise_level",
+            "diagnostic Jacobian evaluation point",
+        )
 
     launch = {
         "accumulate_grad_batches": 1,
@@ -936,15 +1207,11 @@ def validate_config(
     """Validate one composed config and return report plus resolved payload."""
 
     resolved, resolved_hash = resolved_config_payload(config)
-    _exact(
-        str(config.model._target_),
-        "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper",
-        "model wrapper",
-    )
+    method = validate_method_contract(config, experiment)
     configured_targets = tuple(
         str(stage._target_) for stage in config.model.pipeline.stages
     )
-    _exact(configured_targets, EXPECTED_STAGE_TARGETS, "stage topology")
+    _exact(configured_targets, method_stage_targets(method), "stage topology")
     _require(
         "time_scale" in config.model.pipeline.stages[5].field,
         "field time_scale must be explicit",
@@ -967,26 +1234,29 @@ def validate_config(
     )
     _exact(accounted, parameters["pipeline_total"]["total"], "parameter accounting")
 
-    reconstruction_weight = float(config.model.reconstruction_weight)
+    objective_report = OmegaConf.to_container(
+        config.run_provenance.objective, resolve=True
+    )
+    if method != LIKELIHOOD_METHOD:
+        objective_report = {
+            "action_velocity_weight": 1.0,
+            "condition_dropout_probability": 0.3,
+            "flow_samples_per_content": 14,
+            "flow_weight": float(config.model.flow_weight),
+            "reconstruction_weight": float(config.model.reconstruction_weight),
+            "reconstruction_only_warmup_steps": int(
+                OmegaConf.select(
+                    config, "model.reconstruction_only_warmup_steps", default=0
+                )
+            ),
+        }
     report = {
         "config_name": str(config.name),
         "dimensions": dimensions,
         "experiment": str(experiment),
         "launch": launch,
-        "objective": {
-            "action_velocity_weight": 1.0,
-            "condition_dropout_probability": 0.3,
-            "flow_samples_per_content": 14,
-            "flow_weight": float(config.model.flow_weight),
-            "reconstruction_weight": reconstruction_weight,
-            "reconstruction_only_warmup_steps": int(
-                OmegaConf.select(
-                    config,
-                    "model.reconstruction_only_warmup_steps",
-                    default=0,
-                )
-            ),
-        },
+        "action_flow_method": method,
+        "objective": objective_report,
         "optimization": optimization,
         "parameters": parameters,
         "resolved_config_sha256": resolved_hash,

@@ -12,6 +12,7 @@ import random
 import re
 import signal
 import sys
+import time
 from pathlib import Path
 
 
@@ -123,6 +124,49 @@ def _atomic_torch_save(state: dict, checkpoint: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _periodic_generation_metrics(model, source, target, *, steps: int) -> dict:
+    """Measure current generation without advancing training RNGs or mode state."""
+    python_rng = random.getstate()
+    numpy_rng = np.random.get_state()
+    training_modes = [(module, module.training) for module in model.modules()]
+    devices = [source.device.index] if source.is_cuda else []
+    if source.is_cuda:
+        torch.cuda.synchronize(source.device)
+    started = time.monotonic()
+    basis_metrics = {}
+    try:
+        with torch.random.fork_rng(devices=devices), torch.no_grad():
+            model.eval()
+            points = SyntheticTrajectoryEval.evaluate(model, source, target, steps=steps)
+            score = float(SyntheticTrajectoryEval.symmetric_nearest_neighbor_mse(
+                points[-1], target
+            ))
+            if getattr(model, "jacobian_basepoint", None) == "action_state":
+                count = min(64, len(source))
+                probes = torch.cat([
+                    points[index, :count] for index in (0, len(points) // 2, -1)
+                ])
+                basis = model.velocity_basis_singular_values(
+                    probes, source[:count].repeat(3, 1)
+                )
+                basis_metrics = {
+                    "generation_velocity_basis_jacobian_singular_min": float(basis.min()),
+                    "generation_velocity_basis_jacobian_singular_median": float(basis.median()),
+                    "generation_velocity_basis_jacobian_singular_max": float(basis.max()),
+                }
+    finally:
+        random.setstate(python_rng)
+        np.random.set_state(numpy_rng)
+        for module, training in training_modes:
+            module.training = training
+    return {
+        "generation_symmetric_nn_mse": score,
+        "generation_eval_seconds": time.monotonic() - started,
+        **basis_metrics,
+    }
+
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
@@ -132,6 +176,13 @@ def main() -> None:
     checkpoint_every = int(config.get("checkpoint_every", 50_000))
     if checkpoint_every <= 0:
         raise ValueError("checkpoint_every must be positive")
+    generation_log_every = int(config.get("generation_log_every", 0))
+    if generation_log_every < 0:
+        raise ValueError("generation_log_every must be nonnegative")
+    if generation_log_every and not all(
+        key in config for key in ("evaluation_dataset", "evaluation_particles", "inference_steps")
+    ):
+        raise ValueError("periodic generation requires explicit evaluation identity")
     output = Path(config["output_dir"])
     if args.resume is None:
         if output.exists():
@@ -215,6 +266,13 @@ def main() -> None:
 
         wandb_run = wandb.init(config=config, **config["wandb"])
     log_path = output / "metrics.jsonl"
+    generation_data = None
+    if generation_log_every:
+        generation_source, generation_target = SyntheticTrajectoryEval.load_validation_data(
+            config["evaluation_dataset"], source_key, int(config["evaluation_particles"])
+        )
+        generation_data = generation_source.to(device), generation_target.to(device)
+    training_started = time.monotonic()
     for step in range(start_step + 1, config["max_steps"] + 1):
         chosen = train_indices[
             torch.randint(
@@ -281,7 +339,13 @@ def main() -> None:
             losses["loss"].backward()
             gradient_metrics = {}
         optimizer.step()
-        if step == 1 or step % config["log_every"] == 0:
+        log_step = step == 1 or step % config["log_every"] == 0
+        generation_step = (
+            generation_log_every > 0
+            and step % generation_log_every == 0
+            and step < config["max_steps"]
+        )
+        if log_step or generation_step:
             row = {
                 "step": step,
                 **{key: float(value.detach()) for key, value in losses.items()},
@@ -290,6 +354,17 @@ def main() -> None:
                     for key, value in gradient_metrics.items()
                 },
             }
+            if generation_step:
+                row.update(_periodic_generation_metrics(
+                    model, *generation_data, steps=int(config["inference_steps"])
+                ))
+            elapsed = time.monotonic() - training_started
+            row["training_elapsed_seconds"] = elapsed
+            row["training_steps_per_second"] = (step - start_step) / elapsed
+            if device.type == "cuda":
+                row["peak_cuda_memory_bytes"] = torch.cuda.max_memory_allocated(device)
+            if not all(np.isfinite(value) for value in row.values()):
+                raise FloatingPointError(f"non-finite logged training metric at step {step}")
             with log_path.open("a") as stream:
                 stream.write(json.dumps(row) + "\n")
             if wandb_run is not None:
@@ -323,6 +398,9 @@ def main() -> None:
             )
             # A signal received during serialization belongs to the next save.
             _checkpoint_requests.saved = requested
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    training_elapsed_seconds = time.monotonic() - training_started
     model.eval()
     if "evaluation_dataset" in config:
         src, tgt = SyntheticTrajectoryEval.load_validation_data(
@@ -373,6 +451,10 @@ def main() -> None:
         "trainable_parameters": sum(
             p.numel() for p in model.parameters() if p.requires_grad
         ),
+        "training_elapsed_seconds": training_elapsed_seconds,
+        "peak_cuda_memory_bytes": (
+            torch.cuda.max_memory_allocated(device) if device.type == "cuda" else 0
+        ),
     }
     summary["validation_generation_energy_distance"] = float(
         energy_distance(generated, tgt)
@@ -398,6 +480,12 @@ def main() -> None:
         diagnostic_state = (
             (1.0 - diagnostic_time) * tgt + diagnostic_time * diagnostic_source
         )
+        basis_indices = torch.linspace(
+            0, len(tgt) - 1, min(128, len(tgt)), device=device
+        ).long()
+        basis_singular_values = model.velocity_basis_singular_values(
+            diagnostic_state[basis_indices], src[basis_indices]
+        )
         diagnostic_action_velocity_mse = (
             model.action_velocity(diagnostic_state, src, diagnostic_time)
             - (diagnostic_source - tgt)
@@ -411,6 +499,15 @@ def main() -> None:
             {
                 "validation_action_velocity_mse": float(
                     diagnostic_action_velocity_mse
+                ),
+                "validation_velocity_basis_jacobian_singular_min": float(
+                    basis_singular_values.min()
+                ),
+                "validation_velocity_basis_jacobian_singular_median": float(
+                    basis_singular_values.median()
+                ),
+                "validation_velocity_basis_jacobian_singular_max": float(
+                    basis_singular_values.max()
                 ),
                 "validation_scale_loss": float(model.scale_loss(fixed_noise)),
                 "validation_decoder_jacobian_singular_min": float(

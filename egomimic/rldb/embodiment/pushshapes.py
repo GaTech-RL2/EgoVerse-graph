@@ -63,7 +63,32 @@ def get_planar_keymap_per_source_proprio(
         "key_type": "proprio_keys",
         "zarr_key": "observations.state",
     }
+    # The model-only proprio key replaces state_agent_obj as the observation, so
+    # it needs the same multi-frame horizon that get_planar_keymap applied there.
+    observation_horizon = int(kwargs.get("observation_horizon", 1))
+    if observation_horizon > 1:
+        keymap["state_agent_model"]["horizon"] = observation_horizon
     return keymap
+
+
+def get_usocket_rotvec_obs2_transform_list(
+    action_key: str = "actions",
+    state_key: str = "state_agent_model",
+    action_horizon: int = 16,
+    action_target_offset: int = 1,
+    **_kwargs,
+):
+    """Multi-frame U-Socket variant: align the target with the final observation.
+
+    Mirrors the Paper-DP contract (observation_horizon=2, offset=1), so the
+    keymap requests action_horizon + offset raw steps and the target is sliced
+    to the chunk that follows the last observed frame.
+    """
+    return [
+        SliceActionTarget([action_key], start=action_target_offset, horizon=action_horizon),
+        ThetaToRotVec(keys=[action_key], angle_col=2),
+        PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
+    ]
 
 
 class SliceActionTarget:

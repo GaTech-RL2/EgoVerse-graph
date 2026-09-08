@@ -68,6 +68,7 @@ ICE_EXPECTED_PARTITION=${ICE_EXPECTED_PARTITION:-ice-gpu}
 ICE_EXPECTED_QOS=${ICE_EXPECTED_QOS:-coc-ice}
 ICE_MAX_RESTARTS=${ICE_MAX_RESTARTS:-32}
 ICE_UNITE_LR=${ICE_UNITE_LR:-}
+ICE_EXTRA_OVERRIDES=${ICE_EXTRA_OVERRIDES:-}
 ICE_UNITE_LR_FINAL=${ICE_UNITE_LR_FINAL:-}
 ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
 ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-unite-ice}
@@ -249,6 +250,13 @@ if test "$ICE_UNITE_FAST" = true; then
     model.scheduler.base_lr_2=3.0e-6
     model.scheduler.final_lr=3.0e-6
   )
+fi
+if test -n "$ICE_EXTRA_OVERRIDES"; then
+  # Word-split deliberately: a space-separated list of Hydra overrides, applied
+  # after every built-in override so an explicit recipe change wins.
+  # shellcheck disable=SC2206
+  EXTRA_OVERRIDE_ARRAY=($ICE_EXTRA_OVERRIDES)
+  BASE_OVERRIDES+=("${EXTRA_OVERRIDE_ARRAY[@]}")
 fi
 if test -n "$ICE_UNITE_LR"; then
   test "$ICE_FAMILY" = unite || die "ICE_UNITE_LR applies to the unite family only"

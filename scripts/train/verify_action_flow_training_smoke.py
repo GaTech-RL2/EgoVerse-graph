@@ -71,6 +71,11 @@ APPROVED_EXPERIMENTS = {
         1.0,
         1.0,
     ),
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_lr1e5_s42": (
+        "action_flow_bc_usocket_latent_fm_sg_recon1_lr1e5_s42",
+        1.0,
+        1.0,
+    ),
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": (
         "action_flow_bc_usocket_bridge_likelihood_s42",
         0.0,
@@ -107,6 +112,7 @@ APPROVED_EXPERIMENTS = {
         1.0,
     ),
 }
+LOW_LR_EXPERIMENT = "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_lr1e5_s42"
 EXPECTED_STAGE_TARGETS = (
     "egomimic.pipeline.stages_sampler.FusedObsEncoder",
     "egomimic.pipeline.stages_sampler.GaussianLatentNoise",
@@ -289,6 +295,11 @@ def _validate_config(
 ) -> tuple[DictConfig, dict[str, Any]]:
     _require(experiment in APPROVED_EXPERIMENTS, f"unapproved experiment: {experiment}")
     expected_name, reconstruction_weight, flow_weight = APPROVED_EXPERIMENTS[experiment]
+    expected_lr, expected_eta_min = (
+        (1.0e-5, 1.0e-6)
+        if experiment == LOW_LR_EXPERIMENT
+        else (3.0e-5, 3.0e-6)
+    )
     config = OmegaConf.load(config_path)
     try:
         method = validate_method_contract(config, experiment)
@@ -393,11 +404,11 @@ def _validate_config(
         ("model.pipeline.stages.7.reconstruction_weight", reconstruction_weight),
         ("model.pipeline.stages.7.action_velocity_weight", 1.0),
         ("model.reconstruction_weight", reconstruction_weight),
-        ("model.optimizer.lr", 3.0e-5),
+        ("model.optimizer.lr", expected_lr),
         ("model.optimizer.eps", 1.0e-8),
         ("model.optimizer.weight_decay", 1.0e-4),
         ("model.scheduler.warmup_start_factor", 0.1),
-        ("model.scheduler.eta_min", 3.0e-6),
+        ("model.scheduler.eta_min", expected_eta_min),
         ("trainer.gradient_clip_val", 3.0),
         ("run_provenance.valid_ratio", 0.01),
         ("run_provenance.objective.flow_weight", flow_weight),

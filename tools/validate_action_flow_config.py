@@ -92,9 +92,11 @@ GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
 CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
+LOW_LR_EXPERIMENT = "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_lr1e5_s42"
 LIKELIHOOD_STAGE_TARGETS = EXPECTED_STAGE_TARGETS[:3] + tuple(
     f"egomimic.pipeline.stages_action_flow_likelihood.{name}"
     for name in (
@@ -697,11 +699,16 @@ def _validate_topology(
     }
 
 
-def _validate_optimization(config: DictConfig) -> dict[str, Any]:
+def _validate_optimization(config: DictConfig, experiment: str) -> dict[str, Any]:
+    expected_lr, expected_eta_min = (
+        (1.0e-5, 1.0e-6)
+        if experiment == LOW_LR_EXPERIMENT
+        else (3.0e-5, 3.0e-6)
+    )
     optimizer = config.model.optimizer
     _exact(str(optimizer._target_), "torch.optim.AdamW", "optimizer target")
     _exact(bool(optimizer._partial_), True, "optimizer partial construction")
-    _float(optimizer.lr, 3.0e-5, "learning rate")
+    _float(optimizer.lr, expected_lr, "learning rate")
     _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
     _float(optimizer.eps, 1.0e-8, "Adam epsilon")
     _float(optimizer.weight_decay, 1.0e-4, "weight decay")
@@ -716,7 +723,7 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     _exact(int(scheduler.max_steps), 240_000, "scheduler maximum steps")
     _exact(int(scheduler.warmup_steps), 8_000, "scheduler warmup steps")
     _float(scheduler.warmup_start_factor, 0.1, "warmup start factor")
-    _float(scheduler.eta_min, 3.0e-6, "scheduler floor")
+    _float(scheduler.eta_min, expected_eta_min, "scheduler floor")
 
     trainer = config.trainer
     _exact(int(trainer.max_steps), 240_000, "trainer maximum steps")
@@ -743,13 +750,13 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         "optimizer": {
             "betas": [0.9, 0.999],
             "eps": 1.0e-8,
-            "lr": 3.0e-5,
+            "lr": expected_lr,
             "target": "torch.optim.AdamW",
             "weight_decay": 1.0e-4,
         },
         "precision": "bf16",
         "scheduler": {
-            "eta_min": 3.0e-6,
+            "eta_min": expected_eta_min,
             "max_steps": 240_000,
             "target": "egomimic.utils.schedulers.warmup_cosine_scheduler",
             "warmup_start_factor": 0.1,
@@ -1219,7 +1226,7 @@ def validate_config(
     _float(config.model.pipeline.stages[5].field.time_scale, 1_000.0, "time scale")
 
     data, launch = _validate_data_and_launch(config, config_root=config_root)
-    optimization = _validate_optimization(config)
+    optimization = _validate_optimization(config, experiment)
     pipeline_algo = instantiate(config.model.pipeline, device="cpu")
     _require(isinstance(pipeline_algo, PipelineAlgo), "pipeline did not instantiate")
     stages = tuple(pipeline_algo.pipeline.stages)

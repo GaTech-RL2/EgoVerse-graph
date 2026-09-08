@@ -7,7 +7,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_DATA_ROOT,/coc/flash7/paphiwetsa3/datasets/Tsim_v2}/u_socket_3000_v2_clean
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
       embodiment_override: pushshapes_sim_u_socket
       expected_episode_count: 2999
       expected_episode_names_sha256: 38a22a25ae2c45d18861bcf0c32d139fcf56787d891ba463e9318c27a105dc8e

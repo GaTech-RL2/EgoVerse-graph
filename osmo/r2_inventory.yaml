@@ -45,15 +45,26 @@ workflow:
         echo "===== top level of $PREFIX ====="
         $S5 ls "$PREFIX" || true
 
-        echo "===== per-job episode counts ====="
-        # One line per (job, gap, embodiment) with a distinct-episode count.
+        echo "===== per-job counts ====="
+        # Report the RAW object count alongside the distinct-episode count. If a
+        # listing is being truncated the two move together and the episode
+        # counts come out suspiciously uniform, so print both rather than
+        # trusting either alone.
         for J in $($S5 ls "$PREFIX" | awk '{print $NF}' | grep '/$'); do
           echo "--- $J"
-          $S5 ls "${PREFIX}${J}*" 2>/dev/null \
-            | awk '{print $NF}' \
-            | grep -oE '[a-z]+/[a-z_]+/T_shard[0-9]+/episode_[A-Za-z0-9_]+\.zarr' \
+          $S5 ls "${PREFIX}${J}*" 2>/dev/null | awk '{print $NF}' > /tmp/objs.txt || true
+          echo "    raw objects listed: $(wc -l < /tmp/objs.txt)"
+          grep -oE '[a-z]+/[a-z_]+/T_shard[0-9]+/episode_[A-Za-z0-9_]+\.zarr' /tmp/objs.txt \
             | sed -E 's|([a-z]+)/([a-z_]+)/T_shard[0-9]+/(episode_[A-Za-z0-9_]+)\.zarr|\1 \2 \3|' \
             | sort -u | awk '{print $1, $2}' | sort | uniq -c || true
+          echo "    distinct shards: $(grep -oE 'T_shard[0-9]+' /tmp/objs.txt | sort -u | wc -l)"
+          # Cross-check with an independent per-embodiment listing that cannot
+          # share one global result cap.
+          for E in $(grep -oE '/[a-z]+/[a-z_]+/T_shard' /tmp/objs.txt | awk -F/ '{print $3}' | sort -u); do
+            N=$($S5 ls "${PREFIX}${J}ideal/${E}/*" 2>/dev/null | awk '{print $NF}' \
+                | grep -oE 'episode_[A-Za-z0-9_]+\.zarr' | sort -u | wc -l)
+            echo "    recount ${E}: ${N}"
+          done
         done
         echo "===== done ====="
   resources:

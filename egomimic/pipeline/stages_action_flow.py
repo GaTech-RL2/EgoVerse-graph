@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
@@ -559,8 +560,22 @@ class ContentDecoderStage(Stage):
         checkpointing = getattr(self.decoder, "gradient_checkpointing", None)
         if isinstance(checkpointing, bool):
             self.decoder.gradient_checkpointing = False
+        # CUDA FlashAttention does not implement forward-mode AD. Restrict the
+        # decoder JVP to the mathematically equivalent SDPA math kernel; normal
+        # reconstruction, training, and inference forwards keep their default
+        # optimized attention selection.
+        attention_context = (
+            torch.backends.cuda.sdp_kernel(
+                enable_flash=False,
+                enable_math=True,
+                enable_mem_efficient=False,
+            )
+            if state.is_cuda
+            else nullcontext()
+        )
         try:
-            decoded_residual = jvp(self.decoder, (state,), (residual,))[1]
+            with attention_context:
+                decoded_residual = jvp(self.decoder, (state,), (residual,))[1]
         finally:
             if isinstance(checkpointing, bool):
                 self.decoder.gradient_checkpointing = checkpointing

@@ -80,6 +80,7 @@ AF_STORAGE_VALIDATOR=${AF_STORAGE_VALIDATOR:-$AF_REPO/scripts/train/check_checkp
 AF_SPLIT_MANIFEST=${AF_SPLIT_MANIFEST:-$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json}
 AF_PRECISION=${AF_PRECISION:-bf16}
 AF_SEED=${AF_SEED:-42}
+AF_EXPECTED_GPU_CONSTRAINT=${AF_EXPECTED_GPU_CONSTRAINT:-H100|H200}
 AF_STORAGE_SAFETY_RESERVE_BYTES=${AF_STORAGE_SAFETY_RESERVE_BYTES:-2147483648}
 RESTART_COUNT=${SLURM_RESTART_COUNT:-0}
 LAUNCHER=${BASH_SOURCE[0]}
@@ -112,6 +113,13 @@ case "$AF_EXPERIMENT" in
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
+  pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42)
+    AF_METHOD=latent_fm_stopgrad
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
   pusht/action_flow_bc_usocket_bridge_likelihood_s42)
@@ -195,6 +203,10 @@ test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = \
 [[ "$RESTART_COUNT" =~ ^[0-9]+$ ]] || die "invalid SLURM_RESTART_COUNT"
 test "$RESTART_COUNT" -le "$AF_MAX_RESTARTS" || die "restart limit exceeded"
 test "$AF_PRECISION" = bf16 || die "AF_PRECISION must be bf16"
+case "$AF_EXPECTED_GPU_CONSTRAINT" in
+  H100|H200|'H100|H200') ;;
+  *) die "AF_EXPECTED_GPU_CONSTRAINT must be H100, H200, or H100|H200" ;;
+esac
 if test "$AF_LAUNCH_MODE" = run && test "$AF_RUN_KIND" = smoke \
   && test "$RESTART_COUNT" -ne 0; then
   die "a preempted two-step smoke must be relaunched with a fresh immutable identity"
@@ -746,7 +758,7 @@ scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
   --expected-cpus 8 \
   --expected-memory "$AF_EXPECTED_MEMORY" \
   --expected-time-limit "$AF_EXPECTED_TIME_LIMIT" \
-  --expected-constraint 'H100|H200' \
+  --expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT" \
   --output "$ATTEMPT/SLURM_JOB_CONTRACT.json"
 
 SRUN=$(command -v srun)
@@ -843,11 +855,25 @@ if method != LIKELIHOOD_METHOD:
 else:
     assert effective_warmup_steps == full_warmup_steps == 0
 optimizer, scheduler = cfg.model.optimizer, cfg.model.scheduler
-assert optimizer._target_ == "torch.optim.AdamW" and optimizer._partial_ is True
-assert optimizer.lr == 3e-5 and list(optimizer.betas) == [0.9, 0.999]
-assert optimizer.eps == 1e-8 and optimizer.weight_decay == 1e-4
+if experiment.endswith("_200m_muon_lr1e5_s42"):
+    assert optimizer._target_ == (
+        "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
+    )
+    assert optimizer._partial_ is True and optimizer.lr == 1e-5
+    assert list(optimizer.betas) == [0.9, 0.999] and optimizer.eps == 1e-8
+    assert optimizer.adamw_weight_decay == optimizer.muon_weight_decay == 1e-4
+    assert optimizer.muon_momentum == 0.95
+    assert optimizer.muon_adjust_lr_fn == "match_rms_adamw"
+    assert cfg.model.optimizer_named_parameters is True
+else:
+    assert optimizer._target_ == "torch.optim.AdamW" and optimizer._partial_ is True
+    assert optimizer.lr == 3e-5 and list(optimizer.betas) == [0.9, 0.999]
+    assert optimizer.eps == 1e-8 and optimizer.weight_decay == 1e-4
 assert scheduler.max_steps == 240000 and scheduler.warmup_steps == 8000
-assert scheduler.warmup_start_factor == 0.1 and scheduler.eta_min == 3e-6
+assert scheduler.warmup_start_factor == 0.1
+assert scheduler.eta_min == (
+    1e-6 if experiment.endswith("_200m_muon_lr1e5_s42") else 3e-6
+)
 assert cfg.trainer.accelerator == "gpu"
 assert cfg.trainer.devices == cfg.trainer.num_nodes == 1
 assert cfg.trainer.strategy == "auto" and cfg.trainer.sync_batchnorm is False
@@ -890,11 +916,12 @@ _validate_topology(cfg, pipeline)
 _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
 count = sum(parameter.numel() for parameter in pipeline.nets.parameters())
 if method in (LEGACY_METHOD, STOPGRAD_METHOD):
-    expected_count = (
-        50_801_685
-        if experiment.endswith("_codec98k_s42")
-        else 50_725_221
-    )
+    if experiment.endswith("_200m_muon_lr1e5_s42"):
+        expected_count = 199_754_837
+    elif experiment.endswith("_codec98k_s42"):
+        expected_count = 50_801_685
+    else:
+        expected_count = 50_725_221
     assert count == expected_count, count
 print(f"[run-preflight] PASS kind={run_kind} parameters={count}")
 PY

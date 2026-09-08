@@ -17,7 +17,7 @@ from typing import Any
 SCHEMA_VERSION = 1
 PASS_STATUS = "SLURM_JOB_CONTRACT_VALIDATED"
 FAIL_STATUS = "SLURM_JOB_CONTRACT_FAILED"
-REQUIRED_CONSTRAINT = "H100|H200"
+ALLOWED_CONSTRAINTS = frozenset({"H100", "H200", "H100|H200"})
 _FIELD_RE = re.compile(
     r"(?:^|\s)([A-Za-z][A-Za-z0-9_/:.-]*)=(.*?)"
     r"(?=(?:\s+[A-Za-z][A-Za-z0-9_/:.-]*=)|$)"
@@ -49,9 +49,10 @@ def _positive_int(value: str) -> int:
 
 
 def _constraint(value: str) -> str:
-    if value != REQUIRED_CONSTRAINT:
+    if value not in ALLOWED_CONSTRAINTS:
         raise argparse.ArgumentTypeError(
-            f"must be the exact case-sensitive constraint {REQUIRED_CONSTRAINT!r}"
+            "must be one of the exact case-sensitive constraints "
+            f"{sorted(ALLOWED_CONSTRAINTS)!r}"
         )
     return value
 
@@ -188,10 +189,10 @@ def evaluate_contract(
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     """Return expected values, observed values, and every failed comparison."""
 
-    if expected_constraint != REQUIRED_CONSTRAINT:
+    if expected_constraint not in ALLOWED_CONSTRAINTS:
         raise ContractError(
-            f"constraint must be exactly {REQUIRED_CONSTRAINT!r}, got "
-            f"{expected_constraint!r}"
+            "constraint must be one of "
+            f"{sorted(ALLOWED_CONSTRAINTS)!r}, got {expected_constraint!r}"
         )
     if not expected_job_id or any(character.isspace() for character in expected_job_id):
         raise ContractError("expected job ID must be a non-empty token")
@@ -251,7 +252,7 @@ def evaluate_contract(
         "memory_raw": expected_memory,
         "memory_bytes": expected_memory_bytes,
         "memory_mode": "per_node",
-        "constraint": REQUIRED_CONSTRAINT,
+        "constraint": expected_constraint,
         "time_limit_raw": expected_time_limit,
         "time_limit_seconds": expected_time_limit_seconds,
         "generic_gpu_request_only": True,
@@ -271,7 +272,7 @@ def evaluate_contract(
             observed["minimum_cpus_per_node"],
         ),
         ("memory_bytes", expected_memory_bytes, observed["memory_bytes"]),
-        ("constraint", REQUIRED_CONSTRAINT, observed["constraint"]),
+        ("constraint", expected_constraint, observed["constraint"]),
         (
             "time_limit_seconds",
             expected_time_limit_seconds,
@@ -327,7 +328,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-memory", required=True)
     parser.add_argument("--expected-time-limit", required=True)
     parser.add_argument(
-        "--expected-constraint", required=True, type=_constraint, metavar="H100|H200"
+        "--expected-constraint", required=True, type=_constraint, metavar="GPU_CONSTRAINT"
     )
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()

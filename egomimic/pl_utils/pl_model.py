@@ -278,7 +278,7 @@ class ModelWrapper(LightningModule):
             cfg = self._as_config(config_tree)
             optimizer = hydra.utils.instantiate(
                 cfg.model.optimizer,
-                params=self.trainer.model.parameters(),
+                **self._optimizer_instantiation_kwargs(cfg),
             )
             if callable(optimizer):
                 optimizer = optimizer()
@@ -305,6 +305,11 @@ class ModelWrapper(LightningModule):
                 },
             }
         return {"optimizer": optimizer}
+
+    def _optimizer_instantiation_kwargs(self, cfg) -> Dict[str, Any]:
+        """Return the parameter binding expected by the configured optimizer."""
+
+        return {"params": self.trainer.model.parameters()}
 
     def on_fit_start(self):
         self.model.device = self.device

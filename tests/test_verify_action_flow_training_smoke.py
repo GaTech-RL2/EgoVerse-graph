@@ -30,9 +30,15 @@ SPEC.loader.exec_module(MODULE)
 HEAD = "a" * 40
 
 
-def _resolved_smoke_config(tmp_path: Path, *, reconstruction_weight: float = 1.0):
-    suffix = {1.0: "1", 10.0: "10", 100.0: "100"}[reconstruction_weight]
-    experiment = f"pusht/action_flow_bc_usocket_recon{suffix}_s42"
+def _resolved_smoke_config(
+    tmp_path: Path,
+    *,
+    reconstruction_weight: float = 1.0,
+    experiment: str | None = None,
+):
+    if experiment is None:
+        suffix = {1.0: "1", 10.0: "10", 100.0: "100"}[reconstruction_weight]
+        experiment = f"pusht/action_flow_bc_usocket_recon{suffix}_s42"
     cfg = compose_experiment(experiment)
     run_dir = tmp_path / "run"
     run_dir.mkdir()
@@ -87,6 +93,30 @@ def test_config_gate_accepts_only_exact_two_step_contract(tmp_path, monkeypatch)
         identities["config_sha256"]
         == hashlib.sha256(config_path.read_bytes()).hexdigest()
     )
+
+
+def test_config_gate_accepts_option_a_200m_muon_contract(tmp_path, monkeypatch):
+    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
+        tmp_path,
+        experiment=(
+            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+        ),
+    )
+    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+
+    config, _ = MODULE._validate_config(
+        config_path=config_path,
+        experiment=experiment,
+        run_dir=run_dir,
+        expected_head=HEAD,
+        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        expected_split_sha256=None,
+        expected_normalization_sha256=normalization_hash,
+    )
+
+    assert config.model.pipeline.stages[5].field.hidden_dim == 1_024
+    assert config.model.pipeline.stages[5].field.depth == 14
+    assert config.model.optimizer.lr == pytest.approx(1.0e-5)
 
 
 @pytest.mark.parametrize(
@@ -551,6 +581,22 @@ def test_cli_accepts_codec98k_experiment():
     assert args.experiment.endswith("recon1_codec98k_s42")
 
 
+def test_cli_accepts_option_a_200m_muon_experiment():
+    args = MODULE._parser().parse_args(
+        [
+            "/tmp/run",
+            "--expected-head",
+            HEAD,
+            "--expected-experiment",
+            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+            "--expected-preflight-sha256",
+            "d" * 64,
+        ]
+    )
+
+    assert args.experiment.endswith("recon1_200m_muon_lr1e5_s42")
+
+
 def test_gpu_probe_gate_requires_real_single_h100_or_h200_bf16(tmp_path):
     path = tmp_path / "provenance/restart-0/gpu_probe.json"
     path.parent.mkdir(parents=True)
@@ -598,6 +644,50 @@ def test_gpu_probe_gate_rejects_non_target_gpu(tmp_path):
 
     with pytest.raises(MODULE.SmokeVerificationError, match="H100 or H200"):
         MODULE._validate_gpu_probes(tmp_path)
+
+
+def _scaled_muon_optimizer_state():
+    return {
+        "adamw": {
+            "state": {0: {"exp_avg": torch.zeros(1)}},
+            "param_groups": [{"lr": 1.0e-5, "params": [0]}],
+        },
+        "muon": {
+            "state": {1: {"momentum_buffer": torch.zeros(1)}},
+            "param_groups": [{"lr": 1.0e-5, "params": [1]}],
+        },
+        "group_manifest": {
+            "adamw_parameter_names": ("encoder.bias",),
+            "muon_parameter_names": ("field.weight",),
+            "muon_source_commit": "a" * 40,
+        },
+    }
+
+
+def test_optimizer_state_gate_accepts_scaled_muon_composite_state():
+    config = OmegaConf.create(
+        {
+            "name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+        }
+    )
+
+    MODULE._validate_optimizer_state(_scaled_muon_optimizer_state(), config)
+
+
+@pytest.mark.parametrize("group", ["adamw", "muon"])
+def test_optimizer_state_gate_rejects_empty_scaled_muon_nested_state(group):
+    config = OmegaConf.create(
+        {
+            "name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+        }
+    )
+    optimizer_state = _scaled_muon_optimizer_state()
+    optimizer_state[group]["state"] = {}
+
+    with pytest.raises(
+        MODULE.SmokeVerificationError, match=f"{group} optimizer state is empty"
+    ):
+        MODULE._validate_optimizer_state(optimizer_state, config)
 
 
 def _checkpoint_payload():

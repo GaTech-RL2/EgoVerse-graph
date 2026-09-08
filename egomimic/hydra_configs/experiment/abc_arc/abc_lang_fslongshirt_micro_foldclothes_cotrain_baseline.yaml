@@ -1,0 +1,91 @@
+# @package _global_
+# Language-conditioned twin of abc_fstshirt_mecka_freefold_cotrain_baseline.
+#
+# Same episodes and limits as the DP cotrain, but the model is the 300M pooled
+# Qwen HPT (time-indexed horizon 100). Annotations are turned on by merging
+# annotation_key onto the existing data mix rather than copying allowlists.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_lang_fslongshirt_micro_foldclothes_cotrain_baseline
+defaults:
+  - /experiment/abc_arc/hpt_qwen_300M_knobs
+  - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled
+  - override /data: abc_arc/abc_fstshirt_mecka_freefold_baseline_cotrain
+  - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
+  - override /hydra/launcher: submitit_pace
+  - _self_
+
+name: abc_lang_fslongshirt_micro_foldclothes_cotrain_baseline
+description: qwen_pooled_baseline
+
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 2
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+      - abc
+      - cotrain
+      - baseline
+      - qwen
+      - hpt
+      - lang
+
+hpt:
+  action_horizon: 100
+
+# Existing mix has no annotation_key. Merge it onto every source so the
+# AnnotationPromptStage's `annotations` read is actually in the batch.
+data:
+  train_datasets:
+    human_bimanual:
+      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+      resolver:
+        key_map:
+          annotation_key: annotations
+    yam_bimanual:
+      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+      resolver:
+        key_map:
+          annotation_key: annotations
+  valid_datasets:
+    human_bimanual:
+      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+      resolver:
+        key_map:
+          annotation_key: annotations
+    yam_bimanual:
+      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+      resolver:
+        key_map:
+          annotation_key: annotations
+
+evaluator:
+  arc_metrics: true
+  arcmatch_distance: 0.40
+  arcmatch_points: 32
+  arc_chunk_rows: 45
+  resampled_vector_length: 100
+  velocity_mode: per_waypoint
+  rot_lever_m: 0.1

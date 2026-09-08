@@ -170,6 +170,8 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(
         "angular_bins": 4,
         "log_every": 1,
     }
+    if adapter_objective == "action_velocity":
+        config["gradient_telemetry_every"] = 1
     config_path.write_text(json.dumps(config))
     _run(source, config_path)
     checkpoints = list((output / "checkpoints").glob("*.pt"))
@@ -186,6 +188,16 @@ def test_action_adapter_training_uses_50k_default_and_real_validation(
         "validation_decoder_jacobian_singular_max",
     ):
         assert np.isfinite(summary[key])
+    if adapter_objective == "action_velocity":
+        rows = [
+            json.loads(line)
+            for line in (output / "metrics.jsonl").read_text().splitlines()
+        ]
+        for row in rows:
+            assert np.isfinite(row["gradient_cosine_fm_action_velocity"])
+            assert np.isfinite(
+                row["gradient_cosine_action_velocity_reconstruction"]
+            )
 
 
 def test_projected_invertible_training_has_exact_lift_diagnostics(tmp_path):

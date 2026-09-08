@@ -400,7 +400,7 @@ class ModelWrapper(LightningModule):
             cfg = self._as_config(config_tree)
             optimizer = hydra.utils.instantiate(
                 cfg.model.optimizer,
-                **self.training_behavior.optimizer_instantiation_kwargs(cfg),
+                **self._optimizer_instantiation_kwargs(cfg),
             )
             if callable(optimizer):
                 optimizer = optimizer()
@@ -428,43 +428,10 @@ class ModelWrapper(LightningModule):
             }
         return {"optimizer": optimizer}
 
-    def _default_optimizer_instantiation_kwargs(self, cfg) -> Dict[str, Any]:
+    def _optimizer_instantiation_kwargs(self, cfg) -> Dict[str, Any]:
         """Return the parameter binding expected by the configured optimizer."""
 
         return {"params": self.trainer.model.parameters()}
-
-    @torch.inference_mode()
-    def forward_eval(self, batch):
-        return self.training_behavior.forward_eval(batch)
-
-    def _default_forward_eval(self, batch):
-        processed = (
-            batch
-            if batch is self._active_validation_batch
-            else self.model.process_batch_for_training(batch)
-        )
-        return self.model.forward_eval(processed)
-
-    def run_diagnostic(self, capability: str, batch, **kwargs):
-        provider = self.diagnostic_provider
-        if provider is None or provider.capability != capability:
-            available = None if provider is None else provider.capability
-            raise RuntimeError(
-                f"Model does not provide diagnostic capability {capability!r}; "
-                f"configured capability is {available!r}"
-            )
-        return provider.run(
-            self.model,
-            batch,
-            already_processed=batch is self._active_validation_batch,
-            **kwargs,
-        )
-
-    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        self.training_behavior.on_save_checkpoint(checkpoint)
-
-    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        self.training_behavior.on_load_checkpoint(checkpoint)
 
     def on_fit_start(self):
         self.model.device = self.device

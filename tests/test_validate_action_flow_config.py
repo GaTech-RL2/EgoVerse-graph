@@ -92,6 +92,27 @@ def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
     assert report["parameters"]["pipeline_total"]["total"] == 50_801_685
 
 
+def test_option_a_200m_muon_config_has_exact_capacity_optimizer_and_schedule():
+    report, _ = preflight.validate_experiment(
+        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+        config_root=CONFIG_ROOT,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["parameters"]["encoder_e"]["total"] == 1_010_420
+    assert report["parameters"]["decoder_g"]["total"] == 1_010_416
+    assert report["parameters"]["field_v"]["total"] == 186_536_913
+    assert report["parameters"]["pipeline_total"]["total"] == 199_754_837
+    optimization = report["optimization"]
+    assert optimization["optimizer"]["target"].endswith(
+        "ReleasedUniteCompositeOptimizer"
+    )
+    assert optimization["optimizer"]["lr"] == pytest.approx(1.0e-5)
+    assert optimization["scheduler"]["eta_min"] == pytest.approx(1.0e-6)
+    assert optimization["parameter_groups"]["complete"] is True
+    assert optimization["parameter_groups"]["disjoint"] is True
+
+
 def test_resolved_hash_is_stable_and_uses_runtime_sentinels():
     first = preflight.compose_experiment(
         "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT

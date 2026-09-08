@@ -105,6 +105,17 @@ def test_contract_cli_writes_immutable_pass_evidence(tmp_path):
     assert json.loads(output.read_text())["status"] == "SLURM_JOB_CONTRACT_VALIDATED"
 
 
+@pytest.mark.parametrize("constraint", ["H100", "H200", "H100|H200"])
+def test_exact_supported_gpu_constraints_pass(constraint):
+    module = _load_module()
+    fields = module.parse_scontrol_record(_record(Features=constraint))
+    expectations = _expectations()
+    expectations["expected_constraint"] = constraint
+    expected, _, failures = module.evaluate_contract(fields, **expectations)
+    assert failures == []
+    assert expected["constraint"] == constraint
+
+
 @pytest.mark.parametrize(
     ("replacement", "failure_field"),
     [

@@ -60,6 +60,9 @@ from egomimic.pipeline.stages_sampler import (  # noqa: E402
 from egomimic.rldb.zarr.content_manifest import (  # noqa: E402
     validate_content_manifest,
 )
+from egomimic.utils.unite_optim import (  # noqa: E402
+    partition_released_unite_parameters,
+)
 
 SCHEMA_VERSION = 1
 DEFAULT_CONFIG_ROOT = REPOSITORY_ROOT / "egomimic" / "hydra_configs"
@@ -90,9 +93,13 @@ LEGACY_METHOD = "action_flow_joint"
 LIKELIHOOD_METHOD = "gaussian_bridge_likelihood"
 GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
+SCALED_MUON_CONFIG_NAME = (
+    "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+)
 CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -504,12 +511,13 @@ def _validate_dimensions_and_modules(
     _require(isinstance(decoder, ContextFreeSequenceDecoder), "wrong g")
     field = field_stage.field
     codec_profile = (int(encoder.hidden_dim), int(encoder.feedforward_dim))
-    expected_codec_profile = (
-        (44, 176)
-        if str(config.name)
-        == "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
-        else (20, 80)
-    )
+    config_name = str(config.name)
+    if config_name == SCALED_MUON_CONFIG_NAME:
+        expected_codec_profile = (204, 816)
+    elif config_name == "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42":
+        expected_codec_profile = (44, 176)
+    else:
+        expected_codec_profile = (20, 80)
     _exact(codec_profile, expected_codec_profile, "typed reconstruction codec profile")
     codec_expected = {
         "horizon": 16,
@@ -545,16 +553,17 @@ def _validate_dimensions_and_modules(
         "decoder g context-free forward signature",
     )
 
+    scaled_muon = config_name == SCALED_MUON_CONFIG_NAME
     field_expected = {
         "input_dim": 8,
         "output_dim": 8,
         "horizon": 16,
         "condition_dim": 67,
-        "hidden_dim": 512,
-        "depth": 12,
-        "num_heads": 8,
-        "feedforward_dim": 2048,
-        "time_embedding_dim": 512,
+        "hidden_dim": 1024 if scaled_muon else 512,
+        "depth": 14 if scaled_muon else 12,
+        "num_heads": 16 if scaled_muon else 8,
+        "feedforward_dim": 4224 if scaled_muon else 2048,
+        "time_embedding_dim": 1024 if scaled_muon else 512,
     }
     for attribute, expected in field_expected.items():
         _exact(getattr(field, attribute), expected, f"field v {attribute}")
@@ -626,19 +635,21 @@ def _validate_dimensions_and_modules(
         parameters["encoder_e"]["total"],
         parameters["decoder_g"]["total"],
     )
-    expected_codec_parameter_counts = (
-        (48_980, 48_976)
-        if expected_codec_profile == (44, 176)
-        else (10_748, 10_744)
-    )
+    expected_codec_parameter_counts = {
+        (20, 80): (10_748, 10_744),
+        (44, 176): (48_980, 48_976),
+        (204, 816): (1_010_420, 1_010_416),
+    }[expected_codec_profile]
     _exact(
         codec_parameter_counts,
         expected_codec_parameter_counts,
         "typed reconstruction codec parameter counts",
     )
-    _require(
-        39_000_000 <= parameters["field_v"]["total"] <= 41_000_000,
-        "field v must contain 39M to 41M parameters",
+    expected_field_parameters = 186_536_913 if scaled_muon else 39_506_641
+    _exact(
+        parameters["field_v"]["total"],
+        expected_field_parameters,
+        "typed field parameter count",
     )
     for label, counts in parameters.items():
         _require(counts["total"] > 0, f"{label} has no parameters")
@@ -720,12 +731,35 @@ def _validate_topology(
 
 def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     optimizer = config.model.optimizer
-    _exact(str(optimizer._target_), "torch.optim.AdamW", "optimizer target")
+    scaled_muon = str(config.name) == SCALED_MUON_CONFIG_NAME
+    expected_optimizer = (
+        "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
+        if scaled_muon
+        else "torch.optim.AdamW"
+    )
+    expected_lr = 1.0e-5 if scaled_muon else 3.0e-5
+    expected_floor = 1.0e-6 if scaled_muon else 3.0e-6
+    _exact(str(optimizer._target_), expected_optimizer, "optimizer target")
     _exact(bool(optimizer._partial_), True, "optimizer partial construction")
-    _float(optimizer.lr, 3.0e-5, "learning rate")
+    _float(optimizer.lr, expected_lr, "learning rate")
     _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
     _float(optimizer.eps, 1.0e-8, "Adam epsilon")
-    _float(optimizer.weight_decay, 1.0e-4, "weight decay")
+    if scaled_muon:
+        _float(optimizer.adamw_weight_decay, 1.0e-4, "AdamW weight decay")
+        _float(optimizer.muon_weight_decay, 1.0e-4, "Muon weight decay")
+        _float(optimizer.muon_momentum, 0.95, "Muon momentum")
+        _exact(
+            str(optimizer.muon_adjust_lr_fn),
+            "match_rms_adamw",
+            "Muon LR adjustment",
+        )
+        _exact(
+            bool(config.model.optimizer_named_parameters),
+            True,
+            "named optimizer binding",
+        )
+    else:
+        _float(optimizer.weight_decay, 1.0e-4, "weight decay")
 
     scheduler = config.model.scheduler
     _exact(
@@ -737,7 +771,7 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     _exact(int(scheduler.max_steps), 240_000, "scheduler maximum steps")
     _exact(int(scheduler.warmup_steps), 8_000, "scheduler warmup steps")
     _float(scheduler.warmup_start_factor, 0.1, "warmup start factor")
-    _float(scheduler.eta_min, 3.0e-6, "scheduler floor")
+    _float(scheduler.eta_min, expected_floor, "scheduler floor")
 
     trainer = config.trainer
     _exact(int(trainer.max_steps), 240_000, "trainer maximum steps")
@@ -764,13 +798,13 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         "optimizer": {
             "betas": [0.9, 0.999],
             "eps": 1.0e-8,
-            "lr": 3.0e-5,
-            "target": "torch.optim.AdamW",
+            "lr": expected_lr,
+            "target": expected_optimizer,
             "weight_decay": 1.0e-4,
         },
         "precision": "bf16",
         "scheduler": {
-            "eta_min": 3.0e-6,
+            "eta_min": expected_floor,
             "max_steps": 240_000,
             "target": "egomimic.utils.schedulers.warmup_cosine_scheduler",
             "warmup_start_factor": 0.1,
@@ -1104,7 +1138,15 @@ def _validate_data_and_launch(
                 int(key): int(value)
                 for key, value in diagnostics.activation_layer_map.items()
             },
-            {} if action_flow_method(config) == GRAPH_METHOD else {0: 0, 1: 11},
+            (
+                {}
+                if action_flow_method(config) == GRAPH_METHOD
+                else (
+                    {0: 0, 1: 13}
+                    if str(config.name) == SCALED_MUON_CONFIG_NAME
+                    else {0: 0, 1: 11}
+                )
+            ),
             "diagnostic activation layer map",
         )
         _exact(
@@ -1254,6 +1296,28 @@ def validate_config(
         if name != "pipeline_total"
     )
     _exact(accounted, parameters["pipeline_total"]["total"], "parameter accounting")
+    if str(config.name) == SCALED_MUON_CONFIG_NAME:
+        _exact(
+            parameters["pipeline_total"]["total"],
+            199_754_837,
+            "Option-A total parameter count",
+        )
+        adamw_named, muon_named = partition_released_unite_parameters(
+            pipeline_algo.nets.named_parameters(prefix="nets", remove_duplicate=True)
+        )
+        grouped = (*adamw_named, *muon_named)
+        _exact(len({id(parameter) for _, parameter in grouped}), len(grouped), "optimizer group disjointness")
+        _exact(
+            sum(parameter.numel() for _, parameter in grouped),
+            parameters["pipeline_total"]["trainable"],
+            "optimizer group coverage",
+        )
+        optimization["parameter_groups"] = {
+            "adamw_parameters": sum(parameter.numel() for _, parameter in adamw_named),
+            "muon_parameters": sum(parameter.numel() for _, parameter in muon_named),
+            "complete": True,
+            "disjoint": True,
+        }
 
     objective_report = OmegaConf.to_container(
         config.run_provenance.objective, resolve=True

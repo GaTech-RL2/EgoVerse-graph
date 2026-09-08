@@ -48,6 +48,8 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "--gres=gpu:1 --constraint='H100|H200'" in source
     assert '--allowed-gpu-name "NVIDIA H100 80GB HBM3"' in source
     assert '--allowed-gpu-name "NVIDIA H200"' in source
+    assert "AF_EXPECTED_GPU_CONSTRAINT" in source
+    assert '--expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT"' in source
     assert "trainer.devices=1" in source
     assert "trainer.strategy=auto" in source
     assert "#SBATCH --requeue" in source
@@ -68,6 +70,7 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "pusht/action_flow_bc_usocket_recon10_s42" in source
     assert "pusht/action_flow_bc_usocket_recon100_s42" in source
     assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42" in source
+    assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42" in source
@@ -95,8 +98,11 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert '"runtime_lock_sha256": digest(runtime_lock_path)' in source
     assert 'current["installed_distributions"]["canonical_sha256"]' in source
     assert "[run-preflight] PASS kind={run_kind} parameters={count}" in source
-    assert "else 50_725_221" in source
+    assert "expected_count = 50_725_221" in source
     assert "50_801_685" in source
+    assert "expected_count = 199_754_837" in source
+    assert "ReleasedUniteCompositeOptimizer" in source
+    assert 'optimizer.muon_adjust_lr_fn == "match_rms_adamw"' in source
 
 
 def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
@@ -108,7 +114,7 @@ def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
     assert "TELEMETRY_EVERY=2" in source
     assert "verify_action_flow_training_smoke.py" in source
     assert "--planned-checkpoint-count 14" in source
-    assert "--expected-constraint 'H100|H200'" in source
+    assert '--expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT"' in source
     assert "--expected-reconstruction-weight" in source
     assert "--expected-config-sha256" in source
     assert (

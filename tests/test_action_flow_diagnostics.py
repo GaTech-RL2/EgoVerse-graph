@@ -100,6 +100,7 @@ def _diagnostic(
     action_dim=2,
     latent_tokens=2,
     action_horizon=None,
+    zero_clean=False,
 ):
     batch_size, horizon, latent_dim = 6, latent_tokens, 3
     action_horizon = horizon if action_horizon is None else int(action_horizon)
@@ -117,6 +118,8 @@ def _diagnostic(
         .div(10.0)
         .add(0.25)
     )
+    if zero_clean:
+        clean = torch.zeros_like(clean)
     noise = torch.flip(clean, dims=(0,)).neg().sub(0.5)
     fixed_states = torch.stack(
         [(1.0 - level) * clean + level * noise for level in levels]
@@ -370,6 +373,23 @@ def test_action_flow_diagnostics_allow_latent_tokens_to_differ_from_action_horiz
     saved = payload["sources"]["pushshapes_sim_u_socket"]["diagnostic"]
     assert saved["latent/clean"].shape == (6, 2, 3)
     assert saved["target"].shape == (6, 4, 2)
+
+
+def test_action_flow_diagnostics_reject_undefined_zero_target_cosine(tmp_path):
+    diagnostic = _diagnostic(zero_clean=True)
+    runner = ActionFlowDiagnostics(_config(tmp_path))
+
+    with pytest.raises(ValueError, match="zero clean-latent norm"):
+        runner.run(
+            model=_DiagnosticModel(diagnostic),
+            batch=_batch(diagnostic["target"]),
+            batch_idx=0,
+            rank=0,
+            epoch=0,
+            global_step=1,
+            precision="bf16-mixed",
+            source_labels={"validation/usocket": "usocket"},
+        )
 
 
 def test_action_flow_artifacts_preserve_slurm_attempts_and_same_attempt_refusal(tmp_path, monkeypatch):

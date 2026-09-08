@@ -309,7 +309,10 @@ fi
 
 if test "$AF_RUN_KIND" = smoke; then
   MAX_STEPS=2
-  VALIDATE_EVERY=1
+  # Released UNITE initializes both DiT output projections to exactly zero and
+  # the first warmup optimizer update has LR=0. Validate after the second real
+  # update so cosine diagnostics observe a learned, non-degenerate latent.
+  VALIDATE_EVERY=2
   LIMIT_TRAIN_BATCHES=2
   LIMIT_VAL_BATCHES=1
   CHECKPOINT_EVERY=1
@@ -935,7 +938,8 @@ assert str(cfg.trainer.precision) == "bf16"
 assert cfg.trainer.accumulate_grad_batches == 1
 if run_kind == "smoke":
     assert cfg.trainer.max_steps == cfg.trainer.limit_train_batches == 2
-    assert cfg.trainer.val_check_interval == cfg.trainer.limit_val_batches == 1
+    assert cfg.trainer.val_check_interval == 2
+    assert cfg.trainer.limit_val_batches == 1
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 1
     assert cfg.model.gradient_telemetry_cadence == 2
 else:

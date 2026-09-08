@@ -646,6 +646,50 @@ def test_gpu_probe_gate_rejects_non_target_gpu(tmp_path):
         MODULE._validate_gpu_probes(tmp_path)
 
 
+def _scaled_muon_optimizer_state():
+    return {
+        "adamw": {
+            "state": {0: {"exp_avg": torch.zeros(1)}},
+            "param_groups": [{"lr": 1.0e-5, "params": [0]}],
+        },
+        "muon": {
+            "state": {1: {"momentum_buffer": torch.zeros(1)}},
+            "param_groups": [{"lr": 1.0e-5, "params": [1]}],
+        },
+        "group_manifest": {
+            "adamw_parameter_names": ("encoder.bias",),
+            "muon_parameter_names": ("field.weight",),
+            "muon_source_commit": "a" * 40,
+        },
+    }
+
+
+def test_optimizer_state_gate_accepts_scaled_muon_composite_state():
+    config = OmegaConf.create(
+        {
+            "name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+        }
+    )
+
+    MODULE._validate_optimizer_state(_scaled_muon_optimizer_state(), config)
+
+
+@pytest.mark.parametrize("group", ["adamw", "muon"])
+def test_optimizer_state_gate_rejects_empty_scaled_muon_nested_state(group):
+    config = OmegaConf.create(
+        {
+            "name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+        }
+    )
+    optimizer_state = _scaled_muon_optimizer_state()
+    optimizer_state[group]["state"] = {}
+
+    with pytest.raises(
+        MODULE.SmokeVerificationError, match=f"{group} optimizer state is empty"
+    ):
+        MODULE._validate_optimizer_state(optimizer_state, config)
+
+
 def _checkpoint_payload():
     return {
         "global_step": 2,

@@ -984,6 +984,46 @@ def _validate_checkpoint_loss_schedule(
     return warmup_steps
 
 
+def _validate_optimizer_state(
+    optimizer_state: Any, config: DictConfig | None
+) -> None:
+    _require(isinstance(optimizer_state, Mapping), "optimizer state is not a mapping")
+    scaled_muon = (
+        config is not None
+        and str(config.get("name", ""))
+        == APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0]
+    )
+    if not scaled_muon:
+        _require(bool(optimizer_state.get("state")), "AdamW optimizer state is empty")
+        return
+
+    _require(
+        set(optimizer_state) == {"adamw", "muon", "group_manifest"},
+        "Muon composite optimizer state has unexpected keys",
+    )
+    for label in ("adamw", "muon"):
+        nested = optimizer_state[label]
+        _require(
+            isinstance(nested, Mapping) and bool(nested.get("state")),
+            f"{label} optimizer state is empty",
+        )
+        _require(
+            isinstance(nested.get("param_groups"), list)
+            and bool(nested["param_groups"]),
+            f"{label} optimizer parameter groups are empty",
+        )
+    manifest = optimizer_state["group_manifest"]
+    _require(isinstance(manifest, Mapping), "Muon optimizer manifest is missing")
+    _require(
+        bool(manifest.get("adamw_parameter_names")),
+        "Muon optimizer AdamW parameter manifest is empty",
+    )
+    _require(
+        bool(manifest.get("muon_parameter_names")),
+        "Muon optimizer Muon parameter manifest is empty",
+    )
+
+
 def _validate_checkpoint(
     run_dir: Path,
     *,
@@ -1023,11 +1063,7 @@ def _validate_checkpoint(
         isinstance(optimizer_states, list) and len(optimizer_states) == 1,
         "checkpoint must contain exactly one optimizer state",
     )
-    _require(
-        isinstance(optimizer_states[0], Mapping)
-        and bool(optimizer_states[0].get("state")),
-        "AdamW optimizer state is empty",
-    )
+    _validate_optimizer_state(optimizer_states[0], config)
     _require(
         isinstance(scheduler_states, list) and len(scheduler_states) == 1,
         "checkpoint must contain exactly one scheduler state",

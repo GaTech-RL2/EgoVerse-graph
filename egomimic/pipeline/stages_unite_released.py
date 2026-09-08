@@ -64,6 +64,7 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         "unite/flow_loss",
         "unite/action_velocity_loss",
         "unite/action_velocity_sample_count",
+        "unite/decoded_action_loss",
     ]
     reads_by_mode = {
         "inference": ["sampler/noise", "condition", "embodiment"],
@@ -80,6 +81,7 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         flow_steps_per_reconstruction: int = 14,
         flow_mini_batch: int = 14,
         action_velocity_samples_per_reconstruction: int = 0,
+        decoded_action_samples_per_reconstruction: int = 0,
         train_eps: float = 0.05,
         sample_eps: float = 0.05,
         lognorm_mu: float = 0.0,
@@ -101,6 +103,9 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         self.flow_mini_batch = int(flow_mini_batch)
         self.action_velocity_samples_per_reconstruction = int(
             action_velocity_samples_per_reconstruction
+        )
+        self.decoded_action_samples_per_reconstruction = int(
+            decoded_action_samples_per_reconstruction
         )
         self.train_eps = float(train_eps)
         self.sample_eps = float(sample_eps)
@@ -133,6 +138,12 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             raise ValueError("timestep_shift_alpha must be positive")
         if self.flow_steps_per_reconstruction <= 0 or self.flow_mini_batch <= 0:
             raise ValueError("UNITE flow sample counts must be positive")
+        if not 0 <= self.decoded_action_samples_per_reconstruction <= (
+            self.flow_steps_per_reconstruction
+        ):
+            raise ValueError(
+                "decoded-action samples must be in [0, flow_steps_per_reconstruction]"
+            )
         if not 0 <= self.action_velocity_samples_per_reconstruction <= (
             self.flow_steps_per_reconstruction
         ):
@@ -256,6 +267,49 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
     def _flow_chunks(total: int, size: int) -> tuple[int, ...]:
         full, remainder = divmod(int(total), int(size))
         return (*([int(size)] * full), *((int(remainder),) if remainder else ()))
+
+    def _decoded_action_loss(
+        self,
+        clean_latent: torch.Tensor,
+        target: torch.Tensor,
+        condition: torch.Tensor,
+        embodiment: str,
+    ) -> torch.Tensor:
+        """Supervise the flow through the decoder, against the real actions.
+
+        Baseline UNITE trains the denoiser to predict ``Z_0``, a code the
+        tokenizer is still moving; the flow therefore chases a target that
+        shifts under it, while a diffusion policy fits the fixed action
+        distribution. Elmo's action-velocity term addresses the same gap but
+        does so with a decoder JVP, which is a first-order approximation and
+        costs a double backward.
+
+        Here the denoiser's predicted clean latent is simply decoded and
+        matched to the ground-truth chunk: exact, no JVP, and anchored to a
+        target that never moves. ``Z_0`` stays detached, so this shapes the
+        denoiser and decoder without feeding back into the tokenizer.
+        """
+
+        samples = self.decoded_action_samples_per_reconstruction
+        if samples == 0:
+            return clean_latent.new_zeros(())
+        detached_clean = clean_latent.detach()
+        batch_size = int(detached_clean.shape[0])
+        repeated_clean = detached_clean.repeat(samples, 1, 1)
+        repeated_condition = self._condition_with_dropout(
+            condition.repeat(samples, *([1] * (condition.ndim - 1))),
+            embodiment,
+        )
+        repeated_target = target.repeat(samples, *([1] * (target.ndim - 1)))
+        time = self._sample_flow_time(batch_size * samples, detached_clean.device)
+        time_view = time.reshape(batch_size * samples, 1, 1).to(detached_clean)
+        noise = torch.randn_like(repeated_clean)
+        corrupted = time_view * repeated_clean + (1.0 - time_view) * noise
+        predicted_clean = self.generative_encoder.denoise(
+            corrupted, time, repeated_condition, embodiment
+        )
+        decoded = self._decode(predicted_clean, embodiment)
+        return (decoded - repeated_target).square().mean()
 
     def _released_flow_loss(
         self,
@@ -582,6 +636,9 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
                 clean_latent, batch["condition"], embodiment
             )
         )
+        decoded_action_loss = self._decoded_action_loss(
+            clean_latent, target, batch["condition"], embodiment
+        )
         batch.update(
             {
                 "unite/clean_latent": clean_latent,
@@ -589,6 +646,7 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
                 "unite/flow_loss": flow_loss,
                 "unite/action_velocity_loss": action_velocity_loss,
                 "unite/action_velocity_sample_count": action_velocity_sample_count,
+                "unite/decoded_action_loss": decoded_action_loss,
             }
         )
         return batch
@@ -631,6 +689,7 @@ class ReleasedRecipeUniteObjective(Stage):
         "unite/flow_loss",
         "unite/action_velocity_loss",
         "unite/action_velocity_sample_count",
+        "unite/decoded_action_loss",
     ]
     writes = ["loss/*", "log/*"]
 
@@ -639,11 +698,13 @@ class ReleasedRecipeUniteObjective(Stage):
         reconstruction_weight: float = 1.0,
         flow_weight: float = 1.0,
         action_velocity_weight: float = 0.0,
+        decoded_action_weight: float = 0.0,
     ):
         super().__init__()
         self.reconstruction_weight = float(reconstruction_weight)
         self.flow_weight = float(flow_weight)
         self.action_velocity_weight = float(action_velocity_weight)
+        self.decoded_action_weight = float(decoded_action_weight)
         if self.reconstruction_weight <= 0.0 or self.flow_weight <= 0.0:
             raise ValueError("Released UNITE loss weights must be positive")
         if not torch.isfinite(torch.tensor(self.action_velocity_weight)) or (
@@ -651,6 +712,12 @@ class ReleasedRecipeUniteObjective(Stage):
         ):
             raise ValueError(
                 "UNITE-AV action_velocity_weight must be finite and non-negative"
+            )
+        if not torch.isfinite(torch.tensor(self.decoded_action_weight)) or (
+            self.decoded_action_weight < 0.0
+        ):
+            raise ValueError(
+                "decoded_action_weight must be finite and non-negative"
             )
 
     def forward(self, batch: dict) -> dict:
@@ -681,6 +748,12 @@ class ReleasedRecipeUniteObjective(Stage):
         batch["loss/unite_action_velocity"] = (
             self.action_velocity_weight * action_velocity
         )
+        decoded_action = batch["unite/decoded_action_loss"]
+        if decoded_action.ndim != 0 or not bool(torch.isfinite(decoded_action)):
+            raise RuntimeError("decoded-action loss must be a finite scalar")
+        batch["loss/unite_decoded_action"] = (
+            self.decoded_action_weight * decoded_action
+        )
         batch["log/unite_reconstruction"] = reconstruction.detach()
         batch["log/unite_reconstruction_l1"] = reconstruction_l1.detach()
         batch["log/unite_latent"] = flow.detach()
@@ -688,4 +761,5 @@ class ReleasedRecipeUniteObjective(Stage):
         batch["log/unite_action_velocity_sample_count"] = float(
             action_velocity_sample_count
         )
+        batch["log/unite_decoded_action"] = decoded_action.detach()
         return batch

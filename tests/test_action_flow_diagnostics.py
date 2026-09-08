@@ -28,6 +28,13 @@ from egomimic.pl_utils.pl_model_action_flow import ActionFlowModelWrapper
 _CONFIG_DIR = Path(__file__).parents[1] / "egomimic/hydra_configs"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_scheduler_execution_identity(monkeypatch):
+    """Keep artifact-path tests independent of the scheduler running pytest."""
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.delenv("SLURM_RESTART_COUNT", raising=False)
+
+
 class _IdentityNormalizer:
     @staticmethod
     def unnormalize(values, _selector):

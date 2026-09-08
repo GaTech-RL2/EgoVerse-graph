@@ -961,8 +961,19 @@ RUNNER_ARGS=(
   --confirm-child-requeue-disabled
   --completion-sentinel "$AF_OUTPUT_DIR/COMPLETE.json"
 )
-"$AF_PYTHON" "$AF_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
+# Slurm B:USR1 reaches this batch shell only. Preserve the post-run verifier
+# while relaying boundary/cancellation signals to the runner's installed handlers.
+source "$AF_REPO/scripts/ice/relay_batch_signals.sh"
+ice_run_with_signal_relay "$ATTEMPT/runner-signal-ready.json" \
+  "$AF_PYTHON" "$AF_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
   /usr/bin/env bash -c "$CHILD_CODE" action-flow-usocket "${BASE_OVERRIDES[@]}"
+
+# A successful requeue request also returns zero, but is not training completion.
+# The runner writes COMPLETE.json only for successful child completion.
+if test "$ICE_BATCH_BOUNDARY_FORWARDED" = 1 && test ! -s "$AF_OUTPUT_DIR/COMPLETE.json"; then
+  printf '[requeue] boundary handled; completion verification belongs to the final attempt\n'
+  exit 0
+fi
 
 if test "$AF_RUN_KIND" = smoke; then
   SMOKE_CHECKPOINT=$AF_OUTPUT_DIR/checkpoints/last.ckpt

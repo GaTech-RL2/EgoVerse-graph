@@ -1,0 +1,112 @@
+# Context-free H16 codec around one observation-conditioned latent flow field.
+_target_: egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper
+
+action_horizon: 16
+action_dim: 4
+latent_dim: 8
+condition_dim: 67
+flow_samples_per_content: 14
+condition_dropout_probability: 0.3
+num_inference_steps: 16
+reconstruction_weight: 1.0
+flow_weight: 1.0
+action_flow_method: latent_fm_stopgrad
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 1
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder:
+        _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+        obs_specs:
+          state_agent_obj: {input_dim: 3, input_slice: [0, 3]}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 84
+            crop_width: 84
+            crop_eval_mode: center
+            crop_sample_mode: v02
+            crop_scope: frame
+            norm_layer: group
+            pool_type: spatial_softmax
+    - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+      num_tokens: ${model.action_horizon}
+      latent_dim: ${model.latent_dim}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_action_flow.ContentEncoderStage
+      encoder:
+        _target_: egomimic.models.action_flow_codec.ContextFreeSequenceEncoder
+        input_dim: ${model.action_dim}
+        latent_dim: ${model.latent_dim}
+        horizon: ${model.action_horizon}
+        hidden_dim: 20
+        depth: 2
+        num_heads: 4
+        feedforward_dim: 80
+        dropout: 0.0
+    - _target_: egomimic.pipeline.stages_action_flow.LatentBridgeStage
+      samples_per_content: ${model.flow_samples_per_content}
+      condition_dropout_probability: ${model.condition_dropout_probability}
+    - _target_: egomimic.pipeline.stages_action_flow.ConditionalVelocityStage
+      flow_clean_gradient_mode: all_stopgrad
+      num_inference_steps: ${model.num_inference_steps}
+      field:
+        _target_: egomimic.models.action_flow_transformer.AdaLNSequenceField
+        input_dim: ${model.latent_dim}
+        output_dim: ${model.latent_dim}
+        horizon: ${model.action_horizon}
+        condition_dim: ${model.condition_dim}
+        hidden_dim: 512
+        depth: 12
+        num_heads: 8
+        feedforward_dim: 2048
+        time_embedding_dim: 512
+        time_scale: 1000.0
+        dropout: 0.0
+        condition_dropout_probability: ${model.condition_dropout_probability}
+    - _target_: egomimic.pipeline.stages_action_flow.ContentDecoderStage
+      decoder:
+        _target_: egomimic.models.action_flow_codec.ContextFreeSequenceDecoder
+        latent_dim: ${model.latent_dim}
+        output_dim: ${model.action_dim}
+        horizon: ${model.action_horizon}
+        hidden_dim: 20
+        depth: 2
+        num_heads: 4
+        feedforward_dim: 80
+        dropout: 0.0
+    - _target_: egomimic.pipeline.stages_action_flow.ActionFlowObjectiveStage
+      residual_key: action_flow/fm_velocity_residual
+      flow_weight: ${model.flow_weight}
+      reconstruction_weight: ${model.reconstruction_weight}
+      action_velocity_weight: 1.0
+
+enable_grad_norm: false
+gradient_telemetry_cadence: 100
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3.0e-5
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  weight_decay: 1.0e-4
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 8000
+  warmup_start_factor: 0.1
+  eta_min: 3.0e-6

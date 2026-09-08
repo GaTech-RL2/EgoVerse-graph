@@ -32,6 +32,12 @@ branch as its parent and carries shared runtime fixes without replacing its
 model code. Do not treat the synthetic Action Flow scripts on `main` as the
 real-data implementation or reset this stack to `main`.
 
+The `codex/torus-winners-usocket-system-test-20260907` child adds three explicit
+conditional candidate configs to that same launcher. Read
+[their objective and sampler contracts](action-flow-usocket-candidates.md)
+before selecting one. The likelihood arm is not ordinary latent FM; the exact
+graph-section arm is a restricted diagnostic, not an unrestricted solution.
+
 ## Cluster entry points
 
 | Host | Execution authority | Current-task discovery |

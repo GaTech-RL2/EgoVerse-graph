@@ -573,9 +573,23 @@ class ContentDecoderStage(Stage):
             if state.is_cuda
             else nullcontext()
         )
+        # Higher-order backward through the math kernel also requires matching
+        # primal/tangent dtypes, so keep this isolated derivative in FP32 when
+        # the surrounding trainer uses CUDA mixed precision.
+        precision_context = (
+            torch.autocast(device_type="cuda", enabled=False)
+            if state.is_cuda
+            else nullcontext()
+        )
+        jvp_state = state.float() if state.is_cuda else state
+        jvp_residual = residual.float() if residual.is_cuda else residual
         try:
-            with attention_context:
-                decoded_residual = jvp(self.decoder, (state,), (residual,))[1]
+            with precision_context, attention_context:
+                decoded_residual = jvp(
+                    self.decoder,
+                    (jvp_state,),
+                    (jvp_residual,),
+                )[1]
         finally:
             if isinstance(checkpointing, bool):
                 self.decoder.gradient_checkpointing = checkpointing

@@ -229,6 +229,67 @@ class TokenizeUSocketArcVelocity:
         return batch
 
 
+#: Stacked ARC token width: [x, y, v_xy, cos, sin, omega].
+PLANAR_ARC_STACKED_DIM = 6
+
+
+class TokenizeUSocketArcVelocityStacked(TokenizeUSocketArcVelocity):
+    """Same two streams as the parent, stacked along the ACTION dim.
+
+    The parent emits ``[2*M, 5]``: translation rows ``[x, y, 0, 0, v_xy]`` then
+    rotation rows ``[0, 0, cos, sin, omega]``. Both streams are sampled at the
+    same ``M`` waypoint indices (``linspace(0, end, M)``) -- only ``cumulative``
+    and ``end`` differ -- so they are both length ``M`` and can simply be
+    concatenated on the feature axis instead of the row axis:
+
+        ``[M, 6] = [x, y, v_xy, cos, sin, omega]``
+
+    Clock independence is unaffected: it lives in the per-stream ``cumulative``
+    / ``end`` used for sampling and in the two velocity channels, not in the
+    row layout. A shared row index is a shared WAYPOINT index, not a shared
+    timestamp -- rows ``i`` and ``M+i`` of the parent layout are also at
+    different times.
+
+    Why this layout is preferable:
+
+    * No structurally dead entries. The parent zero-pads to the common planar
+      width, leaving 4*M of its 10*M entries (40%) permanently zero, which the
+      diffusion model must still denoise -- an identity map on dimensions that
+      unnormalize to nothing (their quantile range is zero).
+    * Half the sequence length, so the denoiser's time axis is M, not 2*M.
+    * A 1D convolution over waypoints no longer straddles the row-M boundary
+      between two streams on different clocks, and no longer has to learn a
+      positional regime change at the midpoint. The streams interact through
+      channels, which is what channels are for.
+    """
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        angle_arc = np.concatenate((np.zeros(1), np.cumsum(np.abs(np.diff(theta)))))
+        translation_end = min(self.distance, float(translation_arc[-1]))
+        rotation_end = float(angle_arc[-1])
+        if self.rotation_distance is not None:
+            rotation_end = min(self.rotation_distance, rotation_end)
+
+        xy_waypoints, linear_speed = self._sample_stream(
+            xy, translation_arc, translation_end, signed_rate=False
+        )
+        theta_waypoints, angular_velocity = self._sample_stream(
+            theta[:, None], angle_arc, rotation_end, signed_rate=True
+        )
+
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_STACKED_DIM))
+        token[:, 0:2] = xy_waypoints
+        token[:, 2] = linear_speed
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = angular_velocity
+        return token
+
+
 class TokenizePlanarArcLength:
     """Legacy robot/Planar SE(2) tokenizer; its schema remains unchanged."""
 

@@ -28,6 +28,7 @@ import torch
 
 from egomimic.pipeline.core import Stage
 from egomimic.rldb.zarr.planar_arc import (
+    PLANAR_ARC_STACKED_DIM,
     PLANAR_ACTION_DIM,
     TokenizeUSocketArcVelocity,
 )
@@ -197,6 +198,60 @@ class ArcDetokenizeStage(Stage):
         batch["pred_action_native"] = native[..., : self.native_action_dim]
         batch["log/ArcLinearSpeed"] = translation[..., 4].clamp_min(0.0).mean()
         batch["log/ArcAngularVelocityAbs"] = rotation[..., 4].abs().mean()
+        batch["log/ArcTranslationDistance"] = xy_distance.sum(dim=1).mean()
+        batch["log/ArcRotationDistance"] = angle_distance.sum(dim=1).mean()
+        return batch
+
+
+class ArcDetokenizeStackedStage(ArcDetokenizeStage):
+    """Decode the stacked ``[M, 6]`` ARC token.
+
+    Identical decode mathematics to the parent -- same local-rate inversion,
+    same heading renormalisation -- but the two streams are separated by COLUMN
+    rather than by row:
+
+        ``[x, y, v_xy, cos, sin, omega]``
+
+    translation geometry ``[..., 0:2]`` with rate ``[..., 2]``; heading
+    geometry ``[..., 3:5]`` with rate ``[..., 5]``.
+    """
+
+    def forward(self, batch: dict) -> dict:
+        tokens = _as_batched(batch["pred_action"], "ArcDetokenizeStackedStage input")
+        expected = (self.num_waypoints, PLANAR_ARC_STACKED_DIM)
+        if tuple(tokens.shape[1:]) != expected:
+            raise ValueError(
+                f"ArcDetokenizeStackedStage expects (B, {expected[0]}, "
+                f"{expected[1]}), got {tuple(tokens.shape)}"
+            )
+
+        xy_distance = torch.linalg.vector_norm(
+            tokens[:, 1:, :2] - tokens[:, :-1, :2], dim=-1
+        )
+        xy = self._decode_stream(
+            tokens[..., :2], xy_distance, tokens[:, :-1, 2].clamp_min(0.0)
+        )
+        heading_geometry = tokens[..., 3:5]
+        delta_cos = (
+            heading_geometry[:, 1:, 0] * heading_geometry[:, :-1, 0]
+            + heading_geometry[:, 1:, 1] * heading_geometry[:, :-1, 1]
+        )
+        delta_sin = (
+            heading_geometry[:, 1:, 1] * heading_geometry[:, :-1, 0]
+            - heading_geometry[:, 1:, 0] * heading_geometry[:, :-1, 1]
+        )
+        angle_distance = torch.atan2(delta_sin, delta_cos).abs()
+        heading = self._decode_stream(
+            heading_geometry, angle_distance, tokens[:, :-1, 5]
+        )
+        norm = torch.linalg.vector_norm(heading, dim=-1, keepdim=True)
+        heading = heading / norm.clamp_min(1e-8)
+        theta = torch.atan2(heading[..., 1], heading[..., 0]).unsqueeze(-1)
+        native = torch.cat((xy, theta), dim=-1)
+
+        batch["pred_action_native"] = native[..., : self.native_action_dim]
+        batch["log/ArcLinearSpeed"] = tokens[..., 2].clamp_min(0.0).mean()
+        batch["log/ArcAngularVelocityAbs"] = tokens[..., 5].abs().mean()
         batch["log/ArcTranslationDistance"] = xy_distance.sum(dim=1).mean()
         batch["log/ArcRotationDistance"] = angle_distance.sum(dim=1).mean()
         return batch

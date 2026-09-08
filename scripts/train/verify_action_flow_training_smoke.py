@@ -68,7 +68,11 @@ CODEC98K_PARAMETER_COUNT = 50_801_685
 SCALED_MUON_EXPERIMENT = (
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
-SCALED_MUON_PARAMETER_COUNT = 199_754_837
+SCALED_ADAMW_EXPERIMENT = (
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
+)
+SCALED_200M_EXPERIMENTS = {SCALED_MUON_EXPERIMENT, SCALED_ADAMW_EXPERIMENT}
+SCALED_200M_PARAMETER_COUNT = 199_754_837
 APPROVED_EXPERIMENTS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
         "action_flow_bc_usocket_latent_fm_sg_recon1_s42",
@@ -82,6 +86,11 @@ APPROVED_EXPERIMENTS = {
     ),
     SCALED_MUON_EXPERIMENT: (
         "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+        1.0,
+        1.0,
+    ),
+    SCALED_ADAMW_EXPERIMENT: (
+        "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
         1.0,
         1.0,
     ),
@@ -320,10 +329,11 @@ def _validate_config(
         targets == method_stage_targets(method), f"unexpected stage topology: {targets}"
     )
     scaled_muon = experiment == SCALED_MUON_EXPERIMENT
-    field_hidden_dim = 1_024 if scaled_muon else 512
-    field_depth = 14 if scaled_muon else 12
-    field_num_heads = 16 if scaled_muon else 8
-    field_feedforward_dim = 4_224 if scaled_muon else 2_048
+    scaled_200m = experiment in SCALED_200M_EXPERIMENTS
+    field_hidden_dim = 1_024 if scaled_200m else 512
+    field_depth = 14 if scaled_200m else 12
+    field_num_heads = 16 if scaled_200m else 8
+    field_feedforward_dim = 4_224 if scaled_200m else 2_048
 
     for path, expected in (
         ("model.action_horizon", 16),
@@ -412,7 +422,7 @@ def _validate_config(
         ("model.pipeline.stages.7.reconstruction_weight", reconstruction_weight),
         ("model.pipeline.stages.7.action_velocity_weight", 1.0),
         ("model.reconstruction_weight", reconstruction_weight),
-        ("model.optimizer.lr", 1.0e-5 if scaled_muon else 3.0e-5),
+        ("model.optimizer.lr", 1.0e-5 if scaled_200m else 3.0e-5),
         ("model.optimizer.eps", 1.0e-8),
         (
             "model.optimizer.adamw_weight_decay"
@@ -421,7 +431,7 @@ def _validate_config(
             1.0e-4,
         ),
         ("model.scheduler.warmup_start_factor", 0.1),
-        ("model.scheduler.eta_min", 1.0e-6 if scaled_muon else 3.0e-6),
+        ("model.scheduler.eta_min", 1.0e-6 if scaled_200m else 3.0e-6),
         ("trainer.gradient_clip_val", 3.0),
         ("run_provenance.valid_ratio", 0.01),
         ("run_provenance.objective.flow_weight", flow_weight),
@@ -464,6 +474,8 @@ def _validate_config(
         _float(config, "model.optimizer.muon_weight_decay", 1.0e-4)
         _float(config, "model.optimizer.muon_momentum", 0.95)
         _exact(config, "model.optimizer.muon_adjust_lr_fn", "match_rms_adamw")
+    elif scaled_200m:
+        _exact(config, "model.optimizer_named_parameters", False)
     _exact(
         config,
         "model.scheduler._target_",
@@ -1161,10 +1173,11 @@ def _validate_checkpoint(
             CODEC98K_EXPERIMENT
         ][0]:
             expected_parameter_count = CODEC98K_PARAMETER_COUNT
-        if config is not None and str(config.get("name", "")) == APPROVED_EXPERIMENTS[
-            SCALED_MUON_EXPERIMENT
-        ][0]:
-            expected_parameter_count = SCALED_MUON_PARAMETER_COUNT
+        if config is not None and str(config.get("name", "")) in {
+            APPROVED_EXPERIMENTS[experiment][0]
+            for experiment in SCALED_200M_EXPERIMENTS
+        }:
+            expected_parameter_count = SCALED_200M_PARAMETER_COUNT
         _require(
             parameter_count == expected_parameter_count,
             f"parameter count mismatch: {parameter_count} != {expected_parameter_count}",

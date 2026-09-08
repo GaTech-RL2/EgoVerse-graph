@@ -304,6 +304,97 @@ def test_two_update_smoke_captures_gradient_routes_on_second_update(monkeypatch)
     assert recorded["Train/ActionFlow/Compute/PeakAllocatedBytes"] == 0
 
 
+def test_validation_step_emits_real_likelihood_and_preserves_evaluator_rng(monkeypatch):
+    algo = PipelineAlgo(stages(dropout=0.3), device="cpu")
+    calls, predictions, logged = [], [], {}
+
+    class Evaluator:
+        def on_validation_start(self):
+            calls.append("start")
+
+        def on_validation_step(self, processed, index, loader_index):
+            calls.append((index, loader_index))
+            # Exercise the actual stochastic inference path delegated to the
+            # evaluator, which owns normalized/native MSE and EnergyScore32.
+            self.generated = algo.forward_eval(processed)
+
+        def on_validation_end(self):
+            calls.append("end")
+
+    evaluator = Evaluator()
+    wrapper = ActionFlowLikelihoodModelWrapper(
+        pipeline=algo, evaluator=evaluator, enable_grad_norm=False
+    ).eval()
+    real_forward = algo.forward_training
+
+    def capture_forward(processed):
+        assert not torch.is_grad_enabled() and not wrapper.training
+        result = real_forward(processed)
+        predictions.append(result)
+        return result
+
+    monkeypatch.setattr(algo, "forward_training", capture_forward)
+    monkeypatch.setattr(
+        wrapper, "log", lambda name, value, **kw: logged.update({name: (value, kw)})
+    )
+    value = {"first": batch(), "second": batch()}
+    with torch.random.fork_rng(), torch.inference_mode():
+        torch.manual_seed(17)
+        expected = algo.forward_eval(value)
+        expected_rng = torch.random.get_rng_state()
+    torch.manual_seed(17)
+    wrapper.on_validation_start()
+    with torch.inference_mode():
+        wrapper.validation_step({**value, "inactive": None}, 3, 1)
+    wrapper.on_validation_end()
+    assert calls == ["start", (3, 1), "end"]
+    assert len(predictions) == 1
+    assert torch.equal(torch.random.get_rng_state(), expected_rng)
+    for source in value:
+        torch.testing.assert_close(
+            evaluator.generated[source]["pred_action"],
+            expected[source]["pred_action"],
+            rtol=0,
+            atol=0,
+        )
+        assert "target" in value[source]  # loss graph cannot consume caller input
+    assert set(logged) == {
+        "Valid/ActionFlow/InteriorBridgeNLL",
+        "Valid/ActionFlow/BoundaryNLL",
+        "Valid/ActionFlow/TotalLoss",
+    }
+    for name, (actual, options) in logged.items():
+        key = "log/" + name.removeprefix("Valid/")
+        expected_loss = torch.stack([r[key] for r in predictions[0].values()]).mean()
+        torch.testing.assert_close(actual, expected_loss)
+        assert torch.isfinite(actual) and not actual.requires_grad
+        assert options == dict(
+            on_step=False,
+            on_epoch=True,
+            batch_size=4,
+            sync_dist=True,
+            add_dataloader_idx=False,
+        )
+    assert all(parameter.grad is None for parameter in wrapper.parameters())
+
+
+def test_validation_step_rejects_nonfinite_likelihood_component(monkeypatch):
+    algo = PipelineAlgo(stages(), device="cpu")
+    wrapper = ActionFlowLikelihoodModelWrapper(
+        pipeline=algo, enable_grad_norm=False
+    ).eval()
+    real_forward = algo.forward_training
+
+    def nonfinite_forward(value):
+        result = real_forward(value)
+        result["example"]["log/ActionFlow/BoundaryNLL"] = torch.tensor(float("nan"))
+        return result
+
+    monkeypatch.setattr(algo, "forward_training", nonfinite_forward)
+    with pytest.raises(RuntimeError, match="Non-finite pipeline metric"):
+        wrapper.validation_step({"example": batch()}, 0)
+
+
 def test_full_hydra_likelihood_graph_has_unblocked_inference_plan():
     config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):

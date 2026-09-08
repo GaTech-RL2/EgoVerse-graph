@@ -552,7 +552,18 @@ class ContentDecoderStage(Stage):
             ).reshape(batch_size, *([1] * (clean.ndim - 1)))
             reconstruction_input = torch.where(mask, noised, clean)
         reconstruction = self._decode(reconstruction_input, label="reconstruction")
-        decoded_residual = jvp(self.decoder, (state,), (residual,))[1]
+        # PyTorch's non-reentrant activation checkpointing installs saved-tensor
+        # hooks that are incompatible with ``torch.func`` transforms. Preserve
+        # checkpointing for the reconstruction pass, but disable it only while
+        # computing this required forward-mode JVP.
+        checkpointing = getattr(self.decoder, "gradient_checkpointing", None)
+        if isinstance(checkpointing, bool):
+            self.decoder.gradient_checkpointing = False
+        try:
+            decoded_residual = jvp(self.decoder, (state,), (residual,))[1]
+        finally:
+            if isinstance(checkpointing, bool):
+                self.decoder.gradient_checkpointing = checkpointing
         if not torch.is_tensor(decoded_residual) or decoded_residual.ndim < 2:
             shape = (
                 tuple(decoded_residual.shape)

@@ -72,13 +72,17 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42" in source
     assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42" in source
     assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42" in source
+    assert "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42" in source
     assert "expected_name = {" not in source
-    assert "MAX_STEPS=240000" in source
-    assert "VALIDATE_EVERY=10000" in source
-    assert "CHECKPOINT_EVERY=40000" in source
+    assert "AF_FULL_MAX_STEPS=240000" in source
+    assert "AF_FULL_VALIDATE_EVERY=10000" in source
+    assert "AF_FULL_CHECKPOINT_EVERY=40000" in source
+    assert "AF_FULL_MAX_STEPS=150000" in source
+    assert "AF_FULL_VALIDATE_EVERY=30000" in source
+    assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
     assert (
         "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32" in source
@@ -102,6 +106,7 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "expected_count = 50_725_221" in source
     assert "50_801_685" in source
     assert "expected_count = 199_754_837" in source
+    assert "count == 97_956_100" in source
     assert "ReleasedUniteCompositeOptimizer" in source
     assert 'optimizer.muon_adjust_lr_fn == "match_rms_adamw"' in source
 

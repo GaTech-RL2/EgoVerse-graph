@@ -77,6 +77,46 @@ def test_real_action_flow_config_instantiates_and_passes_full_preflight():
     )
 
 
+def test_unite_h384_action_flow_config_has_exact_architecture_and_recipe():
+    report, _ = preflight.validate_experiment(
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
+        config_root=CONFIG_ROOT,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["dimensions"] == {
+        "action": [16, 4],
+        "condition": 128,
+        "image_feature": 64,
+        "latent": [8, 16],
+        "normalized_state": 4,
+    }
+    expected_counts = {
+        "decoder_g": 21_303_556,
+        "encoder_e": 32_725_808,
+        "field_v": 32_725_168,
+        "observation_encoder": 11_197_088,
+        "state_projection": 4_480,
+        "pipeline_total": 97_956_100,
+    }
+    assert {
+        name: report["parameters"][name]["total"] for name in expected_counts
+    } == expected_counts
+    assert report["optimization"]["max_steps"] == 150_000
+    assert report["optimization"]["validation_every_steps"] == 30_000
+    assert report["optimization"]["checkpoint_every_steps"] == 30_000
+    assert report["optimization"]["optimizer"]["lr"] == pytest.approx(1.0e-4)
+    assert report["optimization"]["parameter_groups"]["complete"] is True
+    assert report["optimization"]["parameter_groups"]["disjoint"] is True
+    assert report["topology"]["inference_order"] == [
+        "KeyedFeatureProjection",
+        "FusedObsEncoder",
+        "GaussianLatentNoise",
+        "ConditionalVelocityStage",
+        "ContentDecoderStage",
+    ]
+
+
 def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",

@@ -69,7 +69,7 @@ class ContentEncoderStage(Stage):
 
 
 class LatentBridgeStage(Stage):
-    """Construct clean-to-Gaussian bridges with shared base-sample coupling."""
+    """Construct clean-to-Gaussian bridges with configurable sample coupling."""
 
     train_only = True
 
@@ -77,6 +77,12 @@ class LatentBridgeStage(Stage):
         self,
         samples_per_content: int = 14,
         condition_dropout_probability: float = 0.3,
+        time_sampling: str = "uniform",
+        lognorm_mu: float = 0.0,
+        lognorm_sigma: float = 1.0,
+        timestep_shift_alpha: float = 0.5,
+        independent_noise_per_sample: bool = False,
+        independent_condition_dropout_per_sample: bool = False,
         clean_key: str = "action_flow/clean_latent",
         noise_key: str = "sampler/noise",
         condition_key: str = "condition",
@@ -96,6 +102,18 @@ class LatentBridgeStage(Stage):
             raise ValueError("samples_per_content must be positive")
         if not 0.0 <= self.condition_dropout_probability <= 1.0:
             raise ValueError("condition_dropout_probability must be in [0, 1]")
+        if time_sampling not in {"uniform", "unite_lognormal_shifted"}:
+            raise ValueError("time_sampling must be uniform|unite_lognormal_shifted")
+        self.time_sampling = str(time_sampling)
+        self.lognorm_mu = float(lognorm_mu)
+        self.lognorm_sigma = float(lognorm_sigma)
+        self.timestep_shift_alpha = float(timestep_shift_alpha)
+        self.independent_noise_per_sample = bool(independent_noise_per_sample)
+        self.independent_condition_dropout_per_sample = bool(
+            independent_condition_dropout_per_sample
+        )
+        if self.lognorm_sigma <= 0.0 or self.timestep_shift_alpha <= 0.0:
+            raise ValueError("log-normal sigma and timestep shift must be positive")
 
         self.clean_key = _key(clean_key, label="clean_key")
         self.noise_key = _key(noise_key, label="noise_key")
@@ -137,6 +155,20 @@ class LatentBridgeStage(Stage):
             return torch.ones(batch_size, dtype=torch.bool, device=device)
         return torch.rand(batch_size, device=device) < probability
 
+    def _sample_time(self, count: int, device: torch.device) -> torch.Tensor:
+        if self.time_sampling == "uniform":
+            return torch.rand(count, dtype=torch.float32, device=device)
+        normal = torch.randn(count, dtype=torch.float32, device=device)
+        clean_fraction = torch.sigmoid(
+            normal * self.lognorm_sigma + self.lognorm_mu
+        )
+        alpha = clean_fraction.new_tensor(self.timestep_shift_alpha)
+        clean_fraction = alpha * clean_fraction / (
+            1.0 + (alpha - 1.0) * clean_fraction
+        )
+        # Action Flow uses t=0 clean and t=1 Gaussian, opposite to released UNITE.
+        return 1.0 - clean_fraction
+
     def forward(self, batch: dict) -> dict:
         clean = _tensor(batch, self.clean_key)
         base_noise = _tensor(batch, self.noise_key)
@@ -164,21 +196,23 @@ class LatentBridgeStage(Stage):
             count
         )
         clean_many = clean.index_select(0, base_index)
-        noise_many = base_noise.to(dtype=clean.dtype).index_select(0, base_index)
+        if self.independent_noise_per_sample:
+            noise_many = torch.randn_like(clean_many)
+        else:
+            noise_many = base_noise.to(dtype=clean.dtype).index_select(0, base_index)
         condition_many = condition.index_select(0, base_index)
 
-        time = torch.rand(
-            batch_size,
-            count,
-            dtype=torch.float32,
-            device=clean.device,
-        ).reshape(-1)
+        time = self._sample_time(batch_size * count, clean.device)
         time_view = time.to(dtype=clean.dtype).reshape(-1, *([1] * (clean.ndim - 1)))
         state = (1.0 - time_view) * clean_many + time_view * noise_many
         target_velocity = noise_many - clean_many
 
         base_mask = self._base_drop_mask(batch_size, clean.device)
-        repeated_mask = base_mask.index_select(0, base_index)
+        repeated_mask = (
+            self._base_drop_mask(batch_size * count, clean.device)
+            if self.independent_condition_dropout_per_sample
+            else base_mask.index_select(0, base_index)
+        )
         batch[self.state_key] = state
         batch[self.time_key] = time
         batch[self.expanded_noise_key] = noise_many
@@ -202,6 +236,10 @@ class ConditionalVelocityStage(Stage):
         self,
         field: nn.Module,
         num_inference_steps: int = 16,
+        inference_method: str = "euler",
+        timestep_shift_alpha: float = 0.5,
+        dopri5_atol: float = 1.0e-6,
+        dopri5_rtol: float = 1.0e-3,
         state_key: str = "action_flow/state",
         time_key: str = "action_flow/time",
         condition_key: str = "action_flow/condition",
@@ -222,6 +260,16 @@ class ConditionalVelocityStage(Stage):
         self.num_inference_steps = int(num_inference_steps)
         if self.num_inference_steps <= 0:
             raise ValueError("num_inference_steps must be positive")
+        if inference_method not in {"euler", "dopri5"}:
+            raise ValueError("inference_method must be euler|dopri5")
+        self.inference_method = str(inference_method)
+        self.timestep_shift_alpha = float(timestep_shift_alpha)
+        self.dopri5_atol = float(dopri5_atol)
+        self.dopri5_rtol = float(dopri5_rtol)
+        if self.timestep_shift_alpha <= 0.0:
+            raise ValueError("timestep_shift_alpha must be positive")
+        if self.dopri5_atol <= 0.0 or self.dopri5_rtol <= 0.0:
+            raise ValueError("Dopri5 tolerances must be positive")
         if flow_clean_gradient_mode not in {"full", "all_stopgrad"}:
             raise ValueError("flow_clean_gradient_mode must be full|all_stopgrad")
         self.flow_clean_gradient_mode = flow_clean_gradient_mode
@@ -356,21 +404,63 @@ class ConditionalVelocityStage(Stage):
         if state.device != condition.device:
             raise ValueError("inference noise and condition must share a device")
 
-        trajectory = [state]
         drop_mask = torch.zeros(batch_size, dtype=torch.bool, device=state.device)
-        step_size = 1.0 / self.num_inference_steps
-        for index in range(self.num_inference_steps):
-            time = torch.full(
-                (batch_size,),
-                1.0 - index * step_size,
-                dtype=torch.float32,
+        if self.inference_method == "dopri5":
+            try:
+                from torchdiffeq import odeint
+            except ImportError as exc:
+                raise RuntimeError(
+                    "Dopri5 Action Flow sampling requires torchdiffeq"
+                ) from exc
+            raw_grid = torch.linspace(
+                0.0,
+                1.0,
+                self.num_inference_steps,
                 device=state.device,
+                dtype=torch.float32,
             )
-            state = state - step_size * self._predict(state, time, condition, drop_mask)
-            trajectory.append(state)
+            alpha = raw_grid.new_tensor(self.timestep_shift_alpha)
+            clean_progress = alpha * raw_grid / (
+                1.0 + (alpha - 1.0) * raw_grid
+            )
+            grid = 1.0 - clean_progress
+
+            def velocity(
+                time_scalar: torch.Tensor, latent: torch.Tensor
+            ) -> torch.Tensor:
+                time = time_scalar.expand(batch_size)
+                return self._predict(latent, time, condition, drop_mask).float()
+
+            trajectory_tensor = odeint(
+                velocity,
+                state.float(),
+                grid,
+                method="dopri5",
+                atol=self.dopri5_atol,
+                rtol=self.dopri5_rtol,
+            )
+            if not bool(torch.isfinite(trajectory_tensor).all()):
+                raise RuntimeError("Dopri5 Action Flow trajectory is non-finite")
+            state = trajectory_tensor[-1].to(dtype=state.dtype)
+            trajectory = trajectory_tensor.to(dtype=state.dtype)
+        else:
+            trajectory_values = [state]
+            step_size = 1.0 / self.num_inference_steps
+            for index in range(self.num_inference_steps):
+                time = torch.full(
+                    (batch_size,),
+                    1.0 - index * step_size,
+                    dtype=torch.float32,
+                    device=state.device,
+                )
+                state = state - step_size * self._predict(
+                    state, time, condition, drop_mask
+                )
+                trajectory_values.append(state)
+            trajectory = torch.stack(trajectory_values)
 
         batch[self.generated_latent_key] = state
-        batch[self.trajectory_key] = torch.stack(trajectory)
+        batch[self.trajectory_key] = trajectory
         batch[self.inference_steps_log_key] = state.new_tensor(
             float(self.num_inference_steps)
         )
@@ -393,6 +483,8 @@ class ContentDecoderStage(Stage):
     def __init__(
         self,
         decoder: nn.Module,
+        reconstruction_noising_start: float = 1.0,
+        reconstruction_noising_probability: float = 0.0,
         clean_key: str = "action_flow/clean_latent",
         state_key: str = "action_flow/state",
         residual_key: str = "action_flow/velocity_residual",
@@ -403,6 +495,14 @@ class ContentDecoderStage(Stage):
     ):
         super().__init__()
         self.decoder = _module(decoder, label="decoder")
+        self.reconstruction_noising_start = float(reconstruction_noising_start)
+        self.reconstruction_noising_probability = float(
+            reconstruction_noising_probability
+        )
+        if not 0.0 <= self.reconstruction_noising_start <= 1.0:
+            raise ValueError("reconstruction_noising_start must be in [0, 1]")
+        if not 0.0 <= self.reconstruction_noising_probability <= 1.0:
+            raise ValueError("reconstruction_noising_probability must be in [0, 1]")
         self.clean_key = _key(clean_key, label="clean_key")
         self.state_key = _key(state_key, label="state_key")
         self.residual_key = _key(residual_key, label="residual_key")
@@ -436,7 +536,22 @@ class ContentDecoderStage(Stage):
             raise ValueError(
                 "latent state and velocity residual must have matching shapes"
             )
-        reconstruction = self._decode(clean, label="reconstruction")
+        reconstruction_input = clean
+        if self.reconstruction_noising_probability > 0.0:
+            batch_size = int(clean.shape[0])
+            clean_fraction = self.reconstruction_noising_start + (
+                1.0 - self.reconstruction_noising_start
+            ) * torch.rand(batch_size, device=clean.device, dtype=torch.float32)
+            view = clean_fraction.to(clean).reshape(
+                batch_size, *([1] * (clean.ndim - 1))
+            )
+            noised = view * clean + (1.0 - view) * torch.randn_like(clean)
+            mask = (
+                torch.rand(batch_size, device=clean.device)
+                < self.reconstruction_noising_probability
+            ).reshape(batch_size, *([1] * (clean.ndim - 1)))
+            reconstruction_input = torch.where(mask, noised, clean)
+        reconstruction = self._decode(reconstruction_input, label="reconstruction")
         decoded_residual = jvp(self.decoder, (state,), (residual,))[1]
         if not torch.is_tensor(decoded_residual) or decoded_residual.ndim < 2:
             shape = (

@@ -3,6 +3,7 @@ import torch
 
 from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
 from egomimic.synthetic.gradient_surgery import (
+    action_adapter_gradient_telemetry,
     backward_with_encoder_gradient_surgery,
     project_flow_gradient_against_reconstruction,
 )
@@ -424,6 +425,39 @@ def test_action_velocity_objective_reaches_encoder_decoder_and_field():
             gradient is not None and bool(gradient.abs().sum())
             for gradient in gradients
         )
+
+
+def test_all_stopgrad_component_gradient_cosines_use_shared_routes():
+    model = SyntheticActionAdapterFlow(
+        latent_dim=8,
+        adapter_family="nonlinear",
+        residual_width=8,
+        residual_depth=1,
+        field_width=8,
+        field_depth=1,
+    )
+    _perturb_residual_outputs(model)
+    losses = model.losses(
+        torch.randn(7, 3),
+        objective="action_velocity",
+        flow_samples=2,
+        lambda_reconstruction=1.0,
+        lambda_action_velocity=1.0,
+        clean_gradient_mode="full",
+        flow_clean_gradient_mode="all_stopgrad",
+    )
+
+    metrics = action_adapter_gradient_telemetry(losses, model)
+
+    for pair in ("fm_action_velocity", "action_velocity_reconstruction"):
+        cosine = metrics[f"gradient_cosine_{pair}"]
+        assert bool(torch.isfinite(cosine))
+        assert -1.0 <= float(cosine) <= 1.0
+        assert float(metrics[f"gradient_cosine_defined_{pair}"]) == 1.0
+        assert float(metrics[f"gradient_intersection_parameter_count_{pair}"]) > 0
+    for label in ("fm", "action_velocity", "reconstruction"):
+        norm = metrics[f"gradient_norm_{label}"]
+        assert bool(torch.isfinite(norm)) and float(norm) > 0
 
 
 def test_action_velocity_objective_combines_reconstruction_scale_and_metric_loss():

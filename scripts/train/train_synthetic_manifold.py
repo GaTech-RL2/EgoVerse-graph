@@ -52,6 +52,7 @@ from egomimic.synthetic.endpoint_lift_flow import SyntheticEndpointLiftFlow
 from egomimic.synthetic.gaussian_relift_flow import SyntheticGaussianReliftFlow
 from egomimic.synthetic.gradient_surgery import (
     ENCODER_GRADIENT_SURGERIES,
+    action_adapter_gradient_telemetry,
     backward_with_encoder_gradient_surgery,
 )
 from egomimic.synthetic.latent_bridge_likelihood import SyntheticLatentBridgeLikelihood
@@ -182,6 +183,16 @@ def main() -> None:
         key in config for key in ("evaluation_dataset", "evaluation_particles", "inference_steps")
     ):
         raise ValueError("periodic generation requires explicit evaluation data, count and steps")
+    gradient_telemetry_every = int(config.get("gradient_telemetry_every", 0))
+    if gradient_telemetry_every < 0:
+        raise ValueError("gradient_telemetry_every must be nonnegative")
+    if gradient_telemetry_every and (
+        config.get("architecture") != "action_adapter_flow"
+        or config.get("adapter_objective") != "action_velocity"
+    ):
+        raise ValueError(
+            "gradient telemetry requires action_adapter_flow with action_velocity"
+        )
     output = Path(config["output_dir"])
     if args.resume is None:
         if output.exists():
@@ -375,27 +386,41 @@ def main() -> None:
                 ),
             )
         optimizer.zero_grad(set_to_none=True)
+        telemetry_step = bool(
+            gradient_telemetry_every
+            and (step == 1 or step % gradient_telemetry_every == 0)
+        )
+        gradient_metrics = (
+            action_adapter_gradient_telemetry(losses, model)
+            if telemetry_step
+            else {}
+        )
         if architecture == "action_adapter_flow":
-            gradient_metrics = backward_with_encoder_gradient_surgery(
+            surgery_metrics = backward_with_encoder_gradient_surgery(
                 losses, model, encoder_gradient_surgery
             )
+            duplicate_metrics = gradient_metrics.keys() & surgery_metrics.keys()
+            if duplicate_metrics:
+                raise RuntimeError(
+                    f"duplicate gradient metrics: {sorted(duplicate_metrics)}"
+                )
+            gradient_metrics.update(surgery_metrics)
         else:
             losses["loss"].backward()
-            gradient_metrics = {}
         optimizer.step()
         generation_step = (
             generation_log_every > 0
             and step % generation_log_every == 0
             and step < config["max_steps"]
         )
-        if log_step or generation_step:
+        if log_step or generation_step or telemetry_step:
             row = {"step": step}
             if log_step:
                 row.update({key: float(value.detach()) for key, value in losses.items()})
-                row.update({
-                    key: float(value.detach())
-                    for key, value in gradient_metrics.items()
-                })
+            row.update({
+                key: float(value.detach())
+                for key, value in gradient_metrics.items()
+            })
             if generation_step:
                 row.update(_periodic_generation_metrics(
                     model, *generation_data, steps=int(config["inference_steps"])

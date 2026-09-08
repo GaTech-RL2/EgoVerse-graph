@@ -9,6 +9,96 @@ from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
 ENCODER_GRADIENT_SURGERIES = {"none", "protect_reconstruction_from_flow"}
 
 
+def action_adapter_gradient_telemetry(
+    losses: dict[str, torch.Tensor],
+    model: SyntheticActionAdapterFlow,
+) -> dict[str, torch.Tensor]:
+    """Measure raw component-gradient cosines on shared parameters.
+
+    FM/action velocity is compared on the field parameters reached by both
+    losses. Action velocity/reconstruction is compared on their shared action
+    adapter parameters. This diagnostic does not alter optimizer gradients.
+    """
+    named_parameters = tuple(
+        (name, parameter)
+        for name, parameter in model.named_parameters()
+        if parameter.requires_grad
+    )
+    if not named_parameters:
+        raise ValueError("gradient telemetry requires trainable parameters")
+
+    components = {
+        "fm": losses["flow_loss"],
+        "action_velocity": losses["action_velocity_loss"],
+        "reconstruction": losses["reconstruction_loss"],
+    }
+    gradients: dict[str, dict[int, torch.Tensor]] = {}
+    metrics: dict[str, torch.Tensor] = {}
+    parameters = tuple(parameter for _, parameter in named_parameters)
+    for label, loss in components.items():
+        raw = torch.autograd.grad(
+            loss,
+            parameters,
+            retain_graph=True,
+            create_graph=False,
+            allow_unused=True,
+        )
+        active = {
+            index: gradient.detach()
+            for index, gradient in enumerate(raw)
+            if gradient is not None
+        }
+        if not active:
+            raise RuntimeError(f"{label} reaches no trainable parameters")
+        norm = sum(
+            (gradient.float().square().sum() for gradient in active.values()),
+            torch.zeros((), device=loss.device, dtype=torch.float32),
+        ).sqrt()
+        if not bool(torch.isfinite(norm)):
+            raise RuntimeError(f"non-finite {label} gradient norm")
+        gradients[label] = active
+        metrics[f"gradient_norm_{label}"] = norm
+
+    for left, right in (
+        ("fm", "action_velocity"),
+        ("action_velocity", "reconstruction"),
+    ):
+        shared = tuple(index for index in gradients[left] if index in gradients[right])
+        if not shared:
+            raise RuntimeError(f"{left} and {right} share no trainable parameters")
+        zero = torch.zeros((), device=components[left].device, dtype=torch.float32)
+        dot = sum(
+            (
+                gradients[left][index].float()
+                * gradients[right][index].float()
+            ).sum()
+            for index in shared
+        )
+        left_norm = sum(
+            gradients[left][index].float().square().sum() for index in shared
+        ).sqrt()
+        right_norm = sum(
+            gradients[right][index].float().square().sum() for index in shared
+        ).sqrt()
+        denominator = left_norm * right_norm
+        epsilon = torch.finfo(denominator.dtype).eps
+        defined = denominator > epsilon
+        cosine = torch.where(
+            defined,
+            (dot / denominator.clamp_min(epsilon)).clamp(-1.0, 1.0),
+            zero,
+        )
+        if not bool(torch.isfinite(cosine)):
+            raise RuntimeError(f"non-finite {left}/{right} gradient cosine")
+        pair = f"{left}_{right}"
+        metrics[f"gradient_cosine_{pair}"] = cosine.detach()
+        metrics[f"gradient_cosine_defined_{pair}"] = defined.to(torch.float32)
+        metrics[f"gradient_intersection_parameter_count_{pair}"] = zero.new_tensor(
+            float(sum(named_parameters[index][1].numel() for index in shared))
+        )
+    return metrics
+
+
 def project_flow_gradient_against_reconstruction(
     flow_gradients: tuple[torch.Tensor, ...],
     reconstruction_gradients: tuple[torch.Tensor, ...],

@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import argparse
+from collections import OrderedDict
+from itertools import combinations
 import json
 import os
 import random
@@ -61,6 +63,79 @@ def energy_distance(samples: torch.Tensor, targets: torch.Tensor) -> torch.Tenso
 
 _CHECKPOINT_STEP = re.compile(r"global-step-(\d+)\.pt$")
 _RESUME_MUTABLE_CONFIG_KEYS = {"max_steps", "wandb"}
+
+
+def _gradient_cosine_telemetry(
+    losses: dict[str, torch.Tensor],
+    named_parameters: tuple[tuple[str, torch.nn.Parameter], ...],
+) -> dict[str, float | int]:
+    """Measure pairwise component-gradient cosines without changing ``.grad``."""
+    components = OrderedDict(
+        (
+            ("Flow", losses["flow_loss"]),
+            ("Reconstruction", losses["reconstruction_loss"]),
+            ("ActionVelocity", losses["action_velocity_loss"]),
+        )
+    )
+    parameters = tuple(parameter for _, parameter in named_parameters)
+    gradients: OrderedDict[str, dict[int, torch.Tensor]] = OrderedDict()
+    result: dict[str, float | int] = {}
+    for label, loss in components.items():
+        component = torch.autograd.grad(
+            loss,
+            parameters,
+            retain_graph=True,
+            create_graph=False,
+            allow_unused=True,
+        )
+        active = {
+            index: gradient.detach().float()
+            for index, gradient in enumerate(component)
+            if gradient is not None
+        }
+        if not active:
+            raise RuntimeError(f"{label} reaches no trainable parameters")
+        gradients[label] = active
+        norm = torch.stack(
+            [value.square().sum() for value in active.values()]
+        ).sum().sqrt()
+        if not bool(torch.isfinite(norm)):
+            raise RuntimeError(f"non-finite {label} gradient norm")
+        result[f"gradient_norm/{label}"] = float(norm)
+
+    for left, right in combinations(gradients, 2):
+        shared = tuple(index for index in gradients[left] if index in gradients[right])
+        pair = f"{left}__{right}"
+        result[f"gradient_intersection_parameter_count/{pair}"] = sum(
+            named_parameters[index][1].numel() for index in shared
+        )
+        if not shared:
+            result[f"gradient_cosine/{pair}"] = 0.0
+            result[f"gradient_cosine_defined/{pair}"] = 0
+            continue
+        left_values = gradients[left]
+        right_values = gradients[right]
+        dot = torch.stack(
+            [(left_values[index] * right_values[index]).sum() for index in shared]
+        ).sum()
+        left_norm = torch.stack(
+            [left_values[index].square().sum() for index in shared]
+        ).sum().sqrt()
+        right_norm = torch.stack(
+            [right_values[index].square().sum() for index in shared]
+        ).sum().sqrt()
+        denominator = left_norm * right_norm
+        defined = bool(float(denominator) > 0.0)
+        cosine = (
+            (dot / denominator).clamp(-1.0, 1.0)
+            if defined
+            else denominator.new_zeros(())
+        )
+        if not bool(torch.isfinite(cosine)):
+            raise RuntimeError(f"non-finite gradient cosine for {pair}")
+        result[f"gradient_cosine/{pair}"] = float(cosine)
+        result[f"gradient_cosine_defined/{pair}"] = int(defined)
+    return result
 
 
 def _validate_resume_config(config: dict, saved_config: dict, step: int) -> None:
@@ -194,6 +269,15 @@ def main() -> None:
 
         wandb_run = wandb.init(config=config, **config["wandb"])
     log_path = output / "metrics.jsonl"
+    gradient_log_path = output / "gradient_metrics.jsonl"
+    gradient_telemetry_every = int(config.get("gradient_telemetry_every", 0))
+    if gradient_telemetry_every < 0:
+        raise ValueError("gradient_telemetry_every must be non-negative")
+    named_parameters = tuple(
+        (name, parameter)
+        for name, parameter in model.named_parameters()
+        if parameter.requires_grad
+    )
     for step in range(start_step + 1, config["max_steps"] + 1):
         chosen = train_indices[
             torch.randint(
@@ -232,9 +316,16 @@ def main() -> None:
                 clean_gradient_mode=config.get("clean_gradient_mode", "full"),
                 noise=batch_source,
             )
+        telemetry = {}
+        if gradient_telemetry_every and step % gradient_telemetry_every == 0:
+            telemetry = _gradient_cosine_telemetry(losses, named_parameters)
+            gradient_row = {"step": step, **telemetry}
+            with gradient_log_path.open("a") as stream:
+                stream.write(json.dumps(gradient_row) + "\n")
         optimizer.zero_grad(set_to_none=True)
         losses["loss"].backward()
         optimizer.step()
+        wandb_payload = dict(telemetry)
         if step == 1 or step % config["log_every"] == 0:
             row = {
                 "step": step,
@@ -242,8 +333,9 @@ def main() -> None:
             }
             with log_path.open("a") as stream:
                 stream.write(json.dumps(row) + "\n")
-            if wandb_run is not None:
-                wandb_run.log(row, step=step)
+            wandb_payload.update(row)
+        if wandb_run is not None and wandb_payload:
+            wandb_run.log(wandb_payload, step=step)
         requested = _checkpoint_requests.received
         if (
             step % checkpoint_every == 0

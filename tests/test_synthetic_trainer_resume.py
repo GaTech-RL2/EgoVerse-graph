@@ -9,8 +9,75 @@ import torch
 
 from scripts.train.train_synthetic_manifold import (
     _capture_rng_state,
+    _gradient_cosine_telemetry,
     _restore_rng_state,
 )
+from egomimic.synthetic.action_adapter_flow import SyntheticActionAdapterFlow
+
+
+def test_gradient_cosine_telemetry_preserves_optimizer_update():
+    torch.manual_seed(11)
+    reference = SyntheticActionAdapterFlow(
+        latent_dim=8,
+        adapter_family="nonlinear",
+        residual_width=8,
+        residual_depth=1,
+        field_width=8,
+        field_depth=1,
+    )
+    instrumented = SyntheticActionAdapterFlow(
+        latent_dim=8,
+        adapter_family="nonlinear",
+        residual_width=8,
+        residual_depth=1,
+        field_width=8,
+        field_depth=1,
+    )
+    instrumented.load_state_dict(reference.state_dict())
+    action = torch.randn(6, 3)
+    noise = torch.randn(6, 8)
+    time = torch.rand(12, 1)
+    kwargs = {
+        "objective": "action_velocity",
+        "flow_samples": 2,
+        "lambda_reconstruction": 1.0,
+        "lambda_scale": 1.0,
+        "lambda_action_velocity": 1.0,
+        "clean_gradient_mode": "all_stopgrad",
+        "noise": noise,
+        "time": time,
+    }
+    reference_optimizer = torch.optim.AdamW(reference.parameters(), lr=3e-4)
+    instrumented_optimizer = torch.optim.AdamW(instrumented.parameters(), lr=3e-4)
+    reference_losses = reference.losses(action, **kwargs)
+    instrumented_losses = instrumented.losses(action, **kwargs)
+
+    named = tuple(
+        (name, parameter)
+        for name, parameter in instrumented.named_parameters()
+        if parameter.requires_grad
+    )
+    telemetry = _gradient_cosine_telemetry(instrumented_losses, named)
+    assert all(parameter.grad is None for _, parameter in named)
+    assert telemetry["gradient_cosine_defined/Flow__ActionVelocity"] == 1
+    # The historical torch.func.jvp objective does not expose decoder-parameter
+    # gradients, so this pair is truthfully undefined for an exact replication.
+    assert telemetry["gradient_cosine_defined/Reconstruction__ActionVelocity"] == 0
+    assert telemetry["gradient_cosine_defined/Flow__Reconstruction"] == 0
+    for key, value in telemetry.items():
+        if key.startswith("gradient_cosine/"):
+            assert -1.0 <= value <= 1.0
+
+    reference_optimizer.zero_grad(set_to_none=True)
+    reference_losses["loss"].backward()
+    reference_optimizer.step()
+    instrumented_optimizer.zero_grad(set_to_none=True)
+    instrumented_losses["loss"].backward()
+    instrumented_optimizer.step()
+    for reference_parameter, instrumented_parameter in zip(
+        reference.parameters(), instrumented.parameters(), strict=True
+    ):
+        torch.testing.assert_close(reference_parameter, instrumented_parameter)
 
 
 def _run(source: Path, config: Path, resume: Path | None = None) -> None:

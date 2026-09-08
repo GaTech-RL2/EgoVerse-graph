@@ -13,12 +13,15 @@ from .shared_latent_flow import _mlp
 class SyntheticActionSpaceJacobianFlow(nn.Module):
     """CFM on action bridges with no encoder or latent-space flow objective.
 
-    The Gaussian seed remains fixed during action-space integration.  Its decoded
-    value is the source endpoint and its decoder Jacobian maps the shared field's
-    latent-width output into an action velocity.
+    The Gaussian seed defines the source endpoint. Historical seed mode also
+    uses its Jacobian throughout integration and is not a marginal field.
+    The action_state mode evaluates the Jacobian at a fixed zero-padded lift of
+    the current action, making the complete velocity a function of action/time.
+    This lift is a basis query, not an encoder, inverse, or evolving latent.
     """
 
     _DECODER_FAMILIES = {"joint_affine", "nonlinear"}
+    _JACOBIAN_BASEPOINTS = {"seed", "action_state"}
 
     def __init__(
         self,
@@ -30,6 +33,7 @@ class SyntheticActionSpaceJacobianFlow(nn.Module):
         residual_depth: int = 2,
         field_width: int = 128,
         field_depth: int = 4,
+        jacobian_basepoint: str = "seed",
     ) -> None:
         super().__init__()
         self.latent_dim = int(latent_dim)
@@ -39,7 +43,12 @@ class SyntheticActionSpaceJacobianFlow(nn.Module):
         if decoder_family not in self._DECODER_FAMILIES:
             raise ValueError(f"unknown decoder_family: {decoder_family}")
         self.decoder_family = decoder_family
+        if jacobian_basepoint not in self._JACOBIAN_BASEPOINTS:
+            raise ValueError(f"unknown Jacobian basepoint: {jacobian_basepoint}")
+        self.jacobian_basepoint = jacobian_basepoint
         projection = _fixed_lift(self.latent_dim).T
+        # Deterministic, parameter-free, and absent from historical state_dicts.
+        self.register_buffer("_action_lift", projection.T.contiguous(), persistent=False)
         if decoder_family == "nonlinear":
             self.decoder = ResidualActionAdapter(
                 self.latent_dim,
@@ -75,7 +84,22 @@ class SyntheticActionSpaceJacobianFlow(nn.Module):
         seed: torch.Tensor,
         time: torch.Tensor,
     ) -> torch.Tensor:
-        return self.decoder_jvp(seed, self.latent_velocity(action_state, time))
+        basepoint = self.velocity_basepoint(action_state, seed)
+        return self.decoder_jvp(basepoint, self.latent_velocity(action_state, time))
+
+    def velocity_basepoint(
+        self, action_state: torch.Tensor, seed: torch.Tensor
+    ) -> torch.Tensor:
+        if self.jacobian_basepoint == "action_state":
+            return action_state @ self._action_lift.T
+        return seed
+
+    def velocity_basis_singular_values(
+        self, action_state: torch.Tensor, seed: torch.Tensor
+    ) -> torch.Tensor:
+        return self.decoder_jacobian_singular_values(
+            self.velocity_basepoint(action_state, seed)
+        )
 
     def decoder_jacobian_singular_values(self, seed: torch.Tensor) -> torch.Tensor:
         return torch.linalg.svdvals(vmap(jacrev(self.decoder))(seed))

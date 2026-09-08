@@ -15,7 +15,7 @@
 defaults:
   - override /model: abc/yam_bimanual_dp
   - override /data: abc_arc/abc_fstshirt_bc
-  - override /evaluator: null
+  - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
   - override /hydra/launcher: submitit_pace
   - _self_
 
@@ -51,8 +51,32 @@ logger:
       - bc
       - baseline
 
+# The SAME evaluator as the arc twin, so both arms land on one set of
+# arcmatch charts. It detects the run type from the prediction's shape: an arc
+# token gets detokenized, this baseline's pose chunk gets de-interpolated to the
+# raw window instead. D and M below must match the arc run's or the two arms are
+# not comparable.
+evaluator:
+  arc_metrics: true
+  arcmatch_distance: ${abc.arc_distance}
+  arcmatch_points: ${abc.arcmatch_points}
+  arc_chunk_rows: ${abc.arc_chunk_rows}
+  velocity_mode: ${abc.arc_velocity_mode}
+  resampled_vector_length: ${abc.arc_waypoints}
+  action_horizon: ${abc.action_horizon}
+
 abc:
   action_dim: 14
+  # Arc scoring settings, held equal to abc_fstshirt_arc_bc so the baseline and
+  # arc arms are measured in the same space.
+  arc_distance: 0.40
+  arc_waypoints: 100
+  arcmatch_points: 32
+  arc_velocity_mode: per_waypoint
+  # Raw yam window. The transform list interpolates up to chunk_length (100),
+  # and arc length on an interpolated path reads short, so arc scoring runs on
+  # the raw row count.
+  arc_chunk_rows: 45
   # Yam's cartesian transform list interpolates every action chunk to
   # `chunk_length` (default 100), and the data config does not override it, so
   # the loader hands the graph a (100, 14) target. The diffusion stages

@@ -11,7 +11,7 @@
 defaults:
   - override /model: abc_arc/yam_mecka_cotrain_dp_arc_D40_M100
   - override /data: abc_arc/abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100
-  - override /evaluator: null
+  - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
   - override /hydra/launcher: submitit_pace
   - _self_
 
@@ -51,3 +51,32 @@ logger:
       - abc
       - cotrain
       - arc
+
+# Arc token layout, shared with the single-domain arc arm.
+#
+# per_waypoint keeps a local rate per interval instead of one token-wide mean,
+# which recovers a chunk that accelerates, decelerates or dwells. It also makes
+# the row count 2 * M = 200, divisible by four -- ConditionalUnet1D's two
+# downsample stages require that, and the old 101 (M + 1, odd) crashed the
+# skip-connection concat.
+abc:
+  arc_velocity_mode: per_waypoint
+  arc_token_rows: 200
+  # Arc scoring settings, held equal to the baseline twin.
+  arc_distance: 0.40
+  arc_waypoints: 100
+  arcmatch_points: 32
+  arc_chunk_rows: 45
+  # Control steps the detokenizer reconstructs for the overlay and metrics.
+  action_horizon: 100
+
+# Arc metrics ON, matching the baseline twin so the arms are comparable.
+evaluator:
+  arc_metrics: true
+  arcmatch_distance: ${abc.arc_distance}
+  arcmatch_points: ${abc.arcmatch_points}
+  arc_chunk_rows: ${abc.arc_chunk_rows}
+  resampled_vector_length: ${abc.arc_waypoints}
+  velocity_mode: ${abc.arc_velocity_mode}
+  action_horizon: ${abc.action_horizon}
+  rot_lever_m: 0.1

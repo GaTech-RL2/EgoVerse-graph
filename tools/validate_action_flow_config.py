@@ -503,10 +503,7 @@ def _validate_dimensions_and_modules(
     _require(isinstance(field_stage.field, AdaLNSequenceField), "wrong field v")
     _require(isinstance(decoder, ContextFreeSequenceDecoder), "wrong g")
     field = field_stage.field
-    codec_profile = (
-        int(config.model.codec_hidden_dim),
-        int(config.model.codec_feedforward_dim),
-    )
+    codec_profile = (int(encoder.hidden_dim), int(encoder.feedforward_dim))
     expected_codec_profile = (
         (44, 176)
         if str(config.name)
@@ -625,8 +622,20 @@ def _validate_dimensions_and_modules(
         "field_v": _parameter_manifest(field),
         "decoder_g": _parameter_manifest(decoder),
     }
-    _require(parameters["encoder_e"]["total"] <= 12_000, "E exceeds 12K")
-    _require(parameters["decoder_g"]["total"] <= 12_000, "g exceeds 12K")
+    codec_parameter_counts = (
+        parameters["encoder_e"]["total"],
+        parameters["decoder_g"]["total"],
+    )
+    expected_codec_parameter_counts = (
+        (48_980, 48_976)
+        if expected_codec_profile == (44, 176)
+        else (10_748, 10_744)
+    )
+    _exact(
+        codec_parameter_counts,
+        expected_codec_parameter_counts,
+        "typed reconstruction codec parameter counts",
+    )
     _require(
         39_000_000 <= parameters["field_v"]["total"] <= 41_000_000,
         "field v must contain 39M to 41M parameters",

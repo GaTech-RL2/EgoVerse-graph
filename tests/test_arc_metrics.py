@@ -538,3 +538,50 @@ def test_deinterpolation_matters_for_arc_length():
     reduced = BimanualCartesianEval._deinterpolate(dense[None], 45)[0]
     # A coarser sampling chord-cuts the wiggle, so it measures shorter.
     assert arm_travel(reduced)[0] < arm_travel(dense)[0]
+
+
+# -- the overlay path needs the same predicate as the metrics path ----------
+#
+# Regression: _is_arc was wired into _arc_pred_time_indexed but not into
+# _viz_source, so a baseline run reached an arc-only shape check and died with
+# "expects (B, 200, D) arc tokens ... got (32, 100, 14)". Both paths route on
+# the run type, so both need the predicate.
+
+
+def test_viz_source_passes_a_baseline_chunk_through():
+    import torch
+
+    evaluator = _arc_evaluator("per_waypoint")
+    chunk = torch.zeros(4, 100, 14)
+    out = evaluator._viz_source(chunk, 7)
+    assert out.shape == chunk.shape
+
+
+def test_viz_source_still_detokenizes_an_arc_token():
+    evaluator = _arc_evaluator("per_waypoint")
+    out = evaluator._viz_source(_arc_token("per_waypoint"), 7)
+    assert out.shape == (1, evaluator.action_horizon, 14)
+
+
+def test_viz_source_rejects_a_non_bimanual_width():
+    """A wrong width IS a misconfiguration, unlike a baseline row count."""
+    import torch
+
+    evaluator = _arc_evaluator("per_waypoint")
+    with pytest.raises(ValueError, match=r"\(B, T, 14\)"):
+        evaluator._viz_source(torch.zeros(4, 100, 7), 7)
+
+
+def test_both_paths_agree_on_the_run_type():
+    """metrics and overlay must never disagree about what they were handed."""
+    import torch
+
+    evaluator = _arc_evaluator("per_waypoint")
+    for actions, is_arc in (
+        (_arc_token("per_waypoint"), True),
+        (torch.zeros(1, 100, 14), False),
+    ):
+        assert evaluator._is_arc(actions) is is_arc
+        # The overlay path returns detokenized rows only for an arc token.
+        out = evaluator._viz_source(actions, 7)
+        assert (out.shape[1] == evaluator.action_horizon) or not is_arc

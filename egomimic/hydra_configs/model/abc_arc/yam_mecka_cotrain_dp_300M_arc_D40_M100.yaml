@@ -10,6 +10,9 @@
 #
 # condition_dim = 128 (SpatialSoftmax, num_kp=64) + 14 (ee_pose) = 142.
 # down_dims: [512, 1024, 2048] vs small cotrain's [256, 512, 1024].
+# action_horizon reads abc.arc_token_rows rather than a hardcoded row count:
+# the token width follows the velocity mode (M + 1 for mean, 2 * M for
+# per_waypoint), and the diffusion stages validate the target against it.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
 pipeline:
@@ -44,7 +47,7 @@ pipeline:
     - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
       action_key: actions_cartesian
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
-      action_horizon: 101
+      action_horizon: ${abc.arc_token_rows}
       action_dim: 14
       noise_scheduler: &cotrain_300M_arc_scheduler
         _target_: egomimic.models.ddim_scheduler.DDIMScheduler
@@ -52,12 +55,12 @@ pipeline:
         beta_schedule: squaredcos_cap_v2
         prediction_type: epsilon
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
-      action_horizon: 101
+      action_horizon: ${abc.arc_token_rows}
       action_dim: 14
       condition_input_dim: 142
       policy:
         _target_: egomimic.models.diffusion_policy.DiffusionPolicy
-        action_horizon: 101
+        action_horizon: ${abc.arc_token_rows}
         num_inference_steps: 100
         model:
           _target_: egomimic.models.denoising_nets.ConditionalUnet1D

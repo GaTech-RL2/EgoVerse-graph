@@ -35,6 +35,7 @@ train_datasets:
         stride: 1
         min_distance_unit: 0.40
         resampled_vector_length: 100
+        velocity_mode: ${abc.arc_velocity_mode}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -88,6 +89,7 @@ train_datasets:
         rotation_mode: euler
         min_distance_unit: 0.40
         resampled_vector_length: 100
+        velocity_mode: ${abc.arc_velocity_mode}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -152,6 +154,7 @@ valid_datasets:
           stride: 1
           min_distance_unit: 0.40
           resampled_vector_length: 100
+          velocity_mode: ${abc.arc_velocity_mode}
       filters:
         _target_: egomimic.rldb.filters.DatasetFilter
         filter_lambdas:
@@ -182,6 +185,7 @@ valid_datasets:
           rotation_mode: euler
           min_distance_unit: 0.40
           resampled_vector_length: 100
+          velocity_mode: ${abc.arc_velocity_mode}
       filters:
         _target_: egomimic.rldb.filters.DatasetFilter
         filter_lambdas:
@@ -215,6 +219,7 @@ valid_datasets:
           stride: 1
           min_distance_unit: 0.40
           resampled_vector_length: 100
+          velocity_mode: ${abc.arc_velocity_mode}
       filters:
         _target_: egomimic.rldb.filters.DatasetFilter
         filter_lambdas:
@@ -246,6 +251,7 @@ valid_datasets:
           rotation_mode: euler
           min_distance_unit: 0.40
           resampled_vector_length: 100
+          velocity_mode: ${abc.arc_velocity_mode}
       filters:
         _target_: egomimic.rldb.filters.DatasetFilter
         filter_lambdas:

@@ -118,17 +118,36 @@ def test_arc_viz_source_output_is_monotone_along_the_travelled_axis():
     assert out[-1, 0] > out[0, 0]
 
 
-def test_arc_viz_source_rejects_a_time_indexed_chunk():
-    # Guards the misconfiguration of pointing this evaluator at a baseline run.
+def test_arc_viz_source_passes_a_time_indexed_chunk_through():
+    """This evaluator deliberately serves baseline runs too.
+
+    It used to reject a pose chunk as a misconfiguration. That is now the
+    supported path -- both arms of the ablation share one evaluator -- so a
+    chunk whose row count is not an arc token's is treated as poses and left
+    alone.
+    """
     ev = _evaluator()
-    with pytest.raises(ValueError, match="arc tokens"):
-        ev._viz_source(torch.zeros(2, _H, 14), 7)
+    chunk = torch.zeros(2, _H, 14)
+    assert ev._viz_source(chunk, 7).shape == chunk.shape
 
 
-def test_arc_viz_source_rejects_a_wrong_M():
+def test_arc_viz_source_rejects_the_other_velocity_modes_row_count():
+    """A mode mismatch stays a hard error, unlike a baseline chunk.
+
+    Row counts that belong to the OTHER velocity mode mean the evaluator and
+    the data config disagree. Passing those through would score arc tokens as
+    if they were poses, which reads plausibly and is therefore worse than
+    crashing.
+    """
+    ev = _evaluator()  # mean mode -> M + 1 rows
+    with pytest.raises(ValueError, match="disagree"):
+        ev._viz_source(torch.zeros(2, 2 * _M, 14), 7)
+
+
+def test_arc_viz_source_rejects_a_non_bimanual_width():
     ev = _evaluator()
-    with pytest.raises(ValueError, match="M=100"):
-        ev._viz_source(torch.zeros(2, 26, 14), 7)
+    with pytest.raises(ValueError, match=r"\(B, T, 14\)"):
+        ev._viz_source(torch.zeros(2, 26, 7), 7)
 
 
 def test_arc_round_trip_recovers_the_span_the_token_covers():

@@ -1,15 +1,22 @@
 """HPT stems and trunk as graph stages."""
 
 from functools import partial
+import random
 
 import pytest
 import torch
+import torch.nn as nn
 from omegaconf import OmegaConf
 
 from egomimic.models.cores.hpt_transformer import MultiheadAttention, SimpleTransformer
-from egomimic.models.stems.hpt_stems import MLPPolicyStem
+from egomimic.models.stems.hpt_stems import MLPPolicyStem, PolicyStem
 from egomimic.pipeline.core import Pipeline
-from egomimic.pipeline.stages_hpt import HPTStemStage, HPTTrunkStage
+from egomimic.pipeline.stages_hpt import (
+    AnnotationPromptStage,
+    HPTStemStage,
+    HPTTrunkStage,
+    sample_annotation_prompt,
+)
 
 _DIM = 64
 _LATENTS = 8
@@ -355,3 +362,111 @@ def test_a_half_precision_stem_casts_its_input_to_match():
     stage = HPTStemStage(stems={_POSE_KEY: _stem(14)}).half()
     out = stage.forward({_POSE_KEY: torch.zeros(2, 14, dtype=torch.float32)})
     assert out["hpt/tokens"].dtype == torch.float16
+
+
+# -- language prompts -------------------------------------------------------
+
+
+_ANN_KEY = "annotations"
+_PROMPT_KEY = "observations.annotation"
+
+
+class _ListStem(PolicyStem):
+    """Stand-in for a text stem: consumes list[str], no HuggingFace download."""
+
+    def __init__(self, embed_dim: int = _DIM, latents: int = _LATENTS):
+        super().__init__(specs=_spec(embed_dim, latents))
+        self.dummy = nn.Parameter(torch.zeros(1))
+
+    def forward(self, prompts):
+        return torch.ones(len(prompts), 1, _DIM)
+
+    def compute_latent(self, prompts):
+        feat = self(prompts)
+        stem_tokens = self.tokens.repeat(feat.shape[0], 1, 1)
+        return self.cross_attention(stem_tokens, feat)
+
+
+def test_sample_annotation_prompt_falls_back_when_empty():
+    assert sample_annotation_prompt([], default_prompt="idle") == "idle"
+    assert sample_annotation_prompt(["", "  "], default_prompt="idle") == "idle"
+
+
+def test_sample_annotation_prompt_takes_first_at_eval():
+    item = ["fold the shirt", "grab the sleeve"]
+    assert (
+        sample_annotation_prompt(item, sampling_mode="random", training=False)
+        == "fold the shirt"
+    )
+    assert sample_annotation_prompt(item, sampling_mode="first") == "fold the shirt"
+
+
+def test_sample_annotation_prompt_can_be_seeded():
+    item = ["a", "b", "c"]
+    rng = random.Random(0)
+    picked = {
+        sample_annotation_prompt(item, training=True, rng=rng) for _ in range(20)
+    }
+    assert picked <= set(item)
+    assert len(picked) > 1
+
+
+def test_annotation_prompt_stage_writes_one_string_per_sample():
+    stage = AnnotationPromptStage(sampling_mode="first")
+    assert stage.contract("train") == ((_ANN_KEY,), (_PROMPT_KEY,))
+    out = stage.execute(
+        {_ANN_KEY: [["fold the shirt", "smooth"], [], "already a string"]},
+        mode="train",
+    )
+    assert out[_PROMPT_KEY] == ["fold the shirt", "", "already a string"]
+
+
+def test_annotation_prompt_stage_is_deterministic_in_inference():
+    stage = AnnotationPromptStage(sampling_mode="random")
+    batch = {_ANN_KEY: [["aaa", "bbb"], ["ccc", "ddd"]]}
+    first = stage.execute(dict(batch), mode="inference")[_PROMPT_KEY]
+    second = stage.execute(dict(batch), mode="inference")[_PROMPT_KEY]
+    assert first == second == ["aaa", "ccc"]
+
+
+def test_stem_stage_routes_list_valued_prompts_without_dtype_cast():
+    stage = HPTStemStage(stems={_PROMPT_KEY: _ListStem()})
+    out = stage.forward({_PROMPT_KEY: ["fold the shirt", "smooth the hem"]})
+    assert out["hpt/tokens"].shape == (2, _LATENTS, _DIM)
+
+
+def test_prompt_stage_and_list_stem_compose():
+    pipeline = Pipeline(
+        [
+            AnnotationPromptStage(sampling_mode="first"),
+            HPTStemStage(stems={_PROMPT_KEY: _ListStem()}),
+        ]
+    )
+    out = pipeline.execute(
+        {_ANN_KEY: [["fold the shirt"], ["pick up the cup"]]}, mode="train"
+    )
+    assert out["hpt/tokens"].shape == (2, _LATENTS, _DIM)
+
+
+def test_domain_only_keys_are_not_required_on_every_source():
+    """Yam wrists must not block a human batch that has no wrist cameras."""
+    stage = HPTStemStage(
+        stems={_POSE_KEY: _stem(14)},
+        domain_stems={
+            "yam_bimanual": {_IMG_KEY: _stem(512)},
+            "human_bimanual": {"observations.state.gripper": _stem(2)},
+        },
+        selector_aliases={"7": "yam_bimanual", "3": "human_bimanual"},
+    )
+    assert _IMG_KEY not in stage.reads
+    assert "embodiment" in stage.reads
+    pipeline = Pipeline([stage])
+    out = pipeline.execute(
+        {
+            _POSE_KEY: torch.zeros(2, 14),
+            "observations.state.gripper": torch.zeros(2, 2),
+            "embodiment": 3,
+        },
+        mode="train",
+    )
+    assert out["hpt/tokens"].shape == (2, 2 * _LATENTS, _DIM)

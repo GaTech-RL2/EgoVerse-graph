@@ -8,6 +8,7 @@ shows the actual dataflow instead of a single opaque node.
 
 The split follows HPT's own structure:
 
+    annotations --AnnotationPromptStage--> observations.annotation
     observations --HPTStemStage--> hpt/tokens --HPTTrunkStage--> condition
 
 ``condition`` is deliberately the same key the DP path writes, so any head
@@ -17,25 +18,129 @@ sampler -- consumes an HPT representation without changing a line.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import random
+from collections.abc import Mapping, Sequence
 
 import torch
 import torch.nn as nn
 
 from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
 
+_PROMPT_SAMPLING = ("random", "first")
 
-def _as_stem_dtype(value: torch.Tensor, stem: nn.Module) -> torch.Tensor:
-    """Cast a floating input to the stem's own parameter dtype.
+
+def annotation_texts_for_item(item) -> list[str]:
+    """Flatten one sample's annotation payload into non-empty strings.
+
+    The loader yields a list of overlapping span texts per frame; collate keeps
+    that as ``list[list[str]]``. A missing or empty entry becomes ``[]`` so the
+    prompt stage can fall back to ``default_prompt``.
+    """
+    if item is None:
+        return []
+    if isinstance(item, str):
+        return [item] if item.strip() else []
+    if isinstance(item, (list, tuple)):
+        texts: list[str] = []
+        for sub in item:
+            texts.extend(annotation_texts_for_item(sub))
+        return texts
+    text = str(item)
+    return [text] if text.strip() else []
+
+
+def sample_annotation_prompt(
+    item,
+    *,
+    default_prompt: str = "",
+    sampling_mode: str = "random",
+    training: bool = True,
+    rng: random.Random | None = None,
+) -> str:
+    """Pick one prompt string from a sample's overlapping annotation texts.
+
+    ``random`` samples uniformly among the overlapping spans at train time and
+    takes the first span at eval, so validation is deterministic. ``first``
+    always takes the first span.
+    """
+    if sampling_mode not in _PROMPT_SAMPLING:
+        raise ValueError(
+            f"sampling_mode must be one of {_PROMPT_SAMPLING}, got {sampling_mode!r}"
+        )
+    texts = annotation_texts_for_item(item)
+    if not texts:
+        return default_prompt
+    if sampling_mode == "first" or not training:
+        return texts[0]
+    chooser = rng.choice if rng is not None else random.choice
+    return chooser(texts)
+
+
+class AnnotationPromptStage(Stage):
+    """Turn collated annotation lists into one prompt string per sample.
+
+    This is the graph replacement for the sampling the monolithic HPT algo used
+    to do internally. The loader's ``annotations`` key is ``list[list[str]]``
+    (overlapping span texts per frame). Qwen stems consume ``list[str]``, so
+    this stage writes ``observations.annotation`` for ``HPTStemStage`` to route.
+    """
+
+    def __init__(
+        self,
+        annotation_key: str = "annotations",
+        prompt_key: str = "observations.annotation",
+        sampling_mode: str = "random",
+        default_prompt: str = "",
+    ):
+        super().__init__()
+        if sampling_mode not in _PROMPT_SAMPLING:
+            raise ValueError(
+                f"sampling_mode must be one of {_PROMPT_SAMPLING}, got {sampling_mode!r}"
+            )
+        self.annotation_key = str(annotation_key)
+        self.prompt_key = str(prompt_key)
+        self.sampling_mode = sampling_mode
+        self.default_prompt = str(default_prompt)
+        self.reads = (self.annotation_key,)
+        self.writes = (self.prompt_key,)
+
+    def execute(self, batch: dict, *, mode: str) -> dict:
+        raw = batch[self.annotation_key]
+        if isinstance(raw, str) or raw is None:
+            entries: Sequence = [raw]
+        elif isinstance(raw, (list, tuple)):
+            entries = raw
+        else:
+            raise TypeError(
+                f"{self.annotation_key} must be a string or a sequence of per-sample "
+                f"texts, got {type(raw).__name__}"
+            )
+        batch[self.prompt_key] = [
+            sample_annotation_prompt(
+                item,
+                default_prompt=self.default_prompt,
+                sampling_mode=self.sampling_mode,
+                training=mode == "train",
+            )
+            for item in entries
+        ]
+        return batch
+
+    def forward(self, batch: dict) -> dict:
+        return self.execute(batch, mode="train")
+
+
+def _as_stem_dtype(value, stem: nn.Module):
+    """Cast a floating tensor to the stem's own parameter dtype.
 
     Zarr stamps poses as float64 and ``torch.from_numpy`` preserves that, so a
     Double tensor can reach a stem's Linear unchanged -- autocast only handles
     float32/float16/bfloat16, never Double, and the matmul then raises
     "mat1 and mat2 must have the same dtype".
 
-    A stage should not assume what dtype the loader or the runner handed it, so
-    the cast happens here rather than relying on an upstream normalisation.
-    Integer inputs are left alone; float32 in is a no-op.
+    List-valued modalities (language prompts) are returned unchanged: those
+    stems own tokenization and cannot be dtype-cast. Integer tensors are left
+    alone; float32 in is a no-op.
     """
     if not torch.is_tensor(value) or not value.is_floating_point():
         return value
@@ -141,10 +246,14 @@ class HPTStemStage(Stage):
             if spec is not None and hasattr(stem, "init_cross_attn"):
                 stem.init_cross_attn(spec)
 
+        # Domain-only keys (yam wrists, ...) must not be global reads: a cotrain
+        # human batch never carries them, and Pipeline.execute would block the
+        # whole stem stage. Require the intersection so a key every domain
+        # actually uses (ee_pose) is still linted.
         reads = list(self.shared_keys)
-        for keys in self.domain_keys.values():
-            reads.extend(keys)
-        if self.domain_stems:
+        if self.domain_keys:
+            common = set.intersection(*(set(keys) for keys in self.domain_keys.values()))
+            reads.extend(sorted(common))
             reads.append(self.selector_key)
         self.reads = tuple(dict.fromkeys(reads))
 

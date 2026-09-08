@@ -124,12 +124,23 @@ if test "$AF_LAUNCH_MODE" = run; then
   required AF_EXPECTED_TIME_LIMIT
 fi
 AF_METHOD=action_flow_joint
+AF_EXPECTED_OPTIMIZER_LR=3e-5
+AF_EXPECTED_ETA_MIN=3e-6
 case "$AF_EXPERIMENT" in
   pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42)
     AF_METHOD=latent_fm_stopgrad
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
+  pusht/action_flow_bc_usocket_latent_fm_sg_recon1_lr1e5_s42)
+    AF_METHOD=latent_fm_stopgrad
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_lr1e5_s42
+    AF_EXPECTED_OPTIMIZER_LR=1e-5
+    AF_EXPECTED_ETA_MIN=1e-6
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
   pusht/action_flow_bc_usocket_bridge_likelihood_s42)
@@ -799,7 +810,8 @@ export SRUN
   "$AF_CONTENT_MANIFEST" "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
   "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" \
   "$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS" \
-  "$RECONSTRUCTION_ONLY_WARMUP_STEPS" <<'PY'
+  "$RECONSTRUCTION_ONLY_WARMUP_STEPS" \
+  "$AF_EXPECTED_OPTIMIZER_LR" "$AF_EXPECTED_ETA_MIN" <<'PY'
 import math
 import pathlib
 import sys
@@ -827,12 +839,16 @@ from omegaconf import OmegaConf
     content_aggregate_sha,
     full_warmup_steps,
     effective_warmup_steps,
+    expected_optimizer_lr,
+    expected_eta_min,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
 flow_weight = float(flow_weight)
 full_warmup_steps = int(full_warmup_steps)
 effective_warmup_steps = int(effective_warmup_steps)
+expected_optimizer_lr = float(expected_optimizer_lr)
+expected_eta_min = float(expected_eta_min)
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -868,10 +884,10 @@ else:
     assert effective_warmup_steps == full_warmup_steps == 0
 optimizer, scheduler = cfg.model.optimizer, cfg.model.scheduler
 assert optimizer._target_ == "torch.optim.AdamW" and optimizer._partial_ is True
-assert optimizer.lr == 3e-5 and list(optimizer.betas) == [0.9, 0.999]
+assert optimizer.lr == expected_optimizer_lr and list(optimizer.betas) == [0.9, 0.999]
 assert optimizer.eps == 1e-8 and optimizer.weight_decay == 1e-4
 assert scheduler.max_steps == 240000 and scheduler.warmup_steps == 8000
-assert scheduler.warmup_start_factor == 0.1 and scheduler.eta_min == 3e-6
+assert scheduler.warmup_start_factor == 0.1 and scheduler.eta_min == expected_eta_min
 assert cfg.trainer.accelerator == "gpu"
 assert cfg.trainer.devices == cfg.trainer.num_nodes == 1
 assert cfg.trainer.strategy == "auto" and cfg.trainer.sync_batchnorm is False

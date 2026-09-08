@@ -1,0 +1,22 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42
+  - _self_
+
+name: action_flow_bc_usocket_latent_fm_sg_recon1_lr1e5_s42
+description: "LR-only ablation of latent FM stopgrad recon1: peak 1e-5, floor 1e-6"
+
+model:
+  optimizer:
+    lr: 1.0e-5
+  scheduler:
+    eta_min: 1.0e-6
+
+run_provenance:
+  optimizer_ablation:
+    intended_variable: learning_rate_schedule_scale
+    reference_peak_lr: 3.0e-5
+    reference_eta_min: 3.0e-6
+    peak_lr: 1.0e-5
+    eta_min: 1.0e-6
+    scale: 0.3333333333333333

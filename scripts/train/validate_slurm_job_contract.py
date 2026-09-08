@@ -18,6 +18,10 @@ SCHEMA_VERSION = 1
 PASS_STATUS = "SLURM_JOB_CONTRACT_VALIDATED"
 FAIL_STATUS = "SLURM_JOB_CONTRACT_FAILED"
 REQUIRED_CONSTRAINT = "H100|H200"
+GPU_PROFILES = ("h100-h200", "smoke-bf16")
+SMOKE_GPU_FEATURES = frozenset(
+    ("H100", "H200", "A40", "A100-40GB", "A100-80GB", "L40S")
+)
 _FIELD_RE = re.compile(
     r"(?:^|\s)([A-Za-z][A-Za-z0-9_/:.-]*)=(.*?)"
     r"(?=(?:\s+[A-Za-z][A-Za-z0-9_/:.-]*=)|$)"
@@ -49,11 +53,39 @@ def _positive_int(value: str) -> int:
 
 
 def _constraint(value: str) -> str:
-    if value != REQUIRED_CONSTRAINT:
+    features = value.split("|")
+    if len(set(features)) != len(features) or not set(features) <= SMOKE_GPU_FEATURES:
         raise argparse.ArgumentTypeError(
-            f"must be the exact case-sensitive constraint {REQUIRED_CONSTRAINT!r}"
+            "must be an exact feature or OR of H100, H200, A40, A100-40GB, A100-80GB, L40S"
         )
     return value
+
+
+def validate_gpu_profile(profile: str, run_kind: str, constraint: str) -> None:
+    """Alternate accelerators are explicit smoke-only placement, never full."""
+    if profile not in GPU_PROFILES or run_kind not in ("smoke", "full"):
+        raise ContractError("invalid GPU profile or run kind")
+    if run_kind == "full" and profile != "h100-h200":
+        raise ContractError("full allocations require the h100-h200 GPU profile")
+    if profile == "h100-h200" and constraint != REQUIRED_CONSTRAINT:
+        raise ContractError(f"constraint must be exactly {REQUIRED_CONSTRAINT!r}")
+    try:
+        _constraint(constraint)
+    except argparse.ArgumentTypeError as exc:
+        raise ContractError(str(exc)) from exc
+
+
+def gpu_name_allowed(name: str, profile: str) -> bool:
+    if profile not in GPU_PROFILES:
+        raise ContractError(f"invalid GPU profile: {profile!r}")
+    if re.search(r"\bH(?:100|200)\b", name):
+        return True
+    if profile == "h100-h200":
+        return False
+    return bool(
+        re.search(r"\b(?:A40|L40S)\b", name)
+        or re.search(r"\bA100\b.*\b(?:40|80)GB\b", name)
+    )
 
 
 def parse_scontrol_record(text: str) -> dict[str, str]:
@@ -185,14 +217,12 @@ def evaluate_contract(
     expected_memory: str,
     expected_time_limit: str,
     expected_constraint: str,
+    gpu_profile: str = "h100-h200",
+    run_kind: str = "full",
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     """Return expected values, observed values, and every failed comparison."""
 
-    if expected_constraint != REQUIRED_CONSTRAINT:
-        raise ContractError(
-            f"constraint must be exactly {REQUIRED_CONSTRAINT!r}, got "
-            f"{expected_constraint!r}"
-        )
+    validate_gpu_profile(gpu_profile, run_kind, expected_constraint)
     if not expected_job_id or any(character.isspace() for character in expected_job_id):
         raise ContractError("expected job ID must be a non-empty token")
     if expected_cpus <= 0:
@@ -251,7 +281,9 @@ def evaluate_contract(
         "memory_raw": expected_memory,
         "memory_bytes": expected_memory_bytes,
         "memory_mode": "per_node",
-        "constraint": REQUIRED_CONSTRAINT,
+        "constraint": expected_constraint,
+        "gpu_profile": gpu_profile,
+        "run_kind": run_kind,
         "time_limit_raw": expected_time_limit,
         "time_limit_seconds": expected_time_limit_seconds,
         "generic_gpu_request_only": True,
@@ -271,7 +303,7 @@ def evaluate_contract(
             observed["minimum_cpus_per_node"],
         ),
         ("memory_bytes", expected_memory_bytes, observed["memory_bytes"]),
-        ("constraint", REQUIRED_CONSTRAINT, observed["constraint"]),
+        ("constraint", expected_constraint, observed["constraint"]),
         (
             "time_limit_seconds",
             expected_time_limit_seconds,
@@ -327,8 +359,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-memory", required=True)
     parser.add_argument("--expected-time-limit", required=True)
     parser.add_argument(
-        "--expected-constraint", required=True, type=_constraint, metavar="H100|H200"
+        "--expected-constraint", required=True, type=_constraint
     )
+    parser.add_argument("--gpu-profile", choices=GPU_PROFILES, default="h100-h200")
+    parser.add_argument("--run-kind", choices=("smoke", "full"), default="full")
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()
 
@@ -360,6 +394,8 @@ def main() -> int:
             expected_memory=args.expected_memory,
             expected_time_limit=args.expected_time_limit,
             expected_constraint=args.expected_constraint,
+            gpu_profile=args.gpu_profile,
+            run_kind=args.run_kind,
         )
         evidence.update(
             {

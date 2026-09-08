@@ -580,8 +580,41 @@ def test_gpu_probe_gate_rejects_non_target_gpu(tmp_path):
         )
     )
 
-    with pytest.raises(MODULE.SmokeVerificationError, match="H100 or H200"):
+    with pytest.raises(MODULE.SmokeVerificationError, match="h100-h200"):
         MODULE._validate_gpu_probes(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("name", "feature"),
+    [("NVIDIA A40", "A40"), ("NVIDIA A100-SXM4-40GB", "A100-40GB"),
+     ("NVIDIA A100 80GB PCIe", "A100-80GB"), ("NVIDIA L40S", "L40S")],
+)
+def test_gpu_probe_gate_accepts_explicit_alternate_smoke_only(tmp_path, name, feature):
+    test_gpu_probe_gate_requires_real_single_h100_or_h200_bf16(tmp_path)
+    path = tmp_path / "provenance/restart-0/gpu_probe.json"
+    payload = json.loads(path.read_text())
+    payload["gpu_name"] = name
+    path.write_text(json.dumps(payload))
+    contract = {"status": "SLURM_JOB_CONTRACT_VALIDATED", "failures": [],
+                "expected": {"gpu_profile": "smoke-bf16", "run_kind": "smoke",
+                             "constraint": feature}}
+    contract_path = path.with_name("SLURM_JOB_CONTRACT.json")
+    contract_path.write_text(json.dumps(contract))
+    record = MODULE._validate_gpu_probes(tmp_path, "smoke-bf16")[0]
+    assert record["gpu_name"] == name
+    assert record["slurm_contract_sha256"] == MODULE._sha256(contract_path)
+    with pytest.raises(MODULE.SmokeVerificationError, match="h100-h200"):
+        MODULE._validate_gpu_probes(tmp_path)
+    payload["bf16_supported"] = False
+    path.write_text(json.dumps(payload))
+    with pytest.raises(MODULE.SmokeVerificationError, match="BF16 is unsupported"):
+        MODULE._validate_gpu_probes(tmp_path, "smoke-bf16")
+    payload["bf16_supported"] = True
+    path.write_text(json.dumps(payload))
+    contract["expected"]["run_kind"] = "full"
+    contract_path.write_text(json.dumps(contract))
+    with pytest.raises(MODULE.SmokeVerificationError, match="invalid Slurm/profile"):
+        MODULE._validate_gpu_probes(tmp_path, "smoke-bf16")
 
 
 def _checkpoint_payload():

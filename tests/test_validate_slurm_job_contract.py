@@ -226,3 +226,26 @@ def test_contract_still_rejects_empty_required_fields():
 def test_slurm_duration_forms(raw, seconds):
     module = _load_module()
     assert module.parse_slurm_duration(raw) == seconds
+
+
+@pytest.mark.parametrize("constraint", ["A40", "A100-40GB", "A100-80GB", "L40S", "A40|L40S"])
+def test_alternate_smoke_profile_requires_exact_allocation(constraint):
+    module = _load_module()
+    expected = {**_expectations(), "expected_constraint": constraint,
+                "gpu_profile": "smoke-bf16", "run_kind": "smoke"}
+    fields = module.parse_scontrol_record(_record(Features=constraint))
+    accepted, _, failures = module.evaluate_contract(fields, **expected)
+    assert failures == []
+    assert accepted["gpu_profile"] == "smoke-bf16"
+    assert accepted["run_kind"] == "smoke"
+    with pytest.raises(module.ContractError, match="full allocations"):
+        module.evaluate_contract(fields, **{**expected, "run_kind": "full"})
+    with pytest.raises(module.ContractError, match="exactly"):
+        module.evaluate_contract(fields, **{**expected, "gpu_profile": "h100-h200"})
+
+
+@pytest.mark.parametrize("constraint", ["V100", "A40|V100", "A40|A40", "", "A100", "A40|"])
+def test_alternate_smoke_profile_rejects_unknown_or_ambiguous_features(constraint):
+    module = _load_module()
+    with pytest.raises(module.ContractError):
+        module.validate_gpu_profile("smoke-bf16", "smoke", constraint)

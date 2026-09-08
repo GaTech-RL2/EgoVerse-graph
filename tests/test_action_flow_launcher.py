@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "scripts" / "train" / "launch_action_flow_usocket.sbatch"
@@ -106,7 +109,7 @@ def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
     assert "TELEMETRY_EVERY=2" in source
     assert "verify_action_flow_training_smoke.py" in source
     assert "--planned-checkpoint-count 14" in source
-    assert "--expected-constraint 'H100|H200'" in source
+    assert '--expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT"' in source
     assert "--expected-reconstruction-weight" in source
     assert "--expected-config-sha256" in source
     assert (
@@ -152,6 +155,37 @@ def test_second_preflight_can_reuse_the_first_train_only_normalization():
     assert 'if test -z "${AF_NORM_STATS_PATH:-}"; then' in source
     assert 'test -s "$EFFECTIVE_NORM_FILE"' in source
     assert 'normalization SHA-256 mismatch' in source
+
+
+@pytest.mark.parametrize(
+    ("kind", "profile", "constraint", "success", "gpu_name"),
+    [
+        ("full", "h100-h200", "H100|H200", True, "NVIDIA H200"),
+        ("smoke", "h100-h200", "H100|H200", True, "NVIDIA H100"),
+        ("smoke", "smoke-bf16", "A40", True, "NVIDIA A40"),
+        ("smoke", "smoke-bf16", "A100-40GB|A100-80GB", True, "NVIDIA A100"),
+        ("smoke", "smoke-bf16", "L40S", True, "NVIDIA L40S"),
+        ("full", "smoke-bf16", "H100|H200", False, ""),
+        ("full", "h100-h200", "A40", False, ""),
+        ("smoke", "h100-h200", "A40", False, ""),
+        ("smoke", "smoke-bf16", "V100", False, ""),
+    ],
+)
+def test_actual_launcher_profile_boundary(kind, profile, constraint, success, gpu_name):
+    source = _source()
+    begin = source.index('case "$AF_RUN_KIND" in')
+    end = source.index('if test "$AF_LAUNCH_MODE" = run;', begin)
+    script = "set -eu\ndie() { echo \"$*\" >&2; exit 64; }\n"
+    script += source[begin:end] + "\ndeclare -p GPU_NAME_ARGS\n"
+    result = subprocess.run(
+        ["bash", "-c", script],
+        env={**os.environ, "AF_RUN_KIND": kind, "AF_GPU_PROFILE": profile,
+             "AF_EXPECTED_GPU_CONSTRAINT": constraint},
+        capture_output=True, text=True,
+    )
+    assert (result.returncode == 0) is success, result.stderr
+    if success:
+        assert gpu_name in result.stdout
 
 
 def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():

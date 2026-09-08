@@ -5,7 +5,7 @@
 # Cluster-specific account, partition, QoS, source, runtime, data, and output
 # locations are explicit inputs.  The executable model contract remains shared
 # across Phoenix and ICE so the two queue candidates cannot silently drift.
-# Submit with one H100 or H200 and command-line Slurm resource arguments.
+# Full runs use one H100/H200; alternate BF16 GPUs require explicit smoke opt-in.
 
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -15,8 +15,9 @@
 #SBATCH --signal=B:USR1@600
 
 # Resource selection is intentionally supplied by the submitter.  Preflight
-# runs on one CPU node; smoke/full must pass exactly
-# ``--gres=gpu:1 --constraint='H100|H200'`` and is checked again on-node.
+# runs on one CPU node; full/default smoke pass exactly
+# ``--gres=gpu:1 --constraint='H100|H200'``. Alternate smoke-only placement uses
+# AF_GPU_PROFILE=smoke-bf16 and an exact AF_EXPECTED_GPU_CONSTRAINT; checked on-node.
 
 set -Eeuo pipefail
 umask 077
@@ -63,6 +64,8 @@ done
 
 AF_LAUNCH_MODE=${AF_LAUNCH_MODE:-preflight}
 AF_RUN_KIND=${AF_RUN_KIND:-smoke}
+AF_GPU_PROFILE=${AF_GPU_PROFILE:-h100-h200}
+AF_EXPECTED_GPU_CONSTRAINT=${AF_EXPECTED_GPU_CONSTRAINT:-H100|H200}
 AF_MAX_RESTARTS=${AF_MAX_RESTARTS:-4}
 AF_WANDB_NAME=${AF_WANDB_NAME:-$AF_WANDB_RUN_ID}
 AF_WANDB_GROUP=${AF_WANDB_GROUP:-usocket-action-flow-bc-v1}
@@ -94,6 +97,28 @@ case "$AF_RUN_KIND" in
   smoke|full) ;;
   *) die "AF_RUN_KIND must be smoke or full" ;;
 esac
+case "$AF_GPU_PROFILE" in
+  h100-h200)
+    test "$AF_EXPECTED_GPU_CONSTRAINT" = 'H100|H200' || die "default/full constraint must be H100|H200"
+    ;;
+  smoke-bf16)
+    test "$AF_RUN_KIND" = smoke || die "alternate GPU profile is smoke-only"
+    ;;
+  *) die "unknown GPU profile" ;;
+esac
+GPU_NAME_ARGS=()
+IFS='|' read -r -a GPU_FEATURES <<< "$AF_EXPECTED_GPU_CONSTRAINT"
+for feature in "${GPU_FEATURES[@]}"; do
+  case "$feature" in
+    H100) GPU_NAME_ARGS+=(--allowed-gpu-name "NVIDIA H100 80GB HBM3") ;;
+    H200) GPU_NAME_ARGS+=(--allowed-gpu-name "NVIDIA H200") ;;
+    A40) GPU_NAME_ARGS+=(--allowed-gpu-name "NVIDIA A40") ;;
+    A100-40GB|A100-80GB) GPU_NAME_ARGS+=(--allowed-gpu-name "NVIDIA A100") ;;
+    L40S) GPU_NAME_ARGS+=(--allowed-gpu-name "NVIDIA L40S") ;;
+    *) die "unsupported GPU feature: $feature" ;;
+  esac
+done
+test "${#GPU_NAME_ARGS[@]}" -gt 0 || die "empty GPU constraint"
 if test "$AF_LAUNCH_MODE" = run; then
   required AF_EXPECTED_MEMORY
   required AF_EXPECTED_TIME_LIMIT
@@ -348,6 +373,8 @@ BASE_OVERRIDES=(
   "seed=$AF_SEED"
   "++run_provenance.execution_cluster=$AF_CLUSTER_LABEL"
   "++run_provenance.run_kind=$AF_RUN_KIND"
+  "++run_provenance.gpu_profile=$AF_GPU_PROFILE"
+  "++run_provenance.gpu_constraint=$AF_EXPECTED_GPU_CONSTRAINT"
   "++run_provenance.source_commit=$AF_EXPECTED_HEAD"
   "++run_provenance.launcher_sha256=$AF_EXPECTED_LAUNCHER_SHA256"
   "++run_provenance.content_manifest_path=$AF_CONTENT_MANIFEST"
@@ -652,8 +679,12 @@ if experiment.endswith("_warmup10k_s42"):
     assert payload["metrics"]["warmup_step"] is not None
 assert payload["wandb"]["exit_code"] == 0
 assert payload["gpu_probes"]
+from scripts.train.validate_slurm_job_contract import GPU_PROFILES, gpu_name_allowed
+
+smoke_profile = payload.get("gpu_profile", "h100-h200")
+assert smoke_profile in GPU_PROFILES
 assert all(
-    "H100" in record["gpu_name"] or "H200" in record["gpu_name"]
+    gpu_name_allowed(record["gpu_name"], smoke_profile)
     for record in payload["gpu_probes"]
 )
 PY
@@ -739,7 +770,8 @@ scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
   --expected-cpus 8 \
   --expected-memory "$AF_EXPECTED_MEMORY" \
   --expected-time-limit "$AF_EXPECTED_TIME_LIMIT" \
-  --expected-constraint 'H100|H200' \
+  --expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT" \
+  --gpu-profile "$AF_GPU_PROFILE" --run-kind "$AF_RUN_KIND" \
   --output "$ATTEMPT/SLURM_JOB_CONTRACT.json"
 
 SRUN=$(command -v srun)
@@ -749,8 +781,7 @@ export SRUN
   --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 --unbuffered \
   "$AF_PYTHON" "$AF_GPU_PROBE" \
   --expected-world-size 1 \
-  --allowed-gpu-name "NVIDIA H100 80GB HBM3" \
-  --allowed-gpu-name "NVIDIA H200" \
+  "${GPU_NAME_ARGS[@]}" \
   --output "$ATTEMPT/gpu_probe.json"
 
 (
@@ -993,6 +1024,7 @@ if test "$AF_RUN_KIND" = smoke; then
     SMOKE_WEIGHT_ARGS=(--expected-reconstruction-weight "$AF_RECONSTRUCTION_WEIGHT" --expected-flow-weight "$AF_FLOW_WEIGHT")
   fi
   "$AF_PYTHON" "$AF_SMOKE_VERIFIER" "$AF_OUTPUT_DIR" \
+    --gpu-profile "$AF_GPU_PROFILE" \
     --expected-head "$AF_EXPECTED_HEAD" \
     --expected-experiment "$AF_EXPERIMENT" \
     "${SMOKE_WEIGHT_ARGS[@]}" \

@@ -179,7 +179,13 @@ workflow:
         for EXP in $EXPERIMENTS; do
           echo "===== smoke $EXP ====="
           if ! run_eval "$EXP" 1 smoke; then
-            echo "FATAL: smoke failed for $EXP"; tail -60 "/tmp/smoke_${EXP}.log"; exit 1
+            echo "FATAL: smoke failed for $EXP"
+            # The [sim] provenance/shape lines are emitted well before the
+            # traceback, so a plain tail buries exactly what diagnoses the
+            # failure. Print them explicitly first.
+            echo "--- [sim] lines ---"; grep -E "^\[sim\]" "/tmp/smoke_${EXP}.log" || true
+            echo "--- tail ---"; tail -120 "/tmp/smoke_${EXP}.log"
+            exit 1
           fi
           grep -E "^\[sim\]" "/tmp/smoke_${EXP}.log" | tail -8
         done

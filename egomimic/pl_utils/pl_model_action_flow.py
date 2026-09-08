@@ -436,6 +436,10 @@ class ActionFlowModelWrapper(ModelWrapper):
         gradients = OrderedDict()
         routes = OrderedDict()
         for label, component_name in self._gradient_components:
+            # An exact-section codec still reports its reconstruction error,
+            # but that diagnostic is not a trained objective.
+            if label == "Reconstruction" and self._objective_reconstruction_weight() == 0:
+                continue
             active = self._component_gradients(components[component_name], named, label)
             gradients[label] = active
             routes[label] = [
@@ -464,9 +468,17 @@ class ActionFlowModelWrapper(ModelWrapper):
                 index for index in left_gradients if index in right_gradients
             )
             if not shared:
-                raise RuntimeError(
-                    f"Action Flow {left} and {right} have no shared gradient path"
-                )
+                # FM-only endpoint detachment deliberately separates FM from
+                # clean reconstruction. Do not invent a cosine for that pair.
+                if {left, right} != {"FM", "Reconstruction"} or not self._fm_endpoint_detached():
+                    raise RuntimeError(
+                        f"Action Flow {left} and {right} have no shared gradient path"
+                    )
+                pair = f"{left}__{right}"
+                self._log_telemetry(f"GradientCosine/{pair}", 0.0)
+                self._log_telemetry(f"GradientCosineDefined/{pair}", 0.0)
+                self._log_telemetry(f"GradientIntersectionParameterCount/{pair}", 0)
+                continue
             zero = left_gradients[shared[0]].new_zeros(())
             dot = sum(
                 (left_gradients[index] * right_gradients[index]).sum()
@@ -533,14 +545,22 @@ class ActionFlowModelWrapper(ModelWrapper):
             ).hexdigest(),
         }
 
+    def _fm_endpoint_detached(self) -> bool:
+        stages = getattr(getattr(self.model, "pipeline", None), "stages", ())
+        return any(
+            getattr(stage, "flow_clean_gradient_mode", "full") == "all_stopgrad"
+            for stage in stages
+        )
+
     def _log_compute_contract(self) -> None:
         if self.flow_samples_per_content is None:
             return
+        field_calls = 2 if self._fm_endpoint_detached() else 1
         for name, value in (
-            ("Compute/FieldForwardCallsPerStep", 1),
+            ("Compute/FieldForwardCallsPerStep", field_calls),
             (
                 "Compute/FieldSampleEquivalentsPerStep",
-                self.flow_samples_per_content,
+                field_calls * self.flow_samples_per_content,
             ),
             ("Compute/DecoderJVPCallsPerStep", 1),
         ):

@@ -341,7 +341,6 @@ def test_stage_source_keeps_the_pipeline_boundary_generic():
         "action_key",
         "egomimic.models",
         "unite",
-        ".detach(",
         "monotonic",
         "scale_loss",
         "noisy_reconstruction",

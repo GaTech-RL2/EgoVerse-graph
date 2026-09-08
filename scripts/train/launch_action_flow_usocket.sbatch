@@ -41,6 +41,16 @@ sha256() {
   sha256sum "$1" | awk '{print $1}'
 }
 
+partition_allowed() {
+  local requested=$1 selected=$2
+  [[ "$requested" =~ ^[A-Za-z0-9_-]+(,[A-Za-z0-9_-]+)*$ ]] || return 1
+  [[ "$selected" =~ ^[A-Za-z0-9_-]+$ ]] || return 1
+  case ",$requested," in
+    *",$selected,"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 for variable in \
   AF_REPO AF_EXPECTED_HEAD AF_PYTHON AF_DATASET_DIR AF_OUTPUT_DIR \
   AF_EXPERIMENT AF_WANDB_ENTITY AF_WANDB_PROJECT AF_WANDB_RUN_ID \
@@ -88,7 +98,30 @@ if test "$AF_LAUNCH_MODE" = run; then
   required AF_EXPECTED_MEMORY
   required AF_EXPECTED_TIME_LIMIT
 fi
+AF_METHOD=action_flow_joint
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42)
+    AF_METHOD=latent_fm_stopgrad
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
+  pusht/action_flow_bc_usocket_bridge_likelihood_s42)
+    AF_METHOD=gaussian_bridge_likelihood
+    # Transport placeholders only; no FM/reconstruction flags enter this model.
+    AF_RECONSTRUCTION_WEIGHT=0
+    AF_FLOW_WEIGHT=0
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_bridge_likelihood_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
+  pusht/action_flow_bc_usocket_graph_section_s42)
+    AF_METHOD=graph_section_diagnostic
+    AF_RECONSTRUCTION_WEIGHT=0
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_graph_section_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
   pusht/action_flow_bc_usocket_recon1_s42)
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
@@ -119,10 +152,10 @@ case "$AF_EXPERIMENT" in
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
-  *) die "AF_EXPERIMENT must select an approved recon-1, recon-10, or recon-100 config" ;;
+  *) die "AF_EXPERIMENT must select an explicitly approved Action Flow config" ;;
 esac
 
-if [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
+if test "$AF_METHOD" != action_flow_joint || [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
   AF_COMPARISON_EXPERIMENT=
 elif test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
   AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_recon10_s42
@@ -287,9 +320,6 @@ BASE_OVERRIDES=(
   trainer.num_sanity_val_steps=0
   "trainer.log_every_n_steps=$LOG_EVERY"
   model.gradient_telemetry_cadence="$TELEMETRY_EVERY"
-  ++model.reconstruction_only_warmup_steps="$RECONSTRUCTION_ONLY_WARMUP_STEPS"
-  "++run_provenance.objective.requested_full_reconstruction_only_warmup_steps=$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS"
-  "++run_provenance.objective.effective_reconstruction_only_warmup_steps=$RECONSTRUCTION_ONLY_WARMUP_STEPS"
   ++callbacks.model_checkpoint.monitor=null
   callbacks.model_checkpoint.save_top_k=-1
   callbacks.model_checkpoint.save_last=link
@@ -325,6 +355,14 @@ BASE_OVERRIDES=(
   "++run_provenance.dataset_content_aggregate_sha256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256"
 )
 
+if test "$AF_METHOD" != gaussian_bridge_likelihood; then
+  BASE_OVERRIDES+=(
+    ++model.reconstruction_only_warmup_steps="$RECONSTRUCTION_ONLY_WARMUP_STEPS"
+    "++run_provenance.objective.requested_full_reconstruction_only_warmup_steps=$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS"
+    "++run_provenance.objective.effective_reconstruction_only_warmup_steps=$RECONSTRUCTION_ONLY_WARMUP_STEPS"
+  )
+fi
+
 if test -n "${AF_NORM_STATS_PATH:-}"; then
   absolute_path AF_NORM_STATS_PATH "$AF_NORM_STATS_PATH"
   if test -d "$AF_NORM_STATS_PATH"; then
@@ -355,7 +393,7 @@ if test "$AF_LAUNCH_MODE" = preflight; then
     required "$variable"
   done
   test "$SLURM_JOB_ACCOUNT" = "$AF_EXPECTED_ACCOUNT" || die "unexpected Slurm account"
-  test "$SLURM_JOB_PARTITION" = "$AF_EXPECTED_PARTITION" || die "unexpected Slurm partition"
+  partition_allowed "$AF_EXPECTED_PARTITION" "$SLURM_JOB_PARTITION" || die "unexpected Slurm partition"
   test "$SLURM_JOB_QOS" = "$AF_EXPECTED_QOS" || die "unexpected Slurm QoS"
   test "$SLURM_JOB_NUM_NODES" = 1 || die "preflight requires one node"
   test "$SLURM_NTASKS" = 1 || die "preflight requires one task"
@@ -631,7 +669,7 @@ for variable in \
   required "$variable"
 done
 test "$SLURM_JOB_ACCOUNT" = "$AF_EXPECTED_ACCOUNT" || die "unexpected Slurm account"
-test "$SLURM_JOB_PARTITION" = "$AF_EXPECTED_PARTITION" || die "unexpected Slurm partition"
+partition_allowed "$AF_EXPECTED_PARTITION" "$SLURM_JOB_PARTITION" || die "unexpected Slurm partition"
 test "$SLURM_JOB_QOS" = "$AF_EXPECTED_QOS" || die "unexpected Slurm QoS"
 test "$SLURM_JOB_NUM_NODES" = 1 || die "launcher requires one node"
 test "$SLURM_NTASKS" = 1 || die "launcher requires one task"
@@ -696,7 +734,7 @@ scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
   --record "$ATTEMPT/slurm_job.txt" \
   --expected-job-id "$SLURM_JOB_ID" \
   --expected-account "$AF_EXPECTED_ACCOUNT" \
-  --expected-partition "$AF_EXPECTED_PARTITION" \
+  --expected-partition "$SLURM_JOB_PARTITION" \
   --expected-qos "$AF_EXPECTED_QOS" \
   --expected-cpus 8 \
   --expected-memory "$AF_EXPECTED_MEMORY" \
@@ -779,42 +817,24 @@ if run_kind == "full":
     assert cfg.run_provenance.smoke_result_sha256 == smoke_sha
 else:
     assert smoke_sha == ""
-assert cfg.model._target_.endswith("ActionFlowModelWrapper")
+from tools.validate_action_flow_config import (
+    LEGACY_METHOD, LIKELIHOOD_METHOD, GRAPH_METHOD, STOPGRAD_METHOD,
+    validate_method_contract, _validate_dimensions_and_modules, _validate_topology,
+)
+method = validate_method_contract(cfg, experiment)
 assert cfg.model.action_horizon == 16 and cfg.model.action_dim == 4
 assert cfg.model.latent_dim == 8 and cfg.model.condition_dim == 67
-assert cfg.model.flow_samples_per_content == 14
 assert math.isclose(cfg.model.condition_dropout_probability, 0.3)
-assert cfg.model.num_inference_steps == 16
-assert math.isclose(cfg.model.reconstruction_weight, reconstruction)
-assert math.isclose(cfg.model.flow_weight, flow_weight)
-assert cfg.model.reconstruction_only_warmup_steps == effective_warmup_steps
-assert (
-    cfg.run_provenance.objective.effective_reconstruction_only_warmup_steps
-    == effective_warmup_steps
-)
-assert (
-    cfg.run_provenance.objective.requested_full_reconstruction_only_warmup_steps
-    == full_warmup_steps
-)
-stages = cfg.model.pipeline.stages
-assert [str(stage._target_).rsplit(".", 1)[-1] for stage in stages] == [
-    "FusedObsEncoder",
-    "GaussianLatentNoise",
-    "ActionTargetBuilder",
-    "ContentEncoderStage",
-    "LatentBridgeStage",
-    "ConditionalVelocityStage",
-    "ContentDecoderStage",
-    "ActionFlowObjectiveStage",
-]
-assert stages[1].num_tokens == 16 and stages[1].latent_dim == 8
-assert stages[4].samples_per_content == 14
-assert math.isclose(stages[4].condition_dropout_probability, 0.3)
-assert stages[5].num_inference_steps == 16
-assert stages[5].field.time_scale == 1000.0
-assert math.isclose(stages[7].flow_weight, flow_weight)
-assert stages[7].action_velocity_weight == 1.0
-assert math.isclose(stages[7].reconstruction_weight, reconstruction)
+if method != LIKELIHOOD_METHOD:
+    assert cfg.model.flow_samples_per_content == 14
+    assert cfg.model.num_inference_steps == 16
+    assert math.isclose(cfg.model.reconstruction_weight, reconstruction)
+    assert math.isclose(cfg.model.flow_weight, flow_weight)
+    assert cfg.model.reconstruction_only_warmup_steps == effective_warmup_steps
+    assert cfg.run_provenance.objective.effective_reconstruction_only_warmup_steps == effective_warmup_steps
+    assert cfg.run_provenance.objective.requested_full_reconstruction_only_warmup_steps == full_warmup_steps
+else:
+    assert effective_warmup_steps == full_warmup_steps == 0
 optimizer, scheduler = cfg.model.optimizer, cfg.model.scheduler
 assert optimizer._target_ == "torch.optim.AdamW" and optimizer._partial_ is True
 assert optimizer.lr == 3e-5 and list(optimizer.betas) == [0.9, 0.999]
@@ -850,15 +870,20 @@ assert cfg.data.valid_dataloader_params[source].batch_size == 16
 assert str(cfg.norm_stats.precomputed_norm_path) == norm
 assert cfg.norm_stats.save_cache_dir is None
 diagnostics = cfg.evaluator.action_flow_diagnostics
-assert diagnostics.enabled is True and diagnostics.max_batches_per_rank == 1
-assert list(diagnostics.raw_noise_levels) == [0.0, 0.25, 0.5, 0.75, 1.0]
-assert diagnostics.max_samples == 16 and diagnostics.jacobian_samples == 2
-assert diagnostics.capture_activations is True and diagnostics.cknna_k == 10
-assert diagnostics.validation_view.world_size == 1
-assert diagnostics.validation_view.per_rank_batch_size == 16
+if method != LIKELIHOOD_METHOD:
+    assert diagnostics.enabled is True and diagnostics.max_batches_per_rank == 1
+    assert list(diagnostics.raw_noise_levels) == [0.0, 0.25, 0.5, 0.75, 1.0]
+    assert diagnostics.max_samples == 16 and diagnostics.jacobian_samples == 2
+    assert diagnostics.capture_activations is (method != GRAPH_METHOD)
+    assert diagnostics.cknna_k == (0 if method == GRAPH_METHOD else 10)
+    assert diagnostics.validation_view.world_size == 1
+    assert diagnostics.validation_view.per_rank_batch_size == 16
 pipeline = instantiate(cfg.model.pipeline, device="cpu")
+_validate_topology(cfg, pipeline)
+_validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
 count = sum(parameter.numel() for parameter in pipeline.nets.parameters())
-assert count == 50_725_221, count
+if method in (LEGACY_METHOD, STOPGRAD_METHOD):
+    assert count == 50_725_221, count
 print(f"[run-preflight] PASS kind={run_kind} parameters={count}")
 PY
 sha256sum "$ATTEMPT/resolved_config.yaml" > "$ATTEMPT/resolved_config.sha256"
@@ -936,8 +961,19 @@ RUNNER_ARGS=(
   --confirm-child-requeue-disabled
   --completion-sentinel "$AF_OUTPUT_DIR/COMPLETE.json"
 )
-"$AF_PYTHON" "$AF_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
+# Slurm B:USR1 reaches this batch shell only. Preserve the post-run verifier
+# while relaying boundary/cancellation signals to the runner's installed handlers.
+source "$AF_REPO/scripts/ice/relay_batch_signals.sh"
+ice_run_with_signal_relay "$ATTEMPT/runner-signal-ready.json" \
+  "$AF_PYTHON" "$AF_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
   /usr/bin/env bash -c "$CHILD_CODE" action-flow-usocket "${BASE_OVERRIDES[@]}"
+
+# A successful requeue request also returns zero, but is not training completion.
+# The runner writes COMPLETE.json only for successful child completion.
+if test "$ICE_BATCH_BOUNDARY_FORWARDED" = 1 && test ! -s "$AF_OUTPUT_DIR/COMPLETE.json"; then
+  printf '[requeue] boundary handled; completion verification belongs to the final attempt\n'
+  exit 0
+fi
 
 if test "$AF_RUN_KIND" = smoke; then
   SMOKE_CHECKPOINT=$AF_OUTPUT_DIR/checkpoints/last.ckpt
@@ -952,11 +988,14 @@ if test "$AF_RUN_KIND" = smoke; then
     --measured-checkpoint-bytes "$SMOKE_CHECKPOINT_BYTES" \
     --safety-reserve-bytes "$AF_STORAGE_SAFETY_RESERVE_BYTES" \
     --output "$ATTEMPT/CHECKPOINT_STORAGE.json"
+  SMOKE_WEIGHT_ARGS=()
+  if test "$AF_METHOD" != gaussian_bridge_likelihood; then
+    SMOKE_WEIGHT_ARGS=(--expected-reconstruction-weight "$AF_RECONSTRUCTION_WEIGHT" --expected-flow-weight "$AF_FLOW_WEIGHT")
+  fi
   "$AF_PYTHON" "$AF_SMOKE_VERIFIER" "$AF_OUTPUT_DIR" \
     --expected-head "$AF_EXPECTED_HEAD" \
     --expected-experiment "$AF_EXPERIMENT" \
-    --expected-reconstruction-weight "$AF_RECONSTRUCTION_WEIGHT" \
-    --expected-flow-weight "$AF_FLOW_WEIGHT" \
+    "${SMOKE_WEIGHT_ARGS[@]}" \
     --expected-split-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
     --expected-normalization-sha256 "$AF_EXPECTED_NORM_SHA256" \
     --expected-content-manifest-sha256 \

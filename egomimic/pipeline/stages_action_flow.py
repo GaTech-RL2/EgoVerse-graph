@@ -191,7 +191,12 @@ class LatentBridgeStage(Stage):
 
 
 class ConditionalVelocityStage(Stage):
-    """Predict bridge velocity in training and integrate it during inference."""
+    """Predict bridge velocity in training and integrate it during inference.
+
+    ``all_stopgrad`` isolates only the latent-FM clean-state/target routes.
+    The original state, prediction, and residual remain fully attached for
+    the decoder JVP. Both field calls use the same sampled bridge and mask.
+    """
 
     def __init__(
         self,
@@ -209,12 +214,17 @@ class ConditionalVelocityStage(Stage):
         generated_latent_key: str = "action_flow/generated_latent",
         trajectory_key: str = "action_flow/trajectory",
         inference_steps_log_key: str = "log/action_flow_inference_steps",
+        flow_clean_gradient_mode: str = "full",
+        flow_residual_key: str = "action_flow/fm_velocity_residual",
     ):
         super().__init__()
         self.field = _module(field, label="field")
         self.num_inference_steps = int(num_inference_steps)
         if self.num_inference_steps <= 0:
             raise ValueError("num_inference_steps must be positive")
+        if flow_clean_gradient_mode not in {"full", "all_stopgrad"}:
+            raise ValueError("flow_clean_gradient_mode must be full|all_stopgrad")
+        self.flow_clean_gradient_mode = flow_clean_gradient_mode
 
         self.state_key = _key(state_key, label="state_key")
         self.time_key = _key(time_key, label="time_key")
@@ -229,6 +239,9 @@ class ConditionalVelocityStage(Stage):
             predicted_velocity_key, label="predicted_velocity_key"
         )
         self.residual_key = _key(residual_key, label="residual_key")
+        self.flow_residual_key = _key(flow_residual_key, label="flow_residual_key")
+        if len({self.predicted_velocity_key, self.residual_key, self.flow_residual_key}) != 3:
+            raise ValueError("prediction, residual, and FM residual keys must be distinct")
         self.inference_noise_key = _key(
             inference_noise_key, label="inference_noise_key"
         )
@@ -250,7 +263,11 @@ class ConditionalVelocityStage(Stage):
             self.condition_drop_mask_key,
             self.target_velocity_key,
         )
-        self.writes = (self.predicted_velocity_key, self.residual_key)
+        self.writes = (
+            self.predicted_velocity_key,
+            self.residual_key,
+            self.flow_residual_key,
+        )
         self.reads_by_mode = {
             "inference": (self.inference_noise_key, self.inference_condition_key)
         }
@@ -314,6 +331,16 @@ class ConditionalVelocityStage(Stage):
         prediction = self._predict(state, time, condition, drop_mask)
         batch[self.predicted_velocity_key] = prediction
         batch[self.residual_key] = prediction - target_velocity
+        if self.flow_clean_gradient_mode == "all_stopgrad":
+            # The bridge consists only of the learned clean endpoint and
+            # action-independent Gaussian noise. Detaching its state and
+            # target removes both clean routes from FM, not from Action Flow.
+            flow_prediction = self._predict(
+                state.detach(), time, condition, drop_mask
+            )
+            batch[self.flow_residual_key] = flow_prediction - target_velocity.detach()
+        else:
+            batch[self.flow_residual_key] = batch[self.residual_key]
         return batch
 
     def _forward_inference(self, batch: dict) -> dict:

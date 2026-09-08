@@ -45,10 +45,38 @@ from egomimic.eval.planar_action_eval import (  # noqa: E402
 from egomimic.pl_utils.pl_model_action_flow import (  # noqa: E402
     ActionFlowModelWrapper,
 )
+from tools.validate_action_flow_config import (  # noqa: E402
+    CANDIDATE_METHODS,
+    LEGACY_METHOD,
+    LIKELIHOOD_METHOD,
+    GRAPH_METHOD,
+    STOPGRAD_METHOD,
+    PreflightError,
+    action_flow_method,
+    method_stage_targets,
+    method_wrapper_target,
+    validate_method_contract,
+    _validate_dimensions_and_modules,
+)
 
 SCHEMA_VERSION = 1
 EXPECTED_PARAMETER_COUNT = 50_725_221
 APPROVED_EXPERIMENTS = {
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
+        "action_flow_bc_usocket_latent_fm_sg_recon1_s42",
+        1.0,
+        1.0,
+    ),
+    "pusht/action_flow_bc_usocket_bridge_likelihood_s42": (
+        "action_flow_bc_usocket_bridge_likelihood_s42",
+        0.0,
+        0.0,
+    ),
+    "pusht/action_flow_bc_usocket_graph_section_s42": (
+        "action_flow_bc_usocket_graph_section_s42",
+        0.0,
+        1.0,
+    ),
     "pusht/action_flow_bc_usocket_recon1_s42": (
         "action_flow_bc_usocket_recon1_s42",
         1.0,
@@ -258,15 +286,21 @@ def _validate_config(
     _require(experiment in APPROVED_EXPERIMENTS, f"unapproved experiment: {experiment}")
     expected_name, reconstruction_weight, flow_weight = APPROVED_EXPERIMENTS[experiment]
     config = OmegaConf.load(config_path)
+    try:
+        method = validate_method_contract(config, experiment)
+    except PreflightError as error:
+        raise SmokeVerificationError(str(error)) from error
 
     _exact(config, "name", expected_name)
     _exact(
         config,
         "model._target_",
-        "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper",
+        method_wrapper_target(method),
     )
     targets = tuple(str(stage._target_) for stage in config.model.pipeline.stages)
-    _require(targets == EXPECTED_STAGE_TARGETS, f"unexpected stage topology: {targets}")
+    _require(
+        targets == method_stage_targets(method), f"unexpected stage topology: {targets}"
+    )
 
     for path, expected in (
         ("model.action_horizon", 16),
@@ -320,6 +354,15 @@ def _validate_config(
         ("evaluator.energy_score_validation_view.world_size", 1),
         ("evaluator.energy_score_validation_view.per_rank_batch_size", 16),
     ):
+        if method == LIKELIHOOD_METHOD and path in {
+            "model.flow_samples_per_content",
+            "model.num_inference_steps",
+            "model.pipeline.stages.4.samples_per_content",
+            "model.pipeline.stages.5.num_inference_steps",
+            "run_provenance.objective.flow_samples_per_content",
+            "run_provenance.inference.steps",
+        }:
+            continue  # Validated against the discrete-chain contract above.
         _exact(config, path, expected)
 
     if "_warmup10k_" in experiment or experiment.endswith("_warmup10k_s42"):
@@ -359,6 +402,12 @@ def _validate_config(
         ("run_provenance.objective.decoded_noise_scale_weight", 0.0),
         ("run_provenance.objective.monotonic_weight", 0.0),
     ):
+        if method == LIKELIHOOD_METHOD and (
+            path.startswith("model.pipeline.stages.7.")
+            or path in {"model.reconstruction_weight", "model.flow_weight"}
+            or path.startswith("run_provenance.objective.")
+        ):
+            continue  # This method has NLL components, not FM/reconstruction.
         _float(config, path, expected)
 
     _exact(config, "mode", "train")
@@ -387,7 +436,15 @@ def _validate_config(
     )
     _exact(config, "logger.wandb.offline", False)
     _exact(config, "evaluator.energy_score_enabled", True)
-    _exact(config, "run_provenance.inference.sampler", "reverse_euler")
+    _exact(
+        config,
+        "run_provenance.inference.sampler",
+        (
+            "gaussian_bridge_reverse_chain"
+            if method == LIKELIHOOD_METHOD
+            else "reverse_euler"
+        ),
+    )
     _exact(config, "run_provenance.inference.classifier_free_guidance", False)
     _exact(config, "run_provenance.action_contract.prediction_horizon", 16)
     _exact(
@@ -419,17 +476,25 @@ def _validate_config(
         normalized_distance == USOCKET_ENERGY_DISTANCE_CONFIG,
         "typed USocket EnergyScore distance contract differs",
     )
-    try:
-        native_error_contract = normalize_usocket_native_error_config(
-            _plain_mapping(
-                _select(config, "evaluator.action_flow_diagnostics.native_error"),
-                label="Action Flow native-error contract",
-            )
+    if method == LIKELIHOOD_METHOD:
+        _exact(
+            config,
+            "evaluator.native_decoder._target_",
+            "egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder",
         )
-    except (TypeError, ValueError) as error:
-        raise SmokeVerificationError(
-            f"invalid Action Flow native-error contract: {error}"
-        ) from error
+        native_error_contract = dict(USOCKET_NATIVE_ERROR_CONFIG)
+    else:
+        try:
+            native_error_contract = normalize_usocket_native_error_config(
+                _plain_mapping(
+                    _select(config, "evaluator.action_flow_diagnostics.native_error"),
+                    label="Action Flow native-error contract",
+                )
+            )
+        except (TypeError, ValueError) as error:
+            raise SmokeVerificationError(
+                f"invalid Action Flow native-error contract: {error}"
+            ) from error
     _require(
         native_error_contract == USOCKET_NATIVE_ERROR_CONFIG,
         "Action Flow native-error contract differs",
@@ -607,22 +672,30 @@ def _validate_config(
         "evaluator.energy_score_provenance",
         "evaluator.action_flow_diagnostics.provenance",
     ):
+        if (
+            method == LIKELIHOOD_METHOD
+            and evaluator_prefix == "evaluator.action_flow_diagnostics.provenance"
+        ):
+            continue
         _exact(config, f"{evaluator_prefix}.source_commit", expected_head)
         _exact(config, f"{evaluator_prefix}.normalization_sha256", normalization_hash)
         _exact(config, f"{evaluator_prefix}.split_manifest_sha256", split_hash)
 
-    _exact(config, "evaluator.action_flow_diagnostics.enabled", True)
-    _exact(config, "evaluator.action_flow_diagnostics.max_batches_per_rank", 1)
-    _exact(
-        config,
-        "evaluator.action_flow_diagnostics.validation_view.world_size",
-        1,
-    )
-    diagnostic_split = _select(
-        config,
-        "evaluator.action_flow_diagnostics.validation_view.split_manifest_sha256",
-    )
-    _require(str(diagnostic_split) == split_hash, "diagnostic split identity mismatch")
+    if method != LIKELIHOOD_METHOD:
+        _exact(config, "evaluator.action_flow_diagnostics.enabled", True)
+        _exact(config, "evaluator.action_flow_diagnostics.max_batches_per_rank", 1)
+        _exact(
+            config,
+            "evaluator.action_flow_diagnostics.validation_view.world_size",
+            1,
+        )
+        diagnostic_split = _select(
+            config,
+            "evaluator.action_flow_diagnostics.validation_view.split_manifest_sha256",
+        )
+        _require(
+            str(diagnostic_split) == split_hash, "diagnostic split identity mismatch"
+        )
 
     for path, label in (
         ("evaluator.artifact_root", "EnergyScore artifact root"),
@@ -631,6 +704,10 @@ def _validate_config(
             "Action Flow diagnostic artifact root",
         ),
     ):
+        if method == LIKELIHOOD_METHOD and path.startswith(
+            "evaluator.action_flow_diagnostics."
+        ):
+            continue
         root = Path(str(_select(config, path))).expanduser()
         if not root.is_absolute():
             root = run_dir / root
@@ -702,6 +779,7 @@ def _canonical_json_sha256(value: Any) -> str:
 def _validate_gradient_route_manifest(
     manifest: Any,
     named_parameters: Sequence[tuple[str, torch.nn.Parameter]],
+    method: str = LEGACY_METHOD,
 ) -> dict[str, Any]:
     _require(isinstance(manifest, Mapping), "gradient route manifest is missing")
     _require(
@@ -719,7 +797,15 @@ def _validate_gradient_route_manifest(
     routes = manifest.get("routes")
     route_hashes = manifest.get("route_sha256")
     intersections = manifest.get("intersections")
-    expected_labels = ("FM", "Reconstruction", "ActionVelocity")
+    expected_labels = (
+        ("InteriorBridgeNLL", "BoundaryNLL")
+        if method == LIKELIHOOD_METHOD
+        else (
+            ("FM", "ActionVelocity")
+            if method == GRAPH_METHOD
+            else ("FM", "Reconstruction", "ActionVelocity")
+        )
+    )
     _require(
         isinstance(routes, Mapping) and tuple(routes) == expected_labels,
         "gradient route labels differ",
@@ -760,23 +846,22 @@ def _validate_gradient_route_manifest(
         route_names[label] = names
 
     expected_intersections = {}
-    for left, right in (
-        ("FM", "Reconstruction"),
-        ("FM", "ActionVelocity"),
-        ("Reconstruction", "ActionVelocity"),
-    ):
-        right_names = set(route_names[right])
-        expected_intersections[f"{left}__{right}"] = [
-            name for name in route_names[left] if name in right_names
-        ]
+    for index, left in enumerate(expected_labels):
+        for right in expected_labels[index + 1 :]:
+            right_names = set(route_names[right])
+            expected_intersections[f"{left}__{right}"] = [
+                name for name in route_names[left] if name in right_names
+            ]
     _require(
         intersections == expected_intersections,
         "gradient route intersections do not match route entries",
     )
-    _require(
-        all(expected_intersections.values()),
-        "one or more required shared gradient pathways are empty",
-    )
+    for pair, names in expected_intersections.items():
+        expected_empty = method == STOPGRAD_METHOD and pair == "FM__Reconstruction"
+        _require(
+            bool(names) is not expected_empty,
+            f"unexpected shared gradient pathway: {pair}",
+        )
 
     stage_prefixes = {
         "observation": "nets.pipeline.stages.0.",
@@ -789,6 +874,15 @@ def _validate_gradient_route_manifest(
         "Reconstruction": ("encoder", "decoder"),
         "ActionVelocity": ("observation", "encoder", "field", "decoder"),
     }
+    if method == STOPGRAD_METHOD:
+        expected_reachability["FM"] = ("observation", "field")
+    elif method == GRAPH_METHOD:
+        del expected_reachability["Reconstruction"]
+    elif method == LIKELIHOOD_METHOD:
+        expected_reachability = {
+            "InteriorBridgeNLL": ("observation", "encoder", "field"),
+            "BoundaryNLL": ("observation", "encoder", "field", "decoder"),
+        }
     for label, active_groups in expected_reachability.items():
         for group, prefix in stage_prefixes.items():
             observed = any(name.startswith(prefix) for name in route_names[label])
@@ -817,8 +911,45 @@ def _validate_gradient_route_manifest(
     }
 
 
+def _validate_checkpoint_loss_schedule(
+    loss_schedule: Any,
+    config: DictConfig | None,
+    *,
+    reconstruction_weight: float,
+    flow_weight: float,
+) -> int:
+    _require(config is not None, "checkpoint loss schedule needs its exact config")
+    warmup_steps = OmegaConf.select(
+        config, "model.reconstruction_only_warmup_steps", default=0
+    )
+    _require(
+        isinstance(warmup_steps, int)
+        and not isinstance(warmup_steps, bool)
+        and warmup_steps in (0, 1),
+        "two-update smoke requires a configured reconstruction warmup of 0 or 1",
+    )
+    _require(
+        loss_schedule
+        == {
+            "joint_objective_begins_at_global_step": warmup_steps,
+            "reconstruction_only_optimizer_steps": warmup_steps,
+            "joint_flow_weight": flow_weight,
+            "joint_reconstruction_weight": reconstruction_weight,
+            "joint_action_velocity_weight": 1.0,
+            "schema_version": 1,
+        },
+        f"unexpected Action Flow loss schedule: {loss_schedule}",
+    )
+    return warmup_steps
+
+
 def _validate_checkpoint(
-    run_dir: Path, *, reconstruction_weight: float, flow_weight: float
+    run_dir: Path,
+    *,
+    reconstruction_weight: float,
+    flow_weight: float,
+    method: str = LEGACY_METHOD,
+    config: DictConfig | None = None,
 ) -> dict[str, Any]:
     checkpoint_dir = run_dir / "checkpoints"
     last_path = checkpoint_dir / "last.ckpt"
@@ -843,6 +974,7 @@ def _validate_checkpoint(
     loops = payload.get("loops")
     gradient_route_manifest = payload.get("action_flow_gradient_route_manifest")
     loss_schedule = payload.get("action_flow_loss_schedule")
+    likelihood_contract = payload.get("action_flow_likelihood_contract")
     _require(
         isinstance(state_dict, Mapping) and state_dict, "checkpoint has no state_dict"
     )
@@ -861,17 +993,11 @@ def _validate_checkpoint(
     )
     _require(isinstance(loops, Mapping) and loops, "checkpoint loop state is empty")
     if loss_schedule is not None:
-        _require(
-            loss_schedule
-            == {
-                "joint_objective_begins_at_global_step": 1,
-                "reconstruction_only_optimizer_steps": 1,
-                "joint_flow_weight": flow_weight,
-                "joint_reconstruction_weight": reconstruction_weight,
-                "joint_action_velocity_weight": 1.0,
-                "schema_version": 1,
-            },
-            f"unexpected Action Flow loss schedule: {loss_schedule}",
+        expected_warmup_steps = _validate_checkpoint_loss_schedule(
+            loss_schedule,
+            config,
+            reconstruction_weight=reconstruction_weight,
+            flow_weight=flow_weight,
         )
     state_tensors, state_scalars = _finite_tree(state_dict, "checkpoint.state_dict")
     optimizer_tensors, optimizer_scalars = _finite_tree(
@@ -901,8 +1027,38 @@ def _validate_checkpoint(
     )
     del immutable_payload, payload
 
+    wrapper_type = ActionFlowModelWrapper
+    if method == LIKELIHOOD_METHOD:
+        from egomimic.pl_utils.pl_model_action_flow_likelihood import (
+            ActionFlowLikelihoodModelWrapper,
+        )
+
+        wrapper_type = ActionFlowLikelihoodModelWrapper
+        _require(
+            isinstance(likelihood_contract, Mapping),
+            "likelihood checkpoint lacks scientific contract",
+        )
+        _require(
+            likelihood_contract
+            == {
+                "schema_version": 1,
+                "method": LIKELIHOOD_METHOD,
+                "num_levels": 32,
+                "interior_samples_per_content": 14,
+                "sigma_min": 0.1,
+                "sigma_max": 1.0,
+                "rho": 0.95,
+                "tau": 0.02,
+                "reduction": "sum_chunk_coordinates_mean_examples_constant_free_gaussian_bound",
+                "learned_reference_targets": "attached",
+                "sampler": "stochastic_reverse_gaussian_chain_with_action_output_noise",
+                "clean_reconstruction_objective": False,
+                "latent_fm_objective": False,
+            },
+            "likelihood checkpoint scientific contract mismatch",
+        )
     try:
-        restored = ActionFlowModelWrapper.load_from_checkpoint(
+        restored = wrapper_type.load_from_checkpoint(
             last_path,
             map_location="cpu",
             strict=True,
@@ -913,21 +1069,29 @@ def _validate_checkpoint(
             f"strict ActionFlowModelWrapper reload failed: {last_path}"
         ) from error
     _require(
-        type(restored) is ActionFlowModelWrapper,
+        type(restored) is wrapper_type,
         f"checkpoint restored unexpected wrapper {type(restored)!r}",
     )
     if loss_schedule is not None:
         _require(
-            restored.reconstruction_only_warmup_steps == 1,
+            restored.reconstruction_only_warmup_steps == expected_warmup_steps,
             "strict reload lost the reconstruction-only warmup",
         )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
-    _require(
-        parameter_count == EXPECTED_PARAMETER_COUNT,
-        f"parameter count mismatch: {parameter_count} != {EXPECTED_PARAMETER_COUNT}",
-    )
+    if method in (LEGACY_METHOD, STOPGRAD_METHOD):
+        _require(
+            parameter_count == EXPECTED_PARAMETER_COUNT,
+            f"parameter count mismatch: {parameter_count} != {EXPECTED_PARAMETER_COUNT}",
+        )
+    else:
+        _require(config is not None, "typed candidate reload needs its exact config")
+        _validate_dimensions_and_modules(config, tuple(restored.model.pipeline.stages))
     # These properties fail closed on duplicated or disconnected owners.
-    owners = (restored.encoder_e, restored.field_v, restored.decoder_g)
+    if method == LIKELIHOOD_METHOD:
+        stages = restored.model.pipeline.stages
+        owners = (stages[3].mean_encoder, stages[5].field, stages[6].decoder)
+    else:
+        owners = (restored.encoder_e, restored.field_v, restored.decoder_g)
     _require(
         len({id(owner) for owner in owners}) == 3, "Action Flow owners are aliased"
     )
@@ -939,7 +1103,7 @@ def _validate_checkpoint(
         if parameter.requires_grad
     )
     gradient_routes = _validate_gradient_route_manifest(
-        gradient_route_manifest, trainable
+        gradient_route_manifest, trainable, method
     )
     del restored
 
@@ -949,6 +1113,7 @@ def _validate_checkpoint(
         "gradient_routes": gradient_routes,
         "global_step": 2,
         "loss_schedule": loss_schedule,
+        "likelihood_contract": likelihood_contract,
         "immutable_checkpoint_path": str(immutable_path),
         "immutable_checkpoint_sha256": _sha256(immutable_path),
         "optimizer_state_count": 1,
@@ -1050,6 +1215,7 @@ def _validate_history(
     reconstruction_weight: float = 1.0,
     flow_weight: float = 1.0,
     expect_reconstruction_warmup: bool = False,
+    method: str = LEGACY_METHOD,
 ) -> dict[str, Any]:
     component_names = (
         "TotalLoss",
@@ -1058,13 +1224,23 @@ def _validate_history(
         "ReconstructionL1",
         "ActionVelocityLoss",
     )
+    if method == LIKELIHOOD_METHOD:
+        component_names = ("TotalLoss", "InteriorBridgeNLL", "BoundaryNLL")
     components = tuple(f"Train/ActionFlow/{name}" for name in component_names)
     per_source_components = tuple(f"{name}/{SOURCE_LABEL}" for name in components)
-    gradient_labels = ("FM", "Reconstruction", "ActionVelocity")
-    gradient_pairs = (
-        "FM__Reconstruction",
-        "FM__ActionVelocity",
-        "Reconstruction__ActionVelocity",
+    gradient_labels = (
+        ("InteriorBridgeNLL", "BoundaryNLL")
+        if method == LIKELIHOOD_METHOD
+        else (
+            ("FM", "ActionVelocity")
+            if method == GRAPH_METHOD
+            else ("FM", "Reconstruction", "ActionVelocity")
+        )
+    )
+    gradient_pairs = tuple(
+        f"{left}__{right}"
+        for i, left in enumerate(gradient_labels)
+        for right in gradient_labels[i + 1 :]
     )
     telemetry = [
         *(f"Train/ActionFlow/GradientNorm/{label}" for label in gradient_labels),
@@ -1088,6 +1264,8 @@ def _validate_history(
         "Train/ActionFlow/Schedule/EffectiveFlowWeight",
         "Train/ActionFlow/Schedule/EffectiveActionVelocityWeight",
     ]
+    if method == LIKELIHOOD_METHOD:
+        telemetry = [name for name in telemetry if "/Schedule/" not in name]
     train_step, train = _complete_row(
         rows,
         (*components, *per_source_components, *telemetry),
@@ -1095,20 +1273,40 @@ def _validate_history(
         label="Action Flow training/gradient telemetry",
     )
     for name in telemetry:
+        empty_pair = method == STOPGRAD_METHOD and name.endswith("/FM__Reconstruction")
         if (
             "GradientNorm" in name
             or "GradientParameterCount" in name
             or "IntersectionParameterCount" in name
         ):
-            _require(train[name] > 0.0, f"gradient reachability is empty: {name}")
+            _require(
+                train[name] == 0.0 if empty_pair else train[name] > 0.0,
+                f"gradient reachability differs: {name}",
+            )
         if "GradientCosineDefined" in name:
-            _require(train[name] == 1.0, f"gradient cosine is undefined: {name}")
+            _require(
+                train[name] == (0.0 if empty_pair else 1.0),
+                f"gradient cosine defined flag differs: {name}",
+            )
         if "GradientCosine/" in name:
             _require(-1.0 <= train[name] <= 1.0, f"gradient cosine is invalid: {name}")
     for name, expected in (
-        ("Train/ActionFlow/Compute/FieldForwardCallsPerStep", 1.0),
-        ("Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep", 14.0),
-        ("Train/ActionFlow/Compute/DecoderJVPCallsPerStep", 1.0),
+        (
+            "Train/ActionFlow/Compute/FieldForwardCallsPerStep",
+            2.0 if method == STOPGRAD_METHOD else 1.0,
+        ),
+        (
+            "Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep",
+            (
+                28.0
+                if method == STOPGRAD_METHOD
+                else 15.0 if method == LIKELIHOOD_METHOD else 14.0
+            ),
+        ),
+        (
+            "Train/ActionFlow/Compute/DecoderJVPCallsPerStep",
+            0.0 if method == LIKELIHOOD_METHOD else 1.0,
+        ),
     ):
         _require(train[name] == expected, f"unexpected compute telemetry: {name}")
     _require(
@@ -1116,28 +1314,36 @@ def _validate_history(
         "CUDA peak allocation telemetry is empty",
     )
     _require(
-        train["Train/ActionFlow/Schedule/ReconstructionOnly"] == 0.0,
+        method == LIKELIHOOD_METHOD
+        or train["Train/ActionFlow/Schedule/ReconstructionOnly"] == 0.0,
         "latest smoke optimizer step is not joint",
     )
     _require(
-        math.isclose(
-            train["Train/ActionFlow/Schedule/EffectiveFlowWeight"],
-            flow_weight,
-            rel_tol=0.0,
-            abs_tol=1.0e-6,
-        )
-        and train[
-            "Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"
-        ]
-        == 1.0,
+        method == LIKELIHOOD_METHOD
+        or (
+            math.isclose(
+                train["Train/ActionFlow/Schedule/EffectiveFlowWeight"],
+                flow_weight,
+                rel_tol=0.0,
+                abs_tol=1.0e-6,
+            )
+            and train["Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"] == 1.0
+        ),
         "joint smoke step did not enable both delayed objectives",
     )
     for suffix in ("", f"/{SOURCE_LABEL}"):
         expected_total = (
-            flow_weight * train[f"Train/ActionFlow/FlowMatchingLoss{suffix}"]
-            + reconstruction_weight
-            * train[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
-            + train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
+            (
+                train[f"Train/ActionFlow/InteriorBridgeNLL{suffix}"]
+                + train[f"Train/ActionFlow/BoundaryNLL{suffix}"]
+            )
+            if method == LIKELIHOOD_METHOD
+            else (
+                flow_weight * train[f"Train/ActionFlow/FlowMatchingLoss{suffix}"]
+                + reconstruction_weight
+                * train[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
+                + train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
+            )
         )
         _require(
             math.isclose(
@@ -1161,18 +1367,14 @@ def _validate_history(
                 continue
             _require(
                 concrete["Train/ActionFlow/Schedule/EffectiveFlowWeight"] == 0.0
-                and concrete[
-                    "Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"
-                ]
+                and concrete["Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"]
                 == 0.0,
                 "warmup smoke step enabled a delayed objective",
             )
             for suffix in ("", f"/{SOURCE_LABEL}"):
                 expected_total = (
                     reconstruction_weight
-                    * concrete[
-                        f"Train/ActionFlow/ReconstructionLoss{suffix}"
-                    ]
+                    * concrete[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
                 )
                 _require(
                     math.isclose(
@@ -1196,16 +1398,7 @@ def _validate_history(
         "Valid/EnergyScoreDiversity@32",
     ):
         validity.extend((base, f"{base}/{SOURCE_LABEL}"))
-    validity.extend(
-        f"Valid/ActionFlow/{name}"
-        for name in (
-            "TotalLoss",
-            "FlowMatchingLoss",
-            "ReconstructionLoss",
-            "ReconstructionL1",
-            "ActionVelocityLoss",
-        )
-    )
+    validity.extend(f"Valid/ActionFlow/{name}" for name in component_names)
     diagnostics = (
         "Valid/ActionFlow/CleanReconstructionMSE",
         "Valid/ActionFlow/CleanReconstructionNativeMSE",
@@ -1220,6 +1413,10 @@ def _validate_history(
         "Valid/ActionFlow/Alignment/CKA/encoder_00__field_00/t0500",
         "Valid/ActionFlow/Alignment/CKNNA/encoder_00__field_00/t0500",
     )
+    if method == LIKELIHOOD_METHOD:
+        diagnostics = ()
+    elif method == GRAPH_METHOD:
+        diagnostics = tuple(name for name in diagnostics if "/Alignment/CK" not in name)
     diagnostics = (
         *diagnostics,
         *(
@@ -1235,9 +1432,16 @@ def _validate_history(
         label="scheduled validation",
     )
     expected_valid_total = (
-        flow_weight * valid["Valid/ActionFlow/FlowMatchingLoss"]
-        + reconstruction_weight * valid["Valid/ActionFlow/ReconstructionLoss"]
-        + valid["Valid/ActionFlow/ActionVelocityLoss"]
+        (
+            valid["Valid/ActionFlow/InteriorBridgeNLL"]
+            + valid["Valid/ActionFlow/BoundaryNLL"]
+        )
+        if method == LIKELIHOOD_METHOD
+        else (
+            flow_weight * valid["Valid/ActionFlow/FlowMatchingLoss"]
+            + reconstruction_weight * valid["Valid/ActionFlow/ReconstructionLoss"]
+            + valid["Valid/ActionFlow/ActionVelocityLoss"]
+        )
     )
     _require(
         math.isclose(
@@ -1285,10 +1489,16 @@ def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, An
         and (path.suffix in {".tmp", ".temporary"} or ".temporary" in path.name)
     ]
     _require(not leftovers, f"unfinished {label} artifacts: {leftovers}")
-    candidates = sorted([
-        *root.glob("epoch-*-step-2/rank-0-batch-*.pt"),
-        *([] if execution is not None else root.glob("job-*-restart-*/epoch-*-step-2/rank-0-batch-*.pt")),
-    ])
+    candidates = sorted(
+        [
+            *root.glob("epoch-*-step-2/rank-0-batch-*.pt"),
+            *(
+                []
+                if execution is not None
+                else root.glob("job-*-restart-*/epoch-*-step-2/rank-0-batch-*.pt")
+            ),
+        ]
+    )
     _require(
         len(candidates) == 1, f"expected one step-2 {label} artifact: {candidates}"
     )
@@ -1298,12 +1508,17 @@ def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, An
     namespace = candidates[0].parent.parent.name
     if namespace.startswith("job-"):
         recorded = payload.get("execution")
-        _require(isinstance(recorded, Mapping), f"{label} artifact lacks execution identity")
+        _require(
+            isinstance(recorded, Mapping), f"{label} artifact lacks execution identity"
+        )
         expected_namespace = (
             f"job-{recorded.get('slurm_job_id')}"
             f"-restart-{recorded.get('slurm_restart_count')}"
         )
-        _require(namespace == expected_namespace, f"{label} artifact execution identity mismatch")
+        _require(
+            namespace == expected_namespace,
+            f"{label} artifact execution identity mismatch",
+        )
     _finite_tree(payload, f"{label} artifact")
     return candidates[0], payload
 
@@ -1490,6 +1705,30 @@ def _validate_artifacts(
         and binding.get("sha256_status") == ENERGY_CHECKPOINT_STATUS,
         "typed EnergyScore checkpoint binding differs",
     )
+
+    if action_flow_method(config) == LIKELIHOOD_METHOD:
+        # No clean-latent/ODE artifact exists for the discrete likelihood model.
+        # Its actual learned-reference gradient routes are checkpoint-bound.
+        _require(
+            checkpoint.get("likelihood_contract"),
+            "likelihood scientific checkpoint receipt missing",
+        )
+        return {
+            "energy_score": {
+                "path": str(energy_path),
+                "sha256": _sha256(energy_path),
+                "checkpoint_global_step": checkpoint["global_step"],
+                "checkpoint_sha256": checkpoint["checkpoint_sha256"],
+                "identity_sha256": energy["identity_sha256"],
+            },
+            "method_specific": {
+                "likelihood_contract": checkpoint["likelihood_contract"],
+                "gradient_route_manifest_sha256": checkpoint["gradient_routes"][
+                    "manifest_sha256"
+                ],
+                "ode_diagnostics": "not_applicable_discrete_gaussian_reverse_chain",
+            },
+        }
 
     diagnostic_root = _artifact_root(
         config, "evaluator.action_flow_diagnostics.artifact_root", run_dir
@@ -1738,6 +1977,12 @@ def verify_smoke(
     )
     approved_reconstruction_weight = APPROVED_EXPERIMENTS[experiment][1]
     approved_flow_weight = APPROVED_EXPERIMENTS[experiment][2]
+    method = action_flow_method(config, experiment)
+    if method == LIKELIHOOD_METHOD:
+        _require(
+            expected_reconstruction_weight is None and expected_flow_weight is None,
+            "likelihood smoke does not accept FM/reconstruction weight arguments",
+        )
     if expected_reconstruction_weight is not None:
         _require(
             math.isclose(
@@ -1773,6 +2018,8 @@ def verify_smoke(
         run_dir,
         reconstruction_weight=approved_reconstruction_weight,
         flow_weight=approved_flow_weight,
+        method=method,
+        config=config,
     )
     expect_reconstruction_warmup = "warmup10k" in experiment
     if expect_reconstruction_warmup:
@@ -1800,6 +2047,7 @@ def verify_smoke(
         reconstruction_weight=APPROVED_EXPERIMENTS[experiment][1],
         flow_weight=APPROVED_EXPERIMENTS[experiment][2],
         expect_reconstruction_warmup=expect_reconstruction_warmup,
+        method=method,
     )
     artifacts = _validate_artifacts(
         config=config, run_dir=run_dir, identities=identities, checkpoint=checkpoint
@@ -1809,6 +2057,7 @@ def verify_smoke(
         "artifacts": artifacts,
         "checkpoint": checkpoint,
         "experiment": experiment,
+        "action_flow_method": method,
         "gpu_probes": gpu_probes,
         "identities": identities,
         "metrics": metrics,

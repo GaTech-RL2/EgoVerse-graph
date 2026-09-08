@@ -8,7 +8,11 @@ import pytest
 
 from egomimic.pipeline.core import Pipeline
 from egomimic.pipeline.stages_io import ActionTargetBuilder
-from egomimic.rldb.embodiment.embodiment import EMBODIMENT, get_embodiment, get_embodiment_id
+from egomimic.rldb.embodiment.embodiment import (
+    EMBODIMENT,
+    get_embodiment,
+    get_embodiment_id,
+)
 from egomimic.rldb.embodiment.yam import Yam
 from egomimic.rldb.zarr.action_chunk_transforms import (
     BatchQuaternionPoseTo6D,
@@ -84,7 +88,9 @@ def _pose(n):
 
 
 def test_batch_quaternion_pose_to_6d_emits_identity_columns():
-    out = BatchQuaternionPoseTo6D(pose_key="p", output_key="q").transform({"p": _pose(2)})
+    out = BatchQuaternionPoseTo6D(pose_key="p", output_key="q").transform(
+        {"p": _pose(2)}
+    )
     assert out["q"].shape == (2, 9)
     # Identity rotation -> first two columns of I3.
     np.testing.assert_allclose(out["q"][:, 3:9], np.tile([1, 0, 0, 0, 1, 0], (2, 1)))
@@ -102,7 +108,9 @@ def test_quaternion_pose_to_6d_rejects_a_batch():
 
 def test_batch_quaternion_pose_to_6d_rejects_a_single_pose():
     with pytest.raises(ValueError, match=r"shape \(N, 7\)"):
-        BatchQuaternionPoseTo6D(pose_key="p", output_key="q").transform({"p": _pose(1)[0]})
+        BatchQuaternionPoseTo6D(pose_key="p", output_key="q").transform(
+            {"p": _pose(1)[0]}
+        )
 
 
 # -- image harmonisation ----------------------------------------------------
@@ -132,7 +140,12 @@ def test_resize_is_a_no_op_at_the_target_size():
 
 
 def test_resize_maps_a_window_frame_by_frame():
-    assert _resize_images(np.zeros((2, 3, 360, 640)), (480, 640)).shape == (2, 3, 480, 640)
+    assert _resize_images(np.zeros((2, 3, 360, 640)), (480, 640)).shape == (
+        2,
+        3,
+        480,
+        640,
+    )
 
 
 def test_intrinsics_scale_per_axis_not_by_one_shared_factor():
@@ -187,7 +200,8 @@ def test_abc_experiment_graph_lints_clean(mode):
 
 def test_abc_train_graph_has_the_five_dp_stages_and_a_loss():
     graph = config_graph.build_graph(
-        _REPO / "egomimic/hydra_configs/experiment/abc/yam_fstshirt_dp.yaml", mode="train"
+        _REPO / "egomimic/hydra_configs/experiment/abc/yam_fstshirt_dp.yaml",
+        mode="train",
     )
     assert [node["t"] for node in graph["nodes"]] == [
         "FusedObsEncoder",
@@ -196,7 +210,9 @@ def test_abc_train_graph_has_the_five_dp_stages_and_a_loss():
         "DiffusionDenoiserStage",
         "DiffusionEpsilonLossStage",
     ]
-    assert any(key.startswith("loss/") for node in graph["nodes"] for key in node["out"])
+    assert any(
+        key.startswith("loss/") for node in graph["nodes"] for key in node["out"]
+    )
 
 
 def test_abc_inference_graph_drops_the_training_only_stages():

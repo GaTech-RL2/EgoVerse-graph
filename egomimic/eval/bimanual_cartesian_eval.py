@@ -44,6 +44,7 @@ import numpy as np
 import torch
 import torchvision.io as tvio
 
+from egomimic.eval.arc_metrics import arcmatch_metrics, chunk_metrics, dtw_metrics
 from egomimic.eval.eval import Eval
 from egomimic.pipeline.core import resolve_homogeneous_scalar
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
@@ -62,6 +63,23 @@ class BimanualCartesianEval(Eval):
         image_key: str = "observations.images.front_img_1",
         viz_func: Mapping | None = None,
         revert_transforms: Mapping | None = None,
+        # Arc metric families. Off by default here so a plain time-indexed run
+        # is unchanged; the baseline arm of an arc ablation turns them ON so
+        # both arms land on the same charts.
+        arc_metrics: bool = False,
+        # D and M are the arc run's tokenizer settings. D is recorded for
+        # provenance and for the dtw clip; the matched span is what actually
+        # sets each score's window.
+        arcmatch_distance: float = 0.40,
+        arcmatch_points: int = 32,
+        # Rows to score arc on. The transform list interpolates the raw window
+        # up to chunk_length, and arc length on an interpolated path reads
+        # short, so this is the RAW window (45 for yam).
+        arc_chunk_rows: int = 45,
+        rot_lever_m: float = 0.1,
+        dtw_max_samples: int = 8,
+        untokenized_action_key: str = "actions_cartesian_untokenized",
+        metric_dt: float = 1.0 / 30.0,
         video_output_dir: str | None = None,
         video_chunk_frames: int = 1000,
         max_episode_frames: int = 6000,
@@ -82,6 +100,20 @@ class BimanualCartesianEval(Eval):
         # the current EEF pose before projection. Each entry is the ALREADY-
         # instantiated list returned by ``_build_{embodiment}_revert_eef_frame_transform_list``.
         self.revert_transforms = dict(revert_transforms or {})
+        self.arc_metrics = bool(arc_metrics)
+        self.arcmatch_distance = float(arcmatch_distance)
+        self.arcmatch_points = int(arcmatch_points)
+        self.arc_chunk_rows = int(arc_chunk_rows)
+        self.rot_lever_m = float(rot_lever_m)
+        self.dtw_max_samples = int(dtw_max_samples)
+        self.untokenized_action_key = str(untokenized_action_key)
+        self.metric_dt = float(metric_dt)
+        if self.arcmatch_points < 2:
+            raise ValueError("arcmatch_points must be at least two")
+        if self.arcmatch_distance <= 0:
+            raise ValueError("arcmatch_distance must be positive")
+        if self.rot_lever_m < 0:
+            raise ValueError("rot_lever_m must be non-negative")
         self.video_output_dir = (
             None if video_output_dir is None else Path(video_output_dir)
         )
@@ -178,7 +210,7 @@ class BimanualCartesianEval(Eval):
         suffix = self._validation_group
         return {
             (
-                f"Valid_{suffix}/{key[len('Valid/'):]}"
+                f"Valid_{suffix}/{key[len('Valid/') :]}"
                 if key.startswith("Valid/")
                 else key
             ): value
@@ -227,6 +259,109 @@ class BimanualCartesianEval(Eval):
         return self.normalizer.unnormalize(
             {self.obs_pose_key: normalized}, embodiment_id
         )[self.obs_pose_key]
+
+    @staticmethod
+    def _deinterpolate(chunk: np.ndarray, rows: int) -> np.ndarray:
+        """Reduce a chunk to ``rows`` evenly spaced samples.
+
+        The transform list interpolates the raw window up to ``chunk_length``
+        (100), and arc length measured on an interpolated path is distorted --
+        it chord-cuts between inserted samples and reads systematically short.
+        Arc scoring therefore runs on the RAW row count instead.
+
+        Indices are selected rather than re-interpolated, so no new samples are
+        invented and the rotation columns are never interpolated twice.
+        """
+        rows = int(rows)
+        if rows <= 0 or chunk.shape[-2] <= rows:
+            return chunk
+        index = np.linspace(0, chunk.shape[-2] - 1, rows).round().astype(int)
+        return chunk[..., index, :]
+
+    def _arc_pred_time_indexed(self, prediction: torch.Tensor, embodiment_id: int):
+        """Prediction as a time-indexed (B, T, 14) numpy chunk.
+
+        Identity here beyond unnormalizing: a baseline run already predicts
+        poses. ArcBimanualCartesianEval detokenizes instead.
+        """
+        native = self._native(prediction, embodiment_id).detach().cpu().numpy()
+        return self._deinterpolate(
+            native.astype(np.float64, copy=False), self.arc_chunk_rows
+        )
+
+    def _arc_gt_time_indexed(self, source_batch, embodiment_id: int):
+        """Ground truth as a time-indexed (B, T, 14) numpy chunk, or None.
+
+        Prefers the chunk the tokenizer preserved when present; otherwise the
+        action chunk itself, which for a baseline run IS time-indexed.
+        """
+        raw = source_batch.get(self.untokenized_action_key)
+        key = self.untokenized_action_key
+        if raw is None:
+            raw, key = source_batch.get(self.action_key), self.action_key
+        if raw is None:
+            return None
+        native = self.normalizer.unnormalize({key: raw.detach()}, embodiment_id)[key]
+        native = native.detach().cpu().numpy().astype(np.float64, copy=False)
+        return self._deinterpolate(native, self.arc_chunk_rows)
+
+    def _extra_metrics(
+        self,
+        *,
+        label: str,
+        embodiment_id: int,
+        source_batch,
+        prediction: torch.Tensor,
+        target: torch.Tensor,
+    ) -> dict:
+        """Arc-matched, DTW and time-domain families for this source.
+
+        Shared by the baseline and arc evaluators so both land on the SAME
+        charts: each re-tokenizes prediction and ground truth onto the matched
+        per-arm span -- min(gt travel, pred travel) -- at the same D and M, and
+        scores the waypoints there. Only how each side reaches a time-indexed
+        chunk differs, which is what the two hooks above express.
+        """
+        del target
+        if not self.arc_metrics:
+            return {}
+        ground_truth = self._arc_gt_time_indexed(source_batch, embodiment_id)
+        if ground_truth is None or len(ground_truth) == 0:
+            return {}
+        decoded = self._arc_pred_time_indexed(prediction, embodiment_id)
+        predictions = [sample for sample in decoded]
+        truth = [sample for sample in ground_truth]
+
+        values: dict[str, float] = {}
+        values.update(
+            arcmatch_metrics(
+                predictions,
+                truth,
+                num_points=self.arcmatch_points,
+                dt=self.metric_dt,
+                lever_m=self.rot_lever_m,
+            )
+        )
+        values.update(dtw_metrics(predictions, truth, max_samples=self.dtw_max_samples))
+        rows = min(decoded.shape[-2], ground_truth.shape[-2])
+        if rows >= 2:
+            values.update(
+                chunk_metrics(
+                    decoded[:, :rows],
+                    ground_truth[:, :rows],
+                    lever_m=self.rot_lever_m,
+                )
+            )
+        # On the prediction's device: log_dict(sync_dist=True) all-reduces
+        # these, and NCCL has no CPU support -- it raises rather than falling
+        # back. The metrics are computed in numpy on the host, so this cast is
+        # the one place device placement matters.
+        return {
+            f"Valid/{name}/{label}": torch.tensor(
+                float(value), device=prediction.device
+            )
+            for name, value in values.items()
+        }
 
     def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:
         """Rows to hand the revert transforms. Identity for a time-indexed run.
@@ -580,6 +715,16 @@ class BimanualCartesianEval(Eval):
             metrics[f"Valid/Native_MSE/{label}"] = native_mse
             normalized_values.append(normalized_mse)
             native_values.append(native_mse)
+
+            metrics.update(
+                self._extra_metrics(
+                    label=label,
+                    embodiment_id=embodiment_id,
+                    source_batch=source_batch,
+                    prediction=prediction,
+                    target=target,
+                )
+            )
 
             self._maybe_log_overlay(
                 embodiment_name=label,

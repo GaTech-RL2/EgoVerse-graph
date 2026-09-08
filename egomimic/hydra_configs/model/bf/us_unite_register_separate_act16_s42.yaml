@@ -1,0 +1,13 @@
+defaults:
+  - /model/bf/us_unite_register_separate_nt8_s42@_here_
+  - _self_
+
+# Latent shaped exactly like the action chunk: 16 tokens x 4 dims == the 16x4
+# chunk the decoder must produce. UNITE's register latent exists to give several
+# embodiments a shared code; on a single embodiment it is an autoencoder
+# round-trip the task does not ask for, and the flow has to model a *learned*
+# code distribution that the reconstruction loss keeps moving, where diffusion
+# policy models the fixed action distribution. This row removes the shape
+# mismatch so the flow operates on something isomorphic to action space.
+num_latent_tokens: 16
+latent_dim: 4

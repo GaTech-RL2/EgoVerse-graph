@@ -113,6 +113,23 @@ def test_option_a_200m_muon_config_has_exact_capacity_optimizer_and_schedule():
     assert optimization["parameter_groups"]["disjoint"] is True
 
 
+def test_option_a_200m_muon_recon5_changes_only_reconstruction_weight():
+    baseline, _ = preflight.validate_experiment(
+        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+        config_root=CONFIG_ROOT,
+    )
+    recon5, _ = preflight.validate_experiment(
+        "pusht/action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42",
+        config_root=CONFIG_ROOT,
+    )
+
+    assert recon5["status"] == "PASS"
+    assert recon5["parameters"] == baseline["parameters"]
+    assert recon5["optimization"] == baseline["optimization"]
+    assert recon5["objective"]["reconstruction_weight"] == pytest.approx(5.0)
+    assert baseline["objective"]["reconstruction_weight"] == pytest.approx(1.0)
+
+
 def test_resolved_hash_is_stable_and_uses_runtime_sentinels():
     first = preflight.compose_experiment(
         "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT

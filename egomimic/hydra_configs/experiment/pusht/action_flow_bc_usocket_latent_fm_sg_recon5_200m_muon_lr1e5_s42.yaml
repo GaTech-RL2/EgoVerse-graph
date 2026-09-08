@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42
+  - _self_
+
+name: action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42
+description: "Option-A 200M latent FM stopgrad with 1M codecs, Muon+AdamW, the matched 1e-5 schedule, and 5x reconstruction loss"
+
+model:
+  reconstruction_weight: 5.0
+
+run_provenance:
+  objective:
+    reconstruction_weight: ${model.reconstruction_weight}

@@ -597,6 +597,25 @@ def test_cli_accepts_option_a_200m_muon_experiment():
     assert args.experiment.endswith("recon1_200m_muon_lr1e5_s42")
 
 
+def test_cli_accepts_option_a_200m_muon_recon5_experiment():
+    args = MODULE._parser().parse_args(
+        [
+            "/tmp/run",
+            "--expected-head",
+            HEAD,
+            "--expected-experiment",
+            "pusht/action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42",
+            "--expected-reconstruction-weight",
+            "5",
+            "--expected-preflight-sha256",
+            "d" * 64,
+        ]
+    )
+
+    assert args.experiment.endswith("recon5_200m_muon_lr1e5_s42")
+    assert args.expected_reconstruction_weight == 5.0
+
+
 def test_gpu_probe_gate_requires_real_single_h100_or_h200_bf16(tmp_path):
     path = tmp_path / "provenance/restart-0/gpu_probe.json"
     path.parent.mkdir(parents=True)

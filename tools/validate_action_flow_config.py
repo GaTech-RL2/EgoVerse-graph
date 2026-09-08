@@ -93,13 +93,17 @@ LEGACY_METHOD = "action_flow_joint"
 LIKELIHOOD_METHOD = "gaussian_bridge_likelihood"
 GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
-SCALED_MUON_CONFIG_NAME = (
-    "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+SCALED_MUON_CONFIG_NAMES = frozenset(
+    {
+        "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+        "action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42",
+    }
 )
 CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -512,7 +516,7 @@ def _validate_dimensions_and_modules(
     field = field_stage.field
     codec_profile = (int(encoder.hidden_dim), int(encoder.feedforward_dim))
     config_name = str(config.name)
-    if config_name == SCALED_MUON_CONFIG_NAME:
+    if config_name in SCALED_MUON_CONFIG_NAMES:
         expected_codec_profile = (204, 816)
     elif config_name == "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42":
         expected_codec_profile = (44, 176)
@@ -553,7 +557,7 @@ def _validate_dimensions_and_modules(
         "decoder g context-free forward signature",
     )
 
-    scaled_muon = config_name == SCALED_MUON_CONFIG_NAME
+    scaled_muon = config_name in SCALED_MUON_CONFIG_NAMES
     field_expected = {
         "input_dim": 8,
         "output_dim": 8,
@@ -731,7 +735,7 @@ def _validate_topology(
 
 def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     optimizer = config.model.optimizer
-    scaled_muon = str(config.name) == SCALED_MUON_CONFIG_NAME
+    scaled_muon = str(config.name) in SCALED_MUON_CONFIG_NAMES
     expected_optimizer = (
         "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
         if scaled_muon
@@ -1143,7 +1147,7 @@ def _validate_data_and_launch(
                 if action_flow_method(config) == GRAPH_METHOD
                 else (
                     {0: 0, 1: 13}
-                    if str(config.name) == SCALED_MUON_CONFIG_NAME
+                    if str(config.name) in SCALED_MUON_CONFIG_NAMES
                     else {0: 0, 1: 11}
                 )
             ),
@@ -1296,7 +1300,7 @@ def validate_config(
         if name != "pipeline_total"
     )
     _exact(accounted, parameters["pipeline_total"]["total"], "parameter accounting")
-    if str(config.name) == SCALED_MUON_CONFIG_NAME:
+    if str(config.name) in SCALED_MUON_CONFIG_NAMES:
         _exact(
             parameters["pipeline_total"]["total"],
             199_754_837,

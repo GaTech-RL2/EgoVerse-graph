@@ -122,6 +122,13 @@ case "$AF_EXPERIMENT" in
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
+  pusht/action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42)
+    AF_METHOD=latent_fm_stopgrad
+    AF_RECONSTRUCTION_WEIGHT=5
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
   pusht/action_flow_bc_usocket_bridge_likelihood_s42)
     AF_METHOD=gaussian_bridge_likelihood
     # Transport placeholders only; no FM/reconstruction flags enter this model.

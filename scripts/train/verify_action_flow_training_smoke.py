@@ -68,6 +68,13 @@ CODEC98K_PARAMETER_COUNT = 50_801_685
 SCALED_MUON_EXPERIMENT = (
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
+SCALED_MUON_RECON5_EXPERIMENT = (
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42"
+)
+SCALED_MUON_EXPERIMENTS = {
+    SCALED_MUON_EXPERIMENT,
+    SCALED_MUON_RECON5_EXPERIMENT,
+}
 SCALED_MUON_PARAMETER_COUNT = 199_754_837
 APPROVED_EXPERIMENTS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
@@ -83,6 +90,11 @@ APPROVED_EXPERIMENTS = {
     SCALED_MUON_EXPERIMENT: (
         "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
         1.0,
+        1.0,
+    ),
+    SCALED_MUON_RECON5_EXPERIMENT: (
+        "action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42",
+        5.0,
         1.0,
     ),
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": (
@@ -319,7 +331,7 @@ def _validate_config(
     _require(
         targets == method_stage_targets(method), f"unexpected stage topology: {targets}"
     )
-    scaled_muon = experiment == SCALED_MUON_EXPERIMENT
+    scaled_muon = experiment in SCALED_MUON_EXPERIMENTS
     field_hidden_dim = 1_024 if scaled_muon else 512
     field_depth = 14 if scaled_muon else 12
     field_num_heads = 16 if scaled_muon else 8
@@ -1161,9 +1173,9 @@ def _validate_checkpoint(
             CODEC98K_EXPERIMENT
         ][0]:
             expected_parameter_count = CODEC98K_PARAMETER_COUNT
-        if config is not None and str(config.get("name", "")) == APPROVED_EXPERIMENTS[
-            SCALED_MUON_EXPERIMENT
-        ][0]:
+        if config is not None and str(config.get("name", "")) in {
+            APPROVED_EXPERIMENTS[item][0] for item in SCALED_MUON_EXPERIMENTS
+        }:
             expected_parameter_count = SCALED_MUON_PARAMETER_COUNT
         _require(
             parameter_count == expected_parameter_count,

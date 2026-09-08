@@ -1,0 +1,100 @@
+# @package _global_
+# Language-conditioned twin of abc_mecka_fold_multitask_cotrain_baseline.
+#
+# Same allowlists as the DP 300M multitask cotrain; model is the 300M pooled
+# Qwen HPT. Grouped val (in-domain `valid` + held-out `newtask`) is preserved.
+#
+# Launch (2x L40 on PACE):
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_lang_mecka_fold_multitask_cotrain_baseline
+defaults:
+  - /experiment/abc_arc/hpt_qwen_300M_knobs
+  - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled
+  - override /data: abc_arc/abc_mecka_fold_multitask_baseline_cotrain
+  - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
+  - override /hydra/launcher: submitit_pace
+  - _self_
+
+name: abc_lang_mecka_fold_multitask_cotrain_baseline
+description: qwen_pooled_baseline
+
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 2
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.2
+
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+      - abc
+      - multitask
+      - baseline
+      - qwen
+      - hpt
+      - lang
+
+hpt:
+  action_horizon: 100
+
+data:
+  train_datasets:
+    human_bimanual:
+      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+      resolver:
+        key_map:
+          annotation_key: annotations
+    yam_bimanual:
+      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+      resolver:
+        key_map:
+          annotation_key: annotations
+  valid_datasets:
+    valid:
+      human_bimanual:
+        batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+        resolver:
+          key_map:
+            annotation_key: annotations
+      yam_bimanual:
+        batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+        resolver:
+          key_map:
+            annotation_key: annotations
+    newtask:
+      human_bimanual:
+        batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+        resolver:
+          key_map:
+            annotation_key: annotations
+      yam_bimanual:
+        batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+        resolver:
+          key_map:
+            annotation_key: annotations
+
+evaluator:
+  arc_metrics: true
+  arcmatch_distance: 0.40
+  arcmatch_points: 32
+  arc_chunk_rows: 45
+  resampled_vector_length: 100
+  velocity_mode: per_waypoint
+  rot_lever_m: 0.1

@@ -683,11 +683,16 @@ def _scaled_muon_optimizer_state():
     }
 
 
-def test_optimizer_state_gate_accepts_scaled_muon_composite_state():
+@pytest.mark.parametrize(
+    "experiment_name",
+    [
+        "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+        "action_flow_bc_usocket_latent_fm_sg_recon5_200m_muon_lr1e5_s42",
+    ],
+)
+def test_optimizer_state_gate_accepts_scaled_muon_composite_state(experiment_name):
     config = OmegaConf.create(
-        {
-            "name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
-        }
+        {"name": experiment_name}
     )
 
     MODULE._validate_optimizer_state(_scaled_muon_optimizer_state(), config)

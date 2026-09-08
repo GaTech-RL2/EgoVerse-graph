@@ -1003,7 +1003,10 @@ def _validate_optimizer_state(
     scaled_muon = (
         config is not None
         and str(config.get("name", ""))
-        == APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0]
+        in {
+            APPROVED_EXPERIMENTS[experiment][0]
+            for experiment in SCALED_MUON_EXPERIMENTS
+        }
     )
     if not scaled_muon:
         _require(bool(optimizer_state.get("state")), "AdamW optimizer state is empty")

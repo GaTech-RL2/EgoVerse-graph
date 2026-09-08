@@ -78,8 +78,11 @@ class SimRolloutPlanarEval(Eval):
         expected_sampler_steps: int | None = None,
         results_path: str | None = None,
     ):
-        if replan_every <= 0:
-            raise ValueError("replan_every must be positive")
+        # 0 is a sentinel: execute the ENTIRE decoded chunk before replanning,
+        # i.e. fully open loop within a chunk. Any positive value executes that
+        # many decoded actions and then re-observes.
+        if replan_every < 0:
+            raise ValueError("replan_every must be non-negative (0 = full chunk)")
         if chunk_start < 0:
             raise ValueError("chunk_start must be non-negative")
         self.dataset_dir = Path(dataset_dir)
@@ -240,7 +243,9 @@ class SimRolloutPlanarEval(Eval):
             f"content_sha256={budget_payload.get('content_sha256')}"
         )
         print(
-            f"[sim] replan_every={self.replan_every} chunk_start={self.chunk_start} "
+            f"[sim] replan_every={self.replan_every}"
+            f"{' (0=full chunk, open loop)' if self.replan_every == 0 else ''} "
+            f"chunk_start={self.chunk_start} "
             f"sampler_steps={self.expected_sampler_steps} "
             f"episodes={self.n_episodes} seed_base={self.seed_base}"
         )
@@ -265,7 +270,12 @@ class SimRolloutPlanarEval(Eval):
                     native = self._predict_chunk(obs, emb_id, device)
                     policy_s += time.time() - t_call
                     calls += 1
-                    chunk = native[self.chunk_start : self.chunk_start + self.replan_every]
+                    span = (
+                        self.replan_every
+                        if self.replan_every > 0
+                        else len(native) - self.chunk_start
+                    )
+                    chunk = native[self.chunk_start : self.chunk_start + span]
                     if len(chunk) == 0:
                         raise ValueError(
                             f"empty execution chunk: decoded {native.shape} with "
@@ -306,6 +316,7 @@ class SimRolloutPlanarEval(Eval):
             "budget": budget,
             "budget_provenance": budget_payload,
             "replan_every": self.replan_every,
+            "replan_mode": "full_chunk_open_loop" if self.replan_every == 0 else "fixed",
             "chunk_start": self.chunk_start,
             "sampler_steps": self.expected_sampler_steps,
             "seed_base": self.seed_base,

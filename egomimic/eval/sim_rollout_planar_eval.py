@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -164,11 +165,13 @@ class SimRolloutPlanarEval(Eval):
         if self._done:
             return
         self._done = True
+        t_start = time.time()
         budget, budget_payload = self._budget()
         env_args = self._env_args()
         emb_id = self._emb_id()
         device = self.trainer.lightning_module.device
         env = self._make_env(env_args)
+        print(f"[sim] setup_s={time.time() - t_start:.1f} device={device}")
 
         print(f"[sim] {LABEL}")
         print(
@@ -193,10 +196,17 @@ class SimRolloutPlanarEval(Eval):
             chunk: np.ndarray | None = None
             cursor = 0
             aborted = False
+            t_ep = time.time()
+            calls = 0
+            policy_s = 0.0
+            steps = 0
             for t in range(budget):
                 if chunk is None or cursor >= len(chunk):
                     obs = _env_to_zarr_oriented(env._get_obs())
+                    t_call = time.time()
                     native = self._predict_chunk(obs, emb_id, device)
+                    policy_s += time.time() - t_call
+                    calls += 1
                     chunk = native[self.chunk_start : self.chunk_start + self.replan_every]
                     if len(chunk) == 0:
                         raise ValueError(
@@ -215,11 +225,18 @@ class SimRolloutPlanarEval(Eval):
                     aborted = True
                     break
                 _, _, term, trunc, info = env.step(action)
+                steps += 1
                 peak = max(peak, float(info.get("coverage", 0.0)))
                 if term or trunc:
                     break
             peaks.append(float(peak))
-            print(f"[sim] ep{ep} seed={seed} peak={peak:.4f} aborted={aborted}")
+            ep_s = time.time() - t_ep
+            print(
+                f"[sim] ep{ep} seed={seed} peak={peak:.4f} aborted={aborted} "
+                f"steps={steps} calls={calls} ep_s={ep_s:.1f} "
+                f"policy_s={policy_s:.1f} "
+                f"s_per_call={(policy_s / calls if calls else float('nan')):.3f}"
+            )
         env.close()
 
         arr = np.asarray(peaks, dtype=np.float64)

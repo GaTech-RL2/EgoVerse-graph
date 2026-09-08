@@ -96,10 +96,15 @@ STOPGRAD_METHOD = "latent_fm_stopgrad"
 SCALED_MUON_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
+SCALED_ADAMW_CONFIG_NAME = (
+    "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
+)
+SCALED_200M_CONFIG_NAMES = {SCALED_MUON_CONFIG_NAME, SCALED_ADAMW_CONFIG_NAME}
 CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -512,7 +517,7 @@ def _validate_dimensions_and_modules(
     field = field_stage.field
     codec_profile = (int(encoder.hidden_dim), int(encoder.feedforward_dim))
     config_name = str(config.name)
-    if config_name == SCALED_MUON_CONFIG_NAME:
+    if config_name in SCALED_200M_CONFIG_NAMES:
         expected_codec_profile = (204, 816)
     elif config_name == "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42":
         expected_codec_profile = (44, 176)
@@ -553,17 +558,17 @@ def _validate_dimensions_and_modules(
         "decoder g context-free forward signature",
     )
 
-    scaled_muon = config_name == SCALED_MUON_CONFIG_NAME
+    scaled_200m = config_name in SCALED_200M_CONFIG_NAMES
     field_expected = {
         "input_dim": 8,
         "output_dim": 8,
         "horizon": 16,
         "condition_dim": 67,
-        "hidden_dim": 1024 if scaled_muon else 512,
-        "depth": 14 if scaled_muon else 12,
-        "num_heads": 16 if scaled_muon else 8,
-        "feedforward_dim": 4224 if scaled_muon else 2048,
-        "time_embedding_dim": 1024 if scaled_muon else 512,
+        "hidden_dim": 1024 if scaled_200m else 512,
+        "depth": 14 if scaled_200m else 12,
+        "num_heads": 16 if scaled_200m else 8,
+        "feedforward_dim": 4224 if scaled_200m else 2048,
+        "time_embedding_dim": 1024 if scaled_200m else 512,
     }
     for attribute, expected in field_expected.items():
         _exact(getattr(field, attribute), expected, f"field v {attribute}")
@@ -645,7 +650,7 @@ def _validate_dimensions_and_modules(
         expected_codec_parameter_counts,
         "typed reconstruction codec parameter counts",
     )
-    expected_field_parameters = 186_536_913 if scaled_muon else 39_506_641
+    expected_field_parameters = 186_536_913 if scaled_200m else 39_506_641
     _exact(
         parameters["field_v"]["total"],
         expected_field_parameters,
@@ -732,13 +737,14 @@ def _validate_topology(
 def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     optimizer = config.model.optimizer
     scaled_muon = str(config.name) == SCALED_MUON_CONFIG_NAME
+    scaled_200m = str(config.name) in SCALED_200M_CONFIG_NAMES
     expected_optimizer = (
         "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
         if scaled_muon
         else "torch.optim.AdamW"
     )
-    expected_lr = 1.0e-5 if scaled_muon else 3.0e-5
-    expected_floor = 1.0e-6 if scaled_muon else 3.0e-6
+    expected_lr = 1.0e-5 if scaled_200m else 3.0e-5
+    expected_floor = 1.0e-6 if scaled_200m else 3.0e-6
     _exact(str(optimizer._target_), expected_optimizer, "optimizer target")
     _exact(bool(optimizer._partial_), True, "optimizer partial construction")
     _float(optimizer.lr, expected_lr, "learning rate")
@@ -760,6 +766,12 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         )
     else:
         _float(optimizer.weight_decay, 1.0e-4, "weight decay")
+        if scaled_200m:
+            _exact(
+                bool(config.model.optimizer_named_parameters),
+                False,
+                "plain AdamW parameter binding",
+            )
 
     scheduler = config.model.scheduler
     _exact(
@@ -1143,7 +1155,7 @@ def _validate_data_and_launch(
                 if action_flow_method(config) == GRAPH_METHOD
                 else (
                     {0: 0, 1: 13}
-                    if str(config.name) == SCALED_MUON_CONFIG_NAME
+                    if str(config.name) in SCALED_200M_CONFIG_NAMES
                     else {0: 0, 1: 11}
                 )
             ),
@@ -1296,28 +1308,36 @@ def validate_config(
         if name != "pipeline_total"
     )
     _exact(accounted, parameters["pipeline_total"]["total"], "parameter accounting")
-    if str(config.name) == SCALED_MUON_CONFIG_NAME:
+    if str(config.name) in SCALED_200M_CONFIG_NAMES:
         _exact(
             parameters["pipeline_total"]["total"],
             199_754_837,
             "Option-A total parameter count",
         )
-        adamw_named, muon_named = partition_released_unite_parameters(
-            pipeline_algo.nets.named_parameters(prefix="nets", remove_duplicate=True)
-        )
-        grouped = (*adamw_named, *muon_named)
-        _exact(len({id(parameter) for _, parameter in grouped}), len(grouped), "optimizer group disjointness")
-        _exact(
-            sum(parameter.numel() for _, parameter in grouped),
-            parameters["pipeline_total"]["trainable"],
-            "optimizer group coverage",
-        )
-        optimization["parameter_groups"] = {
-            "adamw_parameters": sum(parameter.numel() for _, parameter in adamw_named),
-            "muon_parameters": sum(parameter.numel() for _, parameter in muon_named),
-            "complete": True,
-            "disjoint": True,
-        }
+        if str(config.name) == SCALED_MUON_CONFIG_NAME:
+            adamw_named, muon_named = partition_released_unite_parameters(
+                pipeline_algo.nets.named_parameters(prefix="nets", remove_duplicate=True)
+            )
+            grouped = (*adamw_named, *muon_named)
+            _exact(len({id(parameter) for _, parameter in grouped}), len(grouped), "optimizer group disjointness")
+            _exact(
+                sum(parameter.numel() for _, parameter in grouped),
+                parameters["pipeline_total"]["trainable"],
+                "optimizer group coverage",
+            )
+            optimization["parameter_groups"] = {
+                "adamw_parameters": sum(parameter.numel() for _, parameter in adamw_named),
+                "muon_parameters": sum(parameter.numel() for _, parameter in muon_named),
+                "complete": True,
+                "disjoint": True,
+            }
+        else:
+            optimization["parameter_groups"] = {
+                "adamw_parameters": parameters["pipeline_total"]["trainable"],
+                "muon_parameters": 0,
+                "complete": True,
+                "disjoint": True,
+            }
 
     objective_report = OmegaConf.to_container(
         config.run_provenance.objective, resolve=True

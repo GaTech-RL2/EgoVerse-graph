@@ -122,6 +122,13 @@ case "$AF_EXPERIMENT" in
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
+  pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42)
+    AF_METHOD=latent_fm_stopgrad
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
   pusht/action_flow_bc_usocket_bridge_likelihood_s42)
     AF_METHOD=gaussian_bridge_likelihood
     # Transport placeholders only; no FM/reconstruction flags enter this model.
@@ -855,7 +862,10 @@ if method != LIKELIHOOD_METHOD:
 else:
     assert effective_warmup_steps == full_warmup_steps == 0
 optimizer, scheduler = cfg.model.optimizer, cfg.model.scheduler
-if experiment.endswith("_200m_muon_lr1e5_s42"):
+scaled_muon = experiment.endswith("_200m_muon_lr1e5_s42")
+scaled_adamw = experiment.endswith("_200m_adamw_lr1e5_s42")
+scaled_200m = scaled_muon or scaled_adamw
+if scaled_muon:
     assert optimizer._target_ == (
         "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
     )
@@ -867,12 +877,15 @@ if experiment.endswith("_200m_muon_lr1e5_s42"):
     assert cfg.model.optimizer_named_parameters is True
 else:
     assert optimizer._target_ == "torch.optim.AdamW" and optimizer._partial_ is True
-    assert optimizer.lr == 3e-5 and list(optimizer.betas) == [0.9, 0.999]
+    assert optimizer.lr == (1e-5 if scaled_adamw else 3e-5)
+    assert list(optimizer.betas) == [0.9, 0.999]
     assert optimizer.eps == 1e-8 and optimizer.weight_decay == 1e-4
+    if scaled_adamw:
+        assert cfg.model.optimizer_named_parameters is False
 assert scheduler.max_steps == 240000 and scheduler.warmup_steps == 8000
 assert scheduler.warmup_start_factor == 0.1
 assert scheduler.eta_min == (
-    1e-6 if experiment.endswith("_200m_muon_lr1e5_s42") else 3e-6
+    1e-6 if scaled_200m else 3e-6
 )
 assert cfg.trainer.accelerator == "gpu"
 assert cfg.trainer.devices == cfg.trainer.num_nodes == 1
@@ -916,7 +929,7 @@ _validate_topology(cfg, pipeline)
 _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
 count = sum(parameter.numel() for parameter in pipeline.nets.parameters())
 if method in (LEGACY_METHOD, STOPGRAD_METHOD):
-    if experiment.endswith("_200m_muon_lr1e5_s42"):
+    if scaled_200m:
         expected_count = 199_754_837
     elif experiment.endswith("_codec98k_s42"):
         expected_count = 50_801_685

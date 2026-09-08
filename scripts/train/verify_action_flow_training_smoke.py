@@ -911,6 +911,38 @@ def _validate_gradient_route_manifest(
     }
 
 
+def _validate_checkpoint_loss_schedule(
+    loss_schedule: Any,
+    config: DictConfig | None,
+    *,
+    reconstruction_weight: float,
+    flow_weight: float,
+) -> int:
+    _require(config is not None, "checkpoint loss schedule needs its exact config")
+    warmup_steps = OmegaConf.select(
+        config, "model.reconstruction_only_warmup_steps", default=0
+    )
+    _require(
+        isinstance(warmup_steps, int)
+        and not isinstance(warmup_steps, bool)
+        and warmup_steps in (0, 1),
+        "two-update smoke requires a configured reconstruction warmup of 0 or 1",
+    )
+    _require(
+        loss_schedule
+        == {
+            "joint_objective_begins_at_global_step": warmup_steps,
+            "reconstruction_only_optimizer_steps": warmup_steps,
+            "joint_flow_weight": flow_weight,
+            "joint_reconstruction_weight": reconstruction_weight,
+            "joint_action_velocity_weight": 1.0,
+            "schema_version": 1,
+        },
+        f"unexpected Action Flow loss schedule: {loss_schedule}",
+    )
+    return warmup_steps
+
+
 def _validate_checkpoint(
     run_dir: Path,
     *,
@@ -961,17 +993,11 @@ def _validate_checkpoint(
     )
     _require(isinstance(loops, Mapping) and loops, "checkpoint loop state is empty")
     if loss_schedule is not None:
-        _require(
-            loss_schedule
-            == {
-                "joint_objective_begins_at_global_step": 1,
-                "reconstruction_only_optimizer_steps": 1,
-                "joint_flow_weight": flow_weight,
-                "joint_reconstruction_weight": reconstruction_weight,
-                "joint_action_velocity_weight": 1.0,
-                "schema_version": 1,
-            },
-            f"unexpected Action Flow loss schedule: {loss_schedule}",
+        expected_warmup_steps = _validate_checkpoint_loss_schedule(
+            loss_schedule,
+            config,
+            reconstruction_weight=reconstruction_weight,
+            flow_weight=flow_weight,
         )
     state_tensors, state_scalars = _finite_tree(state_dict, "checkpoint.state_dict")
     optimizer_tensors, optimizer_scalars = _finite_tree(
@@ -1048,7 +1074,7 @@ def _validate_checkpoint(
     )
     if loss_schedule is not None:
         _require(
-            restored.reconstruction_only_warmup_steps == 1,
+            restored.reconstruction_only_warmup_steps == expected_warmup_steps,
             "strict reload lost the reconstruction-only warmup",
         )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())

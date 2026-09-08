@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 
 import torch
 
@@ -209,6 +210,44 @@ class ActionFlowLikelihoodModelWrapper(ModelWrapper):
                     "GradientNorm/TotalPreclip", torch.stack(pieces).sum().sqrt()
                 )
         super().on_before_optimizer_step(optimizer)
+
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        """Measure the held-out graph objective, then run the normal evaluator.
+
+        This retains the configured noising/condition-dropout objective, with
+        modules in evaluation mode and no gradients. It is not clean recon or
+        FM. Isolated draws cannot perturb the evaluator's actual sample bank.
+        """
+        if isinstance(batch, Mapping):
+            batch = {key: value for key, value in batch.items() if value is not None}
+        if not batch:
+            return
+        processed = self.model.process_batch_for_training(batch)
+        devices = [self.device.index] if self.device.type == "cuda" else []
+        seed = 420_042 + int(batch_idx) + int(dataloader_idx) * 100_003
+        seed += int(self.global_rank) * 1_000_003
+        with torch.random.fork_rng(devices=devices), torch.no_grad():
+            torch.manual_seed(seed)
+            predictions = self.model.forward_training(processed)
+        reference = next(iter(predictions.values()))["loss/likelihood"]
+        metrics = self._prediction_log_metrics(predictions, reference)
+        count = sum(len(result["target"]) for result in predictions.values())
+        for label in ("InteriorBridgeNLL", "BoundaryNLL", "TotalLoss"):
+            values = metrics[f"ActionFlow/{label}"]
+            if len(values) != len(predictions):
+                raise RuntimeError(f"missing held-out likelihood component {label}")
+            # As in training, average the per-source objective means equally.
+            self.log(
+                f"Valid/ActionFlow/{label}",
+                torch.stack([value for _, value in values]).mean(),
+                on_step=False,
+                on_epoch=True,
+                batch_size=count,
+                sync_dist=True,
+                add_dataloader_idx=False,
+            )
+        if self.evaluator is not None:
+            self.evaluator.on_validation_step(processed, batch_idx, dataloader_idx)
 
     def on_save_checkpoint(self, checkpoint):
         if self._gradient_route_manifest is not None:

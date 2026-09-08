@@ -127,6 +127,17 @@ class ActionFlowModelWrapper(ModelWrapper):
                 raise ValueError("flow_samples_per_content must be a positive integer")
         self.flow_samples_per_content = configured_samples
 
+    def _optimizer_instantiation_kwargs(self, cfg) -> dict[str, Any]:
+        """Bind stable names when Action Flow selects a composite optimizer."""
+
+        if bool(cfg.model.get("optimizer_named_parameters", False)):
+            return {
+                "named_params": tuple(
+                    self.nets.named_parameters(prefix="nets", remove_duplicate=True)
+                )
+            }
+        return super()._optimizer_instantiation_kwargs(cfg)
+
     def _objective_weight(self, name: str, *, default: float | None = None) -> float:
         direct = getattr(self.model, name, None)
         if direct is not None:

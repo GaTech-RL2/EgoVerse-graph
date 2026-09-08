@@ -30,9 +30,15 @@ SPEC.loader.exec_module(MODULE)
 HEAD = "a" * 40
 
 
-def _resolved_smoke_config(tmp_path: Path, *, reconstruction_weight: float = 1.0):
-    suffix = {1.0: "1", 10.0: "10", 100.0: "100"}[reconstruction_weight]
-    experiment = f"pusht/action_flow_bc_usocket_recon{suffix}_s42"
+def _resolved_smoke_config(
+    tmp_path: Path,
+    *,
+    reconstruction_weight: float = 1.0,
+    experiment: str | None = None,
+):
+    if experiment is None:
+        suffix = {1.0: "1", 10.0: "10", 100.0: "100"}[reconstruction_weight]
+        experiment = f"pusht/action_flow_bc_usocket_recon{suffix}_s42"
     cfg = compose_experiment(experiment)
     run_dir = tmp_path / "run"
     run_dir.mkdir()
@@ -87,6 +93,30 @@ def test_config_gate_accepts_only_exact_two_step_contract(tmp_path, monkeypatch)
         identities["config_sha256"]
         == hashlib.sha256(config_path.read_bytes()).hexdigest()
     )
+
+
+def test_config_gate_accepts_option_a_200m_muon_contract(tmp_path, monkeypatch):
+    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
+        tmp_path,
+        experiment=(
+            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+        ),
+    )
+    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+
+    config, _ = MODULE._validate_config(
+        config_path=config_path,
+        experiment=experiment,
+        run_dir=run_dir,
+        expected_head=HEAD,
+        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        expected_split_sha256=None,
+        expected_normalization_sha256=normalization_hash,
+    )
+
+    assert config.model.pipeline.stages[5].field.hidden_dim == 1_024
+    assert config.model.pipeline.stages[5].field.depth == 14
+    assert config.model.optimizer.lr == pytest.approx(1.0e-5)
 
 
 @pytest.mark.parametrize(
@@ -549,6 +579,22 @@ def test_cli_accepts_codec98k_experiment():
     )
 
     assert args.experiment.endswith("recon1_codec98k_s42")
+
+
+def test_cli_accepts_option_a_200m_muon_experiment():
+    args = MODULE._parser().parse_args(
+        [
+            "/tmp/run",
+            "--expected-head",
+            HEAD,
+            "--expected-experiment",
+            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+            "--expected-preflight-sha256",
+            "d" * 64,
+        ]
+    )
+
+    assert args.experiment.endswith("recon1_200m_muon_lr1e5_s42")
 
 
 def test_gpu_probe_gate_requires_real_single_h100_or_h200_bf16(tmp_path):

@@ -82,6 +82,17 @@ class SimRolloutPlanarEval(Eval):
         self.results_path = results_path
         self.normalizer = None
         self._done = False
+        # trainHydra's eval mode copies this straight onto cfg.trainer before
+        # building the trainer. Every Eval implementation must supply it.
+        # The rollouts run in on_validation_start, so one val batch is only
+        # needed to make Lightning enter the validation loop at all.
+        self.override_dict = {
+            "limit_train_batches": 0,
+            "limit_val_batches": 1,
+            "check_val_every_n_epoch": 1,
+            "max_epochs": 1,
+            "min_epochs": 1,
+        }
 
     def bind_data_context(self, *, normalizer):
         self.normalizer = normalizer

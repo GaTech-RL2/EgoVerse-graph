@@ -41,12 +41,25 @@ def _env_to_zarr_oriented(obs_env: dict) -> dict:
     U-Socket stores [agent_x, agent_y, agent_angle, obj_x, obj_y, obj_angle];
     the encoder slices [0,3). Mirrors EgoVerse's _env_to_zarr_pushshapes_oriented.
     """
-    state = np.concatenate(
-        [obs_env["agent_pos"], obs_env["agent_angle"], obs_env["object_pose"]],
-        axis=0,
-    ).astype(np.float32)
-    image = np.transpose(obs_env["image"], (2, 0, 1)).astype(np.float32) / 255.0
-    return {"state_agent_obj": state, "front_img_1": image}
+    parts = [
+        np.asarray(obs_env["agent_pos"], dtype=np.float32).reshape(-1),
+        np.asarray(obs_env["agent_angle"], dtype=np.float32).reshape(-1),
+        np.asarray(obs_env["object_pose"], dtype=np.float32).reshape(-1),
+    ]
+    # reshape(-1) on each part, so a (1,2) agent_pos cannot silently make the
+    # state 2-D and push an extra axis all the way into the encoder.
+    state = np.concatenate(parts, axis=0).astype(np.float32)
+    image = np.asarray(obs_env["image"], dtype=np.float32)
+    if image.ndim == 4 and image.shape[0] == 1:
+        image = image[0]
+    if image.ndim != 3:
+        raise ValueError(f"expected HWC or CHW image, got {image.shape}")
+    if image.shape[-1] in (1, 3, 4):  # HWC -> CHW
+        image = np.transpose(image, (2, 0, 1))
+    image = image / 255.0
+    if state.ndim != 1:
+        raise ValueError(f"state must be 1-D per frame, got {state.shape}")
+    return {"state_agent_obj": state, "front_img_1": image.astype(np.float32)}
 
 
 class SimRolloutPlanarEval(Eval):
@@ -83,6 +96,7 @@ class SimRolloutPlanarEval(Eval):
         self.results_path = results_path
         self.normalizer = None
         self._done = False
+        self._logged_shapes = False
         # trainHydra's eval mode copies this straight onto cfg.trainer before
         # building the trainer. Every Eval implementation must supply it.
         # The rollouts run in on_validation_start, so one val batch is only
@@ -139,16 +153,43 @@ class SimRolloutPlanarEval(Eval):
 
     def _predict_chunk(self, obs: dict, emb_id: int, device) -> np.ndarray:
         """obs (unnormalized env frame) -> native action chunk (H, 3)."""
-        normalized = self.normalizer.normalize(
-            {k: torch.from_numpy(v) for k, v in obs.items()}, emb_id
-        )
-        # FusedObsEncoder requires (batch, n_obs, ...); n_obs is 1 here.
-        batch = {
-            self.embodiment_name: {
-                k: v.unsqueeze(0).unsqueeze(0).to(device)
-                for k, v in normalized.items()
-            }
-        }
+        raw = {k: torch.from_numpy(np.ascontiguousarray(v)) for k, v in obs.items()}
+        normalized = self.normalizer.normalize(raw, emb_id)
+        # FusedObsEncoder wants exactly (batch, n_obs, *per_frame). Reshape to
+        # the per-frame shape rather than unsqueezing twice: normalize() is
+        # keyed through an identity zarr_keys map and returns whatever it was
+        # given, so a stray leading axis would otherwise reach the encoder as
+        # (1,1,1,D) and surface as "output must have shape (1, feature_dim)".
+        inner = {}
+        for key, value in normalized.items():
+            tensor = value if torch.is_tensor(value) else torch.as_tensor(value)
+            per_frame = tuple(obs[key].shape)
+            inner[key] = (
+                tensor.reshape(1, 1, *per_frame).to(device=device, dtype=torch.float32)
+            )
+        if not self._logged_shapes:
+            self._logged_shapes = True
+            for key in sorted(inner):
+                delta = float(
+                    (normalized[key].float() - raw[key].float()).abs().max()
+                )
+                print(
+                    f"[sim] obs {key}: env={tuple(obs[key].shape)} "
+                    f"norm={tuple(normalized[key].shape)} batch={tuple(inner[key].shape)} "
+                    f"norm_delta={delta:.6f}"
+                )
+            # normalize() resolves keys through zarr_keys; if that map is not
+            # the identity the proprio silently passes through unnormalized and
+            # the policy sees inputs it was never trained on.
+            if float(
+                (normalized["state_agent_obj"].float()
+                 - raw["state_agent_obj"].float()).abs().max()
+            ) == 0.0:
+                raise ValueError(
+                    "state_agent_obj was NOT normalized (delta 0). normalize() "
+                    "resolves through zarr_keys; check the key convention."
+                )
+        batch = {self.embodiment_name: inner}
         batch[self.embodiment_name]["embodiment"] = torch.tensor([emb_id], device=device)
         with torch.no_grad():
             out = self.model.forward_eval(batch)

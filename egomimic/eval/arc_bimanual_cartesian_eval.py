@@ -45,6 +45,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         action_horizon: int = 100,
         dt: float = 1.0 / 30.0,
         velocity_mode: str = "mean",
+        arc_metrics: bool = True,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -56,6 +57,14 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
         self.action_horizon = int(action_horizon)
+        # Defaults ON here: an arc run is exactly the case the arc metric
+        # families were built for. The base class owns the knobs, and it also
+        # falls back to the action chunk when the preserved one is absent --
+        # for an arc run that fallback must never trigger, because the
+        # tokenizer overwrote actions_cartesian in place and recovering the GT
+        # by detokenizing would be circular (a reconstruction spans D by
+        # construction, so its distance says nothing about real travel).
+        self.arc_metrics = bool(arc_metrics)
         if self.action_horizon <= 0:
             raise ValueError("action_horizon must be positive")
         self._tokenizer = TokenizeBimanualArcLengthCartesian(
@@ -94,3 +103,46 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
             axis=0,
         )
         return torch.from_numpy(decoded).to(dtype=actions.dtype)
+
+    def _is_arc(self, actions) -> bool:
+        """Whether these rows are an arc token rather than a pose chunk.
+
+        One evaluator serves both arms of the ablation, so the run type is
+        detected from the shape instead of configured twice: an arc token has
+        exactly the row count this D/M and velocity mode imply, and the
+        canonical bimanual width. A baseline chunk has the action horizon's
+        rows, which only collides with the token count by coincidence -- and if
+        it ever did, both readings would be the same rows anyway.
+        """
+        from egomimic.rldb.zarr.arc_length_tokenizer import (
+            ARC_TOK_BIMANUAL_DIM,
+            bimanual_arc_token_rows,
+        )
+
+        if actions is None or actions.ndim != 3:
+            return False
+        expected = bimanual_arc_token_rows(
+            self.resampled_vector_length, self.velocity_mode
+        )
+        return (
+            int(actions.shape[-2]) == expected
+            and int(actions.shape[-1]) == ARC_TOK_BIMANUAL_DIM
+        )
+
+    def _arc_pred_time_indexed(self, prediction, embodiment_id: int):
+        """Get the prediction into the time-indexed space the metrics score in.
+
+        An ARC run predicts (M+1, 14) or (2M, 14) rows that must be walked back
+        into control steps; the detokenizer already emits real control steps, so
+        no de-interpolation follows. A BASELINE run predicts poses already, and
+        takes the base class's path instead: unnormalize, then de-interpolate to
+        the raw window, because arc length on an interpolated chunk reads short.
+
+        Branching here rather than in a config is what lets one evaluator score
+        both arms onto the same charts.
+        """
+        native = self._native(prediction, embodiment_id)
+        if not self._is_arc(native):
+            return super()._arc_pred_time_indexed(prediction, embodiment_id)
+        decoded = self._viz_source(native.detach().cpu(), embodiment_id)
+        return decoded.numpy().astype(np.float64, copy=False)

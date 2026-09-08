@@ -61,6 +61,11 @@ abc:
   # which ConditionalUnet1D's two downsample stages require -- 101 is odd and
   # crashes the skip-connection concat.
   arc_velocity_mode: per_waypoint
+  # Arc scoring settings, shared with the baseline twin.
+  arc_distance: 0.40
+  arc_waypoints: 100
+  arcmatch_points: 32
+  arc_chunk_rows: 45
   arc_token_rows: 200
   condition_dim: 78
   encoder:
@@ -84,3 +89,10 @@ abc:
         crop_scope: frame
         norm_layer: group
         pool_type: spatial_softmax
+
+# Same knobs the baseline twin sets, so the two arms score in one space.
+evaluator:
+  arc_metrics: true
+  arcmatch_distance: ${abc.arc_distance}
+  arcmatch_points: ${abc.arcmatch_points}
+  arc_chunk_rows: ${abc.arc_chunk_rows}

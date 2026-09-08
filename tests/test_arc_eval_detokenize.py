@@ -40,22 +40,24 @@ def _evaluator():
 
 def _raw_chunk(steps: int = 200, seed: int = 0) -> np.ndarray:
     """A (T, 14) bimanual cartesian chunk that actually travels."""
-    rng = np.random.default_rng(seed)
+    del seed  # the profile is deterministic; the arg keeps call sites uniform
     chunk = np.zeros((steps, 14), dtype=np.float64)
     t = np.linspace(0.0, 1.0, steps)
     for base in (0, 7):  # left arm, right arm
-        chunk[:, base + 0] = t * 0.6                     # x sweeps 0.6 m
+        chunk[:, base + 0] = t * 0.6  # x sweeps 0.6 m
         chunk[:, base + 1] = 0.1 * np.sin(2 * np.pi * t)  # y wiggles
         chunk[:, base + 2] = 0.05 * t
-        chunk[:, base + 3] = 0.4 * t                      # yaw
-        chunk[:, base + 6] = t                            # gripper opens
+        chunk[:, base + 3] = 0.4 * t  # yaw
+        chunk[:, base + 6] = t  # gripper opens
     return chunk
 
 
 def _token(steps: int = 200, seed: int = 0) -> np.ndarray:
     tok = TokenizeBimanualArcLengthCartesian(
-        action_key="a", output_action_key="a",
-        min_distance_unit=_D, resampled_vector_length=_M,
+        action_key="a",
+        output_action_key="a",
+        min_distance_unit=_D,
+        resampled_vector_length=_M,
         preserve_action_key=None,
     )
     return np.asarray(tok.transform({"a": _raw_chunk(steps, seed=seed)})["a"])
@@ -185,14 +187,26 @@ def test_arc_experiment_uses_the_arc_evaluator_not_the_baseline_one():
     assert cfg.evaluator._target_.endswith("ArcBimanualCartesianEval")
 
 
-def test_baseline_experiment_still_uses_the_time_indexed_evaluator():
-    # The baseline must NOT pick up the arc evaluator: its chunks are poses.
-    # `override /evaluator: null` drops the key entirely, so select, don't index.
-    from omegaconf import OmegaConf
+def test_baseline_shares_the_arc_evaluator_so_the_arms_are_comparable():
+    """The baseline deliberately uses the SAME evaluator as the arc twin.
 
-    cfg = _compose("abc_arc/abc_fstshirt_bc")
-    target = OmegaConf.select(cfg, "evaluator._target_")
-    assert target is None or not str(target).endswith("ArcBimanualCartesianEval")
+    It reaches the metrics by its own path -- its prediction is already a pose
+    chunk, so the shape predicate routes it away from the detokenizer and
+    through de-interpolation instead -- but the arcmatch settings must be
+    identical or the two arms are not measured in the same space.
+    """
+    arc = _compose("abc_arc/abc_fstshirt_arc_bc")
+    baseline = _compose("abc_arc/abc_fstshirt_bc")
+    assert baseline.evaluator._target_ == arc.evaluator._target_
+    for field in (
+        "min_distance_unit",
+        "resampled_vector_length",
+        "arcmatch_points",
+        "arc_chunk_rows",
+        "velocity_mode",
+    ):
+        assert baseline.evaluator[field] == arc.evaluator[field], field
+    assert baseline.evaluator.arc_metrics is True
 
 
 # -- per-waypoint velocity mode ---------------------------------------------
@@ -210,9 +224,12 @@ def _granular_evaluator():
     ev.action_horizon = _H
     ev.velocity_mode = "per_waypoint"
     ev._tokenizer = TokenizeBimanualArcLengthCartesian(
-        action_key="actions_cartesian", output_action_key="actions_cartesian",
-        min_distance_unit=_D, resampled_vector_length=_M,
-        preserve_action_key=None, velocity_mode="per_waypoint",
+        action_key="actions_cartesian",
+        output_action_key="actions_cartesian",
+        min_distance_unit=_D,
+        resampled_vector_length=_M,
+        preserve_action_key=None,
+        velocity_mode="per_waypoint",
     )
     return ev
 
@@ -223,8 +240,11 @@ def _granular_token(steps: int = 200) -> np.ndarray:
     )
 
     tok = TokenizeBimanualArcLengthCartesian(
-        action_key="a", output_action_key="a", min_distance_unit=_D,
-        resampled_vector_length=_M, preserve_action_key=None,
+        action_key="a",
+        output_action_key="a",
+        min_distance_unit=_D,
+        resampled_vector_length=_M,
+        preserve_action_key=None,
         velocity_mode="per_waypoint",
     )
     return np.asarray(tok.transform({"a": _raw_chunk(steps)})["a"])
@@ -273,8 +293,11 @@ def test_granular_beats_mean_on_a_decelerating_chunk():
 
     def err(mode):
         tk = TokenizeBimanualArcLengthCartesian(
-            action_key="a", output_action_key="a", min_distance_unit=_D,
-            resampled_vector_length=_M, preserve_action_key=None,
+            action_key="a",
+            output_action_key="a",
+            min_distance_unit=_D,
+            resampled_vector_length=_M,
+            preserve_action_key=None,
             velocity_mode=mode,
         )
         token = np.asarray(tk.transform({"a": chunk.copy()})["a"])
@@ -289,4 +312,6 @@ def test_experiment_wires_one_velocity_mode_across_data_and_evaluator():
     mode = cfg.abc.arc_velocity_mode
     assert cfg.evaluator.velocity_mode == mode
     for split in ("train_datasets", "valid_datasets"):
-        assert cfg.data[split].yam_bimanual.resolver.transform_list.velocity_mode == mode
+        assert (
+            cfg.data[split].yam_bimanual.resolver.transform_list.velocity_mode == mode
+        )

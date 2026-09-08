@@ -43,6 +43,27 @@ revert_transforms:
     is_quat: false
     gripper_padded: true
 
+# Arc metric families, all scored against the time-indexed ground truth the
+# tokenizer preserved (actions_cartesian_untokenized):
+#
+#   Valid/arcmatch_*   re-tokenized onto a matched per-arm span; travel is
+#                      divided out, so this is path SHAPE alone. Read
+#                      arcmatch_span_m and arcmatch_travel_ratio beside it --
+#                      a policy that stalls scores well here while those fall.
+#   Valid/dtw_*        warped against the GT chunk; elastic in time, so unlike
+#                      arcmatch it DOES see a travel mismatch.
+#   Valid/chunk_*      plain MSE by component (xyz / ypr / grip / final).
+#   *_pose_err_m       position and rotation as one number in metres, via the
+#                      lever arm below, so radians are converted to the length
+#                      they cost rather than summed with metres.
+arc_metrics: true
+arcmatch_points: 32
+# What a radian is worth in metres: the distance from the EEF origin to the
+# point whose displacement the rotation error is measured at.
+rot_lever_m: 0.1
+# DTW is quadratic in chunk length, so cap how many samples per batch it warps.
+dtw_max_samples: 8
+
 video_output_dir: null
 video_chunk_frames: 1000
 max_episode_frames: 6000

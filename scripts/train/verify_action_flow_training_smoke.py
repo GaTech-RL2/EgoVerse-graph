@@ -61,9 +61,18 @@ from tools.validate_action_flow_config import (  # noqa: E402
 
 SCHEMA_VERSION = 1
 EXPECTED_PARAMETER_COUNT = 50_725_221
+CODEC98K_EXPERIMENT = (
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
+)
+CODEC98K_PARAMETER_COUNT = 50_801_685
 APPROVED_EXPERIMENTS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
         "action_flow_bc_usocket_latent_fm_sg_recon1_s42",
+        1.0,
+        1.0,
+    ),
+    CODEC98K_EXPERIMENT: (
+        "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",
         1.0,
         1.0,
     ),
@@ -1079,9 +1088,14 @@ def _validate_checkpoint(
         )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
     if method in (LEGACY_METHOD, STOPGRAD_METHOD):
+        expected_parameter_count = EXPECTED_PARAMETER_COUNT
+        if config is not None and str(config.get("name", "")) == APPROVED_EXPERIMENTS[
+            CODEC98K_EXPERIMENT
+        ][0]:
+            expected_parameter_count = CODEC98K_PARAMETER_COUNT
         _require(
-            parameter_count == EXPECTED_PARAMETER_COUNT,
-            f"parameter count mismatch: {parameter_count} != {EXPECTED_PARAMETER_COUNT}",
+            parameter_count == expected_parameter_count,
+            f"parameter count mismatch: {parameter_count} != {expected_parameter_count}",
         )
     else:
         _require(config is not None, "typed candidate reload needs its exact config")

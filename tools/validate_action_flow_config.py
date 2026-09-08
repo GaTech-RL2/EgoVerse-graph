@@ -635,7 +635,7 @@ def _validate_dimensions_and_modules(
         )
         _require(
             float(config.model.reconstruction_weight)
-            in ({0.0} if method == GRAPH_METHOD else {1.0, 10.0, 100.0}),
+            in ({0.0} if method == GRAPH_METHOD else {1.0, 5.0, 10.0, 100.0}),
             "unsupported reconstruction weight",
         )
 

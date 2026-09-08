@@ -1,0 +1,243 @@
+# Regenerate the exhaustive 896-cell D/M/R codec replay grid on OSMO.
+#
+# This is a deterministic tokenizer-distortion measurement, NOT a learned-policy
+# evaluation: no checkpoint is loaded. It exists to produce GRID_RANKING.csv,
+# the artifact build_topk_codec_manifests.py hashes into
+# source_ranking_sha256 -- without it there is no defensible way to pick the
+# "highest-ranked remaining PASS" cells for the training shortlist.
+#
+# Two checkouts are needed:
+#   EgoVerse-graph  the codec scripts + egomimic + the split manifest
+#   EgoVerse        Tsimulation (the simulator); pinned to def38a75, whose
+#                   sim_v2/pushshapes/env.py is byte-identical to the tip of
+#                   the local sim branch, so u_socket physics matches the
+#                   revision that collected the corpus.
+#
+# The work is CPU-only and embarrassingly parallel; the GPUs in the allocation
+# go unused, but groot pools hand out whole nodes.
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: grid
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+
+    environment:
+      BRANCH: "{{branch}}"
+      SIM_COMMIT: "{{sim_commit}}"
+      JOB_NAME: "{{job_name}}"
+      PARALLEL: "{{parallel}}"
+      EXPECTED_EPISODES: "2999"
+      REPLAY_EPISODES: "29"
+      NUM_CANDIDATES: "896"
+      TSIM_VERSION: sim_v2
+      SDL_VIDEODRIVER: dummy
+      # One BLAS thread per shard; 896 shards x default threading would
+      # thrash a 100-CPU node into uselessness.
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      PYTHONUNBUFFERED: "1"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        mkdir -p /workspace && cd /workspace
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse-graph.git" src
+        SOURCE_ROOT=/workspace/src
+        SOURCE_COMMIT=$(git -C "$SOURCE_ROOT" rev-parse HEAD)
+
+        # Full clone: the sim commit is not the tip of any branch we can shallow-fetch.
+        git clone --filter=blob:none --no-checkout \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" sim
+        git -C /workspace/sim checkout --detach "$SIM_COMMIT"
+        SIM_ROOT=/workspace/sim
+        [ "$(git -C "$SIM_ROOT" rev-parse HEAD)" = "$SIM_COMMIT" ]
+        test -d "$SIM_ROOT/Tsimulation/sim_v2/pushshapes"
+
+        cd "$SOURCE_ROOT"
+        uv sync --frozen
+        source .venv/bin/activate
+        # pymunk/gymnasium/pygame/shapely are imported at module scope by
+        # Tsimulation but are in NEITHER lock, so the sim cannot construct an
+        # env without them. Install into the venv, not the lock (it is shared).
+        uv pip install "pymunk==7.3.0" gymnasium pygame shapely
+
+        SCRIPTS="$SOURCE_ROOT/scripts/eval/usocket_arc_codec"
+        mkdir -p /workspace/sim_import
+        ln -sfn "$SIM_ROOT/Tsimulation" /workspace/sim_import/Tsimulation
+        export PYTHONPATH="/workspace/sim_import:$SOURCE_ROOT:$SCRIPTS"
+
+        python - <<'PY'
+        import os
+        from Tsimulation.pushshapes import env as e
+        print("Tsimulation ACTIVE:", os.environ.get("TSIM_VERSION"), "SIM_VERSION:", getattr(e, "SIM_VERSION", "?"))
+        assert getattr(e, "SIM_VERSION", None) == 2, "expected sim_v2"
+        PY
+
+        # --------------------------------------------------------- credentials
+        bash ./egomimic/utils/aws/setup_secret.sh
+        test -s "$HOME/.egoverse_env"
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        unset AWS_SESSION_TOKEN
+
+        # ------------------------------------------------- stage the corpus
+        # The R2 mirror is the RAW 3000; the canonical clean set is that minus
+        # exactly episode_T_u_socket_obs0_000270 (raw-only, not in the split).
+        DATA=/workspace/usocket_clean
+        mkdir -p "$DATA"
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 64 \
+          cp "s3://rldb/processed_v3/pushshapes_sim/u_socket_3000_v2/*" "$DATA/"
+        rm -rf "$DATA/episode_T_u_socket_obs0_000270.zarr" \
+               "$DATA/episode_T_u_socket_obs0_000270"
+        N=$(find "$DATA" -maxdepth 1 -name 'episode_*' -type d | wc -l)
+        echo "episodes staged: $N (expected $EXPECTED_EPISODES)"
+        if [ "$N" -ne "$EXPECTED_EPISODES" ]; then
+          echo "FATAL: expected $EXPECTED_EPISODES episodes, found $N"; exit 1
+        fi
+        du -sh "$DATA"
+
+        SPLIT="$SOURCE_ROOT/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json"
+        test -s "$SPLIT"
+        echo "split manifest sha256: $(sha256sum "$SPLIT" | cut -d' ' -f1)"
+        # Pinned in planar_v2_usocket_base.yaml as run_provenance.split_manifest_sha256.
+        EXPECT_SPLIT=3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313
+        if [ "$(sha256sum "$SPLIT" | cut -d' ' -f1)" != "$EXPECT_SPLIT" ]; then
+          echo "FATAL: split manifest hash drifted"; exit 1
+        fi
+
+        export SOURCE_COMMIT SIMULATOR_COMMIT="$SIM_COMMIT"
+        export PROTOCOL_SHA256="$(sha256sum "$SCRIPTS/codec_grid_definition.py" | cut -d' ' -f1)"
+        export CANONICAL_LAUNCHER_SHA256="$(sha256sum /tmp/entry.sh | cut -d' ' -f1)"
+
+        OUT=/workspace/grid_out
+        mkdir -p "$OUT/shards"
+
+        run_shard () {
+          python "$SCRIPTS/codec_grid_shard.py" \
+            --index "$1" \
+            --dataset "$DATA" \
+            --split-manifest "$SPLIT" \
+            --output-root "$OUT/shards" \
+            --expected-episodes "$REPLAY_EPISODES" \
+            >> "/workspace/logs/shard_$1.log" 2>&1
+        }
+        export -f run_shard
+        export SCRIPTS DATA SPLIT OUT REPLAY_EPISODES
+        mkdir -p /workspace/logs
+
+        # ---- canary: one shard end to end before paying for 896.
+        # Every one of these fails identically, so a canary costs 1/896th of
+        # the discovery. Also gives the per-shard time for a real ETA.
+        echo "===== canary: preflight ====="
+        python "$SCRIPTS/codec_grid_shard.py" --index 0 --dataset "$DATA" \
+          --split-manifest "$SPLIT" --output-root "$OUT/preflight" \
+          --expected-episodes "$REPLAY_EPISODES" --preflight-only
+
+        echo "===== canary: full shard 0 ====="
+        T0=$SECONDS
+        run_shard 0 || { echo "FATAL: canary shard failed"; tail -60 /workspace/logs/shard_0.log; exit 1; }
+        DT=$((SECONDS - T0))
+        tail -5 /workspace/logs/shard_0.log
+        python - <<'PY'
+        import json, glob
+        f = sorted(glob.glob("/workspace/grid_out/shards/0000_*/results.json"))[0]
+        d = json.load(open(f))
+        raw = d["raw_summary"]
+        print("canary raw_summary:", json.dumps(raw, sort_keys=True)[:400])
+        print("canary gate:", d["gate"]["status"])
+        PY
+        echo "canary shard took ${DT}s; ${NUM_CANDIDATES} shards at ${PARALLEL}-way => ~$(( NUM_CANDIDATES * DT / PARALLEL / 60 )) min"
+
+        # ---- fan out. Shards are resumable (SKIP_COMPLETE), so a retry is cheap.
+        echo "===== running all $NUM_CANDIDATES shards, ${PARALLEL}-way ====="
+        TSTART=$SECONDS
+        seq 0 $((NUM_CANDIDATES - 1)) | xargs -P "$PARALLEL" -I{} bash -c 'run_shard {} || echo "SHARD_FAIL {}"' \
+          | tee /workspace/shard_failures.log || true
+        echo "fan-out wall time: $((SECONDS - TSTART))s"
+        echo "shard dirs complete: $(find "$OUT/shards" -name SHARD_RECEIPT.json | wc -l) / $NUM_CANDIDATES"
+        grep -c SHARD_FAIL /workspace/shard_failures.log || echo "no shard failures reported"
+
+        # ---- aggregate. Exits 2 unless all 896 are present and error-free.
+        echo "===== aggregate ====="
+        set +e
+        python "$SCRIPTS/aggregate_codec_grid.py" \
+          --shard-root "$OUT/shards" \
+          --output-dir "$OUT" \
+          --expected-candidates "$NUM_CANDIDATES" > /workspace/aggregate.log 2>&1
+        AGG_RC=$?
+        set -e
+        tail -40 /workspace/aggregate.log
+
+        if [ -s "$OUT/GRID_RANKING.csv" ]; then
+          echo "===== GRID_RANKING.csv sha256 ====="
+          sha256sum "$OUT/GRID_RANKING.csv"
+          echo "===== PASS candidates ====="
+          python - <<'PY'
+        import csv
+        rows = list(csv.DictReader(open("/workspace/grid_out/GRID_RANKING.csv")))
+        p = [r for r in rows if r.get("status") == "PASS"]
+        print(f"{len(p)} PASS of {len(rows)}")
+        cols = ["rank","candidate","D","M","R_deg","success_rate_0.80",
+                "delta_vs_raw_mean","reset_object_error_mean"]
+        print(" | ".join(c.rjust(10) for c in cols))
+        for r in p[:30]:
+            print(" | ".join(str(r.get(c,""))[:10].rjust(10) for c in cols))
+        PY
+        else
+          echo "FATAL: no GRID_RANKING.csv produced"
+        fi
+
+        # ---- publish
+        DEST="s3://rldb/staged/usocket_codec_grid/$JOB_NAME"
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
+          sync "$OUT/" "$DEST/" || true
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" \
+          cp /workspace/aggregate.log "$DEST/aggregate.log" || true
+        echo "results at $DEST"
+        exit $AGG_RC
+
+  resources:
+    default:
+      cpu: {{cpu}}
+      gpu: {{num_gpu}}
+      memory: {{memory}}
+      storage: {{storage}}
+
+  timeout:
+    queue_timeout: 1d

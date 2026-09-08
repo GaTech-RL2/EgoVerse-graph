@@ -45,27 +45,30 @@ workflow:
         echo "===== top level of $PREFIX ====="
         $S5 ls "$PREFIX" || true
 
-        echo "===== per-job counts ====="
-        # Report the RAW object count alongside the distinct-episode count. If a
-        # listing is being truncated the two move together and the episode
-        # counts come out suspiciously uniform, so print both rather than
-        # trusting either alone.
+        echo "===== per-job counts (hierarchical) ====="
+        # A flat wildcard listing caps out: c3k-b and c3k-c both returned
+        # exactly 168096 objects, which is the cap, not their size. Walk the
+        # tree instead -- each ls returns only immediate children, so no single
+        # listing can be truncated.
+        TOTAL=0
         for J in $($S5 ls "$PREFIX" | awk '{print $NF}' | grep '/$'); do
-          echo "--- $J"
-          $S5 ls "${PREFIX}${J}*" 2>/dev/null | awk '{print $NF}' > /tmp/objs.txt || true
-          echo "    raw objects listed: $(wc -l < /tmp/objs.txt)"
-          grep -oE '[a-z]+/[a-z_]+/T_shard[0-9]+/episode_[A-Za-z0-9_]+\.zarr' /tmp/objs.txt \
-            | sed -E 's|([a-z]+)/([a-z_]+)/T_shard[0-9]+/(episode_[A-Za-z0-9_]+)\.zarr|\1 \2 \3|' \
-            | sort -u | awk '{print $1, $2}' | sort | uniq -c || true
-          echo "    distinct shards: $(grep -oE 'T_shard[0-9]+' /tmp/objs.txt | sort -u | wc -l)"
-          # Cross-check with an independent per-embodiment listing that cannot
-          # share one global result cap.
-          for E in $(grep -oE '/[a-z]+/[a-z_]+/T_shard' /tmp/objs.txt | awk -F/ '{print $3}' | sort -u); do
-            N=$($S5 ls "${PREFIX}${J}ideal/${E}/*" 2>/dev/null | awk '{print $NF}' \
-                | grep -oE 'episode_[A-Za-z0-9_]+\.zarr' | sort -u | wc -l)
-            echo "    recount ${E}: ${N}"
+          for G in $($S5 ls "${PREFIX}${J}" | awk '{print $NF}' | grep '/$'); do
+            for E in $($S5 ls "${PREFIX}${J}${G}" | awk '{print $NF}' | grep '/$'); do
+              N=0
+              SH=0
+              for S in $($S5 ls "${PREFIX}${J}${G}${E}" | awk '{print $NF}' | grep '/$'); do
+                C=$($S5 ls "${PREFIX}${J}${G}${E}${S}" | awk '{print $NF}' \
+                     | grep -cE '^episode_[A-Za-z0-9_]+\.zarr/$' || true)
+                N=$((N + C))
+                SH=$((SH + 1))
+              done
+              printf "  %-10s %-8s %-16s episodes=%-6s shards=%s\n" \
+                "${J%/}" "${G%/}" "${E%/}" "$N" "$SH"
+              TOTAL=$((TOTAL + N))
+            done
           done
         done
+        echo "  TOTAL EPISODES: $TOTAL"
         echo "===== done ====="
   resources:
     default:

@@ -31,7 +31,7 @@ workflow:
       EXPERIMENTS: "{{experiments}}"
       CKPT_JOBS: "{{ckpt_jobs}}"
       N_EPISODES: "{{n_episodes}}"
-      REPLAN_EVERY: "8"
+      REPLAN_EVERY: "{{replan_every}}"
       CHUNK_START: "0"
       SAMPLER_STEPS: "100"
       EXPECTED_EPISODES: "2999"

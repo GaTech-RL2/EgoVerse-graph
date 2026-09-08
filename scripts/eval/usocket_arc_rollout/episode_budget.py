@@ -28,6 +28,9 @@ def main() -> int:
     ap.add_argument("dataset", type=Path)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--multiplier", type=float, default=1.1)
+    # Eval resets with seed 0..N-1. If collection used the same seeds, those
+    # rollouts replay TRAINING initial states and the score is a train score.
+    ap.add_argument("--eval-seed-count", type=int, default=40)
     args = ap.parse_args()
 
     episodes = sorted(args.dataset.glob("episode_*.zarr"))
@@ -36,6 +39,7 @@ def main() -> int:
 
     by_level: dict[int, list[int]] = {}
     names = []
+    reset_seeds: list[int] = []
     action_space = None
     for path in episodes:
         attrs = dict(zarr.open_group(str(path), mode="r").attrs)
@@ -46,6 +50,12 @@ def main() -> int:
         level = int(env_args.get("obstacle_level", 0))
         by_level.setdefault(level, []).append(frames)
         names.append(path.name)
+        try:
+            seed = json.loads(attrs["episode_init"]).get("reset_seed")
+            if seed is not None:
+                reset_seeds.append(int(seed))
+        except (KeyError, ValueError, TypeError):
+            pass
         action_space = attrs.get("action_space", action_space)
 
     rows = {}
@@ -63,6 +73,24 @@ def main() -> int:
             "max_over_p95": round(float(arr.max() / p95), 4) if p95 > 0 else None,
         }
 
+    eval_seeds = set(range(args.eval_seed_count))
+    collected = set(reset_seeds)
+    overlap = sorted(eval_seeds & collected)
+    seed_report = {
+        "episodes_with_reset_seed": len(reset_seeds),
+        "distinct_reset_seeds": len(collected),
+        "reset_seed_min": min(collected) if collected else None,
+        "reset_seed_max": max(collected) if collected else None,
+        "eval_seed_range": [0, args.eval_seed_count - 1],
+        "eval_seed_overlap_count": len(overlap),
+        "eval_seed_overlap": overlap[:40],
+        "verdict": (
+            "CONTAMINATED: eval seeds reproduce training initial states"
+            if overlap
+            else "clean: no eval seed appears as a collected reset_seed"
+        ),
+    }
+
     digest = hashlib.sha256("\n".join(sorted(names)).encode()).hexdigest()
     payload = {
         "dataset": args.dataset.name,
@@ -72,6 +100,7 @@ def main() -> int:
         "action_space": action_space or "cursor",
         "by_level": rows,
         "episode_count": len(names),
+        "eval_seed_check": seed_report,
         "content_sha256": digest,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)

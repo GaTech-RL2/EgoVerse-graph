@@ -900,6 +900,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         # A parent shell must not be able to leave the runner deaf to Slurm's
         # boundary/termination contract through an inherited signal mask.
         signal.pthread_sigmask(signal.SIG_UNBLOCK, handled_signals)
+        signal_ready_file = os.environ.pop("ICE_RUNNER_SIGNAL_READY_FILE", None)
+        if signal_ready_file:
+            ready_path = Path(signal_ready_file)
+            if not ready_path.is_absolute():
+                raise SystemExit("ICE_RUNNER_SIGNAL_READY_FILE must be absolute")
+            atomic_json_once(ready_path, {"pid": os.getpid(), "signal_handlers_ready": True})
 
     if not args.command:
         raise SystemExit("a child command is required after --")

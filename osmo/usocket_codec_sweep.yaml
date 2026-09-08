@@ -45,8 +45,6 @@ workflow:
       MAX_STEPS: "{{max_steps}}"
       CKPT_EVERY: "{{ckpt_every}}"
       WORKDIR: /workspace
-      # The exact path data/pusht/planar_v2_usocket.yaml hardcodes.
-      USOCKET_DIR: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
       EXPECTED_EPISODES: "2999"
       NCCL_DEBUG: WARN
       TOKENIZERS_PARALLELISM: "false"
@@ -122,47 +120,36 @@ workflow:
 
         ulimit -n 65536 || true
 
-        # ------------------------------------------------- dataset staging
+        # ------------------------------------------- stage the U-Socket corpus
+        # The config points at a PACE path that does not exist here. The R2
+        # mirror holds the RAW 3000; the canonical corpus is the 2999-episode
+        # "clean" set, which is the raw set MINUS exactly one episode
+        # (episode_T_u_socket_obs0_000270). Drop it and the loader's own guards
+        # (expected_episode_count 2999 and expected_episode_names_sha256)
+        # verify the result, so a wrong corpus fails loudly instead of training.
         export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
         export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
         export AWS_DEFAULT_REGION=auto AWS_REGION=auto
-        S5="s5cmd --endpoint-url $R2_ENDPOINT_URL"
+        unset AWS_SESSION_TOKEN
 
-        mkdir -p "$USOCKET_DIR"
-        df -h "$USOCKET_DIR" | tail -1
-
-        # Locate the mirror. The prefix is not recorded anywhere in the repo,
-        # so search the likely roots and print what is actually there on miss;
-        # that turns a wrong guess into one diagnosable failure instead of a
-        # blind retry.
-        SRC=""
-        for P in \
-          "s3://rldb/staged/Tsim_v2/u_socket_3000_v2_clean/" \
-          "s3://rldb/staged/u_socket_3000_v2_clean/" \
-          "s3://rldb/staged/pushshapes_u_socket/u_socket_3000_v2_clean/" ; do
-          if $S5 ls "$P" >/dev/null 2>&1 && [ -n "$($S5 ls "$P" 2>/dev/null | head -1)" ]; then
-            SRC="$P"; break
-          fi
-        done
-        if [ -z "$SRC" ]; then
-          echo "FATAL: could not locate the u_socket mirror. Listings follow:"
-          echo "--- s3://rldb/staged/"; $S5 ls "s3://rldb/staged/" 2>&1 | head -40 || true
-          echo "--- s3://rldb/staged/Tsim_v2/"; $S5 ls "s3://rldb/staged/Tsim_v2/" 2>&1 | head -40 || true
-          exit 1
+        DATA=/workspace/usocket_clean
+        mkdir -p "$DATA"
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 64 \
+          cp "s3://rldb/processed_v3/pushshapes_sim/u_socket_3000_v2/*" "$DATA/"
+        echo "pulled $(find "$DATA" -maxdepth 1 -name 'episode_*' -type d | wc -l) episodes"
+        rm -rf "$DATA/episode_T_u_socket_obs0_000270.zarr" \
+               "$DATA/episode_T_u_socket_obs0_000270"
+        N=$(find "$DATA" -maxdepth 1 -name 'episode_*' -type d | wc -l)
+        echo "after dropping the raw-only episode: $N"
+        if [ "$N" -ne "$EXPECTED_EPISODES" ]; then
+          echo "FATAL: expected $EXPECTED_EPISODES episodes, found $N"; exit 1
         fi
-        echo "staging from $SRC"
-        $S5 --numworkers 64 sync "${SRC}*" "$USOCKET_DIR/"
+        du -sh "$DATA"
 
-        NEP=$(find "$USOCKET_DIR" -maxdepth 1 -mindepth 1 -name '*.zarr' | wc -l)
-        [ "$NEP" -eq 0 ] && NEP=$(find "$USOCKET_DIR" -maxdepth 1 -mindepth 1 -type d | wc -l)
-        echo "episodes staged: $NEP (expected $EXPECTED_EPISODES)"
-        du -sh "$USOCKET_DIR" || true
-        if [ "$NEP" -ne "$EXPECTED_EPISODES" ]; then
-          echo "FATAL: expected $EXPECTED_EPISODES episodes, found $NEP."
-          echo "The config pins expected_episode_names_sha256; a partial stage"
-          echo "would fail the hash check hours later, so stopping now."
-          exit 1
-        fi
+        # Override the folder_path leaves rather than recreating the PACE path;
+        # the loader hash guards still verify the episode set.
+        DATA_OV="data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA \
+                 data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA"
 
         # ------------------------------------------ checkpoint persistence
         # ${paths.output_dir} is node-local and dies with the container, and
@@ -209,6 +196,7 @@ workflow:
           mkdir -p "$NORM_ROOT/$EXP"
           ( CUDA_VISIBLE_DEVICES=$i python egomimic/trainHydra.py \
               +experiment=pusht/"$EXP" \
+              $DATA_OV \
               launch_params.gpus_per_node=1 \
               norm_stats.save_cache_dir="$NORM_ROOT/$EXP" \
               trainer.max_steps=1 trainer.max_epochs=1 trainer.min_epochs=1 \
@@ -251,6 +239,7 @@ workflow:
           ( CUDA_VISIBLE_DEVICES="$DEVS" MASTER_PORT=$PORT \
             python egomimic/trainHydra.py \
               +experiment=pusht/"$EXP" \
+              $DATA_OV \
               launch_params.gpus_per_node="$GPUS_PER_RUN" \
               norm_stats.precomputed_norm_path="$NORM_ROOT/$EXP/norm_stats/norm_stats.json" \
               trainer.max_steps="$MAX_STEPS" \

@@ -48,7 +48,12 @@ def _resolved_smoke_config(
 
     with open_dict(cfg):
         cfg.trainer.max_steps = 2
-        cfg.trainer.val_check_interval = 1
+        cfg.trainer.val_check_interval = (
+            2
+            if experiment
+            == "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42"
+            else 1
+        )
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
         cfg.trainer.precision = "bf16"

@@ -80,6 +80,10 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
         "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
         in source
     )
+    assert (
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42"
+        in source
+    )
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42" in source
@@ -91,6 +95,9 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "AF_FULL_VALIDATE_EVERY=30000" in source
     assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
+    assert "smoke|benchmark|full" in source
+    assert "AF_BENCHMARK_STEPS must be in [100, 500]" in source
+    assert "LIMIT_VAL_BATCHES=0" in source
     assert (
         '"data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_TRAIN_BATCH_SIZE"'
         in source

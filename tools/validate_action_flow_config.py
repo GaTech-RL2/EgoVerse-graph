@@ -105,6 +105,13 @@ STOPGRAD_UNITE_CONFIG_NAME = "action_flow_usocket_latent_fm_sg_unite_h384_s42"
 STOPGRAD_UNITE_PARITY_CONFIG_NAME = (
     "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
 )
+STOPGRAD_UNITE_NOCKPT_CONFIG_NAME = (
+    "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42"
+)
+STOPGRAD_UNITE_PARITY_CONFIG_NAMES = {
+    STOPGRAD_UNITE_PARITY_CONFIG_NAME,
+    STOPGRAD_UNITE_NOCKPT_CONFIG_NAME,
+}
 SCALED_MUON_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
@@ -119,6 +126,7 @@ CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -572,7 +580,14 @@ def _validate_unite_dimensions_and_modules(
             "in_context_len": 32,
         }.items():
             _exact(getattr(backbone, attribute), expected, f"{label} {attribute}")
-        _exact(bool(backbone.gradient_checkpointing), True, f"{label} checkpointing")
+        expected_checkpointing = (
+            str(config.name) != STOPGRAD_UNITE_NOCKPT_CONFIG_NAME
+        )
+        _exact(
+            bool(backbone.gradient_checkpointing),
+            expected_checkpointing,
+            f"{label} checkpointing",
+        )
     for attribute, expected in {
         "latent_dim": 16,
         "action_dim": 4,
@@ -585,6 +600,11 @@ def _validate_unite_dimensions_and_modules(
         _exact(getattr(decoder, attribute), expected, f"decoder {attribute}")
     _float(decoder.mlp_ratio, 4.0, "decoder MLP ratio")
     _float(decoder.dropout, 0.0, "decoder dropout")
+    _exact(
+        bool(decoder.gradient_checkpointing),
+        str(config.name) != STOPGRAD_UNITE_NOCKPT_CONFIG_NAME,
+        "decoder checkpointing",
+    )
 
     _exact(int(bridge.samples_per_content), 14, "bridge samples")
     _float(bridge.condition_dropout_probability, 0.1, "bridge condition dropout")
@@ -598,7 +618,7 @@ def _validate_unite_dimensions_and_modules(
         True,
         "independent condition dropout",
     )
-    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+    parity = str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
     _exact(field_stage.flow_clean_gradient_mode, "all_stopgrad", "FM stop-gradient")
     _exact(field_stage.inference_method, "dopri5", "inference method")
     _exact(int(field_stage.num_inference_steps), 50, "Dopri5 output points")

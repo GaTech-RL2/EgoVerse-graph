@@ -94,8 +94,8 @@ case "$AF_LAUNCH_MODE" in
   *) die "AF_LAUNCH_MODE must be preflight or run" ;;
 esac
 case "$AF_RUN_KIND" in
-  smoke|full) ;;
-  *) die "AF_RUN_KIND must be smoke or full" ;;
+  smoke|benchmark|full) ;;
+  *) die "AF_RUN_KIND must be smoke, benchmark, or full" ;;
 esac
 case "$AF_WORLD_SIZE" in
   1)
@@ -119,6 +119,19 @@ AF_FULL_CHECKPOINT_EVERY=40000
 AF_FULL_LIMIT_VAL_BATCHES=1.0
 AF_FULL_VALID_GLOBAL_BATCH_SIZE=16
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_FULL_VALID_GLOBAL_BATCH_SIZE=32
+    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,no-activation-checkpointing,single-gpu,$AF_RUN_KIND]"
+    ;;
   pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -359,6 +372,19 @@ if test "$AF_RUN_KIND" = smoke; then
   else
     RECONSTRUCTION_ONLY_WARMUP_STEPS=0
   fi
+elif test "$AF_RUN_KIND" = benchmark; then
+  BENCHMARK_STEPS=${AF_BENCHMARK_STEPS:-300}
+  [[ "$BENCHMARK_STEPS" =~ ^[0-9]+$ ]] || die "AF_BENCHMARK_STEPS must be an integer"
+  test "$BENCHMARK_STEPS" -ge 100 && test "$BENCHMARK_STEPS" -le 500 || \
+    die "AF_BENCHMARK_STEPS must be in [100, 500]"
+  MAX_STEPS=$BENCHMARK_STEPS
+  VALIDATE_EVERY=$((BENCHMARK_STEPS + 1))
+  LIMIT_TRAIN_BATCHES=$BENCHMARK_STEPS
+  LIMIT_VAL_BATCHES=0
+  CHECKPOINT_EVERY=$((BENCHMARK_STEPS + 1))
+  LOG_EVERY=10
+  TELEMETRY_EVERY=100
+  RECONSTRUCTION_ONLY_WARMUP_STEPS=$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS
 else
   MAX_STEPS=$AF_FULL_MAX_STEPS
   VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY
@@ -1024,6 +1050,13 @@ if run_kind == "smoke":
     assert cfg.trainer.limit_val_batches == 1
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 1
     assert cfg.model.gradient_telemetry_cadence == 2
+elif run_kind == "benchmark":
+    assert 100 <= cfg.trainer.max_steps <= 500
+    assert cfg.trainer.limit_train_batches == cfg.trainer.max_steps
+    assert cfg.trainer.val_check_interval == cfg.trainer.max_steps + 1
+    assert cfg.trainer.limit_val_batches == 0
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == cfg.trainer.max_steps + 1
+    assert cfg.model.gradient_telemetry_cadence == 100
 else:
     assert run_kind == "full"
     assert cfg.trainer.max_steps == full_max_steps
@@ -1199,6 +1232,10 @@ if test "$AF_RUN_KIND" = smoke; then
   printf '[smoke] ALL_PASS result=%s wandb=https://wandb.ai/%s/%s/runs/%s\n' \
     "$AF_OUTPUT_DIR/SMOKE_RESULT.json" "$AF_WANDB_ENTITY" \
     "$AF_WANDB_PROJECT" "$AF_WANDB_RUN_ID"
+elif test "$AF_RUN_KIND" = benchmark; then
+  test -s "$AF_OUTPUT_DIR/COMPLETE.json" || die "benchmark lacks COMPLETE.json"
+  printf '[benchmark] ALL_PASS steps=%s wandb=https://wandb.ai/%s/%s/runs/%s\n' \
+    "$MAX_STEPS" "$AF_WANDB_ENTITY" "$AF_WANDB_PROJECT" "$AF_WANDB_RUN_ID"
 else
   test -s "$AF_OUTPUT_DIR/COMPLETE.json" || die "full run lacks COMPLETE.json"
   printf '[full] ALL_PASS wandb=https://wandb.ai/%s/%s/runs/%s\n' \

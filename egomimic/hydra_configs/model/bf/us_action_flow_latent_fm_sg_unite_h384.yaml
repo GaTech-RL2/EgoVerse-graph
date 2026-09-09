@@ -18,6 +18,7 @@ reconstruction_weight: 1.0
 flow_weight: 1.0
 action_flow_method: latent_fm_stopgrad_unite
 optimizer_named_parameters: true
+gradient_checkpointing: true
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
@@ -97,7 +98,7 @@ pipeline:
           trainable_content_position_embeddings: false
           trainable_condition_position_embeddings: false
           trainable_in_context_position_embeddings: true
-          gradient_checkpointing: true
+          gradient_checkpointing: ${model.gradient_checkpointing}
     - _target_: egomimic.pipeline.stages_action_flow.LatentBridgeStage
       samples_per_content: ${model.flow_samples_per_content}
       condition_dropout_probability: ${model.condition_dropout_probability}
@@ -149,7 +150,7 @@ pipeline:
           trainable_content_position_embeddings: false
           trainable_condition_position_embeddings: false
           trainable_in_context_position_embeddings: true
-          gradient_checkpointing: true
+          gradient_checkpointing: ${model.gradient_checkpointing}
     - _target_: egomimic.pipeline.stages_action_flow.ContentDecoderStage
       reconstruction_noising_start: 0.7
       reconstruction_noising_probability: 0.5
@@ -164,7 +165,7 @@ pipeline:
         num_heads: 12
         mlp_ratio: 4.0
         dropout: 0.0
-        gradient_checkpointing: true
+        gradient_checkpointing: ${model.gradient_checkpointing}
     - _target_: egomimic.pipeline.stages_action_flow.ActionFlowObjectiveStage
       residual_key: action_flow/fm_velocity_residual
       flow_weight: ${model.flow_weight}

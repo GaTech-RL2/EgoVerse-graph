@@ -1987,13 +1987,24 @@ def _validate_artifacts(
     _require(isinstance(computed, Mapping), "diagnostic computed payload missing")
     clean_native = computed.get("clean_reconstruction_native_mse_by_condition")
     trajectory_native = computed.get("trajectory_decoded_native_mse_by_condition")
+    diagnostic_steps = int(
+        _select(
+            config,
+            "evaluator.action_flow_diagnostics.provenance.sampler_steps",
+        )
+    )
+    _require(diagnostic_steps > 0, "diagnostic sampler_steps must be positive")
+    _require(
+        diagnostic_provenance.get("sampler_steps") == diagnostic_steps,
+        "Action Flow diagnostic sampler-step provenance differs",
+    )
     _require(
         torch.is_tensor(clean_native) and tuple(clean_native.shape) == (16,),
         "diagnostic clean native errors have wrong shape",
     )
     _require(
         torch.is_tensor(trajectory_native)
-        and tuple(trajectory_native.shape) == (17, 16),
+        and tuple(trajectory_native.shape) == (diagnostic_steps + 1, 16),
         "diagnostic trajectory native errors have wrong shape",
     )
     fixed_metrics = computed.get("fixed_level_metrics")

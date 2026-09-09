@@ -280,6 +280,7 @@ def main(argv=None):
     ap.add_argument("--trace", action="store_true", help="store per-step action / pose / coverage")
     ap.add_argument("--cfg-scale", type=float, default=None, help="override classifier-free-guidance scale on stages that have cfg_scale")
     ap.add_argument("--sampler-steps", type=int, default=None, help="override num_inference_steps on stages that have it")
+    ap.add_argument("--cfg-interval", default=None, help="override cfg_interval as lo,hi (flow time range where guidance applies)")
     ap.add_argument("--chain-control-mode", default="points", choices=("pose", "points"),
                     help="chain_gripper only: 'points' feeds the 6-D prediction to the env's point mode (no policy-side IK); 'pose' decodes to [x, y, theta, grip] first")
     args = ap.parse_args(argv)
@@ -293,9 +294,12 @@ def main(argv=None):
     for stage in policy.algo.pipeline.stages:
         if args.cfg_scale is not None and hasattr(stage, "cfg_scale"):
             overrides.append(f"{type(stage).__name__}.cfg_scale {stage.cfg_scale} -> {args.cfg_scale}"); stage.cfg_scale = float(args.cfg_scale)
+        if args.cfg_interval is not None and hasattr(stage, "cfg_interval"):
+            lo, hi = (float(v) for v in args.cfg_interval.split(","))
+            overrides.append(f"{type(stage).__name__}.cfg_interval {stage.cfg_interval} -> {(lo, hi)}"); stage.cfg_interval = (lo, hi)
         if args.sampler_steps is not None and hasattr(stage, "num_inference_steps"):
             overrides.append(f"{type(stage).__name__}.num_inference_steps {stage.num_inference_steps} -> {args.sampler_steps}"); stage.num_inference_steps = int(args.sampler_steps)
-    if (args.cfg_scale is not None or args.sampler_steps is not None) and not overrides:
+    if (args.cfg_scale is not None or args.sampler_steps is not None or args.cfg_interval is not None) and not overrides:
         raise RuntimeError("requested an inference override but no stage exposes that attribute")
     print("[override]", overrides if overrides else "none", flush=True)
     print(f"[load] stages={policy.stage_names} n_obs={policy.n_obs} norm={policy.norm_path} "
@@ -316,7 +320,7 @@ def main(argv=None):
         "embodiment": args.embodiment_name, "replan_every": args.replan_every, "n_obs": policy.n_obs,
         "horizon": policy.horizon, "obstacle_level": args.obstacle_level, "max_steps": args.max_steps,
         "n_episodes": len(episodes), "seed_base": args.seed_base, "success_threshold": args.success_threshold,
-        "cfg_scale_override": args.cfg_scale, "sampler_steps_override": args.sampler_steps,
+        "cfg_scale_override": args.cfg_scale, "sampler_steps_override": args.sampler_steps, "cfg_interval_override": args.cfg_interval,
         "pusher": args.pusher, "chain_control_mode": args.chain_control_mode if args.pusher == "chain_gripper" else None,
         "decoder": policy.decoder_name, "sim_module": str(env_module.__file__),
         "success_rate": float((peaks >= args.success_threshold).mean()) if len(peaks) else None,

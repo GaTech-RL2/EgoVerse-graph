@@ -70,6 +70,14 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         self.arc_metrics = bool(arc_metrics)
         if self.action_horizon <= 0:
             raise ValueError("action_horizon must be positive")
+        # Shared-D gate and codec must agree: detok-vs-waypoint and
+        # arcmatch_metrics(min_distance_unit=...) both clamp by this D.
+        if abs(self.arcmatch_distance - self.min_distance_unit) > 1e-9:
+            raise ValueError(
+                f"arcmatch_distance ({self.arcmatch_distance}) must equal "
+                f"min_distance_unit ({self.min_distance_unit}); shared-D "
+                "arcmatch and the tokenizer would otherwise disagree on D"
+            )
         self._tokenizer = TokenizeBimanualArcLengthCartesian(
             action_key=self.action_key,
             output_action_key=self.action_key,
@@ -110,9 +118,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
             # data/evaluator mode mismatch, not a baseline chunk. Passing it
             # through would score arc tokens as if they were poses and read
             # plausibly, so it stays a hard error.
-            other = {"mean": "per_waypoint", "per_waypoint": "mean"}[
-                self.velocity_mode
-            ]
+            other = {"mean": "per_waypoint", "per_waypoint": "mean"}[self.velocity_mode]
             if actions.ndim == 3 and int(actions.shape[-2]) == (
                 bimanual_arc_token_rows(self.resampled_vector_length, other)
             ):
@@ -160,19 +166,51 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         )
 
     def _arc_pred_time_indexed(self, prediction, embodiment_id: int):
-        """Get the prediction into the time-indexed space the metrics score in.
+        """Time-indexed prediction for DTW/chunk (and L_gt < D arcmatch).
 
-        An ARC run predicts (M+1, 14) or (2M, 14) rows that must be walked back
-        into control steps; the detokenizer already emits real control steps, so
-        no de-interpolation follows. A BASELINE run predicts poses already, and
-        takes the base class's path instead: unnormalize, then de-interpolate to
-        the raw window, because arc length on an interpolated chunk reads short.
-
-        Branching here rather than in a config is what lets one evaluator score
-        both arms onto the same charts.
+        ARC tokens are detokenized to ``action_horizon`` control steps. Baseline
+        pose chunks pass through unnormalized at tokenizer resolution.
         """
         native = self._native(prediction, embodiment_id)
         if not self._is_arc(native):
             return super()._arc_pred_time_indexed(prediction, embodiment_id)
         decoded = self._viz_source(native.detach().cpu(), embodiment_id)
         return decoded.numpy().astype(np.float64, copy=False)
+
+    def _arc_pred_for_arcmatch(self, prediction, ground_truth, embodiment_id: int):
+        """Shared-D arcmatch geometry for ARC predictions.
+
+        ``include_reconstruction_loss=True``: always detokenize so codec
+        reconstruction is baked into arcmatch (controller-facing path).
+
+        ``False`` (default): score token waypoints when every arm has
+        ``L_gt >= D``; detok only when any arm is shorter than D so both sides
+        can be re-tokenized over that shorter shared span with the same M.
+        ``D`` is codec ``min_distance_unit`` (asserted equal to
+        ``arcmatch_distance`` at init).
+        """
+        from egomimic.eval.arc_metrics import arm_travel
+
+        native = self._native(prediction, embodiment_id)
+        if not self._is_arc(native):
+            return super()._arc_pred_for_arcmatch(
+                prediction, ground_truth, embodiment_id
+            )
+        if self.include_reconstruction_loss:
+            return self._arc_pred_time_indexed(prediction, embodiment_id)
+
+        tokens = native.detach().cpu().numpy().astype(np.float64, copy=False)
+        M = int(self.resampled_vector_length)
+        D = float(self.min_distance_unit)
+        out: list[np.ndarray] = []
+        for pred_i, gt_i in zip(tokens, ground_truth):
+            if np.any(arm_travel(gt_i) < D - 1e-12):
+                out.append(self._tokenizer.detokenize(pred_i, self.action_horizon))
+            else:
+                if pred_i.shape[0] < M:
+                    raise ValueError(
+                        f"ARC token has {pred_i.shape[0]} rows; need >= {M} "
+                        "waypoint rows for shared-D arcmatch"
+                    )
+                out.append(pred_i[:M].copy())
+        return out

@@ -53,6 +53,7 @@ logger:
 # de-interpolated to the raw window instead of detokenized.
 evaluator:
   arc_metrics: true
+  include_reconstruction_loss: false
   arcmatch_distance: 0.40
   arcmatch_points: 32
   arc_chunk_rows: 45

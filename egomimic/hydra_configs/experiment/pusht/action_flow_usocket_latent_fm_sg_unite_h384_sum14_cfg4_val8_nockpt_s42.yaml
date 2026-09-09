@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+  - _self_
+
+name: action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42
+description: "Action Flow H384 released-UNITE parity with activation recomputation disabled"
+
+# H100/H200 memory is ample for this 98M-parameter model. Disabling activation
+# checkpointing changes only the compute/memory tradeoff: architecture,
+# objective, optimizer, global batch, data, and validation stay unchanged.
+model:
+  gradient_checkpointing: false
+
+run_provenance:
+  performance:
+    activation_checkpointing: false
+    intended_hardware: H100_or_H200

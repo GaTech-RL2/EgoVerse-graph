@@ -78,6 +78,13 @@ UNITE_H384_EXPERIMENT = "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42"
 UNITE_H384_PARITY_EXPERIMENT = (
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
 )
+UNITE_H384_NOCKPT_EXPERIMENT = (
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42"
+)
+UNITE_H384_PARITY_EXPERIMENTS = {
+    UNITE_H384_PARITY_EXPERIMENT,
+    UNITE_H384_NOCKPT_EXPERIMENT,
+}
 UNITE_H384_PARAMETER_COUNT = 97_956_100
 APPROVED_EXPERIMENTS = {
     UNITE_H384_EXPERIMENT: (
@@ -87,6 +94,11 @@ APPROVED_EXPERIMENTS = {
     ),
     UNITE_H384_PARITY_EXPERIMENT: (
         "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        1.0,
+        1.0,
+    ),
+    UNITE_H384_NOCKPT_EXPERIMENT: (
+        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42",
         1.0,
         1.0,
     ),
@@ -347,7 +359,7 @@ def _validate_config(
     scaled_muon = experiment == SCALED_MUON_EXPERIMENT
     scaled_200m = experiment in SCALED_200M_EXPERIMENTS
     unite_recipe = method == STOPGRAD_UNITE_METHOD
-    unite_parity = experiment == UNITE_H384_PARITY_EXPERIMENT
+    unite_parity = experiment in UNITE_H384_PARITY_EXPERIMENTS
     world_size = int(config.trainer.devices)
     _require(world_size in (1, 2), f"trainer.devices must be 1 or 2, got {world_size}")
     expected_strategy = (
@@ -1133,6 +1145,7 @@ def _validate_optimizer_state(
             APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_PARITY_EXPERIMENT][0],
+            APPROVED_EXPERIMENTS[UNITE_H384_NOCKPT_EXPERIMENT][0],
         }
     )
     if not composite_optimizer:

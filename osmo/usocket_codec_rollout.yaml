@@ -32,7 +32,7 @@ workflow:
       CKPT_JOBS: "{{ckpt_jobs}}"
       N_EPISODES: "{{n_episodes}}"
       REPLAN_EVERY: "{{replan_every}}"
-      CHUNK_START: "0"
+      CHUNK_START: "{{chunk_start}}"
       SAMPLER_STEPS: "100"
       EXPECTED_EPISODES: "2999"
       TSIM_VERSION: sim_v2

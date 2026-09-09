@@ -87,6 +87,7 @@ ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
 case "$ICE_EXPERIMENT" in
   pusht/unite_cotrain_usocket_chain_val01_h16) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=unite ;;
   pusht/unite_chain_points_val01_h16) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=unite ;;
+  pusht/unite_usocket_register_sweep_val01_h16) ICE_EMBODIMENTS="USOCKET"; ICE_FAMILY=unite ;;
   pusht/planar_v2_cotrain_dp_paper_points6) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=planar ;;
   pusht/planar_v2_usocket_dp_paper) ICE_EMBODIMENTS="USOCKET"; ICE_FAMILY=planar ;;
   pusht/planar_v2_chain_points_dp_paper) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=planar ;;
@@ -133,6 +134,7 @@ case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_separate_nt8_h384_s42) ;;
   pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_split_tok_nt8_h384_s42) ;;
   pusht/unite_chain_points_val01_h16:bf/ch_unite_register_separate_nt8_h384_s42) ;;
+  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_separate_nt8_h384_s42) ;;
   pusht/planar_v2_cotrain_dp_paper_points6:bf/bf_planar_v2_dp_paper_points6) ;;
   pusht/planar_v2_usocket_dp_paper:bf/bf_planar_v2_dp_paper) ;;
   pusht/planar_v2_chain_points_dp_paper:bf/bf_planar_v2_dp_paper_points6) ;;
@@ -425,6 +427,9 @@ if experiment == "pusht/unite_cotrain_usocket_chain_val01_h16":
 elif experiment == "pusht/unite_chain_points_val01_h16":
     assert cfg.name == "unite_chain_points_register_h16"
     assert cfg.run_provenance.split_manifest_sha256 == chain_split_manifest_sha256
+elif experiment == "pusht/unite_usocket_register_sweep_val01_h16":
+    assert cfg.name == "unite_usocket_register_sweep_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
 elif experiment == "pusht/planar_v2_cotrain_dp_paper_points6":
     assert cfg.name == "planar_v2_cotrain_dp_paper_points6_h16"
     assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256

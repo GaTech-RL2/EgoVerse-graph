@@ -71,7 +71,14 @@ SCALED_MUON_EXPERIMENT = (
 SCALED_ADAMW_EXPERIMENT = (
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
 )
-SCALED_200M_EXPERIMENTS = {SCALED_MUON_EXPERIMENT, SCALED_ADAMW_EXPERIMENT}
+SCALE1_ADAMW_EXPERIMENT = (
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42"
+)
+SCALED_200M_EXPERIMENTS = {
+    SCALED_MUON_EXPERIMENT,
+    SCALED_ADAMW_EXPERIMENT,
+    SCALE1_ADAMW_EXPERIMENT,
+}
 SCALED_200M_PARAMETER_COUNT = 199_754_837
 APPROVED_EXPERIMENTS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
@@ -91,6 +98,11 @@ APPROVED_EXPERIMENTS = {
     ),
     SCALED_ADAMW_EXPERIMENT: (
         "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
+        1.0,
+        1.0,
+    ),
+    SCALE1_ADAMW_EXPERIMENT: (
+        "action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42",
         1.0,
         1.0,
     ),
@@ -330,6 +342,7 @@ def _validate_config(
     )
     scaled_muon = experiment == SCALED_MUON_EXPERIMENT
     scaled_200m = experiment in SCALED_200M_EXPERIMENTS
+    decoded_noise_scale_weight = 1.0 if experiment == SCALE1_ADAMW_EXPERIMENT else 0.0
     field_hidden_dim = 1_024 if scaled_200m else 512
     field_depth = 14 if scaled_200m else 12
     field_num_heads = 16 if scaled_200m else 8
@@ -437,7 +450,10 @@ def _validate_config(
         ("run_provenance.objective.flow_weight", flow_weight),
         ("run_provenance.objective.reconstruction_weight", reconstruction_weight),
         ("run_provenance.objective.action_velocity_weight", 1.0),
-        ("run_provenance.objective.decoded_noise_scale_weight", 0.0),
+        (
+            "run_provenance.objective.decoded_noise_scale_weight",
+            decoded_noise_scale_weight,
+        ),
         ("run_provenance.objective.monotonic_weight", 0.0),
     ):
         if method == LIKELIHOOD_METHOD and (
@@ -447,6 +463,14 @@ def _validate_config(
         ):
             continue  # This method has NLL components, not FM/reconstruction.
         _float(config, path, expected)
+
+    if experiment == SCALE1_ADAMW_EXPERIMENT:
+        _float(
+            config,
+            "model.pipeline.stages.7.moment_weight",
+            decoded_noise_scale_weight,
+        )
+        _exact(config, "model.pipeline.stages.6.decode_noise", True)
 
     _exact(config, "mode", "train")
     _require(config.ckpt_path is None, "smoke must initialize from scratch")

@@ -1,0 +1,101 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_candidate_common
+  - override /model: bf/us_action_flow_bc_latent_fm_sg_200m_adamw_scale1
+  - _self_
+
+name: action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42
+description: "AdamW 200M Action Flow control plus decoded-Gaussian feature-moment regularization at weight 1"
+train:
+  action_flow_method: latent_fm_stopgrad
+
+model:
+  decoded_noise_scale_weight: 1.0
+
+evaluator:
+  action_flow_diagnostics:
+    enabled: true
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    max_batches_per_rank: 1
+    max_samples: 16
+    jacobian_samples: 2
+    capture_activations: true
+    activation_layer_map: {0: 0, 1: 13}
+    cknna_k: 10
+    native_error:
+      enabled: true
+      type: usocket_native_xy_wrapped_theta_mse_v1
+      space: decoded_native_x_y_theta_radians
+      native_theta_index: 2
+      wrap_period_radians: 6.283185307179586
+      reduction: mean_squared_error_over_horizon_and_native_coordinates
+      normalizer: bound_train_only_evaluator_normalizer
+      native_decoder: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+    artifact_root: ${paths.output_dir}/validation_predictions/action_flow_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_rank
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 16
+      world_size: 1
+    provenance:
+      source_commit: ${run_provenance.source_commit}
+      normalization_sha256: ${run_provenance.normalization_sha256}
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      dataset_content:
+        manifest_sha256: ${run_provenance.content_manifest_sha256}
+        aggregate_sha256: ${run_provenance.dataset_content_aggregate_sha256}
+      action_representation: x_y_cos_theta_sin_theta
+      clean_endpoint: t0
+      gaussian_endpoint: t1
+      latent_shape: [16, 8]
+      flow_samples_per_content: ${model.flow_samples_per_content}
+      condition_dropout_probability: ${model.condition_dropout_probability}
+      sampler: reverse_euler
+      sampler_steps: ${model.num_inference_steps}
+      fixed_level_coupling: one_clean_latent_and_one_gaussian_per_condition
+      decoder_jacobian_evaluation: declared_bridge_state_at_each_fixed_noise_level
+      activation_capture: real_forward_hooks_without_replay_or_replacement
+
+run_provenance:
+  architecture:
+    reconstruction_codec_parameter_target_each: 1000000
+    encoder_parameter_count: 1010420
+    decoder_parameter_count: 1010416
+    shared_field_parameter_count: 186536913
+    pipeline_parameter_count: 199754837
+    codec_hidden_dim: ${model.codec_hidden_dim}
+    codec_feedforward_dim: ${model.codec_feedforward_dim}
+    field_hidden_dim: 1024
+    field_depth: 14
+    field_num_heads: 16
+    field_feedforward_dim: 4224
+  optimizer_contract:
+    optimizer: adamw
+    base_lr: 1.0e-5
+    eta_min: 1.0e-6
+    warmup_steps: 8000
+    weight_decay: 1.0e-4
+  scale_ablation:
+    comparison_reference: usocket-latent-fm-sg-recon1-200m-codec2m-adamw-full-s42-phoenix-h200-20260909-v1
+    sole_scientific_variable: decoded_noise_scale_weight
+    reference_weight: 0.0
+    candidate_weight: ${model.decoded_noise_scale_weight}
+    decoded_noise_distribution: per_token_normalized_x_y_cos_theta_sin_theta
+    target_mean: 0.0
+    target_covariance: identity_4x4
+  objective:
+    method: latent_fm_stopgrad
+    flow_clean_gradient_mode: all_stopgrad
+    action_velocity_clean_gradient_mode: full
+    reconstruction_is_optimizer_objective: true
+    flow_weight: ${model.flow_weight}
+    reconstruction_weight: ${model.reconstruction_weight}
+    action_velocity_weight: 1.0
+    flow_samples_per_content: ${model.flow_samples_per_content}
+    decoded_noise_scale_weight: ${model.decoded_noise_scale_weight}
+    monotonic_weight: 0.0
+  requirements:
+    r6: PASS_design
+    conditional_quality: OPEN

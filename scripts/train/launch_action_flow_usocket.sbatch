@@ -129,6 +129,13 @@ case "$AF_EXPERIMENT" in
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
+  pusht/action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42)
+    AF_METHOD=latent_fm_stopgrad
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    ;;
   pusht/action_flow_bc_usocket_bridge_likelihood_s42)
     AF_METHOD=gaussian_bridge_likelihood
     # Transport placeholders only; no FM/reconstruction flags enter this model.
@@ -177,7 +184,9 @@ case "$AF_EXPERIMENT" in
   *) die "AF_EXPERIMENT must select an explicitly approved Action Flow config" ;;
 esac
 
-if test "$AF_METHOD" != action_flow_joint || [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
+if test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42; then
+  AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42
+elif test "$AF_METHOD" != action_flow_joint || [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
   AF_COMPARISON_EXPERIMENT=
 elif test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
   AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_recon10_s42

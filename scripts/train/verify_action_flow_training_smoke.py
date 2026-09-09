@@ -349,7 +349,7 @@ def _validate_config(
         ("model.action_dim", 4),
         ("model.flow_samples_per_content", 14),
         ("trainer.max_steps", 2),
-        ("trainer.val_check_interval", 1),
+        ("trainer.val_check_interval", 2 if unite_recipe else 1),
         ("trainer.limit_val_batches", 1),
         ("trainer.num_sanity_val_steps", 0),
         ("trainer.accumulate_grad_batches", 1),

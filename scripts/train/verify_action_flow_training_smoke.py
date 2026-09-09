@@ -1453,6 +1453,8 @@ def _validate_history(
     ]
     if method == LIKELIHOOD_METHOD:
         telemetry = [name for name in telemetry if "/Schedule/" not in name]
+    if method == STOPGRAD_UNITE_METHOD:
+        telemetry.extend(("Optimizer/LR/AdamW", "Optimizer/LR/Muon"))
     train_step, train = _complete_row(
         rows,
         (*components, *per_source_components, *telemetry),

@@ -293,6 +293,30 @@ def test_history_gate_accepts_float32_flow_weight_telemetry():
     assert result["train_step"] == 2
 
 
+def test_unite_history_gate_requires_both_optimizer_family_rates():
+    row = _history_row()
+    row["Train/ActionFlow/Compute/FieldForwardCallsPerStep"] = 2.0
+    row["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"] = 28.0
+    row["Train/ActionFlow/GradientCosine/FM__Reconstruction"] = 0.0
+    row["Train/ActionFlow/GradientCosineDefined/FM__Reconstruction"] = 0.0
+    row[
+        "Train/ActionFlow/GradientIntersectionParameterCount/FM__Reconstruction"
+    ] = 0.0
+    row["Optimizer/LR/AdamW"] = 2.5e-8
+    row["Optimizer/LR/Muon"] = 2.5e-8
+
+    result = MODULE._validate_history(
+        {2: row}, method=MODULE.STOPGRAD_UNITE_METHOD
+    )
+
+    assert result["train"]["Optimizer/LR/AdamW"] == pytest.approx(2.5e-8)
+    assert result["train"]["Optimizer/LR/Muon"] == pytest.approx(2.5e-8)
+
+    del row["Optimizer/LR/Muon"]
+    with pytest.raises(MODULE.SmokeVerificationError, match="gradient telemetry"):
+        MODULE._validate_history({2: row}, method=MODULE.STOPGRAD_UNITE_METHOD)
+
+
 def test_history_gate_rejects_missing_gradient_telemetry():
     row = _history_row()
     del row["Train/ActionFlow/GradientCosine/FM__ActionVelocity"]

@@ -396,6 +396,7 @@ def _write_artifacts(tmp_path: Path):
         "source_commit": HEAD,
         "normalization_sha256": norm_hash,
         "split_manifest_sha256": split_hash,
+        "sampler_steps": 16,
         "dataset_content": {
             "manifest_sha256": content_hash,
             "aggregate_sha256": aggregate_hash,
@@ -470,6 +471,7 @@ def _write_artifacts(tmp_path: Path):
                 "action_flow_diagnostics": {
                     "artifact_root": str(diagnostic_root),
                     "validation_view": energy_view,
+                    "provenance": {"sampler_steps": 16},
                 },
             },
             "logger": {

@@ -155,10 +155,24 @@ class SimRolloutPlanarEval(Eval):
 
         return get_embodiment_id(self.embodiment_name)
 
-    def _predict_chunk(self, obs: dict, emb_id: int, device) -> np.ndarray:
-        """obs (unnormalized env frame) -> native action chunk (H, 3)."""
+    def _predict_chunk(self, history: list, emb_id: int, device) -> np.ndarray:
+        """History of the last n_obs env frames (oldest first) -> (H, 3)."""
+        if len(history) != self._n_obs:
+            raise ValueError(
+                f"expected {self._n_obs} observations, got {len(history)}"
+            )
+        obs = history[-1]
+        # Normalize each frame independently, exactly as the loader does
+        # per-sample, then stack along the observation axis.
         raw = {k: torch.from_numpy(np.ascontiguousarray(v)) for k, v in obs.items()}
-        normalized = self.normalizer.normalize(raw, emb_id)
+        per_frame_norm = [
+            self.normalizer.normalize(
+                {k: torch.from_numpy(np.ascontiguousarray(v)) for k, v in frame.items()},
+                emb_id,
+            )
+            for frame in history
+        ]
+        normalized = per_frame_norm[-1]
         # FusedObsEncoder wants exactly (batch, n_obs, *per_frame). Reshape to
         # the per-frame shape rather than unsqueezing twice: normalize() is
         # keyed through an identity zarr_keys map and returns whatever it was
@@ -173,8 +187,22 @@ class SimRolloutPlanarEval(Eval):
             # the batch must be (B, *per_frame) with no obs axis at all. Adding
             # one leaves it in place and the encoder returns (1, 1, 67) instead
             # of (1, 67). For n_obs > 1 it does reshape (B, T, ...) itself.
-            shape = (1, *per_frame) if self._n_obs == 1 else (1, self._n_obs, *per_frame)
-            inner[key] = tensor.reshape(*shape).to(device=device, dtype=torch.float32)
+            if self._n_obs == 1:
+                inner[key] = tensor.reshape(1, *per_frame).to(
+                    device=device, dtype=torch.float32
+                )
+            else:
+                stacked = torch.stack(
+                    [
+                        (f[key] if torch.is_tensor(f[key]) else torch.as_tensor(f[key]))
+                        .reshape(*per_frame)
+                        for f in per_frame_norm
+                    ],
+                    dim=0,
+                )
+                inner[key] = stacked.reshape(1, self._n_obs, *per_frame).to(
+                    device=device, dtype=torch.float32
+                )
         if not self._logged_shapes:
             self._logged_shapes = True
             for key in sorted(inner):
@@ -222,11 +250,6 @@ class SimRolloutPlanarEval(Eval):
             if hasattr(stage, "n_obs_steps"):
                 self._n_obs = int(stage.n_obs_steps)
                 break
-        if self._n_obs != 1:
-            raise NotImplementedError(
-                f"n_obs_steps={self._n_obs} needs an observation history; this "
-                "harness only builds single-frame observations."
-            )
         budget, budget_payload = self._budget()
         env_args = self._env_args()
         emb_id = self._emb_id()
@@ -243,7 +266,8 @@ class SimRolloutPlanarEval(Eval):
             f"content_sha256={budget_payload.get('content_sha256')}"
         )
         print(
-            f"[sim] replan_every={self.replan_every}"
+            f"[sim] n_obs={self._n_obs} "
+            f"replan_every={self.replan_every}"
             f"{' (0=full chunk, open loop)' if self.replan_every == 0 else ''} "
             f"chunk_start={self.chunk_start} "
             f"sampler_steps={self.expected_sampler_steps} "
@@ -257,6 +281,7 @@ class SimRolloutPlanarEval(Eval):
             env.reset(seed=seed)
             peak = 0.0
             chunk: np.ndarray | None = None
+            history: list | None = None
             cursor = 0
             aborted = False
             t_ep = time.time()
@@ -264,10 +289,16 @@ class SimRolloutPlanarEval(Eval):
             policy_s = 0.0
             steps = 0
             for t in range(budget):
+                frame = _env_to_zarr_oriented(env._get_obs())
+                if history is None:
+                    # t=0 has no past; repeat the first frame, the usual
+                    # convention for a warm-start observation stack.
+                    history = [frame] * self._n_obs
+                else:
+                    history = (history + [frame])[-self._n_obs :]
                 if chunk is None or cursor >= len(chunk):
-                    obs = _env_to_zarr_oriented(env._get_obs())
                     t_call = time.time()
-                    native = self._predict_chunk(obs, emb_id, device)
+                    native = self._predict_chunk(history, emb_id, device)
                     policy_s += time.time() - t_call
                     calls += 1
                     span = (

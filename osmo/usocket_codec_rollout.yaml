@@ -120,8 +120,15 @@ workflow:
           $S5 --numworkers 32 cp "s3://rldb/staged/usocket_codec/$J/*" "$CK/" || true
         done
         echo "--- checkpoint tree ---"
-        find "$CK" -name "*.ckpt" | head -40
-        find "$CK" -name "norm_stats.json" | head -20
+        # NOT `find ... | head`: pipefail turns head's early close into
+        # SIGPIPE (exit 141) for find, which kills the script once there are
+        # more checkpoints than the head limit.
+        find "$CK" -name "*.ckpt" > /tmp/ckpts.txt || true
+        echo "  $(wc -l < /tmp/ckpts.txt) checkpoints found"
+        head -40 /tmp/ckpts.txt
+        find "$CK" -name "norm_stats.json" > /tmp/norms.txt || true
+        echo "  $(wc -l < /tmp/norms.txt) norm_stats files"
+        head -20 /tmp/norms.txt
 
         DATA_OV="data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA \
                  data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA"
@@ -135,7 +142,7 @@ workflow:
           NORM=$(find "$CK" -path "*${EXP}*" -name "norm_stats.json" | head -1)
           if [ -z "$CKPT" ] || [ -z "$NORM" ]; then
             echo "FATAL: missing artifacts for $EXP (ckpt='$CKPT' norm='$NORM')"
-            echo "--- available ---"; find "$CK" -name '*.ckpt' -o -name 'norm_stats.json' | head -40
+            echo "--- available ---"; find "$CK" \( -name '*.ckpt' -o -name 'norm_stats.json' \) > /tmp/avail.txt || true; head -40 /tmp/avail.txt
             exit 1
           fi
           CKPT_OF[$EXP]="$CKPT"; NORM_OF[$EXP]="$NORM"

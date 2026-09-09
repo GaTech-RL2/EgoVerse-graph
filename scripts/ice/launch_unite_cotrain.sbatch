@@ -294,7 +294,7 @@ if test "$ICE_UNITE_FAST" = true; then
   done
 fi
 if test "$ICE_UNITE_COMPILE" = true; then
-  BASE_OVERRIDES+=(model.pipeline.stages.4.compile_backbones=true)
+  BASE_OVERRIDES+=(+model.pipeline.stages.4.compile_backbones=true)
 fi
 if test -n "$ICE_EXTRA_OVERRIDES"; then
   # Word-split deliberately: a space-separated list of Hydra overrides, applied

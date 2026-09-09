@@ -103,8 +103,8 @@ class LatentBridgeStage(Stage):
             raise ValueError("samples_per_content must be positive")
         if not 0.0 <= self.condition_dropout_probability <= 1.0:
             raise ValueError("condition_dropout_probability must be in [0, 1]")
-        if time_sampling not in {"uniform", "unite_lognormal_shifted"}:
-            raise ValueError("time_sampling must be uniform|unite_lognormal_shifted")
+        if time_sampling not in {"uniform", "lognormal_shifted"}:
+            raise ValueError("time_sampling must be uniform|lognormal_shifted")
         self.time_sampling = str(time_sampling)
         self.lognorm_mu = float(lognorm_mu)
         self.lognorm_sigma = float(lognorm_sigma)
@@ -167,7 +167,7 @@ class LatentBridgeStage(Stage):
         clean_fraction = alpha * clean_fraction / (
             1.0 + (alpha - 1.0) * clean_fraction
         )
-        # Action Flow uses t=0 clean and t=1 Gaussian, opposite to released UNITE.
+        # This bridge uses t=0 clean and t=1 Gaussian.
         return 1.0 - clean_fraction
 
     def forward(self, batch: dict) -> dict:
@@ -241,6 +241,8 @@ class ConditionalVelocityStage(Stage):
         timestep_shift_alpha: float = 0.5,
         dopri5_atol: float = 1.0e-6,
         dopri5_rtol: float = 1.0e-3,
+        cfg_scale: float = 1.0,
+        cfg_interval: tuple[float, float] = (0.0, 1.0),
         state_key: str = "action_flow/state",
         time_key: str = "action_flow/time",
         condition_key: str = "action_flow/condition",
@@ -267,10 +269,19 @@ class ConditionalVelocityStage(Stage):
         self.timestep_shift_alpha = float(timestep_shift_alpha)
         self.dopri5_atol = float(dopri5_atol)
         self.dopri5_rtol = float(dopri5_rtol)
+        self.cfg_scale = float(cfg_scale)
+        self.cfg_interval = tuple(float(value) for value in cfg_interval)
         if self.timestep_shift_alpha <= 0.0:
             raise ValueError("timestep_shift_alpha must be positive")
         if self.dopri5_atol <= 0.0 or self.dopri5_rtol <= 0.0:
             raise ValueError("Dopri5 tolerances must be positive")
+        if not math.isfinite(self.cfg_scale) or self.cfg_scale < 0.0:
+            raise ValueError("cfg_scale must be finite and non-negative")
+        if (
+            len(self.cfg_interval) != 2
+            or not 0.0 <= self.cfg_interval[0] <= self.cfg_interval[1] <= 1.0
+        ):
+            raise ValueError("cfg_interval must be an ordered pair in [0, 1]")
         if flow_clean_gradient_mode not in {"full", "all_stopgrad"}:
             raise ValueError("flow_clean_gradient_mode must be full|all_stopgrad")
         self.flow_clean_gradient_mode = flow_clean_gradient_mode
@@ -405,7 +416,27 @@ class ConditionalVelocityStage(Stage):
         if state.device != condition.device:
             raise ValueError("inference noise and condition must share a device")
 
-        drop_mask = torch.zeros(batch_size, dtype=torch.bool, device=state.device)
+        conditioned_mask = torch.zeros(
+            batch_size, dtype=torch.bool, device=state.device
+        )
+
+        def guided_velocity(latent: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
+            conditioned = self._predict(
+                latent, time, condition, conditioned_mask
+            )
+            if self.cfg_scale <= 1.0:
+                return conditioned
+            unconditioned = self._predict(
+                latent, time, condition, ~conditioned_mask
+            )
+            guided = unconditioned + self.cfg_scale * (
+                conditioned - unconditioned
+            )
+            start, end = self.cfg_interval
+            active = ((time < end) & ((start == 0.0) | (time > start))).reshape(
+                int(time.shape[0]), *([1] * (latent.ndim - 1))
+            )
+            return torch.where(active, guided, conditioned)
         if self.inference_method == "dopri5":
             try:
                 from torchdiffeq import odeint
@@ -430,7 +461,7 @@ class ConditionalVelocityStage(Stage):
                 time_scalar: torch.Tensor, latent: torch.Tensor
             ) -> torch.Tensor:
                 time = time_scalar.expand(batch_size)
-                return self._predict(latent, time, condition, drop_mask).float()
+                return guided_velocity(latent, time).float()
 
             trajectory_tensor = odeint(
                 velocity,
@@ -454,9 +485,7 @@ class ConditionalVelocityStage(Stage):
                     dtype=torch.float32,
                     device=state.device,
                 )
-                state = state - step_size * self._predict(
-                    state, time, condition, drop_mask
-                )
+                state = state - step_size * guided_velocity(state, time)
                 trajectory_values.append(state)
             trajectory = torch.stack(trajectory_values)
 
@@ -632,6 +661,8 @@ class ActionFlowObjectiveStage(Stage):
         flow_weight: float = 1.0,
         reconstruction_weight: float = 1.0,
         action_velocity_weight: float = 1.0,
+        flow_aggregation: str = "mean",
+        flow_samples_per_content: int = 1,
         target_key: str = "target",
         residual_key: str = "action_flow/velocity_residual",
         reconstruction_key: str = "action_flow/reconstruction",
@@ -643,6 +674,12 @@ class ActionFlowObjectiveStage(Stage):
         self.flow_weight = float(flow_weight)
         self.reconstruction_weight = float(reconstruction_weight)
         self.action_velocity_weight = float(action_velocity_weight)
+        if flow_aggregation not in {"mean", "sum_samples"}:
+            raise ValueError("flow_aggregation must be mean|sum_samples")
+        self.flow_aggregation = str(flow_aggregation)
+        self.flow_samples_per_content = int(flow_samples_per_content)
+        if self.flow_samples_per_content <= 0:
+            raise ValueError("flow_samples_per_content must be positive")
         weights = (
             self.flow_weight,
             self.reconstruction_weight,
@@ -697,6 +734,11 @@ class ActionFlowObjectiveStage(Stage):
             raise ValueError("decoded velocity residual must have shape (B, ...)")
 
         flow = residual.square().mean()
+        if self.flow_aggregation == "sum_samples":
+            # Each repeated sample already has a mean over latent coordinates.
+            # Multiplying the all-sample mean by K is exactly the sum of the K
+            # per-sample means used by the reference multi-sample objective.
+            flow = flow * self.flow_samples_per_content
         reconstruction_error = reconstruction - target
         reconstruction_loss = reconstruction_error.square().mean()
         reconstruction_l1 = reconstruction_error.abs().mean()

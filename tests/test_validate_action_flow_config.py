@@ -117,6 +117,23 @@ def test_unite_h384_action_flow_config_has_exact_architecture_and_recipe():
     ]
 
 
+def test_unite_h384_parity_config_pins_sum_cfg_and_validation_contract():
+    report, _ = preflight.validate_experiment(
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        config_root=CONFIG_ROOT,
+    )
+    assert report["status"] == "PASS"
+    assert report["optimization"]["validation_every_steps"] == 10_000
+    assert report["optimization"]["checkpoint_every_steps"] == 30_000
+    assert report["topology"]["inference_order"] == [
+        "KeyedFeatureProjection",
+        "FusedObsEncoder",
+        "GaussianLatentNoise",
+        "ConditionalVelocityStage",
+        "ContentDecoderStage",
+    ]
+
+
 def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",

@@ -103,7 +103,22 @@ AF_METHOD=action_flow_joint
 AF_FULL_MAX_STEPS=240000
 AF_FULL_VALIDATE_EVERY=10000
 AF_FULL_CHECKPOINT_EVERY=40000
+AF_FULL_LIMIT_VAL_BATCHES=1.0
+AF_VALID_BATCH_SIZE=16
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
+    ;;
   pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -327,7 +342,7 @@ else
   MAX_STEPS=$AF_FULL_MAX_STEPS
   VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY
   LIMIT_TRAIN_BATCHES=1.0
-  LIMIT_VAL_BATCHES=1.0
+  LIMIT_VAL_BATCHES=$AF_FULL_LIMIT_VAL_BATCHES
   CHECKPOINT_EVERY=$AF_FULL_CHECKPOINT_EVERY
   LOG_EVERY=10
   TELEMETRY_EVERY=100
@@ -377,9 +392,9 @@ BASE_OVERRIDES=(
   "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$AF_DATASET_DIR"
   "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$AF_DATASET_DIR"
   data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32
-  data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=16
+  "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_VALID_BATCH_SIZE"
   evaluator.energy_score_validation_view.world_size=1
-  evaluator.energy_score_validation_view.per_rank_batch_size=16
+  "evaluator.energy_score_validation_view.per_rank_batch_size=$AF_VALID_BATCH_SIZE"
   ++logger.wandb.offline=false
   "++logger.wandb.entity=$AF_WANDB_ENTITY"
   "++logger.wandb.project=$AF_WANDB_PROJECT"
@@ -811,7 +826,9 @@ export SRUN
   "$AF_CONTENT_MANIFEST" "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
   "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" \
   "$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS" \
-  "$RECONSTRUCTION_ONLY_WARMUP_STEPS" <<'PY'
+  "$RECONSTRUCTION_ONLY_WARMUP_STEPS" "$AF_FULL_MAX_STEPS" \
+  "$AF_FULL_VALIDATE_EVERY" "$AF_FULL_CHECKPOINT_EVERY" \
+  "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" <<'PY'
 import math
 import pathlib
 import sys
@@ -839,12 +856,22 @@ from omegaconf import OmegaConf
     content_aggregate_sha,
     full_warmup_steps,
     effective_warmup_steps,
+    full_max_steps,
+    full_validate_every,
+    full_checkpoint_every,
+    full_limit_val_batches,
+    valid_batch_size,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
 flow_weight = float(flow_weight)
 full_warmup_steps = int(full_warmup_steps)
 effective_warmup_steps = int(effective_warmup_steps)
+full_max_steps = int(full_max_steps)
+full_validate_every = int(full_validate_every)
+full_checkpoint_every = int(full_checkpoint_every)
+full_limit_val_batches = float(full_limit_val_batches)
+valid_batch_size = int(valid_batch_size)
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -944,12 +971,11 @@ if run_kind == "smoke":
     assert cfg.model.gradient_telemetry_cadence == 2
 else:
     assert run_kind == "full"
-    assert cfg.trainer.max_steps == (150000 if unite_recipe else 240000)
-    assert cfg.trainer.limit_train_batches == cfg.trainer.limit_val_batches == 1.0
-    assert cfg.trainer.val_check_interval == (30000 if unite_recipe else 10000)
-    assert cfg.callbacks.model_checkpoint.every_n_train_steps == (
-        30000 if unite_recipe else 40000
-    )
+    assert cfg.trainer.max_steps == full_max_steps
+    assert cfg.trainer.limit_train_batches == 1.0
+    assert math.isclose(float(cfg.trainer.limit_val_batches), full_limit_val_batches)
+    assert cfg.trainer.val_check_interval == full_validate_every
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == full_checkpoint_every
     assert cfg.model.gradient_telemetry_cadence == 100
 assert cfg.callbacks.model_checkpoint.save_top_k == -1
 assert cfg.callbacks.model_checkpoint.save_last == "link"
@@ -959,7 +985,7 @@ assert set(cfg.data.train_datasets) == set(cfg.data.valid_datasets) == {source}
 assert cfg.data.train_datasets[source].resolver.folder_path == dataset
 assert cfg.data.valid_datasets[source].resolver.folder_path == dataset
 assert cfg.data.train_dataloader_params[source].batch_size == 32
-assert cfg.data.valid_dataloader_params[source].batch_size == 16
+assert cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size
 assert str(cfg.norm_stats.precomputed_norm_path) == norm
 assert cfg.norm_stats.save_cache_dir is None
 diagnostics = cfg.evaluator.action_flow_diagnostics
@@ -970,7 +996,7 @@ if method != LIKELIHOOD_METHOD:
     assert diagnostics.capture_activations is (method != GRAPH_METHOD)
     assert diagnostics.cknna_k == (0 if method == GRAPH_METHOD else 10)
     assert diagnostics.validation_view.world_size == 1
-    assert diagnostics.validation_view.per_rank_batch_size == 16
+    assert diagnostics.validation_view.per_rank_batch_size == valid_batch_size
 pipeline = instantiate(cfg.model.pipeline, device="cpu")
 _validate_topology(cfg, pipeline)
 _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))

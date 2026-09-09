@@ -73,7 +73,6 @@ ICE_UNITE_LR_FINAL=${ICE_UNITE_LR_FINAL:-}
 ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
 ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-unite-ice}
 ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,unite,ice]'}
-ICE_FAMILY=unite
 ICE_WORLD_SIZE=${ICE_WORLD_SIZE:-1}
 positive_integer ICE_WORLD_SIZE "$ICE_WORLD_SIZE"
 if test "$ICE_WORLD_SIZE" = 1; then ICE_TRAINER_STRATEGY=auto; else ICE_TRAINER_STRATEGY=ddp_find_unused_parameters_true; fi
@@ -82,9 +81,15 @@ ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
 # present embodiment needs its own dataset root, split manifest and manifest
 # SHA (ICE_DATASET_DIR_<EMB>, ICE_SPLIT_MANIFEST_<EMB>,
 # ICE_EXPECTED_SPLIT_MANIFEST_SHA256_<EMB>), <EMB> in {USOCKET, CHAIN}.
+# ICE_FAMILY selects the preflight contract: unite (latent-flow rows) or planar
+# (Paper-DP rows launched through the same entrypoint so the cotrain sweep's
+# baselines share one GPU budget, checkpoint cadence and provenance layout).
 case "$ICE_EXPERIMENT" in
-  pusht/unite_cotrain_usocket_chain_val01_h16) ICE_EMBODIMENTS="USOCKET CHAIN" ;;
-  pusht/unite_chain_points_val01_h16) ICE_EMBODIMENTS="CHAIN" ;;
+  pusht/unite_cotrain_usocket_chain_val01_h16) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=unite ;;
+  pusht/unite_chain_points_val01_h16) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=unite ;;
+  pusht/planar_v2_cotrain_dp_paper_points6) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=planar ;;
+  pusht/planar_v2_usocket_dp_paper) ICE_EMBODIMENTS="USOCKET"; ICE_FAMILY=planar ;;
+  pusht/planar_v2_chain_points_dp_paper) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=planar ;;
   *) die "unsupported cotrain experiment $ICE_EXPERIMENT" ;;
 esac
 emb_key() {
@@ -126,9 +131,17 @@ case "$ICE_UNITE_DIAGNOSTICS" in
 esac
 case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_separate_nt8_h384_s42) ;;
+  pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_split_tok_nt8_h384_s42) ;;
   pusht/unite_chain_points_val01_h16:bf/ch_unite_register_separate_nt8_h384_s42) ;;
+  pusht/planar_v2_cotrain_dp_paper_points6:bf/bf_planar_v2_dp_paper_points6) ;;
+  pusht/planar_v2_usocket_dp_paper:bf/bf_planar_v2_dp_paper) ;;
+  pusht/planar_v2_chain_points_dp_paper:bf/bf_planar_v2_dp_paper_points6) ;;
   *) die "unsupported UNITE cotrain experiment or model row" ;;
 esac
+if test "$ICE_FAMILY" = planar; then
+  test "$ICE_UNITE_FAST" = false || die "ICE_UNITE_FAST applies to the unite family only"
+  test "$ICE_UNITE_DIAGNOSTICS" = false || die "ICE_UNITE_DIAGNOSTICS applies to the unite family only"
+fi
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 [[ "$ICE_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || die "ICE_EXPECTED_HEAD must be a full commit"
 for emb in $ICE_EMBODIMENTS; do
@@ -227,8 +240,6 @@ BASE_OVERRIDES=(
   runtime.slurm_requeue_owner=runner
   runtime.slurm_save_signal=SIGUSR2
   'runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints'
-  "evaluator.energy_score_validation_view.world_size=$ICE_WORLD_SIZE"
-  "evaluator.energy_score_validation_view.per_rank_batch_size=$ICE_VALID_BATCH_SIZE"
   logger.wandb.offline=false
   "logger.wandb.entity=$ICE_WANDB_ENTITY"
   "logger.wandb.project=$ICE_WANDB_PROJECT"
@@ -249,6 +260,12 @@ for emb in $ICE_EMBODIMENTS; do
 done
 if test "$ICE_MODEL" != none; then
   BASE_OVERRIDES+=("model=$ICE_MODEL")
+fi
+if test "$ICE_FAMILY" = unite; then
+  BASE_OVERRIDES+=(
+    "evaluator.energy_score_validation_view.world_size=$ICE_WORLD_SIZE"
+    "evaluator.energy_score_validation_view.per_rank_batch_size=$ICE_VALID_BATCH_SIZE"
+  )
 fi
 if test "$ICE_UNITE_FAST" = true; then
   # Throughput settings from the U-Socket launcher (flow_mini_batch 14, no
@@ -408,14 +425,35 @@ if experiment == "pusht/unite_cotrain_usocket_chain_val01_h16":
 elif experiment == "pusht/unite_chain_points_val01_h16":
     assert cfg.name == "unite_chain_points_register_h16"
     assert cfg.run_provenance.split_manifest_sha256 == chain_split_manifest_sha256
+elif experiment == "pusht/planar_v2_cotrain_dp_paper_points6":
+    assert cfg.name == "planar_v2_cotrain_dp_paper_points6_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+    assert cfg.run_provenance.chain_split_manifest_sha256 == chain_split_manifest_sha256
+    assert set(cfg.evaluator.native_decoders) == set(domains)
+    assert cfg.evaluator.native_decoder is None
+    assert {int(v) for v in cfg.planar.action_dims.values()} == {6}
+elif experiment == "pusht/planar_v2_usocket_dp_paper":
+    assert cfg.name == "planar_v2_usocket_dp_paper_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+elif experiment == "pusht/planar_v2_chain_points_dp_paper":
+    assert cfg.name == "planar_v2_chain_points_dp_paper_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == chain_split_manifest_sha256
 else:
     raise AssertionError(experiment)
 assert set(cfg.data.train_datasets) == set(domains), (list(cfg.data.train_datasets), domains)
 assert set(cfg.data.valid_datasets) == set(domains)
-policy_cfg = cfg.model.pipeline.stages[4]
-assert set(policy_cfg.generative_encoder.action_dims) == set(domains)
-assert set(policy_cfg.decoders) == set(domains)
-assert bool(cfg.model.share_encoder_denoiser) is False
+if family == "unite":
+    policy_cfg = cfg.model.pipeline.stages[4]
+    assert set(policy_cfg.generative_encoder.action_dims) == set(domains)
+    assert set(policy_cfg.decoders) == set(domains)
+    assert bool(cfg.model.share_encoder_denoiser) is False
+else:
+    assert family == "planar", family
+    assert int(cfg.planar.observation_horizon) == 2
+    assert int(cfg.planar.action_target_offset) == 1
+    assert bool(cfg.eval_checkpoint.use_ema) is True
+    assert cfg.callbacks.ema._target_ == "egomimic.utils.ema_callback.EMACallback"
+    assert int(cfg.model.pipeline.stages[2].action_dim) == int(cfg.model.pipeline.stages[3].action_dim)
 for domain in domains:
     assert int(cfg.data.train_dataloader_params[domain].batch_size) == int(train_batch_size)
     assert int(cfg.data.valid_dataloader_params[domain].batch_size) == int(valid_batch_size)
@@ -447,6 +485,8 @@ if family == "unite":
         assert diagnostics.provenance.sampler == "dopri5"
     else:
         assert bool(cfg.evaluator.unite_diagnostics.enabled) is False
+elif family == "planar":
+    assert bool(cfg.evaluator.unite_diagnostics.enabled) is False
 else:
     raise AssertionError(family)
 PY
@@ -665,4 +705,4 @@ RUNNER_ARGS=(
   --completion-sentinel "$ICE_OUTPUT_DIR/COMPLETE.json"
 )
 exec "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
-  /usr/bin/env bash -c "$CHILD_CODE" ice-unite-cotrain "${BASE_OVERRIDES[@]}"
+  /usr/bin/env bash -c "$CHILD_CODE" "ice-$ICE_FAMILY-cotrain" "${BASE_OVERRIDES[@]}"

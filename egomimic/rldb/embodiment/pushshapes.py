@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ChainGripperNative4ToPoints6,
+    PadActionWidth,
     PlanarAgentStateToRotVec4,
     ThetaToRotVec,
 )
@@ -129,6 +130,26 @@ def get_planar_paper_transform_list(
     return [
         SliceActionTarget(keys, start=action_target_offset, horizon=action_horizon),
         PadPlanarAction(keys),
+    ]
+
+
+def get_planar_paper_padded_transform_list(
+    keys: list[str] | None = None,
+    action_horizon: int = 16,
+    action_target_offset: int = 1,
+    width: int = 6,
+    **_kwargs,
+):
+    """Paper-DP alignment, common five-space, then zero-pad to ``width``.
+
+    Used by the Paper-DP cotrain row so the U-Socket target shares the six-wide
+    head with the ChainGripper six-point target.
+    """
+    keys = keys or ["actions"]
+    return [
+        SliceActionTarget(keys, start=action_target_offset, horizon=action_horizon),
+        PadPlanarAction(keys),
+        PadActionWidth(keys, width=width),
     ]
 
 

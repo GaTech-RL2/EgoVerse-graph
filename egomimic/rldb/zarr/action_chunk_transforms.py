@@ -540,6 +540,39 @@ class PadGripperZeros(Transform):
         return batch
 
 
+class PadActionWidth(Transform):
+    """Zero-pad the last action dimension up to ``width``.
+
+    Lets one fixed-width denoiser head (Paper-DP cotrain) serve action spaces
+    of different widths; the padded slots carry constant zeros and are dropped
+    again by the matching native decoder.
+    """
+
+    def __init__(self, keys: list[str], width: int):
+        self.keys = list(keys)
+        self.width = int(width)
+        if self.width <= 0:
+            raise ValueError("width must be positive")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            actions = batch[key]
+            is_tensor = isinstance(actions, torch.Tensor)
+            arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
+            current = int(arr.shape[-1])
+            if current > self.width:
+                raise ValueError(
+                    f"PadActionWidth: {key!r} is {current} wide, wider than {self.width}"
+                )
+            if current < self.width:
+                pad = np.zeros((*arr.shape[:-1], self.width - current), dtype=arr.dtype)
+                arr = np.concatenate((arr, pad), axis=-1)
+            batch[key] = torch.from_numpy(arr) if is_tensor else arr
+        return batch
+
+
 class Reshape(Transform):
     def __init__(self, input_key: str, output_key: str, shape: tuple):
         self.input_key = input_key

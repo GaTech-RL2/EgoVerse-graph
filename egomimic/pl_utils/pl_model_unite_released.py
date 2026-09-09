@@ -281,6 +281,11 @@ class ReleasedUniteModelWrapper(ModelWrapper):
                         "tokenization_condition_projection.",
                     )
                 )
+                or cls._branch_parameter(name, "tokenization_modules", domains)
+                or cls._branch_parameter(name, "tokenization_output_norms", domains)
+                or cls._branch_parameter(
+                    name, "tokenization_condition_projections", domains
+                )
                 or cls._branch_parameter(name, "action_context_projections", domains)
                 or cls._branch_parameter(
                     name, "tokenization_null_condition_inputs", domains

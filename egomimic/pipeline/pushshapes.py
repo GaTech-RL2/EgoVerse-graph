@@ -62,6 +62,25 @@ class PlanarCommon5NativeDecoder:
     __call__ = decode
 
 
+class PaddedPlanarCommon5NativeDecoder(PlanarCommon5NativeDecoder):
+    """Drop zero-padding beyond the common five, then decode as common five."""
+
+    def __init__(self, action_horizon: int, native_action_dim: int, padded_dim: int = 6):
+        super().__init__(action_horizon=action_horizon, native_action_dim=native_action_dim)
+        self.padded_dim = int(padded_dim)
+        if self.padded_dim < PLANAR_ACTION_DIM:
+            raise ValueError("padded_dim must be at least the common Planar width")
+
+    def decode(self, actions, context: dict | None = None):
+        if actions.shape[-1] != self.padded_dim:
+            raise ValueError(
+                f"expected padded width {self.padded_dim}, got {actions.shape}"
+            )
+        return super().decode(actions[..., :PLANAR_ACTION_DIM], context)
+
+    __call__ = decode
+
+
 class PlanarArcWaypointZeroNativeDecoder:
     """Decode the anchored first waypoint from a Planar arc token."""
 

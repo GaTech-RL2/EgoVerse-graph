@@ -138,10 +138,11 @@ def test_unite_h384_no_checkpointing_changes_only_compute_memory_tradeoff():
     experiment = (
         "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42"
     )
-    report, config = preflight.validate_experiment(
+    report, _ = preflight.validate_experiment(
         experiment,
         config_root=CONFIG_ROOT,
     )
+    config = preflight.compose_experiment(experiment, config_root=CONFIG_ROOT)
 
     assert report["status"] == "PASS"
     assert report["parameters"]["pipeline_total"]["total"] == 97_956_100

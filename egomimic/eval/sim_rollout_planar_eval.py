@@ -77,7 +77,16 @@ class SimRolloutPlanarEval(Eval):
         chunk_start: int = 0,
         expected_sampler_steps: int | None = None,
         results_path: str | None = None,
+        semantic_blocks=None,
     ):
+        # semantic_blocks belongs to the EnergyScore evaluator. The width-6
+        # experiment configs set it so eval_planar_v2 partitions the token
+        # correctly during TRAINING, and that key merges into whatever
+        # evaluator is active -- including this one when the rollout job
+        # overrides evaluator=sim_rollout_planar_v2. Accept it explicitly and
+        # ignore it, rather than swallowing unknown kwargs: a **kwargs hole
+        # here is exactly how rotation_distance_unit went silently dead.
+        del semantic_blocks
         # 0 is a sentinel: execute the ENTIRE decoded chunk before replanning,
         # i.e. fully open loop within a chunk. Any positive value executes that
         # many decoded actions and then re-observes.

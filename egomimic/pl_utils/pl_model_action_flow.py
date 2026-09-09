@@ -591,9 +591,10 @@ class ActionFlowModelWrapper(ModelWrapper):
     def _log_composite_optimizer_learning_rates(self) -> None:
         """Log the two released optimizer families at the current step."""
 
-        if self.trainer is None or not self.trainer.optimizers:
+        trainer = self._trainer
+        if trainer is None or not trainer.optimizers:
             return
-        optimizer = self.trainer.optimizers[0]
+        optimizer = trainer.optimizers[0]
         adamw = getattr(optimizer, "adamw", None)
         muon = getattr(optimizer, "muon", None)
         if adamw is None and muon is None:

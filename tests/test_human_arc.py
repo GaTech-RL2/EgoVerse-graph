@@ -288,10 +288,9 @@ def test_every_abc_arc_experiment_shares_one_arcmatch_configuration():
 
     root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
     experiments = sorted(
-        f"abc_arc/{p.stem}"
-        for p in (root / "experiment/abc_arc").glob("*.yaml")
+        f"abc_arc/{p.stem}" for p in (root / "experiment/abc_arc").glob("abc_*.yaml")
     )
-    assert len(experiments) == 6, experiments
+    assert len(experiments) == 10, experiments
 
     settings = {}
     for experiment in experiments:
@@ -304,12 +303,14 @@ def test_every_abc_arc_experiment_shares_one_arcmatch_configuration():
         assert evaluator is not None, f"{experiment} has no evaluator"
         assert evaluator._target_.endswith("ArcBimanualCartesianEval"), experiment
         assert evaluator.arc_metrics is True, experiment
+        assert evaluator.include_reconstruction_loss is False, experiment
         settings[experiment] = (
             float(evaluator.min_distance_unit),
             int(evaluator.resampled_vector_length),
             int(evaluator.arcmatch_points),
             int(evaluator.arc_chunk_rows),
             str(evaluator.velocity_mode),
+            bool(evaluator.include_reconstruction_loss),
         )
-    # One shared tuple across all six.
+    # One shared tuple across all arms.
     assert len(set(settings.values())) == 1, settings

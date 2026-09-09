@@ -11,10 +11,11 @@ chunk the loader preserved -- so an arc run and a time-indexed baseline land on
 comparable charts:
 
 ``arcmatch``
-    Re-tokenize prediction and ground truth onto a matched per-arm span (the
-    shorter of the two travelled distances) and score the waypoints. Travel is
-    divided out, so this measures path SHAPE alone. Reported with and without
-    the velocity row; the gap between the two is timing error.
+    Re-tokenize prediction and ground truth onto a shared per-arm span
+    ``min(L_gt, L_pred, D)`` (``D`` optional via ``min_distance_unit``) and
+    score the waypoints. Predictions may be time-indexed chunks or ARC
+    waypoint polylines. Travel is divided out, so this measures path SHAPE
+    alone. Reported with and without the velocity row.
 
 ``dtw``
     Warp the prediction against the ground-truth chunk. Elastic in time, so
@@ -101,8 +102,23 @@ def match_spans(pred_ti: np.ndarray, gt_ti: np.ndarray) -> np.ndarray:
     Whichever side travels less sets the window, so both are re-tokenized over
     a stretch of motion they both actually cover. Without the cut, a prediction
     that runs further is scored against ground truth it never reached.
+
+    Prefer :func:`shared_spans` when a codec distance ``D`` is known -- that is
+    the production fair window ``min(L_gt, L_pred, D)``.
     """
     return np.minimum(arm_travel(pred_ti), arm_travel(gt_ti))
+
+
+def shared_spans(
+    pred_ti: np.ndarray, gt_ti: np.ndarray, min_distance_unit: float
+) -> np.ndarray:
+    """Per-arm shared distance: ``min(L_gt, L_pred, D)``.
+
+    ``D`` is the arc codec span (``min_distance_unit``). Clamping by ``D`` keeps
+    baseline and ARC on the same physical window instead of letting a long
+    time-indexed chunk set a span the ARC head never predicted over.
+    """
+    return np.minimum(match_spans(pred_ti, gt_ti), float(min_distance_unit))
 
 
 def tokenize_span(
@@ -283,12 +299,31 @@ def arcmatch_metrics(
     num_points: int,
     dt: float,
     lever_m: float,
+    min_distance_unit: float | None = None,
 ) -> dict[str, float]:
-    """Re-tokenize both sides onto the matched per-arm span, then score."""
+    """Re-tokenize both sides onto a shared per-arm span, then score waypoints.
+
+    Shared span is ``min(L_gt, L_pred)``, and when ``min_distance_unit`` (D) is
+    set also ``min(..., D)``. Predictions may be time-indexed chunks **or** ARC
+    waypoint polylines (M_tok, 14) -- both are valid arc-length geometries for
+    :func:`tokenize_span`. Do not pass horizon-100 ARC detoks here unless GT
+    travel is shorter than D and both sides must be re-tokenized over that
+    shorter window.
+
+    ``arcmatch_travel_ratio`` is ``mean(L_pred / L_gt)`` on the geometries
+    passed in. On an ARC waypoint polyline ``L_pred ≈ D``, so the ratio reads
+    near ``D / L_gt`` even when shape matching is fair -- compare shapes via
+    the MSE keys, not the ratio, for baseline↔ARC ablations.
+    """
     pred_w, gt_w, pred_v, gt_v, spans, ratios = [], [], [], [], [], []
     for pred, gt in zip(predictions, ground_truth):
-        span = match_spans(pred, gt)
-        if not np.all(np.isfinite(span)):
+        if min_distance_unit is None:
+            span = match_spans(pred, gt)
+        else:
+            span = shared_spans(pred, gt, min_distance_unit)
+        # Idle arms get span 0; tokenize_span keeps them finite/constant. Drop
+        # only non-finite spans or samples where EVERY arm is idle.
+        if not np.all(np.isfinite(span)) or np.all(span <= 0):
             continue
         pw, pv = tokenize_span(pred, span, num_points, dt)
         gw, gv = tokenize_span(gt, span, num_points, dt)
@@ -301,8 +336,8 @@ def arcmatch_metrics(
     if not pred_w:
         return {}
     pred_w, gt_w = np.stack(pred_w), np.stack(gt_w)
-    # With-velocity variant: the velocity row appended as one more sample,
-    # which is what an arc head actually predicts alongside the waypoints.
+    # Velocity row is recomputed by tokenize_span on the SAME shared span for
+    # both sides, so withvel is comparable when pred/GT geometries are fair.
     pred_full = np.concatenate([pred_w, np.stack(pred_v)[:, None, :]], axis=1)
     gt_full = np.concatenate([gt_w, np.stack(gt_v)[:, None, :]], axis=1)
     return {

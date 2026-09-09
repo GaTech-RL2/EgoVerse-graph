@@ -57,9 +57,15 @@ hpt:
 
 evaluator:
   arc_metrics: true
+  include_reconstruction_loss: false
   arcmatch_distance: 0.40
   arcmatch_points: 32
   arc_chunk_rows: 45
   resampled_vector_length: 100
   velocity_mode: per_waypoint
   rot_lever_m: 0.1
+  viz_func:
+    yam_bimanual:
+      annotation_key: annotations
+    human_bimanual:
+      annotation_key: annotations

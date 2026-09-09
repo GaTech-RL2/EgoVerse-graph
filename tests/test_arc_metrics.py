@@ -16,6 +16,7 @@ from egomimic.eval.arc_metrics import (
     match_spans,
     mse,
     pose_err_m,
+    shared_spans,
     tokenize_span,
 )
 
@@ -52,6 +53,37 @@ def test_match_spans_takes_the_shorter_travel_per_arm():
     short = full[: len(full) // 2]
     spans = match_spans(short, full)
     np.testing.assert_allclose(spans, arm_travel(short), rtol=1e-9)
+
+
+def test_shared_spans_also_clamps_by_D():
+    full = _path(span=0.6)
+    spans = shared_spans(full, full, min_distance_unit=0.4)
+    np.testing.assert_allclose(spans, np.full(2, 0.4), rtol=1e-9)
+
+
+def test_arcmatch_with_D_caps_reported_span():
+    full = _path(span=0.6)
+    metrics = arcmatch_metrics(
+        [full], [full], num_points=_M, dt=_DT, lever_m=_LEVER, min_distance_unit=0.4
+    )
+    assert metrics["arcmatch_span_m"] == pytest.approx(0.4, abs=1e-6)
+
+
+def test_arcmatch_keeps_samples_with_one_idle_arm():
+    """A held arm (span 0) must not drop the whole sample from arcmatch."""
+    moving = _path(80, span=0.5)
+    idle_right = moving.copy()
+    idle_right[:, 7:14] = idle_right[0:1, 7:14]  # right arm stationary
+    metrics = arcmatch_metrics(
+        [idle_right],
+        [idle_right],
+        num_points=_M,
+        dt=_DT,
+        lever_m=_LEVER,
+        min_distance_unit=0.4,
+    )
+    assert metrics, "idle-arm sample was dropped"
+    assert metrics["arcmatch_xyz_mse"] == pytest.approx(0.0, abs=1e-12)
 
 
 def test_arm_travel_rejects_a_bad_shape():
@@ -317,6 +349,7 @@ def test_extra_metrics_land_on_the_prediction_device():
     evaluator.action_horizon = 32
     evaluator.velocity_mode = "mean"
     evaluator.arc_metrics = True
+    evaluator.include_reconstruction_loss = False
     evaluator.arcmatch_points = 8
     evaluator.rot_lever_m = _LEVER
     evaluator.dtw_max_samples = 2
@@ -395,9 +428,9 @@ def test_extra_metrics_can_be_turned_off():
 # -- one evaluator, both arms of the ablation -------------------------------
 #
 # The baseline and arc runs must land on the SAME arcmatch charts or the
-# comparison is meaningless. They reach the metrics by different paths -- an arc
-# run detokenizes its token, a baseline run de-interpolates its pose chunk --
-# and the shape predicate is what routes each without configuring it twice.
+# comparison is meaningless. Shared-D prep: baseline keeps tokenizer-resolution
+# poses; ARC uses token waypoints unless L_gt < D (then detok). Overlay still
+# always detokenizes ARC for viz.
 
 
 def _arc_evaluator(velocity_mode="mean", action_horizon=45):
@@ -414,6 +447,7 @@ def _arc_evaluator(velocity_mode="mean", action_horizon=45):
     ev.action_horizon = action_horizon
     ev.velocity_mode = velocity_mode
     ev.arc_metrics = True
+    ev.include_reconstruction_loss = False
     ev.arcmatch_points = 8
     ev.arcmatch_distance = 0.4
     ev.arc_chunk_rows = 45
@@ -510,6 +544,71 @@ def test_both_run_types_emit_the_same_metric_names():
         target=None,
     )
     assert set(arc) == set(baseline)
+
+
+def test_arcmatch_uses_arc_waypoints_when_gt_travel_reaches_D():
+    """L_gt >= D: keep token waypoints; do not detok for arcmatch."""
+    evaluator = _arc_evaluator(action_horizon=100)
+    gt = np.stack([_path(100, span=0.6)])  # travel > D=0.4
+    pred = _arc_token()
+    out = evaluator._arc_pred_for_arcmatch(pred, gt, 7)
+    assert isinstance(out, list)
+    assert out[0].shape == (_M, 14)
+
+
+def test_include_reconstruction_loss_always_detoks_arc_for_arcmatch():
+    """Flag on: detok even when L_gt >= D (reconstruction baked in)."""
+    evaluator = _arc_evaluator(action_horizon=100)
+    evaluator.include_reconstruction_loss = True
+    gt = np.stack([_path(100, span=0.6)])
+    out = evaluator._arc_pred_for_arcmatch(_arc_token(), gt, 7)
+    assert out.shape == (1, 100, 14)
+
+
+def test_arcmatch_detoks_arc_when_gt_travel_is_shorter_than_D():
+    """L_gt < D: detok so both sides re-tokenize over the shorter shared span."""
+    evaluator = _arc_evaluator(action_horizon=100)
+    gt = np.stack([_path(100, span=0.2)])  # travel < D=0.4
+    pred = _arc_token()
+    out = evaluator._arc_pred_for_arcmatch(pred, gt, 7)
+    assert isinstance(out, list)
+    assert out[0].shape == (100, 14)
+
+
+def test_arcmatch_detoks_when_only_one_arm_is_shorter_than_D():
+    """Mixed arms: any arm with L_gt < D forces detok (intentional)."""
+    evaluator = _arc_evaluator(action_horizon=100)
+    gt = _path(100, span=0.6)
+    gt[:, 7:14] = gt[0:1, 7:14]  # right idle → L_right ≈ 0 < D
+    # Give right a short non-zero travel still < D
+    gt[:, 7] = np.linspace(0.0, 0.15, 100)
+    out = evaluator._arc_pred_for_arcmatch(_arc_token(), gt[None], 7)
+    assert out[0].shape == (100, 14)
+
+
+def test_arc_evaluator_rejects_mismatched_arcmatch_and_codec_D():
+    from egomimic.eval.arc_bimanual_cartesian_eval import ArcBimanualCartesianEval
+
+    with pytest.raises(ValueError, match="arcmatch_distance"):
+        ArcBimanualCartesianEval(
+            min_distance_unit=0.40,
+            resampled_vector_length=_M,
+            arcmatch_distance=0.50,
+        )
+
+
+def test_gt_and_baseline_arcmatch_prep_are_not_deinterpolated():
+    """Shared-D uses tokenizer resolution, not arc_chunk_rows=45."""
+    import torch
+
+    evaluator = _arc_evaluator()
+    gt_t = torch.from_numpy(np.stack([_path(100, span=0.5)]))
+    gt = evaluator._arc_gt_time_indexed(
+        {"actions_cartesian_untokenized": gt_t}, embodiment_id=7
+    )
+    pred = evaluator._arc_pred_time_indexed(gt_t, embodiment_id=7)
+    assert gt.shape == (1, 100, 14)
+    assert pred.shape == (1, 100, 14)
 
 
 def test_deinterpolation_reduces_rows_without_inventing_samples():

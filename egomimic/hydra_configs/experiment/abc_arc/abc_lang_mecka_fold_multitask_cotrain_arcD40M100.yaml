@@ -101,6 +101,7 @@ data:
 
 evaluator:
   arc_metrics: true
+  include_reconstruction_loss: false
   arcmatch_distance: ${abc.arc_distance}
   arcmatch_points: ${abc.arcmatch_points}
   arc_chunk_rows: ${abc.arc_chunk_rows}
@@ -108,3 +109,8 @@ evaluator:
   velocity_mode: ${abc.arc_velocity_mode}
   action_horizon: ${abc.action_horizon}
   rot_lever_m: 0.1
+  viz_func:
+    yam_bimanual:
+      annotation_key: annotations
+    human_bimanual:
+      annotation_key: annotations

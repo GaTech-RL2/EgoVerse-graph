@@ -8,8 +8,8 @@
 # Each partial therefore only draws GT (green) and pred (red) onto ``image_key``
 # and does not do its own coordinate-frame revert.
 #
-# annotation_key is null: the ABC baseline data configs do not currently carry
-# per-sample prompts. If a future run adds them, override this per-embodiment.
+# annotation_key is null: ABC DP baselines do not carry per-sample prompts.
+# Language HPT experiments override this to `annotations` on evaluator.viz_func.
 
 yam_bimanual:
   _target_: egomimic.rldb.embodiment.yam.Yam.viz_gt_preds

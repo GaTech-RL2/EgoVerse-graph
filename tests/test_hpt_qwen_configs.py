@@ -45,6 +45,8 @@ def test_lang_experiments_compose(experiment):
         == "annotations"
     )
     assert "annotations" in cfg.data.train_datasets.yam_bimanual.batch_keys
+    assert cfg.evaluator.viz_func.yam_bimanual.annotation_key == "annotations"
+    assert cfg.evaluator.viz_func.human_bimanual.annotation_key == "annotations"
 
 
 def test_baseline_horizon_is_time_indexed():

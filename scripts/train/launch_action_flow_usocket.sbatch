@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --kill-on-invalid-dep=yes
-# Portable one-GPU launcher for the approved U-Socket Action Flow pair.
+# Portable one- or two-GPU launcher for the approved U-Socket Action Flow pair.
 #
 # Cluster-specific account, partition, QoS, source, runtime, data, and output
 # locations are explicit inputs.  The executable model contract remains shared
 # across Phoenix and ICE so the two queue candidates cannot silently drift.
-# Submit with one H100 or H200 and command-line Slurm resource arguments.
+# Submit with one or two H100/H200 GPUs and command-line Slurm resource arguments.
 
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -16,7 +16,8 @@
 
 # Resource selection is intentionally supplied by the submitter.  Preflight
 # runs on one CPU node; smoke/full must pass exactly
-# ``--gres=gpu:1 --constraint='H100|H200'`` and is checked again on-node.
+# ``--gres=gpu:<world-size> --constraint='H100|H200'`` and is checked again
+# on-node. Two-GPU runs use two externally managed Lightning ranks.
 
 set -Eeuo pipefail
 umask 077
@@ -80,6 +81,7 @@ AF_STORAGE_VALIDATOR=${AF_STORAGE_VALIDATOR:-$AF_REPO/scripts/train/check_checkp
 AF_SPLIT_MANIFEST=${AF_SPLIT_MANIFEST:-$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json}
 AF_PRECISION=${AF_PRECISION:-bf16}
 AF_SEED=${AF_SEED:-42}
+AF_WORLD_SIZE=${AF_WORLD_SIZE:-1}
 AF_EXPECTED_GPU_CONSTRAINT=${AF_EXPECTED_GPU_CONSTRAINT:-H100|H200}
 AF_STORAGE_SAFETY_RESERVE_BYTES=${AF_STORAGE_SAFETY_RESERVE_BYTES:-2147483648}
 RESTART_COUNT=${SLURM_RESTART_COUNT:-0}
@@ -95,6 +97,17 @@ case "$AF_RUN_KIND" in
   smoke|full) ;;
   *) die "AF_RUN_KIND must be smoke or full" ;;
 esac
+case "$AF_WORLD_SIZE" in
+  1)
+    AF_STRATEGY=auto
+    AF_TOPOLOGY_TAG=single-gpu
+    ;;
+  2)
+    AF_STRATEGY=ddp_find_unused_parameters_true
+    AF_TOPOLOGY_TAG=ddp2
+    ;;
+  *) die "AF_WORLD_SIZE must be 1 or 2" ;;
+esac
 if test "$AF_LAUNCH_MODE" = run; then
   required AF_EXPECTED_MEMORY
   required AF_EXPECTED_TIME_LIMIT
@@ -104,7 +117,7 @@ AF_FULL_MAX_STEPS=240000
 AF_FULL_VALIDATE_EVERY=10000
 AF_FULL_CHECKPOINT_EVERY=40000
 AF_FULL_LIMIT_VAL_BATCHES=1.0
-AF_VALID_BATCH_SIZE=16
+AF_FULL_VALID_GLOBAL_BATCH_SIZE=16
 case "$AF_EXPERIMENT" in
   pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -116,7 +129,7 @@ case "$AF_EXPERIMENT" in
     AF_FULL_VALIDATE_EVERY=10000
     AF_FULL_CHECKPOINT_EVERY=30000
     AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
+    AF_FULL_VALID_GLOBAL_BATCH_SIZE=32
     AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42)
@@ -206,6 +219,13 @@ case "$AF_EXPERIMENT" in
   *) die "AF_EXPERIMENT must select an explicitly approved Action Flow config" ;;
 esac
 
+test $((32 % AF_WORLD_SIZE)) -eq 0 || die "global train batch must divide world size"
+test $((AF_FULL_VALID_GLOBAL_BATCH_SIZE % AF_WORLD_SIZE)) -eq 0 || \
+  die "global validation batch must divide world size"
+AF_TRAIN_BATCH_SIZE=$((32 / AF_WORLD_SIZE))
+AF_VALID_BATCH_SIZE=$((AF_FULL_VALID_GLOBAL_BATCH_SIZE / AF_WORLD_SIZE))
+AF_WANDB_TAGS=${AF_WANDB_TAGS/single-gpu/$AF_TOPOLOGY_TAG}
+
 if test "$AF_METHOD" != action_flow_joint || [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
   AF_COMPARISON_EXPERIMENT=
 elif test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
@@ -234,6 +254,7 @@ test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = \
 [[ "$AF_CLUSTER_LABEL" =~ ^[A-Za-z0-9_.-]+$ ]] || die "unsafe cluster label"
 [[ "$AF_MAX_RESTARTS" =~ ^[1-9][0-9]*$ ]] || die "invalid AF_MAX_RESTARTS"
 [[ "$AF_SEED" =~ ^[0-9]+$ ]] || die "invalid AF_SEED"
+[[ "$AF_WORLD_SIZE" =~ ^[12]$ ]] || die "invalid AF_WORLD_SIZE"
 [[ "$AF_STORAGE_SAFETY_RESERVE_BYTES" =~ ^[1-9][0-9]*$ ]] || \
   die "invalid AF_STORAGE_SAFETY_RESERVE_BYTES"
 [[ "$RESTART_COUNT" =~ ^[0-9]+$ ]] || die "invalid SLURM_RESTART_COUNT"
@@ -311,7 +332,7 @@ fi
 export PATH="$(dirname "$AF_PYTHON"):$PATH"
 export PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
 export AF_EXTRA_PYTHONPATH
-export AF_REPO AF_PYTHON AF_EXPERIMENT AF_OUTPUT_DIR AF_DATASET_DIR
+export AF_REPO AF_PYTHON AF_EXPERIMENT AF_OUTPUT_DIR AF_DATASET_DIR AF_WORLD_SIZE
 export AF_WANDB_ENTITY AF_WANDB_PROJECT AF_WANDB_RUN_ID AF_WANDB_NAME
 export AF_WANDB_GROUP AF_WANDB_TAGS
 export ICE_REQUIRE_LR_SCHEDULERS=1
@@ -359,12 +380,12 @@ BASE_OVERRIDES=(
   "++paths.root_dir=$AF_REPO"
   "paths.output_dir=$AF_OUTPUT_DIR"
   "paths.work_dir=$AF_REPO"
-  launch_params.gpus_per_node=1
+  "launch_params.gpus_per_node=$AF_WORLD_SIZE"
   launch_params.nodes=1
   trainer.accelerator=gpu
-  trainer.devices=1
+  "trainer.devices=$AF_WORLD_SIZE"
   trainer.num_nodes=1
-  trainer.strategy=auto
+  "trainer.strategy=$AF_STRATEGY"
   trainer.sync_batchnorm=false
   "trainer.precision=$AF_PRECISION"
   trainer.accumulate_grad_batches=1
@@ -391,10 +412,12 @@ BASE_OVERRIDES=(
   'runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints'
   "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$AF_DATASET_DIR"
   "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$AF_DATASET_DIR"
-  data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32
+  "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_TRAIN_BATCH_SIZE"
   "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_VALID_BATCH_SIZE"
-  evaluator.energy_score_validation_view.world_size=1
+  "evaluator.energy_score_validation_view.world_size=$AF_WORLD_SIZE"
   "evaluator.energy_score_validation_view.per_rank_batch_size=$AF_VALID_BATCH_SIZE"
+  "evaluator.action_flow_diagnostics.validation_view.world_size=$AF_WORLD_SIZE"
+  "evaluator.action_flow_diagnostics.validation_view.per_rank_batch_size=$AF_VALID_BATCH_SIZE"
   ++logger.wandb.offline=false
   "++logger.wandb.entity=$AF_WANDB_ENTITY"
   "++logger.wandb.project=$AF_WANDB_PROJECT"
@@ -411,6 +434,12 @@ BASE_OVERRIDES=(
   "++run_provenance.content_manifest_path=$AF_CONTENT_MANIFEST"
   "++run_provenance.content_manifest_sha256=$AF_EXPECTED_CONTENT_MANIFEST_SHA256"
   "++run_provenance.dataset_content_aggregate_sha256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256"
+  "++run_provenance.execution_world_size=$AF_WORLD_SIZE"
+  "++run_provenance.per_rank_train_batch_size=$AF_TRAIN_BATCH_SIZE"
+  ++run_provenance.effective_global_batch_size=32
+  "run_provenance.validation.per_rank_batch_size=$AF_VALID_BATCH_SIZE"
+  "run_provenance.validation.world_size=$AF_WORLD_SIZE"
+  "run_provenance.validation.global_batch_size=$AF_FULL_VALID_GLOBAL_BATCH_SIZE"
 )
 
 if test "$AF_METHOD" != gaussian_bridge_likelihood; then
@@ -730,7 +759,8 @@ test "$SLURM_JOB_ACCOUNT" = "$AF_EXPECTED_ACCOUNT" || die "unexpected Slurm acco
 partition_allowed "$AF_EXPECTED_PARTITION" "$SLURM_JOB_PARTITION" || die "unexpected Slurm partition"
 test "$SLURM_JOB_QOS" = "$AF_EXPECTED_QOS" || die "unexpected Slurm QoS"
 test "$SLURM_JOB_NUM_NODES" = 1 || die "launcher requires one node"
-test "$SLURM_NTASKS" = 1 || die "launcher requires one task"
+test "$SLURM_NTASKS" = "$AF_WORLD_SIZE" || \
+  die "launcher task count must equal AF_WORLD_SIZE"
 test "$SLURM_CPUS_PER_TASK" -eq 8 || die "launcher requires exactly eight CPUs"
 
 if test "$RESTART_COUNT" = 0; then
@@ -794,7 +824,9 @@ scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
   --expected-account "$AF_EXPECTED_ACCOUNT" \
   --expected-partition "$SLURM_JOB_PARTITION" \
   --expected-qos "$AF_EXPECTED_QOS" \
-  --expected-cpus 8 \
+  --expected-cpus "$((8 * AF_WORLD_SIZE))" \
+  --expected-tasks "$AF_WORLD_SIZE" \
+  --expected-gpus "$AF_WORLD_SIZE" \
   --expected-memory "$AF_EXPECTED_MEMORY" \
   --expected-time-limit "$AF_EXPECTED_TIME_LIMIT" \
   --expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT" \
@@ -803,13 +835,24 @@ scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
 SRUN=$(command -v srun)
 test -x "$SRUN" || die "srun is unavailable"
 export SRUN
-"$SRUN" --nodes=1 --ntasks=1 --gpus-per-task=1 \
-  --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 --unbuffered \
-  "$AF_PYTHON" "$AF_GPU_PROBE" \
-  --expected-world-size 1 \
-  --allowed-gpu-name "NVIDIA H100 80GB HBM3" \
-  --allowed-gpu-name "NVIDIA H200" \
-  --output "$ATTEMPT/gpu_probe.json"
+if test "$AF_WORLD_SIZE" = 1; then
+  "$SRUN" --nodes=1 --ntasks=1 --gpus-per-task=1 \
+    --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 --unbuffered \
+    "$AF_PYTHON" "$AF_GPU_PROBE" \
+    --expected-world-size 1 \
+    --allowed-gpu-name "NVIDIA H100 80GB HBM3" \
+    --allowed-gpu-name "NVIDIA H200" \
+    --output "$ATTEMPT/gpu_probe.json"
+else
+  for gpu_index in 0 1; do
+    CUDA_VISIBLE_DEVICES=$gpu_index SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
+      "$AF_PYTHON" "$AF_GPU_PROBE" \
+      --expected-world-size 1 \
+      --allowed-gpu-name "NVIDIA H100 80GB HBM3" \
+      --allowed-gpu-name "NVIDIA H200" \
+      --output "$ATTEMPT/gpu_probe_${gpu_index}.json"
+  done
+fi
 
 (
   cd "$AF_REPO"
@@ -828,7 +871,8 @@ export SRUN
   "$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS" \
   "$RECONSTRUCTION_ONLY_WARMUP_STEPS" "$AF_FULL_MAX_STEPS" \
   "$AF_FULL_VALIDATE_EVERY" "$AF_FULL_CHECKPOINT_EVERY" \
-  "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" <<'PY'
+  "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" \
+  "$AF_WORLD_SIZE" "$AF_TRAIN_BATCH_SIZE" "$AF_STRATEGY" <<'PY'
 import math
 import pathlib
 import sys
@@ -861,6 +905,9 @@ from omegaconf import OmegaConf
     full_checkpoint_every,
     full_limit_val_batches,
     valid_batch_size,
+    world_size,
+    train_batch_size,
+    strategy,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
@@ -872,6 +919,8 @@ full_validate_every = int(full_validate_every)
 full_checkpoint_every = int(full_checkpoint_every)
 full_limit_val_batches = float(full_limit_val_batches)
 valid_batch_size = int(valid_batch_size)
+world_size = int(world_size)
+train_batch_size = int(train_batch_size)
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -883,6 +932,12 @@ assert cfg.run_provenance.preflight_result_sha256 == preflight_sha
 assert str(cfg.run_provenance.content_manifest_path) == content_manifest
 assert cfg.run_provenance.content_manifest_sha256 == content_manifest_sha
 assert cfg.run_provenance.dataset_content_aggregate_sha256 == content_aggregate_sha
+assert cfg.run_provenance.execution_world_size == world_size
+assert cfg.run_provenance.per_rank_train_batch_size == train_batch_size
+assert cfg.run_provenance.effective_global_batch_size == 32
+assert cfg.run_provenance.validation.per_rank_batch_size == valid_batch_size
+assert cfg.run_provenance.validation.world_size == world_size
+assert cfg.run_provenance.validation.global_batch_size == valid_batch_size * world_size
 if run_kind == "full":
     assert cfg.run_provenance.smoke_result_sha256 == smoke_sha
 else:
@@ -959,8 +1014,8 @@ if not unite_recipe:
     assert scheduler.warmup_start_factor == 0.1
     assert scheduler.eta_min == (1e-6 if scaled_200m else 3e-6)
 assert cfg.trainer.accelerator == "gpu"
-assert cfg.trainer.devices == cfg.trainer.num_nodes == 1
-assert cfg.trainer.strategy == "auto" and cfg.trainer.sync_batchnorm is False
+assert cfg.trainer.devices == world_size and cfg.trainer.num_nodes == 1
+assert cfg.trainer.strategy == strategy and cfg.trainer.sync_batchnorm is False
 assert str(cfg.trainer.precision) == "bf16"
 assert cfg.trainer.accumulate_grad_batches == 1
 if run_kind == "smoke":
@@ -984,8 +1039,13 @@ source = "pushshapes_sim_u_socket"
 assert set(cfg.data.train_datasets) == set(cfg.data.valid_datasets) == {source}
 assert cfg.data.train_datasets[source].resolver.folder_path == dataset
 assert cfg.data.valid_datasets[source].resolver.folder_path == dataset
-assert cfg.data.train_dataloader_params[source].batch_size == 32
+assert cfg.launch_params.gpus_per_node == world_size
+assert cfg.launch_params.nodes == 1
+assert cfg.data.train_dataloader_params[source].batch_size == train_batch_size
+assert train_batch_size * world_size == 32
 assert cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size
+assert cfg.evaluator.energy_score_validation_view.world_size == world_size
+assert cfg.evaluator.energy_score_validation_view.per_rank_batch_size == valid_batch_size
 assert str(cfg.norm_stats.precomputed_norm_path) == norm
 assert cfg.norm_stats.save_cache_dir is None
 diagnostics = cfg.evaluator.action_flow_diagnostics
@@ -995,7 +1055,7 @@ if method != LIKELIHOOD_METHOD:
     assert diagnostics.max_samples == 16 and diagnostics.jacobian_samples == 2
     assert diagnostics.capture_activations is (method != GRAPH_METHOD)
     assert diagnostics.cknna_k == (0 if method == GRAPH_METHOD else 10)
-    assert diagnostics.validation_view.world_size == 1
+    assert diagnostics.validation_view.world_size == world_size
     assert diagnostics.validation_view.per_rank_batch_size == valid_batch_size
 pipeline = instantiate(cfg.model.pipeline, device="cpu")
 _validate_topology(cfg, pipeline)
@@ -1070,7 +1130,12 @@ cd "$AF_REPO"
 export PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
 export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
 export WANDB_MODE=online WANDB_SILENT=true MUJOCO_GL=egl
-exec "$SRUN" --nodes=1 --ntasks=1 --gpus-per-task=1 \
+export SLURM_EXPORT_ENV=ALL
+srun_gpu_args=()
+if test "$AF_WORLD_SIZE" = 1; then
+  srun_gpu_args=(--gpus-per-task=1)
+fi
+exec "$SRUN" --nodes=1 --ntasks="$AF_WORLD_SIZE" "${srun_gpu_args[@]}" \
   --cpus-per-task="${SLURM_CPUS_PER_TASK:?}" --kill-on-bad-exit=1 --unbuffered \
   "$AF_PYTHON" -m egomimic.trainHydra "$@" \
   "$checkpoint_override"

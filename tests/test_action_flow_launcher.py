@@ -31,7 +31,7 @@ def test_launcher_uses_the_maintained_dataset_validator_success_token():
     assert f'dataset_report["status"] == "{match.group(1)}"' in _source()
 
 
-def test_launcher_is_one_portable_fail_closed_contract():
+def test_launcher_is_one_or_two_gpu_portable_fail_closed_contract():
     source = _source()
     assert "AF_EXPECTED_HEAD" in source
     assert "AF_EXPECTED_LAUNCHER_SHA256" in source
@@ -45,13 +45,16 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "capture_runtime_lock.py" in source
     assert "validate_slurm_job_contract.py" in source
     assert "check_checkpoint_storage.py" in source
-    assert "--gres=gpu:1 --constraint='H100|H200'" in source
+    assert "--gres=gpu:<world-size> --constraint='H100|H200'" in source
     assert '--allowed-gpu-name "NVIDIA H100 80GB HBM3"' in source
     assert '--allowed-gpu-name "NVIDIA H200"' in source
     assert "AF_EXPECTED_GPU_CONSTRAINT" in source
     assert '--expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT"' in source
-    assert "trainer.devices=1" in source
-    assert "trainer.strategy=auto" in source
+    assert '"trainer.devices=$AF_WORLD_SIZE"' in source
+    assert '"trainer.strategy=$AF_STRATEGY"' in source
+    assert "ddp_find_unused_parameters_true" in source
+    assert "AF_TRAIN_BATCH_SIZE=$((32 / AF_WORLD_SIZE))" in source
+    assert "SLURM_EXPORT_ENV=ALL" in source
     assert "#SBATCH --requeue" in source
     assert "#SBATCH --signal=B:USR1@600" in source
     assert "/coc/" not in source
@@ -89,14 +92,15 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
     assert (
-        "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32" in source
+        '"data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_TRAIN_BATCH_SIZE"'
+        in source
     )
     assert (
         "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_VALID_BATCH_SIZE"
         in source
     )
     assert "AF_FULL_LIMIT_VAL_BATCHES=8" in source
-    assert "AF_VALID_BATCH_SIZE=32" in source
+    assert "AF_FULL_VALID_GLOBAL_BATCH_SIZE=32" in source
     assert 'cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size' in source
     assert 'diagnostics.validation_view.per_rank_batch_size == valid_batch_size' in source
     assert 'cfg.trainer.val_check_interval == full_validate_every' in source

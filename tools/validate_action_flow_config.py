@@ -102,6 +102,9 @@ GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
 STOPGRAD_UNITE_METHOD = "latent_fm_stopgrad_unite"
 STOPGRAD_UNITE_CONFIG_NAME = "action_flow_usocket_latent_fm_sg_unite_h384_s42"
+STOPGRAD_UNITE_PARITY_CONFIG_NAME = (
+    "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+)
 SCALED_MUON_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
@@ -115,6 +118,7 @@ CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -584,7 +588,7 @@ def _validate_unite_dimensions_and_modules(
 
     _exact(int(bridge.samples_per_content), 14, "bridge samples")
     _float(bridge.condition_dropout_probability, 0.1, "bridge condition dropout")
-    _exact(bridge.time_sampling, "unite_lognormal_shifted", "bridge time sampling")
+    _exact(bridge.time_sampling, "lognormal_shifted", "bridge time sampling")
     _float(bridge.lognorm_mu, 0.0, "bridge log-normal mean")
     _float(bridge.lognorm_sigma, 1.0, "bridge log-normal sigma")
     _float(bridge.timestep_shift_alpha, 0.5, "bridge timestep shift")
@@ -594,12 +598,15 @@ def _validate_unite_dimensions_and_modules(
         True,
         "independent condition dropout",
     )
+    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
     _exact(field_stage.flow_clean_gradient_mode, "all_stopgrad", "FM stop-gradient")
     _exact(field_stage.inference_method, "dopri5", "inference method")
     _exact(int(field_stage.num_inference_steps), 50, "Dopri5 output points")
     _float(field_stage.timestep_shift_alpha, 0.5, "inference timestep shift")
     _float(field_stage.dopri5_atol, 1.0e-6, "Dopri5 absolute tolerance")
     _float(field_stage.dopri5_rtol, 1.0e-3, "Dopri5 relative tolerance")
+    _float(field_stage.cfg_scale, 4.0 if parity else 1.0, "CFG scale")
+    _exact(tuple(field_stage.cfg_interval), (0.0, 1.0), "CFG interval")
     _float(
         decoder_stage.reconstruction_noising_start,
         0.7,
@@ -613,6 +620,12 @@ def _validate_unite_dimensions_and_modules(
     _float(objective.flow_weight, 1.0, "FM weight")
     _float(objective.reconstruction_weight, 1.0, "reconstruction weight")
     _float(objective.action_velocity_weight, 1.0, "action-velocity weight")
+    _exact(
+        objective.flow_aggregation,
+        "sum_samples" if parity else "mean",
+        "flow aggregation",
+    )
+    _exact(int(objective.flow_samples_per_content), 14, "objective flow samples")
 
     parameters = {
         "state_projection": _parameter_manifest(projection),
@@ -965,7 +978,12 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         _float(scheduler.final_lr, 5.0e-5, "scheduler final LR")
         trainer = config.trainer
         _exact(int(trainer.max_steps), 150_000, "trainer maximum steps")
-        _exact(int(trainer.val_check_interval), 30_000, "validation cadence")
+        validation_every = (
+            10_000
+            if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+            else 30_000
+        )
+        _exact(int(trainer.val_check_interval), validation_every, "validation cadence")
         _require(str(trainer.precision) in {"bf16", "bf16-mixed"}, "BF16 precision")
         _float(trainer.gradient_clip_val, 3.0, "gradient clip")
         checkpoint = config.callbacks.model_checkpoint
@@ -982,7 +1000,7 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
             "optimizer": {"target": str(optimizer._target_), "lr": 1.0e-4},
             "precision": str(trainer.precision),
             "scheduler": {"target": str(scheduler._target_)},
-            "validation_every_steps": 30_000,
+            "validation_every_steps": validation_every,
         }
     scaled_muon = str(config.name) == SCALED_MUON_CONFIG_NAME
     scaled_200m = str(config.name) in SCALED_200M_CONFIG_NAMES
@@ -1127,6 +1145,14 @@ def _validate_data_and_launch(
     _exact(train_batch, 32, "per-GPU train batch")
     _exact(global_batch, 32, "effective global batch")
     _exact(int(config.planar.batch_size), 32, "declared batch size")
+    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+    _exact(
+        int(config.data.valid_dataloader_params[source].batch_size),
+        32 if parity else 16,
+        "per-GPU validation batch",
+    )
+    if parity:
+        _exact(int(config.trainer.limit_val_batches), 8, "validation batch limit")
 
     provenance = config.run_provenance
     _exact(int(provenance.split_seed), 42, "provenance split seed")
@@ -1331,7 +1357,7 @@ def _validate_data_and_launch(
             _exact(int(provenance.inference.steps), 16, "inference sampler steps")
     _exact(
         bool(provenance.inference.classifier_free_guidance),
-        False,
+        str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME,
         "canonical classifier-free guidance",
     )
     _exact(
@@ -1477,7 +1503,7 @@ def _validate_data_and_launch(
         )
         _exact(
             int(diagnostics.validation_view.per_rank_batch_size),
-            16,
+            32 if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME else 16,
             "diagnostic validation batch size",
         )
         _exact(

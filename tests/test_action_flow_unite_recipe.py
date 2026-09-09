@@ -100,7 +100,7 @@ def test_unite_bridge_maps_shifted_clean_fraction_to_action_flow_time():
     stage = LatentBridgeStage(
         samples_per_content=128,
         condition_dropout_probability=0.1,
-        time_sampling="unite_lognormal_shifted",
+        time_sampling="lognormal_shifted",
         lognorm_mu=0.0,
         lognorm_sigma=1.0,
         timestep_shift_alpha=0.5,
@@ -126,6 +126,12 @@ def test_unite_bridge_maps_shifted_clean_fraction_to_action_flow_time():
 class _ConstantField(torch.nn.Module):
     def forward(self, value, time, condition, condition_drop_mask=None):
         return torch.ones_like(value)
+
+
+class _MaskField(torch.nn.Module):
+    def forward(self, value, time, condition, condition_drop_mask=None):
+        shape = (value.shape[0],) + (1,) * (value.ndim - 1)
+        return condition_drop_mask.to(value.dtype).reshape(shape).expand_as(value)
 
 
 def test_dopri5_integrates_from_gaussian_t1_to_clean_t0(monkeypatch):
@@ -154,6 +160,26 @@ def test_dopri5_integrates_from_gaussian_t1_to_clean_t0(monkeypatch):
     torch.testing.assert_close(captured["times"][[0, -1]], torch.tensor([1.0, 0.0]))
     torch.testing.assert_close(
         result["action_flow/generated_latent"], torch.zeros(2, 2, 4)
+    )
+
+
+def test_cfg_scale_four_matches_released_unite_guidance_formula():
+    stage = ConditionalVelocityStage(
+        field=_MaskField(),
+        num_inference_steps=2,
+        inference_method="euler",
+        cfg_scale=4.0,
+        cfg_interval=(0.0, 1.0),
+    )
+    noise = torch.zeros(2, 2, 4)
+    result = stage.execute(
+        {"sampler/noise": noise, "condition": torch.randn(2, 8)},
+        mode="inference",
+    )
+    # t=1 is outside the released interval and contributes zero. At t=0.5,
+    # conditioned=0 and unconditioned=1, so CFG4 gives 1+4*(0-1)=-3.
+    torch.testing.assert_close(
+        result["action_flow/generated_latent"], torch.full_like(noise, 1.5)
     )
 
 

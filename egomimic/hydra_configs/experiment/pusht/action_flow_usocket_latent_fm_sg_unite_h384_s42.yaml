@@ -87,7 +87,7 @@ evaluator:
       condition_dropout_probability: ${model.condition_dropout_probability}
       sampler: dopri5
       sampler_steps: ${model.num_inference_steps}
-      flow_time_sampling: unite_lognormal_shifted_mapped_to_t0_clean
+      flow_time_sampling: lognormal_shifted_mapped_to_t0_clean
       reconstruction_noising: clean_fraction_uniform_0p7_to_1_probability_0p5
       fixed_level_coupling: one_clean_latent_and_one_gaussian_per_condition
       decoder_jacobian_evaluation: declared_bridge_state_at_each_fixed_noise_level

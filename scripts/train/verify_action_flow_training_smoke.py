@@ -75,10 +75,18 @@ SCALED_ADAMW_EXPERIMENT = (
 SCALED_200M_EXPERIMENTS = {SCALED_MUON_EXPERIMENT, SCALED_ADAMW_EXPERIMENT}
 SCALED_200M_PARAMETER_COUNT = 199_754_837
 UNITE_H384_EXPERIMENT = "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42"
+UNITE_H384_PARITY_EXPERIMENT = (
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+)
 UNITE_H384_PARAMETER_COUNT = 97_956_100
 APPROVED_EXPERIMENTS = {
     UNITE_H384_EXPERIMENT: (
         "action_flow_usocket_latent_fm_sg_unite_h384_s42",
+        1.0,
+        1.0,
+    ),
+    UNITE_H384_PARITY_EXPERIMENT: (
+        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
         1.0,
         1.0,
     ),
@@ -339,6 +347,7 @@ def _validate_config(
     scaled_muon = experiment == SCALED_MUON_EXPERIMENT
     scaled_200m = experiment in SCALED_200M_EXPERIMENTS
     unite_recipe = method == STOPGRAD_UNITE_METHOD
+    unite_parity = experiment == UNITE_H384_PARITY_EXPERIMENT
     field_hidden_dim = 1_024 if scaled_200m else 512
     field_depth = 14 if scaled_200m else 12
     field_num_heads = 16 if scaled_200m else 8
@@ -374,7 +383,10 @@ def _validate_config(
         ("run_provenance.energy_score_contract.sample_count", 32),
         ("evaluator.energy_score_max_batches_per_rank", 1),
         ("evaluator.energy_score_validation_view.world_size", 1),
-        ("evaluator.energy_score_validation_view.per_rank_batch_size", 16),
+        (
+            "evaluator.energy_score_validation_view.per_rank_batch_size",
+            32 if unite_parity else 16,
+        ),
     )
     if unite_recipe:
         architecture_checks = (
@@ -566,7 +578,11 @@ def _validate_config(
             else "dopri5" if unite_recipe else "reverse_euler"
         ),
     )
-    _exact(config, "run_provenance.inference.classifier_free_guidance", False)
+    _exact(
+        config,
+        "run_provenance.inference.classifier_free_guidance",
+        unite_parity,
+    )
     _exact(config, "run_provenance.action_contract.prediction_horizon", 16)
     _exact(
         config,
@@ -635,7 +651,7 @@ def _validate_config(
     _exact(
         config,
         f"data.valid_dataloader_params.{SOURCE_LABEL}.batch_size",
-        16,
+        32 if unite_parity else 16,
     )
     global_batch = (
         int(config.data.train_dataloader_params[SOURCE_LABEL].batch_size)
@@ -1085,6 +1101,7 @@ def _validate_optimizer_state(
         in {
             APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_EXPERIMENT][0],
+            APPROVED_EXPERIMENTS[UNITE_H384_PARITY_EXPERIMENT][0],
         }
     )
     if not composite_optimizer:
@@ -1760,30 +1777,37 @@ def _validate_artifacts(
         "EnergyScore artifact source mismatch",
     )
     domain = energy["domains"][SOURCE_LABEL]
+    validation_batch_size = int(
+        config.evaluator.energy_score_validation_view.per_rank_batch_size
+    )
     predictions = domain.get("predictions")
     targets = domain.get("targets")
     native_predictions = domain.get("native_predictions")
     native_targets = domain.get("native_targets")
     _require(
-        torch.is_tensor(predictions) and tuple(predictions.shape) == (32, 16, 16, 4),
-        "EnergyScore predictions do not have shape (32, 16, 16, 4)",
+        torch.is_tensor(predictions)
+        and tuple(predictions.shape) == (32, validation_batch_size, 16, 4),
+        "EnergyScore predictions have the wrong validation-batch shape",
     )
     _require(
-        torch.is_tensor(targets) and tuple(targets.shape) == (16, 16, 4),
-        "EnergyScore targets do not have shape (16, 16, 4)",
+        torch.is_tensor(targets)
+        and tuple(targets.shape) == (validation_batch_size, 16, 4),
+        "EnergyScore targets have the wrong validation-batch shape",
     )
     _require(
         torch.is_tensor(native_predictions)
-        and tuple(native_predictions.shape) == (32, 16, 16, 3),
+        and tuple(native_predictions.shape)
+        == (32, validation_batch_size, 16, 3),
         "typed EnergyScore native predictions have the wrong shape",
     )
     _require(
-        torch.is_tensor(native_targets) and tuple(native_targets.shape) == (16, 16, 3),
+        torch.is_tensor(native_targets)
+        and tuple(native_targets.shape) == (validation_batch_size, 16, 3),
         "typed EnergyScore native targets have the wrong shape",
     )
     conditions = domain.get("condition_ids")
     _require(
-        isinstance(conditions, list) and len(conditions) == 16,
+        isinstance(conditions, list) and len(conditions) == validation_batch_size,
         "EnergyScore condition identities are incomplete",
     )
     for index, condition in enumerate(conditions):

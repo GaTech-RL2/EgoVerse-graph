@@ -155,6 +155,29 @@ def test_unite_h384_no_checkpointing_changes_only_compute_memory_tradeoff():
     assert config.model.cfg_scale == pytest.approx(4.0)
 
 
+def test_unite_h384_scale1_changes_only_the_declared_decoder_regularizer():
+    experiment = (
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42"
+    )
+    report, _ = preflight.validate_experiment(
+        experiment,
+        config_root=CONFIG_ROOT,
+    )
+    config = preflight.compose_experiment(experiment, config_root=CONFIG_ROOT)
+
+    assert report["status"] == "PASS"
+    assert report["parameters"]["pipeline_total"]["total"] == 97_956_100
+    assert config.model.decoded_noise_scale_weight == pytest.approx(1.0)
+    assert config.model.pipeline.stages[7].decode_noise is True
+    assert config.model.pipeline.stages[8].moment_weight == pytest.approx(1.0)
+    pair = preflight.validate_pair(
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        experiment,
+        config_root=CONFIG_ROOT,
+    )
+    assert pair["comparison"]["only_declared_scale_differences"] is True
+
+
 def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",

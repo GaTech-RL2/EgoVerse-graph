@@ -84,6 +84,10 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
         "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42"
         in source
     )
+    assert (
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42"
+        in source
+    )
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42" in source

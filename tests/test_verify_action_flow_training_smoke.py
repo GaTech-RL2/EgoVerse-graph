@@ -53,6 +53,7 @@ def _resolved_smoke_config(
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42",
+            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42",
         } else 1
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
@@ -68,6 +69,7 @@ def _resolved_smoke_config(
         validation_global_batch = 32 if experiment in {
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42",
+            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42",
         } else 16
         cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size = (
             validation_global_batch // world_size
@@ -321,9 +323,16 @@ def _history_row():
         "ReconstructionLoss",
         "ReconstructionL1",
         "ActionVelocityLoss",
+        "DecodedNoiseMomentLoss",
+        "DecodedNoiseMeanPenalty",
+        "DecodedNoiseCovariancePenalty",
     ):
-        train_value = 3.75 if name == "TotalLoss" else 1.25
-        valid_value = 4.5 if name == "TotalLoss" else 1.5
+        if name == "TotalLoss":
+            train_value, valid_value = 3.75, 4.5
+        elif name.startswith("DecodedNoise"):
+            train_value, valid_value = 0.0, 0.0
+        else:
+            train_value, valid_value = 1.25, 1.5
         row[f"Train/ActionFlow/{name}_step"] = train_value
         row[f"Train/ActionFlow/{name}/{MODULE.SOURCE_LABEL}_step"] = train_value
         row[f"Valid/ActionFlow/{name}"] = valid_value

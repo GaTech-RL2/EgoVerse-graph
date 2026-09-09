@@ -71,6 +71,7 @@ abc:
 # Arc metrics ON, matching the baseline twin so the arms are comparable.
 evaluator:
   arc_metrics: true
+  include_reconstruction_loss: false
   arcmatch_distance: ${abc.arc_distance}
   arcmatch_points: ${abc.arcmatch_points}
   arc_chunk_rows: ${abc.arc_chunk_rows}

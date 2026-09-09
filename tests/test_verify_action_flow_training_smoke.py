@@ -183,9 +183,16 @@ def _history_row():
         "ReconstructionLoss",
         "ReconstructionL1",
         "ActionVelocityLoss",
+        "DecodedNoiseMomentLoss",
+        "DecodedNoiseMeanPenalty",
+        "DecodedNoiseCovariancePenalty",
     ):
-        train_value = 3.75 if name == "TotalLoss" else 1.25
-        valid_value = 4.5 if name == "TotalLoss" else 1.5
+        if name == "TotalLoss":
+            train_value, valid_value = 3.75, 4.5
+        elif name.startswith("DecodedNoise"):
+            train_value, valid_value = 0.0, 0.0
+        else:
+            train_value, valid_value = 1.25, 1.5
         row[f"Train/ActionFlow/{name}_step"] = train_value
         row[f"Train/ActionFlow/{name}/{MODULE.SOURCE_LABEL}_step"] = train_value
         row[f"Valid/ActionFlow/{name}"] = valid_value
@@ -260,6 +267,25 @@ def test_history_gate_accepts_float32_flow_weight_telemetry():
     )
 
     assert result["train_step"] == 2
+
+
+def test_history_gate_includes_decoded_noise_scale_in_weighted_total():
+    row = _history_row()
+    for suffix in ("", f"/{MODULE.SOURCE_LABEL}"):
+        row[f"Train/ActionFlow/DecodedNoiseMeanPenalty{suffix}_step"] = 0.15
+        row[f"Train/ActionFlow/DecodedNoiseCovariancePenalty{suffix}_step"] = 0.25
+        row[f"Train/ActionFlow/DecodedNoiseMomentLoss{suffix}_step"] = 0.4
+        row[f"Train/ActionFlow/TotalLoss{suffix}_step"] = 4.15
+    row["Valid/ActionFlow/DecodedNoiseMeanPenalty"] = 0.15
+    row["Valid/ActionFlow/DecodedNoiseCovariancePenalty"] = 0.25
+    row["Valid/ActionFlow/DecodedNoiseMomentLoss"] = 0.4
+    row["Valid/ActionFlow/TotalLoss"] = 4.9
+
+    result = MODULE._validate_history(
+        {2: row}, decoded_noise_scale_weight=1.0
+    )
+
+    assert result["train"]["Train/ActionFlow/DecodedNoiseMomentLoss"] == 0.4
 
 
 def test_history_gate_rejects_missing_gradient_telemetry():

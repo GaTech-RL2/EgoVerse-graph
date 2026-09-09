@@ -1337,6 +1337,7 @@ def _validate_history(
     *,
     reconstruction_weight: float = 1.0,
     flow_weight: float = 1.0,
+    decoded_noise_scale_weight: float = 0.0,
     expect_reconstruction_warmup: bool = False,
     method: str = LEGACY_METHOD,
 ) -> dict[str, Any]:
@@ -1346,6 +1347,9 @@ def _validate_history(
         "ReconstructionLoss",
         "ReconstructionL1",
         "ActionVelocityLoss",
+        "DecodedNoiseMomentLoss",
+        "DecodedNoiseMeanPenalty",
+        "DecodedNoiseCovariancePenalty",
     )
     if method == LIKELIHOOD_METHOD:
         component_names = ("TotalLoss", "InteriorBridgeNLL", "BoundaryNLL")
@@ -1455,6 +1459,20 @@ def _validate_history(
         "joint smoke step did not enable both delayed objectives",
     )
     for suffix in ("", f"/{SOURCE_LABEL}"):
+        if method != LIKELIHOOD_METHOD:
+            _require(
+                math.isclose(
+                    train[f"Train/ActionFlow/DecodedNoiseMomentLoss{suffix}"],
+                    train[f"Train/ActionFlow/DecodedNoiseMeanPenalty{suffix}"]
+                    + train[
+                        f"Train/ActionFlow/DecodedNoiseCovariancePenalty{suffix}"
+                    ],
+                    rel_tol=1.0e-5,
+                    abs_tol=1.0e-7,
+                ),
+                f"decoded-noise moment components are inconsistent for "
+                f"{suffix or 'macro'}",
+            )
         expected_total = (
             (
                 train[f"Train/ActionFlow/InteriorBridgeNLL{suffix}"]
@@ -1466,6 +1484,8 @@ def _validate_history(
                 + reconstruction_weight
                 * train[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
                 + train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
+                + decoded_noise_scale_weight
+                * train[f"Train/ActionFlow/DecodedNoiseMomentLoss{suffix}"]
             )
         )
         _require(
@@ -1564,6 +1584,8 @@ def _validate_history(
             flow_weight * valid["Valid/ActionFlow/FlowMatchingLoss"]
             + reconstruction_weight * valid["Valid/ActionFlow/ReconstructionLoss"]
             + valid["Valid/ActionFlow/ActionVelocityLoss"]
+            + decoded_noise_scale_weight
+            * valid["Valid/ActionFlow/DecodedNoiseMomentLoss"]
         )
     )
     _require(
@@ -2169,6 +2191,9 @@ def verify_smoke(
         rows,
         reconstruction_weight=APPROVED_EXPERIMENTS[experiment][1],
         flow_weight=APPROVED_EXPERIMENTS[experiment][2],
+        decoded_noise_scale_weight=(
+            1.0 if experiment == SCALE1_ADAMW_EXPERIMENT else 0.0
+        ),
         expect_reconstruction_warmup=expect_reconstruction_warmup,
         method=method,
     )

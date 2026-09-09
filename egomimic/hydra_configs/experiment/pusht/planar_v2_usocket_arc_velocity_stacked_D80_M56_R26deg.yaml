@@ -44,3 +44,11 @@ data:
         transform_list:
           dt: ${planar.arc_dt}
           rotation_distance_unit: ${planar.arc_rotation_distance}
+
+# eval_planar_v2 hardcodes semantic_blocks for the width-5 planar action
+# ([x,y] [cos,sin] [grip]). The stacked token is width 6 --
+# [x, y, timing_translation, cos, sin, timing_rotation] -- and the EnergyScore
+# validator requires the blocks to partition EVERY channel exactly once, so the
+# width-5 partition is a hard error here rather than a silent mismatch.
+evaluator:
+  semantic_blocks: [[0, 2], [2, 3], [3, 5], [5, 6]]

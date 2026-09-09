@@ -74,8 +74,9 @@ ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
 ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-unite-ice}
 ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,unite,ice]'}
 ICE_FAMILY=unite
-ICE_WORLD_SIZE=1
-ICE_TRAINER_STRATEGY=auto
+ICE_WORLD_SIZE=${ICE_WORLD_SIZE:-1}
+positive_integer ICE_WORLD_SIZE "$ICE_WORLD_SIZE"
+if test "$ICE_WORLD_SIZE" = 1; then ICE_TRAINER_STRATEGY=auto; else ICE_TRAINER_STRATEGY=ddp_find_unused_parameters_true; fi
 ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
 # Cotrain launcher: which embodiments the selected experiment trains on. Each
 # present embodiment needs its own dataset root, split manifest and manifest
@@ -601,10 +602,13 @@ export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY
 # ``srun`` steps must inherit the runner-owned requeue contract as well.
 export SLURM_EXPORT_ENV=ALL
 
-CUDA_VISIBLE_DEVICES=0 SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
-  "$ICE_PYTHON" "$ICE_GPU_PROBE" \
-  --expected-world-size 1 --allowed-gpu-name H100 --allowed-gpu-name H200 \
-  --output "$ATTEMPT_PROVENANCE/gpu_probe_0.json"
+# The probe is single-GPU by contract; run it once per local GPU of the allocation.
+for gpu_index in $(seq 0 $((ICE_WORLD_SIZE - 1))); do
+  CUDA_VISIBLE_DEVICES=$gpu_index SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
+    "$ICE_PYTHON" "$ICE_GPU_PROBE" \
+    --expected-world-size 1 --allowed-gpu-name H100 --allowed-gpu-name H200 \
+    --output "$ATTEMPT_PROVENANCE/gpu_probe_$gpu_index.json"
+done
 
 read -r -d '' CHILD_CODE <<'BASH' || true
 set -Eeuo pipefail

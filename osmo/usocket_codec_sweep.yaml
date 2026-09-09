@@ -44,6 +44,10 @@ workflow:
       WANDB_ENTITY: "{{wandb_entity}}"
       MAX_STEPS: "{{max_steps}}"
       CKPT_EVERY: "{{ckpt_every}}"
+      # Per-RANK batch. Global batch is this x gpus_per_run, so raising
+      # gpus_per_run without lowering this silently scales the global
+      # batch. Empty leaves the experiment config untouched.
+      BATCH_SIZE: "{{batch_size}}"
       WORKDIR: /workspace
       EXPECTED_EPISODES: "2999"
       NCCL_DEBUG: WARN
@@ -188,6 +192,9 @@ workflow:
         # rank 1 waits at the process-group store while rank 0 does the whole
         # pass, and the store gives up at 1800s with DistStoreError. Computing
         # them once on a single GPU removes that barrier.
+        BATCH_OV=""
+        if [ -n "${BATCH_SIZE:-}" ]; then BATCH_OV="planar.batch_size=$BATCH_SIZE"; fi
+
         NORM_ROOT=/workspace/norm_cache
         mkdir -p "$NORM_ROOT"
         NPIDS=""
@@ -198,6 +205,7 @@ workflow:
               +experiment=pusht/"$EXP" \
               $DATA_OV \
               launch_params.gpus_per_node=1 \
+              $BATCH_OV \
               norm_stats.save_cache_dir="$NORM_ROOT/$EXP" \
               trainer.max_steps=1 trainer.max_epochs=1 trainer.min_epochs=1 \
               trainer.limit_train_batches=1 trainer.limit_val_batches=0 \
@@ -241,6 +249,7 @@ workflow:
               +experiment=pusht/"$EXP" \
               $DATA_OV \
               launch_params.gpus_per_node="$GPUS_PER_RUN" \
+              $BATCH_OV \
               norm_stats.precomputed_norm_path="$NORM_ROOT/$EXP/norm_stats/norm_stats.json" \
               trainer.max_steps="$MAX_STEPS" \
               callbacks.model_checkpoint.every_n_epochs=0 \

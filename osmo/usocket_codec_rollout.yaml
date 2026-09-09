@@ -137,9 +137,9 @@ workflow:
         # any rollout time is spent.
         declare -A CKPT_OF NORM_OF
         for EXP in $EXPERIMENTS; do
-          CKPT=$(find "$CK" -path "*${EXP}*" -name "last.ckpt" | head -1)
-          [ -n "$CKPT" ] || CKPT=$(find "$CK" -path "*${EXP}*" -name "*.ckpt" | sort | tail -1)
-          NORM=$(find "$CK" -path "*${EXP}*" -name "norm_stats.json" | head -1)
+          CKPT=$(find "$CK" -path "*${EXP}*" -name "last.ckpt" 2>/dev/null | head -1 || true)
+          [ -n "$CKPT" ] || CKPT=$(find "$CK" -path "*${EXP}*" -name "*.ckpt" 2>/dev/null | sort | tail -1 || true)
+          NORM=$(find "$CK" -path "*${EXP}*" -name "norm_stats.json" 2>/dev/null | head -1 || true)
           if [ -z "$CKPT" ] || [ -z "$NORM" ]; then
             echo "FATAL: missing artifacts for $EXP (ckpt='$CKPT' norm='$NORM')"
             echo "--- available ---"; find "$CK" \( -name '*.ckpt' -o -name 'norm_stats.json' \) > /tmp/avail.txt || true; head -40 /tmp/avail.txt

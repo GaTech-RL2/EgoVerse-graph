@@ -108,9 +108,13 @@ STOPGRAD_UNITE_PARITY_CONFIG_NAME = (
 STOPGRAD_UNITE_NOCKPT_CONFIG_NAME = (
     "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42"
 )
+STOPGRAD_UNITE_SCALE1_PARITY_CONFIG_NAME = (
+    "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42"
+)
 STOPGRAD_UNITE_PARITY_CONFIG_NAMES = {
     STOPGRAD_UNITE_PARITY_CONFIG_NAME,
     STOPGRAD_UNITE_NOCKPT_CONFIG_NAME,
+    STOPGRAD_UNITE_SCALE1_PARITY_CONFIG_NAME,
 }
 SCALED_MUON_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
@@ -127,6 +131,7 @@ CANDIDATE_METHODS = {
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -354,6 +359,18 @@ ALLOWED_PAIR_DIFFERENCES = frozenset(
         "model.reconstruction_weight",
         "name",
         "run_provenance.objective.reconstruction_weight",
+    }
+)
+ALLOWED_UNITE_SCALE_PAIR_DIFFERENCES = frozenset(
+    {
+        "description",
+        "model.decode_noise",
+        "model.decoded_noise_scale_weight",
+        "model.pipeline.stages.7.decode_noise",
+        "model.pipeline.stages.8.moment_weight",
+        "name",
+        "run_provenance.objective.decoded_noise_scale_weight",
+        "run_provenance.scale_ablation",
     }
 )
 
@@ -640,6 +657,19 @@ def _validate_unite_dimensions_and_modules(
     _float(objective.flow_weight, 1.0, "FM weight")
     _float(objective.reconstruction_weight, 1.0, "reconstruction weight")
     _float(objective.action_velocity_weight, 1.0, "action-velocity weight")
+    decoded_noise_scale_weight = float(
+        OmegaConf.select(config, "model.decoded_noise_scale_weight", default=0.0)
+    )
+    _float(
+        objective.moment_weight,
+        decoded_noise_scale_weight,
+        "decoded-noise moment weight",
+    )
+    _exact(
+        decoder_stage.decode_noise,
+        decoded_noise_scale_weight > 0.0,
+        "decoded-noise forward activation",
+    )
     _exact(
         objective.flow_aggregation,
         "sum_samples" if parity else "mean",
@@ -1379,7 +1409,16 @@ def _validate_data_and_launch(
         )
         _exact(int(recorded_warmup), warmup_steps, "provenance objective warmup")
         _exact(int(objective.flow_samples_per_content), 14, "provenance bridge samples")
-        _float(objective.decoded_noise_scale_weight, 0.0, "decoded-noise scale weight")
+        decoded_noise_scale_weight = float(
+            OmegaConf.select(
+                config, "model.decoded_noise_scale_weight", default=0.0
+            )
+        )
+        _float(
+            objective.decoded_noise_scale_weight,
+            decoded_noise_scale_weight,
+            "decoded-noise scale weight",
+        )
         _float(objective.monotonic_weight, 0.0, "monotonicity weight")
         if method == STOPGRAD_UNITE_METHOD:
             _exact(str(provenance.inference.sampler), "dopri5", "inference sampler")
@@ -1801,11 +1840,36 @@ def validate_pair(
         overrides=overrides,
     )
     differences = tuple(_differences(first_config, second_config))
+    scale_pair = STOPGRAD_UNITE_SCALE1_PARITY_CONFIG_NAME in {
+        first_experiment.removeprefix("pusht/"),
+        second_experiment.removeprefix("pusht/"),
+    }
+    allowed_differences = (
+        ALLOWED_UNITE_SCALE_PAIR_DIFFERENCES
+        if scale_pair
+        else ALLOWED_PAIR_DIFFERENCES
+    )
     _exact(
         frozenset(differences),
-        ALLOWED_PAIR_DIFFERENCES,
+        allowed_differences,
         "paired experiment differences",
     )
+    if scale_pair:
+        paired_scale_weights = {
+            first["objective"]["decoded_noise_scale_weight"],
+            second["objective"]["decoded_noise_scale_weight"],
+        }
+        _exact(paired_scale_weights, {0.0, 1.0}, "paired scale weights")
+        return {
+            "comparison": {
+                "differing_paths": list(differences),
+                "only_declared_scale_differences": True,
+                "status": "PASS",
+            },
+            "experiments": [first, second],
+            "schema_version": SCHEMA_VERSION,
+            "status": "PASS",
+        }
     paired_weights = {
         first["objective"]["reconstruction_weight"],
         second["objective"]["reconstruction_weight"],

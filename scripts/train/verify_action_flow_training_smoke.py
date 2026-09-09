@@ -81,9 +81,13 @@ UNITE_H384_PARITY_EXPERIMENT = (
 UNITE_H384_NOCKPT_EXPERIMENT = (
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42"
 )
+UNITE_H384_SCALE1_PARITY_EXPERIMENT = (
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42"
+)
 UNITE_H384_PARITY_EXPERIMENTS = {
     UNITE_H384_PARITY_EXPERIMENT,
     UNITE_H384_NOCKPT_EXPERIMENT,
+    UNITE_H384_SCALE1_PARITY_EXPERIMENT,
 }
 UNITE_H384_PARAMETER_COUNT = 97_956_100
 APPROVED_EXPERIMENTS = {
@@ -99,6 +103,11 @@ APPROVED_EXPERIMENTS = {
     ),
     UNITE_H384_NOCKPT_EXPERIMENT: (
         "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_nockpt_s42",
+        1.0,
+        1.0,
+    ),
+    UNITE_H384_SCALE1_PARITY_EXPERIMENT: (
+        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42",
         1.0,
         1.0,
     ),
@@ -372,6 +381,9 @@ def _validate_config(
         "global validation batch must divide world size",
     )
     validation_batch_size = validation_global_batch_size // world_size
+    decoded_noise_scale_weight = (
+        1.0 if experiment == UNITE_H384_SCALE1_PARITY_EXPERIMENT else 0.0
+    )
     field_hidden_dim = 1_024 if scaled_200m else 512
     field_depth = 14 if scaled_200m else 12
     field_num_heads = 16 if scaled_200m else 8
@@ -533,7 +545,10 @@ def _validate_config(
         ("run_provenance.objective.flow_weight", flow_weight),
         ("run_provenance.objective.reconstruction_weight", reconstruction_weight),
         ("run_provenance.objective.action_velocity_weight", 1.0),
-        ("run_provenance.objective.decoded_noise_scale_weight", 0.0),
+        (
+            "run_provenance.objective.decoded_noise_scale_weight",
+            decoded_noise_scale_weight,
+        ),
         ("run_provenance.objective.monotonic_weight", 0.0),
     ]
     if unite_recipe:
@@ -562,6 +577,12 @@ def _validate_config(
         ):
             continue  # This method has NLL components, not FM/reconstruction.
         _float(config, path, expected)
+
+    if experiment == UNITE_H384_SCALE1_PARITY_EXPERIMENT:
+        _exact(config, "model.decode_noise", True)
+        _float(config, "model.decoded_noise_scale_weight", 1.0)
+        _exact(config, "model.pipeline.stages.7.decode_noise", True)
+        _float(config, "model.pipeline.stages.8.moment_weight", 1.0)
 
     _exact(config, "mode", "train")
     _require(config.ckpt_path is None, "smoke must initialize from scratch")
@@ -1146,6 +1167,7 @@ def _validate_optimizer_state(
             APPROVED_EXPERIMENTS[UNITE_H384_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_PARITY_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_NOCKPT_EXPERIMENT][0],
+            APPROVED_EXPERIMENTS[UNITE_H384_SCALE1_PARITY_EXPERIMENT][0],
         }
     )
     if not composite_optimizer:
@@ -1462,6 +1484,7 @@ def _validate_history(
     *,
     reconstruction_weight: float = 1.0,
     flow_weight: float = 1.0,
+    decoded_noise_scale_weight: float = 0.0,
     expect_reconstruction_warmup: bool = False,
     method: str = LEGACY_METHOD,
 ) -> dict[str, Any]:
@@ -1471,6 +1494,9 @@ def _validate_history(
         "ReconstructionLoss",
         "ReconstructionL1",
         "ActionVelocityLoss",
+        "DecodedNoiseMomentLoss",
+        "DecodedNoiseMeanPenalty",
+        "DecodedNoiseCovariancePenalty",
     )
     if method == LIKELIHOOD_METHOD:
         component_names = ("TotalLoss", "InteriorBridgeNLL", "BoundaryNLL")
@@ -1585,6 +1611,20 @@ def _validate_history(
         "joint smoke step did not enable both delayed objectives",
     )
     for suffix in ("", f"/{SOURCE_LABEL}"):
+        if method != LIKELIHOOD_METHOD:
+            _require(
+                math.isclose(
+                    train[f"Train/ActionFlow/DecodedNoiseMomentLoss{suffix}"],
+                    train[f"Train/ActionFlow/DecodedNoiseMeanPenalty{suffix}"]
+                    + train[
+                        f"Train/ActionFlow/DecodedNoiseCovariancePenalty{suffix}"
+                    ],
+                    rel_tol=1.0e-5,
+                    abs_tol=1.0e-7,
+                ),
+                f"decoded-noise moment components are inconsistent for "
+                f"{suffix or 'macro'}",
+            )
         expected_total = (
             (
                 train[f"Train/ActionFlow/InteriorBridgeNLL{suffix}"]
@@ -1596,6 +1636,8 @@ def _validate_history(
                 + reconstruction_weight
                 * train[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
                 + train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
+                + decoded_noise_scale_weight
+                * train[f"Train/ActionFlow/DecodedNoiseMomentLoss{suffix}"]
             )
         )
         _require(
@@ -1694,6 +1736,8 @@ def _validate_history(
             flow_weight * valid["Valid/ActionFlow/FlowMatchingLoss"]
             + reconstruction_weight * valid["Valid/ActionFlow/ReconstructionLoss"]
             + valid["Valid/ActionFlow/ActionVelocityLoss"]
+            + decoded_noise_scale_weight
+            * valid["Valid/ActionFlow/DecodedNoiseMomentLoss"]
         )
     )
     _require(
@@ -2325,6 +2369,9 @@ def verify_smoke(
         rows,
         reconstruction_weight=APPROVED_EXPERIMENTS[experiment][1],
         flow_weight=APPROVED_EXPERIMENTS[experiment][2],
+        decoded_noise_scale_weight=(
+            1.0 if experiment == UNITE_H384_SCALE1_PARITY_EXPERIMENT else 0.0
+        ),
         expect_reconstruction_warmup=expect_reconstruction_warmup,
         method=method,
     )

@@ -16,6 +16,8 @@ cfg_interval: [0.0, 1.0]
 num_inference_steps: 50
 reconstruction_weight: 1.0
 flow_weight: 1.0
+decoded_noise_scale_weight: 0.0
+decode_noise: false
 action_flow_method: latent_fm_stopgrad_unite
 optimizer_named_parameters: true
 gradient_checkpointing: true
@@ -154,6 +156,7 @@ pipeline:
     - _target_: egomimic.pipeline.stages_action_flow.ContentDecoderStage
       reconstruction_noising_start: 0.7
       reconstruction_noising_probability: 0.5
+      decode_noise: ${model.decode_noise}
       decoder:
         _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
         latent_dim: ${model.latent_dim}
@@ -171,6 +174,7 @@ pipeline:
       flow_weight: ${model.flow_weight}
       reconstruction_weight: ${model.reconstruction_weight}
       action_velocity_weight: 1.0
+      moment_weight: ${model.decoded_noise_scale_weight}
       flow_aggregation: ${model.flow_loss_aggregation}
       flow_samples_per_content: ${model.flow_samples_per_content}
 

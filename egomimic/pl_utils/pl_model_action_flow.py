@@ -37,6 +37,15 @@ class ActionFlowModelWrapper(ModelWrapper):
         ("ReconstructionLoss", "log/action_flow_reconstruction"),
         ("ReconstructionL1", "log/action_flow_reconstruction_l1"),
         ("ActionVelocityLoss", "log/action_flow_action_velocity"),
+        ("DecodedNoiseMomentLoss", "log/action_flow_decoded_noise_moments"),
+        (
+            "DecodedNoiseMeanPenalty",
+            "log/action_flow_decoded_noise_mean_penalty",
+        ),
+        (
+            "DecodedNoiseCovariancePenalty",
+            "log/action_flow_decoded_noise_covariance_penalty",
+        ),
     )
     _gradient_components = (
         ("FM", "FlowMatchingLoss"),

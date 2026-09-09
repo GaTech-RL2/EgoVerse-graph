@@ -140,6 +140,12 @@ class ArcDetokenizeStage(Stage):
         duration = torch.where(
             active & ~usable, torch.full_like(duration, stop_duration), duration
         )
+        return self._interpolate_at_times(geometry, duration)
+
+    def _interpolate_at_times(
+        self, geometry: torch.Tensor, duration: torch.Tensor
+    ) -> torch.Tensor:
+        """Sample ``geometry`` every ``dt`` given per-interval durations."""
         cumulative_time = torch.cat(
             (torch.zeros_like(duration[:, :1]), torch.cumsum(duration, dim=1)), dim=1
         )
@@ -254,4 +260,46 @@ class ArcDetokenizeStackedStage(ArcDetokenizeStage):
         batch["log/ArcAngularVelocityAbs"] = tokens[..., 5].abs().mean()
         batch["log/ArcTranslationDistance"] = xy_distance.sum(dim=1).mean()
         batch["log/ArcRotationDistance"] = angle_distance.sum(dim=1).mean()
+        return batch
+
+
+class ArcDetokenizeDurationStage(ArcDetokenizeStackedStage):
+    """Decode the stacked token whose timing channels are DURATIONS.
+
+    ``[x, y, dt_translation, cos, sin, dt_rotation]``
+
+    Strictly simpler than the velocity decoder: the per-interval durations are
+    read directly instead of being recovered by dividing a decoded distance by
+    a predicted rate. That removes the division, the ``rate.abs()`` (which
+    silently discarded the predicted sign of omega), and the synthetic
+    ``stop_duration`` fallback for a nonzero interval with zero predicted
+    velocity -- a hold is just a long duration here.
+
+    Durations are clamped non-negative: time cannot run backwards, and an
+    unclamped negative prediction would make the cumulative clock
+    non-monotone, breaking the searchsorted lookup.
+    """
+
+    def forward(self, batch: dict) -> dict:
+        tokens = _as_batched(batch["pred_action"], "ArcDetokenizeDurationStage input")
+        expected = (self.num_waypoints, PLANAR_ARC_STACKED_DIM)
+        if tuple(tokens.shape[1:]) != expected:
+            raise ValueError(
+                f"ArcDetokenizeDurationStage expects (B, {expected[0]}, "
+                f"{expected[1]}), got {tuple(tokens.shape)}"
+            )
+
+        xy_duration = tokens[:, :-1, 2].clamp_min(0.0)
+        theta_duration = tokens[:, :-1, 5].clamp_min(0.0)
+        xy = self._interpolate_at_times(tokens[..., :2], xy_duration)
+        heading_geometry = tokens[..., 3:5]
+        heading = self._interpolate_at_times(heading_geometry, theta_duration)
+        norm = torch.linalg.vector_norm(heading, dim=-1, keepdim=True)
+        heading = heading / norm.clamp_min(1e-8)
+        theta = torch.atan2(heading[..., 1], heading[..., 0]).unsqueeze(-1)
+        native = torch.cat((xy, theta), dim=-1)
+
+        batch["pred_action_native"] = native[..., : self.native_action_dim]
+        batch["log/ArcTranslationDuration"] = xy_duration.sum(dim=1).mean()
+        batch["log/ArcRotationDuration"] = theta_duration.sum(dim=1).mean()
         return batch

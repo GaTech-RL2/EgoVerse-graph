@@ -150,8 +150,14 @@ class TokenizeUSocketArcVelocity:
         end: float,
         *,
         signed_rate: bool,
+        return_durations: bool = False,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Sample geometry and one local interval rate at each waypoint."""
+        """Sample geometry and one local interval rate at each waypoint.
+
+        With ``return_durations`` the second element is the elapsed SECONDS of
+        each interval rather than a rate. Duration is the more primitive
+        quantity: the rate is produced by dividing it out just below.
+        """
         if end <= self.zero_dist_epsilon:
             points = np.repeat(values[:1], self.num_waypoints, axis=0)
             return points, np.zeros(self.num_waypoints, dtype=np.float64)
@@ -182,6 +188,11 @@ class TokenizeUSocketArcVelocity:
             out=np.zeros_like(delta_geometry),
             where=delta_t > self.zero_dist_epsilon,
         )
+        if return_durations:
+            durations = np.zeros(self.num_waypoints, dtype=np.float64)
+            durations[:-1] = delta_t
+            durations[-1] = delta_t[-1]
+            return points, durations
         rates = np.zeros(self.num_waypoints, dtype=np.float64)
         rates[:-1] = interval_rate
         rates[-1] = interval_rate[-1]
@@ -340,6 +351,61 @@ class TokenizeUSocketArcVelocityCarry(TokenizeUSocketArcVelocityStacked):
         token[:, 3] = np.cos(theta_waypoints[:, 0])
         token[:, 4] = np.sin(theta_waypoints[:, 0])
         token[:, 5] = angular_velocity
+        return token
+
+
+class TokenizeUSocketArcDuration(TokenizeUSocketArcVelocityStacked):
+    """Stacked ARC token carrying interval DURATION instead of velocity.
+
+    ``[M, 6] = [x, y, dt_translation, cos, sin, dt_rotation]``
+
+    Geometry is unchanged -- identical arc-length resampling, identical D and R
+    budgets -- so this isolates one variable: how the traversal schedule is
+    represented.
+
+    Two concrete reasons duration is the better carrier here, both visible in
+    the existing code rather than argued from first principles:
+
+    * ``_sample_stream`` computes the interval ``delta_t`` and then divides it
+      away to produce a rate. Storing the quotient of a quantity we already had
+      is a lossy detour: the decoder's first act is to invert the division.
+    * ``_decode_stream`` uses only ``rate.abs()``. The SIGN of omega is never
+      read, because direction is already carried by the cos/sin waypoints. The
+      velocity codec therefore trains the model to predict a sign that decoding
+      discards.
+
+    Duration also represents a hold exactly -- a long interval with no motion --
+    where a rate codec has to special-case zero velocity with a synthetic
+    ``stop_duration``. Compare the shape/clock formulation: geometry supplies
+    every coordinate, timing supplies only a scalar schedule.
+    """
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        angle_arc = np.concatenate((np.zeros(1), np.cumsum(np.abs(np.diff(theta)))))
+        translation_end = min(self.distance, float(translation_arc[-1]))
+        rotation_end = float(angle_arc[-1])
+        if self.rotation_distance is not None:
+            rotation_end = min(self.rotation_distance, rotation_end)
+
+        xy_waypoints, xy_duration = self._sample_stream(
+            xy, translation_arc, translation_end,
+            signed_rate=False, return_durations=True,
+        )
+        theta_waypoints, theta_duration = self._sample_stream(
+            theta[:, None], angle_arc, rotation_end,
+            signed_rate=True, return_durations=True,
+        )
+
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_STACKED_DIM))
+        token[:, 0:2] = xy_waypoints
+        token[:, 2] = xy_duration
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = theta_duration
         return token
 
 

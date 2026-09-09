@@ -111,3 +111,48 @@ def test_carry_shares_the_translation_clock_and_refuses_a_budget():
     assert np.abs(token[:, 3:] - hybrid[:, 3:]).max() > 1e-6
     # Translation is sampled identically in both.
     np.testing.assert_allclose(token[:, :3], hybrid[:, :3], atol=1e-12)
+
+
+def test_duration_codec_matches_velocity_and_drops_the_dead_omega_sign():
+    """Duration is the primitive the velocity channel is derived from."""
+    from egomimic.rldb.embodiment.usocket_arc_velocity import (
+        USocketArcDurationNativeDecoder,
+    )
+    from egomimic.rldb.zarr.planar_arc import TokenizeUSocketArcDuration
+
+    for seed in range(4):
+        actions = _episode(seed, length=int(50 + 13 * seed))
+        vel = TokenizeUSocketArcVelocityStacked(**KW).transform(
+            {"actions": actions.copy()}
+        )["actions"]
+        dur = TokenizeUSocketArcDuration(**KW).transform(
+            {"actions": actions.copy()}
+        )["actions"]
+        assert dur.shape == (M, 6)
+        # Geometry is untouched; only the timing channels differ.
+        np.testing.assert_allclose(dur[:, 0:2], vel[:, 0:2], atol=1e-12)
+        np.testing.assert_allclose(dur[:, 3:5], vel[:, 3:5], atol=1e-12)
+        # Durations are seconds and cannot be negative.
+        assert (dur[:, 2] >= 0).all() and (dur[:, 5] >= 0).all()
+        # Both timing representations decode to the same native actions.
+        v_native = USocketArcLocalVelocityStackedNativeDecoder(M, H).decode(vel)
+        d_native = USocketArcDurationNativeDecoder(M, H).decode(dur)
+        np.testing.assert_allclose(d_native, v_native, atol=1e-9)
+
+
+def test_velocity_decoder_ignores_the_sign_of_omega():
+    """Documents why a duration channel is not just a cosmetic swap.
+
+    _decode_stream uses rate.abs(), so the predicted sign of omega never
+    reaches the output -- direction is already carried by cos/sin. The velocity
+    codec therefore spends model capacity on a quantity decoding discards.
+    """
+    actions = _episode(2)
+    token = TokenizeUSocketArcVelocityStacked(**KW).transform(
+        {"actions": actions}
+    )["actions"]
+    decoder = USocketArcLocalVelocityStackedNativeDecoder(M, H)
+    base = np.asarray(decoder.decode(token))
+    flipped = token.copy()
+    flipped[:, 5] = -flipped[:, 5]
+    np.testing.assert_array_equal(np.asarray(decoder.decode(flipped)), base)

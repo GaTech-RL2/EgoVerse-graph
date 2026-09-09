@@ -145,6 +145,19 @@ case "$AF_EXPERIMENT" in
     AF_FULL_VALID_GLOBAL_BATCH_SIZE=32
     AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
     ;;
+  pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_FULL_VALID_GLOBAL_BATCH_SIZE=32
+    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,scale1,single-gpu,$AF_RUN_KIND]"
+    ;;
   pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -239,7 +252,9 @@ AF_TRAIN_BATCH_SIZE=$((32 / AF_WORLD_SIZE))
 AF_VALID_BATCH_SIZE=$((AF_FULL_VALID_GLOBAL_BATCH_SIZE / AF_WORLD_SIZE))
 AF_WANDB_TAGS=${AF_WANDB_TAGS/single-gpu/$AF_TOPOLOGY_TAG}
 
-if test "$AF_METHOD" != action_flow_joint || [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
+if test "$AF_EXPERIMENT" = pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42; then
+  AF_COMPARISON_EXPERIMENT=pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+elif test "$AF_METHOD" != action_flow_joint || [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
   AF_COMPARISON_EXPERIMENT=
 elif test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
   AF_COMPARISON_EXPERIMENT=pusht/action_flow_bc_usocket_recon10_s42

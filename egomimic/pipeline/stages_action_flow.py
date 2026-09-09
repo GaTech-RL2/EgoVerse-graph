@@ -520,6 +520,9 @@ class ContentDecoderStage(Stage):
         residual_key: str = "action_flow/velocity_residual",
         reconstruction_key: str = "action_flow/reconstruction",
         decoded_residual_key: str = "action_flow/decoded_velocity_residual",
+        decode_noise: bool = False,
+        noise_key: str = "sampler/noise",
+        decoded_noise_key: str = "action_flow/decoded_noise",
         inference_latent_key: str = "action_flow/generated_latent",
         prediction_key: str = "pred_action",
     ):
@@ -540,12 +543,22 @@ class ContentDecoderStage(Stage):
         self.decoded_residual_key = _key(
             decoded_residual_key, label="decoded_residual_key"
         )
+        self.decode_noise = bool(decode_noise)
+        self.noise_key = _key(noise_key, label="noise_key")
+        self.decoded_noise_key = _key(decoded_noise_key, label="decoded_noise_key")
         self.inference_latent_key = _key(
             inference_latent_key, label="inference_latent_key"
         )
         self.prediction_key = _key(prediction_key, label="prediction_key")
-        self.reads = (self.clean_key, self.state_key, self.residual_key)
-        self.writes = (self.reconstruction_key, self.decoded_residual_key)
+        self.reads = (
+            self.clean_key,
+            self.state_key,
+            self.residual_key,
+        ) + ((self.noise_key,) if self.decode_noise else ())
+        self.writes = (
+            self.reconstruction_key,
+            self.decoded_residual_key,
+        ) + ((self.decoded_noise_key,) if self.decode_noise else ())
         self.reads_by_mode = {"inference": (self.inference_latent_key,)}
         self.writes_by_mode = {"inference": (self.prediction_key,)}
 
@@ -562,6 +575,7 @@ class ContentDecoderStage(Stage):
         clean = _tensor(batch, self.clean_key)
         state = _tensor(batch, self.state_key)
         residual = _tensor(batch, self.residual_key)
+        noise = _tensor(batch, self.noise_key) if self.decode_noise else None
         if state.shape != residual.shape:
             raise ValueError(
                 "latent state and velocity residual must have matching shapes"
@@ -582,6 +596,9 @@ class ContentDecoderStage(Stage):
             ).reshape(batch_size, *([1] * (clean.ndim - 1)))
             reconstruction_input = torch.where(mask, noised, clean)
         reconstruction = self._decode(reconstruction_input, label="reconstruction")
+        decoded_noise = (
+            self._decode(noise, label="noise") if noise is not None else None
+        )
         # PyTorch's non-reentrant activation checkpointing installs saved-tensor
         # hooks that are incompatible with ``torch.func`` transforms. Preserve
         # checkpointing for the reconstruction pass, but disable it only while
@@ -633,6 +650,8 @@ class ContentDecoderStage(Stage):
             raise ValueError("decoder JVP batch does not match the bridge state")
         batch[self.reconstruction_key] = reconstruction
         batch[self.decoded_residual_key] = decoded_residual
+        if decoded_noise is not None:
+            batch[self.decoded_noise_key] = decoded_noise
         return batch
 
     def _forward_inference(self, batch: dict) -> dict:
@@ -661,12 +680,14 @@ class ActionFlowObjectiveStage(Stage):
         flow_weight: float = 1.0,
         reconstruction_weight: float = 1.0,
         action_velocity_weight: float = 1.0,
+        moment_weight: float = 0.0,
         flow_aggregation: str = "mean",
         flow_samples_per_content: int = 1,
         target_key: str = "target",
         residual_key: str = "action_flow/velocity_residual",
         reconstruction_key: str = "action_flow/reconstruction",
         decoded_residual_key: str = "action_flow/decoded_velocity_residual",
+        decoded_noise_key: str = "action_flow/decoded_noise",
         loss_key: str = "loss/action_flow",
         log_prefix: str = "log/action_flow",
     ):
@@ -674,6 +695,7 @@ class ActionFlowObjectiveStage(Stage):
         self.flow_weight = float(flow_weight)
         self.reconstruction_weight = float(reconstruction_weight)
         self.action_velocity_weight = float(action_velocity_weight)
+        self.moment_weight = float(moment_weight)
         if flow_aggregation not in {"mean", "sum_samples"}:
             raise ValueError("flow_aggregation must be mean|sum_samples")
         self.flow_aggregation = str(flow_aggregation)
@@ -684,6 +706,7 @@ class ActionFlowObjectiveStage(Stage):
             self.flow_weight,
             self.reconstruction_weight,
             self.action_velocity_weight,
+            self.moment_weight,
         )
         if any(not math.isfinite(weight) or weight < 0.0 for weight in weights):
             raise ValueError("objective weights must be finite and non-negative")
@@ -696,6 +719,7 @@ class ActionFlowObjectiveStage(Stage):
         self.decoded_residual_key = _key(
             decoded_residual_key, label="decoded_residual_key"
         )
+        self.decoded_noise_key = _key(decoded_noise_key, label="decoded_noise_key")
         self.loss_key = _key(loss_key, label="loss_key")
         self.log_prefix = _key(log_prefix, label="log_prefix").rstrip("/")
         self.total_log_key = f"{self.log_prefix}_total"
@@ -703,12 +727,17 @@ class ActionFlowObjectiveStage(Stage):
         self.reconstruction_log_key = f"{self.log_prefix}_reconstruction"
         self.reconstruction_l1_log_key = f"{self.log_prefix}_reconstruction_l1"
         self.action_velocity_log_key = f"{self.log_prefix}_action_velocity"
+        self.moment_log_key = f"{self.log_prefix}_decoded_noise_moments"
+        self.moment_mean_log_key = f"{self.log_prefix}_decoded_noise_mean_penalty"
+        self.moment_covariance_log_key = (
+            f"{self.log_prefix}_decoded_noise_covariance_penalty"
+        )
         self.reads = (
             self.target_key,
             self.residual_key,
             self.reconstruction_key,
             self.decoded_residual_key,
-        )
+        ) + ((self.decoded_noise_key,) if self.moment_weight > 0.0 else ())
         self.writes = (
             self.loss_key,
             self.total_log_key,
@@ -716,6 +745,9 @@ class ActionFlowObjectiveStage(Stage):
             self.reconstruction_log_key,
             self.reconstruction_l1_log_key,
             self.action_velocity_log_key,
+            self.moment_log_key,
+            self.moment_mean_log_key,
+            self.moment_covariance_log_key,
         )
 
     def forward(self, batch: dict) -> dict:
@@ -723,6 +755,33 @@ class ActionFlowObjectiveStage(Stage):
         residual = _tensor(batch, self.residual_key)
         reconstruction = _tensor(batch, self.reconstruction_key)
         decoded_residual = _tensor(batch, self.decoded_residual_key)
+        moment_mean = residual.new_zeros(())
+        moment_covariance = residual.new_zeros(())
+        if self.moment_weight > 0.0:
+            decoded_noise = _tensor(batch, self.decoded_noise_key)
+            if decoded_noise.ndim < 2 or int(decoded_noise.shape[-1]) <= 0:
+                raise ValueError(
+                    f"{self.decoded_noise_key} must have shape (..., F)"
+                )
+            samples = decoded_noise.float().reshape(
+                -1, int(decoded_noise.shape[-1])
+            )
+            if int(samples.shape[0]) <= 1:
+                raise ValueError("moment matching requires at least two samples")
+            feature_dim = int(samples.shape[-1])
+            mean = samples.mean(dim=0)
+            centered = samples - mean
+            covariance = centered.T @ centered / (int(samples.shape[0]) - 1)
+            identity = torch.eye(
+                feature_dim,
+                device=samples.device,
+                dtype=samples.dtype,
+            )
+            moment_mean = mean.square().sum() / feature_dim
+            moment_covariance = (
+                (covariance - identity).square().sum() / feature_dim
+            )
+        moment_penalty = moment_mean + moment_covariance
         if reconstruction.shape != target.shape:
             raise ValueError(
                 "decoded clean content must match the target shape: "
@@ -747,6 +806,7 @@ class ActionFlowObjectiveStage(Stage):
             self.flow_weight * flow
             + self.reconstruction_weight * reconstruction_loss
             + self.action_velocity_weight * action_velocity
+            + self.moment_weight * moment_penalty
         )
         batch[self.loss_key] = total
         batch[self.total_log_key] = total
@@ -754,4 +814,7 @@ class ActionFlowObjectiveStage(Stage):
         batch[self.reconstruction_log_key] = reconstruction_loss
         batch[self.reconstruction_l1_log_key] = reconstruction_l1
         batch[self.action_velocity_log_key] = action_velocity
+        batch[self.moment_log_key] = moment_penalty
+        batch[self.moment_mean_log_key] = moment_mean
+        batch[self.moment_covariance_log_key] = moment_covariance
         return batch

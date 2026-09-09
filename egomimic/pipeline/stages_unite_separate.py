@@ -137,6 +137,10 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
                 f"start={self.in_context_start}, len={self.in_context_len}"
             )
 
+    def backbone_modules(self) -> tuple[nn.Module, ...]:
+        """Every distinct DiT backbone this encoder owns (for torch.compile)."""
+        return (self.denoising_module,)
+
     def _resolve_domain(self, embodiment=None) -> str:
         if embodiment is not None:
             return self._validate_domain(embodiment)
@@ -350,6 +354,9 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
             }
         )
 
+    def backbone_modules(self) -> tuple[nn.Module, ...]:
+        return (self.tokenization_module, self.denoising_module)
+
     def _tokenization_backbone(self, embodiment: str) -> nn.Module:
         del embodiment
         return self.tokenization_module
@@ -452,6 +459,9 @@ class PerEmbodimentTokenizerUniteGenerativeEncoder(ConfigurableUniteGenerativeEn
     def tokenization_module(self) -> nn.Module:
         """Topology probe used by the wrapper: any tokenizer, never the denoiser."""
         return self.tokenization_modules[self.domains[0]]
+
+    def backbone_modules(self) -> tuple[nn.Module, ...]:
+        return (*self.tokenization_modules.values(), self.denoising_module)
 
     def _tokenization_backbone(self, embodiment: str) -> nn.Module:
         return self.tokenization_modules[embodiment]

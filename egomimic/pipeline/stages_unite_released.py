@@ -94,10 +94,12 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         dopri5_output_points: int = 50,
         dopri5_atol: float = 1.0e-6,
         dopri5_rtol: float = 1.0e-3,
+        compile_backbones: bool = False,
     ):
         super().__init__()
         self.generative_encoder = generative_encoder
         self.action_decoder = _PerEmbodimentDecoder(decoders)
+        self.compile_backbones = bool(compile_backbones)
         self.timestep_shift_alpha = float(timestep_shift_alpha)
         self.flow_steps_per_reconstruction = int(flow_steps_per_reconstruction)
         self.flow_mini_batch = int(flow_mini_batch)
@@ -138,6 +140,8 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             raise ValueError("timestep_shift_alpha must be positive")
         if self.flow_steps_per_reconstruction <= 0 or self.flow_mini_batch <= 0:
             raise ValueError("UNITE flow sample counts must be positive")
+        if self.compile_backbones:
+            self._compile_backbones()
         if not 0 <= self.decoded_action_samples_per_reconstruction <= (
             self.flow_steps_per_reconstruction
         ):
@@ -247,6 +251,36 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         normal = torch.randn(batch_size, device=device, dtype=torch.float32)
         normal = self.lognorm_mu + self.lognorm_sigma * normal
         return self.shift_time(torch.sigmoid(normal))
+
+    def compiled_modules(self) -> tuple[nn.Module, ...]:
+        """The DiT backbones and action decoders: the launch-latency-bound parts."""
+        backbones = getattr(self.generative_encoder, "backbone_modules", None)
+        if backbones is None:
+            raise RuntimeError("UNITE encoder does not enumerate its backbones")
+        modules = list(backbones())
+        modules.extend(self.action_decoder.decoders.values())
+        if len({id(module) for module in modules}) != len(modules):
+            raise RuntimeError("UNITE compile targets alias each other")
+        return tuple(modules)
+
+    def _compile_backbones(self) -> None:
+        """In-place ``nn.Module.compile`` on every DiT backbone and decoder.
+
+        Opt-in throughput knob (2026-09-09 profile: the width-384 DiTs over
+        <= 57 tokens are kernel-launch bound; compiling them halves the policy
+        step). ``Module.compile`` wraps the forward call only, so parameter
+        names, state_dict keys, checkpoints and the EMA are unchanged and a
+        compiled run's checkpoint loads strictly into an uncompiled model.
+        Shapes are static per phase (train, validation, sampling); the
+        dynamo cache limit is raised so those few variants all stay cached.
+        """
+        import torch._dynamo
+
+        torch._dynamo.config.cache_size_limit = max(
+            int(torch._dynamo.config.cache_size_limit), 64
+        )
+        for module in self.compiled_modules():
+            module.compile(dynamic=False)
 
     def _noisy_reconstruction_latent(self, clean_latent: torch.Tensor) -> torch.Tensor:
         if not self.training or self.reconstruction_noising_probability == 0.0:

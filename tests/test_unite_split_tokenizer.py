@@ -162,3 +162,35 @@ def test_dp_cotrain_row_composes_with_six_wide_head_and_padded_decoder():
     assert native.shape == (1, 16, 3)
     with pytest.raises(ValueError):
         PadActionWidth(["actions"], width=2).transform({"actions": np.zeros((4, 3))})
+
+
+def _policy(per_embodiment: bool, compile_backbones: bool):
+    from egomimic.models.unite_action_decoder import UniteActionDecoder
+    from egomimic.pipeline.stages_unite_released import ReleasedRecipeUniteLatentPolicy
+
+    decoders = {
+        d: UniteActionDecoder(latent_dim=16, action_dim=a, num_latent_tokens=4, action_horizon=16,
+                              hidden_dim=32, depth=2, num_heads=4, gradient_checkpointing=False)
+        for d, a in ((U, 4), (C, 6))
+    }
+    return ReleasedRecipeUniteLatentPolicy(
+        generative_encoder=_encoder(per_embodiment), decoders=decoders,
+        flow_steps_per_reconstruction=14, flow_mini_batch=14, compile_backbones=compile_backbones,
+    )
+
+
+@pytest.mark.parametrize("per_embodiment", [False, True])
+def test_compile_flag_wraps_backbones_without_renaming_parameters(per_embodiment):
+    torch.manual_seed(0)
+    plain = _policy(per_embodiment, False)
+    torch.manual_seed(0)
+    compiled = _policy(per_embodiment, True)
+    assert compiled.compile_backbones is True and plain.compile_backbones is False
+    targets = compiled.compiled_modules()
+    assert len(targets) == (3 if per_embodiment else 2) + 2  # tokenizer(s) + denoiser + two decoders
+    assert all(getattr(m, "_compiled_call_impl", None) is not None for m in targets)
+    assert all(getattr(m, "_compiled_call_impl", None) is None for m in plain.compiled_modules())
+    assert list(compiled.state_dict().keys()) == list(plain.state_dict().keys())
+    plain.load_state_dict(compiled.state_dict(), strict=True)
+    for (n1, p1), (n2, p2) in zip(plain.named_parameters(), compiled.named_parameters()):
+        assert n1 == n2 and torch.equal(p1, p2)

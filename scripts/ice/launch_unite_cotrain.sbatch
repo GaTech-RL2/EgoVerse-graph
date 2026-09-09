@@ -77,6 +77,9 @@ ICE_WORLD_SIZE=${ICE_WORLD_SIZE:-1}
 positive_integer ICE_WORLD_SIZE "$ICE_WORLD_SIZE"
 if test "$ICE_WORLD_SIZE" = 1; then ICE_TRAINER_STRATEGY=auto; else ICE_TRAINER_STRATEGY=ddp_find_unused_parameters_true; fi
 ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
+# Opt-in torch.compile of the UNITE DiT backbones and decoders (same math,
+# ~2x on the policy step). Unite family only; recorded in the launch contract.
+ICE_UNITE_COMPILE=${ICE_UNITE_COMPILE:-false}
 # Cotrain launcher: which embodiments the selected experiment trains on. Each
 # present embodiment needs its own dataset root, split manifest and manifest
 # SHA (ICE_DATASET_DIR_<EMB>, ICE_SPLIT_MANIFEST_<EMB>,
@@ -130,6 +133,10 @@ case "$ICE_UNITE_DIAGNOSTICS" in
   true|false) ;;
   *) die "ICE_UNITE_DIAGNOSTICS must be true or false" ;;
 esac
+case "$ICE_UNITE_COMPILE" in
+  true|false) ;;
+  *) die "ICE_UNITE_COMPILE must be true or false" ;;
+esac
 case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_separate_nt8_h384_s42) ;;
   pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_split_tok_nt8_h384_s42) ;;
@@ -143,6 +150,10 @@ esac
 if test "$ICE_FAMILY" = planar; then
   test "$ICE_UNITE_FAST" = false || die "ICE_UNITE_FAST applies to the unite family only"
   test "$ICE_UNITE_DIAGNOSTICS" = false || die "ICE_UNITE_DIAGNOSTICS applies to the unite family only"
+  test "$ICE_UNITE_COMPILE" = false || die "ICE_UNITE_COMPILE applies to the unite family only"
+fi
+if test "$ICE_UNITE_COMPILE" = true && test "$ICE_UNITE_DIAGNOSTICS" = true; then
+  die "ICE_UNITE_COMPILE and ICE_UNITE_DIAGNOSTICS (backbone hooks) are mutually exclusive"
 fi
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 [[ "$ICE_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || die "ICE_EXPECTED_HEAD must be a full commit"
@@ -282,6 +293,9 @@ if test "$ICE_UNITE_FAST" = true; then
     BASE_OVERRIDES+=("model.pipeline.stages.4.decoders.$(emb_key "$emb").gradient_checkpointing=false")
   done
 fi
+if test "$ICE_UNITE_COMPILE" = true; then
+  BASE_OVERRIDES+=(model.pipeline.stages.4.compile_backbones=true)
+fi
 if test -n "$ICE_EXTRA_OVERRIDES"; then
   # Word-split deliberately: a space-separated list of Hydra overrides, applied
   # after every built-in override so an explicit recipe change wins.
@@ -361,7 +375,8 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
   "${ICE_EXPECTED_SPLIT_MANIFEST_SHA256_USOCKET:-}" "$ICE_UNITE_FAST" \
   "$ICE_UNITE_DIAGNOSTICS" "$ICE_WORLD_SIZE" "$ICE_TRAIN_BATCH_SIZE" \
   "$ICE_VALID_BATCH_SIZE" "$ICE_UNITE_LR" "$ICE_UNITE_LR_FINAL" \
-  "$ICE_EMBODIMENTS" "${ICE_EXPECTED_SPLIT_MANIFEST_SHA256_CHAIN:-}" <<'PY'
+  "$ICE_EMBODIMENTS" "${ICE_EXPECTED_SPLIT_MANIFEST_SHA256_CHAIN:-}" \
+  "$ICE_UNITE_COMPILE" <<'PY'
 import math
 import pathlib
 import sys
@@ -387,6 +402,7 @@ from omegaconf import OmegaConf
     unite_lr_final,
     embodiments,
     chain_split_manifest_sha256,
+    unite_compile,
 ) = sys.argv[1:]
 world_size = int(world_size)
 EMBODIMENT_KEYS = {"USOCKET": "pushshapes_sim_u_socket", "CHAIN": "pushshapes_sim_chain_gripper"}
@@ -463,6 +479,7 @@ for domain in domains:
     assert int(cfg.data.train_dataloader_params[domain].batch_size) == int(train_batch_size)
     assert int(cfg.data.valid_dataloader_params[domain].batch_size) == int(valid_batch_size)
 if family == "unite":
+    assert bool(cfg.model.pipeline.stages[4].get("compile_backbones", False)) is (unite_compile == "true")
     assert int(cfg.evaluator.energy_score_max_batches_per_rank) == 1
     assert int(cfg.evaluator.energy_score_validation_view.world_size) == world_size
     assert int(cfg.evaluator.energy_score_validation_view.per_rank_batch_size) == int(valid_batch_size)
@@ -581,7 +598,7 @@ mkdir -p "$ATTEMPT_PROVENANCE"
 "$ICE_PYTHON" - "$ATTEMPT_PROVENANCE/launch_contract.json" \
   "$ICE_UNITE_DIAGNOSTICS" "H100|H200" "$ICE_EXPECTED_HEAD" \
   "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" "$ICE_TRAIN_BATCH_SIZE" \
-  "$ICE_VALID_BATCH_SIZE" <<'PY'
+  "$ICE_VALID_BATCH_SIZE" "$ICE_UNITE_COMPILE" <<'PY'
 import json
 import pathlib
 import sys
@@ -595,6 +612,7 @@ import sys
     trainer_strategy,
     train_batch_size,
     valid_batch_size,
+    unite_compile,
 ) = sys.argv[1:]
 pathlib.Path(path).write_text(
     json.dumps(
@@ -607,6 +625,7 @@ pathlib.Path(path).write_text(
             "trainer_strategy": trainer_strategy,
             "train_batch_size": int(train_batch_size),
             "valid_batch_size": int(valid_batch_size),
+            "unite_compile": unite_compile == "true",
         },
         indent=2,
         sort_keys=True,
@@ -642,7 +661,7 @@ export ICE_REPO ICE_PYTHON ICE_EXPERIMENT ICE_OUTPUT_DIR ICE_EMBODIMENTS
 export ICE_DATASET_DIR_USOCKET ICE_DATASET_DIR_CHAIN
 export ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID ICE_WANDB_NAME
 export ICE_WANDB_GROUP ICE_WANDB_TAGS ICE_SRUN
-export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY
+export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY ICE_UNITE_COMPILE
 # The batch was submitted with an explicit environment allow-list. Nested
 # ``srun`` steps must inherit the runner-owned requeue contract as well.
 export SLURM_EXPORT_ENV=ALL

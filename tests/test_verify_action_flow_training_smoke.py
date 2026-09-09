@@ -35,6 +35,7 @@ def _resolved_smoke_config(
     *,
     reconstruction_weight: float = 1.0,
     experiment: str | None = None,
+    world_size: int = 1,
 ):
     if experiment is None:
         suffix = {1.0: "1", 10.0: "10", 100.0: "100"}[reconstruction_weight]
@@ -55,6 +56,34 @@ def _resolved_smoke_config(
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
         cfg.trainer.precision = "bf16"
+        cfg.trainer.devices = world_size
+        cfg.trainer.strategy = (
+            "auto" if world_size == 1 else "ddp_find_unused_parameters_true"
+        )
+        cfg.launch_params.gpus_per_node = world_size
+        cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size = (
+            32 // world_size
+        )
+        validation_global_batch = 32 if experiment.endswith(
+            "_sum14_cfg4_val8_s42"
+        ) else 16
+        cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size = (
+            validation_global_batch // world_size
+        )
+        cfg.evaluator.energy_score_validation_view.world_size = world_size
+        cfg.evaluator.energy_score_validation_view.per_rank_batch_size = (
+            validation_global_batch // world_size
+        )
+        cfg.evaluator.action_flow_diagnostics.validation_view.world_size = world_size
+        cfg.evaluator.action_flow_diagnostics.validation_view.per_rank_batch_size = (
+            validation_global_batch // world_size
+        )
+        if experiment.endswith("_sum14_cfg4_val8_s42"):
+            cfg.run_provenance.validation.world_size = world_size
+            cfg.run_provenance.validation.per_rank_batch_size = (
+                validation_global_batch // world_size
+            )
+            cfg.run_provenance.validation.global_batch_size = validation_global_batch
         cfg.callbacks.model_checkpoint.every_n_train_steps = 1
         cfg.model.gradient_telemetry_cadence = 2
         cfg.norm_stats.precomputed_norm_path = str(normalization)
@@ -97,6 +126,34 @@ def test_config_gate_accepts_only_exact_two_step_contract(tmp_path, monkeypatch)
         identities["config_sha256"]
         == hashlib.sha256(config_path.read_bytes()).hexdigest()
     )
+
+
+def test_config_gate_accepts_two_gpu_contract_with_global_batch_32(
+    tmp_path, monkeypatch
+):
+    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
+        tmp_path,
+        experiment=(
+            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+        ),
+        world_size=2,
+    )
+    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+
+    config, _ = MODULE._validate_config(
+        config_path=config_path,
+        experiment=experiment,
+        run_dir=run_dir,
+        expected_head=HEAD,
+        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        expected_split_sha256=None,
+        expected_normalization_sha256=normalization_hash,
+    )
+
+    assert config.trainer.devices == 2
+    assert config.trainer.strategy == "ddp_find_unused_parameters_true"
+    assert config.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size == 16
+    assert config.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size == 16
 
 
 def test_config_gate_accepts_option_a_200m_muon_contract(tmp_path, monkeypatch):
@@ -203,7 +260,7 @@ def test_config_gate_accepts_unite_h384_parity_contract(tmp_path, monkeypatch):
     [
         ("model.flow_samples_per_content", 1, "flow_samples_per_content"),
         ("model.gradient_telemetry_cadence", 1, "gradient_telemetry_cadence"),
-        ("trainer.devices", 2, "trainer.devices"),
+        ("trainer.devices", 3, "trainer.devices"),
         ("callbacks.model_checkpoint.every_n_train_steps", 2, "every_n_train_steps"),
     ],
 )
@@ -738,7 +795,7 @@ def test_gpu_probe_gate_requires_real_single_h100_or_h200_bf16(tmp_path):
         )
     )
 
-    records = MODULE._validate_gpu_probes(tmp_path)
+    records = MODULE._validate_gpu_probes(tmp_path, expected_world_size=1)
 
     assert records[0]["gpu_name"] == "NVIDIA H200"
 
@@ -764,7 +821,30 @@ def test_gpu_probe_gate_rejects_non_target_gpu(tmp_path):
     )
 
     with pytest.raises(MODULE.SmokeVerificationError, match="H100 or H200"):
-        MODULE._validate_gpu_probes(tmp_path)
+        MODULE._validate_gpu_probes(tmp_path, expected_world_size=1)
+
+
+def test_gpu_probe_gate_requires_one_probe_per_ddp_rank(tmp_path):
+    directory = tmp_path / "provenance/restart-0"
+    directory.mkdir(parents=True)
+    payload = {
+        "status": "PASSED",
+        "world_size": 1,
+        "gpu_name": "NVIDIA H100 80GB HBM3",
+        "bf16_supported": True,
+        "bf16_forward_backward": {
+            "dtype": "torch.bfloat16",
+            "gradient_dtype": "torch.bfloat16",
+            "finite": True,
+        },
+        "nccl": {"world_size": 1, "all_reduce": 1.0, "destroyed": True},
+    }
+    for index in range(2):
+        (directory / f"gpu_probe_{index}.json").write_text(json.dumps(payload))
+
+    records = MODULE._validate_gpu_probes(tmp_path, expected_world_size=2)
+
+    assert len(records) == 2
 
 
 def _scaled_muon_optimizer_state():

@@ -1097,11 +1097,17 @@ def _validate_data_and_launch(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     _exact(str(config.mode), "train", "run mode")
     _exact(config.ckpt_path, None, "from-scratch checkpoint")
-    _exact(int(config.launch_params.gpus_per_node), 1, "GPUs per node")
+    world_size = int(config.launch_params.gpus_per_node)
+    _require(world_size in (1, 2), "GPUs per node must be 1 or 2")
     _exact(int(config.launch_params.nodes), 1, "launch nodes")
-    _exact(int(config.trainer.devices), 1, "trainer devices")
+    _exact(int(config.trainer.devices), world_size, "trainer devices")
     _exact(int(config.trainer.num_nodes), 1, "trainer nodes")
     _exact(int(config.trainer.accumulate_grad_batches), 1, "gradient accumulation")
+    _exact(
+        str(config.trainer.strategy),
+        "auto" if world_size == 1 else "ddp_find_unused_parameters_true",
+        "trainer strategy",
+    )
 
     train_sources = tuple(config.data.train_datasets.keys())
     valid_sources = tuple(config.data.valid_datasets.keys())
@@ -1136,25 +1142,38 @@ def _validate_data_and_launch(
     )
 
     train_batch = int(config.data.train_dataloader_params[source].batch_size)
-    world_size = int(config.launch_params.gpus_per_node) * int(
-        config.launch_params.nodes
-    )
     global_batch = (
         train_batch * world_size * int(config.trainer.accumulate_grad_batches)
     )
-    _exact(train_batch, 32, "per-GPU train batch")
+    _exact(train_batch, 32 // world_size, "per-GPU train batch")
     _exact(global_batch, 32, "effective global batch")
     _exact(int(config.planar.batch_size), 32, "declared batch size")
     parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
     _exact(
         int(config.data.valid_dataloader_params[source].batch_size),
-        32 if parity else 16,
+        (32 if parity else 16) // world_size,
         "per-GPU validation batch",
     )
     if parity:
         _exact(int(config.trainer.limit_val_batches), 8, "validation batch limit")
 
     provenance = config.run_provenance
+    if parity:
+        _exact(
+            int(provenance.validation.per_rank_batch_size),
+            32 // world_size,
+            "provenance validation per-rank batch size",
+        )
+        _exact(
+            int(provenance.validation.world_size),
+            world_size,
+            "provenance validation world size",
+        )
+        _exact(
+            int(provenance.validation.global_batch_size),
+            32,
+            "provenance validation global batch size",
+        )
     _exact(int(provenance.split_seed), 42, "provenance split seed")
     _float(provenance.valid_ratio, 0.01, "provenance validation ratio")
     _exact(
@@ -1385,6 +1404,17 @@ def _validate_data_and_launch(
         str(provenance.split_manifest_sha256),
         "EnergyScore validation-view split provenance",
     )
+    _exact(
+        int(config.evaluator.energy_score_validation_view.world_size),
+        world_size,
+        "EnergyScore validation world size",
+    )
+    _exact(
+        int(config.evaluator.energy_score_validation_view.per_rank_batch_size),
+        (32 if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME else 16)
+        // world_size,
+        "EnergyScore validation batch size",
+    )
     try:
         distance = normalize_usocket_energy_distance_config(
             OmegaConf.to_container(config.evaluator.energy_score_distance, resolve=True)
@@ -1503,12 +1533,13 @@ def _validate_data_and_launch(
         )
         _exact(
             int(diagnostics.validation_view.per_rank_batch_size),
-            32 if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME else 16,
+            (32 if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME else 16)
+            // world_size,
             "diagnostic validation batch size",
         )
         _exact(
             int(diagnostics.validation_view.world_size),
-            1,
+            world_size,
             "diagnostic validation world size",
         )
         _exact(

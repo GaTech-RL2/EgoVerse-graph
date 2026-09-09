@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate an exact single-GPU Slurm allocation from captured scontrol output."""
+"""Validate an exact one- or two-GPU Slurm allocation from scontrol output."""
 
 from __future__ import annotations
 
@@ -183,6 +183,8 @@ def evaluate_contract(
     expected_partition: str,
     expected_qos: str,
     expected_cpus: int,
+    expected_tasks: int = 1,
+    expected_gpus: int = 1,
     expected_memory: str,
     expected_time_limit: str,
     expected_constraint: str,
@@ -198,6 +200,13 @@ def evaluate_contract(
         raise ContractError("expected job ID must be a non-empty token")
     if expected_cpus <= 0:
         raise ContractError("expected CPUs must be positive")
+    if expected_tasks not in (1, 2):
+        raise ContractError("expected tasks must be 1 or 2")
+    if expected_gpus != expected_tasks:
+        raise ContractError("expected GPUs must equal expected tasks")
+    if expected_cpus % expected_tasks:
+        raise ContractError("expected CPUs must divide evenly across tasks")
+    expected_cpus_per_task = expected_cpus // expected_tasks
     expected_memory_bytes = parse_slurm_memory(expected_memory)
     expected_time_limit_seconds = parse_slurm_duration(expected_time_limit)
     requested_tres = parse_tres(_required_field(fields, "ReqTRES"))
@@ -244,10 +253,10 @@ def evaluate_contract(
         "partition": expected_partition,
         "qos": expected_qos,
         "nodes": 1,
-        "tasks": 1,
-        "gpus": 1,
+        "tasks": expected_tasks,
+        "gpus": expected_gpus,
         "cpus": expected_cpus,
-        "cpus_per_task": expected_cpus,
+        "cpus_per_task": expected_cpus_per_task,
         "minimum_cpus_per_node": expected_cpus,
         "memory_raw": expected_memory,
         "memory_bytes": expected_memory_bytes,
@@ -263,9 +272,9 @@ def evaluate_contract(
         ("partition", expected_partition, observed["partition"]),
         ("qos", expected_qos, observed["qos"]),
         ("nodes", 1, observed["nodes"]),
-        ("tasks", 1, observed["tasks"]),
+        ("tasks", expected_tasks, observed["tasks"]),
         ("cpus", expected_cpus, observed["cpus"]),
-        ("cpus_per_task", expected_cpus, observed["cpus_per_task"]),
+        ("cpus_per_task", expected_cpus_per_task, observed["cpus_per_task"]),
         (
             "minimum_cpus_per_node",
             expected_cpus,
@@ -285,7 +294,7 @@ def evaluate_contract(
             expected_memory_bytes,
             observed["requested_tres_memory_bytes"],
         ),
-        ("requested_tres_gpus", 1, observed["requested_tres_gpus"]),
+        ("requested_tres_gpus", expected_gpus, observed["requested_tres_gpus"]),
         ("typed_gpu_tres", [], observed["typed_gpu_tres"]),
     ]
     failures = [
@@ -325,6 +334,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-partition", required=True)
     parser.add_argument("--expected-qos", required=True)
     parser.add_argument("--expected-cpus", required=True, type=_positive_int)
+    parser.add_argument("--expected-tasks", type=_positive_int, default=1)
+    parser.add_argument("--expected-gpus", type=_positive_int, default=1)
     parser.add_argument("--expected-memory", required=True)
     parser.add_argument("--expected-time-limit", required=True)
     parser.add_argument(
@@ -358,6 +369,8 @@ def main() -> int:
             expected_partition=args.expected_partition,
             expected_qos=args.expected_qos,
             expected_cpus=args.expected_cpus,
+            expected_tasks=args.expected_tasks,
+            expected_gpus=args.expected_gpus,
             expected_memory=args.expected_memory,
             expected_time_limit=args.expected_time_limit,
             expected_constraint=args.expected_constraint,

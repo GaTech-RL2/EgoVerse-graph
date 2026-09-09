@@ -243,7 +243,7 @@ def test_recon100_diff_is_only_the_declared_reconstruction_setting():
         ("model.pipeline.stages.5.field.time_scale", 1.0, "time scale"),
         ("model.pipeline.stages.4.samples_per_content", 13, "bridge samples"),
         ("callbacks.model_checkpoint.every_n_train_steps", 20_000, "checkpoint"),
-        ("launch_params.gpus_per_node", 2, "GPUs per node"),
+        ("launch_params.gpus_per_node", 3, "GPUs per node"),
         (
             "evaluator.action_flow_diagnostics.enabled",
             False,

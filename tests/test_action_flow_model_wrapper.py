@@ -296,6 +296,33 @@ def test_action_flow_wrapper_rejects_non_finite_components(monkeypatch):
         wrapper.training_step(batch, batch_idx=0)
 
 
+def test_distributed_gradient_makes_strided_autograd_values_contiguous(monkeypatch):
+    gradient = torch.arange(12, dtype=torch.float32).reshape(3, 4).T
+    original = gradient.clone()
+    observed = {}
+
+    monkeypatch.setattr(torch.distributed, "is_available", lambda: True)
+    monkeypatch.setattr(torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(torch.distributed, "get_world_size", lambda: 2)
+
+    def fake_all_reduce(value, op):
+        observed["contiguous"] = value.is_contiguous()
+        observed["op"] = op
+        value.mul_(2)
+
+    monkeypatch.setattr(torch.distributed, "all_reduce", fake_all_reduce)
+
+    reduced = ActionFlowModelWrapper._distributed_gradient(gradient)
+
+    assert observed == {
+        "contiguous": True,
+        "op": torch.distributed.ReduceOp.SUM,
+    }
+    assert reduced.is_contiguous()
+    assert torch.equal(reduced, original)
+    assert torch.equal(gradient, original)
+
+
 def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypatch):
     wrapper = ActionFlowModelWrapper(pipeline=_ToyAlgo(), gradient_telemetry_cadence=1)
     wrapper.flow_samples_per_content = 14

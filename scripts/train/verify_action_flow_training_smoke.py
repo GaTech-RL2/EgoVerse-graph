@@ -348,6 +348,18 @@ def _validate_config(
     scaled_200m = experiment in SCALED_200M_EXPERIMENTS
     unite_recipe = method == STOPGRAD_UNITE_METHOD
     unite_parity = experiment == UNITE_H384_PARITY_EXPERIMENT
+    world_size = int(config.trainer.devices)
+    _require(world_size in (1, 2), f"trainer.devices must be 1 or 2, got {world_size}")
+    expected_strategy = (
+        "auto" if world_size == 1 else "ddp_find_unused_parameters_true"
+    )
+    train_batch_size = 32 // world_size
+    validation_global_batch_size = 32 if unite_parity else 16
+    _require(
+        validation_global_batch_size % world_size == 0,
+        "global validation batch must divide world size",
+    )
+    validation_batch_size = validation_global_batch_size // world_size
     field_hidden_dim = 1_024 if scaled_200m else 512
     field_depth = 14 if scaled_200m else 12
     field_num_heads = 16 if scaled_200m else 8
@@ -362,9 +374,9 @@ def _validate_config(
         ("trainer.limit_val_batches", 1),
         ("trainer.num_sanity_val_steps", 0),
         ("trainer.accumulate_grad_batches", 1),
-        ("trainer.devices", 1),
+        ("trainer.devices", world_size),
         ("trainer.num_nodes", 1),
-        ("launch_params.gpus_per_node", 1),
+        ("launch_params.gpus_per_node", world_size),
         ("launch_params.nodes", 1),
         ("callbacks.model_checkpoint.every_n_train_steps", 1),
         ("callbacks.model_checkpoint.save_top_k", -1),
@@ -382,10 +394,10 @@ def _validate_config(
         ("run_provenance.objective.flow_samples_per_content", 14),
         ("run_provenance.energy_score_contract.sample_count", 32),
         ("evaluator.energy_score_max_batches_per_rank", 1),
-        ("evaluator.energy_score_validation_view.world_size", 1),
+        ("evaluator.energy_score_validation_view.world_size", world_size),
         (
             "evaluator.energy_score_validation_view.per_rank_batch_size",
-            32 if unite_parity else 16,
+            validation_batch_size,
         ),
     )
     if unite_recipe:
@@ -432,7 +444,26 @@ def _validate_config(
             ("model.scheduler.warmup_steps", 8_000),
             ("run_provenance.inference.steps", 16),
         )
-    for path, expected in (*common_checks, *architecture_checks):
+    validation_provenance_checks = (
+        (
+            ("run_provenance.validation.world_size", world_size),
+            (
+                "run_provenance.validation.per_rank_batch_size",
+                validation_batch_size,
+            ),
+            (
+                "run_provenance.validation.global_batch_size",
+                validation_global_batch_size,
+            ),
+        )
+        if unite_parity
+        else ()
+    )
+    for path, expected in (
+        *common_checks,
+        *architecture_checks,
+        *validation_provenance_checks,
+    ):
         if method == LIKELIHOOD_METHOD and path in {
             "model.flow_samples_per_content",
             "model.num_inference_steps",
@@ -523,7 +554,7 @@ def _validate_config(
     _exact(config, "mode", "train")
     _require(config.ckpt_path is None, "smoke must initialize from scratch")
     _exact(config, "trainer.accelerator", "gpu")
-    _exact(config, "trainer.strategy", "auto")
+    _exact(config, "trainer.strategy", expected_strategy)
     _exact(config, "trainer.precision", "bf16")
     _exact(config, "trainer.gradient_clip_algorithm", "norm")
     _exact(config, "trainer.sync_batchnorm", False)
@@ -646,12 +677,12 @@ def _validate_config(
     _exact(
         config,
         f"data.train_dataloader_params.{SOURCE_LABEL}.batch_size",
-        32,
+        train_batch_size,
     )
     _exact(
         config,
         f"data.valid_dataloader_params.{SOURCE_LABEL}.batch_size",
-        32 if unite_parity else 16,
+        validation_batch_size,
     )
     global_batch = (
         int(config.data.train_dataloader_params[SOURCE_LABEL].batch_size)
@@ -824,7 +855,7 @@ def _validate_config(
         _exact(
             config,
             "evaluator.action_flow_diagnostics.validation_view.world_size",
-            1,
+            world_size,
         )
         diagnostic_split = _select(
             config,
@@ -2132,9 +2163,15 @@ def _validate_preflight(
     }
 
 
-def _validate_gpu_probes(run_dir: Path) -> list[dict[str, Any]]:
-    candidates = sorted(run_dir.glob("provenance/restart-*/gpu_probe.json"))
-    _require(candidates, "smoke has no scheduled one-GPU BF16 probe")
+def _validate_gpu_probes(
+    run_dir: Path, *, expected_world_size: int
+) -> list[dict[str, Any]]:
+    candidates = sorted(run_dir.glob("provenance/restart-*/gpu_probe*.json"))
+    _require(candidates, "smoke has no scheduled BF16 GPU probe")
+    _require(
+        len(candidates) == expected_world_size,
+        f"smoke expected {expected_world_size} GPU probes, got {len(candidates)}",
+    )
     records = []
     for path in candidates:
         payload = json.loads(path.read_text())
@@ -2240,7 +2277,9 @@ def verify_smoke(
         content_manifest_sha256=identities["content_manifest_sha256"],
         dataset_content_aggregate_sha256=identities["dataset_content_aggregate_sha256"],
     )
-    gpu_probes = _validate_gpu_probes(run_dir)
+    gpu_probes = _validate_gpu_probes(
+        run_dir, expected_world_size=int(config.trainer.devices)
+    )
     checkpoint = _validate_checkpoint(
         run_dir,
         reconstruction_weight=approved_reconstruction_weight,

@@ -399,7 +399,10 @@ class ActionFlowModelWrapper(ModelWrapper):
 
     @staticmethod
     def _distributed_gradient(gradient: torch.Tensor) -> torch.Tensor:
-        value = gradient.detach().float().clone()
+        # NCCL collectives require dense contiguous inputs. Autograd may return
+        # strided views (for example, transposed matrix gradients), so make the
+        # telemetry copy contiguous without mutating the optimizer gradient.
+        value = gradient.detach().float().contiguous().clone()
         if torch.distributed.is_available() and torch.distributed.is_initialized():
             torch.distributed.all_reduce(value, op=torch.distributed.ReduceOp.SUM)
             value.div_(torch.distributed.get_world_size())

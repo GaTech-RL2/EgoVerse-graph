@@ -116,6 +116,26 @@ def test_exact_supported_gpu_constraints_pass(constraint):
     assert expected["constraint"] == constraint
 
 
+def test_two_gpu_external_ddp_contract_passes():
+    module = _load_module()
+    fields = module.parse_scontrol_record(
+        _record(
+            NumCPUs="16",
+            NumTasks="2",
+            ReqTRES="cpu=16,mem=250G,node=1,billing=16,gres/gpu=2",
+            MinCPUsNode="16",
+        )
+    )
+    expectations = _expectations()
+    expectations.update(expected_cpus=16, expected_tasks=2, expected_gpus=2)
+
+    expected, _, failures = module.evaluate_contract(fields, **expectations)
+
+    assert failures == []
+    assert expected["tasks"] == expected["gpus"] == 2
+    assert expected["cpus_per_task"] == 8
+
+
 @pytest.mark.parametrize(
     ("replacement", "failure_field"),
     [

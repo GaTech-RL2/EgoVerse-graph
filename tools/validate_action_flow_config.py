@@ -99,12 +99,20 @@ SCALED_MUON_CONFIG_NAME = (
 SCALED_ADAMW_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
 )
-SCALED_200M_CONFIG_NAMES = {SCALED_MUON_CONFIG_NAME, SCALED_ADAMW_CONFIG_NAME}
+SCALE1_ADAMW_CONFIG_NAME = (
+    "action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42"
+)
+SCALED_200M_CONFIG_NAMES = {
+    SCALED_MUON_CONFIG_NAME,
+    SCALED_ADAMW_CONFIG_NAME,
+    SCALE1_ADAMW_CONFIG_NAME,
+}
 CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -313,6 +321,19 @@ ALLOWED_PAIR_DIFFERENCES = frozenset(
         "model.reconstruction_weight",
         "name",
         "run_provenance.objective.reconstruction_weight",
+    }
+)
+ALLOWED_SCALE_PAIR_DIFFERENCES = frozenset(
+    {
+        "description",
+        "model.decoded_noise_scale_weight",
+        "model.pipeline.stages.6.decode_noise",
+        "model.pipeline.stages.7.moment_weight",
+        "name",
+        "run_provenance.objective.decoded_noise_scale_weight",
+        "run_provenance.optimizer_ablation",
+        "run_provenance.optimizer_contract",
+        "run_provenance.scale_ablation",
     }
 )
 
@@ -1066,7 +1087,40 @@ def _validate_data_and_launch(
         )
         _exact(int(recorded_warmup), warmup_steps, "provenance objective warmup")
         _exact(int(objective.flow_samples_per_content), 14, "provenance bridge samples")
-        _float(objective.decoded_noise_scale_weight, 0.0, "decoded-noise scale weight")
+        decoded_noise_scale_weight = float(
+            OmegaConf.select(
+                config, "model.decoded_noise_scale_weight", default=0.0
+            )
+        )
+        _float(
+            objective.decoded_noise_scale_weight,
+            decoded_noise_scale_weight,
+            "decoded-noise scale weight",
+        )
+        decoded_noise_forward = bool(
+            OmegaConf.select(
+                config,
+                "model.pipeline.stages.6.decode_noise",
+                default=False,
+            )
+        )
+        if decoded_noise_scale_weight > 0.0:
+            _float(
+                config.model.pipeline.stages[7].moment_weight,
+                decoded_noise_scale_weight,
+                "decoded-noise objective stage weight",
+            )
+            _exact(
+                decoded_noise_forward,
+                True,
+                "decoded-noise forward activation",
+            )
+        else:
+            _exact(
+                decoded_noise_forward,
+                False,
+                "decoded-noise forward activation",
+            )
         _float(objective.monotonic_weight, 0.0, "monotonicity weight")
         _exact(str(provenance.inference.sampler), "reverse_euler", "inference sampler")
         _exact(int(provenance.inference.steps), 16, "inference sampler steps")
@@ -1348,6 +1402,11 @@ def validate_config(
             "condition_dropout_probability": 0.3,
             "flow_samples_per_content": 14,
             "flow_weight": float(config.model.flow_weight),
+            "decoded_noise_scale_weight": float(
+                OmegaConf.select(
+                    config, "model.decoded_noise_scale_weight", default=0.0
+                )
+            ),
             "reconstruction_weight": float(config.model.reconstruction_weight),
             "reconstruction_only_warmup_steps": int(
                 OmegaConf.select(
@@ -1433,11 +1492,34 @@ def validate_pair(
         overrides=overrides,
     )
     differences = tuple(_differences(first_config, second_config))
+    scale_pair = SCALE1_ADAMW_CONFIG_NAME in {
+        first_experiment.removeprefix("pusht/"),
+        second_experiment.removeprefix("pusht/"),
+    }
+    allowed_differences = (
+        ALLOWED_SCALE_PAIR_DIFFERENCES if scale_pair else ALLOWED_PAIR_DIFFERENCES
+    )
     _exact(
         frozenset(differences),
-        ALLOWED_PAIR_DIFFERENCES,
+        allowed_differences,
         "paired experiment differences",
     )
+    if scale_pair:
+        paired_scale_weights = {
+            first["objective"]["decoded_noise_scale_weight"],
+            second["objective"]["decoded_noise_scale_weight"],
+        }
+        _exact(paired_scale_weights, {0.0, 1.0}, "paired scale weights")
+        return {
+            "comparison": {
+                "differing_paths": list(differences),
+                "only_declared_scale_differences": True,
+                "status": "PASS",
+            },
+            "experiments": [first, second],
+            "schema_version": SCHEMA_VERSION,
+            "status": "PASS",
+        }
     paired_weights = {
         first["objective"]["reconstruction_weight"],
         second["objective"]["reconstruction_weight"],

@@ -71,7 +71,14 @@ SCALED_MUON_EXPERIMENT = (
 SCALED_ADAMW_EXPERIMENT = (
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
 )
-SCALED_200M_EXPERIMENTS = {SCALED_MUON_EXPERIMENT, SCALED_ADAMW_EXPERIMENT}
+SCALE1_ADAMW_EXPERIMENT = (
+    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42"
+)
+SCALED_200M_EXPERIMENTS = {
+    SCALED_MUON_EXPERIMENT,
+    SCALED_ADAMW_EXPERIMENT,
+    SCALE1_ADAMW_EXPERIMENT,
+}
 SCALED_200M_PARAMETER_COUNT = 199_754_837
 APPROVED_EXPERIMENTS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
@@ -91,6 +98,11 @@ APPROVED_EXPERIMENTS = {
     ),
     SCALED_ADAMW_EXPERIMENT: (
         "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
+        1.0,
+        1.0,
+    ),
+    SCALE1_ADAMW_EXPERIMENT: (
+        "action_flow_bc_usocket_latent_fm_sg_recon1_scale1_200m_adamw_lr1e5_s42",
         1.0,
         1.0,
     ),
@@ -330,6 +342,7 @@ def _validate_config(
     )
     scaled_muon = experiment == SCALED_MUON_EXPERIMENT
     scaled_200m = experiment in SCALED_200M_EXPERIMENTS
+    decoded_noise_scale_weight = 1.0 if experiment == SCALE1_ADAMW_EXPERIMENT else 0.0
     field_hidden_dim = 1_024 if scaled_200m else 512
     field_depth = 14 if scaled_200m else 12
     field_num_heads = 16 if scaled_200m else 8
@@ -437,7 +450,10 @@ def _validate_config(
         ("run_provenance.objective.flow_weight", flow_weight),
         ("run_provenance.objective.reconstruction_weight", reconstruction_weight),
         ("run_provenance.objective.action_velocity_weight", 1.0),
-        ("run_provenance.objective.decoded_noise_scale_weight", 0.0),
+        (
+            "run_provenance.objective.decoded_noise_scale_weight",
+            decoded_noise_scale_weight,
+        ),
         ("run_provenance.objective.monotonic_weight", 0.0),
     ):
         if method == LIKELIHOOD_METHOD and (
@@ -447,6 +463,14 @@ def _validate_config(
         ):
             continue  # This method has NLL components, not FM/reconstruction.
         _float(config, path, expected)
+
+    if experiment == SCALE1_ADAMW_EXPERIMENT:
+        _float(
+            config,
+            "model.pipeline.stages.7.moment_weight",
+            decoded_noise_scale_weight,
+        )
+        _exact(config, "model.pipeline.stages.6.decode_noise", True)
 
     _exact(config, "mode", "train")
     _require(config.ckpt_path is None, "smoke must initialize from scratch")
@@ -1313,6 +1337,7 @@ def _validate_history(
     *,
     reconstruction_weight: float = 1.0,
     flow_weight: float = 1.0,
+    decoded_noise_scale_weight: float = 0.0,
     expect_reconstruction_warmup: bool = False,
     method: str = LEGACY_METHOD,
 ) -> dict[str, Any]:
@@ -1322,6 +1347,9 @@ def _validate_history(
         "ReconstructionLoss",
         "ReconstructionL1",
         "ActionVelocityLoss",
+        "DecodedNoiseMomentLoss",
+        "DecodedNoiseMeanPenalty",
+        "DecodedNoiseCovariancePenalty",
     )
     if method == LIKELIHOOD_METHOD:
         component_names = ("TotalLoss", "InteriorBridgeNLL", "BoundaryNLL")
@@ -1431,6 +1459,20 @@ def _validate_history(
         "joint smoke step did not enable both delayed objectives",
     )
     for suffix in ("", f"/{SOURCE_LABEL}"):
+        if method != LIKELIHOOD_METHOD:
+            _require(
+                math.isclose(
+                    train[f"Train/ActionFlow/DecodedNoiseMomentLoss{suffix}"],
+                    train[f"Train/ActionFlow/DecodedNoiseMeanPenalty{suffix}"]
+                    + train[
+                        f"Train/ActionFlow/DecodedNoiseCovariancePenalty{suffix}"
+                    ],
+                    rel_tol=1.0e-5,
+                    abs_tol=1.0e-7,
+                ),
+                f"decoded-noise moment components are inconsistent for "
+                f"{suffix or 'macro'}",
+            )
         expected_total = (
             (
                 train[f"Train/ActionFlow/InteriorBridgeNLL{suffix}"]
@@ -1442,6 +1484,8 @@ def _validate_history(
                 + reconstruction_weight
                 * train[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
                 + train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
+                + decoded_noise_scale_weight
+                * train[f"Train/ActionFlow/DecodedNoiseMomentLoss{suffix}"]
             )
         )
         _require(
@@ -1540,6 +1584,8 @@ def _validate_history(
             flow_weight * valid["Valid/ActionFlow/FlowMatchingLoss"]
             + reconstruction_weight * valid["Valid/ActionFlow/ReconstructionLoss"]
             + valid["Valid/ActionFlow/ActionVelocityLoss"]
+            + decoded_noise_scale_weight
+            * valid["Valid/ActionFlow/DecodedNoiseMomentLoss"]
         )
     )
     _require(
@@ -2145,6 +2191,9 @@ def verify_smoke(
         rows,
         reconstruction_weight=APPROVED_EXPERIMENTS[experiment][1],
         flow_weight=APPROVED_EXPERIMENTS[experiment][2],
+        decoded_noise_scale_weight=(
+            1.0 if experiment == SCALE1_ADAMW_EXPERIMENT else 0.0
+        ),
         expect_reconstruction_warmup=expect_reconstruction_warmup,
         method=method,
     )

@@ -72,20 +72,35 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42" in source
     assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42" in source
     assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42" in source
+    assert "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42" in source
+    assert (
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+        in source
+    )
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42" in source
     assert "expected_name = {" not in source
-    assert "MAX_STEPS=240000" in source
-    assert "VALIDATE_EVERY=10000" in source
-    assert "CHECKPOINT_EVERY=40000" in source
+    assert "AF_FULL_MAX_STEPS=240000" in source
+    assert "AF_FULL_VALIDATE_EVERY=10000" in source
+    assert "AF_FULL_CHECKPOINT_EVERY=40000" in source
+    assert "AF_FULL_MAX_STEPS=150000" in source
+    assert "AF_FULL_VALIDATE_EVERY=30000" in source
+    assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
     assert (
         "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32" in source
     )
     assert (
-        "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=16" in source
+        "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_VALID_BATCH_SIZE"
+        in source
     )
+    assert "AF_FULL_LIMIT_VAL_BATCHES=8" in source
+    assert "AF_VALID_BATCH_SIZE=32" in source
+    assert 'cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size' in source
+    assert 'diagnostics.validation_view.per_rank_batch_size == valid_batch_size' in source
+    assert 'cfg.trainer.val_check_interval == full_validate_every' in source
+    assert 'cfg.callbacks.model_checkpoint.every_n_train_steps == full_checkpoint_every' in source
     assert "ckpt_path=null" in source
     assert "norm_stats.precomputed_norm_path=$AF_NORM_STATS_PATH" in source
     assert "++run_provenance.source_commit=$AF_EXPECTED_HEAD" in source
@@ -102,6 +117,7 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "expected_count = 50_725_221" in source
     assert "50_801_685" in source
     assert "expected_count = 199_754_837" in source
+    assert "count == 97_956_100" in source
     assert "ReleasedUniteCompositeOptimizer" in source
     assert 'optimizer.muon_adjust_lr_fn == "match_rms_adamw"' in source
 
@@ -109,7 +125,7 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
 def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
     source = _source()
     assert "MAX_STEPS=2" in source
-    assert "VALIDATE_EVERY=1" in source
+    assert "VALIDATE_EVERY=2" in source
     assert "LIMIT_VAL_BATCHES=1" in source
     assert "CHECKPOINT_EVERY=1" in source
     assert "TELEMETRY_EVERY=2" in source

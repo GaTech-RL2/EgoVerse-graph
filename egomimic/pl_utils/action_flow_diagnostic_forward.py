@@ -109,12 +109,22 @@ def _block_outputs(
 
     captured: list[torch.Tensor] = []
 
-    def capture(_module, _inputs, output):
-        if not torch.is_tensor(output):
-            raise TypeError(f"Action Flow {label} block output must be a tensor")
-        captured.append(output)
+    canonicalize = getattr(module, "canonicalize_diagnostic_block_output", None)
 
-    handles = [block.register_forward_hook(capture) for block in blocks]
+    def capture(block_index: int):
+        def hook(_module, _inputs, output):
+            if not torch.is_tensor(output):
+                raise TypeError(f"Action Flow {label} block output must be a tensor")
+            if callable(canonicalize):
+                output = canonicalize(output, block_index)
+            captured.append(output)
+
+        return hook
+
+    handles = [
+        block.register_forward_hook(capture(block_index))
+        for block_index, block in enumerate(blocks)
+    ]
     try:
         result = call()
     finally:

@@ -44,6 +44,12 @@ from egomimic.models.action_flow_codec import (  # noqa: E402
     ContextFreeSequenceEncoder,
 )
 from egomimic.models.action_flow_transformer import AdaLNSequenceField  # noqa: E402
+from egomimic.models.action_flow_unite import (  # noqa: E402
+    UniteActionFlowContentEncoder,
+    UniteActionFlowVelocityField,
+)
+from egomimic.models.unite_action_decoder import UniteActionDecoder  # noqa: E402
+from egomimic.models.unite_dit import UniteDiTBackbone  # noqa: E402
 from egomimic.pipeline.algo import PipelineAlgo  # noqa: E402
 from egomimic.pipeline.stages_action_flow import (  # noqa: E402
     ActionFlowObjectiveStage,
@@ -56,6 +62,7 @@ from egomimic.pipeline.stages_io import ActionTargetBuilder  # noqa: E402
 from egomimic.pipeline.stages_sampler import (  # noqa: E402
     FusedObsEncoder,
     GaussianLatentNoise,
+    KeyedFeatureProjection,
 )
 from egomimic.rldb.zarr.content_manifest import (  # noqa: E402
     validate_content_manifest,
@@ -93,6 +100,11 @@ LEGACY_METHOD = "action_flow_joint"
 LIKELIHOOD_METHOD = "gaussian_bridge_likelihood"
 GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
+STOPGRAD_UNITE_METHOD = "latent_fm_stopgrad_unite"
+STOPGRAD_UNITE_CONFIG_NAME = "action_flow_usocket_latent_fm_sg_unite_h384_s42"
+STOPGRAD_UNITE_PARITY_CONFIG_NAME = (
+    "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+)
 SCALED_MUON_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
@@ -105,6 +117,8 @@ CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -117,6 +131,21 @@ LIKELIHOOD_STAGE_TARGETS = EXPECTED_STAGE_TARGETS[:3] + tuple(
         "LikelihoodDecoderStage",
         "GaussianBridgeObjectiveStage",
     )
+)
+UNITE_STAGE_TYPES = (
+    KeyedFeatureProjection,
+    FusedObsEncoder,
+    ActionTargetBuilder,
+    GaussianLatentNoise,
+    ContentEncoderStage,
+    LatentBridgeStage,
+    ConditionalVelocityStage,
+    ContentDecoderStage,
+    ActionFlowObjectiveStage,
+)
+UNITE_STAGE_TARGETS = tuple(
+    f"{stage_type.__module__}.{stage_type.__name__}"
+    for stage_type in UNITE_STAGE_TYPES
 )
 
 
@@ -143,11 +172,11 @@ def action_flow_method(config: DictConfig, experiment: str | None = None) -> str
 
 
 def method_stage_targets(method: str) -> tuple[str, ...]:
-    return (
-        LIKELIHOOD_STAGE_TARGETS
-        if method == LIKELIHOOD_METHOD
-        else EXPECTED_STAGE_TARGETS
-    )
+    if method == LIKELIHOOD_METHOD:
+        return LIKELIHOOD_STAGE_TARGETS
+    if method == STOPGRAD_UNITE_METHOD:
+        return UNITE_STAGE_TARGETS
+    return EXPECTED_STAGE_TARGETS
 
 
 def method_wrapper_target(method: str) -> str:
@@ -166,9 +195,10 @@ def validate_method_contract(config: DictConfig, experiment: str | None = None) 
         method_stage_targets(method),
         "stage topology",
     )
-    if method == STOPGRAD_METHOD:
+    if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD}:
+        field_index = 6 if method == STOPGRAD_UNITE_METHOD else 5
         _exact(
-            str(stages[5].flow_clean_gradient_mode),
+            str(stages[field_index].flow_clean_gradient_mode),
             "all_stopgrad",
             "FM-only reference detachment",
         )
@@ -272,9 +302,12 @@ def validate_method_contract(config: DictConfig, experiment: str | None = None) 
             "ODE diagnostics are not likelihood diagnostics",
         )
     if method != LEGACY_METHOD and method != LIKELIHOOD_METHOD:
+        objective_index = 8 if method == STOPGRAD_UNITE_METHOD else 7
         _float(config.model.flow_weight, 1.0, "candidate flow weight")
         _float(
-            stages[7].action_velocity_weight, 1.0, "candidate action velocity weight"
+            stages[objective_index].action_velocity_weight,
+            1.0,
+            "candidate action velocity weight",
         )
         _exact(
             int(
@@ -467,10 +500,169 @@ def _parameter_manifest(module: nn.Module) -> dict[str, Any]:
     }
 
 
+def _validate_unite_dimensions_and_modules(
+    config: DictConfig,
+    stages: Sequence[nn.Module],
+) -> tuple[dict[str, Any], dict[str, dict[str, int]]]:
+    """Fail closed on the H384 Action Flow/UNITE architecture contract."""
+
+    _exact(len(stages), 9, "UNITE Action Flow stage count")
+    (
+        projection,
+        observation,
+        _,
+        noise,
+        encoder_stage,
+        bridge,
+        field_stage,
+        decoder_stage,
+        objective,
+    ) = stages
+    encoder = encoder_stage.encoder
+    field = field_stage.field
+    decoder = decoder_stage.decoder
+    _require(isinstance(projection, KeyedFeatureProjection), "wrong state projection")
+    _require(isinstance(observation, FusedObsEncoder), "wrong observation encoder")
+    _require(
+        isinstance(encoder, UniteActionFlowContentEncoder), "wrong UNITE tokenizer"
+    )
+    _require(isinstance(field, UniteActionFlowVelocityField), "wrong UNITE denoiser")
+    _require(isinstance(decoder, UniteActionDecoder), "wrong UNITE decoder")
+    _require(
+        isinstance(encoder.backbone, UniteDiTBackbone), "wrong tokenizer backbone"
+    )
+    _require(isinstance(field.backbone, UniteDiTBackbone), "wrong denoiser backbone")
+    _require(
+        encoder.backbone is not field.backbone,
+        "tokenizer and denoiser must be separate",
+    )
+
+    _exact(int(config.model.action_horizon), 16, "model action horizon")
+    _exact(int(config.model.action_dim), 4, "model action dimension")
+    _exact(int(config.model.num_latent_tokens), 8, "model latent token count")
+    _exact(int(config.model.latent_dim), 16, "model latent dimension")
+    _exact(int(config.model.condition_dim), 128, "model condition dimension")
+    _exact(int(config.model.hidden_dim), 384, "model hidden dimension")
+    _exact(int(noise.num_tokens), 8, "Gaussian source tokens")
+    _exact(int(noise.latent_dim), 16, "Gaussian source latent dimension")
+    _exact(int(observation.n_obs_steps), 1, "observation steps")
+    _exact(int(projection.output_dim), 64, "projected proprio width")
+    _exact(int(encoder.input_dim), 4, "tokenizer action dimension")
+    _exact(int(encoder.action_horizon), 16, "tokenizer action horizon")
+    _exact(int(encoder.num_latent_tokens), 8, "tokenizer register count")
+    _exact(int(encoder.latent_dim), 16, "tokenizer latent dimension")
+    _exact(int(field.input_dim), 16, "field input dimension")
+    _exact(int(field.output_dim), 16, "field output dimension")
+    _exact(int(field.horizon), 8, "field register count")
+    _exact(int(field.condition_dim), 128, "field condition dimension")
+    _float(field.condition_dropout_probability, 0.1, "field condition dropout")
+    for label, backbone in (
+        ("tokenizer", encoder.backbone),
+        ("denoiser", field.backbone),
+    ):
+        for attribute, expected in {
+            "input_dim": 16,
+            "output_dim": 16,
+            "horizon": 8,
+            "condition_dim": 128,
+            "hidden_dim": 384,
+            "depth": 12,
+            "num_heads": 12,
+            "in_context_start": 4,
+            "in_context_len": 32,
+        }.items():
+            _exact(getattr(backbone, attribute), expected, f"{label} {attribute}")
+        _exact(bool(backbone.gradient_checkpointing), True, f"{label} checkpointing")
+    for attribute, expected in {
+        "latent_dim": 16,
+        "action_dim": 4,
+        "num_latent_tokens": 8,
+        "action_horizon": 16,
+        "hidden_dim": 384,
+        "depth": 12,
+        "num_heads": 12,
+    }.items():
+        _exact(getattr(decoder, attribute), expected, f"decoder {attribute}")
+    _float(decoder.mlp_ratio, 4.0, "decoder MLP ratio")
+    _float(decoder.dropout, 0.0, "decoder dropout")
+
+    _exact(int(bridge.samples_per_content), 14, "bridge samples")
+    _float(bridge.condition_dropout_probability, 0.1, "bridge condition dropout")
+    _exact(bridge.time_sampling, "lognormal_shifted", "bridge time sampling")
+    _float(bridge.lognorm_mu, 0.0, "bridge log-normal mean")
+    _float(bridge.lognorm_sigma, 1.0, "bridge log-normal sigma")
+    _float(bridge.timestep_shift_alpha, 0.5, "bridge timestep shift")
+    _exact(bridge.independent_noise_per_sample, True, "independent bridge noise")
+    _exact(
+        bridge.independent_condition_dropout_per_sample,
+        True,
+        "independent condition dropout",
+    )
+    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+    _exact(field_stage.flow_clean_gradient_mode, "all_stopgrad", "FM stop-gradient")
+    _exact(field_stage.inference_method, "dopri5", "inference method")
+    _exact(int(field_stage.num_inference_steps), 50, "Dopri5 output points")
+    _float(field_stage.timestep_shift_alpha, 0.5, "inference timestep shift")
+    _float(field_stage.dopri5_atol, 1.0e-6, "Dopri5 absolute tolerance")
+    _float(field_stage.dopri5_rtol, 1.0e-3, "Dopri5 relative tolerance")
+    _float(field_stage.cfg_scale, 4.0 if parity else 1.0, "CFG scale")
+    _exact(tuple(field_stage.cfg_interval), (0.0, 1.0), "CFG interval")
+    _float(
+        decoder_stage.reconstruction_noising_start,
+        0.7,
+        "reconstruction noise start",
+    )
+    _float(
+        decoder_stage.reconstruction_noising_probability,
+        0.5,
+        "reconstruction noise probability",
+    )
+    _float(objective.flow_weight, 1.0, "FM weight")
+    _float(objective.reconstruction_weight, 1.0, "reconstruction weight")
+    _float(objective.action_velocity_weight, 1.0, "action-velocity weight")
+    _exact(
+        objective.flow_aggregation,
+        "sum_samples" if parity else "mean",
+        "flow aggregation",
+    )
+    _exact(int(objective.flow_samples_per_content), 14, "objective flow samples")
+
+    parameters = {
+        "state_projection": _parameter_manifest(projection),
+        "observation_encoder": _parameter_manifest(observation),
+        "encoder_e": _parameter_manifest(encoder),
+        "field_v": _parameter_manifest(field),
+        "decoder_g": _parameter_manifest(decoder),
+    }
+    expected_counts = {
+        "state_projection": 4_480,
+        "observation_encoder": 11_197_088,
+        "encoder_e": 32_725_808,
+        "field_v": 32_725_168,
+        "decoder_g": 21_303_556,
+    }
+    for label, expected in expected_counts.items():
+        _exact(parameters[label]["total"], expected, f"{label} parameter count")
+        _exact(
+            parameters[label]["trainable"], expected, f"{label} trainable count"
+        )
+    _exact(sum(expected_counts.values()), 97_956_100, "total parameter accounting")
+    dimensions = {
+        "action": [16, 4],
+        "condition": 128,
+        "image_feature": 64,
+        "latent": [8, 16],
+        "normalized_state": 4,
+    }
+    return dimensions, parameters
+
+
 def _validate_dimensions_and_modules(
     config: DictConfig,
     stages: Sequence[nn.Module],
 ) -> tuple[dict[str, Any], dict[str, dict[str, int]]]:
+    if action_flow_method(config) == STOPGRAD_UNITE_METHOD:
+        return _validate_unite_dimensions_and_modules(config, stages)
     _exact(int(config.model.action_horizon), 16, "model action horizon")
     _exact(int(config.model.action_dim), 4, "model action dimension")
     _exact(int(config.model.latent_dim), 8, "model latent dimension")
@@ -685,11 +877,22 @@ def _validate_topology(
         "instantiated stage topology",
     )
 
+    unite_recipe = action_flow_method(config) == STOPGRAD_UNITE_METHOD
+    available_train = (
+        ("front_img_1", "state_agent_model", "embodiment", "actions")
+        if unite_recipe
+        else ("front_img_1", "state_agent_obj", "actions")
+    )
+    available_inference = (
+        ("front_img_1", "state_agent_model", "embodiment")
+        if unite_recipe
+        else ("front_img_1", "state_agent_obj")
+    )
     train, train_excluded = pipeline_algo.pipeline.plan(
-        ("front_img_1", "state_agent_obj", "actions"), mode="train"
+        available_train, mode="train"
     )
     inference, inference_excluded = pipeline_algo.pipeline.plan(
-        ("front_img_1", "state_agent_obj"), mode="inference"
+        available_inference, mode="inference"
     )
     _require(
         not train_excluded, f"training graph has excluded stages: {train_excluded}"
@@ -704,25 +907,30 @@ def _validate_topology(
         f"inference graph has blocked stages: {blocked_inference}",
     )
     _exact(tuple(train), tuple(stages), "train plan")
+    inference_indices = (0, 1, 3, 6, 7) if unite_recipe else (0, 1, 5, 6)
+    field_index = 6 if unite_recipe else 5
+    decoder_index = 7 if unite_recipe else 6
     _exact(
         tuple(inference),
-        tuple(stages[index] for index in (0, 1, 5, 6)),
+        tuple(stages[index] for index in inference_indices),
         "inference plan",
     )
-    train_field = next(stage for stage in train if stage is stages[5])
-    inference_field = next(stage for stage in inference if stage is stages[5])
-    train_decoder = next(stage for stage in train if stage is stages[6])
-    inference_decoder = next(stage for stage in inference if stage is stages[6])
+    train_field = next(stage for stage in train if stage is stages[field_index])
+    inference_field = next(stage for stage in inference if stage is stages[field_index])
+    train_decoder = next(stage for stage in train if stage is stages[decoder_index])
+    inference_decoder = next(
+        stage for stage in inference if stage is stages[decoder_index]
+    )
     _require(train_field is inference_field, "train/inference field stage was copied")
     _require(
         train_decoder is inference_decoder, "train/inference decoder stage was copied"
     )
     _require(
-        train_field.field is stages[5].field,
+        train_field.field is stages[field_index].field,
         "train/inference does not use the configured field instance",
     )
     _require(
-        train_decoder.decoder is stages[6].decoder,
+        train_decoder.decoder is stages[decoder_index].decoder,
         "train/inference does not use the configured decoder instance",
     )
     return {
@@ -736,6 +944,64 @@ def _validate_topology(
 
 def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     optimizer = config.model.optimizer
+    if action_flow_method(config) == STOPGRAD_UNITE_METHOD:
+        _exact(
+            str(optimizer._target_),
+            "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer",
+            "optimizer target",
+        )
+        _exact(bool(optimizer._partial_), True, "optimizer partial construction")
+        _float(optimizer.lr, 1.0e-4, "learning rate")
+        _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
+        _float(optimizer.eps, 1.0e-6, "Adam epsilon")
+        _float(optimizer.adamw_weight_decay, 0.0, "AdamW weight decay")
+        _float(optimizer.muon_weight_decay, 0.0, "Muon weight decay")
+        _float(optimizer.muon_momentum, 0.95, "Muon momentum")
+        _exact(optimizer.muon_adjust_lr_fn, "match_rms_adamw", "Muon LR adjustment")
+        _exact(bool(config.model.optimizer_named_parameters), True, "named binding")
+        scheduler = config.model.scheduler
+        _exact(
+            str(scheduler._target_),
+            "egomimic.utils.unite_optim.released_unite_two_stage_scheduler",
+            "scheduler target",
+        )
+        for key, expected in (
+            ("warmup_steps", 8_000),
+            ("decay_start_1_steps", 12_000),
+            ("decay_end_1_steps", 20_000),
+            ("decay_start_2_steps", 1_200_000),
+            ("decay_end_2_steps", 1_200_000),
+        ):
+            _exact(int(scheduler[key]), expected, f"scheduler {key}")
+        _float(scheduler.base_lr_1, 1.0e-4, "scheduler base LR 1")
+        _float(scheduler.base_lr_2, 5.0e-5, "scheduler base LR 2")
+        _float(scheduler.final_lr, 5.0e-5, "scheduler final LR")
+        trainer = config.trainer
+        _exact(int(trainer.max_steps), 150_000, "trainer maximum steps")
+        validation_every = (
+            10_000
+            if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+            else 30_000
+        )
+        _exact(int(trainer.val_check_interval), validation_every, "validation cadence")
+        _require(str(trainer.precision) in {"bf16", "bf16-mixed"}, "BF16 precision")
+        _float(trainer.gradient_clip_val, 3.0, "gradient clip")
+        checkpoint = config.callbacks.model_checkpoint
+        _exact(int(checkpoint.every_n_train_steps), 30_000, "checkpoint cadence")
+        _exact(int(checkpoint.save_top_k), -1, "checkpoint retention")
+        _exact(str(config.norm_stats.norm_mode), "minmax", "normalization mode")
+        _exact(bool(config.norm_stats.reduce_all_but_last), True, "normalization reduction")
+        _float(config.callbacks.ema.decay, 0.9978, "EMA decay")
+        _exact(bool(config.callbacks.ema.validate_with_ema), True, "EMA validation")
+        return {
+            "checkpoint_every_steps": 30_000,
+            "gradient_clip_norm": 3.0,
+            "max_steps": 150_000,
+            "optimizer": {"target": str(optimizer._target_), "lr": 1.0e-4},
+            "precision": str(trainer.precision),
+            "scheduler": {"target": str(scheduler._target_)},
+            "validation_every_steps": validation_every,
+        }
     scaled_muon = str(config.name) == SCALED_MUON_CONFIG_NAME
     scaled_200m = str(config.name) in SCALED_200M_CONFIG_NAMES
     expected_optimizer = (
@@ -879,6 +1145,14 @@ def _validate_data_and_launch(
     _exact(train_batch, 32, "per-GPU train batch")
     _exact(global_batch, 32, "effective global batch")
     _exact(int(config.planar.batch_size), 32, "declared batch size")
+    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+    _exact(
+        int(config.data.valid_dataloader_params[source].batch_size),
+        32 if parity else 16,
+        "per-GPU validation batch",
+    )
+    if parity:
+        _exact(int(config.trainer.limit_val_batches), 8, "validation batch limit")
 
     provenance = config.run_provenance
     _exact(int(provenance.split_seed), 42, "provenance split seed")
@@ -1068,11 +1342,22 @@ def _validate_data_and_launch(
         _exact(int(objective.flow_samples_per_content), 14, "provenance bridge samples")
         _float(objective.decoded_noise_scale_weight, 0.0, "decoded-noise scale weight")
         _float(objective.monotonic_weight, 0.0, "monotonicity weight")
-        _exact(str(provenance.inference.sampler), "reverse_euler", "inference sampler")
-        _exact(int(provenance.inference.steps), 16, "inference sampler steps")
+        if method == STOPGRAD_UNITE_METHOD:
+            _exact(str(provenance.inference.sampler), "dopri5", "inference sampler")
+            _exact(int(provenance.inference.steps), 50, "inference output points")
+            _float(provenance.inference.timestep_shift_alpha, 0.5, "inference shift")
+            _float(provenance.inference.atol, 1.0e-6, "inference absolute tolerance")
+            _float(provenance.inference.rtol, 1.0e-3, "inference relative tolerance")
+        else:
+            _exact(
+                str(provenance.inference.sampler),
+                "reverse_euler",
+                "inference sampler",
+            )
+            _exact(int(provenance.inference.steps), 16, "inference sampler steps")
     _exact(
         bool(provenance.inference.classifier_free_guidance),
-        False,
+        str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME,
         "canonical classifier-free guidance",
     )
     _exact(
@@ -1218,7 +1503,7 @@ def _validate_data_and_launch(
         )
         _exact(
             int(diagnostics.validation_view.per_rank_batch_size),
-            16,
+            32 if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME else 16,
             "diagnostic validation batch size",
         )
         _exact(
@@ -1287,11 +1572,12 @@ def validate_config(
         str(stage._target_) for stage in config.model.pipeline.stages
     )
     _exact(configured_targets, method_stage_targets(method), "stage topology")
-    _require(
-        "time_scale" in config.model.pipeline.stages[5].field,
-        "field time_scale must be explicit",
-    )
-    _float(config.model.pipeline.stages[5].field.time_scale, 1_000.0, "time scale")
+    if method != STOPGRAD_UNITE_METHOD:
+        _require(
+            "time_scale" in config.model.pipeline.stages[5].field,
+            "field time_scale must be explicit",
+        )
+        _float(config.model.pipeline.stages[5].field.time_scale, 1_000.0, "time scale")
 
     data, launch = _validate_data_and_launch(config, config_root=config_root)
     optimization = _validate_optimization(config)
@@ -1299,7 +1585,8 @@ def validate_config(
     _require(isinstance(pipeline_algo, PipelineAlgo), "pipeline did not instantiate")
     stages = tuple(pipeline_algo.pipeline.stages)
     topology = _validate_topology(config, pipeline_algo)
-    _validate_generic_surface(config, pipeline_algo.pipeline)
+    if method != STOPGRAD_UNITE_METHOD:
+        _validate_generic_surface(config, pipeline_algo.pipeline)
     dimensions, parameters = _validate_dimensions_and_modules(config, stages)
     parameters["pipeline_total"] = _parameter_manifest(pipeline_algo.nets)
     accounted = sum(
@@ -1308,7 +1595,37 @@ def validate_config(
         if name != "pipeline_total"
     )
     _exact(accounted, parameters["pipeline_total"]["total"], "parameter accounting")
-    if str(config.name) in SCALED_200M_CONFIG_NAMES:
+    if method == STOPGRAD_UNITE_METHOD:
+        _exact(
+            parameters["pipeline_total"]["total"],
+            97_956_100,
+            "UNITE Action Flow total parameter count",
+        )
+        adamw_named, muon_named = partition_released_unite_parameters(
+            pipeline_algo.nets.named_parameters(prefix="nets", remove_duplicate=True)
+        )
+        grouped = (*adamw_named, *muon_named)
+        _exact(
+            len({id(parameter) for _, parameter in grouped}),
+            len(grouped),
+            "optimizer group disjointness",
+        )
+        _exact(
+            sum(parameter.numel() for _, parameter in grouped),
+            parameters["pipeline_total"]["trainable"],
+            "optimizer group coverage",
+        )
+        optimization["parameter_groups"] = {
+            "adamw_parameters": sum(
+                parameter.numel() for _, parameter in adamw_named
+            ),
+            "muon_parameters": sum(
+                parameter.numel() for _, parameter in muon_named
+            ),
+            "complete": True,
+            "disjoint": True,
+        }
+    elif str(config.name) in SCALED_200M_CONFIG_NAMES:
         _exact(
             parameters["pipeline_total"]["total"],
             199_754_837,
@@ -1342,7 +1659,7 @@ def validate_config(
     objective_report = OmegaConf.to_container(
         config.run_provenance.objective, resolve=True
     )
-    if method != LIKELIHOOD_METHOD:
+    if method != LIKELIHOOD_METHOD and method != STOPGRAD_UNITE_METHOD:
         objective_report = {
             "action_velocity_weight": 1.0,
             "condition_dropout_probability": 0.3,

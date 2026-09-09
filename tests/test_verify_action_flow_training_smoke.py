@@ -48,9 +48,13 @@ def _resolved_smoke_config(
 
     with open_dict(cfg):
         cfg.trainer.max_steps = 2
-        cfg.trainer.val_check_interval = 1
+        cfg.trainer.val_check_interval = 2 if experiment in {
+            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
+            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        } else 1
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
+        cfg.trainer.precision = "bf16"
         cfg.callbacks.model_checkpoint.every_n_train_steps = 1
         cfg.model.gradient_telemetry_cadence = 2
         cfg.norm_stats.precomputed_norm_path = str(normalization)
@@ -143,6 +147,55 @@ def test_config_gate_accepts_option_a_200m_adamw_contract(tmp_path, monkeypatch)
     assert config.model.optimizer._target_ == "torch.optim.AdamW"
     assert config.model.optimizer.lr == pytest.approx(1.0e-5)
     assert config.model.optimizer_named_parameters is False
+
+
+def test_config_gate_accepts_unite_h384_contract(tmp_path, monkeypatch):
+    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
+        tmp_path,
+        experiment="pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
+    )
+    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+
+    config, _ = MODULE._validate_config(
+        config_path=config_path,
+        experiment=experiment,
+        run_dir=run_dir,
+        expected_head=HEAD,
+        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        expected_split_sha256=None,
+        expected_normalization_sha256=normalization_hash,
+    )
+
+    assert config.model.latent_dim == 16
+    assert config.model.condition_dim == 128
+    assert config.model.pipeline.stages[6].field.backbone.hidden_dim == 384
+    assert config.model.pipeline.stages[6].field.backbone.depth == 12
+    assert config.model.optimizer.lr == pytest.approx(1.0e-4)
+    assert config.norm_stats.norm_mode == "minmax"
+
+
+def test_config_gate_accepts_unite_h384_parity_contract(tmp_path, monkeypatch):
+    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
+        tmp_path,
+        experiment=(
+            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+        ),
+    )
+    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+
+    config, _ = MODULE._validate_config(
+        config_path=config_path,
+        experiment=experiment,
+        run_dir=run_dir,
+        expected_head=HEAD,
+        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        expected_split_sha256=None,
+        expected_normalization_sha256=normalization_hash,
+    )
+
+    assert config.model.pipeline.stages[6].cfg_scale == pytest.approx(4.0)
+    assert config.model.pipeline.stages[8].flow_aggregation == "sum_samples"
+    assert config.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size == 32
 
 
 @pytest.mark.parametrize(
@@ -262,6 +315,30 @@ def test_history_gate_accepts_float32_flow_weight_telemetry():
     assert result["train_step"] == 2
 
 
+def test_unite_history_gate_requires_both_optimizer_family_rates():
+    row = _history_row()
+    row["Train/ActionFlow/Compute/FieldForwardCallsPerStep"] = 2.0
+    row["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"] = 28.0
+    row["Train/ActionFlow/GradientCosine/FM__Reconstruction"] = 0.0
+    row["Train/ActionFlow/GradientCosineDefined/FM__Reconstruction"] = 0.0
+    row[
+        "Train/ActionFlow/GradientIntersectionParameterCount/FM__Reconstruction"
+    ] = 0.0
+    row["Optimizer/LR/AdamW"] = 2.5e-8
+    row["Optimizer/LR/Muon"] = 2.5e-8
+
+    result = MODULE._validate_history(
+        {2: row}, method=MODULE.STOPGRAD_UNITE_METHOD
+    )
+
+    assert result["train"]["Optimizer/LR/AdamW"] == pytest.approx(2.5e-8)
+    assert result["train"]["Optimizer/LR/Muon"] == pytest.approx(2.5e-8)
+
+    del row["Optimizer/LR/Muon"]
+    with pytest.raises(MODULE.SmokeVerificationError, match="gradient telemetry"):
+        MODULE._validate_history({2: row}, method=MODULE.STOPGRAD_UNITE_METHOD)
+
+
 def test_history_gate_rejects_missing_gradient_telemetry():
     row = _history_row()
     del row["Train/ActionFlow/GradientCosine/FM__ActionVelocity"]
@@ -365,6 +442,7 @@ def _write_artifacts(tmp_path: Path):
         "source_commit": HEAD,
         "normalization_sha256": norm_hash,
         "split_manifest_sha256": split_hash,
+        "sampler_steps": 16,
         "dataset_content": {
             "manifest_sha256": content_hash,
             "aggregate_sha256": aggregate_hash,
@@ -439,6 +517,7 @@ def _write_artifacts(tmp_path: Path):
                 "action_flow_diagnostics": {
                     "artifact_root": str(diagnostic_root),
                     "validation_view": energy_view,
+                    "provenance": {"sampler_steps": 16},
                 },
             },
             "logger": {

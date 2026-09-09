@@ -28,6 +28,13 @@ from egomimic.pl_utils.pl_model_action_flow import ActionFlowModelWrapper
 _CONFIG_DIR = Path(__file__).parents[1] / "egomimic/hydra_configs"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_scheduler_execution_identity(monkeypatch):
+    """Keep artifact-path tests independent of the scheduler running pytest."""
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.delenv("SLURM_RESTART_COUNT", raising=False)
+
+
 class _IdentityNormalizer:
     @staticmethod
     def unnormalize(values, _selector):
@@ -91,8 +98,19 @@ def _diagnostic(
     nonfinite=False,
     include_activations=True,
     action_dim=2,
+    latent_tokens=2,
+    action_horizon=None,
+    zero_clean=False,
 ):
-    batch_size, horizon, latent_dim = 6, 2, 3
+    batch_size, horizon, latent_dim = 6, latent_tokens, 3
+    action_horizon = horizon if action_horizon is None else int(action_horizon)
+    if action_horizon % horizon:
+        raise ValueError("test action_horizon must be a multiple of latent_tokens")
+
+    def decode_action(value):
+        decoded = _decode(value, action_dim)
+        return decoded.repeat_interleave(action_horizon // horizon, dim=-2)
+
     levels = torch.tensor([0.0, 0.5, 1.0])
     clean = (
         torch.arange(batch_size * horizon * latent_dim, dtype=torch.float32)
@@ -100,6 +118,8 @@ def _diagnostic(
         .div(10.0)
         .add(0.25)
     )
+    if zero_clean:
+        clean = torch.zeros_like(clean)
     noise = torch.flip(clean, dims=(0,)).neg().sub(0.5)
     fixed_states = torch.stack(
         [(1.0 - level) * clean + level * noise for level in levels]
@@ -109,7 +129,7 @@ def _diagnostic(
     generated = fixed_final[-1]
     middle = 0.5 * (noise + generated)
     trajectory = torch.stack((noise, middle, generated))
-    target = _decode(clean, action_dim)
+    target = decode_action(clean)
     diagnostic = {
         "schema": "action-flow-validation-diagnostics/v1",
         "source": "validation/usocket",
@@ -135,12 +155,12 @@ def _diagnostic(
         "field/velocity_residual": torch.full_like(fixed_states, 0.125),
         "latent/trajectory": trajectory,
         "decoded/reconstruction": target,
-        "decoded/noise": _decode(noise, action_dim),
-        "decoded/generated": _decode(generated, action_dim),
-        "decoded/fixed_states": _decode(fixed_states, action_dim),
-        "decoded/predicted_clean": _decode(predicted_clean, action_dim),
-        "decoded/fixed_final": _decode(fixed_final, action_dim),
-        "decoded/trajectory": _decode(trajectory, action_dim),
+        "decoded/noise": decode_action(noise),
+        "decoded/generated": decode_action(generated),
+        "decoded/fixed_states": decode_action(fixed_states),
+        "decoded/predicted_clean": decode_action(predicted_clean),
+        "decoded/fixed_final": decode_action(fixed_final),
+        "decoded/trajectory": decode_action(trajectory),
         "fixed_level_field_evaluations": torch.tensor([0, 1, 2]),
         "decoder_jacobian/clean_singular_values": torch.tensor(
             [[2.0, 1.0, 0.5, 0.25], [1.8, 0.9, 0.4, 0.2]]
@@ -319,6 +339,57 @@ def test_planar_evaluator_logs_and_hashes_action_flow_diagnostics(tmp_path):
     evaluator.on_validation_start()
     with pytest.raises(FileExistsError, match="refusing to overwrite"):
         evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=7)
+
+
+def test_action_flow_diagnostics_allow_latent_tokens_to_differ_from_action_horizon(
+    tmp_path,
+):
+    diagnostic = _diagnostic(latent_tokens=2, action_horizon=4)
+    config = _config(tmp_path)
+    config["provenance"]["latent_shape"] = [2, 3]
+    evaluator = PlanarActionEval(
+        energy_score_enabled=False,
+        action_flow_diagnostics={"enabled": True, **config},
+    )
+    evaluator.bind_data_context(normalizer=_IdentityNormalizer())
+    evaluator.model = _DiagnosticModel(diagnostic)
+    logged = {}
+    evaluator.trainer = SimpleNamespace(
+        current_epoch=0,
+        global_step=1,
+        global_rank=0,
+        precision="bf16-mixed",
+        lightning_module=SimpleNamespace(
+            log_dict=lambda metrics, **_kwargs: logged.update(metrics)
+        ),
+    )
+    evaluator.on_validation_start()
+
+    evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=0)
+
+    assert "Valid/ActionFlow/CleanReconstructionMSE" in logged
+    artifact = tmp_path / "action-flow-artifacts/epoch-0-step-1/rank-0-batch-0.pt"
+    payload = torch.load(artifact, map_location="cpu", weights_only=False)
+    saved = payload["sources"]["pushshapes_sim_u_socket"]["diagnostic"]
+    assert saved["latent/clean"].shape == (6, 2, 3)
+    assert saved["target"].shape == (6, 4, 2)
+
+
+def test_action_flow_diagnostics_reject_undefined_zero_target_cosine(tmp_path):
+    diagnostic = _diagnostic(zero_clean=True)
+    runner = ActionFlowDiagnostics(_config(tmp_path))
+
+    with pytest.raises(ValueError, match="zero clean-latent norm"):
+        runner.run(
+            model=_DiagnosticModel(diagnostic),
+            batch=_batch(diagnostic["target"]),
+            batch_idx=0,
+            rank=0,
+            epoch=0,
+            global_step=1,
+            precision="bf16-mixed",
+            source_labels={"validation/usocket": "usocket"},
+        )
 
 
 def test_action_flow_artifacts_preserve_slurm_attempts_and_same_attempt_refusal(tmp_path, monkeypatch):

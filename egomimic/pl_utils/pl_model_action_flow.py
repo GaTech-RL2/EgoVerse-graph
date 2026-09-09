@@ -588,6 +588,38 @@ class ActionFlowModelWrapper(ModelWrapper):
             sync_dist=False,
         )
 
+    def _log_composite_optimizer_learning_rates(self) -> None:
+        """Log the two released optimizer families at the current step."""
+
+        trainer = self._trainer
+        if trainer is None or not trainer.optimizers:
+            return
+        optimizer = trainer.optimizers[0]
+        adamw = getattr(optimizer, "adamw", None)
+        muon = getattr(optimizer, "muon", None)
+        if adamw is None and muon is None:
+            return
+        if adamw is None or muon is None:
+            raise RuntimeError(
+                "composite optimizer must expose both AdamW and Muon families"
+            )
+        families = (("AdamW", adamw), ("Muon", muon))
+        for name, family in families:
+            rates = {float(group["lr"]) for group in family.param_groups}
+            if len(rates) != 1:
+                raise RuntimeError(
+                    f"released {name} parameter groups have inconsistent learning rates"
+                )
+            rate = torch.tensor(rates.pop(), device=self.device, dtype=torch.float32)
+            self._finite_scalar(rate, f"Optimizer/LR/{name}")
+            self.log(
+                f"Optimizer/LR/{name}",
+                rate,
+                on_step=True,
+                on_epoch=False,
+                sync_dist=False,
+            )
+
     def training_step(self, batch, batch_idx):
         del batch_idx
         self.train()
@@ -618,6 +650,7 @@ class ActionFlowModelWrapper(ModelWrapper):
         self._log_components(per_source, components, count)
         self._log_extra_metrics(predictions, optimizer_loss)
         self._log_compute_contract()
+        self._log_composite_optimizer_learning_rates()
         self._log_telemetry(
             "Schedule/ReconstructionOnly", float(reconstruction_only)
         )

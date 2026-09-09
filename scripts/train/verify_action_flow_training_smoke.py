@@ -51,6 +51,7 @@ from tools.validate_action_flow_config import (  # noqa: E402
     LIKELIHOOD_METHOD,
     GRAPH_METHOD,
     STOPGRAD_METHOD,
+    STOPGRAD_UNITE_METHOD,
     PreflightError,
     action_flow_method,
     method_stage_targets,
@@ -73,7 +74,22 @@ SCALED_ADAMW_EXPERIMENT = (
 )
 SCALED_200M_EXPERIMENTS = {SCALED_MUON_EXPERIMENT, SCALED_ADAMW_EXPERIMENT}
 SCALED_200M_PARAMETER_COUNT = 199_754_837
+UNITE_H384_EXPERIMENT = "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42"
+UNITE_H384_PARITY_EXPERIMENT = (
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+)
+UNITE_H384_PARAMETER_COUNT = 97_956_100
 APPROVED_EXPERIMENTS = {
+    UNITE_H384_EXPERIMENT: (
+        "action_flow_usocket_latent_fm_sg_unite_h384_s42",
+        1.0,
+        1.0,
+    ),
+    UNITE_H384_PARITY_EXPERIMENT: (
+        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        1.0,
+        1.0,
+    ),
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
         "action_flow_bc_usocket_latent_fm_sg_recon1_s42",
         1.0,
@@ -330,34 +346,19 @@ def _validate_config(
     )
     scaled_muon = experiment == SCALED_MUON_EXPERIMENT
     scaled_200m = experiment in SCALED_200M_EXPERIMENTS
+    unite_recipe = method == STOPGRAD_UNITE_METHOD
+    unite_parity = experiment == UNITE_H384_PARITY_EXPERIMENT
     field_hidden_dim = 1_024 if scaled_200m else 512
     field_depth = 14 if scaled_200m else 12
     field_num_heads = 16 if scaled_200m else 8
     field_feedforward_dim = 4_224 if scaled_200m else 2_048
 
-    for path, expected in (
+    common_checks = (
         ("model.action_horizon", 16),
         ("model.action_dim", 4),
-        ("model.latent_dim", 8),
-        ("model.condition_dim", 67),
         ("model.flow_samples_per_content", 14),
-        ("model.num_inference_steps", 16),
-        ("model.pipeline.stages.0.n_obs_steps", 1),
-        ("model.pipeline.stages.1.num_tokens", 16),
-        ("model.pipeline.stages.1.latent_dim", 8),
-        ("model.pipeline.stages.4.samples_per_content", 14),
-        ("model.pipeline.stages.5.num_inference_steps", 16),
-        ("model.pipeline.stages.5.field.input_dim", 8),
-        ("model.pipeline.stages.5.field.output_dim", 8),
-        ("model.pipeline.stages.5.field.horizon", 16),
-        ("model.pipeline.stages.5.field.condition_dim", 67),
-        ("model.pipeline.stages.5.field.hidden_dim", field_hidden_dim),
-        ("model.pipeline.stages.5.field.depth", field_depth),
-        ("model.pipeline.stages.5.field.num_heads", field_num_heads),
-        ("model.pipeline.stages.5.field.feedforward_dim", field_feedforward_dim),
-        ("model.pipeline.stages.5.field.time_embedding_dim", field_hidden_dim),
         ("trainer.max_steps", 2),
-        ("trainer.val_check_interval", 1),
+        ("trainer.val_check_interval", 2 if unite_recipe else 1),
         ("trainer.limit_val_batches", 1),
         ("trainer.num_sanity_val_steps", 0),
         ("trainer.accumulate_grad_batches", 1),
@@ -368,8 +369,6 @@ def _validate_config(
         ("callbacks.model_checkpoint.every_n_train_steps", 1),
         ("callbacks.model_checkpoint.save_top_k", -1),
         ("model.gradient_telemetry_cadence", 2),
-        ("model.scheduler.max_steps", 240_000),
-        ("model.scheduler.warmup_steps", 8_000),
         ("seed", 42),
         ("planar.action_horizon", 16),
         ("planar.observation_horizon", 1),
@@ -381,12 +380,59 @@ def _validate_config(
         ("run_provenance.id_overlap_count", 0),
         ("run_provenance.resolved_path_overlap_count", 0),
         ("run_provenance.objective.flow_samples_per_content", 14),
-        ("run_provenance.inference.steps", 16),
         ("run_provenance.energy_score_contract.sample_count", 32),
         ("evaluator.energy_score_max_batches_per_rank", 1),
         ("evaluator.energy_score_validation_view.world_size", 1),
-        ("evaluator.energy_score_validation_view.per_rank_batch_size", 16),
-    ):
+        (
+            "evaluator.energy_score_validation_view.per_rank_batch_size",
+            32 if unite_parity else 16,
+        ),
+    )
+    if unite_recipe:
+        architecture_checks = (
+            ("model.num_latent_tokens", 8),
+            ("model.latent_dim", 16),
+            ("model.condition_dim", 128),
+            ("model.num_inference_steps", 50),
+            ("model.pipeline.stages.1.n_obs_steps", 1),
+            ("model.pipeline.stages.3.num_tokens", 8),
+            ("model.pipeline.stages.3.latent_dim", 16),
+            ("model.pipeline.stages.5.samples_per_content", 14),
+            ("model.pipeline.stages.6.num_inference_steps", 50),
+            ("model.pipeline.stages.6.field.input_dim", 16),
+            ("model.pipeline.stages.6.field.output_dim", 16),
+            ("model.pipeline.stages.6.field.horizon", 8),
+            ("model.pipeline.stages.6.field.condition_dim", 128),
+            ("model.pipeline.stages.6.field.backbone.hidden_dim", 384),
+            ("model.pipeline.stages.6.field.backbone.depth", 12),
+            ("model.pipeline.stages.6.field.backbone.num_heads", 12),
+            ("model.scheduler.warmup_steps", 8_000),
+            ("run_provenance.inference.steps", 50),
+        )
+    else:
+        architecture_checks = (
+            ("model.latent_dim", 8),
+            ("model.condition_dim", 67),
+            ("model.num_inference_steps", 16),
+            ("model.pipeline.stages.0.n_obs_steps", 1),
+            ("model.pipeline.stages.1.num_tokens", 16),
+            ("model.pipeline.stages.1.latent_dim", 8),
+            ("model.pipeline.stages.4.samples_per_content", 14),
+            ("model.pipeline.stages.5.num_inference_steps", 16),
+            ("model.pipeline.stages.5.field.input_dim", 8),
+            ("model.pipeline.stages.5.field.output_dim", 8),
+            ("model.pipeline.stages.5.field.horizon", 16),
+            ("model.pipeline.stages.5.field.condition_dim", 67),
+            ("model.pipeline.stages.5.field.hidden_dim", field_hidden_dim),
+            ("model.pipeline.stages.5.field.depth", field_depth),
+            ("model.pipeline.stages.5.field.num_heads", field_num_heads),
+            ("model.pipeline.stages.5.field.feedforward_dim", field_feedforward_dim),
+            ("model.pipeline.stages.5.field.time_embedding_dim", field_hidden_dim),
+            ("model.scheduler.max_steps", 240_000),
+            ("model.scheduler.warmup_steps", 8_000),
+            ("run_provenance.inference.steps", 16),
+        )
+    for path, expected in (*common_checks, *architecture_checks):
         if method == LIKELIHOOD_METHOD and path in {
             "model.flow_samples_per_content",
             "model.num_inference_steps",
@@ -411,27 +457,34 @@ def _validate_config(
             1,
         )
 
-    for path, expected in (
-        ("model.condition_dropout_probability", 0.3),
+    objective_stage = 8 if unite_recipe else 7
+    float_checks = [
+        ("model.condition_dropout_probability", 0.1 if unite_recipe else 0.3),
         ("model.reconstruction_weight", reconstruction_weight),
-        ("model.pipeline.stages.4.condition_dropout_probability", 0.3),
-        ("model.pipeline.stages.5.field.time_scale", 1_000.0),
-        ("model.pipeline.stages.5.field.condition_dropout_probability", 0.3),
+        (
+            f"model.pipeline.stages.{5 if unite_recipe else 4}.condition_dropout_probability",
+            0.1 if unite_recipe else 0.3,
+        ),
+        (
+            f"model.pipeline.stages.{6 if unite_recipe else 5}.field.condition_dropout_probability",
+            0.1 if unite_recipe else 0.3,
+        ),
         ("model.flow_weight", flow_weight),
-        ("model.pipeline.stages.7.flow_weight", flow_weight),
-        ("model.pipeline.stages.7.reconstruction_weight", reconstruction_weight),
-        ("model.pipeline.stages.7.action_velocity_weight", 1.0),
+        (f"model.pipeline.stages.{objective_stage}.flow_weight", flow_weight),
+        (
+            f"model.pipeline.stages.{objective_stage}.reconstruction_weight",
+            reconstruction_weight,
+        ),
+        (f"model.pipeline.stages.{objective_stage}.action_velocity_weight", 1.0),
         ("model.reconstruction_weight", reconstruction_weight),
-        ("model.optimizer.lr", 1.0e-5 if scaled_200m else 3.0e-5),
-        ("model.optimizer.eps", 1.0e-8),
+        ("model.optimizer.lr", 1.0e-4 if unite_recipe else (1.0e-5 if scaled_200m else 3.0e-5)),
+        ("model.optimizer.eps", 1.0e-6 if unite_recipe else 1.0e-8),
         (
             "model.optimizer.adamw_weight_decay"
-            if scaled_muon
+            if scaled_muon or unite_recipe
             else "model.optimizer.weight_decay",
-            1.0e-4,
+            0.0 if unite_recipe else 1.0e-4,
         ),
-        ("model.scheduler.warmup_start_factor", 0.1),
-        ("model.scheduler.eta_min", 1.0e-6 if scaled_200m else 3.0e-6),
         ("trainer.gradient_clip_val", 3.0),
         ("run_provenance.valid_ratio", 0.01),
         ("run_provenance.objective.flow_weight", flow_weight),
@@ -439,7 +492,26 @@ def _validate_config(
         ("run_provenance.objective.action_velocity_weight", 1.0),
         ("run_provenance.objective.decoded_noise_scale_weight", 0.0),
         ("run_provenance.objective.monotonic_weight", 0.0),
-    ):
+    ]
+    if unite_recipe:
+        float_checks.extend(
+            (
+                ("model.optimizer.muon_weight_decay", 0.0),
+                ("model.optimizer.muon_momentum", 0.95),
+                ("model.scheduler.base_lr_1", 1.0e-4),
+                ("model.scheduler.base_lr_2", 5.0e-5),
+                ("model.scheduler.final_lr", 5.0e-5),
+            )
+        )
+    else:
+        float_checks.extend(
+            (
+                ("model.pipeline.stages.5.field.time_scale", 1_000.0),
+                ("model.scheduler.warmup_start_factor", 0.1),
+                ("model.scheduler.eta_min", 1.0e-6 if scaled_200m else 3.0e-6),
+            )
+        )
+    for path, expected in float_checks:
         if method == LIKELIHOOD_METHOD and (
             path.startswith("model.pipeline.stages.7.")
             or path in {"model.reconstruction_weight", "model.flow_weight"}
@@ -460,7 +532,7 @@ def _validate_config(
         "model.optimizer._target_",
         (
             "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
-            if scaled_muon
+            if scaled_muon or unite_recipe
             else "torch.optim.AdamW"
         ),
     )
@@ -469,9 +541,13 @@ def _validate_config(
         [float(value) for value in config.model.optimizer.betas] == [0.9, 0.999],
         "model.optimizer.betas must be [0.9, 0.999]",
     )
-    if scaled_muon:
+    if scaled_muon or unite_recipe:
         _exact(config, "model.optimizer_named_parameters", True)
-        _float(config, "model.optimizer.muon_weight_decay", 1.0e-4)
+        _float(
+            config,
+            "model.optimizer.muon_weight_decay",
+            0.0 if unite_recipe else 1.0e-4,
+        )
         _float(config, "model.optimizer.muon_momentum", 0.95)
         _exact(config, "model.optimizer.muon_adjust_lr_fn", "match_rms_adamw")
     elif scaled_200m:
@@ -479,7 +555,11 @@ def _validate_config(
     _exact(
         config,
         "model.scheduler._target_",
-        "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        (
+            "egomimic.utils.unite_optim.released_unite_two_stage_scheduler"
+            if unite_recipe
+            else "egomimic.utils.schedulers.warmup_cosine_scheduler"
+        ),
     )
     _exact(config, "model.scheduler._partial_", True)
     _exact(config, "callbacks.model_checkpoint.save_last", "link")
@@ -495,17 +575,21 @@ def _validate_config(
         (
             "gaussian_bridge_reverse_chain"
             if method == LIKELIHOOD_METHOD
-            else "reverse_euler"
+            else "dopri5" if unite_recipe else "reverse_euler"
         ),
     )
-    _exact(config, "run_provenance.inference.classifier_free_guidance", False)
+    _exact(
+        config,
+        "run_provenance.inference.classifier_free_guidance",
+        unite_parity,
+    )
     _exact(config, "run_provenance.action_contract.prediction_horizon", 16)
     _exact(
         config,
         "run_provenance.action_contract.representation",
         "x_y_cos_theta_sin_theta",
     )
-    _exact(config, "norm_stats.norm_mode", "quantile")
+    _exact(config, "norm_stats.norm_mode", "minmax" if unite_recipe else "quantile")
     _float(config, "norm_stats.sample_frac", 1.0)
 
     distance_contract = _same_mapping(
@@ -567,7 +651,7 @@ def _validate_config(
     _exact(
         config,
         f"data.valid_dataloader_params.{SOURCE_LABEL}.batch_size",
-        16,
+        32 if unite_parity else 16,
     )
     global_batch = (
         int(config.data.train_dataloader_params[SOURCE_LABEL].batch_size)
@@ -910,24 +994,35 @@ def _validate_gradient_route_manifest(
         "gradient route intersections do not match route entries",
     )
     for pair, names in expected_intersections.items():
-        expected_empty = method == STOPGRAD_METHOD and pair == "FM__Reconstruction"
+        expected_empty = method in {
+            STOPGRAD_METHOD,
+            STOPGRAD_UNITE_METHOD,
+        } and pair == "FM__Reconstruction"
         _require(
             bool(names) is not expected_empty,
             f"unexpected shared gradient pathway: {pair}",
         )
 
-    stage_prefixes = {
-        "observation": "nets.pipeline.stages.0.",
-        "encoder": "nets.pipeline.stages.3.",
-        "field": "nets.pipeline.stages.5.",
-        "decoder": "nets.pipeline.stages.6.",
-    }
+    if method == STOPGRAD_UNITE_METHOD:
+        stage_prefixes = {
+            "observation": "nets.pipeline.stages.1.",
+            "encoder": "nets.pipeline.stages.4.",
+            "field": "nets.pipeline.stages.6.",
+            "decoder": "nets.pipeline.stages.7.",
+        }
+    else:
+        stage_prefixes = {
+            "observation": "nets.pipeline.stages.0.",
+            "encoder": "nets.pipeline.stages.3.",
+            "field": "nets.pipeline.stages.5.",
+            "decoder": "nets.pipeline.stages.6.",
+        }
     expected_reachability = {
         "FM": ("observation", "encoder", "field"),
         "Reconstruction": ("encoder", "decoder"),
         "ActionVelocity": ("observation", "encoder", "field", "decoder"),
     }
-    if method == STOPGRAD_METHOD:
+    if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD}:
         expected_reachability["FM"] = ("observation", "field")
     elif method == GRAPH_METHOD:
         del expected_reachability["Reconstruction"]
@@ -1000,12 +1095,16 @@ def _validate_optimizer_state(
     optimizer_state: Any, config: DictConfig | None
 ) -> None:
     _require(isinstance(optimizer_state, Mapping), "optimizer state is not a mapping")
-    scaled_muon = (
+    composite_optimizer = (
         config is not None
         and str(config.get("name", ""))
-        == APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0]
+        in {
+            APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0],
+            APPROVED_EXPERIMENTS[UNITE_H384_EXPERIMENT][0],
+            APPROVED_EXPERIMENTS[UNITE_H384_PARITY_EXPERIMENT][0],
+        }
     )
-    if not scaled_muon:
+    if not composite_optimizer:
         _require(bool(optimizer_state.get("state")), "AdamW optimizer state is empty")
         return
 
@@ -1167,7 +1266,13 @@ def _validate_checkpoint(
             "strict reload lost the reconstruction-only warmup",
         )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
-    if method in (LEGACY_METHOD, STOPGRAD_METHOD):
+    if method == STOPGRAD_UNITE_METHOD:
+        _require(
+            parameter_count == UNITE_H384_PARAMETER_COUNT,
+            f"parameter count mismatch: {parameter_count} != "
+            f"{UNITE_H384_PARAMETER_COUNT}",
+        )
+    elif method in (LEGACY_METHOD, STOPGRAD_METHOD):
         expected_parameter_count = EXPECTED_PARAMETER_COUNT
         if config is not None and str(config.get("name", "")) == APPROVED_EXPERIMENTS[
             CODEC98K_EXPERIMENT
@@ -1365,6 +1470,8 @@ def _validate_history(
     ]
     if method == LIKELIHOOD_METHOD:
         telemetry = [name for name in telemetry if "/Schedule/" not in name]
+    if method == STOPGRAD_UNITE_METHOD:
+        telemetry.extend(("Optimizer/LR/AdamW", "Optimizer/LR/Muon"))
     train_step, train = _complete_row(
         rows,
         (*components, *per_source_components, *telemetry),
@@ -1372,7 +1479,10 @@ def _validate_history(
         label="Action Flow training/gradient telemetry",
     )
     for name in telemetry:
-        empty_pair = method == STOPGRAD_METHOD and name.endswith("/FM__Reconstruction")
+        empty_pair = method in {
+            STOPGRAD_METHOD,
+            STOPGRAD_UNITE_METHOD,
+        } and name.endswith("/FM__Reconstruction")
         if (
             "GradientNorm" in name
             or "GradientParameterCount" in name
@@ -1392,13 +1502,13 @@ def _validate_history(
     for name, expected in (
         (
             "Train/ActionFlow/Compute/FieldForwardCallsPerStep",
-            2.0 if method == STOPGRAD_METHOD else 1.0,
+            2.0 if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD} else 1.0,
         ),
         (
             "Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep",
             (
                 28.0
-                if method == STOPGRAD_METHOD
+                if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD}
                 else 15.0 if method == LIKELIHOOD_METHOD else 14.0
             ),
         ),
@@ -1667,30 +1777,37 @@ def _validate_artifacts(
         "EnergyScore artifact source mismatch",
     )
     domain = energy["domains"][SOURCE_LABEL]
+    validation_batch_size = int(
+        config.evaluator.energy_score_validation_view.per_rank_batch_size
+    )
     predictions = domain.get("predictions")
     targets = domain.get("targets")
     native_predictions = domain.get("native_predictions")
     native_targets = domain.get("native_targets")
     _require(
-        torch.is_tensor(predictions) and tuple(predictions.shape) == (32, 16, 16, 4),
-        "EnergyScore predictions do not have shape (32, 16, 16, 4)",
+        torch.is_tensor(predictions)
+        and tuple(predictions.shape) == (32, validation_batch_size, 16, 4),
+        "EnergyScore predictions have the wrong validation-batch shape",
     )
     _require(
-        torch.is_tensor(targets) and tuple(targets.shape) == (16, 16, 4),
-        "EnergyScore targets do not have shape (16, 16, 4)",
+        torch.is_tensor(targets)
+        and tuple(targets.shape) == (validation_batch_size, 16, 4),
+        "EnergyScore targets have the wrong validation-batch shape",
     )
     _require(
         torch.is_tensor(native_predictions)
-        and tuple(native_predictions.shape) == (32, 16, 16, 3),
+        and tuple(native_predictions.shape)
+        == (32, validation_batch_size, 16, 3),
         "typed EnergyScore native predictions have the wrong shape",
     )
     _require(
-        torch.is_tensor(native_targets) and tuple(native_targets.shape) == (16, 16, 3),
+        torch.is_tensor(native_targets)
+        and tuple(native_targets.shape) == (validation_batch_size, 16, 3),
         "typed EnergyScore native targets have the wrong shape",
     )
     conditions = domain.get("condition_ids")
     _require(
-        isinstance(conditions, list) and len(conditions) == 16,
+        isinstance(conditions, list) and len(conditions) == validation_batch_size,
         "EnergyScore condition identities are incomplete",
     )
     for index, condition in enumerate(conditions):
@@ -1896,13 +2013,24 @@ def _validate_artifacts(
     _require(isinstance(computed, Mapping), "diagnostic computed payload missing")
     clean_native = computed.get("clean_reconstruction_native_mse_by_condition")
     trajectory_native = computed.get("trajectory_decoded_native_mse_by_condition")
+    diagnostic_steps = int(
+        _select(
+            config,
+            "evaluator.action_flow_diagnostics.provenance.sampler_steps",
+        )
+    )
+    _require(diagnostic_steps > 0, "diagnostic sampler_steps must be positive")
+    _require(
+        diagnostic_provenance.get("sampler_steps") == diagnostic_steps,
+        "Action Flow diagnostic sampler-step provenance differs",
+    )
     _require(
         torch.is_tensor(clean_native) and tuple(clean_native.shape) == (16,),
         "diagnostic clean native errors have wrong shape",
     )
     _require(
         torch.is_tensor(trajectory_native)
-        and tuple(trajectory_native.shape) == (17, 16),
+        and tuple(trajectory_native.shape) == (diagnostic_steps + 1, 16),
         "diagnostic trajectory native errors have wrong shape",
     )
     fixed_metrics = computed.get("fixed_level_metrics")

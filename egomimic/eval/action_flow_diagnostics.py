@@ -214,6 +214,19 @@ class ActionFlowDiagnostics:
             raise ValueError(
                 "Action Flow diagnostics require validation_view and provenance"
             )
+        raw_latent_shape = self.provenance.get("latent_shape")
+        self.latent_shape: tuple[int, int] | None = None
+        if raw_latent_shape is not None:
+            if (
+                not isinstance(raw_latent_shape, Sequence)
+                or isinstance(raw_latent_shape, (str, bytes))
+                or len(raw_latent_shape) != 2
+            ):
+                raise ValueError("provenance.latent_shape must be [tokens, width]")
+            latent_tokens, latent_width = map(int, raw_latent_shape)
+            if latent_tokens <= 0 or latent_width <= 0:
+                raise ValueError("provenance.latent_shape values must be positive")
+            self.latent_shape = (latent_tokens, latent_width)
         native_error = config.get("native_error")
         self.native_error = (
             None if native_error is None else _plain(native_error, label="native_error")
@@ -502,7 +515,7 @@ class ActionFlowDiagnostics:
 
         target = _tensor(diagnostic, "target", ndim=3).float()
         condition = _tensor(diagnostic, "condition", ndim=2)
-        batch_size, horizon, action_dim = map(int, target.shape)
+        batch_size, action_horizon, action_dim = map(int, target.shape)
         if batch_size <= 0 or condition.shape[0] != batch_size:
             raise ValueError("Action Flow diagnostic target/condition batch mismatch")
         if batch_size != self.expected_sample_count:
@@ -525,7 +538,10 @@ class ActionFlowDiagnostics:
 
         def latent(key: str, *, leading: tuple[int, ...] = ()) -> torch.Tensor:
             value = _tensor(diagnostic, key, ndim=3 + len(leading)).float()
-            expected_prefix = (*leading, batch_size, horizon)
+            latent_tokens = (
+                action_horizon if self.latent_shape is None else self.latent_shape[0]
+            )
+            expected_prefix = (*leading, batch_size, latent_tokens)
             if tuple(value.shape[: len(expected_prefix)]) != expected_prefix:
                 raise ValueError(f"Action Flow diagnostic {key!r} shape mismatch")
             return value
@@ -534,6 +550,10 @@ class ActionFlowDiagnostics:
         latent_dim = int(clean.shape[-1])
         if latent_dim <= 0:
             raise ValueError("Action Flow latent width must be positive")
+        if self.latent_shape is not None and latent_dim != self.latent_shape[1]:
+            raise ValueError(
+                "Action Flow diagnostic latent width differs from provenance"
+            )
         noise = latent("latent/noise")
         generated = latent("latent/generated")
         if noise.shape != clean.shape or generated.shape != clean.shape:
@@ -568,7 +588,7 @@ class ActionFlowDiagnostics:
 
         def decoded(key: str, *, leading: tuple[int, ...] = ()) -> torch.Tensor:
             value = _tensor(diagnostic, key, ndim=3 + len(leading)).float()
-            expected = (*leading, batch_size, horizon, action_dim)
+            expected = (*leading, batch_size, action_horizon, action_dim)
             if tuple(value.shape) != expected:
                 raise ValueError(f"Action Flow diagnostic {key!r} shape mismatch")
             return value
@@ -951,12 +971,12 @@ class ActionFlowDiagnostics:
             if encoder_activations.shape[:3] != (
                 encoder_indices.numel(),
                 batch_size,
-                horizon,
+                clean.shape[1],
             ) or field_activations.shape[:4] != (
                 level_count,
                 field_indices.numel(),
                 batch_size,
-                horizon,
+                clean.shape[1],
             ):
                 raise ValueError("Action Flow activation tensor shapes do not align")
             encoder_positions = {

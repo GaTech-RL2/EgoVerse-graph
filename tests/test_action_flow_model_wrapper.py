@@ -430,6 +430,29 @@ def test_action_flow_wrapper_uses_standard_optimizer_config(monkeypatch):
     assert optimizer.param_groups[0]["weight_decay"] == pytest.approx(1.0e-4)
 
 
+def test_action_flow_wrapper_logs_composite_optimizer_family_rates(monkeypatch):
+    wrapper = ActionFlowModelWrapper(
+        pipeline=_ToyAlgo(),
+        gradient_telemetry_cadence=0,
+    )
+    wrapper._trainer = SimpleNamespace(
+        optimizers=[
+            SimpleNamespace(
+                adamw=SimpleNamespace(param_groups=[{"lr": 2.5e-5}]),
+                muon=SimpleNamespace(param_groups=[{"lr": 7.5e-5}]),
+            )
+        ]
+    )
+    logged = _capture_logs(monkeypatch, wrapper)
+
+    wrapper._log_composite_optimizer_learning_rates()
+
+    assert float(logged["Optimizer/LR/AdamW"][0]) == pytest.approx(2.5e-5)
+    assert float(logged["Optimizer/LR/Muon"][0]) == pytest.approx(7.5e-5)
+    for _, kwargs in logged.values():
+        assert kwargs == {"on_step": True, "on_epoch": False, "sync_dist": False}
+
+
 def test_action_flow_wrapper_has_no_specialized_route_or_model_imports():
     root = Path(__file__).parents[1]
     sources = (

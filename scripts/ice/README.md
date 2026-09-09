@@ -5,6 +5,47 @@ training on PACE ICE. Site paths, source identity, dataset identity, output,
 W&B identity, GPU type, and checkpoint validation are inputs; none are embedded
 in the launcher.
 
+## ABC/ARC runs through PACE
+
+The ABC and ARC experiment configs use `EGOVERSE_ABC_DATASET_DIR` for the
+dataset root. This keeps the dataset location out of the repository while
+preserving the existing path as a fallback for older PACE environments. The
+PACE account and QoS can be overridden with `PACE_ACCOUNT` and `PACE_QOS`.
+
+First confirm that the dataset is on a shared filesystem visible from the
+allocated compute nodes:
+
+```bash
+export EGOVERSE_ABC_DATASET_DIR=/storage/ice1/<project>/datasets/arc_abc
+export ICE_OUTPUT_ROOT=/storage/ice1/<project>/runs/egoverse-graph
+findmnt -T "$EGOVERSE_ABC_DATASET_DIR"
+df -h "$EGOVERSE_ABC_DATASET_DIR"
+test -d "$EGOVERSE_ABC_DATASET_DIR" && echo dataset-found
+```
+
+Use a project-owned directory under `/storage/ice1` or an approved
+`/storage/ice-shared` location for the dataset and run outputs. `/scratch` is
+local temporary space on this host and should not hold the only copy of the
+dataset or checkpoints. The previous default
+`/storage/project/r-dxu345-0/shared/arc_abc` is not mounted on the current
+host, so replace the placeholder above with the path supplied by the dataset
+owner or PACE administrator.
+
+Submit an ABC or ARC experiment with the wrapper:
+
+```bash
+export ICE_EXPERIMENT=abc_arc/abc_fstshirt_arc_bc
+export ICE_PACE_LAUNCHER=submitit_pace_l40s
+scripts/ice/launch_abc_pace.sh
+```
+
+The wrapper checks the repository and dataset paths, creates a unique run
+directory below `ICE_OUTPUT_ROOT`, passes the dataset path into Hydra, and
+submits through the selected `submitit_pace_*` launcher. Set `ICE_RUN_ROOT`
+when a run needs a fixed output directory. Checkpoints, Hydra snapshots, and
+W&B artifacts then live under that run directory; the dataset remains
+read-only input.
+
 ## Prepare an immutable source/runtime
 
 Use a clean, detached or branch checkout on the current scratch path reported

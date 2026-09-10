@@ -76,6 +76,7 @@ def test_factorized_training_uses_epsilon_loss_and_backpropagates():
     assert output["diffusion/predicted_noise"].shape == (2, 4, 6)
     assert output["loss/diffusion_noise"].ndim == 0
     assert torch.isfinite(output["loss/diffusion_noise"])
+    assert torch.equal(output["log/MSE"], output["loss/diffusion_noise"].detach())
     output["loss/diffusion_noise"].backward()
     denoiser = stages[2]
     assert any(

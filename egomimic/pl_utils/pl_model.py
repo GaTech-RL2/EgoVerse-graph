@@ -10,6 +10,9 @@ import torch
 from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
+from egomimic.eval.pipeline_diagnostics import DiagnosticProvider
+from egomimic.pl_utils.training_behavior import TrainingBehavior
+
 
 class ModelWrapper(LightningModule):
     """
@@ -28,6 +31,8 @@ class ModelWrapper(LightningModule):
         scheduler_frequency: int = 1,
         evaluator=None,
         enable_grad_norm: bool = True,
+        training_behavior: TrainingBehavior | None = None,
+        diagnostic_provider: DiagnosticProvider | None = None,
     ):
         """
         Args:
@@ -35,7 +40,9 @@ class ModelWrapper(LightningModule):
             config_tree: resolved model configuration containing ``model.pipeline``.
         """
         super().__init__()
-        self.save_hyperparameters(ignore=["pipeline"])
+        self.save_hyperparameters(
+            ignore=["pipeline", "training_behavior", "diagnostic_provider"]
+        )
 
         if (config_tree is None) == (pipeline is None):
             raise ValueError("Provide exactly one of pipeline or config_tree")
@@ -50,6 +57,16 @@ class ModelWrapper(LightningModule):
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
 
         self.evaluator = evaluator
+        self._active_validation_batch = None
+        self.training_behavior = self._build_training_behavior(
+            config_tree=config_tree,
+            explicit=training_behavior,
+        )
+        self.diagnostic_provider = self._build_diagnostic_provider(
+            config_tree=config_tree,
+            explicit=diagnostic_provider,
+        )
+        self.training_behavior.bind(self)
 
     @staticmethod
     def _as_config(cfg):
@@ -62,6 +79,62 @@ class ModelWrapper(LightningModule):
     def _instantiate_model(self, config_tree):
         cfg = self._as_config(config_tree)
         return hydra.utils.instantiate(cfg.model.pipeline)
+
+    def _build_training_behavior(
+        self,
+        *,
+        config_tree,
+        explicit: TrainingBehavior | None,
+    ) -> TrainingBehavior:
+        configured = None
+        if config_tree is not None:
+            cfg = self._as_config(config_tree)
+            configured = cfg.model.get("training_behavior")
+        if explicit is not None and configured is not None:
+            raise ValueError(
+                "training_behavior cannot be provided both directly and in config_tree"
+            )
+        behavior = (
+            explicit
+            if explicit is not None
+            else (
+                TrainingBehavior()
+                if configured is None
+                else hydra.utils.instantiate(configured)
+            )
+        )
+        if not isinstance(behavior, TrainingBehavior):
+            raise TypeError("training_behavior must instantiate TrainingBehavior")
+        return behavior
+
+    def _build_diagnostic_provider(
+        self,
+        *,
+        config_tree,
+        explicit: DiagnosticProvider | None,
+    ) -> DiagnosticProvider | None:
+        configured = None
+        if config_tree is not None:
+            cfg = self._as_config(config_tree)
+            configured = cfg.model.get("diagnostic_provider")
+        if explicit is not None and configured is not None:
+            raise ValueError(
+                "diagnostic_provider cannot be provided both directly and in config_tree"
+            )
+        provider = (
+            explicit
+            if explicit is not None
+            else (None if configured is None else hydra.utils.instantiate(configured))
+        )
+        if provider is not None and not isinstance(provider, DiagnosticProvider):
+            raise TypeError("diagnostic_provider must instantiate DiagnosticProvider")
+        return provider
+
+    def __setstate__(self, state) -> None:
+        """Restore the behavior's runtime-only context after module unpickling."""
+
+        super().__setstate__(state)
+        self.training_behavior.bind(self)
 
     @staticmethod
     def _prediction_log_metrics(predictions, reference: torch.Tensor):
@@ -132,6 +205,9 @@ class ModelWrapper(LightningModule):
             )
 
     def training_step(self, batch, batch_idx):
+        return self.training_behavior.training_step(batch, batch_idx)
+
+    def _default_training_step(self, batch, batch_idx):
         del batch_idx
         self.train()
         t0 = time.time()
@@ -174,35 +250,12 @@ class ModelWrapper(LightningModule):
         for k, v in self.model.log_info(info).items():
             self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
 
-        # DiffusionEpsilonLossStage writes the normalized epsilon-prediction MSE
-        # as ``log/diffusion_noise``.  Publish stable aggregate and per-source
-        # aliases here, outside PipelineAlgo, so the generic pipeline continues
-        # to treat source names as opaque loader keys.
-        source_mse = []
-        for index, source in enumerate(batch):
-            value = losses.get(f"source_{index}_log_diffusion_noise")
-            if value is None:
-                continue
-            source_mse.append(value)
-            self.log(
-                f"Train/MSE/{source}",
-                value,
-                sync_dist=True,
-                on_step=True,
-                on_epoch=True,
-            )
-        if source_mse:
-            self.log(
-                "Train/MSE",
-                torch.stack(source_mse).mean(),
-                sync_dist=True,
-                on_step=True,
-                on_epoch=True,
-            )
-
         return losses["loss"]
 
     def on_after_backward(self):
+        return self.training_behavior.on_after_backward()
+
+    def _default_on_after_backward(self):
         if not self.enable_grad_norm:
             return
         grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -240,6 +293,9 @@ class ModelWrapper(LightningModule):
             self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer):
+        return self.training_behavior.on_before_optimizer_step(optimizer)
+
+    def _default_on_before_optimizer_step(self, optimizer):
         if not self.enable_grad_norm:
             return
         grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -254,31 +310,58 @@ class ModelWrapper(LightningModule):
         )
 
     def on_validation_start(self):
+        return self.training_behavior.on_validation_start()
+
+    def _default_on_validation_start(self):
         if self.evaluator is None:
             return
         self.model.device = self.device
-
+        self.evaluator.model = self
         self.evaluator.on_validation_start()
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        return self.training_behavior.validation_step(batch, batch_idx, dataloader_idx)
+
+    def _default_validation_step(self, batch, batch_idx, dataloader_idx=0):
         """Delegate one processed validation batch to the configured evaluator."""
         if self.evaluator is None:
             return
         batch = self.model.process_batch_for_training(batch)
-        self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
+        self._run_evaluator_validation_step(batch, batch_idx, dataloader_idx)
+
+    def _run_evaluator_validation_step(
+        self, batch, batch_idx: int, dataloader_idx: int
+    ) -> None:
+        if self.evaluator is None:
+            return
+        self._active_validation_batch = batch
+        try:
+            self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
+        finally:
+            self._active_validation_batch = None
+
+    def on_validation_epoch_end(self):
+        return self.training_behavior.on_validation_epoch_end()
 
     def on_validation_end(self):
+        return self.training_behavior.on_validation_end()
+
+    def _default_on_validation_end(self):
+        self._active_validation_batch = None
         if self.evaluator is not None:
             self.evaluator.on_validation_end()
 
     def configure_optimizers(self) -> Dict[str, Any]:
+        return self.training_behavior.configure_optimizers()
+
+    def _default_configure_optimizers(self) -> Dict[str, Any]:
         """Instantiate the optimizer and optional scheduler from model config."""
         config_tree = getattr(self.hparams, "config_tree", None)
         if config_tree is not None:
             cfg = self._as_config(config_tree)
             optimizer = hydra.utils.instantiate(
                 cfg.model.optimizer,
-                params=self.trainer.model.parameters(),
+                **self.training_behavior.optimizer_instantiation_kwargs(cfg),
             )
             if callable(optimizer):
                 optimizer = optimizer()
@@ -305,6 +388,44 @@ class ModelWrapper(LightningModule):
                 },
             }
         return {"optimizer": optimizer}
+
+    def _default_optimizer_instantiation_kwargs(self, cfg) -> Dict[str, Any]:
+        """Return the parameter binding expected by the configured optimizer."""
+
+        return {"params": self.trainer.model.parameters()}
+
+    @torch.inference_mode()
+    def forward_eval(self, batch):
+        return self.training_behavior.forward_eval(batch)
+
+    def _default_forward_eval(self, batch):
+        processed = (
+            batch
+            if batch is self._active_validation_batch
+            else self.model.process_batch_for_training(batch)
+        )
+        return self.model.forward_eval(processed)
+
+    def run_diagnostic(self, capability: str, batch, **kwargs):
+        provider = self.diagnostic_provider
+        if provider is None or provider.capability != capability:
+            available = None if provider is None else provider.capability
+            raise RuntimeError(
+                f"Model does not provide diagnostic capability {capability!r}; "
+                f"configured capability is {available!r}"
+            )
+        return provider.run(
+            self.model,
+            batch,
+            already_processed=batch is self._active_validation_batch,
+            **kwargs,
+        )
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        self.training_behavior.on_save_checkpoint(checkpoint)
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        self.training_behavior.on_load_checkpoint(checkpoint)
 
     def on_fit_start(self):
         self.model.device = self.device

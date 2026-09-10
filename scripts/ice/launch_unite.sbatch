@@ -402,7 +402,10 @@ elif family == "unite":
 elif family == "action_latent_vfm":
     assert experiment == "pusht/action_latent_vfm_usocket_val01_h16"
     assert cfg.name == "action_latent_vfm_usocket_h16"
-    assert cfg.model._target_.endswith("ActionLatentVFMModelWrapper")
+    assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
+    assert cfg.model.training_behavior._target_.endswith(
+        "ActionLatentVFMTrainingBehavior"
+    )
     assert int(cfg.model.num_latent_tokens) == 16
     assert int(cfg.model.latent_dim) == 8
     assert int(cfg.model.action_horizon) == 16

@@ -19,7 +19,7 @@ class _PackedState(torch.nn.Module):
 
 class _TinyHead(Stage):
     reads = ["condition", "target", "selector"]
-    writes = ["loss/fit", "log/fit"]
+    writes = ["loss/fit", "log/fit", "log/MSE"]
     reads_by_mode = {"inference": ["condition", "selector"]}
     writes_by_mode = {"inference": ["prediction"]}
 
@@ -34,6 +34,7 @@ class _TinyHead(Stage):
             loss = (batch["target"] * self.scale).square().mean()
             batch["loss/fit"] = loss
             batch["log/fit"] = loss.detach()
+            batch["log/MSE"] = loss.detach()
         elif mode == "inference":
             batch_size = batch["condition"].shape[0]
             batch["prediction"] = self.scale.expand(batch_size, 3, 2)
@@ -241,7 +242,7 @@ def test_model_wrapper_accepts_generic_pipeline_loss(monkeypatch):
     assert torch.isfinite(loss)
 
 
-def test_model_wrapper_logs_stable_diffusion_mse_aliases(monkeypatch):
+def test_model_wrapper_logs_metric_aliases_declared_by_stage(monkeypatch):
     wrapper = ModelWrapper(pipeline=_algo())
     logged = {}
     monkeypatch.setattr(
@@ -249,14 +250,6 @@ def test_model_wrapper_logs_stable_diffusion_mse_aliases(monkeypatch):
         "log",
         lambda name, value, **_kwargs: logged.__setitem__(name, value),
     )
-    original_compute_losses = wrapper.model.compute_losses
-
-    def compute_losses(predictions, batch):
-        losses = original_compute_losses(predictions, batch)
-        losses["source_0_log_diffusion_noise"] = losses["source_0_loss"]
-        return losses
-
-    monkeypatch.setattr(wrapper.model, "compute_losses", compute_losses)
     loss = wrapper.training_step(_raw_batch(), batch_idx=0)
 
     assert torch.equal(logged["Train/MSE/source_a"], loss)

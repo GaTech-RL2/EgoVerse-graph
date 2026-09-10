@@ -1,4 +1,4 @@
-"""Lightning wrapper and telemetry for the released UNITE register policy."""
+"""Training behavior and telemetry for the released UNITE register policy."""
 
 from __future__ import annotations
 
@@ -10,96 +10,101 @@ import hydra
 import torch
 import torch.nn as nn
 
-from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.pipeline.stages_unite_released import ReleasedRecipeUniteLatentPolicy
+from egomimic.pl_utils.training_behavior import TrainingBehavior
+from egomimic.pl_utils.training_metrics import (
+    MetricAccumulator,
+    component_gradients,
+    distributed_gradient,
+    finite_scalar,
+    gradient_norm,
+    reduce_component_means,
+)
 
 
-class ReleasedUniteModelWrapper(ModelWrapper):
-    """Optimize the joint UNITE objective and report normalized components."""
+class ReleasedUniteTrainingBehavior(TrainingBehavior):
+    """Adapt released-UNITE outputs to generic training mechanics."""
 
     gradient_telemetry_cadence = 100
-    _component_keys = (
+    _baseline_component_keys = (
         ("ReconstructionLoss", "loss/unite_reconstruction"),
         ("FlowLoss", "loss/unite_latent"),
         ("ReconstructionL1", "log/unite_reconstruction_l1"),
     )
+    _action_velocity_component = (
+        "ActionVelocityLoss",
+        "loss/unite_action_velocity",
+    )
     _content_only = ("content_projection.", "content_pos_emb")
+    _finite_scalar = staticmethod(finite_scalar)
+    _distributed_gradient = staticmethod(distributed_gradient)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        config_tree = getattr(self.hparams, "config_tree", None)
-        cfg = self._as_config(config_tree) if config_tree is not None else None
+    def on_bind(self) -> None:
+        config_tree = getattr(self.context.hparams, "config_tree", None)
+        cfg = self.context._as_config(config_tree) if config_tree is not None else None
         configured = (
             None if cfg is None else cfg.model.get("share_encoder_denoiser", None)
         )
         if configured is not None and not isinstance(configured, bool):
             raise TypeError("model.share_encoder_denoiser must be a boolean")
         self._configured_share_encoder_denoiser = configured
-        self._unite_validation_sums = OrderedDict()
-        self._unite_validation_count = 0
-
-    @torch.inference_mode()
-    def forward_eval(self, batch: Mapping) -> OrderedDict:
-        """Expose ordinary inference alongside the UNITE diagnostic boundary."""
-
-        return self.model.forward_eval(batch)
-
-    @torch.inference_mode()
-    def forward_unite_diagnostics(
-        self,
-        batch: Mapping,
-        *,
-        raw_noise_levels: tuple[float, ...] | list[float],
-    ) -> OrderedDict:
-        """Run the pipeline prefix and capture released-UNITE diagnostics."""
-
-        if not isinstance(batch, Mapping):
-            raise TypeError("UNITE diagnostics input must be a source mapping")
-        stages = self.model.pipeline.stages
-        policies = [
-            stage for stage in stages if isinstance(stage, ReleasedRecipeUniteLatentPolicy)
-        ]
-        if len(policies) != 1:
-            raise RuntimeError(
-                "Released UNITE diagnostics require exactly one latent policy; "
-                f"found {len(policies)}"
-            )
-        policy = policies[0]
-        diagnostics = OrderedDict()
-        for source, source_batch in batch.items():
-            if not isinstance(source_batch, Mapping):
-                raise TypeError(f"UNITE diagnostic source {source!r} must be a mapping")
-            result = dict(source_batch)
-            for stage in stages:
-                if stage is policy:
-                    break
-                result = stage.execute(result, mode="inference")
-            required = {"sampler/noise", "condition", "target", "embodiment"}
-            missing = required - set(result)
-            if missing:
-                raise RuntimeError(
-                    f"Released UNITE diagnostic prefix for {source!r} is missing "
-                    f"{sorted(missing)}"
-                )
-            diagnostics[source] = policy.validation_diagnostics(
-                noise=result["sampler/noise"],
-                condition=result["condition"],
-                target=result["target"],
-                embodiment=result["embodiment"],
-                raw_noise_levels=raw_noise_levels,
-            )
-        return diagnostics
+        self._unite_contract = self._resolve_unite_contract(cfg)
+        self._validation_metrics = MetricAccumulator()
 
     @staticmethod
-    def _finite_scalar(value: Any, label: str) -> torch.Tensor:
-        if not torch.is_tensor(value) or value.ndim != 0:
-            raise TypeError(f"{label} must be a scalar tensor")
-        if not bool(torch.isfinite(value.detach())):
-            raise RuntimeError(f"Non-finite UNITE metric {label}")
-        return value
+    def _resolve_unite_contract(cfg) -> dict[str, Any] | None:
+        if cfg is None:
+            return None
+        model = cfg.model
+        architecture_id = str(model.get("architecture_id", ""))
+        objective_id = str(model.get("objective_id", ""))
+        samples = int(model.get("action_velocity_samples_per_reconstruction", 0))
+        weight = float(model.get("action_velocity_weight", 0.0))
+        if architecture_id != "unite_register_v1":
+            raise ValueError(
+                "Released UNITE requires model.architecture_id=unite_register_v1"
+            )
+        allowed = {"unite_baseline_v1", "unite_action_velocity_v1"}
+        if objective_id not in allowed:
+            raise ValueError(
+                f"Unknown UNITE objective_id {objective_id!r}; expected {sorted(allowed)}"
+            )
+        enabled = objective_id == "unite_action_velocity_v1"
+        if enabled != (samples > 0 and weight > 0.0):
+            raise ValueError(
+                "UNITE objective identity disagrees with its action-velocity settings"
+            )
+        if not enabled and (samples != 0 or weight != 0.0):
+            raise ValueError("Baseline UNITE must disable every action-velocity setting")
+        return {
+            "architecture_id": architecture_id,
+            "objective_id": objective_id,
+            "action_velocity_samples_per_reconstruction": samples,
+            "action_velocity_weight": weight,
+        }
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        if self._unite_contract is not None:
+            checkpoint["unite_contract"] = dict(self._unite_contract)
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        if self._unite_contract is None:
+            return
+        recorded = checkpoint.get("unite_contract")
+        if recorded is None:
+            if self._unite_contract["objective_id"] == "unite_action_velocity_v1":
+                raise RuntimeError(
+                    "UNITE-AV full-state resume requires a checkpoint with an exact "
+                    "unite_contract; use an explicit weights-only warm start otherwise"
+                )
+            return
+        if dict(recorded) != self._unite_contract:
+            raise RuntimeError(
+                "UNITE checkpoint contract mismatch: "
+                f"recorded={dict(recorded)!r} current={self._unite_contract!r}"
+            )
 
     def _unite_topology(self) -> tuple[nn.Module, nn.Module, bool]:
-        stages = getattr(getattr(self.model, "pipeline", None), "stages", None)
+        stages = getattr(getattr(self.context.model, "pipeline", None), "stages", None)
         if stages is None:
             raise RuntimeError("Released UNITE requires a registered Pipeline")
         matches = [
@@ -223,6 +228,11 @@ class ReleasedUniteModelWrapper(ModelWrapper):
                         "tokenization_condition_projection.",
                     )
                 )
+                or cls._branch_parameter(name, "tokenization_modules", domains)
+                or cls._branch_parameter(name, "tokenization_output_norms", domains)
+                or cls._branch_parameter(
+                    name, "tokenization_condition_projections", domains
+                )
                 or cls._branch_parameter(name, "action_context_projections", domains)
                 or cls._branch_parameter(
                     name, "tokenization_null_condition_inputs", domains
@@ -249,45 +259,10 @@ class ReleasedUniteModelWrapper(ModelWrapper):
             raise RuntimeError("Separate UNITE telemetry parameter sets overlap")
         return tokenizer, denoiser
 
-    @staticmethod
-    def _distributed_gradient(gradient: torch.Tensor) -> torch.Tensor:
-        # The copy keeps collectives read-only with respect to graph and .grad state.
-        value = gradient.detach().float().clone()
-        if torch.distributed.is_available() and torch.distributed.is_initialized():
-            torch.distributed.all_reduce(value, op=torch.distributed.ReduceOp.SUM)
-            value.div_(torch.distributed.get_world_size())
-        return value
-
-    @classmethod
-    def _gradient_norm(cls, gradients: Sequence[torch.Tensor]) -> torch.Tensor:
-        values = [cls._distributed_gradient(gradient) for gradient in gradients]
-        if not values:
-            raise RuntimeError("UNITE telemetry received no gradients")
-        norm = sum(
-            (value.square().sum() for value in values), values[0].new_zeros(())
-        ).sqrt()
-        if not bool(torch.isfinite(norm)) or float(norm) <= 0.0:
-            raise RuntimeError("UNITE telemetry gradient norm is zero or non-finite")
-        return norm
-
     def _log_telemetry(self, name: str, value: Any) -> None:
-        value = torch.as_tensor(value, device=self.device, dtype=torch.float32)
+        value = torch.as_tensor(value, device=self.context.device, dtype=torch.float32)
         self._finite_scalar(value, name)
-        self.log(name, value, on_step=True, on_epoch=False, sync_dist=False)
-
-    @staticmethod
-    def _autograd(
-        loss: torch.Tensor, named: Sequence[tuple[str, nn.Parameter]]
-    ) -> tuple[tuple[nn.Parameter, ...], tuple[torch.Tensor, ...]]:
-        parameters = tuple(parameter for _, parameter in named)
-        gradients = torch.autograd.grad(
-            loss,
-            parameters,
-            retain_graph=True,
-            create_graph=False,
-            allow_unused=False,
-        )
-        return parameters, gradients
+        self.context.log(name, value, on_step=True, on_epoch=False, sync_dist=False)
 
     def _measure_shared_gradients(
         self,
@@ -295,10 +270,18 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         flow_loss: torch.Tensor,
         named: Sequence[tuple[str, nn.Parameter]],
     ) -> None:
-        parameters, reconstruction_gradients = self._autograd(
-            reconstruction_loss, named
+        parameters, reconstruction_gradients = component_gradients(
+            reconstruction_loss,
+            named,
+            allow_unused=False,
+            label="UNITE reconstruction",
         )
-        _, flow_gradients = self._autograd(flow_loss, named)
+        _, flow_gradients = component_gradients(
+            flow_loss,
+            named,
+            allow_unused=False,
+            label="UNITE flow",
+        )
         pairs = [
             (
                 self._distributed_gradient(reconstruction),
@@ -339,17 +322,27 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         tokenizer_named: Sequence[tuple[str, nn.Parameter]],
         denoiser_named: Sequence[tuple[str, nn.Parameter]],
     ) -> None:
-        _, reconstruction_gradients = self._autograd(
-            reconstruction_loss, tokenizer_named
+        _, reconstruction_gradients = component_gradients(
+            reconstruction_loss,
+            tokenizer_named,
+            allow_unused=False,
+            label="UNITE tokenizer reconstruction",
         )
-        _, flow_gradients = self._autograd(flow_loss, denoiser_named)
+        _, flow_gradients = component_gradients(
+            flow_loss,
+            denoiser_named,
+            allow_unused=False,
+            label="UNITE denoiser flow",
+        )
         self._log_telemetry(
             "log/unite_tokenizer_recon_grad_norm",
-            self._gradient_norm(reconstruction_gradients),
+            gradient_norm(
+                reconstruction_gradients, label="UNITE tokenizer reconstruction"
+            ),
         )
         self._log_telemetry(
             "log/unite_denoiser_flow_grad_norm",
-            self._gradient_norm(flow_gradients),
+            gradient_norm(flow_gradients, label="UNITE denoiser flow"),
         )
 
     def _measure_topology_gradients(
@@ -361,7 +354,7 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         stage, encoder, shared = self._unite_topology()
         domains = self._active_domains(predictions, encoder)
         use_null = (
-            self.training
+            self.context.training
             and float(getattr(stage, "condition_dropout_probability", 0.0)) > 0.0
         )
         if shared:
@@ -382,7 +375,16 @@ class ReleasedUniteModelWrapper(ModelWrapper):
     ) -> tuple[OrderedDict[str, torch.Tensor], int]:
         if not isinstance(predictions, Mapping) or not predictions:
             raise RuntimeError("UNITE received no source predictions")
-        sums = OrderedDict((name, None) for name, _ in self._component_keys)
+        component_keys = self._baseline_component_keys
+        if self._unite_contract is not None and (
+            self._unite_contract["objective_id"] == "unite_action_velocity_v1"
+        ):
+            component_keys = (
+                *component_keys[:2],
+                self._action_velocity_component,
+                *component_keys[2:],
+            )
+        sums = OrderedDict((name, None) for name, _ in component_keys)
         count = 0
         for source, result in predictions.items():
             if not isinstance(result, Mapping):
@@ -394,65 +396,35 @@ class ReleasedUniteModelWrapper(ModelWrapper):
             if source_count <= 0:
                 raise RuntimeError(f"UNITE source {source!r} has no samples")
             count += source_count
-            for name, key in self._component_keys:
+            for name, key in component_keys:
                 value = self._finite_scalar(result.get(key), f"{source!r}/{key}")
                 weighted = value * source_count
                 sums[name] = weighted if sums[name] is None else sums[name] + weighted
         components = OrderedDict((name, value / count) for name, value in sums.items())
         components["TotalLoss"] = (
-            components["ReconstructionLoss"] + components["FlowLoss"]
+            components["ReconstructionLoss"]
+            + components["FlowLoss"]
+            + components.get(
+                "ActionVelocityLoss", components["FlowLoss"].new_zeros(())
+            )
         )
         components.move_to_end("TotalLoss", last=False)
         for name, value in components.items():
             self._finite_scalar(value, name)
         return components, count
 
-    @staticmethod
-    def _reduce_sums(
-        sums: Mapping[str, torch.Tensor], count: int
-    ) -> tuple[OrderedDict[str, torch.Tensor], int]:
-        if count <= 0:
-            raise RuntimeError("UNITE metric reduction has no samples")
-        names = tuple(sums)
-        first = sums[names[0]]
-        payload = torch.stack(
-            (
-                *(sums[name].detach().double() for name in names),
-                torch.tensor(float(count), device=first.device, dtype=torch.float64),
-            )
-        )
-        if torch.distributed.is_available() and torch.distributed.is_initialized():
-            torch.distributed.all_reduce(payload, op=torch.distributed.ReduceOp.SUM)
-        if not bool(torch.isfinite(payload).all()) or float(payload[-1]) <= 0.0:
-            raise RuntimeError("Non-finite UNITE distributed metric reduction")
-        means = OrderedDict(
-            (name, (payload[index] / payload[-1]).to(first.dtype))
-            for index, name in enumerate(names)
-        )
-        return means, int(payload[-1].item())
-
-    @classmethod
-    def _distributed_weighted_components(
-        cls, components: Mapping[str, torch.Tensor], count: int
-    ) -> tuple[OrderedDict[str, torch.Tensor], int]:
-        return cls._reduce_sums(
-            OrderedDict(
-                (name, value.detach().double() * count)
-                for name, value in components.items()
-            ),
-            count,
-        )
-
     def training_step(self, batch, batch_idx):
         del batch_idx
-        self.train()
-        batch = self.model.process_batch_for_training(batch)
-        predictions = self.model.forward_training(batch)
+        self.context.train()
+        batch = self.context.model.process_batch_for_training(batch)
+        predictions = self.context.model.forward_training(batch)
         components, count = self._weighted_components(predictions)
         self._unite_topology()
-        logged, global_count = self._distributed_weighted_components(components, count)
+        logged, global_count = reduce_component_means(
+            components, count, label="UNITE"
+        )
         for name, value in logged.items():
-            self.log(
+            self.context.log(
                 f"Train/UNITE/{name}",
                 self._finite_scalar(value, f"Train/UNITE/{name}"),
                 on_step=True,
@@ -465,7 +437,7 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         # current batch. Measure on the batch whose optimizer update will reach
         # the requested cadence; otherwise max_steps=100 stops at global_step 99
         # without ever emitting cadence-100 telemetry.
-        next_step = int(self.global_step) + 1
+        next_step = int(self.context.global_step) + 1
         if next_step % self.gradient_telemetry_cadence == 0:
             self._measure_topology_gradients(
                 components["ReconstructionLoss"],
@@ -475,32 +447,26 @@ class ReleasedUniteModelWrapper(ModelWrapper):
         return components["TotalLoss"]
 
     def on_validation_start(self):
-        self._unite_validation_sums = OrderedDict()
-        self._unite_validation_count = 0
-        if self.evaluator is not None:
-            self.model.device = self.device
-            self.evaluator.model = self
-            self.evaluator.on_validation_start()
+        self._validation_metrics.reset()
+        if self.context.evaluator is not None:
+            self.context.model.device = self.context.device
+            self.context.evaluator.model = self.context
+            self.context.evaluator.on_validation_start()
 
     @torch.no_grad()
     def _measure_validation_components(self, batch, batch_idx: int) -> None:
         devices = []
-        if self.device.type == "cuda":
-            devices = [self.device.index or torch.cuda.current_device()]
-        seed = 420_042 + int(batch_idx) + int(self.global_rank) * 1_000_003
+        if self.context.device.type == "cuda":
+            devices = [self.context.device.index or torch.cuda.current_device()]
+        seed = 420_042 + int(batch_idx) + int(self.context.global_rank) * 1_000_003
         with torch.random.fork_rng(devices=devices):
             torch.manual_seed(seed)
-            if self.device.type == "cuda":
+            if self.context.device.type == "cuda":
                 torch.cuda.manual_seed(seed)
-            predictions = self.model.forward_training(batch)
+            predictions = self.context.model.forward_training(batch)
         self._unite_topology()
         components, count = self._weighted_components(predictions)
-        for name, value in components.items():
-            weighted = value.detach().double() * count
-            self._unite_validation_sums[name] = (
-                self._unite_validation_sums.get(name, 0.0) + weighted
-            )
-        self._unite_validation_count += count
+        self._validation_metrics.add(components, count)
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         if isinstance(batch, Mapping):
@@ -509,18 +475,18 @@ class ReleasedUniteModelWrapper(ModelWrapper):
             )
         if not batch:
             return
-        batch = self.model.process_batch_for_training(batch)
+        batch = self.context.model.process_batch_for_training(batch)
         self._measure_validation_components(batch, batch_idx)
         # Native action errors and EnergyScore belong to the bound evaluator.
-        if self.evaluator is not None:
-            self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
+        if self.context.evaluator is not None:
+            self.context._run_evaluator_validation_step(
+                batch, batch_idx, dataloader_idx
+            )
 
     def on_validation_epoch_end(self):
-        if self._unite_validation_count:
-            metrics, _ = self._reduce_sums(
-                self._unite_validation_sums, self._unite_validation_count
-            )
-            self.log_dict(
+        if self._validation_metrics.count:
+            metrics, _ = self._validation_metrics.reduce(label="UNITE")
+            self.context.log_dict(
                 OrderedDict(
                     (f"Valid/UNITE/{name}", value) for name, value in metrics.items()
                 ),
@@ -530,20 +496,20 @@ class ReleasedUniteModelWrapper(ModelWrapper):
             )
 
     def on_validation_end(self):
-        if self.evaluator is not None:
-            self.evaluator.on_validation_end()
+        if self.context.evaluator is not None:
+            self.context.evaluator.on_validation_end()
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Instantiate Muon/AdamW from stable model-local parameter names."""
 
-        config_tree = getattr(self.hparams, "config_tree", None)
+        config_tree = getattr(self.context.hparams, "config_tree", None)
         if config_tree is None:
             raise RuntimeError("Released UNITE optimizer requires config_tree")
-        cfg = self._as_config(config_tree)
+        cfg = self.context._as_config(config_tree)
         optimizer = hydra.utils.instantiate(
             cfg.model.optimizer,
             named_params=tuple(
-                self.nets.named_parameters(prefix="nets", remove_duplicate=True)
+                self.context.nets.named_parameters(prefix="nets", remove_duplicate=True)
             ),
         )
         if callable(optimizer):
@@ -562,7 +528,7 @@ class ReleasedUniteModelWrapper(ModelWrapper):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "interval": self.hparams.scheduler_interval,
-                "frequency": self.hparams.scheduler_frequency,
+                "interval": self.context.hparams.scheduler_interval,
+                "frequency": self.context.hparams.scheduler_frequency,
             },
         }

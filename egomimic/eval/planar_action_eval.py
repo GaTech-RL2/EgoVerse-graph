@@ -632,7 +632,17 @@ class PlanarActionEval(Eval):
         )[self.action_key]
         if decoder is None:
             return unnormalized
-        return decoder.decode(unnormalized)
+        if unnormalized.ndim < 3:
+            raise ValueError(
+                "native action decoding requires (..., horizon, action_dim), "
+                f"got {tuple(unnormalized.shape)}"
+            )
+        leading_shape = tuple(unnormalized.shape[:-2])
+        horizon, action_dim = tuple(unnormalized.shape[-2:])
+        decoded = decoder.decode(
+            unnormalized.reshape(-1, horizon, action_dim)
+        )
+        return decoded.reshape(*leading_shape, *decoded.shape[-2:])
 
     @staticmethod
     def _native_mse_by_condition(prediction, target, decoder):

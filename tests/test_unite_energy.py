@@ -14,13 +14,23 @@ from egomimic.eval.energy_score import (
     usocket_energy_distance_metadata,
 )
 from egomimic.eval.planar_action_eval import PlanarActionEval
-from egomimic.pipeline.pushshapes import USocketRotVecNativeDecoder
+from egomimic.pipeline.pushshapes import (
+    PlanarCommon5NativeDecoder,
+    USocketRotVecNativeDecoder,
+)
 
 
 class _IdentityNormalizer:
     @staticmethod
     def unnormalize(values, embodiment_id):
         assert embodiment_id == 19
+        return values
+
+
+class _AnyIdentityNormalizer:
+    @staticmethod
+    def unnormalize(values, embodiment_id):
+        assert embodiment_id in (19, 20)
         return values
 
 
@@ -137,6 +147,19 @@ def test_energy_score_supports_source_specific_action_partitions(tmp_path):
         samples = target.unsqueeze(0).repeat(32, 1, 1, 1)
         values = evaluator._energy_values(samples, target, embodiment_id)
         assert values["score"] == pytest.approx(0.0)
+
+
+def test_chain_native_decoder_supports_seed_and_batch_leading_dimensions(tmp_path):
+    evaluator = _evaluator(tmp_path)
+    evaluator.bind_data_context(normalizer=_AnyIdentityNormalizer())
+    common_five = torch.zeros(32, 2, 16, 5)
+    common_five[..., 2] = 1.0
+    decoded = evaluator._native(
+        common_five,
+        20,
+        PlanarCommon5NativeDecoder(action_horizon=16, native_action_dim=4),
+    )
+    assert decoded.shape == (32, 2, 16, 4)
 
 
 def test_energy_artifacts_preserve_validation_across_slurm_attempts(tmp_path, monkeypatch):

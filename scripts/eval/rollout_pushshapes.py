@@ -100,7 +100,8 @@ def frame_state(obs: dict, oriented: bool) -> np.ndarray:
 
 class ChunkPolicy:
     def __init__(self, ckpt: Path, config_path: Path, output_dir: Path, embodiment_name: str,
-                 embodiment_id: int, use_ema: bool, device: torch.device, raw_action_width: int | None = None):
+                 embodiment_id: int, use_ema: bool, device: torch.device, raw_action_width: int | None = None,
+                 ensemble_samples: int = 1):
         checkpoint = torch.load(ckpt, map_location="cpu", weights_only=False)
         self.ckpt_epoch, self.ckpt_global_step = checkpoint.get("epoch"), checkpoint.get("global_step")
         embedded, resolved = _checkpoint_config(checkpoint, str(config_path))
@@ -133,6 +134,7 @@ class ChunkPolicy:
             if decoder_cfg is not None:
                 break
         self.raw_action_width = raw_action_width
+        self.ensemble_samples = max(1, int(ensemble_samples))
         if raw_action_width is not None:
             # Emit the model's action space untouched (e.g. six ChainGripper points
             # for the env's point mode); the decoder config is only recorded.
@@ -193,10 +195,18 @@ class ChunkPolicy:
                 batch[key] = _apply_stats(self._with_frame_axis(rot), self.stats[key], self.norm_mode, inverse=False)
             else:
                 raise RuntimeError(f"unsupported graph input key {key}")
+        K = self.ensemble_samples
+        if K > 1:
+            # K independent latent/noise draws for the same observation; the decoded
+            # chunks are averaged in the model's normalized action space (cos/sin pairs
+            # average to a circular mean before any angle decoding).
+            batch = {k: (v.repeat(K, *([1] * (v.ndim - 1))) if torch.is_tensor(v) else v) for k, v in batch.items()}
         out = self.algo.forward_eval({"rollout": batch})["rollout"]
         if "pred_action" not in out:
             raise RuntimeError(f"inference graph produced no pred_action; keys={list(out)}")
         pred = _apply_stats(out["pred_action"], self.stats["actions"], self.norm_mode, inverse=True)
+        if K > 1:
+            pred = pred.mean(dim=0, keepdim=True)
         if self.decoder is None:
             if pred.shape[-1] != self.raw_action_width:
                 raise RuntimeError(f"raw action width {pred.shape[-1]} != expected {self.raw_action_width}")
@@ -351,6 +361,7 @@ def main(argv=None):
     ap.add_argument("--chunk-start", type=int, default=0, help="first decoded action index to execute (protocol default 0; registered post-step Paper-DP rows use 1)")
     ap.add_argument("--seeds", default=None, help="explicit comma-separated seed list (e.g. an OEC-56 level); overrides --seed-base/--n-episodes")
     ap.add_argument("--label", default=None, help="comparability label recorded in the result (e.g. CANONICAL_LEVEL0_SEEDS_0_39)")
+    ap.add_argument("--ensemble-samples", type=int, default=1, help="average K sampled action chunks per replan (inference-time variance reduction; 1 = single sample)")
     ap.add_argument("--chain-control-mode", default="points", choices=("pose", "points"),
                     help="chain_gripper only: 'points' feeds the 6-D prediction to the env's point mode (no policy-side IK); 'pose' decodes to [x, y, theta, grip] first")
     args = ap.parse_args(argv)
@@ -380,7 +391,8 @@ def main(argv=None):
     assert getattr(env_module, "SIM_VERSION", 2) == 2, "expected Sim V2"
     device = torch.device(args.device)
     policy = ChunkPolicy(args.ckpt, args.config_path, args.output_dir, args.embodiment_name,
-                         args.embodiment_id, args.use_ema, device, raw_action_width=raw_width)
+                         args.embodiment_id, args.use_ema, device, raw_action_width=raw_width,
+                         ensemble_samples=args.ensemble_samples)
     overrides = []
     for stage in policy.algo.pipeline.stages:
         if args.cfg_scale is not None and hasattr(stage, "cfg_scale"):
@@ -437,6 +449,7 @@ def main(argv=None):
         "replan_every": int(args.replan_every), "chunk_start": int(args.chunk_start), "chunk_stop": int(args.chunk_start + args.replan_every),
         "execution_horizon": int(args.replan_every), "use_ema": bool(args.use_ema),
         "sampler_effective": sampler, "cfg_scale_override": args.cfg_scale, "sampler_steps_override": args.sampler_steps,
+        "ensemble_samples": int(args.ensemble_samples),
         "checkpoint": {"path": str(args.ckpt), "epoch": ckpt_epoch, "global_step": ckpt_step},
         "simulator": {"root": str(sim_root), "module": str(env_module.__file__), "git_head": sim_head or None, "dirty": sim_dirty, "origin": sim_origin, "file_sha256": sim_file_sha},
         "driver": {"path": str(Path(__file__).resolve()), "git_head": driver_head},

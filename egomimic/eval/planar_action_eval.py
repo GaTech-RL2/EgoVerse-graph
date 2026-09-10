@@ -131,7 +131,11 @@ class PlanarActionEval(Eval):
             {
                 "space": "normalized_action_chunk",
                 "formula": "mean_equal_weight_semantic_block_rms",
-                "semantic_blocks": [list(block) for block in self.blocks],
+                "semantic_blocks": (
+                    [list(block) for block in self.blocks]
+                    if self.blocks_by_source
+                    else self.blocks
+                ),
                 **(
                     {
                         "semantic_blocks_by_source": {

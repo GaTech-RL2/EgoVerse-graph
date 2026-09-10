@@ -3,6 +3,8 @@
 # The job requeues itself after each scan because user crontab is unavailable
 # on ICE. It consumes one CPU only while scanning/transferring or sleeping.
 #SBATCH --job-name=ice-log-archive
+#SBATCH --output=/home/hice1/acheluva3/ice/EgoVerse-graph/logs/ice-log-archive-%j.out
+#SBATCH --error=/home/hice1/acheluva3/ice/EgoVerse-graph/logs/ice-log-archive-%j.err
 #SBATCH --partition=ice-cpu
 #SBATCH --account=coc
 #SBATCH --qos=coc-ice

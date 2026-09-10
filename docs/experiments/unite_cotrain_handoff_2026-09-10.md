@@ -283,6 +283,8 @@ Protocol sim_v2 9-8", and the handoff note "UNITE Cotrain Handoff 9-10".
   `bad_gpu_nodes.txt`.
 - Single 40-seed readings carry ± 0.05 (DP BC 240k scored 0.708 and 0.599 on the
   same seeds in two runs); decisions use both seed blocks and repeats.
-- ICE cannot push to GitHub over HTTPS (no credentials); an SSH deploy key was
-  created on 9-10 (`~/.ssh/id_ed25519_github`, push URL switched to SSH) and
-  needs to be registered on GitHub; until then bundle → WSL clone → push.
+- ICE cannot push over HTTPS (no credentials). Since 9-10 13:35 the ICE
+  account has an SSH key registered on GitHub (`~/.ssh/id_ed25519_github`,
+  push URL `git@github.com:GaTech-RL2/EgoVerse-graph.git`), and pushes work
+  from any of the worktrees. `gt` is not installed on ICE; Graphite PRs are
+  opened from the WSL clone `~/EgoVerse-graph`, where the stack is tracked.

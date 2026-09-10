@@ -1,0 +1,88 @@
+# Paper-DP cotrain: U-Socket (common five, zero-padded to six) + ChainGripper (six points),
+# one batch per embodiment per step (CombinedLoader max_size_cycle). Same 1% seed-42 splits
+# and Hobs=2 / offset-1 alignment as the single-embodiment Paper-DP rows.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim_u_socket: &usocket
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
+      embodiment_override: pushshapes_sim_u_socket
+      expected_episode_count: 2999
+      expected_episode_names_sha256: 38a22a25ae2c45d18861bcf0c32d139fcf56787d891ba463e9318c27a105dc8e
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: ${planar.observation_horizon}
+        action_target_offset: ${planar.action_target_offset}
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_paper_padded_transform_list
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: ${planar.action_target_offset}
+        width: 6
+    mode: train
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 2970
+    expected_train_episode_names_sha256: ceb588f2132f9ff9cdb2c2ebe754a4797228acb884eb18351589242866ee84a1
+    expected_valid_episode_count: 29
+    expected_valid_episode_names_sha256: b34193949ac8d76ea27c6f5c307229798064d16367d7ce2efac00a48f63bfb93
+    bounds_check: false
+  pushshapes_sim_chain_gripper: &chain
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 3000
+      expected_episode_names_sha256: 61e23164126fd2b2a9bd1cc7c7b015ddff05e18d5fe704b34d870b17742cddcd
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: ${planar.observation_horizon}
+        action_target_offset: ${planar.action_target_offset}
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_paper_points_transform_list
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: ${planar.action_target_offset}
+    mode: train
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 2970
+    expected_train_episode_names_sha256: 318c6ec46ef1c0899bbc6254a0799044e534322e7b76bcc11f1744fe3f163264
+    expected_valid_episode_count: 30
+    expected_valid_episode_names_sha256: 01ceda50bdceaf7505ec3e3dc71c9430048f5b6ea5c894fc565d345fe925e6db
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_u_socket:
+    <<: *usocket
+    mode: valid
+  pushshapes_sim_chain_gripper:
+    <<: *chain
+    mode: valid
+
+train_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: ${planar.batch_size}
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+  pushshapes_sim_chain_gripper:
+    batch_size: ${planar.batch_size}
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+valid_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: ${planar.batch_size}
+    num_workers: 4
+    pin_memory: true
+  pushshapes_sim_chain_gripper:
+    batch_size: ${planar.batch_size}
+    num_workers: 4
+    pin_memory: true

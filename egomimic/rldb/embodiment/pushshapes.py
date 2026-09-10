@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from egomimic.rldb.zarr.action_chunk_transforms import (
+    ChainGripperNative4ToPoints6,
+    PadActionWidth,
     PlanarAgentStateToRotVec4,
     ThetaToRotVec,
 )
@@ -131,6 +133,26 @@ def get_planar_paper_transform_list(
     ]
 
 
+def get_planar_paper_padded_transform_list(
+    keys: list[str] | None = None,
+    action_horizon: int = 16,
+    action_target_offset: int = 1,
+    width: int = 6,
+    **_kwargs,
+):
+    """Paper-DP alignment, common five-space, then zero-pad to ``width``.
+
+    Used by the Paper-DP cotrain row so the U-Socket target shares the six-wide
+    head with the ChainGripper six-point target.
+    """
+    keys = keys or ["actions"]
+    return [
+        SliceActionTarget(keys, start=action_target_offset, horizon=action_horizon),
+        PadPlanarAction(keys),
+        PadActionWidth(keys, width=width),
+    ]
+
+
 def get_planar_arc_length_transform_list(
     keys: list[str] | None = None,
     min_distance_unit: float = 200.0,
@@ -163,4 +185,39 @@ def get_usocket_rotvec_action_state_transform_list(
     return [
         ThetaToRotVec(keys=[action_key], angle_col=2),
         PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
+    ]
+
+
+def get_chain_gripper_points_action_state_transform_list(
+    action_key: str = "actions",
+    state_key: str = "state_agent_model",
+    world_size: float = 512.0,
+):
+    """ChainGripper twin of the U-Socket UNITE transform: six-point actions.
+
+    Native ``[x, y, theta, grip]`` targets become the ordered
+    ``[left, center, right]`` command points (FK, see
+    ``egomimic.rldb.zarr.chain_gripper_points``) so the two embodiments share
+    nothing in action space; the model proprio stays the 4-D
+    ``[x, y, cos, sin]`` agent pose in both, as the dataset state carries no
+    grip opening.
+    """
+    return [
+        ChainGripperNative4ToPoints6(keys=[action_key], world_size=world_size),
+        PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
+    ]
+
+
+def get_chain_gripper_paper_points_transform_list(
+    keys: list[str] | None = None,
+    action_horizon: int = 16,
+    action_target_offset: int = 1,
+    world_size: float = 512.0,
+    **_kwargs,
+):
+    """Paper-DP alignment, then native ChainGripper controls -> six points."""
+    keys = keys or ["actions"]
+    return [
+        SliceActionTarget(keys, start=action_target_offset, horizon=action_horizon),
+        ChainGripperNative4ToPoints6(keys=keys, world_size=world_size),
     ]

@@ -1,0 +1,58 @@
+# ChainGripper-only UNITE row in six-point action space (in-domain control for the cotrain).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_points_action_state_transform_list
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 2970
+    expected_train_episode_names_sha256: 318c6ec46ef1c0899bbc6254a0799044e534322e7b76bcc11f1744fe3f163264
+    expected_valid_episode_count: 30
+    expected_valid_episode_names_sha256: 01ceda50bdceaf7505ec3e3dc71c9430048f5b6ea5c894fc565d345fe925e6db
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_points_action_state_transform_list
+    mode: valid
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 2970
+    expected_train_episode_names_sha256: 318c6ec46ef1c0899bbc6254a0799044e534322e7b76bcc11f1744fe3f163264
+    expected_valid_episode_count: 30
+    expected_valid_episode_names_sha256: 01ceda50bdceaf7505ec3e3dc71c9430048f5b6ea5c894fc565d345fe925e6db
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+
+valid_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true

@@ -1101,7 +1101,15 @@ with path.open("rb") as stream:
         digest.update(chunk)
 assert digest.hexdigest() == expected
 PY
-  checkpoint_override="ckpt_path=$ICE_RESUME_CHECKPOINT"
+  case "$ICE_RESUME_CHECKPOINT" in
+    *"'"*|*$'\n'*|*$'\r'*)
+      printf 'Unsafe checkpoint path for Hydra override: %q\n' \
+        "$ICE_RESUME_CHECKPOINT" >&2
+      exit 2
+      ;;
+  esac
+  # Preserve '=' and other Hydra grammar characters as literal path content.
+  checkpoint_override="ckpt_path='$ICE_RESUME_CHECKPOINT'"
 else
   test -z "${ICE_RESUME_CHECKPOINT_SHA256:-}${ICE_RESUME_GLOBAL_STEP:-}"
 fi

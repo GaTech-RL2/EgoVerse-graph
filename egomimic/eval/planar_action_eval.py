@@ -770,11 +770,15 @@ class PlanarActionEval(Eval):
             )
 
         distance_contract = provenance.get("distance_contract")
-        normalized_distance = normalize_usocket_energy_distance_config(
-            distance_contract
-        )
-        if normalized_distance != self.energy_score_distance:
-            raise ValueError("EnergyScore provenance distance contract differs")
+        if self.energy_score_distance is None:
+            if distance_contract is not None:
+                raise ValueError("generic EnergyScore distance contract differs")
+        else:
+            normalized_distance = normalize_usocket_energy_distance_config(
+                distance_contract
+            )
+            if normalized_distance != self.energy_score_distance:
+                raise ValueError("EnergyScore provenance distance contract differs")
 
         config_path = Path(str(provenance.get("resolved_config_path", ""))).expanduser()
         try:

@@ -88,11 +88,9 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "AF_FULL_VALIDATE_EVERY=30000" in source
     assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
+    assert '"data.train_dataloader_params.$AF_SOURCE.batch_size=32"' in source
     assert (
-        "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32" in source
-    )
-    assert (
-        "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_VALID_BATCH_SIZE"
+        '"data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE"'
         in source
     )
     assert "AF_FULL_LIMIT_VAL_BATCHES=8" in source
@@ -155,6 +153,8 @@ def test_full_and_smoke_share_the_requeue_and_strict_checkpoint_path():
     assert "--confirm-child-requeue-disabled" in source
     assert "runtime.slurm_requeue_owner=runner" in source
     assert "runtime.slurm_save_signal=SIGUSR2" in source
+    assert 'checkpoint_override="ckpt_path=\'$ICE_RESUME_CHECKPOINT\'"' in source
+    assert "Unsafe checkpoint path for Hydra override" in source
 
 
 def test_full_mode_requires_the_exact_passed_smoke_gate():

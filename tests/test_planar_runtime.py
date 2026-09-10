@@ -322,7 +322,7 @@ def test_planar_evaluator_reuses_first_energy_sample_for_mse(tmp_path):
     torch.testing.assert_close(
         logged["Valid/MSE"], predictions[0].square().mean()
     )
-    artifact = tmp_path / "epoch-2-step-17/rank-0-batch-0.pt"
+    artifact = evaluator._artifact_destination(tmp_path, batch_idx=0)
     payload = torch.load(artifact, weights_only=True)
     assert payload["deterministic_seed"] == evaluator.seeds[0] == 420042
 

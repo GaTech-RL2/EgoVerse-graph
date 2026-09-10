@@ -43,7 +43,9 @@ def test_action_only_adapter_preserves_native_state_and_encodes_target_angle():
 
 def test_chain_adapter_preserves_grip_and_encodes_angles():
     sample = {
-        "state_agent_model": np.array([[1.0, 2.0, np.pi / 2]], dtype=np.float32),
+        "state_agent_model": np.array(
+            [[1.0, 2.0, np.pi / 2, 0.0, 0.0, 0.0]], dtype=np.float32
+        ),
         "actions": np.array([[3.0, 4.0, np.pi, 0.75]], dtype=np.float32),
     }
     for transform in get_chain_common5_action_rotvec_state_transform_list():

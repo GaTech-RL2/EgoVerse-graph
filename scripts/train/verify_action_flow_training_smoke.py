@@ -1788,7 +1788,9 @@ def _validate_artifacts(
     identities: Mapping[str, Any],
     checkpoint: Mapping[str, Any],
 ) -> dict[str, Any]:
-    chain = str(config.name) == APPROVED_EXPERIMENTS[UNITE_H384_CHAIN_EXPERIMENT][0]
+    chain = str(config.get("name", "")) == APPROVED_EXPERIMENTS[
+        UNITE_H384_CHAIN_EXPERIMENT
+    ][0]
     action_dim = 5 if chain else 4
     native_action_dim = 4 if chain else 3
     split_sha256 = str(identities["split_manifest_sha256"])

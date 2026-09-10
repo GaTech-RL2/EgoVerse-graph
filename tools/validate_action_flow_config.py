@@ -1539,7 +1539,7 @@ def _validate_data_and_launch(
         )
         _exact(
             int(diagnostics.validation_view.per_rank_batch_size),
-            32 if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME else 16,
+            32 if str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES else 16,
             "diagnostic validation batch size",
         )
         _exact(

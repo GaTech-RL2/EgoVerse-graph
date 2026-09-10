@@ -14,6 +14,12 @@ ROWS = {
         1,
         "PlanarFlowSampler",
     ),
+    "usocket_arc_curvature_D40_M16_R24deg_bc": (
+        "pushshapes_sim_u_socket",
+        17,
+        1,
+        "PlanarFlowSampler",
+    ),
     "chain_arc_bc": ("pushshapes_sim_chain_gripper", 101, 1, "PlanarFlowSampler"),
     "usocket_direct_bc": ("pushshapes_sim_u_socket", 16, 1, "PlanarFlowSampler"),
     "chain_direct_bc": ("pushshapes_sim_chain_gripper", 16, 1, "PlanarFlowSampler"),
@@ -88,10 +94,13 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     assert cfg.run_provenance.dataset_observation_alignment == "pre_step"
     assert cfg.planar.observation_horizon == observation_horizon
     decoder = cfg.planar.eval_native_decoder
-    if "arc_bc" in row:
+    if row in {"usocket_arc_bc", "chain_arc_bc"}:
         assert decoder._target_.endswith("PlanarArcWaypointZeroNativeDecoder")
         assert "action_horizon" not in decoder
-    elif "arc_hybrid" in row:
+    elif row in {
+        "usocket_arc_hybrid_D40_M16_R24deg_bc",
+        "usocket_arc_curvature_D40_M16_R24deg_bc",
+    }:
         assert decoder._target_.endswith("PlanarArcWaypointZeroNativeDecoder")
         assert decoder.resampled_vector_length == 16
         assert cfg.planar.arc_distance == 40.0
@@ -99,10 +108,18 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
         assert cfg.planar.hybrid_rotation_unit == 0.14776
         assert dataset.resolver.transform_list.rotation_radius == 0.0
         assert dataset.resolver.transform_list.hybrid_rotation_unit == 0.14776
+        expected_sampling = "curvature" if "curvature" in row else "uniform"
+        assert cfg.planar.arc_waypoint_sampling == expected_sampling
+        assert dataset.resolver.transform_list.waypoint_sampling == expected_sampling
+        assert dataset.resolver.transform_list.curvature_dense_samples == 257
+        assert dataset.resolver.transform_list.curvature_floor is None
     else:
         assert decoder._target_.endswith("PlanarCommon5NativeDecoder")
         assert decoder.action_horizon == 16
-    if "arc_hybrid" not in row:
+    if row not in {
+        "usocket_arc_hybrid_D40_M16_R24deg_bc",
+        "usocket_arc_curvature_D40_M16_R24deg_bc",
+    }:
         assert dataset.resolver.transform_list.rotation_radius == 30.0
         assert dataset.resolver.transform_list.hybrid_rotation_unit is None
     model_yaml = OmegaConf.to_yaml(cfg.model)
@@ -212,10 +229,13 @@ def test_diffusion_mse_is_visible_during_long_training_epochs():
     model_wrapper = (
         Path(__file__).parents[1] / "egomimic" / "pl_utils" / "pl_model.py"
     ).read_text()
-    aggregate = model_wrapper.index('"Train/MSE",')
-    per_source = model_wrapper.index('f"Train/MSE/{source}",')
-    assert "on_step=True" in model_wrapper[aggregate : aggregate + 220]
-    assert "on_step=True" in model_wrapper[per_source : per_source + 220]
+    start = model_wrapper.index("def _log_prediction_metrics")
+    end = model_wrapper.index("def training_step", start)
+    implementation = model_wrapper[start:end]
+    assert 'step_visible = metric == "MSE"' in implementation
+    assert 'f"Train/{metric}/{source}"' in implementation
+    assert 'f"Train/{metric}"' in implementation
+    assert implementation.count("on_step=step_visible") == 2
 
 
 def test_ddp_device_count_is_per_node_without_eval_resolver():

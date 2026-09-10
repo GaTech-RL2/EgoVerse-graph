@@ -6,7 +6,10 @@ import torch
 import torch.nn as nn
 from omegaconf import OmegaConf
 
-from egomimic.pl_utils.pl_model_unite_released import ReleasedUniteModelWrapper
+from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.pl_utils.training_behavior_unite import (
+    ReleasedUniteTrainingBehavior,
+)
 from egomimic.trainHydra import _instantiate_model_wrapper, _resolve_model_wrapper_class
 from egomimic.utils.unite_optim import (
     ReleasedUniteCompositeOptimizer,
@@ -133,8 +136,9 @@ class _MetricAlgo:
 
 
 def _wrapper(*, shared=True, dropout_probability=0.0):
-    return ReleasedUniteModelWrapper(
-        pipeline=_MetricAlgo(shared=shared, dropout_probability=dropout_probability)
+    return ModelWrapper(
+        pipeline=_MetricAlgo(shared=shared, dropout_probability=dropout_probability),
+        training_behavior=ReleasedUniteTrainingBehavior(),
     )
 
 
@@ -237,9 +241,9 @@ def test_wrapper_has_no_direct_optimizer_or_topology_compatibility():
     with pytest.raises(RuntimeError, match="requires config_tree"):
         wrapper.configure_optimizers()
     with pytest.raises(TypeError, match="unexpected keyword argument"):
-        ReleasedUniteModelWrapper(pipeline=_MetricAlgo(), share_encoder_denoiser=True)
+        ModelWrapper(pipeline=_MetricAlgo(), share_encoder_denoiser=True)
     with pytest.raises(TypeError, match="unexpected keyword argument"):
-        ReleasedUniteModelWrapper(pipeline=_MetricAlgo(), optimizer=lambda *_args: None)
+        ModelWrapper(pipeline=_MetricAlgo(), optimizer=lambda *_args: None)
 
 
 def test_training_components_are_sample_weighted_and_finite(monkeypatch):
@@ -290,7 +294,7 @@ def test_component_reduction_weights_remote_ranks(monkeypatch):
         payload.add_(torch.cat((remote_means * 3, torch.tensor((3.0,)))))
 
     monkeypatch.setattr(torch.distributed, "all_reduce", add_remote)
-    reduced, count = ReleasedUniteModelWrapper._distributed_weighted_components(
+    reduced, count = ReleasedUniteTrainingBehavior._distributed_weighted_components(
         local, 1
     )
     assert count == 4
@@ -347,13 +351,13 @@ def test_gradient_telemetry_runs_on_update_completing_each_hundred_steps(monkeyp
     monkeypatch.setattr(wrapper, "log", lambda *_args, **_kwargs: None)
     completed_steps = {"value": 0}
     monkeypatch.setattr(
-        ReleasedUniteModelWrapper,
+        ModelWrapper,
         "global_step",
         property(lambda _self: completed_steps["value"]),
     )
     measured = []
     monkeypatch.setattr(
-        wrapper,
+        wrapper.training_behavior,
         "_measure_topology_gradients",
         lambda *_args: measured.append(completed_steps["value"] + 1),
     )
@@ -365,9 +369,10 @@ def test_gradient_telemetry_runs_on_update_completing_each_hundred_steps(monkeyp
 
 def test_shared_telemetry_uses_true_intersection_without_touching_grad(monkeypatch):
     wrapper = _wrapper(shared=True, dropout_probability=0.0)
-    _, encoder, shared = wrapper._unite_topology()
+    behavior = wrapper.training_behavior
+    _, encoder, shared = behavior._unite_topology()
     assert shared
-    selected = wrapper._shared_named_parameters(
+    selected = behavior._shared_named_parameters(
         encoder, ("demo",), include_null_input=False
     )
     selected_names = {name for name, _ in selected}
@@ -375,7 +380,7 @@ def test_shared_telemetry_uses_true_intersection_without_touching_grad(monkeypat
     assert not any("content_projection" in name for name in selected_names)
     assert not any("action_context_projections" in name for name in selected_names)
     assert "null_condition_inputs.demo" not in selected_names
-    with_null = wrapper._shared_named_parameters(
+    with_null = behavior._shared_named_parameters(
         encoder, ("demo",), include_null_input=True
     )
     assert "null_condition_inputs.demo" in {name for name, _ in with_null}
@@ -393,7 +398,7 @@ def test_shared_telemetry_uses_true_intersection_without_touching_grad(monkeypat
         "log",
         lambda name, value, **_kwargs: logged.setdefault(name, value),
     )
-    wrapper._measure_topology_gradients(reconstruction, flow, predictions)
+    behavior._measure_topology_gradients(reconstruction, flow, predictions)
 
     assert set(logged) == {
         "log/unite_gradient_cosine",
@@ -410,9 +415,10 @@ def test_shared_telemetry_uses_true_intersection_without_touching_grad(monkeypat
 
 def test_separate_telemetry_is_disjoint_and_does_not_touch_grad(monkeypatch):
     wrapper = _wrapper(shared=False, dropout_probability=0.0)
-    _, encoder, shared = wrapper._unite_topology()
+    behavior = wrapper.training_behavior
+    _, encoder, shared = behavior._unite_topology()
     assert not shared
-    tokenizer, denoiser = wrapper._separate_named_parameters(
+    tokenizer, denoiser = behavior._separate_named_parameters(
         encoder, ("demo",), include_denoiser_null_input=False
     )
     assert {id(parameter) for _, parameter in tokenizer}.isdisjoint(
@@ -434,7 +440,7 @@ def test_separate_telemetry_is_disjoint_and_does_not_touch_grad(monkeypatch):
         "log",
         lambda name, value, **_kwargs: logged.setdefault(name, value),
     )
-    wrapper._measure_topology_gradients(
+    behavior._measure_topology_gradients(
         reconstruction, flow, {"source": {"embodiment": "demo"}}
     )
 
@@ -449,39 +455,37 @@ def test_separate_telemetry_is_disjoint_and_does_not_touch_grad(monkeypatch):
 
 def test_topology_and_gradient_gates_fail_loudly():
     wrapper = _wrapper(shared=True)
-    wrapper._configured_share_encoder_denoiser = False
+    behavior = wrapper.training_behavior
+    behavior._configured_share_encoder_denoiser = False
     with pytest.raises(RuntimeError, match="disagrees"):
-        wrapper._unite_topology()
+        behavior._unite_topology()
 
     with pytest.raises(RuntimeError, match="zero or non-finite"):
-        wrapper._gradient_norm((torch.zeros(2),))
+        behavior._gradient_norm((torch.zeros(2),))
     with pytest.raises(RuntimeError, match="zero or non-finite"):
-        wrapper._gradient_norm((torch.full((2,), float("nan")),))
+        behavior._gradient_norm((torch.full((2,), float("nan")),))
 
-    wrapper._configured_share_encoder_denoiser = None
-    _, encoder, _ = wrapper._unite_topology()
-    named = wrapper._shared_named_parameters(
+    behavior._configured_share_encoder_denoiser = None
+    _, encoder, _ = behavior._unite_topology()
+    named = behavior._shared_named_parameters(
         encoder, ("demo",), include_null_input=False
     )
     disconnected = named[0][1].square().sum()
     with pytest.raises(RuntimeError, match="not have been used in the graph"):
-        wrapper._measure_shared_gradients(disconnected, disconnected, named)
+        behavior._measure_shared_gradients(disconnected, disconnected, named)
 
 
-def test_training_entry_resolves_only_model_wrapper_subclasses():
+def test_training_entry_requires_the_single_model_wrapper():
     cfg = OmegaConf.create(
         {
             "model": {
-                "_target_": (
-                    "egomimic.pl_utils.pl_model_unite_released."
-                    "ReleasedUniteModelWrapper"
-                )
+                "_target_": "egomimic.pl_utils.pl_model.ModelWrapper"
             }
         }
     )
-    assert _resolve_model_wrapper_class(cfg) is ReleasedUniteModelWrapper
+    assert _resolve_model_wrapper_class(cfg) is ModelWrapper
     cfg.model._target_ = "torch.nn.Linear"
-    with pytest.raises(TypeError, match="ModelWrapper subclass"):
+    with pytest.raises(TypeError, match="exactly to ModelWrapper"):
         _resolve_model_wrapper_class(cfg)
 
 

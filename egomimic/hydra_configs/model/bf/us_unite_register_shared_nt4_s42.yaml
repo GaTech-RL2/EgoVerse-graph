@@ -1,5 +1,7 @@
 # Canonical shared-encoder, four-register UNITE row.
-_target_: egomimic.pl_utils.pl_model_unite_released.ReleasedUniteModelWrapper
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+training_behavior:
+  _target_: egomimic.pl_utils.training_behavior_unite.ReleasedUniteTrainingBehavior
 
 share_encoder_denoiser: true
 num_latent_tokens: 4

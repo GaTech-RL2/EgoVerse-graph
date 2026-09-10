@@ -28,7 +28,7 @@ from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.ema_callback import EMACallback
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.utils.logging_utils import log_hyperparameters
+from egomimic.utils.logging_utils import configure_runner_wandb, log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.slurm_requeue import SaveOnlySignalCheckpoint
 from egomimic.utils.utils import extras, task_wrapper
@@ -127,7 +127,17 @@ def _instantiate_trainer_plugins(cfg: DictConfig) -> List[Any]:
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     model_cfg = OmegaConf.create(OmegaConf.to_container(cfg.model, resolve=True))
-    return OmegaConf.create({"model": model_cfg})
+    config_tree = {"model": model_cfg}
+    if cfg.get("run_provenance") is not None:
+        run_provenance = OmegaConf.to_container(
+            cfg.run_provenance,
+            resolve=True,
+        )
+        wandb_run_id = OmegaConf.select(cfg, "logger.wandb.id", default=None)
+        if wandb_run_id is not None:
+            run_provenance["run_id"] = str(wandb_run_id)
+        config_tree["run_provenance"] = run_provenance
+    return OmegaConf.create(config_tree)
 
 
 def _validate_run_config(cfg: DictConfig) -> str:
@@ -170,16 +180,16 @@ def _callbacks_for_mode(callbacks: List[Callback], mode: str) -> List[Callback]:
 
 
 def _resolve_model_wrapper_class(cfg: DictConfig) -> type[ModelWrapper]:
-    """Resolve a configured Lightning wrapper without constructing its model."""
+    """Require the single generic Lightning wrapper for every pipeline."""
     target = OmegaConf.select(cfg, "model._target_", default=None)
     if target is None:
         return ModelWrapper
     wrapper_class = hydra.utils.get_class(str(target))
-    if not isinstance(wrapper_class, type) or not issubclass(
-        wrapper_class, ModelWrapper
-    ):
+    if wrapper_class is not ModelWrapper:
         raise TypeError(
-            "cfg.model._target_ must resolve to a ModelWrapper subclass; "
+            "cfg.model._target_ must resolve exactly to ModelWrapper; "
+            "configure model-specific framework behavior under "
+            "model.training_behavior instead of subclassing Lightning; "
             f"got {target!r}"
         )
     return wrapper_class
@@ -425,6 +435,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     :return: A tuple with metrics and dict with all instantiated objects.
     """
     mode = _validate_run_config(cfg)
+    if mode == "train":
+        configure_runner_wandb(cfg)
 
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):

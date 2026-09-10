@@ -274,6 +274,7 @@ class DiffusionEpsilonLossStage(Stage):
         loss = F.mse_loss(prediction, noise_target)
         batch["loss/diffusion_noise"] = loss
         batch["log/diffusion_noise"] = loss.detach()
+        batch["log/MSE"] = loss.detach()
         batch["log/diffusion_target_rms"] = (
             batch["target"].detach().square().mean().sqrt()
         )

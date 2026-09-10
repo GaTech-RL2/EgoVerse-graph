@@ -19,8 +19,9 @@ from egomimic.pipeline.stages_action_latent_vfm import (
     VelocityEndpointStage,
     VelocityFlowObjectiveStage,
 )
-from egomimic.pl_utils.pl_model_action_latent_vfm import (
-    ActionLatentVFMModelWrapper,
+from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.pl_utils.training_behavior_action_latent_vfm import (
+    ActionLatentVFMTrainingBehavior,
 )
 from egomimic.trainHydra import _instantiate_model_wrapper
 from tools.config_graph import build_graph
@@ -350,7 +351,10 @@ def test_condition_dropout_replaces_condition_but_not_noisy_latent():
 
 
 def test_wrapper_weights_components_and_uses_shared_denoiser_telemetry(monkeypatch):
-    wrapper = ActionLatentVFMModelWrapper(pipeline=_MetricAlgo())
+    wrapper = ModelWrapper(
+        pipeline=_MetricAlgo(),
+        training_behavior=ActionLatentVFMTrainingBehavior(),
+    )
     logged = {}
     monkeypatch.setattr(
         wrapper,
@@ -367,10 +371,11 @@ def test_wrapper_weights_components_and_uses_shared_denoiser_telemetry(monkeypat
     assert float(loss) == 2.0
     assert float(logged["Train/ActionLatentVFM/TotalLoss"][0]) == 2.0
 
-    parameter = wrapper._velocity_stage().denoising_module.scale
+    behavior = wrapper.training_behavior
+    parameter = behavior._velocity_stage().denoising_module.scale
     parameter.grad = torch.tensor(7.0)
     before = parameter.grad.clone()
-    wrapper._measure_gradient_conflict(
+    behavior._measure_gradient_conflict(
         (parameter - 0.0).square(), (parameter - 2.0).square()
     )
     assert float(logged["log/unite_gradient_cosine"][0]) == -1.0
@@ -381,17 +386,20 @@ def test_wrapper_weights_components_and_uses_shared_denoiser_telemetry(monkeypat
 
 def test_training_entry_uses_resolved_gradient_telemetry_cadence(monkeypatch):
     monkeypatch.setattr(
-        ActionLatentVFMModelWrapper,
+        ModelWrapper,
         "_instantiate_model",
         lambda self, config_tree: _MetricAlgo(),
     )
     cfg = OmegaConf.create(
         {
             "model": {
-                "_target_": (
-                    "egomimic.pl_utils.pl_model_action_latent_vfm."
-                    "ActionLatentVFMModelWrapper"
-                ),
+                "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+                "training_behavior": {
+                    "_target_": (
+                        "egomimic.pl_utils.training_behavior_action_latent_vfm."
+                        "ActionLatentVFMTrainingBehavior"
+                    )
+                },
                 "pipeline": {},
                 "gradient_telemetry_cadence": 1,
                 "enable_grad_norm": False,
@@ -401,8 +409,7 @@ def test_training_entry_uses_resolved_gradient_telemetry_cadence(monkeypatch):
 
     wrapper = _instantiate_model_wrapper(cfg)
 
-    assert wrapper.gradient_telemetry_cadence == 1
-    assert wrapper.hparams.gradient_telemetry_cadence == 1
+    assert wrapper.training_behavior.gradient_telemetry_cadence == 1
     logged = {}
     monkeypatch.setattr(
         wrapper,

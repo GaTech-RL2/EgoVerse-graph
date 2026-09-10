@@ -1846,6 +1846,10 @@ class ZarrDataset(torch.utils.data.Dataset):
             data["episode_hash"] = (
                 ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
             )
+            # Stable condition identity for immutable validation artifacts.
+            # This is the post-fallback frame actually returned, not the
+            # caller's potentially rejected initial index.
+            data["frame_index"] = int(idx)
             _ = origin  # preserved for symmetry with prior API
             return data
 

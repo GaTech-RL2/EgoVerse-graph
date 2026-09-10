@@ -2,7 +2,7 @@
 _target_: egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper
 
 action_horizon: 16
-action_dim: 4
+action_dim: ${planar.action_model_dim}
 num_latent_tokens: 8
 latent_dim: 16
 condition_dim: 128
@@ -24,12 +24,12 @@ pipeline:
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
       selector_key: embodiment
-      selector_aliases: {19: pushshapes_sim_u_socket}
+      selector_aliases: {19: pushshapes_action_flow, 20: pushshapes_action_flow}
       input_key: state_agent_model
       output_key: proprio_condition
       output_dim: 64
       projections:
-        pushshapes_sim_u_socket:
+        pushshapes_action_flow:
           input_dim: 4
           hidden_dim: 64
           semantic: x_y_cos_theta_sin_theta

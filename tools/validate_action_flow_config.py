@@ -76,6 +76,9 @@ DEFAULT_CONFIG_ROOT = REPOSITORY_ROOT / "egomimic" / "hydra_configs"
 CANONICAL_CONTENT_MANIFEST_RELATIVE_PATH = Path(
     "egomimic/hydra_configs/data/pusht/manifests/usocket_3000_v2_clean_content_v1.json"
 )
+CHAIN_CONTENT_MANIFEST_RELATIVE_PATH = Path(
+    "egomimic/hydra_configs/data/pusht/manifests/chain_gripper_3000_v2_content_v1.json"
+)
 EXPECTED_STAGE_TYPES = (
     FusedObsEncoder,
     GaussianLatentNoise,
@@ -105,6 +108,13 @@ STOPGRAD_UNITE_CONFIG_NAME = "action_flow_usocket_latent_fm_sg_unite_h384_s42"
 STOPGRAD_UNITE_PARITY_CONFIG_NAME = (
     "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
 )
+STOPGRAD_UNITE_CHAIN_CONFIG_NAME = (
+    "action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+)
+STOPGRAD_UNITE_PARITY_CONFIG_NAMES = {
+    STOPGRAD_UNITE_PARITY_CONFIG_NAME,
+    STOPGRAD_UNITE_CHAIN_CONFIG_NAME,
+}
 SCALED_MUON_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
@@ -119,6 +129,7 @@ CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -538,7 +549,8 @@ def _validate_unite_dimensions_and_modules(
     )
 
     _exact(int(config.model.action_horizon), 16, "model action horizon")
-    _exact(int(config.model.action_dim), 4, "model action dimension")
+    action_dim = int(config.model.action_dim)
+    _require(action_dim in {4, 5}, "model action dimension must be four or five")
     _exact(int(config.model.num_latent_tokens), 8, "model latent token count")
     _exact(int(config.model.latent_dim), 16, "model latent dimension")
     _exact(int(config.model.condition_dim), 128, "model condition dimension")
@@ -547,7 +559,7 @@ def _validate_unite_dimensions_and_modules(
     _exact(int(noise.latent_dim), 16, "Gaussian source latent dimension")
     _exact(int(observation.n_obs_steps), 1, "observation steps")
     _exact(int(projection.output_dim), 64, "projected proprio width")
-    _exact(int(encoder.input_dim), 4, "tokenizer action dimension")
+    _exact(int(encoder.input_dim), action_dim, "tokenizer action dimension")
     _exact(int(encoder.action_horizon), 16, "tokenizer action horizon")
     _exact(int(encoder.num_latent_tokens), 8, "tokenizer register count")
     _exact(int(encoder.latent_dim), 16, "tokenizer latent dimension")
@@ -575,7 +587,7 @@ def _validate_unite_dimensions_and_modules(
         _exact(bool(backbone.gradient_checkpointing), True, f"{label} checkpointing")
     for attribute, expected in {
         "latent_dim": 16,
-        "action_dim": 4,
+        "action_dim": action_dim,
         "num_latent_tokens": 8,
         "action_horizon": 16,
         "hidden_dim": 384,
@@ -598,7 +610,7 @@ def _validate_unite_dimensions_and_modules(
         True,
         "independent condition dropout",
     )
-    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+    parity = str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
     _exact(field_stage.flow_clean_gradient_mode, "all_stopgrad", "FM stop-gradient")
     _exact(field_stage.inference_method, "dopri5", "inference method")
     _exact(int(field_stage.num_inference_steps), 50, "Dopri5 output points")
@@ -637,18 +649,22 @@ def _validate_unite_dimensions_and_modules(
     expected_counts = {
         "state_projection": 4_480,
         "observation_encoder": 11_197_088,
-        "encoder_e": 32_725_808,
+        "encoder_e": 32_725_808 + 128 * (action_dim - 4),
         "field_v": 32_725_168,
-        "decoder_g": 21_303_556,
+        "decoder_g": 21_303_556 + 385 * (action_dim - 4),
     }
     for label, expected in expected_counts.items():
         _exact(parameters[label]["total"], expected, f"{label} parameter count")
         _exact(
             parameters[label]["trainable"], expected, f"{label} trainable count"
         )
-    _exact(sum(expected_counts.values()), 97_956_100, "total parameter accounting")
+    _exact(
+        sum(expected_counts.values()),
+        97_956_100 + 513 * (action_dim - 4),
+        "total parameter accounting",
+    )
     dimensions = {
-        "action": [16, 4],
+        "action": [16, action_dim],
         "condition": 128,
         "image_feature": 64,
         "latent": [8, 16],
@@ -980,7 +996,7 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         _exact(int(trainer.max_steps), 150_000, "trainer maximum steps")
         validation_every = (
             10_000
-            if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+            if str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
             else 30_000
         )
         _exact(int(trainer.val_check_interval), validation_every, "validation cadence")
@@ -1108,6 +1124,13 @@ def _validate_data_and_launch(
     _exact(train_sources, valid_sources, "train/validation source identity")
     _exact(len(train_sources), 1, "initial source count")
     source = train_sources[0]
+    chain = source == "pushshapes_sim_chain_gripper"
+    _require(
+        source in {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"},
+        "unsupported Action Flow source",
+    )
+    expected_total = 3_000 if chain else 2_999
+    expected_valid = 30 if chain else 29
     train = config.data.train_datasets[source]
     valid = config.data.valid_datasets[source]
     _exact(str(train.mode), "train", "training dataset mode")
@@ -1116,9 +1139,9 @@ def _validate_data_and_launch(
     _float(valid.valid_ratio, 0.01, "validation split ratio")
     _exact(int(train.split_seed), 42, "training split seed")
     _exact(int(valid.split_seed), 42, "validation split seed")
-    _exact(int(train.resolver.expected_episode_count), 2_999, "episode inventory")
+    _exact(int(train.resolver.expected_episode_count), expected_total, "episode inventory")
     _exact(int(train.expected_train_episode_count), 2_970, "train episodes")
-    _exact(int(train.expected_valid_episode_count), 29, "validation episodes")
+    _exact(int(train.expected_valid_episode_count), expected_valid, "validation episodes")
     _exact(
         str(train.resolver.expected_episode_names_sha256),
         str(valid.resolver.expected_episode_names_sha256),
@@ -1145,7 +1168,7 @@ def _validate_data_and_launch(
     _exact(train_batch, 32, "per-GPU train batch")
     _exact(global_batch, 32, "effective global batch")
     _exact(int(config.planar.batch_size), 32, "declared batch size")
-    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+    parity = str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
     _exact(
         int(config.data.valid_dataloader_params[source].batch_size),
         32 if parity else 16,
@@ -1160,9 +1183,9 @@ def _validate_data_and_launch(
     _exact(
         int(provenance.train_episode_count_per_domain), 2_970, "provenance train count"
     )
-    _exact(int(provenance.valid_episode_count_per_domain), 29, "provenance valid count")
+    _exact(int(provenance.valid_episode_count_per_domain), expected_valid, "provenance valid count")
     _exact(
-        int(provenance.union_episode_count_per_domain), 2_999, "provenance union count"
+        int(provenance.union_episode_count_per_domain), expected_total, "provenance union count"
     )
     _exact(int(provenance.id_overlap_count), 0, "episode ID overlap")
     _exact(int(provenance.resolved_path_overlap_count), 0, "physical path overlap")
@@ -1188,10 +1211,10 @@ def _validate_data_and_launch(
     _exact(tuple(manifest["domains"]), train_sources, "split manifest sources")
     domain = manifest["domains"][source]
     for key, expected in (
-        ("total_count", 2_999),
+        ("total_count", expected_total),
         ("train_count", 2_970),
-        ("valid_count", 29),
-        ("union_count", 2_999),
+        ("valid_count", expected_valid),
+        ("union_count", expected_total),
         ("id_overlap_count", 0),
         ("resolved_path_overlap_count", 0),
     ):
@@ -1214,12 +1237,17 @@ def _validate_data_and_launch(
     )
 
     configured_content_manifest_path = str(provenance.content_manifest_path)
+    canonical_content_path = (
+        CHAIN_CONTENT_MANIFEST_RELATIVE_PATH
+        if chain
+        else CANONICAL_CONTENT_MANIFEST_RELATIVE_PATH
+    )
     _exact(
         configured_content_manifest_path,
-        CANONICAL_CONTENT_MANIFEST_RELATIVE_PATH.as_posix(),
+        canonical_content_path.as_posix(),
         "canonical dataset-content manifest path",
     )
-    content_manifest_path = repository_root / CANONICAL_CONTENT_MANIFEST_RELATIVE_PATH
+    content_manifest_path = repository_root / canonical_content_path
     _require(
         content_manifest_path.is_file(),
         f"dataset-content manifest missing: {content_manifest_path}",
@@ -1247,7 +1275,7 @@ def _validate_data_and_launch(
     )
     _exact(
         int(content_identity["episode_count"]),
-        2_999,
+        expected_total,
         "dataset-content manifest episode count",
     )
     evaluator_content = OmegaConf.to_container(
@@ -1357,7 +1385,7 @@ def _validate_data_and_launch(
             _exact(int(provenance.inference.steps), 16, "inference sampler steps")
     _exact(
         bool(provenance.inference.classifier_free_guidance),
-        str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME,
+        str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES,
         "canonical classifier-free guidance",
     )
     _exact(
@@ -1385,34 +1413,39 @@ def _validate_data_and_launch(
         str(provenance.split_manifest_sha256),
         "EnergyScore validation-view split provenance",
     )
-    try:
-        distance = normalize_usocket_energy_distance_config(
-            OmegaConf.to_container(config.evaluator.energy_score_distance, resolve=True)
+    if chain:
+        _exact(config.evaluator.energy_score_distance, None, "Chain EnergyScore distance")
+        expected_distance = {
+            "space": "normalized_action_chunk",
+            "formula": "mean_equal_weight_semantic_block_rms",
+            "semantic_blocks": [[0, 2], [2, 4], [4, 5]],
+        }
+        _exact(
+            OmegaConf.to_container(provenance.energy_score_contract.distance, resolve=True),
+            expected_distance,
+            "Chain EnergyScore provenance distance",
         )
-    except (TypeError, ValueError) as error:
-        raise PreflightError(str(error)) from error
-    _exact(distance, USOCKET_ENERGY_DISTANCE_CONFIG, "EnergyScore distance")
-    try:
-        provenance_distance = normalize_usocket_energy_distance_config(
-            OmegaConf.to_container(
-                provenance.energy_score_contract.distance,
-                resolve=True,
+        _exact(
+            OmegaConf.to_container(energy_provenance.distance_contract, resolve=True),
+            expected_distance,
+            "Chain evaluator EnergyScore distance provenance",
+        )
+    else:
+        try:
+            distance = normalize_usocket_energy_distance_config(
+                OmegaConf.to_container(config.evaluator.energy_score_distance, resolve=True)
             )
-        )
-        evaluator_distance = normalize_usocket_energy_distance_config(
-            OmegaConf.to_container(
-                energy_provenance.distance_contract,
-                resolve=True,
+            provenance_distance = normalize_usocket_energy_distance_config(
+                OmegaConf.to_container(provenance.energy_score_contract.distance, resolve=True)
             )
-        )
-    except (TypeError, ValueError) as error:
-        raise PreflightError(str(error)) from error
-    _exact(
-        provenance_distance,
-        distance,
-        "EnergyScore provenance distance",
-    )
-    _exact(evaluator_distance, distance, "evaluator EnergyScore distance provenance")
+            evaluator_distance = normalize_usocket_energy_distance_config(
+                OmegaConf.to_container(energy_provenance.distance_contract, resolve=True)
+            )
+        except (TypeError, ValueError) as error:
+            raise PreflightError(str(error)) from error
+        _exact(distance, USOCKET_ENERGY_DISTANCE_CONFIG, "EnergyScore distance")
+        _exact(provenance_distance, distance, "EnergyScore provenance distance")
+        _exact(evaluator_distance, distance, "evaluator EnergyScore distance provenance")
 
     if action_flow_method(config) != LIKELIHOOD_METHOD:
         diagnostics = config.evaluator.action_flow_diagnostics
@@ -1451,13 +1484,16 @@ def _validate_data_and_launch(
             0 if action_flow_method(config) == GRAPH_METHOD else 10,
             "diagnostic CKNNA k",
         )
-        try:
-            native_error = normalize_usocket_native_error_config(
-                OmegaConf.to_container(diagnostics.native_error, resolve=True)
-            )
-        except (TypeError, ValueError) as error:
-            raise PreflightError(str(error)) from error
-        _exact(native_error, USOCKET_NATIVE_ERROR_CONFIG, "diagnostic native error")
+        if chain:
+            _exact(diagnostics.native_error, None, "Chain diagnostic native error")
+        else:
+            try:
+                native_error = normalize_usocket_native_error_config(
+                    OmegaConf.to_container(diagnostics.native_error, resolve=True)
+                )
+            except (TypeError, ValueError) as error:
+                raise PreflightError(str(error)) from error
+            _exact(native_error, USOCKET_NATIVE_ERROR_CONFIG, "diagnostic native error")
         _exact(
             diagnostics.provenance.source_commit,
             provenance.source_commit,
@@ -1503,7 +1539,7 @@ def _validate_data_and_launch(
         )
         _exact(
             int(diagnostics.validation_view.per_rank_batch_size),
-            32 if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME else 16,
+            32 if str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES else 16,
             "diagnostic validation batch size",
         )
         _exact(
@@ -1598,7 +1634,11 @@ def validate_config(
     if method == STOPGRAD_UNITE_METHOD:
         _exact(
             parameters["pipeline_total"]["total"],
-            97_956_100,
+            (
+                97_956_613
+                if str(config.name) == STOPGRAD_UNITE_CHAIN_CONFIG_NAME
+                else 97_956_100
+            ),
             "UNITE Action Flow total parameter count",
         )
         adamw_named, muon_named = partition_released_unite_parameters(

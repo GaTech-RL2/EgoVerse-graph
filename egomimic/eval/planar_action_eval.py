@@ -770,11 +770,15 @@ class PlanarActionEval(Eval):
             )
 
         distance_contract = provenance.get("distance_contract")
-        normalized_distance = normalize_usocket_energy_distance_config(
-            distance_contract
-        )
-        if normalized_distance != self.energy_score_distance:
-            raise ValueError("EnergyScore provenance distance contract differs")
+        if self.energy_score_distance is None:
+            if distance_contract is not None:
+                raise ValueError("generic EnergyScore distance contract differs")
+        else:
+            normalized_distance = normalize_usocket_energy_distance_config(
+                distance_contract
+            )
+            if normalized_distance != self.energy_score_distance:
+                raise ValueError("EnergyScore provenance distance contract differs")
 
         config_path = Path(str(provenance.get("resolved_config_path", ""))).expanduser()
         try:
@@ -946,9 +950,10 @@ class PlanarActionEval(Eval):
                 .cpu(),
                 "score_by_condition": values["score_by_condition"].float().cpu(),
             }
-            if self.energy_score_distance is not None:
+            if self.energy_score_distance is not None or self.native_decoder is not None:
                 decoder = self._native_decoder(embodiment_id)
-                self._require_usocket_decoder(decoder)
+                if self.energy_score_distance is not None:
+                    self._require_usocket_decoder(decoder)
                 domain["condition_ids"] = self._condition_ids(batch[source_id], target)
                 domain["native_predictions"] = (
                     self._native(predictions, embodiment_id, decoder)
@@ -985,7 +990,7 @@ class PlanarActionEval(Eval):
             "provenance": self.energy_score_provenance,
             "domains": domains,
         }
-        if self.energy_score_distance is not None:
+        if self.energy_score_distance is not None or self.native_decoder is not None:
             payload["schema_version"] = 2
             identity = self._typed_artifact_identity(
                 domains=domains,

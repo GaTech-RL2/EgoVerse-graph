@@ -19,6 +19,14 @@ MANIFEST_PATH = (
     / "pusht"
     / "planar_v2_usocket_dp_3k_split_seed42_v1.json"
 )
+CHAIN_MANIFEST_PATH = (
+    ROOT
+    / "egomimic"
+    / "hydra_configs"
+    / "data"
+    / "pusht"
+    / "planar_v2_chain_gripper_dp_3k_split_seed42_v1.json"
+)
 SPEC = importlib.util.spec_from_file_location("validate_planar_dataset", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -71,6 +79,20 @@ def test_committed_manifest_has_exact_hash_and_contract():
     assert result["valid_count"] == 29
     assert result["id_overlap_count"] == 0
     assert result["union_matches_inventory"] is True
+
+
+def test_chain_manifest_has_exact_hash_and_supported_domain_contract():
+    expected = "3ced944ea3af8e875ea88fc5c2df3a5d2865a9f95223d109fb4bd28c8be7cf69"
+    assert hashlib.sha256(CHAIN_MANIFEST_PATH.read_bytes()).hexdigest() == expected
+
+    result = MODULE.validate_manifest_structure(
+        json.loads(CHAIN_MANIFEST_PATH.read_text())
+    )
+
+    assert result["domain"] == "pushshapes_sim_chain_gripper"
+    assert result["total_count"] == 3000
+    assert result["train_count"] == 2970
+    assert result["valid_count"] == 30
 
 
 def test_portable_inventory_reproduces_split_and_has_no_path_overlap(tmp_path):

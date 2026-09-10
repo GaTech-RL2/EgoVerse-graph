@@ -24,6 +24,15 @@ def test_launcher_has_valid_shell_syntax():
     assert "#SBATCH --kill-on-invalid-dep=yes" in _source()
 
 
+def test_cpu_preflight_ignores_the_gpu_checkpoint_warning_signal():
+    source = _source()
+    assert 'if test "$AF_LAUNCH_MODE" = preflight; then' in source
+    assert "trap '' USR1" in source
+    assert source.index("trap '' USR1") < source.index(
+        'if test "$AF_LAUNCH_MODE" = run; then'
+    )
+
+
 def test_launcher_uses_the_maintained_dataset_validator_success_token():
     validator_source = DATASET_VALIDATOR.read_text()
     match = re.search(r'"status":\s*"([A-Z_]+)"', validator_source)
@@ -88,11 +97,9 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "AF_FULL_VALIDATE_EVERY=30000" in source
     assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
+    assert '"data.train_dataloader_params.$AF_SOURCE.batch_size=32"' in source
     assert (
-        "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32" in source
-    )
-    assert (
-        "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_VALID_BATCH_SIZE"
+        '"data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE"'
         in source
     )
     assert "AF_FULL_LIMIT_VAL_BATCHES=8" in source
@@ -117,7 +124,9 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "expected_count = 50_725_221" in source
     assert "50_801_685" in source
     assert "expected_count = 199_754_837" in source
-    assert "count == 97_956_100" in source
+    assert "AF_EXPECTED_PARAMETER_COUNT=97956100" in source
+    assert "AF_EXPECTED_PARAMETER_COUNT=97956613" in source
+    assert "count == expected_parameter_count" in source
     assert "ReleasedUniteCompositeOptimizer" in source
     assert 'optimizer.muon_adjust_lr_fn == "match_rms_adamw"' in source
 
@@ -155,6 +164,8 @@ def test_full_and_smoke_share_the_requeue_and_strict_checkpoint_path():
     assert "--confirm-child-requeue-disabled" in source
     assert "runtime.slurm_requeue_owner=runner" in source
     assert "runtime.slurm_save_signal=SIGUSR2" in source
+    assert 'checkpoint_override="ckpt_path=\'$ICE_RESUME_CHECKPOINT\'"' in source
+    assert "Unsafe checkpoint path for Hydra override" in source
 
 
 def test_full_mode_requires_the_exact_passed_smoke_gate():

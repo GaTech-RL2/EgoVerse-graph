@@ -9,6 +9,7 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 from egomimic.rldb.embodiment.pushshapes import (
+    get_chain_common5_action_rotvec_state_transform_list,
     get_usocket_rotvec_action_transform_list,
 )
 
@@ -37,6 +38,45 @@ def test_action_only_adapter_preserves_native_state_and_encodes_target_angle():
     np.testing.assert_allclose(sample["actions"][:, :2], actions[:, :2])
     np.testing.assert_allclose(
         sample["actions"][:, 2:], [[1.0, 0.0], [0.0, 1.0]], atol=1e-6
+    )
+
+
+def test_chain_adapter_preserves_grip_and_encodes_angles():
+    sample = {
+        "state_agent_model": np.array(
+            [[1.0, 2.0, np.pi / 2, 0.0, 0.0, 0.0]], dtype=np.float32
+        ),
+        "actions": np.array([[3.0, 4.0, np.pi, 0.75]], dtype=np.float32),
+    }
+    for transform in get_chain_common5_action_rotvec_state_transform_list():
+        sample = transform.transform(sample)
+    assert sample["state_agent_model"].shape == (1, 4)
+    assert sample["actions"].shape == (1, 5)
+    np.testing.assert_allclose(sample["state_agent_model"][0], [1, 2, 0, 1], atol=1e-6)
+    np.testing.assert_allclose(sample["actions"][0], [3, 4, -1, 0, 0.75], atol=1e-6)
+
+
+def test_chain_unite_action_flow_composes_to_fixed_contract():
+    cfg = _compose("action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42")
+    assert cfg.model.action_horizon == 16
+    assert cfg.model.action_dim == 5
+    assert cfg.model.num_latent_tokens == 8
+    assert cfg.model.latent_dim == 16
+    assert cfg.model.hidden_dim == 384
+    assert cfg.model.flow_samples_per_content == 14
+    assert cfg.model.flow_loss_aggregation == "sum_samples"
+    assert cfg.model.cfg_scale == pytest.approx(4.0)
+    assert list(cfg.data.train_datasets) == ["pushshapes_sim_chain_gripper"]
+    dataset = cfg.data.train_datasets.pushshapes_sim_chain_gripper
+    assert dataset.expected_train_episode_count == 2970
+    assert dataset.expected_valid_episode_count == 30
+    assert dataset.resolver.transform_list._target_.endswith(
+        "get_chain_common5_action_rotvec_state_transform_list"
+    )
+    assert cfg.evaluator.energy_score_distance is None
+    assert cfg.evaluator.action_flow_diagnostics.native_error is None
+    assert cfg.run_provenance.content_manifest_sha256 == (
+        "65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726a1b0e0ef1df865"
     )
 
 

@@ -134,6 +134,18 @@ def test_unite_h384_parity_config_pins_sum_cfg_and_validation_contract():
     ]
 
 
+def test_chain_unite_h384_config_passes_the_same_parity_validation_contract():
+    report, _ = preflight.validate_experiment(
+        "pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        config_root=CONFIG_ROOT,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["dimensions"]["action"] == [16, 5]
+    assert report["parameters"]["pipeline_total"]["total"] == 97_956_613
+    assert report["optimization"]["validation_every_steps"] == 10_000
+
+
 def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",

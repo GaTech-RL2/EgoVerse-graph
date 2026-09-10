@@ -45,6 +45,7 @@ from egomimic.models.action_flow_codec import (  # noqa: E402
 )
 from egomimic.models.action_flow_transformer import AdaLNSequenceField  # noqa: E402
 from egomimic.models.action_flow_unite import (  # noqa: E402
+    EmbodimentModuleRouter,
     UniteActionFlowContentEncoder,
     UniteActionFlowVelocityField,
 )
@@ -104,6 +105,7 @@ LIKELIHOOD_METHOD = "gaussian_bridge_likelihood"
 GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
 STOPGRAD_UNITE_METHOD = "latent_fm_stopgrad_unite"
+PRIVATE_COTRAIN_METHOD = "latent_fm_stopgrad_unite_private_codec"
 STOPGRAD_UNITE_CONFIG_NAME = "action_flow_usocket_latent_fm_sg_unite_h384_s42"
 STOPGRAD_UNITE_PARITY_CONFIG_NAME = (
     "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
@@ -130,6 +132,7 @@ CANDIDATE_METHODS = {
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_cotrain_chain4919_usocket2999_private_codec_h384_d18_sum14_cfg4_val8_s42": PRIVATE_COTRAIN_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -185,7 +188,7 @@ def action_flow_method(config: DictConfig, experiment: str | None = None) -> str
 def method_stage_targets(method: str) -> tuple[str, ...]:
     if method == LIKELIHOOD_METHOD:
         return LIKELIHOOD_STAGE_TARGETS
-    if method == STOPGRAD_UNITE_METHOD:
+    if method in {STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD}:
         return UNITE_STAGE_TARGETS
     return EXPECTED_STAGE_TARGETS
 
@@ -206,8 +209,8 @@ def validate_method_contract(config: DictConfig, experiment: str | None = None) 
         method_stage_targets(method),
         "stage topology",
     )
-    if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD}:
-        field_index = 6 if method == STOPGRAD_UNITE_METHOD else 5
+    if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD}:
+        field_index = 6 if method in {STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD} else 5
         _exact(
             str(stages[field_index].flow_clean_gradient_mode),
             "all_stopgrad",
@@ -313,7 +316,7 @@ def validate_method_contract(config: DictConfig, experiment: str | None = None) 
             "ODE diagnostics are not likelihood diagnostics",
         )
     if method != LEGACY_METHOD and method != LIKELIHOOD_METHOD:
-        objective_index = 8 if method == STOPGRAD_UNITE_METHOD else 7
+        objective_index = 8 if method in {STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD} else 7
         _float(config.model.flow_weight, 1.0, "candidate flow weight")
         _float(
             stages[objective_index].action_velocity_weight,
@@ -673,18 +676,144 @@ def _validate_unite_dimensions_and_modules(
     return dimensions, parameters
 
 
+def _validate_private_cotrain_dimensions_and_modules(
+    config: DictConfig,
+    stages: Sequence[nn.Module],
+) -> tuple[dict[str, Any], dict[str, dict[str, int]]]:
+    """Fail closed on balanced two-domain private-codec co-training."""
+
+    _exact(len(stages), 9, "private-codec Action Flow stage count")
+    projection, observation, _, noise, encoder_stage, bridge, field_stage, decoder_stage, objective = stages
+    encoder_router = encoder_stage.encoder
+    decoder_router = decoder_stage.decoder
+    field = field_stage.field
+    _require(isinstance(projection, KeyedFeatureProjection), "wrong state projection")
+    _require(isinstance(observation, FusedObsEncoder), "wrong observation encoder")
+    _require(isinstance(encoder_router, EmbodimentModuleRouter), "wrong encoder router")
+    _require(isinstance(decoder_router, EmbodimentModuleRouter), "wrong decoder router")
+    _require(isinstance(field, UniteActionFlowVelocityField), "wrong shared denoiser")
+    domains = {"pushshapes_sim_u_socket": 4, "pushshapes_sim_chain_gripper": 5}
+    _exact(set(encoder_router.modules_by_embodiment), set(domains), "encoder domains")
+    _exact(set(decoder_router.modules_by_embodiment), set(domains), "decoder domains")
+
+    _exact(int(config.model.action_horizon), 16, "model action horizon")
+    _exact(int(config.model.num_latent_tokens), 8, "model latent token count")
+    _exact(int(config.model.latent_dim), 16, "model latent dimension")
+    _exact(int(config.model.condition_dim), 128, "model condition dimension")
+    _exact(int(config.model.hidden_dim), 384, "model hidden dimension")
+    _exact(int(noise.num_tokens), 8, "Gaussian source tokens")
+    _exact(int(noise.latent_dim), 16, "Gaussian source latent dimension")
+    _exact(int(observation.n_obs_steps), 1, "observation steps")
+    _exact(int(projection.output_dim), 64, "projected proprio width")
+
+    for domain, action_dim in domains.items():
+        encoder = encoder_router.modules_by_embodiment[domain]
+        decoder = decoder_router.modules_by_embodiment[domain]
+        _require(isinstance(encoder, UniteActionFlowContentEncoder), f"wrong {domain} tokenizer")
+        _require(isinstance(decoder, UniteActionDecoder), f"wrong {domain} decoder")
+        _exact(int(encoder.input_dim), action_dim, f"{domain} tokenizer action dimension")
+        _exact(int(encoder.action_horizon), 16, f"{domain} tokenizer horizon")
+        _exact(int(encoder.num_latent_tokens), 8, f"{domain} tokenizer tokens")
+        _exact(int(encoder.latent_dim), 16, f"{domain} tokenizer latent dimension")
+        for attribute, expected in {
+            "input_dim": 16,
+            "output_dim": 16,
+            "horizon": 8,
+            "condition_dim": 128,
+            "hidden_dim": 384,
+            "depth": 12,
+            "num_heads": 12,
+            "in_context_start": 4,
+            "in_context_len": 32,
+        }.items():
+            _exact(getattr(encoder.backbone, attribute), expected, f"{domain} tokenizer {attribute}")
+        for attribute, expected in {
+            "latent_dim": 16,
+            "action_dim": action_dim,
+            "num_latent_tokens": 8,
+            "action_horizon": 16,
+            "hidden_dim": 384,
+            "depth": 12,
+            "num_heads": 12,
+        }.items():
+            _exact(getattr(decoder, attribute), expected, f"{domain} decoder {attribute}")
+        _exact(bool(encoder.backbone.gradient_checkpointing), True, f"{domain} tokenizer checkpointing")
+        _exact(bool(decoder.gradient_checkpointing), True, f"{domain} decoder checkpointing")
+
+    backbone = field.backbone
+    for attribute, expected in {
+        "input_dim": 16,
+        "output_dim": 16,
+        "horizon": 8,
+        "condition_dim": 128,
+        "hidden_dim": 384,
+        "depth": 18,
+        "num_heads": 12,
+        "in_context_start": 4,
+        "in_context_len": 32,
+    }.items():
+        _exact(getattr(backbone, attribute), expected, f"shared denoiser {attribute}")
+    _exact(bool(backbone.gradient_checkpointing), True, "shared denoiser checkpointing")
+    _exact(int(field.input_dim), 16, "field input dimension")
+    _exact(int(field.output_dim), 16, "field output dimension")
+    _exact(int(field.horizon), 8, "field token count")
+    _exact(int(field.condition_dim), 128, "field condition dimension")
+    _float(field.condition_dropout_probability, 0.1, "field condition dropout")
+    _exact(int(bridge.samples_per_content), 14, "bridge samples")
+    _float(bridge.condition_dropout_probability, 0.1, "bridge condition dropout")
+    _exact(field_stage.flow_clean_gradient_mode, "all_stopgrad", "FM stop-gradient")
+    _exact(field_stage.inference_method, "dopri5", "inference method")
+    _exact(int(field_stage.num_inference_steps), 50, "Dopri5 output points")
+    _float(field_stage.cfg_scale, 4.0, "CFG scale")
+    _exact(tuple(field_stage.cfg_interval), (0.0, 1.0), "CFG interval")
+    _float(objective.flow_weight, 1.0, "FM weight")
+    _float(objective.reconstruction_weight, 1.0, "reconstruction weight")
+    _float(objective.action_velocity_weight, 1.0, "action-velocity weight")
+    _exact(objective.flow_aggregation, "sum_samples", "flow aggregation")
+    _exact(int(objective.flow_samples_per_content), 14, "objective flow samples")
+
+    parameters = {
+        "state_projection": _parameter_manifest(projection),
+        "observation_encoder": _parameter_manifest(observation),
+        "encoders": _parameter_manifest(encoder_router),
+        "field_v": _parameter_manifest(field),
+        "decoders": _parameter_manifest(decoder_router),
+    }
+    expected_counts = {
+        "state_projection": 8_960,
+        "observation_encoder": 11_197_088,
+        "encoders": 65_451_744,
+        "field_v": 48_695_344,
+        "decoders": 42_607_497,
+    }
+    for label, expected in expected_counts.items():
+        _exact(parameters[label]["total"], expected, f"{label} parameter count")
+        _exact(parameters[label]["trainable"], expected, f"{label} trainable count")
+    _exact(sum(expected_counts.values()), 167_960_633, "total parameter accounting")
+    dimensions = {
+        "action_by_domain": {domain: [16, width] for domain, width in domains.items()},
+        "condition": 128,
+        "image_feature": 64,
+        "latent": [8, 16],
+        "normalized_state": 4,
+    }
+    return dimensions, parameters
+
+
 def _validate_dimensions_and_modules(
     config: DictConfig,
     stages: Sequence[nn.Module],
 ) -> tuple[dict[str, Any], dict[str, dict[str, int]]]:
-    if action_flow_method(config) == STOPGRAD_UNITE_METHOD:
+    method = action_flow_method(config)
+    if method == STOPGRAD_UNITE_METHOD:
         return _validate_unite_dimensions_and_modules(config, stages)
+    if method == PRIVATE_COTRAIN_METHOD:
+        return _validate_private_cotrain_dimensions_and_modules(config, stages)
     _exact(int(config.model.action_horizon), 16, "model action horizon")
     _exact(int(config.model.action_dim), 4, "model action dimension")
     _exact(int(config.model.latent_dim), 8, "model latent dimension")
     _exact(int(config.model.condition_dim), 67, "model condition dimension")
 
-    method = action_flow_method(config)
     observation = stages[0]
     noise = stages[1]
     encoder_stage = stages[3]
@@ -893,7 +1022,10 @@ def _validate_topology(
         "instantiated stage topology",
     )
 
-    unite_recipe = action_flow_method(config) == STOPGRAD_UNITE_METHOD
+    unite_recipe = action_flow_method(config) in {
+        STOPGRAD_UNITE_METHOD,
+        PRIVATE_COTRAIN_METHOD,
+    }
     available_train = (
         ("front_img_1", "state_agent_model", "embodiment", "actions")
         if unite_recipe
@@ -960,6 +1092,37 @@ def _validate_topology(
 
 def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     optimizer = config.model.optimizer
+    if action_flow_method(config) == PRIVATE_COTRAIN_METHOD:
+        _exact(str(optimizer._target_), "torch.optim.AdamW", "optimizer target")
+        _exact(bool(optimizer._partial_), True, "optimizer partial construction")
+        _float(optimizer.lr, 3.0e-5, "learning rate")
+        _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
+        _float(optimizer.eps, 1.0e-8, "Adam epsilon")
+        _float(optimizer.weight_decay, 1.0e-4, "weight decay")
+        scheduler = config.model.scheduler
+        _exact(str(scheduler._target_), "egomimic.utils.schedulers.warmup_cosine_scheduler", "scheduler target")
+        _exact(int(scheduler.max_steps), 150_000, "scheduler maximum steps")
+        _exact(int(scheduler.warmup_steps), 8_000, "scheduler warmup steps")
+        _float(scheduler.warmup_start_factor, 0.1, "warmup start factor")
+        _float(scheduler.eta_min, 3.0e-6, "scheduler floor")
+        trainer = config.trainer
+        _exact(int(trainer.max_steps), 150_000, "trainer maximum steps")
+        _exact(int(trainer.val_check_interval), 10_000, "validation cadence")
+        _require(str(trainer.precision) in {"bf16", "bf16-mixed"}, "BF16 precision")
+        _float(trainer.gradient_clip_val, 3.0, "gradient clip")
+        checkpoint = config.callbacks.model_checkpoint
+        _exact(int(checkpoint.every_n_train_steps), 30_000, "checkpoint cadence")
+        _exact(int(checkpoint.save_top_k), -1, "checkpoint retention")
+        _float(config.callbacks.ema.decay, 0.9978, "EMA decay")
+        return {
+            "checkpoint_every_steps": 30_000,
+            "gradient_clip_norm": 3.0,
+            "max_steps": 150_000,
+            "optimizer": {"target": str(optimizer._target_), "lr": 3.0e-5},
+            "precision": str(trainer.precision),
+            "scheduler": {"target": str(scheduler._target_), "eta_min": 3.0e-6},
+            "validation_every_steps": 10_000,
+        }
     if action_flow_method(config) == STOPGRAD_UNITE_METHOD:
         _exact(
             str(optimizer._target_),
@@ -1108,9 +1271,136 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     }
 
 
+def _validate_private_cotrain_data_and_launch(
+    config: DictConfig, *, config_root: Path
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    sources = (
+        "pushshapes_sim_chain_gripper",
+        "pushshapes_sim_u_socket",
+    )
+    _exact(tuple(config.data.train_datasets), sources, "co-training source order")
+    _exact(tuple(config.data.valid_datasets), sources, "co-validation source order")
+    expected = {
+        sources[0]: (4919, 4870, 49),
+        sources[1]: (2999, 2970, 29),
+    }
+    domain_reports = {}
+    for source in sources:
+        total, train_count, valid_count = expected[source]
+        train = config.data.train_datasets[source]
+        valid = config.data.valid_datasets[source]
+        _exact(str(train.mode), "train", f"{source} training mode")
+        _exact(str(valid.mode), "valid", f"{source} validation mode")
+        _float(train.valid_ratio, 0.01, f"{source} training split ratio")
+        _float(valid.valid_ratio, 0.01, f"{source} validation split ratio")
+        _exact(int(train.split_seed), 42, f"{source} split seed")
+        _exact(int(valid.split_seed), 42, f"{source} validation split seed")
+        _exact(int(train.resolver.expected_episode_count), total, f"{source} inventory")
+        _exact(int(train.expected_train_episode_count), train_count, f"{source} train episodes")
+        _exact(int(train.expected_valid_episode_count), valid_count, f"{source} valid episodes")
+        _exact(int(config.data.train_dataloader_params[source].batch_size), 16, f"{source} train batch")
+        _exact(int(config.data.valid_dataloader_params[source].batch_size), 16, f"{source} valid batch")
+        domain_reports[source] = {
+            "total": total,
+            "train": train_count,
+            "validation": valid_count,
+            "inventory_names_sha256": str(train.resolver.expected_episode_names_sha256),
+            "train_names_sha256": str(train.expected_train_episode_names_sha256),
+            "valid_names_sha256": str(train.expected_valid_episode_names_sha256),
+        }
+
+    provenance = config.run_provenance
+    _exact(int(provenance.split_seed), 42, "provenance split seed")
+    _float(provenance.valid_ratio, 0.01, "provenance validation ratio")
+    _exact(int(provenance.id_overlap_count), 0, "episode ID overlap")
+    _exact(int(provenance.resolved_path_overlap_count), 0, "physical path overlap")
+    manifest_path = Path(str(provenance.split_manifest_path))
+    if not manifest_path.is_absolute():
+        manifest_path = Path(config_root).resolve().parents[1] / manifest_path
+    _require(manifest_path.is_file(), f"split manifest missing: {manifest_path}")
+    manifest_sha = _sha256(manifest_path)
+    _exact(manifest_sha, str(provenance.split_manifest_sha256), "split manifest hash")
+    manifest = json.loads(manifest_path.read_text())
+    _exact(manifest.get("status"), "PASS", "split manifest status")
+    _exact(tuple(manifest["domains"]), sources, "split manifest sources")
+    _exact(int(manifest["cross_domain_train_valid_resolved_path_overlap_count"]), 0, "cross-domain split overlap")
+    for source, counts in expected.items():
+        total, train_count, valid_count = counts
+        domain = manifest["domains"][source]
+        _exact(int(domain["total_count"]), total, f"{source} manifest total")
+        _exact(int(domain["train_count"]), train_count, f"{source} manifest train")
+        _exact(int(domain["valid_count"]), valid_count, f"{source} manifest valid")
+        _exact(bool(domain["union_matches_inventory"]), True, f"{source} corpus coverage")
+
+    content_path = Path(str(provenance.content_manifest_path))
+    if not content_path.is_absolute():
+        content_path = Path(config_root).resolve().parents[1] / content_path
+    _require(content_path.is_file(), f"combined content manifest missing: {content_path}")
+    content_sha = _sha256(content_path)
+    _exact(content_sha, str(provenance.content_manifest_sha256), "combined content manifest hash")
+    try:
+        content_identity = validate_content_manifest(json.loads(content_path.read_text()))
+    except RuntimeError as error:
+        raise PreflightError(str(error)) from error
+    _exact(int(content_identity["episode_count"]), 7918, "combined content episode count")
+    _exact(
+        str(content_identity["aggregate_sha256"]),
+        str(provenance.dataset_content_aggregate_sha256),
+        "combined content aggregate",
+    )
+    _exact(int(config.planar.batch_size), 16, "declared per-domain batch")
+    _exact(int(config.trainer.limit_val_batches), 8, "validation batch limit")
+    _exact(bool(config.evaluator.energy_score_enabled), True, "EnergyScore enabled")
+    _exact(int(provenance.energy_score_contract.sample_count), 32, "EnergyScore samples")
+    _exact(config.evaluator.energy_score_distance, None, "co-training generic EnergyScore")
+    _exact(
+        OmegaConf.to_container(config.evaluator.semantic_blocks_by_source, resolve=True),
+        {
+            sources[0]: [[0, 2], [2, 4], [4, 5]],
+            sources[1]: [[0, 2], [2, 4]],
+        },
+        "per-source EnergyScore partitions",
+    )
+    diagnostics = config.evaluator.action_flow_diagnostics
+    _exact(bool(diagnostics.enabled), True, "Action Flow diagnostics enabled")
+    _exact({int(k): int(v) for k, v in diagnostics.activation_layer_map.items()}, {0: 0, 1: 17}, "diagnostic layer map")
+    _exact(diagnostics.native_error, None, "mixed-domain diagnostic native-error hook")
+    _exact(int(diagnostics.validation_view.per_rank_batch_size), 16, "diagnostic batch size")
+    _exact(int(diagnostics.validation_view.world_size), 1, "diagnostic world size")
+    world_size = int(config.launch_params.gpus_per_node) * int(config.launch_params.nodes)
+    _exact(world_size, 1, "co-training world size")
+    _exact(int(config.trainer.accumulate_grad_batches), 1, "gradient accumulation")
+    return (
+        {
+            "content_manifest_path": str(content_path),
+            "content_manifest_sha256": content_sha,
+            "dataset_content_aggregate_sha256": str(content_identity["aggregate_sha256"]),
+            "domains": domain_reports,
+            "split_manifest_path": str(manifest_path),
+            "split_manifest_sha256": manifest_sha,
+            "split_seed": 42,
+            "valid_ratio": 0.01,
+            "zero_id_overlap": True,
+            "zero_resolved_path_overlap": True,
+        },
+        {
+            "accumulate_grad_batches": 1,
+            "effective_global_batch": 32,
+            "gpus_per_node": 1,
+            "nodes": 1,
+            "per_domain_batch": 16,
+            "world_size": 1,
+        },
+    )
+
+
 def _validate_data_and_launch(
     config: DictConfig, *, config_root: Path
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    if action_flow_method(config) == PRIVATE_COTRAIN_METHOD:
+        return _validate_private_cotrain_data_and_launch(
+            config, config_root=config_root
+        )
     _exact(str(config.mode), "train", "run mode")
     _exact(config.ckpt_path, None, "from-scratch checkpoint")
     _exact(int(config.launch_params.gpus_per_node), 1, "GPUs per node")
@@ -1608,7 +1898,7 @@ def validate_config(
         str(stage._target_) for stage in config.model.pipeline.stages
     )
     _exact(configured_targets, method_stage_targets(method), "stage topology")
-    if method != STOPGRAD_UNITE_METHOD:
+    if method not in {STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD}:
         _require(
             "time_scale" in config.model.pipeline.stages[5].field,
             "field time_scale must be explicit",
@@ -1621,7 +1911,7 @@ def validate_config(
     _require(isinstance(pipeline_algo, PipelineAlgo), "pipeline did not instantiate")
     stages = tuple(pipeline_algo.pipeline.stages)
     topology = _validate_topology(config, pipeline_algo)
-    if method != STOPGRAD_UNITE_METHOD:
+    if method not in {STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD}:
         _validate_generic_surface(config, pipeline_algo.pipeline)
     dimensions, parameters = _validate_dimensions_and_modules(config, stages)
     parameters["pipeline_total"] = _parameter_manifest(pipeline_algo.nets)
@@ -1631,7 +1921,19 @@ def validate_config(
         if name != "pipeline_total"
     )
     _exact(accounted, parameters["pipeline_total"]["total"], "parameter accounting")
-    if method == STOPGRAD_UNITE_METHOD:
+    if method == PRIVATE_COTRAIN_METHOD:
+        _exact(
+            parameters["pipeline_total"]["total"],
+            167_960_633,
+            "private-codec co-training total parameter count",
+        )
+        optimization["parameter_groups"] = {
+            "adamw_parameters": parameters["pipeline_total"]["trainable"],
+            "muon_parameters": 0,
+            "complete": True,
+            "disjoint": True,
+        }
+    elif method == STOPGRAD_UNITE_METHOD:
         _exact(
             parameters["pipeline_total"]["total"],
             (
@@ -1699,7 +2001,11 @@ def validate_config(
     objective_report = OmegaConf.to_container(
         config.run_provenance.objective, resolve=True
     )
-    if method != LIKELIHOOD_METHOD and method != STOPGRAD_UNITE_METHOD:
+    if method not in {
+        LIKELIHOOD_METHOD,
+        STOPGRAD_UNITE_METHOD,
+        PRIVATE_COTRAIN_METHOD,
+    }:
         objective_report = {
             "action_velocity_weight": 1.0,
             "condition_dropout_probability": 0.3,

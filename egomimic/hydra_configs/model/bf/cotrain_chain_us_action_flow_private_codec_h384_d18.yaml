@@ -243,24 +243,17 @@ enable_grad_norm: false
 gradient_telemetry_cadence: 100
 
 optimizer:
-  _target_: egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer
+  _target_: torch.optim.AdamW
   _partial_: true
-  lr: 1.0e-4
+  lr: 3.0e-5
   betas: [0.9, 0.999]
-  eps: 1.0e-6
-  adamw_weight_decay: 0.0
-  muon_weight_decay: 0.0
-  muon_momentum: 0.95
-  muon_adjust_lr_fn: match_rms_adamw
+  eps: 1.0e-8
+  weight_decay: 1.0e-4
 
 scheduler:
-  _target_: egomimic.utils.unite_optim.released_unite_two_stage_scheduler
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
   _partial_: true
+  max_steps: 150000
   warmup_steps: 8000
-  decay_start_1_steps: 12000
-  decay_end_1_steps: 20000
-  decay_start_2_steps: 1200000
-  decay_end_2_steps: 1200000
-  base_lr_1: 1.0e-4
-  base_lr_2: 5.0e-5
-  final_lr: 5.0e-5
+  warmup_start_factor: 0.1
+  eta_min: 3.0e-6

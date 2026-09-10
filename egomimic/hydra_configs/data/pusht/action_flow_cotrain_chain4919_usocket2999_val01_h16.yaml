@@ -1,0 +1,71 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim_chain_gripper: &chain_dataset
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2_plus_gen_frozen1919_20260910
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 4919
+      expected_episode_names_sha256: aec6051fcf76b941f480c52b71fc9a38e192caa3ff49d93929b6607daa9e0002
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_common5_action_rotvec_state_transform_list
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 4870
+    expected_train_episode_names_sha256: 3f5d78892b8efa0b312869c1638753d9795611d7680c64db0080fd62b07f91e7
+    expected_valid_episode_count: 49
+    expected_valid_episode_names_sha256: 4a10302d2bdad7f0b09b435ed1f865c98303e7488c726bedd71e1cc6803749b3
+    bounds_check: false
+  pushshapes_sim_u_socket: &usocket_dataset
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
+      embodiment_override: pushshapes_sim_u_socket
+      expected_episode_count: 2999
+      expected_episode_names_sha256: 38a22a25ae2c45d18861bcf0c32d139fcf56787d891ba463e9318c27a105dc8e
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_usocket_rotvec_action_state_transform_list
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 2970
+    expected_train_episode_names_sha256: ceb588f2132f9ff9cdb2c2ebe754a4797228acb884eb18351589242866ee84a1
+    expected_valid_episode_count: 29
+    expected_valid_episode_names_sha256: b34193949ac8d76ea27c6f5c307229798064d16367d7ce2efac00a48f63bfb93
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_chain_gripper:
+    <<: *chain_dataset
+    mode: valid
+  pushshapes_sim_u_socket:
+    <<: *usocket_dataset
+    mode: valid
+
+train_dataloader_params:
+  pushshapes_sim_chain_gripper: &train_loader
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  pushshapes_sim_u_socket:
+    <<: *train_loader
+
+valid_dataloader_params:
+  pushshapes_sim_chain_gripper: &valid_loader
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+  pushshapes_sim_u_socket:
+    <<: *valid_loader

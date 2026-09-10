@@ -124,6 +124,21 @@ def _typed_evaluator(tmp_path):
     return evaluator, run_dir, config_path, content_manifest_path
 
 
+def test_energy_score_supports_source_specific_action_partitions(tmp_path):
+    evaluator = _evaluator(
+        tmp_path,
+        semantic_blocks_by_source={
+            "pushshapes_sim_u_socket": ((0, 2), (2, 4)),
+            "pushshapes_sim_chain_gripper": ((0, 2), (2, 4), (4, 5)),
+        },
+    )
+    for embodiment_id, width in ((19, 4), (20, 5)):
+        target = torch.zeros(2, 16, width)
+        samples = target.unsqueeze(0).repeat(32, 1, 1, 1)
+        values = evaluator._energy_values(samples, target, embodiment_id)
+        assert values["score"] == pytest.approx(0.0)
+
+
 def test_energy_artifacts_preserve_validation_across_slurm_attempts(tmp_path, monkeypatch):
     target = torch.zeros(2, 2, 4)
     samples = target.unsqueeze(0).repeat(32, 1, 1, 1)

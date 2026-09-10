@@ -80,6 +80,33 @@ def test_chain_unite_action_flow_composes_to_fixed_contract():
     )
 
 
+def test_private_codec_cotrain_composes_to_balanced_depth18_contract():
+    cfg = _compose(
+        "action_flow_cotrain_chain4919_usocket2999_private_codec_h384_d18_sum14_cfg4_val8_s42"
+    )
+    assert set(cfg.data.train_datasets) == {
+        "pushshapes_sim_chain_gripper",
+        "pushshapes_sim_u_socket",
+    }
+    assert cfg.data.train_datasets.pushshapes_sim_chain_gripper.expected_train_episode_count == 4870
+    assert cfg.data.train_datasets.pushshapes_sim_u_socket.expected_train_episode_count == 2970
+    assert cfg.data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size == 16
+    assert cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size == 16
+    stages = cfg.model.pipeline.stages
+    assert stages[4].encoder.modules.pushshapes_sim_u_socket.backbone.depth == 12
+    assert stages[4].encoder.modules.pushshapes_sim_chain_gripper.backbone.depth == 12
+    assert stages[6].field.backbone.depth == 18
+    assert stages[7].decoder.modules.pushshapes_sim_u_socket.depth == 12
+    assert stages[7].decoder.modules.pushshapes_sim_chain_gripper.depth == 12
+    assert cfg.model.optimizer._target_ == "torch.optim.AdamW"
+    assert cfg.model.optimizer.lr == pytest.approx(3e-5)
+    assert cfg.model.scheduler.eta_min == pytest.approx(3e-6)
+    assert cfg.run_provenance.architecture.total_parameters == 167_960_633
+    assert cfg.run_provenance.architecture.denoiser_repeated_block_parameter_ratio_vs_d12 == pytest.approx(1.5)
+    assert cfg.evaluator.semantic_blocks_by_source.pushshapes_sim_u_socket == [[0, 2], [2, 4]]
+    assert cfg.evaluator.semantic_blocks_by_source.pushshapes_sim_chain_gripper == [[0, 2], [2, 4], [4, 5]]
+
+
 @pytest.mark.parametrize(
     ("row", "reconstruction_weight"),
     [

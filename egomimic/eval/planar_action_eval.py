@@ -83,6 +83,7 @@ class PlanarActionEval(Eval):
         seed_bank_sha256: str | None = None,
         artifact_root: str | None = None,
         semantic_blocks=((0, 2), (2, 4), (4, 5)),
+        semantic_blocks_by_source: Mapping | None = None,
         energy_score_enabled: bool = True,
         action_key: str = "actions",
         native_decoder=None,
@@ -106,6 +107,10 @@ class PlanarActionEval(Eval):
         self.native_decoder = native_decoder
         self.native_decoders = dict(native_decoders or {})
         self.blocks = tuple(tuple(map(int, block)) for block in semantic_blocks)
+        self.blocks_by_source = {
+            str(source).lower(): tuple(tuple(map(int, block)) for block in blocks)
+            for source, blocks in dict(semantic_blocks_by_source or {}).items()
+        }
         self.energy_score_enabled = bool(energy_score_enabled)
         self.deterministic_seed = int(deterministic_seed)
         self.energy_score_max_batches_per_rank = energy_score_max_batches_per_rank
@@ -126,7 +131,17 @@ class PlanarActionEval(Eval):
             {
                 "space": "normalized_action_chunk",
                 "formula": "mean_equal_weight_semantic_block_rms",
-                "semantic_blocks": self.blocks,
+                "semantic_blocks": [list(block) for block in self.blocks],
+                **(
+                    {
+                        "semantic_blocks_by_source": {
+                            source: [list(block) for block in blocks]
+                            for source, blocks in self.blocks_by_source.items()
+                        }
+                    }
+                    if self.blocks_by_source
+                    else {}
+                ),
             }
             if self.energy_score_distance is None
             else usocket_energy_distance_metadata(self.energy_score_distance)
@@ -663,12 +678,16 @@ class PlanarActionEval(Eval):
                     config=self.energy_score_distance,
                 )
 
+        embodiment_name = get_embodiment(embodiment_id)
+        if embodiment_name is None:
+            raise KeyError(f"Unknown Planar embodiment id {embodiment_id}")
+        blocks = self.blocks_by_source.get(embodiment_name.lower(), self.blocks)
         values = {
             name: value.detach()
             for name, value in energy_score(
                 samples,
                 target,
-                self.blocks,
+                blocks,
                 distance_fn=distance_fn,
             ).items()
         }
@@ -771,7 +790,12 @@ class PlanarActionEval(Eval):
 
         distance_contract = provenance.get("distance_contract")
         if self.energy_score_distance is None:
-            if distance_contract is not None:
+            expected_distance_contract = (
+                self.energy_score_distance_metadata
+                if self.blocks_by_source
+                else None
+            )
+            if distance_contract != expected_distance_contract:
                 raise ValueError("generic EnergyScore distance contract differs")
         else:
             normalized_distance = normalize_usocket_energy_distance_config(
@@ -950,7 +974,11 @@ class PlanarActionEval(Eval):
                 .cpu(),
                 "score_by_condition": values["score_by_condition"].float().cpu(),
             }
-            if self.energy_score_distance is not None or self.native_decoder is not None:
+            if (
+                self.energy_score_distance is not None
+                or self.native_decoder is not None
+                or self.native_decoders
+            ):
                 decoder = self._native_decoder(embodiment_id)
                 if self.energy_score_distance is not None:
                     self._require_usocket_decoder(decoder)
@@ -990,7 +1018,11 @@ class PlanarActionEval(Eval):
             "provenance": self.energy_score_provenance,
             "domains": domains,
         }
-        if self.energy_score_distance is not None or self.native_decoder is not None:
+        if (
+            self.energy_score_distance is not None
+            or self.native_decoder is not None
+            or self.native_decoders
+        ):
             payload["schema_version"] = 2
             identity = self._typed_artifact_identity(
                 domains=domains,

@@ -17,7 +17,8 @@ from egomimic.rldb.zarr.planar_arc import (
 
 _REPO = Path(__file__).resolve().parents[1]
 _EXPERIMENT = (
-    _REPO / "egomimic/hydra_configs/experiment/pusht/planar_v2_usocket_arc_graph_tok.yaml"
+    _REPO
+    / "egomimic/hydra_configs/experiment/pusht/planar_v2_usocket_arc_graph_tok.yaml"
 )
 _SPEC = importlib.util.spec_from_file_location(
     "config_graph_arc", _REPO / "tools/config_graph.py"
@@ -214,7 +215,10 @@ def test_detokenize_rejects_a_token_of_the_wrong_width():
         _detokenizer().forward({"pred_action": torch.zeros(2, _M, PLANAR_ACTION_DIM)})
 
 
-@pytest.mark.parametrize("kwargs", [{"resampled_vector_length": 1}, {"action_horizon": 0}, {"native_action_dim": 7}])
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"resampled_vector_length": 1}, {"action_horizon": 0}, {"native_action_dim": 7}],
+)
 def test_detokenize_rejects_impossible_settings(kwargs):
     with pytest.raises(ValueError):
         _detokenizer(**kwargs)
@@ -346,15 +350,11 @@ def test_configured_graph_gives_both_arc_nodes_the_same_rotation_radius():
     graph = config_graph.build_graph(_EXPERIMENT, mode="train")
     tokenize = next(n for n in graph["nodes"] if n["t"] == "ArcTokenizeStage")
     decode = next(
-        entry
-        for entry in graph["skipped_stages"]
-        if entry["t"] == "ArcDetokenizeStage"
+        entry for entry in graph["skipped_stages"] if entry["t"] == "ArcDetokenizeStage"
     )
     assert decode["reason"] == "inference-only"
     inference = config_graph.build_graph(_EXPERIMENT, mode="inference")
-    decode_node = next(
-        n for n in inference["nodes"] if n["t"] == "ArcDetokenizeStage"
-    )
+    decode_node = next(n for n in inference["nodes"] if n["t"] == "ArcDetokenizeStage")
     assert tokenize["p"]["rotation_radius"] == decode_node["p"]["rotation_radius"]
     assert tokenize["p"]["dt"] == decode_node["p"]["dt"]
     assert (
@@ -448,12 +448,19 @@ def _shaped(kind: str, steps: int = 120) -> torch.Tensor:
 
 def _round_trip(kind: str, mode: str, *, horizon: int = 16):
     tok = ArcTokenizeStage(
-        min_distance_unit=200.0, resampled_vector_length=32, dt=_DT,
-        rotation_radius=_RR, velocity_mode=mode,
+        min_distance_unit=200.0,
+        resampled_vector_length=32,
+        dt=_DT,
+        rotation_radius=_RR,
+        velocity_mode=mode,
     )
     det = ArcDetokenizeStage(
-        resampled_vector_length=32, action_horizon=horizon, dt=_DT,
-        rotation_radius=_RR, native_action_dim=3, velocity_mode=mode,
+        resampled_vector_length=32,
+        action_horizon=horizon,
+        dt=_DT,
+        rotation_radius=_RR,
+        native_action_dim=3,
+        velocity_mode=mode,
     )
     actions = _shaped(kind)
     token = tok.forward({"actions": actions.clone()})["target"]
@@ -471,6 +478,7 @@ def _errors(decoded, truth):
 def test_arc_token_rows_is_the_single_source_of_truth():
     assert arc_token_rows(32, "mean") == 33
     assert arc_token_rows(32, "per_waypoint") == 64
+    assert arc_token_rows(32, "duration") == 64
 
 
 def test_arc_token_rows_rejects_an_unknown_mode():
@@ -501,19 +509,22 @@ def test_both_modes_are_exact_on_constant_speed():
     # must not be WORSE -- that would mean its rate recovery is broken.
     _, mean_out, truth = _round_trip("constant", "mean")
     _, gran_out, _ = _round_trip("constant", "per_waypoint")
+    _, dur_out, _ = _round_trip("constant", "duration")
     mean_xy, _ = _errors(mean_out, truth)
     gran_xy, _ = _errors(gran_out, truth)
+    dur_xy, _ = _errors(dur_out, truth)
     # Tolerance is relative to the 150-unit path: both are exact to ~1e-5.
-    assert mean_xy < 1e-3 and gran_xy < 1e-3
+    assert mean_xy < 1e-3 and gran_xy < 1e-3 and dur_xy < 1e-3
 
 
 @pytest.mark.parametrize("kind", ["accelerating", "decelerating", "dwell_then_move"])
-def test_granular_beats_mean_on_non_uniform_motion(kind):
+@pytest.mark.parametrize("granular_mode", ["per_waypoint", "duration"])
+def test_granular_beats_mean_on_non_uniform_motion(kind, granular_mode):
     _, mean_out, truth = _round_trip(kind, "mean")
-    _, gran_out, _ = _round_trip(kind, "per_waypoint")
+    _, gran_out, _ = _round_trip(kind, granular_mode)
     mean_xy, mean_ang = _errors(mean_out, truth)
     gran_xy, gran_ang = _errors(gran_out, truth)
-    assert gran_xy < mean_xy, f"{kind}: {gran_xy} !< {mean_xy}"
+    assert gran_xy < mean_xy, f"{kind}/{granular_mode}: {gran_xy} !< {mean_xy}"
     assert gran_ang <= mean_ang + 1e-6
 
 
@@ -522,10 +533,13 @@ def test_granular_recovers_a_decelerating_chunk_the_mean_mode_mangles():
     # front-loads its travel.
     _, mean_out, truth = _round_trip("decelerating", "mean")
     _, gran_out, _ = _round_trip("decelerating", "per_waypoint")
+    _, dur_out, _ = _round_trip("decelerating", "duration")
     mean_xy, _ = _errors(mean_out, truth)
     gran_xy, _ = _errors(gran_out, truth)
+    dur_xy, _ = _errors(dur_out, truth)
     assert mean_xy > 5.0
     assert gran_xy < 1.0
+    assert dur_xy < 1.0
 
 
 def test_granular_rate_rows_are_populated_and_non_negative():
@@ -535,6 +549,22 @@ def test_granular_rate_rows_are_populated_and_non_negative():
     assert (rates > 0).any()
     # Reserved columns stay zero so the block keeps the waypoint width.
     assert np.allclose(token[0, 32:, 1:].numpy(), 0.0)
+
+
+def test_duration_rows_are_populated_and_non_negative():
+    token, _, _ = _round_trip("accelerating", "duration")
+    durations = token[0, 32:, 0].numpy()
+    assert (durations >= 0).all()
+    assert (durations > 0).any()
+    assert np.allclose(token[0, 32:, 1:].numpy(), 0.0)
+
+
+def test_duration_and_per_waypoint_agree_on_round_trip():
+    # Same source-frame times; rate vs Δt are inverse encodings of the same clock.
+    _, rate_out, truth = _round_trip("decelerating", "per_waypoint")
+    _, dur_out, _ = _round_trip("decelerating", "duration")
+    del truth
+    assert np.allclose(rate_out, dur_out, atol=1e-5)
 
 
 def test_granular_rates_track_the_speed_profile():
@@ -550,18 +580,42 @@ def test_a_stalled_interval_cannot_traverse_the_path():
     # the whole horizon, so sampling stays inside that first interval. It creeps
     # rather than freezing -- what the guard rules out is the jump to the end.
     det = ArcDetokenizeStage(
-        resampled_vector_length=32, action_horizon=16, dt=_DT,
-        rotation_radius=0.0, native_action_dim=3, velocity_mode="per_waypoint",
+        resampled_vector_length=32,
+        action_horizon=16,
+        dt=_DT,
+        rotation_radius=0.0,
+        native_action_dim=3,
+        velocity_mode="per_waypoint",
     )
     token = torch.zeros(1, 64, PLANAR_ACTION_DIM, dtype=torch.float64)
     token[0, :32, 0] = torch.linspace(0.0, 50.0, 32)  # real travel
-    token[0, :32, 2] = 1.0                            # cos(theta)=1
-    token[0, 32:, 0] = 0.0                            # every rate zero
+    token[0, :32, 2] = 1.0  # cos(theta)=1
+    token[0, 32:, 0] = 0.0  # every rate zero
     out = det.forward({"pred_action": token})["pred_action_native"][0].numpy()
     travelled = float(out[-1, 0] - out[0, 0])
     one_interval = 50.0 / 31.0
     assert 0.0 <= travelled <= one_interval, travelled
     assert travelled < 0.05 * 50.0  # a few percent of the path, not all of it
+
+
+def test_duration_stalled_interval_cannot_traverse_the_path():
+    det = ArcDetokenizeStage(
+        resampled_vector_length=32,
+        action_horizon=16,
+        dt=_DT,
+        rotation_radius=0.0,
+        native_action_dim=3,
+        velocity_mode="duration",
+    )
+    token = torch.zeros(1, 64, PLANAR_ACTION_DIM, dtype=torch.float64)
+    token[0, :32, 0] = torch.linspace(0.0, 50.0, 32)
+    token[0, :32, 2] = 1.0
+    token[0, 32:, 0] = 0.0  # every duration zero
+    out = det.forward({"pred_action": token})["pred_action_native"][0].numpy()
+    travelled = float(out[-1, 0] - out[0, 0])
+    one_interval = 50.0 / 31.0
+    assert 0.0 <= travelled <= one_interval, travelled
+    assert travelled < 0.05 * 50.0
 
 
 def test_detokenize_rejects_the_other_modes_token_width():

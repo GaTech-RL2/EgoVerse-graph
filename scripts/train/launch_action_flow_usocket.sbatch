@@ -77,7 +77,7 @@ AF_CONFIG_VALIDATOR=${AF_CONFIG_VALIDATOR:-$AF_REPO/tools/validate_action_flow_c
 AF_SMOKE_VERIFIER=${AF_SMOKE_VERIFIER:-$AF_REPO/scripts/train/verify_action_flow_training_smoke.py}
 AF_SLURM_CONTRACT_VALIDATOR=${AF_SLURM_CONTRACT_VALIDATOR:-$AF_REPO/scripts/train/validate_slurm_job_contract.py}
 AF_STORAGE_VALIDATOR=${AF_STORAGE_VALIDATOR:-$AF_REPO/scripts/train/check_checkpoint_storage.py}
-AF_SPLIT_MANIFEST=${AF_SPLIT_MANIFEST:-$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json}
+AF_SPLIT_MANIFEST=${AF_SPLIT_MANIFEST:-}
 AF_PRECISION=${AF_PRECISION:-bf16}
 AF_SEED=${AF_SEED:-42}
 AF_EXPECTED_GPU_CONSTRAINT=${AF_EXPECTED_GPU_CONSTRAINT:-H100|H200}
@@ -86,6 +86,8 @@ RESTART_COUNT=${SLURM_RESTART_COUNT:-0}
 LAUNCHER=${BASH_SOURCE[0]}
 CANONICAL_CONTENT_MANIFEST_SHA256=a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4a878afb20b39733761
 CANONICAL_DATASET_CONTENT_AGGREGATE_SHA256=80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52
+CHAIN_CONTENT_MANIFEST_SHA256=65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726a1b0e0ef1df865
+CHAIN_DATASET_CONTENT_AGGREGATE_SHA256=2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb
 
 case "$AF_LAUNCH_MODE" in
   preflight|run) ;;
@@ -105,7 +107,26 @@ AF_FULL_VALIDATE_EVERY=10000
 AF_FULL_CHECKPOINT_EVERY=40000
 AF_FULL_LIMIT_VAL_BATCHES=1.0
 AF_VALID_BATCH_SIZE=16
+AF_SOURCE=pushshapes_sim_u_socket
+AF_ACTION_DIM=4
+AF_EXPECTED_PARAMETER_COUNT=97956100
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_SOURCE=pushshapes_sim_chain_gripper
+    AF_ACTION_DIM=5
+    AF_EXPECTED_PARAMETER_COUNT=97956613
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
+    ;;
   pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -206,6 +227,14 @@ case "$AF_EXPERIMENT" in
   *) die "AF_EXPERIMENT must select an explicitly approved Action Flow config" ;;
 esac
 
+if test -z "$AF_SPLIT_MANIFEST"; then
+  if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
+    AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
+  else
+    AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json
+  fi
+fi
+
 if test "$AF_METHOD" != action_flow_joint || [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
   AF_COMPARISON_EXPERIMENT=
 elif test "$AF_EXPERIMENT" = pusht/action_flow_bc_usocket_recon1_s42; then
@@ -224,12 +253,17 @@ fi
   die "AF_EXPECTED_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
 [[ "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = \
-  "$CANONICAL_CONTENT_MANIFEST_SHA256" || \
-  die "content manifest is not the canonical USocket corpus manifest"
-test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = \
-  "$CANONICAL_DATASET_CONTENT_AGGREGATE_SHA256" || \
-  die "dataset aggregate is not the canonical USocket corpus content"
+if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
+  test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_CONTENT_MANIFEST_SHA256" || \
+    die "content manifest is not the canonical ChainGripper corpus manifest"
+  test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_DATASET_CONTENT_AGGREGATE_SHA256" || \
+    die "dataset aggregate is not the canonical ChainGripper corpus content"
+else
+  test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CANONICAL_CONTENT_MANIFEST_SHA256" || \
+    die "content manifest is not the canonical USocket corpus manifest"
+  test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CANONICAL_DATASET_CONTENT_AGGREGATE_SHA256" || \
+    die "dataset aggregate is not the canonical USocket corpus content"
+fi
 [[ "$AF_WANDB_RUN_ID" =~ ^[A-Za-z0-9_.-]+$ ]] || die "unsafe W&B run ID"
 [[ "$AF_CLUSTER_LABEL" =~ ^[A-Za-z0-9_.-]+$ ]] || die "unsafe cluster label"
 [[ "$AF_MAX_RESTARTS" =~ ^[1-9][0-9]*$ ]] || die "invalid AF_MAX_RESTARTS"
@@ -389,10 +423,10 @@ BASE_OVERRIDES=(
   runtime.slurm_requeue_owner=runner
   runtime.slurm_save_signal=SIGUSR2
   'runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints'
-  "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$AF_DATASET_DIR"
-  "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$AF_DATASET_DIR"
-  data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32
-  "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_VALID_BATCH_SIZE"
+  "data.train_datasets.$AF_SOURCE.resolver.folder_path=$AF_DATASET_DIR"
+  "data.valid_datasets.$AF_SOURCE.resolver.folder_path=$AF_DATASET_DIR"
+  "data.train_dataloader_params.$AF_SOURCE.batch_size=32"
+  "data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE"
   evaluator.energy_score_validation_view.world_size=1
   "evaluator.energy_score_validation_view.per_rank_batch_size=$AF_VALID_BATCH_SIZE"
   ++logger.wandb.offline=false
@@ -828,7 +862,8 @@ export SRUN
   "$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS" \
   "$RECONSTRUCTION_ONLY_WARMUP_STEPS" "$AF_FULL_MAX_STEPS" \
   "$AF_FULL_VALIDATE_EVERY" "$AF_FULL_CHECKPOINT_EVERY" \
-  "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" <<'PY'
+  "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" "$AF_SOURCE" \
+  "$AF_ACTION_DIM" "$AF_EXPECTED_PARAMETER_COUNT" <<'PY'
 import math
 import pathlib
 import sys
@@ -861,6 +896,9 @@ from omegaconf import OmegaConf
     full_checkpoint_every,
     full_limit_val_batches,
     valid_batch_size,
+    source,
+    action_dim,
+    expected_parameter_count,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
@@ -872,6 +910,8 @@ full_validate_every = int(full_validate_every)
 full_checkpoint_every = int(full_checkpoint_every)
 full_limit_val_batches = float(full_limit_val_batches)
 valid_batch_size = int(valid_batch_size)
+action_dim = int(action_dim)
+expected_parameter_count = int(expected_parameter_count)
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -893,7 +933,7 @@ from tools.validate_action_flow_config import (
     validate_method_contract, _validate_dimensions_and_modules, _validate_topology,
 )
 method = validate_method_contract(cfg, experiment)
-assert cfg.model.action_horizon == 16 and cfg.model.action_dim == 4
+assert cfg.model.action_horizon == 16 and cfg.model.action_dim == action_dim
 if method == STOPGRAD_UNITE_METHOD:
     assert cfg.model.num_latent_tokens == 8
     assert cfg.model.latent_dim == 16 and cfg.model.condition_dim == 128
@@ -980,7 +1020,6 @@ else:
 assert cfg.callbacks.model_checkpoint.save_top_k == -1
 assert cfg.callbacks.model_checkpoint.save_last == "link"
 assert "{step}" in str(cfg.callbacks.model_checkpoint.filename)
-source = "pushshapes_sim_u_socket"
 assert set(cfg.data.train_datasets) == set(cfg.data.valid_datasets) == {source}
 assert cfg.data.train_datasets[source].resolver.folder_path == dataset
 assert cfg.data.valid_datasets[source].resolver.folder_path == dataset
@@ -1002,7 +1041,7 @@ _validate_topology(cfg, pipeline)
 _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
 count = sum(parameter.numel() for parameter in pipeline.nets.parameters())
 if method == STOPGRAD_UNITE_METHOD:
-    assert count == 97_956_100, count
+    assert count == expected_parameter_count, count
 elif method in (LEGACY_METHOD, STOPGRAD_METHOD):
     if scaled_200m:
         expected_count = 199_754_837

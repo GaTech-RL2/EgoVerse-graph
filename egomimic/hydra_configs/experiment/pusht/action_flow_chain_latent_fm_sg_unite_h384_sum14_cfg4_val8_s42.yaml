@@ -1,0 +1,64 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+  - override /data: pusht/action_flow_unite_chain_val01_h16
+  - _self_
+
+name: action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+description: "ChainGripper Action Flow H384 with released-UNITE sum-14 flow, CFG4, and val8x32"
+
+planar:
+  action_dims: {pushshapes_sim_chain_gripper: 5}
+  action_model_dim: 5
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+    action_horizon: 16
+    native_action_dim: 4
+
+evaluator:
+  native_decoder: ${planar.eval_native_decoder}
+  semantic_blocks: [[0, 2], [2, 4], [4, 5]]
+  energy_score_distance: null
+  energy_score_provenance:
+    action_representation: x_y_cos_theta_sin_theta_grip
+    distance_contract:
+      space: normalized_action_chunk
+      formula: mean_equal_weight_semantic_block_rms
+      semantic_blocks: [[0, 2], [2, 4], [4, 5]]
+  action_flow_diagnostics:
+    native_error: null
+    provenance:
+      action_representation: x_y_cos_theta_sin_theta_grip
+
+run_provenance:
+  architecture:
+    action_shape: [16, 5]
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
+  split_manifest_sha256: 3ced944ea3af8e875ea88fc5c2df3a5d2865a9f95223d109fb4bd28c8be7cf69
+  content_manifest_path: egomimic/hydra_configs/data/pusht/manifests/chain_gripper_3000_v2_content_v1.json
+  content_manifest_sha256: 65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726a1b0e0ef1df865
+  dataset_content_aggregate_sha256: 2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb
+  split_seed: 42
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 2970
+  valid_episode_count_per_domain: 30
+  union_episode_count_per_domain: 3000
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  dataset_observation_alignment: pre_step
+  action_contract:
+    representation: x_y_cos_theta_sin_theta_grip
+    prediction_horizon: 16
+    native_decoder: common5_to_native4
+  energy_score_contract:
+    distance:
+      space: normalized_action_chunk
+      formula: mean_equal_weight_semantic_block_rms
+      semantic_blocks: [[0, 2], [2, 4], [4, 5]]
+
+deployment:
+  observation_adapter: null
+  action_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+    action_horizon: 16
+    native_action_dim: 4

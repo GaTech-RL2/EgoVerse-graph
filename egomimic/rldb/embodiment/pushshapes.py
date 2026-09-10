@@ -143,6 +143,17 @@ def get_usocket_rotvec_action_state_transform_list(
     ]
 
 
+def get_chain_common5_action_rotvec_state_transform_list(
+    action_key: str = "actions",
+    state_key: str = "state_agent_model",
+):
+    """Encode ChainGripper actions in common-five space and pose as rotvec4."""
+    return [
+        PadPlanarAction(keys=[action_key]),
+        PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
+    ]
+
+
 def get_usocket_rotvec_action_transform_list(action_key: str = "actions"):
     """Encode only the U-Socket action angle as cosine/sine.
 

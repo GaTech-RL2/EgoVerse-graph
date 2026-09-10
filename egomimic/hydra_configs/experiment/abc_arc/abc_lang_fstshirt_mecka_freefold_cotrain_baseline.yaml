@@ -7,16 +7,16 @@
 #
 # Launch:
 #   python egomimic/trainHydra.py -m \
-#       +experiment=abc_arc/abc_lang_fslongshirt_micro_foldclothes_cotrain_baseline
+#       +experiment=abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline
 defaults:
   - /experiment/abc_arc/hpt_qwen_300M_knobs
   - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled
-  - override /data: abc_arc/abc_fstshirt_mecka_freefold_baseline_cotrain
+  - override /data: abc_arc/abc_fslongshirt_micro_foldclothes_cotrain_baseline
   - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
   - override /hydra/launcher: submitit_pace
   - _self_
 
-name: abc_lang_fslongshirt_micro_foldclothes_cotrain_baseline
+name: abc_lang_fstshirt_mecka_freefold_cotrain_baseline
 description: qwen_pooled_baseline
 
 paths:
@@ -54,32 +54,6 @@ logger:
 
 hpt:
   action_horizon: 100
-
-# Existing mix has no annotation_key. Merge it onto every source so the
-# AnnotationPromptStage's `annotations` read is actually in the batch.
-data:
-  train_datasets:
-    human_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
-      resolver:
-        key_map:
-          annotation_key: annotations
-    yam_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
-      resolver:
-        key_map:
-          annotation_key: annotations
-  valid_datasets:
-    human_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
-      resolver:
-        key_map:
-          annotation_key: annotations
-    yam_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
-      resolver:
-        key_map:
-          annotation_key: annotations
 
 evaluator:
   arc_metrics: true

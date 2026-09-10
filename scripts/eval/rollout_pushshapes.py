@@ -101,6 +101,7 @@ class ChunkPolicy:
     def __init__(self, ckpt: Path, config_path: Path, output_dir: Path, embodiment_name: str,
                  embodiment_id: int, use_ema: bool, device: torch.device, raw_action_width: int | None = None):
         checkpoint = torch.load(ckpt, map_location="cpu", weights_only=False)
+        self.ckpt_epoch, self.ckpt_global_step = checkpoint.get("epoch"), checkpoint.get("global_step")
         embedded, resolved = _checkpoint_config(checkpoint, str(config_path))
         # Inference is eager for every row: a run trained with torch.compile
         # (compile_backbones=true) is rolled out through the same uncompiled
@@ -272,12 +273,17 @@ def run_episode(policy: ChunkPolicy, seed: int, args) -> dict:
         while steps < args.max_steps and not terminated:
             chunk = policy.predict_chunk(list(frames))
             predictions += 1
-            for k in range(min(args.replan_every, len(chunk))):
+            start = int(getattr(args, "chunk_start", 0))
+            if start + args.replan_every > len(chunk):
+                raise RuntimeError(f"chunk of {len(chunk)} cannot execute [{start},{start + args.replan_every})")
+            for k in range(start, start + args.replan_every):
                 action = np.asarray(chunk[k], dtype=np.float64).reshape(-1)
                 if not np.isfinite(action).all():
                     return {"seed": seed, "peak": 0.0, "steps": steps, "predictions": predictions,
                             "status": "nonfinite_action", "seconds": time.time() - t0}
                 obs, _r, terminated, _tr, info = env.step(action)
+                if getattr(args, "full_horizon", False):
+                    terminated = False  # protocol: peak is measured over the whole budget
                 cov = float(info.get("coverage", 0.0))
                 if "point_projection_rmse" in info:
                     proj_rmse.append(float(info["point_projection_rmse"]))
@@ -338,10 +344,37 @@ def main(argv=None):
     ap.add_argument("--video-dir", type=Path, default=None, help="write <video-dir>/seed_<k>.mp4 from the env's 512x512 world render")
     ap.add_argument("--video-fps", type=int, default=10, help="MP4 frame rate (Elmo's sim_v2 protocol: 10)")
     ap.add_argument("--video-every", type=int, default=3, help="capture one frame every N env steps (sim is 30 Hz; 3 at 10 FPS is real time)")
+    ap.add_argument("--budget-json", type=Path, default=None,
+                    help="protocol rev-3 budget file (episode_budget.py / derive_budget.py); sets max_steps = by_level[level].budget")
+    ap.add_argument("--full-horizon", action="store_true", help="protocol: ignore the env's terminated flag and always run the full budget")
+    ap.add_argument("--chunk-start", type=int, default=0, help="first decoded action index to execute (protocol default 0; registered post-step Paper-DP rows use 1)")
+    ap.add_argument("--seeds", default=None, help="explicit comma-separated seed list (e.g. an OEC-56 level); overrides --seed-base/--n-episodes")
+    ap.add_argument("--label", default=None, help="comparability label recorded in the result (e.g. CANONICAL_LEVEL0_SEEDS_0_39)")
     ap.add_argument("--chain-control-mode", default="points", choices=("pose", "points"),
                     help="chain_gripper only: 'points' feeds the 6-D prediction to the env's point mode (no policy-side IK); 'pose' decodes to [x, y, theta, grip] first")
     args = ap.parse_args(argv)
     raw_width = 6 if (args.pusher == "chain_gripper" and args.chain_control_mode == "points") else None
+    budget_provenance = None
+    if args.budget_json is not None:
+        payload = json.loads(Path(args.budget_json).read_text())
+        if payload.get("statistic") != "p99":
+            raise RuntimeError(f"protocol horizon revision 3 requires statistic=p99, got {payload.get('statistic')!r}")
+        row = (payload.get("by_level") or {}).get(str(int(args.obstacle_level)))
+        if row is None or "budget" not in row:
+            raise RuntimeError(f"budget file has no level {args.obstacle_level}; never fall back to a default")
+        args.max_steps = int(row["budget"])
+        budget_provenance = {
+            "path": str(args.budget_json), "dataset_name": payload.get("dataset_name"), "statistic": payload["statistic"],
+            "multiplier": payload.get("multiplier"), "content_sha256": payload.get("content_sha256"),
+            "action_space": payload.get("action_space", "cursor"), "level": int(args.obstacle_level), "budget": int(row["budget"]),
+            "derived": bool(row.get("derived", False)), "derivation": payload.get("derivation"),
+        }
+    if args.chunk_start < 0:
+        raise ValueError("--chunk-start must be non-negative")
+    if args.seeds:
+        seed_list = [int(v) for v in args.seeds.split(",") if v.strip()]
+    else:
+        seed_list = [args.seed_base + ep for ep in range(args.n_episodes)]
     from Tsimulation.pushshapes import env as env_module
     assert getattr(env_module, "SIM_VERSION", 2) == 2, "expected Sim V2"
     device = torch.device(args.device)
@@ -364,15 +397,55 @@ def main(argv=None):
           f"pusher={args.pusher} chain_mode={args.chain_control_mode if args.pusher == 'chain_gripper' else '-'} "
           f"sim={env_module.__file__}", flush=True)
     episodes = []
-    for ep in range(args.n_episodes):
-        seed = args.seed_base + ep
+    for ep, seed in enumerate(seed_list):
         rec = run_episode(policy, seed, args)
         rec["episode"] = ep
         episodes.append(rec)
         print(f"[sim] ep{ep} seed={seed} peak={rec['peak']:.3f} steps={rec['steps']} "
               f"preds={rec['predictions']} {rec['status']} {rec['seconds']:.0f}s", flush=True)
     peaks = np.array([e["peak"] for e in episodes])
+    sim_root = Path(str(env_module.__file__)).resolve().parents[3]
+    import hashlib, subprocess
+    def _git(*cmd):
+        try:
+            return subprocess.run(["git", "-C", str(sim_root), *cmd], capture_output=True, text=True, timeout=30).stdout.strip()
+        except Exception:
+            return ""
+    sim_head = _git("rev-parse", "HEAD"); sim_dirty = bool(_git("status", "--porcelain=v1")) if sim_head else None
+    origin_file = sim_root / "ORIGIN.txt"
+    sim_origin = origin_file.read_text().strip() if origin_file.exists() else None
+    pkg = Path(str(env_module.__file__)).parent
+    sim_file_sha = {name: hashlib.sha256((pkg / name).read_bytes()).hexdigest() for name in ("env.py", "obstacles.py", "shapes.py") if (pkg / name).exists()}
+    try:
+        import subprocess
+        driver_head = subprocess.run(["git", "-C", str(Path(__file__).resolve().parents[2]), "rev-parse", "HEAD"], capture_output=True, text=True, timeout=30).stdout.strip()
+    except Exception:
+        driver_head = ""
+    ckpt_epoch, ckpt_step = policy.ckpt_epoch, policy.ckpt_global_step
+    sampler = {}
+    for stage in policy.algo.pipeline.stages:
+        for attr in ("num_inference_steps", "dopri5_output_points", "cfg_scale", "cfg_interval"):
+            if hasattr(stage, attr):
+                sampler[f"{type(stage).__name__}.{attr}"] = getattr(stage, attr) if not isinstance(getattr(stage, attr), tuple) else list(getattr(stage, attr))
+    protocol = {
+        "document": "PushShapes eval protocol sim_v2 (EVAL_PROTOCOL_2026-09-08), horizon revision 3" if budget_provenance else "rev-1 flat horizon (non-protocol)",
+        "horizon_revision": 3 if budget_provenance else 1,
+        "budget": budget_provenance, "max_steps": int(args.max_steps), "full_horizon": bool(args.full_horizon),
+        "coverage_threshold_early_stop": None if args.full_horizon else "env terminated at 0.95",
+        "init_mode": "seeds", "seeds": seed_list, "level": int(args.obstacle_level),
+        "replan_every": int(args.replan_every), "chunk_start": int(args.chunk_start), "chunk_stop": int(args.chunk_start + args.replan_every),
+        "execution_horizon": int(args.replan_every), "use_ema": bool(args.use_ema),
+        "sampler_effective": sampler, "cfg_scale_override": args.cfg_scale, "sampler_steps_override": args.sampler_steps,
+        "checkpoint": {"path": str(args.ckpt), "epoch": ckpt_epoch, "global_step": ckpt_step},
+        "simulator": {"root": str(sim_root), "module": str(env_module.__file__), "git_head": sim_head or None, "dirty": sim_dirty, "origin": sim_origin, "file_sha256": sim_file_sha},
+        "driver": {"path": str(Path(__file__).resolve()), "git_head": driver_head},
+        "label": args.label,
+        "metric": "peak coverage; SR recomputed from per-episode peaks",
+    }
     summary = {
+        "protocol": protocol,
+        "sr_0p80": float((peaks >= 0.80).mean()) if len(peaks) else None,
+        "sr_0p95": float((peaks >= 0.95).mean()) if len(peaks) else None,
         "ckpt": str(args.ckpt), "config_path": str(args.config_path), "use_ema": args.use_ema,
         "embodiment": args.embodiment_name, "replan_every": args.replan_every, "n_obs": policy.n_obs,
         "horizon": policy.horizon, "obstacle_level": args.obstacle_level, "max_steps": args.max_steps,

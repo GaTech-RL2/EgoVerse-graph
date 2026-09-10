@@ -1,0 +1,21 @@
+# @package _global_
+# SWEEP 3 (chain 3000 + gen 1919). ChainGripper data, action-space identity, and split provenance.
+defaults:
+  - /experiment/pusht/planar_v2_base
+  - override /data: pusht/planar_v2_chain_gripper_gen
+  - _self_
+
+planar:
+  action_dims: {pushshapes_sim_chain_gripper: 5}
+
+run_provenance:
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_3000_plus_gen1919_split_seed42_v1.json
+  split_manifest_sha256: e320fefd2e1e5d491d74a9910e7eb641fcb9b295a4c7e6e58a3c8234f15332af
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 4870
+  valid_episode_count_per_domain: 49
+  union_episode_count_per_domain: 4919
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  dataset_observation_alignment: pre_step

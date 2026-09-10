@@ -1,0 +1,18 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# Georgia Tech ICE / COC launcher.
+name: ${hydra.job.name}
+partition: "ice-gpu"
+account: "coc"
+cpus_per_task: 8
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:h200:${launch_params.gpus_per_node}"
+qos: "coc-ice"
+mem_gb: 96
+timeout_min: 960
+additional_parameters:
+  requeue: true

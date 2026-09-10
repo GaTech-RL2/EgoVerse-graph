@@ -1,0 +1,32 @@
+# Language-conditioned fslongshirt/micro fold-clothes ARC data.
+#
+# The upstream aniketh/abc branch has no dedicated fslongshirt data config.
+# This experiment was defined as the language twin of the existing
+# fstshirt+mecka free-fold cotrain ARC mix, so inherit that adapted split here
+# and add the annotation field required by the HPT prompt stage.
+defaults:
+  - /data/abc_arc/abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100@_here_
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    resolver:
+      key_map:
+        annotation_key: annotations
+  yam_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    resolver:
+      key_map:
+        annotation_key: annotations
+valid_datasets:
+  human_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    resolver:
+      key_map:
+        annotation_key: annotations
+  yam_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    resolver:
+      key_map:
+        annotation_key: annotations

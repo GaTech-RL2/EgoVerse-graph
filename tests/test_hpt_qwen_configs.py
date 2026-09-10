@@ -13,8 +13,8 @@ _REPO = Path(__file__).resolve().parents[1]
 _CONFIGS = _REPO / "egomimic/hydra_configs"
 
 _LANG_EXPERIMENTS = (
-    "abc_arc/abc_lang_fslongshirt_micro_foldclothes_cotrain_baseline",
-    "abc_arc/abc_lang_fslongshirt_micro_foldclothes_cotrain_arcD40M100",
+    "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline",
+    "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100",
     "abc_arc/abc_lang_mecka_fold_multitask_cotrain_baseline",
     "abc_arc/abc_lang_mecka_fold_multitask_cotrain_arcD40M100",
 )
@@ -48,16 +48,14 @@ def test_lang_experiments_compose(experiment):
 
 
 def test_baseline_horizon_is_time_indexed():
-    cfg = _compose("abc_arc/abc_lang_fslongshirt_micro_foldclothes_cotrain_baseline")
+    cfg = _compose("abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline")
     assert cfg.hpt.action_horizon == 100
     assert cfg.model.pipeline.stages[4].action_horizon == 100
     assert cfg.model.pipeline.stages[5].model.act_seq == 100
 
 
 def test_arc_horizon_follows_per_waypoint_token_rows():
-    cfg = _compose(
-        "abc_arc/abc_lang_fslongshirt_micro_foldclothes_cotrain_arcD40M100"
-    )
+    cfg = _compose("abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100")
     assert cfg.abc.arc_token_rows == 200
     assert cfg.hpt.action_horizon == 200
     assert cfg.model.pipeline.stages[4].action_horizon == 200
@@ -67,8 +65,9 @@ def test_arc_horizon_follows_per_waypoint_token_rows():
 def test_baseline_and_arc_share_the_qwen_architecture():
     base = _compose("abc_arc/abc_lang_mecka_fold_multitask_cotrain_baseline")
     arc = _compose("abc_arc/abc_lang_mecka_fold_multitask_cotrain_arcD40M100")
-    assert base.model.pipeline.stages[1].stems[
-        "observations.annotation"
-    ]._target_ == arc.model.pipeline.stages[1].stems["observations.annotation"]._target_
+    assert (
+        base.model.pipeline.stages[1].stems["observations.annotation"]._target_
+        == arc.model.pipeline.stages[1].stems["observations.annotation"]._target_
+    )
     assert base.hpt.embed_dim == arc.hpt.embed_dim == 840
     assert base.hpt.num_blocks == arc.hpt.num_blocks == 19

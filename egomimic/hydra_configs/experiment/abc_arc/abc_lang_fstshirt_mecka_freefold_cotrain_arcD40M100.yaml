@@ -7,16 +7,16 @@
 #
 # Launch:
 #   python egomimic/trainHydra.py -m \
-#       +experiment=abc_arc/abc_lang_fslongshirt_micro_foldclothes_cotrain_arcD40M100
+#       +experiment=abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100
 defaults:
   - /experiment/abc_arc/hpt_qwen_300M_knobs
   - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled_arc_D40_M100
-  - override /data: abc_arc/abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100
+  - override /data: abc_arc/abc_fslongshirt_micro_foldclothes_cotrain_arcD40M100
   - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
   - override /hydra/launcher: submitit_pace
   - _self_
 
-name: abc_lang_fslongshirt_micro_foldclothes_cotrain_arcD40M100
+name: abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100
 description: qwen_pooled_arcD40M100
 
 paths:
@@ -63,30 +63,6 @@ abc:
 
 hpt:
   action_horizon: ${abc.arc_token_rows}
-
-data:
-  train_datasets:
-    human_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
-      resolver:
-        key_map:
-          annotation_key: annotations
-    yam_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
-      resolver:
-        key_map:
-          annotation_key: annotations
-  valid_datasets:
-    human_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
-      resolver:
-        key_map:
-          annotation_key: annotations
-    yam_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
-      resolver:
-        key_map:
-          annotation_key: annotations
 
 evaluator:
   arc_metrics: true

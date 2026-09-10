@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import signal
 import sys
 import time
@@ -372,7 +373,7 @@ def main(argv=None):
     if args.chunk_start < 0:
         raise ValueError("--chunk-start must be non-negative")
     if args.seeds:
-        seed_list = [int(v) for v in args.seeds.split(",") if v.strip()]
+        seed_list = [int(v) for v in re.split(r"[,+ ]+", args.seeds) if v.strip()]  # '+' survives sbatch --export's comma splitting
     else:
         seed_list = [args.seed_base + ep for ep in range(args.n_episodes)]
     from Tsimulation.pushshapes import env as env_module

@@ -3,6 +3,8 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 training_behavior:
   _target_: egomimic.pl_utils.training_behavior_action_latent_vfm.ActionLatentVFMTrainingBehavior
+diagnostic_provider:
+  _target_: egomimic.eval.pipeline_diagnostics.ActionLatentVFMDiagnosticProvider
 
 num_latent_tokens: 16
 latent_dim: 8

@@ -1,0 +1,145 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_candidate_common
+  - override /data: pusht/action_flow_unite_usocket_val01_h16
+  - override /model: bf/us_action_flow_latent_fm_sg_unite_h384
+  - _self_
+
+name: action_flow_usocket_latent_fm_sg_unite_h384_s42
+description: "Action Flow stopgrad/JVP objective on separate released-UNITE H384 modules"
+train:
+  action_flow_method: latent_fm_stopgrad_unite
+
+trainer:
+  max_steps: 150000
+  val_check_interval: 30000
+  limit_val_batches: 8
+  precision: bf16-mixed
+  gradient_clip_val: 3.0
+  gradient_clip_algorithm: norm
+
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: true
+  sample_frac: 1.0
+  precomputed_norm_path: null
+
+callbacks:
+  model_checkpoint:
+    filename: "epoch-{epoch}-step-{step}"
+    save_last: link
+    save_top_k: -1
+    every_n_train_steps: 30000
+    every_n_epochs: null
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9978
+    validate_with_ema: true
+
+eval_checkpoint:
+  use_ema: true
+
+evaluator:
+  energy_score_provenance:
+    action_representation: x_y_cos_theta_sin_theta
+    prediction_horizon: 16
+    sampler: dopri5
+    sampler_steps: 50
+    model_autocast_precision: bf16
+  action_flow_diagnostics:
+    enabled: true
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    max_batches_per_rank: 1
+    max_samples: 16
+    jacobian_samples: 2
+    capture_activations: true
+    activation_layer_map: {0: 0, 1: 11}
+    cknna_k: 10
+    native_error:
+      enabled: true
+      type: usocket_native_xy_wrapped_theta_mse_v1
+      space: decoded_native_x_y_theta_radians
+      native_theta_index: 2
+      wrap_period_radians: 6.283185307179586
+      reduction: mean_squared_error_over_horizon_and_native_coordinates
+      normalizer: bound_train_only_evaluator_normalizer
+      native_decoder: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+    artifact_root: ${paths.output_dir}/validation_predictions/action_flow_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_rank
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 16
+      world_size: 1
+    provenance:
+      source_commit: ${run_provenance.source_commit}
+      normalization_sha256: ${run_provenance.normalization_sha256}
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      dataset_content:
+        manifest_sha256: ${run_provenance.content_manifest_sha256}
+        aggregate_sha256: ${run_provenance.dataset_content_aggregate_sha256}
+      action_representation: x_y_cos_theta_sin_theta
+      clean_endpoint: t0
+      gaussian_endpoint: t1
+      latent_shape: [8, 16]
+      flow_samples_per_content: ${model.flow_samples_per_content}
+      condition_dropout_probability: ${model.condition_dropout_probability}
+      sampler: dopri5
+      sampler_steps: ${model.num_inference_steps}
+      flow_time_sampling: lognormal_shifted_mapped_to_t0_clean
+      reconstruction_noising: clean_fraction_uniform_0p7_to_1_probability_0p5
+      fixed_level_coupling: one_clean_latent_and_one_gaussian_per_condition
+      decoder_jacobian_evaluation: declared_bridge_state_at_each_fixed_noise_level
+      activation_capture: real_forward_hooks_without_replay_or_replacement
+
+run_provenance:
+  architecture:
+    family: action_flow_with_separate_released_unite_modules
+    tokenizer: UniteDiTBackbone_h384_d12_h12
+    denoiser: UniteDiTBackbone_h384_d12_h12
+    decoder: UniteActionDecoder_h384_d12_h12
+    tokenizer_denoiser_weight_sharing: false
+    action_shape: [16, 4]
+    latent_shape: [8, 16]
+    observation_condition_dim: 128
+  objective:
+    method: latent_fm_stopgrad_unite
+    flow_clean_gradient_mode: all_stopgrad
+    action_velocity_clean_gradient_mode: full
+    reconstruction_is_optimizer_objective: true
+    flow_weight: 1.0
+    reconstruction_weight: 1.0
+    action_velocity_weight: 1.0
+    flow_samples_per_content: 14
+    flow_mini_batch: 14
+    decoded_noise_scale_weight: 0.0
+    monotonic_weight: 0.0
+    reconstruction_only_warmup_steps: 0
+    endpoint_prediction_eps:
+      train_eps: not_applicable_velocity_parameterization
+      sample_eps: not_applicable_velocity_parameterization
+  inference:
+    sampler: dopri5
+    steps: 50
+    timestep_shift_alpha: 0.5
+    atol: 1.0e-6
+    rtol: 1.0e-3
+    classifier_free_guidance: false
+  requirements:
+    r1_full_conditional_distribution: PASS_design_under_fixed_endpoint_cfm_assumptions
+    r2_common_stochastic_latent: PASS_design
+    r3_shared_conditional_generator: PASS_design
+    r4_joint_learning_from_start: PASS_design
+    r5_ordinary_pairs_and_context_free_decoder: PASS_design
+    r6_flexible_nonlinear_interfaces: PASS_design
+    r7_simple_objectives_with_disclosed_jvp_cost: PASS_design
+    r8_no_required_action_path: PASS_optional_action_velocity_bias_disclosed
+    r9_collapse_and_decoder_sensitivity: OPEN_requires_training_diagnostics
+    r10_baseline_quality_and_compute: OPEN_requires_torus_controls_and_gpu_smoke
+
+deployment:
+  observation_adapter:
+    _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
+  action_decoder:
+    _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder

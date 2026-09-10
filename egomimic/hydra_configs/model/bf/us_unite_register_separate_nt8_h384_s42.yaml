@@ -1,0 +1,10 @@
+defaults:
+  - /model/bf/us_unite_register_shared_nt8_h384_s42@_here_
+  - _self_
+
+# Half-width (hidden_dim 384) on the un-shared backbone. The validation energy
+# score of the full-width separate row is best at 60k and degrades afterwards
+# (0.067 -> 0.10-0.12 through 240k) while its closed-loop SR is flat, i.e. the
+# model saturates at ~4 epochs of 2,970 episodes. This row tests capacity as
+# the cause.
+share_encoder_denoiser: false

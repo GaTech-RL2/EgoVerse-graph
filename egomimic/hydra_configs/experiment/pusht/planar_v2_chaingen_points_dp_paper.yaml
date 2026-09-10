@@ -1,0 +1,47 @@
+# @package _global_
+# Paper DP on ChainGripper in the SIX-POINT action space (the same target the UNITE cotrain
+# row uses for this embodiment), so DP-vs-UNITE on chain is an architecture comparison, not
+# an action-representation one. Native 4-D replay stays in planar_v2_chain_dp_paper.
+defaults:
+  - /experiment/pusht/planar_v2_chaingen_base
+  - override /model: bf/bf_planar_v2_dp_paper_points6
+  - _self_
+name: planar_v2_chaingen_points_dp_paper_h16
+description: sweep3_chain3000gen1919_points6_paper_DP_DDPM100_obs2_EMA
+planar:
+  action_dims: {pushshapes_sim_chain_gripper: 6}
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+  observation_horizon: 2
+  action_target_offset: 1
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_paper_points_transform_list
+  batch_size: 32
+evaluator:
+  semantic_blocks: [[0, 2], [2, 4], [4, 6]]
+run_provenance:
+  action_contract:
+    representation: left_xy_center_xy_right_xy_points6
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: 16
+    rollout_action_chunk_start_index: 0
+    replan_every: 8
+    execution_slice: "[0,8)"
+eval_checkpoint:
+  use_ema: true
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+deployment:
+  observation_adapter: null
+  action_decoder:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+  chain_gripper_control_mode: points

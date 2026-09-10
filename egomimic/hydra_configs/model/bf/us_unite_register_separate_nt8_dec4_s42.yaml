@@ -1,17 +1,20 @@
-# Canonical shared-encoder, four-register UNITE row.
+# nt8, separate tokenizer/denoiser backbones, action-decoder depth 4
 _target_: egomimic.pl_utils.pl_model_unite_released.ReleasedUniteModelWrapper
 
+# Objective identity required by ReleasedUniteModelWrapper._resolve_unite_contract
+# (added with the action-velocity port; baseline rows must zero every AV setting).
 architecture_id: unite_register_v1
 objective_id: unite_baseline_v1
-share_encoder_denoiser: true
-num_latent_tokens: 4
+action_velocity_samples_per_reconstruction: 0
+action_velocity_weight: 0.0
+
+share_encoder_denoiser: false
+num_latent_tokens: 8
 latent_dim: 16
 condition_dim: 128
 hidden_dim: 768
 action_horizon: 16
 flow_steps_per_reconstruction: 14
-action_velocity_samples_per_reconstruction: 0
-action_velocity_weight: 0.0
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
@@ -66,7 +69,6 @@ pipeline:
       timestep_shift_alpha: 0.5
       flow_steps_per_reconstruction: ${model.flow_steps_per_reconstruction}
       flow_mini_batch: 4
-      action_velocity_samples_per_reconstruction: ${model.action_velocity_samples_per_reconstruction}
       train_eps: 0.05
       sample_eps: 0.05
       lognorm_mu: 0.0
@@ -122,7 +124,7 @@ pipeline:
           num_latent_tokens: ${model.num_latent_tokens}
           action_horizon: ${model.action_horizon}
           hidden_dim: ${model.hidden_dim}
-          depth: 12
+          depth: 4
           num_heads: 12
           mlp_ratio: 4.0
           dropout: 0.0
@@ -130,7 +132,6 @@ pipeline:
     - _target_: egomimic.pipeline.stages_unite_released.ReleasedRecipeUniteObjective
       reconstruction_weight: 1.0
       flow_weight: 1.0
-      action_velocity_weight: ${model.action_velocity_weight}
 
 enable_grad_norm: false
 optimizer:

@@ -244,11 +244,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--expected-manifest-sha256", required=True)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--domain",
+        default=DOMAIN,
+        choices=("pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"),
+        help="split-manifest domain to validate (default: U-Socket)",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
+    global DOMAIN
     args = parse_args()
+    DOMAIN = args.domain
     repo = args.repo.expanduser().resolve(strict=True)
     manifest_path = args.manifest.expanduser().resolve(strict=True)
     expected_digest = _digest(

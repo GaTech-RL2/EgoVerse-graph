@@ -1,0 +1,10 @@
+defaults:
+  - /model/bf/us_unite_register_separate_nt8_h384_s42@_here_
+  - _self_
+
+# Quarter width. Halving to 384 lifted closed-loop success from 0.325 to 0.400
+# at the same 60k budget and matched diffusion policy within noise, so the
+# 2,970-episode dataset appears to be the binding constraint rather than the
+# objective. This row asks whether the capacity trend continues.
+# 192 / 12 heads = head_dim 16, so the head split stays valid.
+hidden_dim: 192

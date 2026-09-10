@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=egoverse-unite
+#SBATCH --job-name=egoverse-unite-cotrain
 #SBATCH --account=coc
 #SBATCH --partition=ice-gpu
 #SBATCH --qos=coc-ice
@@ -17,7 +17,7 @@ set -Eeuo pipefail
 umask 077
 
 die() {
-  printf 'launch_unite: %s\n' "$*" >&2
+  printf 'launch_unite_cotrain: %s\n' "$*" >&2
   exit 64
 }
 
@@ -54,9 +54,9 @@ PY
 }
 
 for variable in \
-  ICE_REPO ICE_EXPECTED_HEAD ICE_PYTHON ICE_DATASET_DIR ICE_OUTPUT_DIR \
+  ICE_REPO ICE_EXPECTED_HEAD ICE_PYTHON ICE_OUTPUT_DIR \
   ICE_EXPERIMENT ICE_MODEL ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID \
-  ICE_EXPECTED_SPLIT_MANIFEST_SHA256 ICE_MAX_STEPS \
+  ICE_MAX_STEPS \
   ICE_VAL_CHECK_INTERVAL ICE_LIMIT_TRAIN_BATCHES ICE_LIMIT_VAL_BATCHES \
   ICE_CHECKPOINT_EVERY_N_STEPS ICE_TRAIN_BATCH_SIZE ICE_VALID_BATCH_SIZE; do
   required "$variable"
@@ -70,22 +70,58 @@ ICE_MAX_RESTARTS=${ICE_MAX_RESTARTS:-32}
 ICE_UNITE_LR=${ICE_UNITE_LR:-}
 ICE_EXTRA_OVERRIDES=${ICE_EXTRA_OVERRIDES:-}
 ICE_UNITE_LR_FINAL=${ICE_UNITE_LR_FINAL:-}
+# Optional terminal LR for a late anneal (model.scheduler.final_lr); the plateau LR stays
+# ICE_UNITE_LR_FINAL. Pair with ICE_EXTRA_OVERRIDES setting decay_start_2/decay_end_2 steps.
+ICE_UNITE_LR_TERMINAL=${ICE_UNITE_LR_TERMINAL:-}
 ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
 ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-unite-ice}
 ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,unite,ice]'}
-ICE_FAMILY=unite
-ICE_WORLD_SIZE=1
-ICE_TRAINER_STRATEGY=auto
+ICE_WORLD_SIZE=${ICE_WORLD_SIZE:-1}
+positive_integer ICE_WORLD_SIZE "$ICE_WORLD_SIZE"
+if test "$ICE_WORLD_SIZE" = 1; then ICE_TRAINER_STRATEGY=auto; else ICE_TRAINER_STRATEGY=ddp_find_unused_parameters_true; fi
 ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
+# Opt-in torch.compile of the UNITE DiT backbones and decoders (same math,
+# ~2x on the policy step). Unite family only; recorded in the launch contract.
+ICE_UNITE_COMPILE=${ICE_UNITE_COMPILE:-false}
+# Cotrain launcher: which embodiments the selected experiment trains on. Each
+# present embodiment needs its own dataset root, split manifest and manifest
+# SHA (ICE_DATASET_DIR_<EMB>, ICE_SPLIT_MANIFEST_<EMB>,
+# ICE_EXPECTED_SPLIT_MANIFEST_SHA256_<EMB>), <EMB> in {USOCKET, CHAIN}.
+# ICE_FAMILY selects the preflight contract: unite (latent-flow rows) or planar
+# (Paper-DP rows launched through the same entrypoint so the cotrain sweep's
+# baselines share one GPU budget, checkpoint cadence and provenance layout).
+case "$ICE_EXPERIMENT" in
+  pusht/unite_cotrain_usocket_chain_val01_h16) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=unite ;;
+  pusht/unite_chain_points_val01_h16) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=unite ;;
+  pusht/unite_usocket_register_sweep_val01_h16) ICE_EMBODIMENTS="USOCKET"; ICE_FAMILY=unite ;;
+  pusht/unite_cotrain_usocket_chaingen_val01_h16) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=unite ;;
+  pusht/unite_chaingen_points_val01_h16) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=unite ;;
+  pusht/planar_v2_cotrain_dp_paper_points6_chaingen) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=planar ;;
+  pusht/planar_v2_chaingen_points_dp_paper) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=planar ;;
+  pusht/planar_v2_cotrain_dp_paper_points6) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=planar ;;
+  pusht/planar_v2_usocket_dp_paper) ICE_EMBODIMENTS="USOCKET"; ICE_FAMILY=planar ;;
+  pusht/planar_v2_chain_points_dp_paper) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=planar ;;
+  *) die "unsupported cotrain experiment $ICE_EXPERIMENT" ;;
+esac
+emb_key() {
+  case "$1" in
+    USOCKET) echo pushshapes_sim_u_socket ;;
+    CHAIN) echo pushshapes_sim_chain_gripper ;;
+    *) die "unknown embodiment tag $1" ;;
+  esac
+}
+ICE_SPLIT_MANIFEST_USOCKET=${ICE_SPLIT_MANIFEST_USOCKET:-$ICE_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json}
+ICE_SPLIT_MANIFEST_CHAIN=${ICE_SPLIT_MANIFEST_CHAIN:-$ICE_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json}
+for emb in $ICE_EMBODIMENTS; do
+  required "ICE_DATASET_DIR_$emb"
+  required "ICE_EXPECTED_SPLIT_MANIFEST_SHA256_$emb"
+done
 ICE_UNITE_DIAGNOSTICS=${ICE_UNITE_DIAGNOSTICS:-false}
-ICE_GRADIENT_TELEMETRY_CADENCE=${ICE_GRADIENT_TELEMETRY_CADENCE:-100}
-ICE_GPU_CONTRACT=${ICE_GPU_CONTRACT:-H100_OR_H200}
 ICE_TOOL_DIR=${ICE_TOOL_DIR:-$ICE_REPO/scripts/ice}
 ICE_REQUEUE_RUNNER=${ICE_REQUEUE_RUNNER:-$ICE_TOOL_DIR/ice_requeue_runner.py}
 ICE_GPU_PROBE=${ICE_GPU_PROBE:-$ICE_TOOL_DIR/ice_gpu_probe.py}
 ICE_DATASET_VALIDATOR=${ICE_DATASET_VALIDATOR:-$ICE_TOOL_DIR/validate_planar_dataset.py}
 ICE_CHECKPOINT_VALIDATOR=${ICE_CHECKPOINT_VALIDATOR:-$ICE_TOOL_DIR/validate_lightning_checkpoint.py}
-ICE_SPLIT_MANIFEST=${ICE_SPLIT_MANIFEST:-$ICE_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json}
 ICE_PRECISION=${ICE_PRECISION:-bf16-mixed}
 ICE_SEED=${ICE_SEED:-42}
 RESTART_COUNT=${SLURM_RESTART_COUNT:-0}
@@ -104,51 +140,41 @@ case "$ICE_UNITE_DIAGNOSTICS" in
   true|false) ;;
   *) die "ICE_UNITE_DIAGNOSTICS must be true or false" ;;
 esac
-case "$ICE_GPU_CONTRACT" in
-  H100_OR_H200)
-    ICE_GPU_LABEL='H100|H200'
-    GPU_PROBE_ARGS=(--allowed-gpu-name H100 --allowed-gpu-name H200)
-    ;;
-  L40S)
-    ICE_GPU_LABEL=L40S
-    GPU_PROBE_ARGS=(--allowed-gpu-name L40S)
-    ;;
-  A100)
-    ICE_GPU_LABEL=A100
-    GPU_PROBE_ARGS=(--allowed-gpu-name A100)
-    ;;
-  *) die "ICE_GPU_CONTRACT must be H100_OR_H200, L40S, or A100" ;;
+case "$ICE_UNITE_COMPILE" in
+  true|false) ;;
+  *) die "ICE_UNITE_COMPILE must be true or false" ;;
 esac
 case "$ICE_EXPERIMENT:$ICE_MODEL" in
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_flow42_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt16_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_enc6_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_enc6_dec4_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_fw4_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_rw4_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_dec4_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_h384_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_separate_nt8_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt4_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_separate_nt8_dec4_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_separate_nt4_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_av_register_shared_nt8_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_av_register_separate_nt8_s42) ;;
+  pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_separate_nt8_h384_s42) ;;
+  pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_split_tok_nt8_h384_s42) ;;
+  pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_separate_nt8_h768_s42) ;;
+  pusht/unite_cotrain_usocket_chaingen_val01_h16:bf/ct_unite_register_separate_nt8_h768_s42) ;;
+  pusht/unite_chain_points_val01_h16:bf/ch_unite_register_separate_nt8_h384_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_separate_nt8_h384_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_separate_act16_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_separate_nt8_h192_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_av_sg_register_separate_nt8_s42) ;;
-  pusht/action_latent_vfm_usocket_val01_h16:bf/us_action_latent_vfm_nt16_d8_h512_s42)
-    ICE_FAMILY=action_latent_vfm
-    ICE_UNITE_DIAGNOSTICS=true
-    ;;
-  *) die "unsupported UNITE experiment or model row" ;;
+  pusht/planar_v2_cotrain_dp_paper_points6:bf/bf_planar_v2_dp_paper_points6) ;;
+  pusht/planar_v2_usocket_dp_paper:bf/bf_planar_v2_dp_paper) ;;
+  pusht/planar_v2_chain_points_dp_paper:bf/bf_planar_v2_dp_paper_points6) ;;
+  pusht/unite_cotrain_usocket_chaingen_val01_h16:bf/ct_unite_register_separate_nt8_h384_s42) ;;
+  pusht/unite_cotrain_usocket_chaingen_val01_h16:bf/ct_unite_register_split_tok_nt8_h384_s42) ;;
+  pusht/unite_chaingen_points_val01_h16:bf/ch_unite_register_separate_nt8_h384_s42) ;;
+  pusht/planar_v2_cotrain_dp_paper_points6_chaingen:bf/bf_planar_v2_dp_paper_points6) ;;
+  pusht/planar_v2_chaingen_points_dp_paper:bf/bf_planar_v2_dp_paper_points6) ;;
+  *) die "unsupported UNITE cotrain experiment or model row" ;;
 esac
+if test "$ICE_FAMILY" = planar; then
+  test "$ICE_UNITE_FAST" = false || die "ICE_UNITE_FAST applies to the unite family only"
+  test "$ICE_UNITE_DIAGNOSTICS" = false || die "ICE_UNITE_DIAGNOSTICS applies to the unite family only"
+  test "$ICE_UNITE_COMPILE" = false || die "ICE_UNITE_COMPILE applies to the unite family only"
+fi
+if test "$ICE_UNITE_COMPILE" = true && test "$ICE_UNITE_DIAGNOSTICS" = true; then
+  die "ICE_UNITE_COMPILE and ICE_UNITE_DIAGNOSTICS (backbone hooks) are mutually exclusive"
+fi
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 [[ "$ICE_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || die "ICE_EXPECTED_HEAD must be a full commit"
-[[ "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
-  die "ICE_EXPECTED_SPLIT_MANIFEST_SHA256 must be a lowercase SHA-256"
+for emb in $ICE_EMBODIMENTS; do
+  sha_var=ICE_EXPECTED_SPLIT_MANIFEST_SHA256_$emb
+  [[ "${!sha_var}" =~ ^[0-9a-f]{64}$ ]] || die "$sha_var must be a lowercase SHA-256"
+done
 [[ "$ICE_WANDB_RUN_ID" =~ ^[A-Za-z0-9_.-]+$ ]] || die "unsafe ICE_WANDB_RUN_ID"
 positive_integer ICE_MAX_STEPS "$ICE_MAX_STEPS"
 positive_integer ICE_VAL_CHECK_INTERVAL "$ICE_VAL_CHECK_INTERVAL"
@@ -157,12 +183,11 @@ positive_number ICE_LIMIT_VAL_BATCHES "$ICE_LIMIT_VAL_BATCHES"
 positive_integer ICE_CHECKPOINT_EVERY_N_STEPS "$ICE_CHECKPOINT_EVERY_N_STEPS"
 positive_integer ICE_TRAIN_BATCH_SIZE "$ICE_TRAIN_BATCH_SIZE"
 positive_integer ICE_VALID_BATCH_SIZE "$ICE_VALID_BATCH_SIZE"
-positive_integer ICE_GRADIENT_TELEMETRY_CADENCE "$ICE_GRADIENT_TELEMETRY_CADENCE"
 positive_integer ICE_MAX_RESTARTS "$ICE_MAX_RESTARTS"
 positive_integer ICE_SEED "$ICE_SEED"
 if test "$ICE_UNITE_DIAGNOSTICS" = true; then
-  test "$ICE_MAX_STEPS" -ge "$ICE_GRADIENT_TELEMETRY_CADENCE" || \
-    die "ICE_UNITE_DIAGNOSTICS requires a gradient-telemetry event within the run budget"
+  test "$ICE_MAX_STEPS" -ge 100 || \
+    die "ICE_UNITE_DIAGNOSTICS requires at least 100 optimizer steps to exercise cadence-100 gradient telemetry"
   test "$ICE_VAL_CHECK_INTERVAL" -le "$ICE_MAX_STEPS" || \
     die "ICE_UNITE_DIAGNOSTICS requires scheduled validation within the smoke budget"
 fi
@@ -171,23 +196,27 @@ test "$RESTART_COUNT" -le "$ICE_MAX_RESTARTS" || die "restart limit exceeded"
 
 for binding in \
   "ICE_REPO:$ICE_REPO" "ICE_PYTHON:$ICE_PYTHON" \
-  "ICE_DATASET_DIR:$ICE_DATASET_DIR" "ICE_OUTPUT_DIR:$ICE_OUTPUT_DIR" \
+  "ICE_OUTPUT_DIR:$ICE_OUTPUT_DIR" \
   "ICE_TOOL_DIR:$ICE_TOOL_DIR" \
   "ICE_REQUEUE_RUNNER:$ICE_REQUEUE_RUNNER" \
   "ICE_GPU_PROBE:$ICE_GPU_PROBE" \
   "ICE_DATASET_VALIDATOR:$ICE_DATASET_VALIDATOR" \
-  "ICE_SPLIT_MANIFEST:$ICE_SPLIT_MANIFEST" \
   "ICE_CHECKPOINT_VALIDATOR:$ICE_CHECKPOINT_VALIDATOR"; do
   absolute_path "${binding%%:*}" "${binding#*:}"
 done
 test -d "$ICE_REPO" || die "ICE_REPO is not a directory"
 test -x "$ICE_PYTHON" || die "ICE_PYTHON is not executable"
-test -d "$ICE_DATASET_DIR" || die "ICE_DATASET_DIR is not a directory"
+for emb in $ICE_EMBODIMENTS; do
+  dir_var=ICE_DATASET_DIR_$emb; man_var=ICE_SPLIT_MANIFEST_$emb
+  absolute_path "$dir_var" "${!dir_var}"
+  absolute_path "$man_var" "${!man_var}"
+  test -d "${!dir_var}" || die "$dir_var is not a directory"
+  test -s "${!man_var}" || die "$man_var is unavailable"
+done
 test -d "$ICE_TOOL_DIR" || die "ICE_TOOL_DIR is not a directory"
 test -s "$ICE_REQUEUE_RUNNER" || die "generic requeue runner is unavailable"
 test -s "$ICE_GPU_PROBE" || die "GPU probe is unavailable"
 test -s "$ICE_DATASET_VALIDATOR" || die "dataset validator is unavailable"
-test -s "$ICE_SPLIT_MANIFEST" || die "split manifest is unavailable"
 test -x "$ICE_CHECKPOINT_VALIDATOR" || die "checkpoint validator must be executable"
 test -s "$ICE_REPO/egomimic/hydra_configs/experiment/$ICE_EXPERIMENT.yaml" || \
   die "selected BC experiment config is unavailable"
@@ -238,12 +267,6 @@ BASE_OVERRIDES=(
   runtime.slurm_requeue_owner=runner
   runtime.slurm_save_signal=SIGUSR2
   'runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints'
-  "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$ICE_DATASET_DIR"
-  "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$ICE_DATASET_DIR"
-  "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=$ICE_TRAIN_BATCH_SIZE"
-  "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$ICE_VALID_BATCH_SIZE"
-  "evaluator.energy_score_validation_view.world_size=$ICE_WORLD_SIZE"
-  "evaluator.energy_score_validation_view.per_rank_batch_size=$ICE_VALID_BATCH_SIZE"
   logger.wandb.offline=false
   "logger.wandb.entity=$ICE_WANDB_ENTITY"
   "logger.wandb.project=$ICE_WANDB_PROJECT"
@@ -253,35 +276,39 @@ BASE_OVERRIDES=(
   "logger.wandb.tags=$ICE_WANDB_TAGS"
   "seed=$ICE_SEED"
 )
+for emb in $ICE_EMBODIMENTS; do
+  dir_var=ICE_DATASET_DIR_$emb; key=$(emb_key "$emb")
+  BASE_OVERRIDES+=(
+    "data.train_datasets.$key.resolver.folder_path=${!dir_var}"
+    "data.valid_datasets.$key.resolver.folder_path=${!dir_var}"
+    "data.train_dataloader_params.$key.batch_size=$ICE_TRAIN_BATCH_SIZE"
+    "data.valid_dataloader_params.$key.batch_size=$ICE_VALID_BATCH_SIZE"
+  )
+done
 if test "$ICE_MODEL" != none; then
   BASE_OVERRIDES+=("model=$ICE_MODEL")
 fi
+if test "$ICE_FAMILY" = unite; then
+  BASE_OVERRIDES+=(
+    "evaluator.energy_score_validation_view.world_size=$ICE_WORLD_SIZE"
+    "evaluator.energy_score_validation_view.per_rank_batch_size=$ICE_VALID_BATCH_SIZE"
+  )
+fi
 if test "$ICE_UNITE_FAST" = true; then
-  case "$ICE_MODEL" in
-    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt16_s42) ;;
-    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_fw4_s42) ;;
-    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_rw4_s42) ;;
-    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_dec4_s42) ;;
-    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_h384_s42) ;;
-    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_enc6_s42) ;;
-    bf/us_unite_register_shared_nt8_s42|bf/us_unite_register_shared_nt8_flow42_s42|bf/us_unite_register_shared_nt8_enc6_dec4_s42) ;;
-    bf/us_unite_register_separate_nt8_s42|bf/us_unite_register_shared_nt4_s42|bf/us_unite_register_separate_nt8_dec4_s42|bf/us_unite_register_separate_nt4_s42) ;;
-    bf/us_unite_av_register_shared_nt8_s42|bf/us_unite_av_register_separate_nt8_s42|bf/us_unite_av_sg_register_separate_nt8_s42) ;;
-    bf/us_unite_register_separate_nt8_h384_s42) ;;
-    bf/us_unite_register_separate_act16_s42) ;;
-    bf/us_unite_register_separate_nt8_h192_s42) ;;
-    *) die "ICE_UNITE_FAST requires a supported shared UNITE N=8 or N=16 model row" ;;
-  esac
+  # Throughput settings from the U-Socket launcher (flow_mini_batch 14, no
+  # gradient checkpointing). Its silent LR override (3e-5 -> 3e-6) is NOT
+  # replicated: the model yaml's schedule stands unless ICE_UNITE_LR is set.
   BASE_OVERRIDES+=(
     model.pipeline.stages.4.flow_mini_batch=14
     model.pipeline.stages.4.generative_encoder.gradient_checkpointing=false
     model.pipeline.stages.4.generative_encoder.backbone_config.gradient_checkpointing=false
-    model.pipeline.stages.4.decoders.pushshapes_sim_u_socket.gradient_checkpointing=false
-    model.optimizer.lr=3.0e-5
-    model.scheduler.base_lr_1=3.0e-5
-    model.scheduler.base_lr_2=3.0e-6
-    model.scheduler.final_lr=3.0e-6
   )
+  for emb in $ICE_EMBODIMENTS; do
+    BASE_OVERRIDES+=("model.pipeline.stages.4.decoders.$(emb_key "$emb").gradient_checkpointing=false")
+  done
+fi
+if test "$ICE_UNITE_COMPILE" = true; then
+  BASE_OVERRIDES+=(+model.pipeline.stages.4.compile_backbones=true)
 fi
 if test -n "$ICE_EXTRA_OVERRIDES"; then
   # Word-split deliberately: a space-separated list of Hydra overrides, applied
@@ -299,24 +326,17 @@ if test -n "$ICE_UNITE_LR"; then
     "model.optimizer.lr=$ICE_UNITE_LR"
     "model.scheduler.base_lr_1=$ICE_UNITE_LR"
     "model.scheduler.base_lr_2=$ICE_UNITE_LR_FINAL"
-    "model.scheduler.final_lr=$ICE_UNITE_LR_FINAL"
+    "model.scheduler.final_lr=${ICE_UNITE_LR_TERMINAL:-$ICE_UNITE_LR_FINAL}"
   )
 fi
 if test "$ICE_UNITE_DIAGNOSTICS" = true; then
-  case "$ICE_MODEL" in
-    bf/us_unite_register_shared_nt16_s42|bf/us_action_latent_vfm_nt16_d8_h512_s42) ;;
-    *) die "ICE_UNITE_DIAGNOSTICS requires a supported latent-diagnostic row" ;;
-  esac
+  test "$ICE_MODEL" = bf/us_unite_register_shared_nt16_s42 || \
+    die "ICE_UNITE_DIAGNOSTICS requires the shared UNITE N=16 model row"
   BASE_OVERRIDES+=(
     evaluator.unite_diagnostics.enabled=true
-    "evaluator.unite_diagnostics.validation_view.split_manifest_sha256=$ICE_EXPECTED_SPLIT_MANIFEST_SHA256"
+    "evaluator.unite_diagnostics.validation_view.split_manifest_sha256=$ICE_EXPECTED_SPLIT_MANIFEST_SHA256_USOCKET"
     "evaluator.unite_diagnostics.validation_view.world_size=$ICE_WORLD_SIZE"
     "evaluator.unite_diagnostics.validation_view.per_rank_batch_size=$ICE_VALID_BATCH_SIZE"
-  )
-fi
-if test "$ICE_FAMILY" = action_latent_vfm; then
-  BASE_OVERRIDES+=(
-    "model.gradient_telemetry_cadence=$ICE_GRADIENT_TELEMETRY_CADENCE"
   )
 fi
 if test -n "${ICE_NORM_STATS_PATH:-}"; then
@@ -345,14 +365,17 @@ cleanup_preflight() {
 }
 trap cleanup_preflight EXIT
 PREFLIGHT_CONFIG=$PREFLIGHT_ROOT/resolved_config.yaml
-PREFLIGHT_DATASET=$PREFLIGHT_ROOT/dataset_validation.json
-PYTHONPATH=$ICE_REPO "$ICE_PYTHON" "$ICE_DATASET_VALIDATOR" \
-  --repo "$ICE_REPO" \
-  --dataset-root "$ICE_DATASET_DIR" \
-  --manifest "$ICE_SPLIT_MANIFEST" \
-  --expected-manifest-sha256 "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" \
-  --output "$PREFLIGHT_DATASET" >/dev/null
-test -s "$PREFLIGHT_DATASET" || die "dataset validation produced no artifact"
+for emb in $ICE_EMBODIMENTS; do
+  dir_var=ICE_DATASET_DIR_$emb; man_var=ICE_SPLIT_MANIFEST_$emb; sha_var=ICE_EXPECTED_SPLIT_MANIFEST_SHA256_$emb
+  PYTHONPATH=$ICE_REPO "$ICE_PYTHON" "$ICE_DATASET_VALIDATOR" \
+    --repo "$ICE_REPO" \
+    --domain "$(emb_key "$emb")" \
+    --dataset-root "${!dir_var}" \
+    --manifest "${!man_var}" \
+    --expected-manifest-sha256 "${!sha_var}" \
+    --output "$PREFLIGHT_ROOT/dataset_validation_$emb.json" >/dev/null
+  test -s "$PREFLIGHT_ROOT/dataset_validation_$emb.json" || die "dataset validation for $emb produced no artifact"
+done
 (
   cd "$ICE_REPO"
   PYTHONPATH=$ICE_REPO HYDRA_FULL_ERROR=1 "$ICE_PYTHON" -m egomimic.trainHydra \
@@ -363,9 +386,11 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
 "$ICE_PYTHON" - "$PREFLIGHT_CONFIG" "$ICE_FAMILY" "$ICE_EXPERIMENT" \
   "$ICE_MAX_STEPS" "$ICE_VAL_CHECK_INTERVAL" "$ICE_LIMIT_TRAIN_BATCHES" \
   "$ICE_LIMIT_VAL_BATCHES" "$ICE_CHECKPOINT_EVERY_N_STEPS" \
-  "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_FAST" \
+  "${ICE_EXPECTED_SPLIT_MANIFEST_SHA256_USOCKET:-}" "$ICE_UNITE_FAST" \
   "$ICE_UNITE_DIAGNOSTICS" "$ICE_WORLD_SIZE" "$ICE_TRAIN_BATCH_SIZE" \
-  "$ICE_VALID_BATCH_SIZE" "$ICE_UNITE_LR" "$ICE_UNITE_LR_FINAL" <<'PY'
+  "$ICE_VALID_BATCH_SIZE" "$ICE_UNITE_LR" "$ICE_UNITE_LR_FINAL" \
+  "$ICE_EMBODIMENTS" "${ICE_EXPECTED_SPLIT_MANIFEST_SHA256_CHAIN:-}" \
+  "$ICE_UNITE_COMPILE" "$ICE_UNITE_LR_TERMINAL" <<'PY'
 import math
 import pathlib
 import sys
@@ -389,8 +414,14 @@ from omegaconf import OmegaConf
     valid_batch_size,
     unite_lr,
     unite_lr_final,
+    embodiments,
+    chain_split_manifest_sha256,
+    unite_compile,
+    unite_lr_terminal,
 ) = sys.argv[1:]
 world_size = int(world_size)
+EMBODIMENT_KEYS = {"USOCKET": "pushshapes_sim_u_socket", "CHAIN": "pushshapes_sim_chain_gripper"}
+domains = [EMBODIMENT_KEYS[tag] for tag in embodiments.split()]
 cfg = OmegaConf.load(pathlib.Path(path))
 assert cfg.mode == "train"
 assert cfg.trainer.accelerator == "gpu"
@@ -418,15 +449,71 @@ else:
     assert cfg.norm_stats.save_cache_dir is None
 assert cfg.run_provenance.split_seed == 42
 assert cfg.run_provenance.valid_ratio == 0.01
-assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
-assert int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(train_batch_size)
-assert int(cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(valid_batch_size)
-if family == "paper_dp":
-    assert experiment == "pusht/planar_v2_usocket_dp_paper"
-    assert cfg.name == "planar_v2_usocket_dp_paper_h16"
-elif family == "unite":
-    assert experiment == "pusht/unite_usocket_register_sweep_val01_h16"
+if experiment == "pusht/unite_cotrain_usocket_chain_val01_h16":
+    assert cfg.name == "unite_cotrain_usocket_chain_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+    assert cfg.run_provenance.chain_split_manifest_sha256 == chain_split_manifest_sha256
+    assert set(cfg.evaluator.native_decoders) == set(domains)
+    assert set(cfg.evaluator.semantic_blocks_by_embodiment) == set(domains)
+elif experiment == "pusht/unite_chain_points_val01_h16":
+    assert cfg.name == "unite_chain_points_register_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == chain_split_manifest_sha256
+elif experiment == "pusht/unite_usocket_register_sweep_val01_h16":
     assert cfg.name == "unite_usocket_register_sweep_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+elif experiment == "pusht/unite_cotrain_usocket_chaingen_val01_h16":
+    assert cfg.name == "unite_cotrain_usocket_chaingen_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+    assert cfg.run_provenance.chain_split_manifest_sha256 == chain_split_manifest_sha256
+    assert set(cfg.evaluator.native_decoders) == set(domains)
+    assert set(cfg.evaluator.semantic_blocks_by_embodiment) == set(domains)
+elif experiment == "pusht/unite_chaingen_points_val01_h16":
+    assert cfg.name == "unite_chaingen_points_register_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == chain_split_manifest_sha256
+elif experiment == "pusht/planar_v2_cotrain_dp_paper_points6_chaingen":
+    assert cfg.name == "planar_v2_cotrain_dp_paper_points6_chaingen_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+    assert cfg.run_provenance.chain_split_manifest_sha256 == chain_split_manifest_sha256
+    assert set(cfg.evaluator.native_decoders) == set(domains)
+    assert cfg.evaluator.native_decoder is None
+    assert {int(v) for v in cfg.planar.action_dims.values()} == {6}
+elif experiment == "pusht/planar_v2_chaingen_points_dp_paper":
+    assert cfg.name == "planar_v2_chaingen_points_dp_paper_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == chain_split_manifest_sha256
+elif experiment == "pusht/planar_v2_cotrain_dp_paper_points6":
+    assert cfg.name == "planar_v2_cotrain_dp_paper_points6_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+    assert cfg.run_provenance.chain_split_manifest_sha256 == chain_split_manifest_sha256
+    assert set(cfg.evaluator.native_decoders) == set(domains)
+    assert cfg.evaluator.native_decoder is None
+    assert {int(v) for v in cfg.planar.action_dims.values()} == {6}
+elif experiment == "pusht/planar_v2_usocket_dp_paper":
+    assert cfg.name == "planar_v2_usocket_dp_paper_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+elif experiment == "pusht/planar_v2_chain_points_dp_paper":
+    assert cfg.name == "planar_v2_chain_points_dp_paper_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == chain_split_manifest_sha256
+else:
+    raise AssertionError(experiment)
+assert set(cfg.data.train_datasets) == set(domains), (list(cfg.data.train_datasets), domains)
+assert set(cfg.data.valid_datasets) == set(domains)
+if family == "unite":
+    policy_cfg = cfg.model.pipeline.stages[4]
+    assert set(policy_cfg.generative_encoder.action_dims) == set(domains)
+    assert set(policy_cfg.decoders) == set(domains)
+    assert bool(cfg.model.share_encoder_denoiser) is False
+else:
+    assert family == "planar", family
+    assert int(cfg.planar.observation_horizon) == 2
+    assert int(cfg.planar.action_target_offset) == 1
+    assert bool(cfg.eval_checkpoint.use_ema) is True
+    assert cfg.callbacks.ema._target_ == "egomimic.utils.ema_callback.EMACallback"
+    assert int(cfg.model.pipeline.stages[2].action_dim) == int(cfg.model.pipeline.stages[3].action_dim)
+for domain in domains:
+    assert int(cfg.data.train_dataloader_params[domain].batch_size) == int(train_batch_size)
+    assert int(cfg.data.valid_dataloader_params[domain].batch_size) == int(valid_batch_size)
+if family == "unite":
+    assert bool(cfg.model.pipeline.stages[4].get("compile_backbones", False)) is (unite_compile == "true")
     assert int(cfg.evaluator.energy_score_max_batches_per_rank) == 1
     assert int(cfg.evaluator.energy_score_validation_view.world_size) == world_size
     assert int(cfg.evaluator.energy_score_validation_view.per_rank_batch_size) == int(valid_batch_size)
@@ -435,14 +522,16 @@ elif family == "unite":
         assert int(policy.flow_mini_batch) == 14
         assert bool(policy.generative_encoder.gradient_checkpointing) is False
         assert bool(policy.generative_encoder.backbone_config.gradient_checkpointing) is False
-        assert bool(policy.decoders.pushshapes_sim_u_socket.gradient_checkpointing) is False
-        expected_lr, expected_final = 3.0e-5, 3.0e-6
+        for domain in domains:
+            assert bool(policy.decoders[domain].gradient_checkpointing) is False
+        expected_lr, expected_final = 1.0e-4, 5.0e-5
         if unite_lr:
             expected_lr, expected_final = float(unite_lr), float(unite_lr_final)
         assert math.isclose(float(cfg.model.optimizer.lr), expected_lr)
         assert math.isclose(float(cfg.model.scheduler.base_lr_1), expected_lr)
         assert math.isclose(float(cfg.model.scheduler.base_lr_2), expected_final)
-        assert math.isclose(float(cfg.model.scheduler.final_lr), expected_final)
+        expected_terminal = float(unite_lr_terminal) if unite_lr_terminal else expected_final
+        assert math.isclose(float(cfg.model.scheduler.final_lr), expected_terminal)
     if unite_diagnostics == "true":
         diagnostics = cfg.evaluator.unite_diagnostics
         assert bool(diagnostics.enabled) is True
@@ -453,50 +542,8 @@ elif family == "unite":
         assert diagnostics.provenance.sampler == "dopri5"
     else:
         assert bool(cfg.evaluator.unite_diagnostics.enabled) is False
-elif family == "action_latent_vfm":
-    assert experiment == "pusht/action_latent_vfm_usocket_val01_h16"
-    assert cfg.name == "action_latent_vfm_usocket_h16"
-    assert cfg.model._target_.endswith("ActionLatentVFMModelWrapper")
-    assert int(cfg.model.num_latent_tokens) == 16
-    assert int(cfg.model.latent_dim) == 8
-    assert int(cfg.model.action_horizon) == 16
-    assert int(cfg.model.flow_samples_per_reconstruction) == 14
-    assert int(cfg.model.gradient_telemetry_cadence) > 0
-    assert math.isclose(float(cfg.model.optimizer.lr), 3.0e-5)
-    assert int(cfg.model.scheduler.warmup_steps) == 8000
-    assert math.isclose(float(cfg.model.scheduler.eta_min), 3.0e-6)
-    velocity_stages = [
-        stage for stage in cfg.model.pipeline.stages
-        if stage._target_.endswith("LatentVelocityFieldStage")
-    ]
-    assert len(velocity_stages) == 1
-    stage = velocity_stages[0]
-    assert stage._target_.endswith("LatentVelocityFieldStage")
-    assert math.isclose(float(stage.condition_dropout_probability), 0.3)
-    assert stage.denoising_module._target_.endswith("AdaLNBackbone")
-    assert (int(stage.denoising_module.input_dim), int(stage.denoising_module.output_dim)) == (8, 8)
-    assert int(stage.denoising_module.horizon) == 16
-    assert (int(stage.denoising_module.hidden_dim), int(stage.denoising_module.depth)) == (512, 12)
-    monotonic_noising = [
-        item for item in cfg.model.pipeline.stages
-        if item._target_.endswith("ExpectedMonotonicNoisingStage")
-    ]
-    monotonic_objective = [
-        item for item in cfg.model.pipeline.stages
-        if item._target_.endswith("ExpectedMonotonicRankingObjectiveStage")
-    ]
-    assert len(monotonic_noising) == len(monotonic_objective) == 1
-    assert math.isclose(float(monotonic_noising[0].severity_min), 0.0)
-    assert math.isclose(float(monotonic_noising[0].severity_max), 0.5)
-    assert math.isclose(float(monotonic_objective[0].margin), 0.0)
-    assert math.isclose(float(monotonic_objective[0].weight), 1.0)
-    assert bool(cfg.evaluator.unite_diagnostics.enabled) is True
-    diagnostics = cfg.evaluator.unite_diagnostics
-    assert diagnostics.validation_view.split_manifest_sha256 == split_manifest_sha256
-    assert int(diagnostics.validation_view.world_size) == world_size
-    assert int(diagnostics.validation_view.per_rank_batch_size) == int(valid_batch_size)
-    assert diagnostics.provenance.sampler == "fixed_euler"
-    assert int(diagnostics.provenance.sampler_output_points) == 17
+elif family == "planar":
+    assert bool(cfg.evaluator.unite_diagnostics.enabled) is False
 else:
     raise AssertionError(family)
 PY
@@ -519,9 +566,9 @@ SLURM_RESTART_COUNT=0 "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" \
 
 if test "$ICE_LAUNCH_MODE" != run; then
   "$ICE_PYTHON" - "$ICE_REPO" "$ICE_EXPECTED_HEAD" "$ICE_FAMILY" "$ICE_EXPERIMENT" \
-    "$ICE_DATASET_DIR" "$ICE_OUTPUT_DIR" "$ICE_WANDB_ENTITY" \
+    "$ICE_EMBODIMENTS" "$ICE_OUTPUT_DIR" "$ICE_WANDB_ENTITY" \
     "$ICE_WANDB_PROJECT" "$ICE_WANDB_RUN_ID" \
-    "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_DIAGNOSTICS" \
+    "${ICE_EXPECTED_SPLIT_MANIFEST_SHA256_USOCKET:-}:${ICE_EXPECTED_SPLIT_MANIFEST_SHA256_CHAIN:-}" "$ICE_UNITE_DIAGNOSTICS" \
     "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" <<'PY'
 import json
 import sys
@@ -584,9 +631,9 @@ ATTEMPT_PROVENANCE=$ICE_OUTPUT_DIR/provenance/restart-$RESTART_COUNT
 test ! -e "$ATTEMPT_PROVENANCE" || die "attempt provenance already exists"
 mkdir -p "$ATTEMPT_PROVENANCE"
 "$ICE_PYTHON" - "$ATTEMPT_PROVENANCE/launch_contract.json" \
-  "$ICE_UNITE_DIAGNOSTICS" "$ICE_GPU_LABEL" "$ICE_EXPECTED_HEAD" \
+  "$ICE_UNITE_DIAGNOSTICS" "H100|H200" "$ICE_EXPECTED_HEAD" \
   "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" "$ICE_TRAIN_BATCH_SIZE" \
-  "$ICE_VALID_BATCH_SIZE" <<'PY'
+  "$ICE_VALID_BATCH_SIZE" "$ICE_UNITE_COMPILE" <<'PY'
 import json
 import pathlib
 import sys
@@ -600,6 +647,7 @@ import sys
     trainer_strategy,
     train_batch_size,
     valid_batch_size,
+    unite_compile,
 ) = sys.argv[1:]
 pathlib.Path(path).write_text(
     json.dumps(
@@ -612,6 +660,7 @@ pathlib.Path(path).write_text(
             "trainer_strategy": trainer_strategy,
             "train_batch_size": int(train_batch_size),
             "valid_batch_size": int(valid_batch_size),
+            "unite_compile": unite_compile == "true",
         },
         indent=2,
         sort_keys=True,
@@ -620,14 +669,17 @@ pathlib.Path(path).write_text(
 )
 PY
 cp -- "$PREFLIGHT_CONFIG" "$ATTEMPT_PROVENANCE/resolved_config.yaml"
-cp -- "$PREFLIGHT_DATASET" "$ATTEMPT_PROVENANCE/dataset_validation.json"
-cp -- "$ICE_SPLIT_MANIFEST" "$ATTEMPT_PROVENANCE/split_manifest.json"
 sha256sum "$ATTEMPT_PROVENANCE/resolved_config.yaml" \
   > "$ATTEMPT_PROVENANCE/resolved_config.sha256"
-sha256sum "$ATTEMPT_PROVENANCE/dataset_validation.json" \
-  > "$ATTEMPT_PROVENANCE/dataset_validation.sha256"
-test "$(sha256sum "$ATTEMPT_PROVENANCE/split_manifest.json" | awk '{print $1}')" = \
-  "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" || die "copied split manifest changed"
+for emb in $ICE_EMBODIMENTS; do
+  man_var=ICE_SPLIT_MANIFEST_$emb; sha_var=ICE_EXPECTED_SPLIT_MANIFEST_SHA256_$emb
+  cp -- "$PREFLIGHT_ROOT/dataset_validation_$emb.json" "$ATTEMPT_PROVENANCE/dataset_validation_$emb.json"
+  cp -- "${!man_var}" "$ATTEMPT_PROVENANCE/split_manifest_$emb.json"
+  sha256sum "$ATTEMPT_PROVENANCE/dataset_validation_$emb.json" \
+    > "$ATTEMPT_PROVENANCE/dataset_validation_$emb.sha256"
+  test "$(sha256sum "$ATTEMPT_PROVENANCE/split_manifest_$emb.json" | awk '{print $1}')" = \
+    "${!sha_var}" || die "copied split manifest for $emb changed"
+done
 if test -n "$EFFECTIVE_NORM_STATS_FILE"; then
   sha256sum "$EFFECTIVE_NORM_STATS_FILE" \
     > "$ATTEMPT_PROVENANCE/normalization.sha256"
@@ -640,18 +692,22 @@ scontrol show job -dd "$SLURM_JOB_ID" \
 
 ICE_SRUN=$(command -v srun)
 test -x "$ICE_SRUN" || die "srun is unavailable"
-export ICE_REPO ICE_PYTHON ICE_EXPERIMENT ICE_OUTPUT_DIR ICE_DATASET_DIR
+export ICE_REPO ICE_PYTHON ICE_EXPERIMENT ICE_OUTPUT_DIR ICE_EMBODIMENTS
+export ICE_DATASET_DIR_USOCKET ICE_DATASET_DIR_CHAIN
 export ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID ICE_WANDB_NAME
 export ICE_WANDB_GROUP ICE_WANDB_TAGS ICE_SRUN
-export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY
+export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY ICE_UNITE_COMPILE ICE_UNITE_LR_TERMINAL
 # The batch was submitted with an explicit environment allow-list. Nested
 # ``srun`` steps must inherit the runner-owned requeue contract as well.
 export SLURM_EXPORT_ENV=ALL
 
-CUDA_VISIBLE_DEVICES=0 SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
-  "$ICE_PYTHON" "$ICE_GPU_PROBE" \
-  --expected-world-size 1 "${GPU_PROBE_ARGS[@]}" \
-  --output "$ATTEMPT_PROVENANCE/gpu_probe_0.json"
+# The probe is single-GPU by contract; run it once per local GPU of the allocation.
+for gpu_index in $(seq 0 $((ICE_WORLD_SIZE - 1))); do
+  CUDA_VISIBLE_DEVICES=$gpu_index SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
+    "$ICE_PYTHON" "$ICE_GPU_PROBE" \
+    --expected-world-size 1 --allowed-gpu-name H100 --allowed-gpu-name H200 \
+    --output "$ATTEMPT_PROVENANCE/gpu_probe_$gpu_index.json"
+done
 
 read -r -d '' CHILD_CODE <<'BASH' || true
 set -Eeuo pipefail
@@ -708,4 +764,4 @@ RUNNER_ARGS=(
   --completion-sentinel "$ICE_OUTPUT_DIR/COMPLETE.json"
 )
 exec "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
-  /usr/bin/env bash -c "$CHILD_CODE" ice-unite "${BASE_OVERRIDES[@]}"
+  /usr/bin/env bash -c "$CHILD_CODE" "ice-$ICE_FAMILY-cotrain" "${BASE_OVERRIDES[@]}"

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=egoverse-planar-bc
+#SBATCH --job-name=egoverse-planar-chain
 #SBATCH --account=coc
 #SBATCH --partition=ice-gpu
 #SBATCH --qos=coc-ice
@@ -17,7 +17,7 @@ set -Eeuo pipefail
 umask 077
 
 die() {
-  printf 'launch_planar_bc: %s\n' "$*" >&2
+  printf 'launch_planar_chain: %s\n' "$*" >&2
   exit 64
 }
 
@@ -75,7 +75,7 @@ ICE_TOOL_DIR=${ICE_TOOL_DIR:-$ICE_REPO/scripts/ice}
 ICE_REQUEUE_RUNNER=${ICE_REQUEUE_RUNNER:-$ICE_TOOL_DIR/ice_requeue_runner.py}
 ICE_GPU_PROBE=${ICE_GPU_PROBE:-$ICE_TOOL_DIR/ice_gpu_probe.py}
 ICE_DATASET_VALIDATOR=${ICE_DATASET_VALIDATOR:-$ICE_TOOL_DIR/validate_planar_dataset.py}
-ICE_SPLIT_MANIFEST=${ICE_SPLIT_MANIFEST:-$ICE_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json}
+ICE_SPLIT_MANIFEST=${ICE_SPLIT_MANIFEST:-$ICE_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json}
 ICE_PRECISION=${ICE_PRECISION:-bf16-mixed}
 ICE_SEED=${ICE_SEED:-42}
 RESTART_COUNT=${SLURM_RESTART_COUNT:-0}
@@ -87,9 +87,8 @@ case "$ICE_LAUNCH_MODE" in
   *) die "ICE_LAUNCH_MODE must be preflight, dry-run, or run" ;;
 esac
 case "$ICE_EXPERIMENT" in
-  pusht/planar_v2_usocket_direct_bc|pusht/planar_v2_usocket_arc_bc|\
-  pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc|pusht/planar_v2_usocket_dp_paper) ;;
-  *) die "ICE_EXPERIMENT must select a supported U-Socket BC config" ;;
+  pusht/planar_v2_chain_points_dp_paper|pusht/planar_v2_chain_dp_paper) ;;
+  *) die "ICE_EXPERIMENT must select a ChainGripper Paper-DP config" ;;
 esac
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 [[ "$ICE_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || die "ICE_EXPECTED_HEAD must be a full commit"
@@ -176,10 +175,10 @@ BASE_OVERRIDES=(
   runtime.slurm_requeue_owner=runner
   runtime.slurm_save_signal=SIGUSR2
   'runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints'
-  "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$ICE_DATASET_DIR"
-  "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$ICE_DATASET_DIR"
-  "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=$ICE_TRAIN_BATCH_SIZE"
-  "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$ICE_VALID_BATCH_SIZE"
+  "data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$ICE_DATASET_DIR"
+  "data.valid_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$ICE_DATASET_DIR"
+  "data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size=$ICE_TRAIN_BATCH_SIZE"
+  "data.valid_dataloader_params.pushshapes_sim_chain_gripper.batch_size=$ICE_VALID_BATCH_SIZE"
   logger.wandb.offline=false
   "logger.wandb.entity=$ICE_WANDB_ENTITY"
   "logger.wandb.project=$ICE_WANDB_PROJECT"
@@ -218,6 +217,7 @@ PREFLIGHT_CONFIG=$PREFLIGHT_ROOT/resolved_config.yaml
 PREFLIGHT_DATASET=$PREFLIGHT_ROOT/dataset_validation.json
 PYTHONPATH=$ICE_REPO "$ICE_PYTHON" "$ICE_DATASET_VALIDATOR" \
   --repo "$ICE_REPO" \
+  --domain pushshapes_sim_chain_gripper \
   --dataset-root "$ICE_DATASET_DIR" \
   --manifest "$ICE_SPLIT_MANIFEST" \
   --expected-manifest-sha256 "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" \
@@ -276,16 +276,15 @@ else:
 assert cfg.run_provenance.split_seed == 42
 assert cfg.run_provenance.valid_ratio == 0.01
 assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
-assert cfg.name.startswith("planar_v2_usocket_")
-assert experiment in {
-    "pusht/planar_v2_usocket_direct_bc",
-    "pusht/planar_v2_usocket_arc_bc",
-    "pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc",
-    "pusht/planar_v2_usocket_dp_paper",
-}
+assert cfg.name.startswith("planar_v2_chain_")
+assert experiment.endswith("_dp_paper")
+assert list(cfg.data.train_datasets) == ["pushshapes_sim_chain_gripper"]
+if experiment.endswith("_points_dp_paper"):
+    assert int(cfg.model.pipeline.stages[2].action_dim) == 6
+    assert cfg.evaluator.native_decoder._target_.endswith("ChainGripperPointsNativeDecoder")
 PY
 
-"$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" \
+SLURM_RESTART_COUNT=0 "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" \
   --state-dir "$PREFLIGHT_ROOT/runner/state" \
   --checkpoint-glob "$PREFLIGHT_ROOT/checkpoints/*.ckpt" \
   --checkpoint-validator "$ICE_CHECKPOINT_VALIDATOR" \
@@ -399,7 +398,7 @@ with path.open("rb") as stream:
         digest.update(chunk)
 assert digest.hexdigest() == expected_sha
 PY
-  checkpoint_override="ckpt_path=$ICE_RESUME_CHECKPOINT"
+  checkpoint_override="ckpt_path='$ICE_RESUME_CHECKPOINT'"
   wandb_resume=must
 else
   test -z "${ICE_RESUME_CHECKPOINT_SHA256:-}${ICE_RESUME_GLOBAL_STEP:-}"

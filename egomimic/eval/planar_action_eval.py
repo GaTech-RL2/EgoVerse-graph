@@ -29,6 +29,7 @@ class PlanarActionEval(Eval):
         seed_bank_sha256: str | None = None,
         artifact_root: str | None = None,
         semantic_blocks=((0, 2), (2, 4), (4, 5)),
+        semantic_blocks_by_embodiment: Mapping | None = None,
         energy_score_enabled: bool = True,
         action_key: str = "actions",
         native_decoder=None,
@@ -50,6 +51,13 @@ class PlanarActionEval(Eval):
         self.native_decoder = native_decoder
         self.native_decoders = dict(native_decoders or {})
         self.blocks = tuple(tuple(map(int, block)) for block in semantic_blocks)
+        # Per-embodiment partitions for cotraining across unequal action widths
+        # (e.g. U-Socket rotvec4 next to ChainGripper points6); keyed by the
+        # lower-cased embodiment name, falling back to ``semantic_blocks``.
+        self.blocks_by_embodiment = {
+            str(label).lower(): tuple(tuple(map(int, block)) for block in blocks)
+            for label, blocks in dict(semantic_blocks_by_embodiment or {}).items()
+        }
         self.energy_score_enabled = bool(energy_score_enabled)
         self.deterministic_seed = int(deterministic_seed)
         self.energy_score_max_batches_per_rank = energy_score_max_batches_per_rank
@@ -576,12 +584,19 @@ class PlanarActionEval(Eval):
             prediction, target, decoder
         )
 
-    def _energy_values(self, samples, target):
+    def _blocks_for(self, label: str | None):
+        if label is None:
+            return self.blocks
+        return self.blocks_by_embodiment.get(str(label).lower(), self.blocks)
+
+    def _energy_values(self, samples, target, label: str | None = None):
         if samples.ndim != 4 or samples.shape[0] != 32:
             raise ValueError("EnergyScore@32 requires exactly 32 samples")
         values = {
             name: value.detach()
-            for name, value in energy_score(samples, target, self.blocks).items()
+            for name, value in energy_score(
+                samples, target, self._blocks_for(label)
+            ).items()
         }
         if not all(bool(torch.isfinite(value).all()) for value in values.values()):
             raise ValueError("Energy Score produced non-finite values")
@@ -630,6 +645,11 @@ class PlanarActionEval(Eval):
                     "space": "normalized_action_chunk",
                     "formula": "mean_equal_weight_semantic_block_rms",
                     "semantic_blocks": self.blocks,
+                    **(
+                        {"semantic_blocks_by_embodiment": dict(self.blocks_by_embodiment)}
+                        if self.blocks_by_embodiment
+                        else {}
+                    ),
                 },
                 "aggregation": "condition_mean_then_equal_domain_macro_mean",
                 "global_step": int(self.trainer.global_step),
@@ -696,7 +716,9 @@ class PlanarActionEval(Eval):
             scores_by_source = {}
             for source_id, samples in sampled.items():
                 _, label = self._embodiment(batch[source_id])
-                values = self._energy_values(samples, batch[source_id][self.action_key])
+                values = self._energy_values(
+                    samples, batch[source_id][self.action_key], label
+                )
                 metrics[f"Valid/EnergyScore@32/{label}"] = values["score"]
                 metrics[f"Valid/EnergyScoreAccuracy@32/{label}"] = values["accuracy"]
                 metrics[f"Valid/EnergyScoreDiversity@32/{label}"] = values["diversity"]

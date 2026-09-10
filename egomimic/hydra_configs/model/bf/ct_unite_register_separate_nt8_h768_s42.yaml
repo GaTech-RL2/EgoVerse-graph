@@ -1,29 +1,39 @@
-# Canonical shared-encoder, four-register UNITE row.
+# UNITE cotrain topology A at FULL width (hidden_dim 768, the released UNITE width): the higher
+# parameter-count control for the h384 cotrain rows. Identical to ct_unite_register_separate_nt8_h384_s42
+# except hidden_dim (tokenizer DiT, denoiser DiT and both decoders all interpolate ${model.hidden_dim}).
+# Roughly 4x the DiT/decoder parameters (~440 M total vs 119 M).
 _target_: egomimic.pl_utils.pl_model_unite_released.ReleasedUniteModelWrapper
 
+# Objective identity required by ReleasedUniteModelWrapper._resolve_unite_contract
+# (added with the action-velocity port; baseline rows must zero every AV setting).
 architecture_id: unite_register_v1
 objective_id: unite_baseline_v1
-share_encoder_denoiser: true
-num_latent_tokens: 4
+action_velocity_samples_per_reconstruction: 0
+action_velocity_weight: 0.0
+
+share_encoder_denoiser: false
+num_latent_tokens: 8
 latent_dim: 16
 condition_dim: 128
 hidden_dim: 768
 action_horizon: 16
 flow_steps_per_reconstruction: 14
-action_velocity_samples_per_reconstruction: 0
-action_velocity_weight: 0.0
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
       selector_key: embodiment
-      selector_aliases: {19: pushshapes_sim_u_socket}
+      selector_aliases: {19: pushshapes_sim_u_socket, 20: pushshapes_sim_chain_gripper}
       input_key: state_agent_model
       output_key: proprio_condition
       output_dim: 64
       projections:
         pushshapes_sim_u_socket:
+          input_dim: 4
+          hidden_dim: 64
+          semantic: x_y_cos_theta_sin_theta
+        pushshapes_sim_chain_gripper:
           input_dim: 4
           hidden_dim: 64
           semantic: x_y_cos_theta_sin_theta
@@ -66,7 +76,6 @@ pipeline:
       timestep_shift_alpha: 0.5
       flow_steps_per_reconstruction: ${model.flow_steps_per_reconstruction}
       flow_mini_batch: 4
-      action_velocity_samples_per_reconstruction: ${model.action_velocity_samples_per_reconstruction}
       train_eps: 0.05
       sample_eps: 0.05
       lognorm_mu: 0.0
@@ -77,7 +86,7 @@ pipeline:
         _target_: egomimic.pipeline.stages_unite_separate.build_configurable_unite_generative_encoder
         _recursive_: false
         share_encoder_denoiser: ${model.share_encoder_denoiser}
-        action_dims: {pushshapes_sim_u_socket: 4}
+        action_dims: {pushshapes_sim_u_socket: 4, pushshapes_sim_chain_gripper: 6}
         condition_input_dim: ${model.condition_dim}
         condition_dim: ${model.condition_dim}
         latent_dim: ${model.latent_dim}
@@ -127,10 +136,21 @@ pipeline:
           mlp_ratio: 4.0
           dropout: 0.0
           gradient_checkpointing: true
+        pushshapes_sim_chain_gripper:
+          _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
+          latent_dim: ${model.latent_dim}
+          action_dim: 6
+          num_latent_tokens: ${model.num_latent_tokens}
+          action_horizon: ${model.action_horizon}
+          hidden_dim: ${model.hidden_dim}
+          depth: 12
+          num_heads: 12
+          mlp_ratio: 4.0
+          dropout: 0.0
+          gradient_checkpointing: true
     - _target_: egomimic.pipeline.stages_unite_released.ReleasedRecipeUniteObjective
       reconstruction_weight: 1.0
       flow_weight: 1.0
-      action_velocity_weight: ${model.action_velocity_weight}
 
 enable_grad_norm: false
 optimizer:

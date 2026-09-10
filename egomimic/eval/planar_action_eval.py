@@ -26,8 +26,8 @@ from egomimic.eval.energy_score import (
     usocket_xy_theta_chunk_distance,
 )
 from egomimic.eval.eval import Eval
-from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.pipeline.core import resolve_homogeneous_scalar
+from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 _DEFAULT_DETERMINISTIC_SEED = 420042
@@ -259,7 +259,7 @@ class PlanarActionEval(Eval):
         suffix = self._validation_group
         return {
             (
-                f"Valid_{suffix}/{key[len('Valid/'):]}"
+                f"Valid_{suffix}/{key[len('Valid/') :]}"
                 if key.startswith("Valid/")
                 else key
             ): value
@@ -485,7 +485,9 @@ class PlanarActionEval(Eval):
             if states.shape[1:] != clean.shape or decoded.shape[1:] != target.shape:
                 raise ValueError("UNITE diagnostic trajectory shapes do not align")
             if clean_decoded is not None and clean_decoded.shape != target.shape:
-                raise ValueError("UNITE diagnostic clean reconstruction shape does not align")
+                raise ValueError(
+                    "UNITE diagnostic clean reconstruction shape does not align"
+                )
             latent_mse = (states - clean.unsqueeze(0)).square().mean(dim=(-2, -1))
             decoded_mse = (
                 (decoded - target.float().unsqueeze(0)).square().mean(dim=(-2, -1))

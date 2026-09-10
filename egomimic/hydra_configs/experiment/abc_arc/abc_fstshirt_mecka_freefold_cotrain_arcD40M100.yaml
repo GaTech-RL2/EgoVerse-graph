@@ -1,0 +1,82 @@
+# @package _global_
+# Cotrain: ABC fold-and-stack-t-shirts (yam_bimanual) + mecka free-fold
+# (human_bimanual), arc-tokenized at D=0.40 / M=100.
+#
+# Arc tokenization is loader-side (arc_tokenizer_cartesian in the data config).
+# Both embodiments produce (101, 14) arc tokens in `actions_cartesian`.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_fstshirt_mecka_freefold_cotrain_arcD40M100
+defaults:
+  - override /model: abc_arc/yam_mecka_cotrain_dp_arc_D40_M100
+  - override /data: abc_arc/abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100
+  - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
+  - override /hydra/launcher: submitit_pace
+  - _self_
+
+name: abc_fstshirt_mecka_freefold_cotrain_arcD40M100
+description: arcD40M100
+
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  # ddp_find_unused_parameters_true: a cotrain model has per-embodiment stems;
+  # a given batch routes through one embodiment's stem and leaves the other
+  # untouched, so plain `ddp` would abort with "Expected to have finished
+  # reduction in the prior iteration".
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 2
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+      - abc
+      - cotrain
+      - arc
+
+# Arc token layout, shared with the single-domain arc arm.
+#
+# per_waypoint keeps a local rate per interval instead of one token-wide mean,
+# which recovers a chunk that accelerates, decelerates or dwells. It also makes
+# the row count 2 * M = 200, divisible by four -- ConditionalUnet1D's two
+# downsample stages require that, and the old 101 (M + 1, odd) crashed the
+# skip-connection concat.
+abc:
+  arc_velocity_mode: per_waypoint
+  arc_token_rows: 200
+  # Arc scoring settings, held equal to the baseline twin.
+  arc_distance: 0.40
+  arc_waypoints: 100
+  arcmatch_points: 32
+  arc_chunk_rows: 45
+  # Control steps the detokenizer reconstructs for the overlay and metrics.
+  action_horizon: 100
+
+# Arc metrics ON, matching the baseline twin so the arms are comparable.
+evaluator:
+  arc_metrics: true
+  arcmatch_distance: ${abc.arc_distance}
+  arcmatch_points: ${abc.arcmatch_points}
+  arc_chunk_rows: ${abc.arc_chunk_rows}
+  resampled_vector_length: ${abc.arc_waypoints}
+  velocity_mode: ${abc.arc_velocity_mode}
+  action_horizon: ${abc.action_horizon}
+  rot_lever_m: 0.1

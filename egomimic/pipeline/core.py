@@ -72,7 +72,14 @@ def sum_losses(batch: dict):
 
 
 class Stage(nn.Module):
-    """A ``dict -> dict`` module with declarative read/write contracts."""
+    """A ``dict -> dict`` module with declarative read/write contracts.
+
+    ``train_only`` and ``inference_only`` drop a stage from the other mode's
+    graph. They exist because a stage that is merely missing a read is a
+    CONFIGURATION ERROR here -- ``Pipeline.execute`` raises on a blocked stage
+    rather than skipping it -- so mode-restricted stages have to say so rather
+    than rely on their inputs happening to be absent.
+    """
 
     reads: Sequence[str] = ()
     writes: Sequence[str] = ()
@@ -132,6 +139,9 @@ class Pipeline(Stage):
             if mode == "inference" and getattr(stage, "train_only", False):
                 excluded.append((stage, ["<train-only>"]))
                 continue
+            if mode == "train" and getattr(stage, "inference_only", False):
+                excluded.append((stage, ["<inference-only>"]))
+                continue
             reads, writes = stage.contract(mode)
             missing = [key for key in reads if not _read_is_available(key, available)]
             if missing:
@@ -159,7 +169,7 @@ class Pipeline(Stage):
         blocked = [
             (type(stage).__name__, missing)
             for stage, missing in excluded
-            if missing != ["<train-only>"]
+            if missing not in (["<train-only>"], ["<inference-only>"])
         ]
         if blocked:
             raise RuntimeError(f"Pipeline {mode} graph has blocked stages: {blocked}")
@@ -187,6 +197,8 @@ class Pipeline(Stage):
             reads, writes = stage.contract(mode)
             if mode == "inference" and getattr(stage, "train_only", False):
                 reason = " (EXCLUDED: train-only)"
+            elif mode == "train" and getattr(stage, "inference_only", False):
+                reason = " (EXCLUDED: inference-only)"
             else:
                 missing = [
                     key for key in reads if not _read_is_available(key, available)

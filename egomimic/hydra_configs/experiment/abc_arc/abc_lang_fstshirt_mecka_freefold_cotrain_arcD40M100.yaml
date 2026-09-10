@@ -1,0 +1,75 @@
+# @package _global_
+# Language-conditioned twin of abc_fstshirt_mecka_freefold_cotrain_arcD40M100.
+#
+# Same mix as the baseline lang run; the model is the thin arc override of the
+# 300M pooled-Qwen HPT. FM horizon follows this fork's per_waypoint token
+# width (${abc.arc_token_rows} = 200), not main's 101.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100
+defaults:
+  - /experiment/abc_arc/hpt_qwen_300M_knobs
+  - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled_arc_D40_M100
+  - override /data: abc_arc/abc_fslongshirt_micro_foldclothes_cotrain_arcD40M100
+  - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
+  - override /hydra/launcher: submitit_pace
+  - _self_
+
+name: abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100
+description: qwen_pooled_arcD40M100
+
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 2
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+      - abc
+      - cotrain
+      - arc
+      - qwen
+      - hpt
+      - lang
+
+abc:
+  arc_velocity_mode: per_waypoint
+  arc_token_rows: 200
+  arc_distance: 0.40
+  arc_waypoints: 100
+  arcmatch_points: 32
+  arc_chunk_rows: 45
+  action_horizon: 100
+
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+
+evaluator:
+  arc_metrics: true
+  arcmatch_distance: ${abc.arc_distance}
+  arcmatch_points: ${abc.arcmatch_points}
+  arc_chunk_rows: ${abc.arc_chunk_rows}
+  resampled_vector_length: ${abc.arc_waypoints}
+  velocity_mode: ${abc.arc_velocity_mode}
+  action_horizon: ${abc.action_horizon}
+  rot_lever_m: 0.1

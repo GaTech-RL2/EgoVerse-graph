@@ -242,7 +242,47 @@ class ArcDetokenizeStage(Stage):
         lower = upper - 1
         t_lo = torch.gather(elapsed, 1, lower)
         t_hi = torch.gather(elapsed, 1, upper)
-        alpha = ((time_targets - t_lo) / (t_hi - t_lo).clamp_min(self.zero_dist_epsilon))
+        alpha = (time_targets - t_lo) / (t_hi - t_lo).clamp_min(self.zero_dist_epsilon)
+        alpha = alpha.clamp(0.0, 1.0)
+        s_lo = torch.gather(cumulative, 1, lower)
+        s_hi = torch.gather(cumulative, 1, upper)
+        return s_lo + alpha * (s_hi - s_lo)
+
+    def _targets_from_duration(
+        self, tokens: torch.Tensor, cumulative: torch.Tensor
+    ) -> torch.Tensor:
+        """Arc positions recovered from stored per-interval durations.
+
+        Timing rows already carry Δt in seconds, so there is no rate divide.
+        A predicted nonzero arc interval with zero duration must hold, not
+        teleport -- same stall policy as the rate path.
+        """
+        durations = tokens[:, self.num_waypoints :, 0].clamp_min(0.0)
+        interval_arc = cumulative[:, 1:] - cumulative[:, :-1]
+        interval_duration = durations[:, :-1]
+        moving = interval_arc > self.zero_dist_epsilon
+        usable = interval_duration > self.zero_dist_epsilon
+        duration = torch.where(
+            moving & usable, interval_duration, torch.zeros_like(interval_arc)
+        )
+        stalled = self.dt * (self.action_horizon + 1)
+        duration = torch.where(
+            moving & ~usable, torch.full_like(duration, stalled), duration
+        )
+        elapsed = torch.cat(
+            (torch.zeros_like(duration[:, :1]), torch.cumsum(duration, dim=1)), dim=1
+        )
+        steps = torch.arange(
+            self.action_horizon, device=tokens.device, dtype=tokens.dtype
+        )
+        time_targets = (self.dt * steps)[None, :].expand(len(tokens), -1)
+        upper = torch.searchsorted(
+            elapsed.contiguous(), time_targets.contiguous(), right=True
+        ).clamp(1, self.num_waypoints - 1)
+        lower = upper - 1
+        t_lo = torch.gather(elapsed, 1, lower)
+        t_hi = torch.gather(elapsed, 1, upper)
+        alpha = (time_targets - t_lo) / (t_hi - t_lo).clamp_min(self.zero_dist_epsilon)
         alpha = alpha.clamp(0.0, 1.0)
         s_lo = torch.gather(cumulative, 1, lower)
         s_hi = torch.gather(cumulative, 1, upper)
@@ -262,6 +302,8 @@ class ArcDetokenizeStage(Stage):
         cumulative = self._arc_positions(waypoints)
         if self.velocity_mode == "mean":
             targets = self._targets_from_mean(tokens, cumulative)
+        elif self.velocity_mode == "duration":
+            targets = self._targets_from_duration(tokens, cumulative)
         else:
             targets = self._targets_from_per_waypoint(tokens, cumulative)
 
@@ -289,7 +331,14 @@ class ArcDetokenizeStage(Stage):
 
         batch["pred_action_native"] = native[..., : self.native_action_dim]
         if self.velocity_mode == "mean":
-            batch["log/ArcSpeed"] = tokens[:, self.num_waypoints, 0].clamp_min(0.0).mean()
+            batch["log/ArcSpeed"] = (
+                tokens[:, self.num_waypoints, 0].clamp_min(0.0).mean()
+            )
+        elif self.velocity_mode == "duration":
+            # Report mean interval duration; reciprocal is not arc speed.
+            batch["log/ArcIntervalDuration"] = (
+                tokens[:, self.num_waypoints :, 0].clamp_min(0.0).mean()
+            )
         else:
             batch["log/ArcSpeed"] = (
                 tokens[:, self.num_waypoints :, 0].clamp_min(0.0).mean()

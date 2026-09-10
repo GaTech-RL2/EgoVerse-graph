@@ -83,6 +83,25 @@ Translation and rotation are resampled on **independent clocks**:
 Both produce `M` samples, so they concatenate on the action dim — this is why the
 row-split layout was unnecessary, and the user was right to reject it.
 
+### 2a. The width-7 grip token (articulated corpus)
+
+`[M, 7] = [x, y, timing_translation, cos, sin, timing_rotation, grip]`
+
+Grip rides the **translation clock**, not a third one: closing on an object is an
+event at a place along the path, and a separate clock would let decoded grip slide
+relative to the pose that commanded it. It is interpolated rather than rate-decoded
+(it is a level, not a motion) and clamped to [0, 1] on the way out, because the
+simulator reads it as a level and diffusion samples do not respect that range.
+
+3-DOF tools (u_socket, triangle, scoop) have no grip channel; `PadPlanarAction`
+fills it with a constant 0, which is the correct value — they engage through
+geometry. Verified: width 7 is bit-identical to width 6 on its first six columns,
+so the grip ablation is not confounded by a geometry change.
+
+Code: `TokenizeArcVelocityStackedGrip` / `TokenizeArcDurationGrip` in `planar_arc.py`,
+`ArcDetokenize{Stacked,Duration}GripStage` in `stages_arc.py`, bindings in
+`egomimic/rldb/embodiment/articulated_arc.py`. Tests: `tests/test_articulated_arc_grip.py`.
+
 **Budget parameters:** `D` = translation budget (px), `M` = waypoints,
 `R` = angular budget in **radians** (`angle_unit() == math.radians`; the config value
 `0.4537856055185257` is 26°).
@@ -184,6 +203,46 @@ committed file at the time you read it. Both times this was skipped, the data wa
 within a week. `results/*.csv` is the place; `tools/plot_codec_rollout_results.py` reads
 from there, so a new run only needs its CSV added.
 
+### 3f. Articulated co-train sweep — LAUNCHED 2026-09-10, results pending
+
+The first experiment on the **fixed** corpus
+(`s3://rldb/staged/pushshapes_articulated/articulated-20260909/`, 162,000 episodes,
+9 embodiments x 6 control modes x 3,000). This is the corpus that actually uses the
+engage channel, commands orientation, and rate-limits motion.
+
+**Design.** Ideal control mode only. Seven embodiments train, two are held out:
+
+| Role | Embodiments | Episodes |
+|---|---|---|
+| Train | u_socket, gripper, chain_gripper, suction, triangle, flipper, spring | 21,000 |
+| **Held out** | **umi** (attachment family), **scoop** (contact family) | 6,000 |
+
+One from each mechanism family, so within-family transfer is measured on both sides,
+and u_socket stays in-train so its in-domain number remains comparable to §3a.
+
+**Five arms**, all Paper-DP at 260M (262.78M with the obs encoder), 240k steps —
+only the action representation differs:
+
+| Job | Experiment | Token |
+|---|---|---|
+| `articotrain-arc-1-1` (l40s-03, 8 GPU) | `artic_cotrain7_arc_dur_D80_M56_R26deg` | (56, 7) duration |
+| | `artic_cotrain7_arc_stk_D80_M56_R26deg` | (56, 7) velocity |
+| | `artic_cotrain7_arc_dur_D80_M16_R26deg` | (16, 7) duration |
+| | `artic_cotrain7_arc_stk_D80_M16_R26deg` | (16, 7) velocity |
+| `articotrain-dp-1-1` (l40-02, 2 GPU) | `artic_cotrain7_dp_paper` | (16, 5) no codec |
+
+Split across two pools deliberately: the previous three eval failures were all
+infrastructure, and a preemption on l40s-03 once killed three jobs at once.
+
+**The token had to grow to width 7.** Six of the nine embodiments latch, grasp or
+suction, and the width-6 token has no engage channel — training on it would have
+reproduced "every grasp is a shove" at the representation layer. See §2a.
+
+**Reading the result.** The held-out pair is evaluated by pointing the rollout
+harness at `artic_holdout2_arc` / `artic_holdout2_dp`. The interesting comparison
+is not ARC-vs-DP in-domain (§3a says that is a null) but whether any representation
+transfers better to a tool it never saw.
+
 ### 3d. Things that were tested and settled
 
 - **Replay grid (896 cells).** `GRID_RANKING.csv`, sha256 `f456cda…`. **6 cells PASS**, not
@@ -283,7 +342,16 @@ These each cost hours. They are listed in descending order of how quietly they f
 
 ### 5.1 Hydra validates on construction, and construction is late
 A malformed config does not fail at submit. It fails after cloning, installing, staging
-40GB, and building the model. Always instantiate locally before submitting.
+40GB, and building the model. Always instantiate locally before submitting:
+
+```bash
+python tools/preflight_experiment_configs.py pusht/<experiment> [...]
+```
+
+That composes the config, instantiates every transform list, builds the pipeline graph,
+and pushes a real token through the denoiser — the same construction that otherwise
+happens hours in. It needs `diffusers` locally (`pip install diffusers`); `lightning`
+is not required because it only checks `cfg.model.pipeline`, not the wrapper.
 
 ### 5.2 `**_kwargs` silently ate `rotation_distance_unit`
 `get_usocket_arc_velocity_transform_list` absorbed misrouted kwargs through `**_kwargs`,
@@ -347,6 +415,18 @@ Write to a file instead.
 ### 5.10 Checkpoints are named `epoch_epoch=2399.ckpt`
 Note the doubled `epoch`. Any epoch-sorting regex written against `epoch_2399.ckpt` will
 match nothing. **This is the prime suspect for the undiagnosed `arcvid4-1` failure** (§6.3).
+
+### 5.10a `osmo workflow submit --set` REPLACES, it does not accumulate
+`--set` is `nargs="+"` with a plain store action, so `--set a=1 --set b=2` keeps only
+`b=2` and everything else silently becomes undefined. The failure surfaces as
+`Jinja substitution failure: 'job_name' is undefined`, which points at the wrong
+thing. Pass every key in ONE `--set` and one `--set-string`.
+
+### 5.10b Data configs must NOT carry `# @package _global_`
+Experiment configs do; data configs do not. A data config with that header puts its
+contents at the config root instead of under `data`, and `cfg.data` then does not
+exist. Compare `data/pusht/planar_v2_usocket.yaml` (no header) with any
+`experiment/pusht/*.yaml` (header). Caught by `tools/preflight_experiment_configs.py`.
 
 ### 5.11 Checkpoint discovery is a fuzzy glob
 The launcher resolves `find "$CK" -path "*${EXP}*" -name last.ckpt | head -1`. Note that

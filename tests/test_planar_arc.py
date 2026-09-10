@@ -8,6 +8,9 @@ from egomimic.pipeline.pushshapes import (
     PlanarArcWaypointZeroNativeDecoder,
     PlanarCommon5NativeDecoder,
 )
+from egomimic.rldb.embodiment.pushshapes import (
+    get_planar_arc_length_transform_list,
+)
 from egomimic.rldb.zarr.planar_arc import (
     PadPlanarAction,
     TokenizePlanarArcLength,
@@ -155,6 +158,27 @@ def test_curvature_token_preserves_anchor_shape_and_timing():
     np.testing.assert_allclose(token[0, :2], action[0, :2])
     assert token[-1, 0] > 0.0
     np.testing.assert_allclose(token[-1, 1:], 0.0)
+
+
+def test_paper_dp_arc_alignment_slices_offset_before_tokenization():
+    actions = np.column_stack(
+        (
+            np.arange(41, dtype=np.float64),
+            np.zeros(41),
+            np.zeros(41),
+        )
+    )
+    transforms = get_planar_arc_length_transform_list(
+        raw_action_horizon=40,
+        action_target_offset=1,
+        min_distance_unit=40.0,
+        resampled_vector_length=16,
+    )
+    batch = {"actions": actions}
+    for transform in transforms:
+        batch = transform.transform(batch)
+    assert batch["actions"].shape == (17, 5)
+    np.testing.assert_allclose(batch["actions"][0, :2], actions[1, :2])
 
 
 @pytest.mark.parametrize(

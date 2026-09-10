@@ -1,0 +1,36 @@
+# @package _global_
+# Paper-DP baseline for the D40/M16/R24-degree arc representation.
+defaults:
+  - /experiment/pusht/planar_v2_usocket_dp_paper
+  - _self_
+
+name: planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg
+description: u_socket_paper_DP_arc_uniform_D40_M16_R24deg_DDPM100_obs2_EMA
+
+planar:
+  raw_action_horizon: 40
+  action_horizon: 17
+  arc_distance: 40.0
+  arc_waypoints: 16
+  arc_rotation_radius: 0.0
+  hybrid_rotation_unit: 0.14776
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
+    resampled_vector_length: 16
+    native_action_dim: 3
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+
+run_provenance:
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: 17
+    waypoint_count: 16
+    timing_rows: 1
+    rollout_action_chunk_start_index: 0
+    replan_every: 1
+    execution_slice: "[0,1)"

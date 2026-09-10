@@ -18,6 +18,7 @@ train_datasets:
         action_target_offset: ${planar.action_target_offset}
       transform_list:
         _target_: ${planar.transform_target}
+        raw_action_horizon: ${planar.raw_action_horizon}
         action_horizon: ${planar.action_horizon}
         action_target_offset: ${planar.action_target_offset}
         min_distance_unit: ${planar.arc_distance}

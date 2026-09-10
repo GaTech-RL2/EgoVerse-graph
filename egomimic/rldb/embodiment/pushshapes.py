@@ -155,6 +155,8 @@ def get_planar_paper_padded_transform_list(
 
 def get_planar_arc_length_transform_list(
     keys: list[str] | None = None,
+    raw_action_horizon: int | None = None,
+    action_target_offset: int = 0,
     min_distance_unit: float = 200.0,
     resampled_vector_length: int = 100,
     dt: float = 1.0 / 30.0,
@@ -169,7 +171,23 @@ def get_planar_arc_length_transform_list(
     keys = keys or ["actions"]
     if len(keys) != 1:
         raise ValueError("Planar arc tokenization requires exactly one action key")
-    return [
+    action_target_offset = int(action_target_offset)
+    if action_target_offset < 0:
+        raise ValueError("action_target_offset must be non-negative")
+    transforms = []
+    if action_target_offset:
+        if raw_action_horizon is None or int(raw_action_horizon) <= 0:
+            raise ValueError(
+                "raw_action_horizon must be positive when action_target_offset is used"
+            )
+        transforms.append(
+            SliceActionTarget(
+                keys,
+                start=action_target_offset,
+                horizon=int(raw_action_horizon),
+            )
+        )
+    transforms.append(
         TokenizePlanarArcLength(
             action_key=keys[0],
             output_action_key=keys[0],
@@ -182,7 +200,8 @@ def get_planar_arc_length_transform_list(
             curvature_dense_samples=curvature_dense_samples,
             curvature_floor=curvature_floor,
         )
-    ]
+    )
+    return transforms
 
 
 def get_usocket_rotvec_action_state_transform_list(

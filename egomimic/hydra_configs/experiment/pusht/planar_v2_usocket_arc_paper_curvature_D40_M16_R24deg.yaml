@@ -1,0 +1,11 @@
+# @package _global_
+# Matched to the Paper-DP uniform arc row; only waypoint placement changes.
+defaults:
+  - /experiment/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg
+  - _self_
+
+name: planar_v2_usocket_arc_paper_curvature_D40_M16_R24deg
+description: u_socket_paper_DP_arc_curvature_D40_M16_R24deg_DDPM100_obs2_EMA
+
+planar:
+  arc_waypoint_sampling: curvature

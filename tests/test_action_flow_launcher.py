@@ -115,7 +115,9 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "expected_count = 50_725_221" in source
     assert "50_801_685" in source
     assert "expected_count = 199_754_837" in source
-    assert "count == 97_956_100" in source
+    assert "AF_EXPECTED_PARAMETER_COUNT=97956100" in source
+    assert "AF_EXPECTED_PARAMETER_COUNT=97956613" in source
+    assert "count == expected_parameter_count" in source
     assert "ReleasedUniteCompositeOptimizer" in source
     assert 'optimizer.muon_adjust_lr_fn == "match_rms_adamw"' in source
 

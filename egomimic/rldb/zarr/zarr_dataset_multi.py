@@ -809,6 +809,10 @@ class MultiDataset(torch.utils.data.Dataset):
 
     NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
 
+    # Default for instances built without going through __init__ (state
+    # reloads, test doubles). __init__ always overwrites it.
+    bounds_check: bool = True
+
     def __init__(
         self,
         datasets: (
@@ -824,6 +828,7 @@ class MultiDataset(torch.utils.data.Dataset):
         expected_valid_episode_names_sha256: str | None = None,
         norm_mode: str = "zscore",
         state: dict | None = None,
+        bounds_check: bool = True,
         **kwargs,
     ):
         """
@@ -854,6 +859,16 @@ class MultiDataset(torch.utils.data.Dataset):
         self._warned_violations: set[str] = set()
         self.train_collections: set = set()
         self.valid_collections: set = set()
+
+        # Whether __getitem__ screens each sample against the per-key quantile
+        # bounds. Off means a sample is returned as read: no NaN/Inf screen and
+        # no fallback substitution. Nine data configs already passed this flag
+        # before it was wired, so it is honoured rather than renamed.
+        #
+        # Set before the state-only return below: a deploy-mode instance skips
+        # the dataset graph entirely, and leaving the attribute unset would
+        # make any later __getitem__ raise AttributeError instead.
+        self.bounds_check = bool(bounds_check)
 
         if state is not None:
             # Deploy / state-only construction — no dataset graph.
@@ -1027,7 +1042,11 @@ class MultiDataset(torch.utils.data.Dataset):
             if isinstance(dataset, MultiDataset):
                 return data
 
-            violation = self._check_bounds(data, dataset, local_idx, dataset_name)
+            violation = (
+                self._check_bounds(data, dataset, local_idx, dataset_name)
+                if self.bounds_check
+                else None
+            )
             if violation is not None:
                 next_idx, attempts = self._next_after_failure(
                     idx,

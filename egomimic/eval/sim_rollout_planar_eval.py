@@ -171,61 +171,42 @@ class SimRolloutPlanarEval(Eval):
                 f"expected {self._n_obs} observations, got {len(history)}"
             )
         obs = history[-1]
-        # Normalize each frame independently, exactly as the loader does
-        # per-sample, then stack along the observation axis.
-        raw = {k: torch.from_numpy(np.ascontiguousarray(v)) for k, v in obs.items()}
-        per_frame_norm = [
-            self.normalizer.normalize(
-                {k: torch.from_numpy(np.ascontiguousarray(v)) for k, v in frame.items()},
-                emb_id,
+        # Stack BEFORE normalizing. With observation_horizon > 1 the norm stats
+        # are shaped (n_obs, D), so normalizing a single (D,) frame broadcasts
+        # to (n_obs, D) and the batch build then fails on a size mismatch.
+        raw = {}
+        for key in obs:
+            arr = np.stack(
+                [np.ascontiguousarray(f[key]) for f in history], axis=0
             )
-            for frame in history
-        ]
-        normalized = per_frame_norm[-1]
-        # FusedObsEncoder wants exactly (batch, n_obs, *per_frame). Reshape to
-        # the per-frame shape rather than unsqueezing twice: normalize() is
-        # keyed through an identity zarr_keys map and returns whatever it was
-        # given, so a stray leading axis would otherwise reach the encoder as
-        # (1,1,1,D) and surface as "output must have shape (1, feature_dim)".
+            if self._n_obs == 1:
+                arr = arr[0]
+            raw[key] = torch.from_numpy(arr)
+        normalized = self.normalizer.normalize(raw, emb_id)
+
         inner = {}
         for key, value in normalized.items():
             tensor = value if torch.is_tensor(value) else torch.as_tensor(value)
-            per_frame = tuple(obs[key].shape)
-            # FusedObsEncoder.forward is asymmetric: when n_obs_steps == 1 it
-            # only checks the batch dim and does NOT collapse an obs axis, so
-            # the batch must be (B, *per_frame) with no obs axis at all. Adding
-            # one leaves it in place and the encoder returns (1, 1, 67) instead
-            # of (1, 67). For n_obs > 1 it does reshape (B, T, ...) itself.
-            if self._n_obs == 1:
-                inner[key] = tensor.reshape(1, *per_frame).to(
-                    device=device, dtype=torch.float32
+            expected = (
+                tuple(obs[key].shape)
+                if self._n_obs == 1
+                else (self._n_obs, *obs[key].shape)
+            )
+            if tuple(tensor.shape) != expected:
+                raise ValueError(
+                    f"{key}: normalized shape {tuple(tensor.shape)} != {expected}"
                 )
-            else:
-                stacked = torch.stack(
-                    [
-                        (f[key] if torch.is_tensor(f[key]) else torch.as_tensor(f[key]))
-                        .reshape(*per_frame)
-                        for f in per_frame_norm
-                    ],
-                    dim=0,
-                )
-                inner[key] = stacked.reshape(1, self._n_obs, *per_frame).to(
-                    device=device, dtype=torch.float32
-                )
+            inner[key] = tensor.unsqueeze(0).to(device=device, dtype=torch.float32)
+
         if not self._logged_shapes:
             self._logged_shapes = True
             for key in sorted(inner):
-                delta = float(
-                    (normalized[key].float() - raw[key].float()).abs().max()
-                )
+                delta = float((normalized[key].float() - raw[key].float()).abs().max())
                 print(
                     f"[sim] obs {key}: env={tuple(obs[key].shape)} "
-                    f"norm={tuple(normalized[key].shape)} batch={tuple(inner[key].shape)} "
+                    f"stacked={tuple(raw[key].shape)} batch={tuple(inner[key].shape)} "
                     f"norm_delta={delta:.6f}"
                 )
-            # normalize() resolves keys through zarr_keys; if that map is not
-            # the identity the proprio silently passes through unnormalized and
-            # the policy sees inputs it was never trained on.
             if float(
                 (normalized["state_agent_obj"].float()
                  - raw["state_agent_obj"].float()).abs().max()
@@ -254,11 +235,20 @@ class SimRolloutPlanarEval(Eval):
         t_start = time.time()
         # Read the observation horizon off the built graph rather than assuming
         # it, since it decides the batch layout above.
-        self._n_obs = 1
-        for stage in getattr(self.model, "stages", None) or []:
-            if hasattr(stage, "n_obs_steps"):
-                self._n_obs = int(stage.n_obs_steps)
-                break
+        # PipelineAlgo exposes the graph as .pipeline.stages, NOT .stages --
+        # getattr(self.model, "stages") silently returns None and leaves this
+        # at 1, which is how a paper (obs-horizon-2) checkpoint came to be
+        # evaluated as if it were obs-horizon-1. Fail instead of defaulting.
+        stages = getattr(getattr(self.model, "pipeline", None), "stages", None)
+        found = [
+            int(st.n_obs_steps) for st in (stages or []) if hasattr(st, "n_obs_steps")
+        ]
+        if not found:
+            raise RuntimeError(
+                "could not read n_obs_steps off the built graph; refusing to "
+                "assume a single observation frame"
+            )
+        self._n_obs = found[0]
         budget, budget_payload = self._budget()
         env_args = self._env_args()
         emb_id = self._emb_id()

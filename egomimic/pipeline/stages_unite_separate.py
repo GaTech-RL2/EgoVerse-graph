@@ -515,14 +515,65 @@ def build_configurable_unite_generative_encoder(
     in_context_start: int = 4,
     in_context_len: int = 32,
     per_embodiment_tokenizer: bool = False,
+    latent_norm_affine: bool = True,
 ) -> ConfigurableUniteGenerativeEncoder:
     """Hydra factory used by every row of the 2x2 register sweep.
+
+    ``latent_norm_affine=False`` pins the tokenizer's output LayerNorm to unit
+    scale (no learnable gain/bias), so the latent the flow has to model cannot
+    inflate over training. In the released recipe the gain is free and, under the
+    reconstruction-noising term, it grows monotonically (ctA: rms 1.22 at 30k ->
+    1.67 at 180k), moving the flow target throughout training. The denoiser's own
+    output norm keeps its affine parameters.
 
     ``per_embodiment_tokenizer`` (cotrain topology B) instantiates one tokenizer
     backbone per configured domain plus one shared denoiser; it requires
     ``share_encoder_denoiser=False``.
     """
 
+    encoder = _build_unite_generative_encoder(
+        backbone_config, share_encoder_denoiser, action_dims, condition_input_dim,
+        latent_dim, num_latent_tokens, condition_dim, denoiser_hidden_dim,
+        gradient_checkpointing, tokenization_time_max, in_context_start,
+        in_context_len, per_embodiment_tokenizer,
+    )
+    if not bool(latent_norm_affine):
+        _pin_tokenization_norms(encoder)
+    return encoder
+
+
+def _pin_tokenization_norms(encoder: ConfigurableUniteGenerativeEncoder) -> None:
+    """Replace the tokenizer-side LayerNorm(s) with non-affine copies."""
+    dim = int(encoder.latent_dim)
+    if isinstance(encoder, PerEmbodimentTokenizerUniteGenerativeEncoder):
+        encoder.tokenization_output_norms = nn.ModuleDict(
+            {domain: nn.LayerNorm(dim, elementwise_affine=False) for domain in encoder.domains}
+        )
+    elif isinstance(encoder, SeparateUniteGenerativeEncoder):
+        encoder.output_norm = nn.LayerNorm(dim, elementwise_affine=False)
+    else:
+        raise ValueError(
+            "latent_norm_affine=False needs un-tied tokenizer/denoiser norms "
+            "(share_encoder_denoiser=False)"
+        )
+    encoder.latent_norm_affine = False
+
+
+def _build_unite_generative_encoder(
+    backbone_config,
+    share_encoder_denoiser,
+    action_dims,
+    condition_input_dim,
+    latent_dim,
+    num_latent_tokens,
+    condition_dim,
+    denoiser_hidden_dim,
+    gradient_checkpointing,
+    tokenization_time_max,
+    in_context_start,
+    in_context_len,
+    per_embodiment_tokenizer,
+) -> ConfigurableUniteGenerativeEncoder:
     if bool(per_embodiment_tokenizer):
         if bool(share_encoder_denoiser):
             raise ValueError(

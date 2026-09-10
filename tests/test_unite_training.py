@@ -10,6 +10,7 @@ from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.pl_utils.training_behavior_unite import (
     ReleasedUniteTrainingBehavior,
 )
+from egomimic.pl_utils.training_metrics import gradient_norm, reduce_component_means
 from egomimic.trainHydra import _instantiate_model_wrapper, _resolve_model_wrapper_class
 from egomimic.utils.unite_optim import (
     ReleasedUniteCompositeOptimizer,
@@ -274,7 +275,7 @@ def test_training_components_are_sample_weighted_and_finite(monkeypatch):
             "batch_size": 4,
         }
 
-    with pytest.raises(RuntimeError, match="Non-finite UNITE metric"):
+    with pytest.raises(RuntimeError, match="Non-finite metric"):
         wrapper.training_step(_batch((1, float("nan"), 1.0, 1.0)), 1)
 
 
@@ -294,9 +295,7 @@ def test_component_reduction_weights_remote_ranks(monkeypatch):
         payload.add_(torch.cat((remote_means * 3, torch.tensor((3.0,)))))
 
     monkeypatch.setattr(torch.distributed, "all_reduce", add_remote)
-    reduced, count = ReleasedUniteTrainingBehavior._distributed_weighted_components(
-        local, 1
-    )
+    reduced, count = reduce_component_means(local, 1, label="UNITE")
     assert count == 4
     assert float(reduced["TotalLoss"]) == pytest.approx(7.5)
     assert float(reduced["ReconstructionLoss"]) == pytest.approx(3.25)
@@ -461,9 +460,11 @@ def test_topology_and_gradient_gates_fail_loudly():
         behavior._unite_topology()
 
     with pytest.raises(RuntimeError, match="zero or non-finite"):
-        behavior._gradient_norm((torch.zeros(2),))
+        gradient_norm((torch.zeros(2),), label="UNITE telemetry")
     with pytest.raises(RuntimeError, match="zero or non-finite"):
-        behavior._gradient_norm((torch.full((2,), float("nan")),))
+        gradient_norm(
+            (torch.full((2,), float("nan")),), label="UNITE telemetry"
+        )
 
     behavior._configured_share_encoder_denoiser = None
     _, encoder, _ = behavior._unite_topology()

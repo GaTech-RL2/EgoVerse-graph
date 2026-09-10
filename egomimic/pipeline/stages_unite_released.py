@@ -275,10 +275,15 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         dynamo cache limit is raised so those few variants all stay cached.
         """
         import torch._dynamo
+        import torch._functorch.config as functorch_config
 
         torch._dynamo.config.cache_size_limit = max(
             int(torch._dynamo.config.cache_size_limit), 64
         )
+        # The wrapper's gradient telemetry calls autograd.grad with
+        # retain_graph=True every 100 steps; a compiled backward with donated
+        # buffers refuses that. Disabling them is a memory optimisation only.
+        functorch_config.donated_buffer = False
         for module in self.compiled_modules():
             module.compile(dynamic=False)
 

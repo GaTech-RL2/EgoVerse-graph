@@ -199,6 +199,40 @@ class ChunkPolicy:
         return chunk
 
 
+class _VideoWriter:
+    """MP4 from the env's world render; a coverage / step caption is burned in."""
+
+    def __init__(self, path: Path, fps: int, every: int):
+        import imageio.v2 as imageio
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.path = path
+        self.every = max(1, int(every))
+        self.writer = imageio.get_writer(str(path), fps=int(fps), codec="libx264", quality=7, macro_block_size=1)
+
+    def capture(self, env, step: int, coverage: float) -> None:
+        if step % self.every:
+            return
+        frame = env.render()
+        if frame is None:
+            return
+        frame = np.ascontiguousarray(frame)
+        try:
+            import cv2
+
+            cv2.putText(frame, f"t={step:4d}  IoU={coverage:.2f}", (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 3, cv2.LINE_AA)
+            cv2.putText(frame, f"t={step:4d}  IoU={coverage:.2f}", (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1, cv2.LINE_AA)
+        except Exception:
+            pass
+        self.writer.append_data(frame)
+
+    def close(self) -> None:
+        try:
+            self.writer.close()
+        except Exception:
+            pass
+
+
 def run_episode(policy: ChunkPolicy, seed: int, args) -> dict:
     from Tsimulation.pushshapes import PushShapesEnv
 
@@ -206,8 +240,14 @@ def run_episode(policy: ChunkPolicy, seed: int, args) -> dict:
                       image_size=args.image_size)
     if args.pusher == "chain_gripper":
         env_kwargs["chain_gripper_control_mode"] = args.chain_control_mode
+    video = None
+    if args.video_dir is not None:
+        env_kwargs["render_mode"] = "rgb_array"
     env = PushShapesEnv(**env_kwargs)
     obs, reset_info = env.reset(seed=int(seed))
+    if args.video_dir is not None:
+        video = _VideoWriter(Path(args.video_dir) / f"seed_{int(seed):03d}.mp4", int(args.video_fps), int(args.video_every))
+        video.capture(env, 0, float(reset_info.get("coverage", 0.0)))
     frames = deque([obs] * policy.n_obs, maxlen=policy.n_obs)
     peak, steps, coverages, predictions = float(reset_info.get("coverage", 0.0)), 0, [], 0
     proj_rmse, proj_wrong, proj_degenerate = [], 0, 0
@@ -237,6 +277,8 @@ def run_episode(policy: ChunkPolicy, seed: int, args) -> dict:
                 coverages.append(cov)
                 frames.append(obs)
                 steps += 1
+                if video is not None:
+                    video.capture(env, steps, cov)
                 if trace is not None:
                     trace.append({"t": steps, "action": [float(v) for v in action], "agent_pos": [float(v) for v in obs["agent_pos"]], "object_pose": [float(v) for v in obs["object_pose"]], "coverage": cov})
                 if terminated or steps >= args.max_steps:
@@ -247,6 +289,8 @@ def run_episode(policy: ChunkPolicy, seed: int, args) -> dict:
     finally:
         signal.alarm(0)
         signal.signal(signal.SIGALRM, old)
+        if video is not None:
+            video.close()
         env.close()
     record = {"seed": seed, "peak": float(peak), "final": float(coverages[-1]) if coverages else 0.0,
               "steps": steps, "predictions": predictions, "status": status, "seconds": time.time() - t0}
@@ -281,6 +325,9 @@ def main(argv=None):
     ap.add_argument("--cfg-scale", type=float, default=None, help="override classifier-free-guidance scale on stages that have cfg_scale")
     ap.add_argument("--sampler-steps", type=int, default=None, help="override num_inference_steps on stages that have it")
     ap.add_argument("--cfg-interval", default=None, help="override cfg_interval as lo,hi (flow time range where guidance applies)")
+    ap.add_argument("--video-dir", type=Path, default=None, help="write <video-dir>/seed_<k>.mp4 from the env's 512x512 world render")
+    ap.add_argument("--video-fps", type=int, default=10, help="MP4 frame rate (Elmo's sim_v2 protocol: 10)")
+    ap.add_argument("--video-every", type=int, default=3, help="capture one frame every N env steps (sim is 30 Hz; 3 at 10 FPS is real time)")
     ap.add_argument("--chain-control-mode", default="points", choices=("pose", "points"),
                     help="chain_gripper only: 'points' feeds the 6-D prediction to the env's point mode (no policy-side IK); 'pose' decodes to [x, y, theta, grip] first")
     args = ap.parse_args(argv)

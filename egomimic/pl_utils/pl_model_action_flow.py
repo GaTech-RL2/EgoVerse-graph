@@ -433,7 +433,13 @@ class ActionFlowModelWrapper(ModelWrapper):
             raise RuntimeError(f"Action Flow {label} reaches no trainable parameters")
         return active
 
-    def _log_gradient_telemetry(self, components: Mapping[str, torch.Tensor]) -> None:
+    def _log_gradient_telemetry(
+        self,
+        components: Mapping[str, torch.Tensor],
+        *,
+        metric_suffix: str = "",
+        record_route_manifest: bool = True,
+    ) -> None:
         named = tuple(
             (name, parameter)
             for name, parameter in self.nets.named_parameters(
@@ -466,9 +472,9 @@ class ActionFlowModelWrapper(ModelWrapper):
                 (gradient.square().sum() for gradient in active.values()),
                 next(iter(active.values())).new_zeros(()),
             ).sqrt()
-            self._log_telemetry(f"GradientNorm/{label}", norm)
+            self._log_telemetry(f"GradientNorm/{label}{metric_suffix}", norm)
             self._log_telemetry(
-                f"GradientParameterCount/{label}",
+                f"GradientParameterCount/{label}{metric_suffix}",
                 sum(named[index][1].numel() for index in active),
             )
 
@@ -486,9 +492,13 @@ class ActionFlowModelWrapper(ModelWrapper):
                         f"Action Flow {left} and {right} have no shared gradient path"
                     )
                 pair = f"{left}__{right}"
-                self._log_telemetry(f"GradientCosine/{pair}", 0.0)
-                self._log_telemetry(f"GradientCosineDefined/{pair}", 0.0)
-                self._log_telemetry(f"GradientIntersectionParameterCount/{pair}", 0)
+                self._log_telemetry(f"GradientCosine/{pair}{metric_suffix}", 0.0)
+                self._log_telemetry(
+                    f"GradientCosineDefined/{pair}{metric_suffix}", 0.0
+                )
+                self._log_telemetry(
+                    f"GradientIntersectionParameterCount/{pair}{metric_suffix}", 0
+                )
                 continue
             zero = left_gradients[shared[0]].new_zeros(())
             dot = sum(
@@ -509,10 +519,12 @@ class ActionFlowModelWrapper(ModelWrapper):
                 else denominator.new_zeros(())
             )
             pair = f"{left}__{right}"
-            self._log_telemetry(f"GradientCosine/{pair}", cosine)
-            self._log_telemetry(f"GradientCosineDefined/{pair}", float(defined))
+            self._log_telemetry(f"GradientCosine/{pair}{metric_suffix}", cosine)
             self._log_telemetry(
-                f"GradientIntersectionParameterCount/{pair}",
+                f"GradientCosineDefined/{pair}{metric_suffix}", float(defined)
+            )
+            self._log_telemetry(
+                f"GradientIntersectionParameterCount/{pair}{metric_suffix}",
                 sum(named[index][1].numel() for index in shared),
             )
 
@@ -544,17 +556,18 @@ class ActionFlowModelWrapper(ModelWrapper):
             "intersections": intersection_names,
             "schema_version": 1,
         }
-        self._gradient_route_manifest = {
-            **manifest_core,
-            "manifest_sha256": hashlib.sha256(
-                json.dumps(
-                    manifest_core,
-                    sort_keys=True,
-                    separators=(",", ":"),
-                    ensure_ascii=True,
-                ).encode("utf-8")
-            ).hexdigest(),
-        }
+        if record_route_manifest:
+            self._gradient_route_manifest = {
+                **manifest_core,
+                "manifest_sha256": hashlib.sha256(
+                    json.dumps(
+                        manifest_core,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=True,
+                    ).encode("utf-8")
+                ).hexdigest(),
+            }
 
     def _fm_endpoint_detached(self) -> bool:
         stages = getattr(getattr(self.model, "pipeline", None), "stages", ())
@@ -672,6 +685,12 @@ class ActionFlowModelWrapper(ModelWrapper):
             and next_step % self.gradient_telemetry_cadence == 0
         ):
             self._log_gradient_telemetry(components)
+            for source, (_, source_components) in per_source.items():
+                self._log_gradient_telemetry(
+                    source_components,
+                    metric_suffix=f"/{source}",
+                    record_route_manifest=False,
+                )
         return optimizer_loss
 
     def on_after_backward(self) -> None:

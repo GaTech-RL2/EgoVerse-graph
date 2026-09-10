@@ -331,6 +331,7 @@ def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypat
         ),
     ):
         assert float(logged[name][0]) == pytest.approx(expected)
+        assert float(logged[f"{name}/source"][0]) == pytest.approx(expected)
     assert float(
         logged[
             "Train/ActionFlow/GradientIntersectionParameterCount/FM__ActionVelocity"

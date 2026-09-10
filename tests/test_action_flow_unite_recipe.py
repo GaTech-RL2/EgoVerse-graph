@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import torch
 
 from egomimic.models.action_flow_unite import (
+    EmbodimentModuleRouter,
     UniteActionFlowContentEncoder,
     UniteActionFlowVelocityField,
 )
@@ -199,3 +200,29 @@ def test_reconstruction_noising_start_one_is_exactly_clean():
         }
     )
     torch.testing.assert_close(result["action_flow/reconstruction"], clean)
+
+
+def test_private_codec_router_selects_full_module_by_embodiment():
+    chain = torch.nn.Linear(3, 4, bias=False)
+    usocket = torch.nn.Linear(3, 4, bias=False)
+    torch.nn.init.constant_(chain.weight, 1.0)
+    torch.nn.init.constant_(usocket.weight, 2.0)
+    router = EmbodimentModuleRouter(
+        {
+            "pushshapes_sim_chain_gripper": chain,
+            "pushshapes_sim_u_socket": usocket,
+        },
+        selector_aliases={
+            19: "pushshapes_sim_u_socket",
+            20: "pushshapes_sim_chain_gripper",
+        },
+    )
+    value = torch.ones(2, 3)
+    chain_out = router(value, torch.tensor([20, 20]))
+    usocket_out = router(value, torch.tensor([19, 19]))
+    assert torch.all(chain_out == 3.0)
+    assert torch.all(usocket_out == 6.0)
+    assert set(dict(router.named_parameters())) == {
+        "modules_by_embodiment.pushshapes_sim_chain_gripper.weight",
+        "modules_by_embodiment.pushshapes_sim_u_socket.weight",
+    }

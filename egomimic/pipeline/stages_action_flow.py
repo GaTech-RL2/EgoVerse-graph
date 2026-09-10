@@ -40,14 +40,22 @@ class ContentEncoderStage(Stage):
     def __init__(
         self,
         encoder: nn.Module,
+        selector_key: str | None = None,
         input_key: str = "target",
         output_key: str = "action_flow/clean_latent",
     ):
         super().__init__()
         self.encoder = _module(encoder, label="encoder")
+        self.selector_key = (
+            _key(selector_key, label="selector_key")
+            if selector_key is not None
+            else None
+        )
         self.input_key = _key(input_key, label="input_key")
         self.output_key = _key(output_key, label="output_key")
-        self.reads = (self.input_key,)
+        self.reads = (self.input_key,) + (
+            (self.selector_key,) if self.selector_key is not None else ()
+        )
         self.writes = (self.output_key,)
 
     def forward(self, batch: dict) -> dict:
@@ -56,7 +64,11 @@ class ContentEncoderStage(Stage):
             raise ValueError(
                 f"{self.input_key} must have shape (B, ...), got {tuple(content.shape)}"
             )
-        clean = self.encoder(content)
+        clean = (
+            self.encoder(content, batch[self.selector_key])
+            if self.selector_key is not None
+            else self.encoder(content)
+        )
         if not torch.is_tensor(clean) or clean.ndim < 2:
             shape = tuple(clean.shape) if torch.is_tensor(clean) else None
             raise ValueError(f"encoder output must have shape (B, ...), got {shape}")
@@ -513,6 +525,7 @@ class ContentDecoderStage(Stage):
     def __init__(
         self,
         decoder: nn.Module,
+        selector_key: str | None = None,
         reconstruction_noising_start: float = 1.0,
         reconstruction_noising_probability: float = 0.0,
         clean_key: str = "action_flow/clean_latent",
@@ -525,6 +538,11 @@ class ContentDecoderStage(Stage):
     ):
         super().__init__()
         self.decoder = _module(decoder, label="decoder")
+        self.selector_key = (
+            _key(selector_key, label="selector_key")
+            if selector_key is not None
+            else None
+        )
         self.reconstruction_noising_start = float(reconstruction_noising_start)
         self.reconstruction_noising_probability = float(
             reconstruction_noising_probability
@@ -544,13 +562,40 @@ class ContentDecoderStage(Stage):
             inference_latent_key, label="inference_latent_key"
         )
         self.prediction_key = _key(prediction_key, label="prediction_key")
-        self.reads = (self.clean_key, self.state_key, self.residual_key)
+        selector_reads = (
+            (self.selector_key,) if self.selector_key is not None else ()
+        )
+        self.reads = (
+            self.clean_key,
+            self.state_key,
+            self.residual_key,
+            *selector_reads,
+        )
         self.writes = (self.reconstruction_key, self.decoded_residual_key)
-        self.reads_by_mode = {"inference": (self.inference_latent_key,)}
+        self.reads_by_mode = {
+            "inference": (self.inference_latent_key, *selector_reads)
+        }
         self.writes_by_mode = {"inference": (self.prediction_key,)}
 
-    def _decode(self, value: torch.Tensor, *, label: str) -> torch.Tensor:
-        decoded = self.decoder(value)
+    def _selected_decoder(self, batch: dict) -> nn.Module:
+        if self.selector_key is None:
+            return self.decoder
+        selector = batch[self.selector_key]
+        module_for = getattr(self.decoder, "module_for", None)
+        if module_for is None:
+            raise TypeError(
+                "selector_key requires a decoder exposing module_for(selector)"
+            )
+        return _module(module_for(selector), label="selected decoder")
+
+    def _decode(
+        self,
+        decoder: nn.Module,
+        value: torch.Tensor,
+        *,
+        label: str,
+    ) -> torch.Tensor:
+        decoded = decoder(value)
         if not torch.is_tensor(decoded) or decoded.ndim < 2:
             shape = tuple(decoded.shape) if torch.is_tensor(decoded) else None
             raise ValueError(f"decoder {label} must have shape (B, ...), got {shape}")
@@ -581,14 +626,17 @@ class ContentDecoderStage(Stage):
                 < self.reconstruction_noising_probability
             ).reshape(batch_size, *([1] * (clean.ndim - 1)))
             reconstruction_input = torch.where(mask, noised, clean)
-        reconstruction = self._decode(reconstruction_input, label="reconstruction")
+        decoder = self._selected_decoder(batch)
+        reconstruction = self._decode(
+            decoder, reconstruction_input, label="reconstruction"
+        )
         # PyTorch's non-reentrant activation checkpointing installs saved-tensor
         # hooks that are incompatible with ``torch.func`` transforms. Preserve
         # checkpointing for the reconstruction pass, but disable it only while
         # computing this required forward-mode JVP.
-        checkpointing = getattr(self.decoder, "gradient_checkpointing", None)
+        checkpointing = getattr(decoder, "gradient_checkpointing", None)
         if isinstance(checkpointing, bool):
-            self.decoder.gradient_checkpointing = False
+            decoder.gradient_checkpointing = False
         # CUDA FlashAttention does not implement forward-mode AD. Restrict the
         # decoder JVP to the mathematically equivalent SDPA math kernel; normal
         # reconstruction, training, and inference forwards keep their default
@@ -615,13 +663,13 @@ class ContentDecoderStage(Stage):
         try:
             with precision_context, attention_context:
                 decoded_residual = jvp(
-                    self.decoder,
+                    decoder,
                     (jvp_state,),
                     (jvp_residual,),
                 )[1]
         finally:
             if isinstance(checkpointing, bool):
-                self.decoder.gradient_checkpointing = checkpointing
+                decoder.gradient_checkpointing = checkpointing
         if not torch.is_tensor(decoded_residual) or decoded_residual.ndim < 2:
             shape = (
                 tuple(decoded_residual.shape)
@@ -637,7 +685,9 @@ class ContentDecoderStage(Stage):
 
     def _forward_inference(self, batch: dict) -> dict:
         latent = _tensor(batch, self.inference_latent_key)
-        batch[self.prediction_key] = self._decode(latent, label="prediction")
+        batch[self.prediction_key] = self._decode(
+            self._selected_decoder(batch), latent, label="prediction"
+        )
         return batch
 
     def execute(self, batch: dict, *, mode: str) -> dict:

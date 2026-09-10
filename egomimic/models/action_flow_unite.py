@@ -10,6 +10,57 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from egomimic.pipeline.core import resolve_homogeneous_scalar
+
+
+class EmbodimentModuleRouter(nn.Module):
+    """Route a homogeneous batch to one private embodiment module.
+
+    The selected modules are deliberately full, disjoint parameter trees.  This
+    keeps the action codec boundary private while allowing the downstream
+    conditional velocity field to remain the sole shared generator.
+    """
+
+    def __init__(
+        self,
+        modules: dict[str, nn.Module],
+        selector_aliases: dict | None = None,
+    ):
+        super().__init__()
+        configured = {str(name): module for name, module in modules.items()}
+        if not configured or any(
+            not isinstance(module, nn.Module) for module in configured.values()
+        ):
+            raise ValueError("modules must contain at least one nn.Module")
+        self.modules_by_embodiment = nn.ModuleDict(configured)
+        self.domains = tuple(configured)
+        self.selector_aliases = {
+            str(source): str(target)
+            for source, target in dict(selector_aliases or {}).items()
+        }
+        unknown = set(self.selector_aliases.values()) - set(self.domains)
+        if unknown:
+            raise ValueError(
+                f"selector_aliases reference unknown modules: {sorted(unknown)}"
+            )
+
+    def _resolve(self, embodiment) -> str:
+        value = resolve_homogeneous_scalar(
+            embodiment, label="action-flow embodiment selector"
+        )
+        value = self.selector_aliases.get(str(value), str(value))
+        if value not in self.modules_by_embodiment:
+            raise KeyError(
+                f"Unknown action-flow embodiment {value!r}; configured={self.domains}"
+            )
+        return value
+
+    def module_for(self, embodiment) -> nn.Module:
+        return self.modules_by_embodiment[self._resolve(embodiment)]
+
+    def forward(self, value: torch.Tensor, embodiment) -> torch.Tensor:
+        return self.module_for(embodiment)(value)
+
 
 class UniteActionFlowContentEncoder(nn.Module):
     """Tokenize a clean action chunk into compact Gaussian-query registers."""

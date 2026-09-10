@@ -343,6 +343,49 @@ def test_mode_contracts_form_one_static_train_and_inference_graph():
     )
 
 
+def test_content_stages_route_private_codec_modules():
+    class _Router(nn.Module):
+        def __init__(self, modules):
+            super().__init__()
+            self.branches = nn.ModuleDict(modules)
+
+        @staticmethod
+        def _key(selector):
+            value = int(selector.reshape(-1)[0].item())
+            return {19: "usocket", 20: "chain"}[value]
+
+        def module_for(self, selector):
+            return self.branches[self._key(selector)]
+
+        def forward(self, value, selector):
+            return self.module_for(selector)(value)
+
+    encoders = _Router(
+        {
+            "usocket": _LastDimLinear(4, 3),
+            "chain": _LastDimLinear(4, 3),
+        }
+    )
+    decoders = _Router(
+        {
+            "usocket": _LastDimLinear(3, 4),
+            "chain": _LastDimLinear(3, 4),
+        }
+    )
+    encoder_stage = ContentEncoderStage(encoders, selector_key="embodiment")
+    decoder_stage = ContentDecoderStage(decoders, selector_key="embodiment")
+    batch = {
+        "target": torch.randn(2, 5, 4),
+        "embodiment": torch.tensor([20, 20]),
+    }
+    encoded = encoder_stage(batch)
+    clean = encoded["action_flow/clean_latent"]
+    encoded["action_flow/state"] = clean
+    encoded["action_flow/velocity_residual"] = torch.randn_like(clean)
+    result = decoder_stage(encoded)
+    assert tuple(result["action_flow/reconstruction"].shape) == (2, 5, 4)
+
+
 def test_stage_source_keeps_the_pipeline_boundary_generic():
     source = (
         (Path(__file__).parents[1] / "egomimic/pipeline/stages_action_flow.py")

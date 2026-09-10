@@ -137,6 +137,10 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
                 f"start={self.in_context_start}, len={self.in_context_len}"
             )
 
+    def backbone_modules(self) -> tuple[nn.Module, ...]:
+        """Every distinct DiT backbone this encoder owns (for torch.compile)."""
+        return (self.denoising_module,)
+
     def _resolve_domain(self, embodiment=None) -> str:
         if embodiment is not None:
             return self._validate_domain(embodiment)
@@ -146,10 +150,12 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
             )
         return self.domains[0]
 
-    def _tokenization_backbone(self) -> nn.Module:
+    def _tokenization_backbone(self, embodiment: str) -> nn.Module:
+        del embodiment
         return self.denoising_module
 
-    def _tokenization_norm(self) -> nn.Module:
+    def _tokenization_norm(self, embodiment: str) -> nn.Module:
+        del embodiment
         return self.output_norm
 
     def _tokenization_domain_embedding(self, embodiment: str) -> torch.Tensor:
@@ -161,7 +167,8 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
     def _denoising_domain_embedding(self, embodiment: str) -> torch.Tensor:
         return self.domain_embeddings[embodiment]
 
-    def _tokenization_condition_projection(self) -> nn.Module:
+    def _tokenization_condition_projection(self, embodiment: str) -> nn.Module:
+        del embodiment
         return self.condition_projection
 
     def _tokenization_null_input(self, embodiment: str) -> torch.Tensor:
@@ -222,7 +229,9 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
         content = self.action_context_projections[embodiment](actions)
         domain = self._tokenization_domain_embedding(embodiment).to(content)
         null_input = self._tokenization_null_input(embodiment).to(content)
-        tokenization_condition = self._tokenization_condition_projection()(null_input)
+        tokenization_condition = self._tokenization_condition_projection(embodiment)(
+            null_input
+        )
         tokenization_condition = (tokenization_condition + domain).reshape(1, 1, -1)
         batch_size = int(actions.shape[0])
         tokenization_condition = tokenization_condition.expand(batch_size, -1, -1)
@@ -230,7 +239,7 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
             torch.rand(batch_size, device=actions.device, dtype=torch.float32)
             * self.tokenization_time_max
         )
-        encoded = self._tokenization_backbone()(
+        encoded = self._tokenization_backbone(embodiment)(
             register_queries.to(device=actions.device, dtype=actions.dtype),
             time,
             condition=tokenization_condition,
@@ -241,7 +250,7 @@ class ConfigurableUniteGenerativeEncoder(nn.Module):
             raise RuntimeError(
                 f"UNITE tokenizer produced {tuple(encoded.shape)}, expected {expected}"
             )
-        return self._tokenization_norm()(encoded)
+        return self._tokenization_norm(embodiment)(encoded)
 
     def denoise(
         self,
@@ -345,7 +354,11 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
             }
         )
 
-    def _tokenization_backbone(self) -> nn.Module:
+    def backbone_modules(self) -> tuple[nn.Module, ...]:
+        return (self.tokenization_module, self.denoising_module)
+
+    def _tokenization_backbone(self, embodiment: str) -> nn.Module:
+        del embodiment
         return self.tokenization_module
 
     def _denoising_norm(self) -> nn.Module:
@@ -354,8 +367,116 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
     def _denoising_domain_embedding(self, embodiment: str) -> torch.Tensor:
         return self.denoising_domain_embeddings[embodiment]
 
-    def _tokenization_condition_projection(self) -> nn.Module:
+    def _tokenization_condition_projection(self, embodiment: str) -> nn.Module:
+        del embodiment
         return self.tokenization_condition_projection
+
+    def _tokenization_null_input(self, embodiment: str) -> torch.Tensor:
+        return self.tokenization_null_condition_inputs[embodiment]
+
+
+class PerEmbodimentTokenizerUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
+    """One tokenizer ("encoder") per embodiment, one denoiser shared by all.
+
+    Cotrain topology B (Aidan, 2026-09-09): every embodiment owns a full
+    tokenizer DiT, its own tokenizer condition projection, null input, domain
+    embedding and output LayerNorm. The latent space, the denoiser DiT (with a
+    per-embodiment domain embedding in its AdaLN condition) and the register
+    queries are shared; the action decoders are per embodiment as before.
+    """
+
+    def __init__(
+        self,
+        tokenization_modules: Mapping[str, nn.Module],
+        denoising_module: nn.Module,
+        action_dims: Dict[str, int],
+        condition_input_dim: int,
+        latent_dim: int,
+        num_latent_tokens: int,
+        condition_dim: int,
+        denoiser_hidden_dim: int,
+        gradient_checkpointing: bool = True,
+        tokenization_time_max: float = 0.01,
+        in_context_start: int = 4,
+        in_context_len: int = 32,
+    ):
+        super().__init__(
+            denoising_module=denoising_module,
+            action_dims=action_dims,
+            condition_input_dim=condition_input_dim,
+            latent_dim=latent_dim,
+            num_latent_tokens=num_latent_tokens,
+            condition_dim=condition_dim,
+            denoiser_hidden_dim=denoiser_hidden_dim,
+            gradient_checkpointing=gradient_checkpointing,
+            tokenization_time_max=tokenization_time_max,
+            in_context_start=in_context_start,
+            in_context_len=in_context_len,
+        )
+        modules = {str(domain): module for domain, module in dict(tokenization_modules).items()}
+        if set(modules) != set(self.domains):
+            raise ValueError(
+                "per-embodiment UNITE tokenizers must cover exactly the configured "
+                f"domains {self.domains}, got {tuple(modules)}"
+            )
+        identities = [id(module) for module in modules.values()] + [id(denoising_module)]
+        if len(set(identities)) != len(identities):
+            raise ValueError("per-embodiment UNITE requires distinct backbone objects")
+        for module in modules.values():
+            self._validate_backbone_contract(module)
+        # The shared LayerNorm of the base class served both passes; here the
+        # tokenizer norms are per embodiment and the denoiser owns its own.
+        del self.output_norm
+        self.tokenization_modules = nn.ModuleDict(
+            {domain: modules[domain] for domain in self.domains}
+        )
+        self.tokenization_output_norms = nn.ModuleDict(
+            {domain: nn.LayerNorm(self.latent_dim) for domain in self.domains}
+        )
+        self.tokenization_condition_projections = nn.ModuleDict(
+            {
+                domain: nn.Linear(self.condition_input_dim, self.condition_dim)
+                for domain in self.domains
+            }
+        )
+        self.tokenization_null_condition_inputs = nn.ParameterDict(
+            {
+                domain: nn.Parameter(
+                    torch.empty(self.condition_input_dim).normal_(std=0.02)
+                )
+                for domain in self.domains
+            }
+        )
+        self.denoising_output_norm = nn.LayerNorm(self.latent_dim)
+        self.denoising_domain_embeddings = nn.ParameterDict(
+            {
+                domain: nn.Parameter(torch.empty(self.condition_dim).normal_(std=0.02))
+                for domain in self.domains
+            }
+        )
+
+    @property
+    def tokenization_module(self) -> nn.Module:
+        """Topology probe used by the wrapper: any tokenizer, never the denoiser."""
+        return self.tokenization_modules[self.domains[0]]
+
+    def backbone_modules(self) -> tuple[nn.Module, ...]:
+        return (*self.tokenization_modules.values(), self.denoising_module)
+
+    def _tokenization_backbone(self, embodiment: str) -> nn.Module:
+        return self.tokenization_modules[embodiment]
+
+    def _tokenization_norm(self, embodiment: str) -> nn.Module:
+        return self.tokenization_output_norms[embodiment]
+
+    def _denoising_norm(self) -> nn.Module:
+        return self.denoising_output_norm
+
+    def _denoising_domain_embedding(self, embodiment: str) -> torch.Tensor:
+        return self.denoising_domain_embeddings[embodiment]
+
+    def _tokenization_condition_projection(self, embodiment: str) -> nn.Module:
+        return self.tokenization_condition_projections[embodiment]
 
     def _tokenization_null_input(self, embodiment: str) -> torch.Tensor:
         return self.tokenization_null_condition_inputs[embodiment]
@@ -393,8 +514,97 @@ def build_configurable_unite_generative_encoder(
     tokenization_time_max: float = 0.01,
     in_context_start: int = 4,
     in_context_len: int = 32,
+    per_embodiment_tokenizer: bool = False,
+    latent_norm_affine: bool = True,
 ) -> ConfigurableUniteGenerativeEncoder:
-    """Hydra factory used by every row of the 2x2 register sweep."""
+    """Hydra factory used by every row of the 2x2 register sweep.
+
+    ``latent_norm_affine=False`` pins the tokenizer's output LayerNorm to unit
+    scale (no learnable gain/bias), so the latent the flow has to model cannot
+    inflate over training. In the released recipe the gain is free and, under the
+    reconstruction-noising term, it grows monotonically (ctA: rms 1.22 at 30k ->
+    1.67 at 180k), moving the flow target throughout training. The denoiser's own
+    output norm keeps its affine parameters.
+
+    ``per_embodiment_tokenizer`` (cotrain topology B) instantiates one tokenizer
+    backbone per configured domain plus one shared denoiser; it requires
+    ``share_encoder_denoiser=False``.
+    """
+
+    encoder = _build_unite_generative_encoder(
+        backbone_config, share_encoder_denoiser, action_dims, condition_input_dim,
+        latent_dim, num_latent_tokens, condition_dim, denoiser_hidden_dim,
+        gradient_checkpointing, tokenization_time_max, in_context_start,
+        in_context_len, per_embodiment_tokenizer,
+    )
+    if not bool(latent_norm_affine):
+        _pin_tokenization_norms(encoder)
+    return encoder
+
+
+def _pin_tokenization_norms(encoder: ConfigurableUniteGenerativeEncoder) -> None:
+    """Replace the tokenizer-side LayerNorm(s) with non-affine copies."""
+    dim = int(encoder.latent_dim)
+    if isinstance(encoder, PerEmbodimentTokenizerUniteGenerativeEncoder):
+        encoder.tokenization_output_norms = nn.ModuleDict(
+            {domain: nn.LayerNorm(dim, elementwise_affine=False) for domain in encoder.domains}
+        )
+    elif isinstance(encoder, SeparateUniteGenerativeEncoder):
+        encoder.output_norm = nn.LayerNorm(dim, elementwise_affine=False)
+    else:
+        raise ValueError(
+            "latent_norm_affine=False needs un-tied tokenizer/denoiser norms "
+            "(share_encoder_denoiser=False)"
+        )
+    encoder.latent_norm_affine = False
+
+
+def _build_unite_generative_encoder(
+    backbone_config,
+    share_encoder_denoiser,
+    action_dims,
+    condition_input_dim,
+    latent_dim,
+    num_latent_tokens,
+    condition_dim,
+    denoiser_hidden_dim,
+    gradient_checkpointing,
+    tokenization_time_max,
+    in_context_start,
+    in_context_len,
+    per_embodiment_tokenizer,
+) -> ConfigurableUniteGenerativeEncoder:
+    if bool(per_embodiment_tokenizer):
+        if bool(share_encoder_denoiser):
+            raise ValueError(
+                "per_embodiment_tokenizer requires share_encoder_denoiser=False"
+            )
+        if isinstance(backbone_config, nn.Module):
+            raise TypeError(
+                "per_embodiment_tokenizer needs a backbone config, not a module"
+            )
+        domains = tuple(str(domain) for domain in dict(action_dims))
+        tokenizers = {}
+        for domain in domains:
+            module = _instantiate_backbone(backbone_config)
+            _configure_gradient_checkpointing(module, gradient_checkpointing)
+            tokenizers[domain] = module
+        denoiser = _instantiate_backbone(backbone_config)
+        _configure_gradient_checkpointing(denoiser, gradient_checkpointing)
+        return PerEmbodimentTokenizerUniteGenerativeEncoder(
+            tokenization_modules=tokenizers,
+            denoising_module=denoiser,
+            action_dims=action_dims,
+            condition_input_dim=condition_input_dim,
+            latent_dim=latent_dim,
+            num_latent_tokens=num_latent_tokens,
+            condition_dim=condition_dim,
+            denoiser_hidden_dim=denoiser_hidden_dim,
+            gradient_checkpointing=gradient_checkpointing,
+            tokenization_time_max=tokenization_time_max,
+            in_context_start=in_context_start,
+            in_context_len=in_context_len,
+        )
 
     first = _instantiate_backbone(backbone_config)
     _configure_gradient_checkpointing(first, gradient_checkpointing)

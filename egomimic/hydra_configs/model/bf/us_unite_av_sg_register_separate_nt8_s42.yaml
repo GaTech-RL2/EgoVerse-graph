@@ -1,0 +1,6 @@
+defaults:
+  - /model/bf/us_unite_av_register_separate_nt8_s42@_here_
+  - _self_
+
+# {sg + AV} on the un-shared backbone: stop-gradient kept on Z_0.
+action_velocity_detach_clean: true

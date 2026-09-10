@@ -34,7 +34,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import numpy as np
 import torch
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, OmegaConf, open_dict
 
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
@@ -102,6 +102,16 @@ class ChunkPolicy:
                  embodiment_id: int, use_ema: bool, device: torch.device, raw_action_width: int | None = None):
         checkpoint = torch.load(ckpt, map_location="cpu", weights_only=False)
         embedded, resolved = _checkpoint_config(checkpoint, str(config_path))
+        # Inference is eager for every row: a run trained with torch.compile
+        # (compile_backbones=true) is rolled out through the same uncompiled
+        # graph as the others, so the evaluation path is identical across rows.
+        self.trained_with_compile = False
+        stages = OmegaConf.select(embedded, "model.pipeline.stages") or []
+        for stage in stages:
+            if isinstance(stage, DictConfig) and "compile_backbones" in stage:
+                self.trained_with_compile = bool(stage.compile_backbones) or self.trained_with_compile
+                with open_dict(stage):
+                    stage.compile_backbones = False
         wrapper = ModelWrapper(config_tree=embedded)
         strict_load_pipeline_checkpoint(wrapper.model, checkpoint, use_ema=use_ema)
         wrapper.to(device)
@@ -369,6 +379,7 @@ def main(argv=None):
         "n_episodes": len(episodes), "seed_base": args.seed_base, "success_threshold": args.success_threshold,
         "cfg_scale_override": args.cfg_scale, "sampler_steps_override": args.sampler_steps, "cfg_interval_override": args.cfg_interval,
         "pusher": args.pusher, "chain_control_mode": args.chain_control_mode if args.pusher == "chain_gripper" else None,
+        "trained_with_compile": policy.trained_with_compile, "compiled_inference": False,
         "decoder": policy.decoder_name, "sim_module": str(env_module.__file__),
         "success_rate": float((peaks >= args.success_threshold).mean()) if len(peaks) else None,
         "successes": int((peaks >= args.success_threshold).sum()),

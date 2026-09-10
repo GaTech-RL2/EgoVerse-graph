@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 DOMAIN = "pushshapes_sim_u_socket"
+SUPPORTED_DOMAINS = {DOMAIN, "pushshapes_sim_chain_gripper"}
 SPLIT_SEED = 42
 VALID_RATIO = 0.01
 SPLIT_ALGORITHM = (
@@ -120,9 +121,12 @@ def validate_manifest_structure(manifest: Mapping[str, Any]) -> dict[str, Any]:
     _digest(manifest.get("generator_sha256"), "generator_sha256")
 
     domains = manifest.get("domains")
-    if not isinstance(domains, Mapping) or set(domains) != {DOMAIN}:
-        raise RuntimeError(f"split manifest must contain only {DOMAIN}")
-    domain = domains[DOMAIN]
+    if not isinstance(domains, Mapping) or len(domains) != 1:
+        raise RuntimeError("split manifest must contain exactly one domain")
+    domain_name = next(iter(domains))
+    if domain_name not in SUPPORTED_DOMAINS:
+        raise RuntimeError(f"unsupported split-manifest domain: {domain_name}")
+    domain = domains[domain_name]
     if not isinstance(domain, Mapping):
         raise RuntimeError("split manifest domain must be an object")
     source_root = domain.get("folder_path")
@@ -165,7 +169,7 @@ def validate_manifest_structure(manifest: Mapping[str, Any]) -> dict[str, Any]:
     _digest(domain.get("train_resolved_paths_sha256"), "train path SHA-256")
     _digest(domain.get("valid_resolved_paths_sha256"), "valid path SHA-256")
     return {
-        "domain": DOMAIN,
+        "domain": domain_name,
         "source_dataset_root": source_root,
         "inventory": inventory,
         "train": train,
@@ -402,7 +406,7 @@ def main() -> int:
         "valid_ratio": VALID_RATIO,
         "split_algorithm": SPLIT_ALGORITHM,
         "generator_sha256": generator_digest,
-        "domain": DOMAIN,
+        "domain": report["domain"],
         "physical_inventory": report,
         "content_identity": content_identity,
     }

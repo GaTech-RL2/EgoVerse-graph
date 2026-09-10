@@ -70,6 +70,9 @@ ICE_MAX_RESTARTS=${ICE_MAX_RESTARTS:-32}
 ICE_UNITE_LR=${ICE_UNITE_LR:-}
 ICE_EXTRA_OVERRIDES=${ICE_EXTRA_OVERRIDES:-}
 ICE_UNITE_LR_FINAL=${ICE_UNITE_LR_FINAL:-}
+# Optional terminal LR for a late anneal (model.scheduler.final_lr); the plateau LR stays
+# ICE_UNITE_LR_FINAL. Pair with ICE_EXTRA_OVERRIDES setting decay_start_2/decay_end_2 steps.
+ICE_UNITE_LR_TERMINAL=${ICE_UNITE_LR_TERMINAL:-}
 ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
 ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-unite-ice}
 ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,unite,ice]'}
@@ -323,7 +326,7 @@ if test -n "$ICE_UNITE_LR"; then
     "model.optimizer.lr=$ICE_UNITE_LR"
     "model.scheduler.base_lr_1=$ICE_UNITE_LR"
     "model.scheduler.base_lr_2=$ICE_UNITE_LR_FINAL"
-    "model.scheduler.final_lr=$ICE_UNITE_LR_FINAL"
+    "model.scheduler.final_lr=${ICE_UNITE_LR_TERMINAL:-$ICE_UNITE_LR_FINAL}"
   )
 fi
 if test "$ICE_UNITE_DIAGNOSTICS" = true; then
@@ -387,7 +390,7 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
   "$ICE_UNITE_DIAGNOSTICS" "$ICE_WORLD_SIZE" "$ICE_TRAIN_BATCH_SIZE" \
   "$ICE_VALID_BATCH_SIZE" "$ICE_UNITE_LR" "$ICE_UNITE_LR_FINAL" \
   "$ICE_EMBODIMENTS" "${ICE_EXPECTED_SPLIT_MANIFEST_SHA256_CHAIN:-}" \
-  "$ICE_UNITE_COMPILE" <<'PY'
+  "$ICE_UNITE_COMPILE" "$ICE_UNITE_LR_TERMINAL" <<'PY'
 import math
 import pathlib
 import sys
@@ -414,6 +417,7 @@ from omegaconf import OmegaConf
     embodiments,
     chain_split_manifest_sha256,
     unite_compile,
+    unite_lr_terminal,
 ) = sys.argv[1:]
 world_size = int(world_size)
 EMBODIMENT_KEYS = {"USOCKET": "pushshapes_sim_u_socket", "CHAIN": "pushshapes_sim_chain_gripper"}
@@ -526,7 +530,8 @@ if family == "unite":
         assert math.isclose(float(cfg.model.optimizer.lr), expected_lr)
         assert math.isclose(float(cfg.model.scheduler.base_lr_1), expected_lr)
         assert math.isclose(float(cfg.model.scheduler.base_lr_2), expected_final)
-        assert math.isclose(float(cfg.model.scheduler.final_lr), expected_final)
+        expected_terminal = float(unite_lr_terminal) if unite_lr_terminal else expected_final
+        assert math.isclose(float(cfg.model.scheduler.final_lr), expected_terminal)
     if unite_diagnostics == "true":
         diagnostics = cfg.evaluator.unite_diagnostics
         assert bool(diagnostics.enabled) is True
@@ -691,7 +696,7 @@ export ICE_REPO ICE_PYTHON ICE_EXPERIMENT ICE_OUTPUT_DIR ICE_EMBODIMENTS
 export ICE_DATASET_DIR_USOCKET ICE_DATASET_DIR_CHAIN
 export ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID ICE_WANDB_NAME
 export ICE_WANDB_GROUP ICE_WANDB_TAGS ICE_SRUN
-export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY ICE_UNITE_COMPILE
+export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY ICE_UNITE_COMPILE ICE_UNITE_LR_TERMINAL
 # The batch was submitted with an explicit environment allow-list. Nested
 # ``srun`` steps must inherit the runner-owned requeue contract as well.
 export SLURM_EXPORT_ENV=ALL

@@ -58,6 +58,10 @@ revert_transforms:
 #                      they cost rather than summed with metres.
 arc_metrics: true
 arcmatch_points: 32
+# Shared-D waypoint arcmatch by default. Set true to always detok ARC first
+# so codec reconstruction is baked into Valid/arcmatch_* (controller-facing).
+# Hydra override: evaluator.include_reconstruction_loss=true
+include_reconstruction_loss: false
 # What a radian is worth in metres: the distance from the EEF origin to the
 # point whose displacement the rotation error is measured at.
 rot_lever_m: 0.1

@@ -51,6 +51,36 @@ from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 
 
+def viz_annotation_key(viz_partial) -> str | None:
+    """Return the batch key a viz partial wants to overlay, or None.
+
+    ``Yam.viz_gt_preds`` / ``Human.viz_gt_preds`` draw language text when
+    ``annotation_key`` is set. Hydra instantiates those as ``functools.partial``
+    (``_partial_: true``), so the bound key lives on ``.keywords``.
+    """
+    keywords = getattr(viz_partial, "keywords", None) or {}
+    key = keywords.get("annotation_key")
+    if key is None:
+        return None
+    key = str(key).strip()
+    if not key or key.lower() in {"null", "none"}:
+        return None
+    return key
+
+
+def overlay_annotation_fields(viz_partial, source_batch: Mapping) -> dict:
+    """Copy the configured annotation field onto the overlay batch.
+
+    ``_maybe_log_overlay`` rebuilds a slim batch (image, actions, embodiment,
+    intrinsics). Without this copy, ``annotation_key`` on the viz partial
+    KeyErrors and the overlay is skipped.
+    """
+    key = viz_annotation_key(viz_partial)
+    if key is None or key not in source_batch:
+        return {}
+    return {key: source_batch[key]}
+
+
 class BimanualCartesianEval(Eval):
     """Time-indexed cartesian bimanual val: MSE + optional overlay videos."""
 
@@ -67,15 +97,18 @@ class BimanualCartesianEval(Eval):
         # is unchanged; the baseline arm of an arc ablation turns them ON so
         # both arms land on the same charts.
         arc_metrics: bool = False,
-        # D and M are the arc run's tokenizer settings. D is recorded for
-        # provenance and for the dtw clip; the matched span is what actually
-        # sets each score's window.
+        # D and M for shared-D arcmatch: span = min(L_gt, L_pred, D), then
+        # re-tokenize both sides to arcmatch_points. D must match the codec.
         arcmatch_distance: float = 0.40,
         arcmatch_points: int = 32,
-        # Rows to score arc on. The transform list interpolates the raw window
-        # up to chunk_length, and arc length on an interpolated path reads
-        # short, so this is the RAW window (45 for yam).
+        # Legacy knob kept for config/compat. Metrics no longer deinterp to
+        # this length; arcmatch prep stays at tokenizer resolution (T=100).
         arc_chunk_rows: int = 45,
+        # When True, ARC arcmatch always detokenizes first so codec
+        # reconstruction is baked into the score. When False (default), score
+        # ARC token waypoints unless L_gt < D. Baseline preds are already
+        # time-indexed, so this flag is a no-op for them.
+        include_reconstruction_loss: bool = False,
         rot_lever_m: float = 0.1,
         dtw_max_samples: int = 8,
         untokenized_action_key: str = "actions_cartesian_untokenized",
@@ -104,6 +137,7 @@ class BimanualCartesianEval(Eval):
         self.arcmatch_distance = float(arcmatch_distance)
         self.arcmatch_points = int(arcmatch_points)
         self.arc_chunk_rows = int(arc_chunk_rows)
+        self.include_reconstruction_loss = bool(include_reconstruction_loss)
         self.rot_lever_m = float(rot_lever_m)
         self.dtw_max_samples = int(dtw_max_samples)
         self.untokenized_action_key = str(untokenized_action_key)
@@ -264,10 +298,8 @@ class BimanualCartesianEval(Eval):
     def _deinterpolate(chunk: np.ndarray, rows: int) -> np.ndarray:
         """Reduce a chunk to ``rows`` evenly spaced samples.
 
-        The transform list interpolates the raw window up to ``chunk_length``
-        (100), and arc length measured on an interpolated path is distorted --
-        it chord-cuts between inserted samples and reads systematically short.
-        Arc scoring therefore runs on the RAW row count instead.
+        Kept for probes/tests. Production arcmatch no longer uses this: shared-D
+        clamps travel by ``arcmatch_distance`` at tokenizer resolution instead.
 
         Indices are selected rather than re-interpolated, so no new samples are
         invented and the rotation columns are never interpolated twice.
@@ -281,19 +313,20 @@ class BimanualCartesianEval(Eval):
     def _arc_pred_time_indexed(self, prediction: torch.Tensor, embodiment_id: int):
         """Prediction as a time-indexed (B, T, 14) numpy chunk.
 
-        Identity here beyond unnormalizing: a baseline run already predicts
-        poses. ArcBimanualCartesianEval detokenizes instead.
+        Baseline: unnormalized pose chunk at tokenizer resolution (no
+        deinterp). ArcBimanualCartesianEval detokenizes ARC tokens for DTW /
+        chunk families and for the L_gt < D arcmatch branch.
         """
         native = self._native(prediction, embodiment_id).detach().cpu().numpy()
-        return self._deinterpolate(
-            native.astype(np.float64, copy=False), self.arc_chunk_rows
-        )
+        return native.astype(np.float64, copy=False)
 
     def _arc_gt_time_indexed(self, source_batch, embodiment_id: int):
         """Ground truth as a time-indexed (B, T, 14) numpy chunk, or None.
 
         Prefers the chunk the tokenizer preserved when present; otherwise the
-        action chunk itself, which for a baseline run IS time-indexed.
+        action chunk itself, which for a baseline run IS time-indexed. Kept at
+        loader resolution (typically T=100) -- shared-D arcmatch clamps by D
+        rather than deinterping to ``arc_chunk_rows``.
         """
         raw = source_batch.get(self.untokenized_action_key)
         key = self.untokenized_action_key
@@ -302,8 +335,21 @@ class BimanualCartesianEval(Eval):
         if raw is None:
             return None
         native = self.normalizer.unnormalize({key: raw.detach()}, embodiment_id)[key]
-        native = native.detach().cpu().numpy().astype(np.float64, copy=False)
-        return self._deinterpolate(native, self.arc_chunk_rows)
+        return native.detach().cpu().numpy().astype(np.float64, copy=False)
+
+    def _arc_pred_for_arcmatch(
+        self,
+        prediction: torch.Tensor,
+        ground_truth: np.ndarray,
+        embodiment_id: int,
+    ):
+        """Prediction geometry for shared-D arcmatch.
+
+        Baseline: same time-indexed poses as :meth:`_arc_pred_time_indexed`.
+        Arc subclass returns token waypoints unless any arm has ``L_gt < D``.
+        """
+        del ground_truth
+        return self._arc_pred_time_indexed(prediction, embodiment_id)
 
     def _extra_metrics(
         self,
@@ -317,10 +363,9 @@ class BimanualCartesianEval(Eval):
         """Arc-matched, DTW and time-domain families for this source.
 
         Shared by the baseline and arc evaluators so both land on the SAME
-        charts: each re-tokenizes prediction and ground truth onto the matched
-        per-arm span -- min(gt travel, pred travel) -- at the same D and M, and
-        scores the waypoints there. Only how each side reaches a time-indexed
-        chunk differs, which is what the two hooks above express.
+        charts. Arcmatch uses shared span ``min(L_gt, L_pred, D)`` at
+        ``arcmatch_points``; ARC stays in waypoint space unless GT travel is
+        shorter than D. DTW/chunk still use time-indexed chunks (ARC detok'd).
         """
         del target
         if not self.arc_metrics:
@@ -328,8 +373,13 @@ class BimanualCartesianEval(Eval):
         ground_truth = self._arc_gt_time_indexed(source_batch, embodiment_id)
         if ground_truth is None or len(ground_truth) == 0:
             return {}
-        decoded = self._arc_pred_time_indexed(prediction, embodiment_id)
-        predictions = [sample for sample in decoded]
+        arcmatch_pred = self._arc_pred_for_arcmatch(
+            prediction, ground_truth, embodiment_id
+        )
+        if isinstance(arcmatch_pred, list):
+            predictions = arcmatch_pred
+        else:
+            predictions = [sample for sample in arcmatch_pred]
         truth = [sample for sample in ground_truth]
 
         values: dict[str, float] = {}
@@ -340,9 +390,12 @@ class BimanualCartesianEval(Eval):
                 num_points=self.arcmatch_points,
                 dt=self.metric_dt,
                 lever_m=self.rot_lever_m,
+                min_distance_unit=self.arcmatch_distance,
             )
         )
-        values.update(dtw_metrics(predictions, truth, max_samples=self.dtw_max_samples))
+        decoded = self._arc_pred_time_indexed(prediction, embodiment_id)
+        ti_pred = [sample for sample in decoded]
+        values.update(dtw_metrics(ti_pred, truth, max_samples=self.dtw_max_samples))
         rows = min(decoded.shape[-2], ground_truth.shape[-2])
         if rows >= 2:
             values.update(
@@ -639,6 +692,7 @@ class BimanualCartesianEval(Eval):
         }
         if "intrinsics" in source_batch:
             flat_batch["intrinsics"] = source_batch["intrinsics"].detach().cpu()
+        flat_batch.update(overlay_annotation_fields(viz_partial, source_batch))
 
         try:
             frames = viz_partial(

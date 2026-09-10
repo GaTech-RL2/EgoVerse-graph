@@ -326,6 +326,91 @@ def test_granular_beats_mean_on_a_decelerating_chunk():
     assert err("per_waypoint") < err("mean")
 
 
+def test_duration_beats_mean_on_a_decelerating_chunk():
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    steps = 200
+    t = np.linspace(0.0, 1.0, steps)
+    chunk = np.zeros((steps, 14))
+    profile = np.sqrt(t)
+    for base in (0, 7):
+        chunk[:, base + 0] = profile * 0.6
+        chunk[:, base + 3] = profile * 0.5
+        chunk[:, base + 6] = profile
+    truth = chunk[:_H, :3]
+
+    def err(mode):
+        tk = TokenizeBimanualArcLengthCartesian(
+            action_key="a",
+            output_action_key="a",
+            min_distance_unit=_D,
+            resampled_vector_length=_M,
+            preserve_action_key=None,
+            velocity_mode=mode,
+        )
+        token = np.asarray(tk.transform({"a": chunk.copy()})["a"])
+        out = tk.detokenize(token, _H)
+        return float(np.linalg.norm(out[:, :3] - truth, axis=-1).mean())
+
+    assert err("duration") < err("mean")
+
+
+def test_duration_token_has_two_m_rows_and_positive_dts():
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+        bimanual_arc_token_rows,
+    )
+
+    tok = TokenizeBimanualArcLengthCartesian(
+        action_key="a",
+        output_action_key="a",
+        min_distance_unit=_D,
+        resampled_vector_length=_M,
+        preserve_action_key=None,
+        velocity_mode="duration",
+    )
+    token = np.asarray(tok.transform({"a": _raw_chunk()})["a"])
+    assert token.shape == (bimanual_arc_token_rows(_M, "duration"), 14)
+    # Per-arm Δt in first column of each arm block.
+    assert (token[_M:, 0] >= 0).all()
+    assert (token[_M:, 7] >= 0).all()
+    assert (token[_M:-1, 0] > 0).any()
+
+
+def test_duration_viz_source_converts_to_pose_rows():
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    ev = ArcBimanualCartesianEval.__new__(ArcBimanualCartesianEval)
+    ev.action_key = "actions_cartesian"
+    ev.min_distance_unit = _D
+    ev.resampled_vector_length = _M
+    ev.action_horizon = _H
+    ev.velocity_mode = "duration"
+    ev._tokenizer = TokenizeBimanualArcLengthCartesian(
+        action_key="actions_cartesian",
+        output_action_key="actions_cartesian",
+        min_distance_unit=_D,
+        resampled_vector_length=_M,
+        preserve_action_key=None,
+        velocity_mode="duration",
+    )
+    tok = TokenizeBimanualArcLengthCartesian(
+        action_key="a",
+        output_action_key="a",
+        min_distance_unit=_D,
+        resampled_vector_length=_M,
+        preserve_action_key=None,
+        velocity_mode="duration",
+    )
+    token = np.asarray(tok.transform({"a": _raw_chunk()})["a"])
+    out = ev._viz_source(torch.from_numpy(token[None]).float(), 7)
+    assert out.shape == (1, _H, 14)
+
+
 def test_experiment_wires_one_velocity_mode_across_data_and_evaluator():
     cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
     mode = cfg.abc.arc_velocity_mode

@@ -243,6 +243,7 @@ def validate_physical_inventory(
             f"union={len(union)}/{len(inventory)}"
         )
     return {
+        "domain": expected["domain"],
         "dataset_root": str(root),
         "total_count": len(inventory),
         "inventory_names_sha256": names_sha256(inventory),

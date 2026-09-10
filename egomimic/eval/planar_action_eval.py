@@ -804,10 +804,9 @@ class PlanarActionEval(Eval):
 
         distance_contract = provenance.get("distance_contract")
         if self.energy_score_distance is None:
-            expected_distance_contract = (
-                self.energy_score_distance_metadata
-                if self.blocks_by_source
-                else None
+            expected_distance_contract = self._metadata_copy(
+                self.energy_score_distance_metadata,
+                label="energy_score_distance_metadata",
             )
             if distance_contract != expected_distance_contract:
                 raise ValueError("generic EnergyScore distance contract differs")

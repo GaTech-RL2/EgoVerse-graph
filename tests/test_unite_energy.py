@@ -149,6 +149,32 @@ def test_energy_score_supports_source_specific_action_partitions(tmp_path):
         assert values["score"] == pytest.approx(0.0)
 
 
+def test_generic_energy_identity_accepts_list_provenance_for_tuple_blocks(tmp_path):
+    evaluator, _, _, _ = _typed_evaluator(tmp_path)
+    evaluator.energy_score_distance = None
+    evaluator.energy_score_distance_metadata = {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4), (4, 5)),
+    }
+    evaluator.energy_score_provenance["distance_contract"] = {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": [[0, 2], [2, 4], [4, 5]],
+    }
+
+    identity = evaluator._typed_artifact_identity(
+        domains={"pushshapes_sim_chain_gripper": {"condition_ids": []}},
+        global_step=2,
+    )
+
+    assert identity["distance_contract"]["semantic_blocks"] == [
+        [0, 2],
+        [2, 4],
+        [4, 5],
+    ]
+
+
 def test_chain_native_decoder_supports_seed_and_batch_leading_dimensions(tmp_path):
     evaluator = _evaluator(tmp_path)
     evaluator.bind_data_context(normalizer=_AnyIdentityNormalizer())

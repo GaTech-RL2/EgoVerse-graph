@@ -1,0 +1,57 @@
+# scoop, ideal control mode: 3,000 accepted articulated demonstrations.
+# Source: s3://rldb/staged/pushshapes_articulated/articulated-20260909/
+#   scoop/ideal/scoop/shard{000..023}.tar  (24 shards x 125 episodes)
+# Native action layout: (x, y, angle) -> 3 DOF.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim_scoop: &artic_arc_scoop
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${planar.articulated_root}/cells/ideal/scoop
+      # The stored attr is already pushshapes_sim_scoop; the override makes the
+      # logical id explicit and independent of what the collector wrote.
+      embodiment_override: pushshapes_sim_scoop
+      expected_episode_count: 3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: ${planar.observation_horizon}
+        action_target_offset: ${planar.action_target_offset}
+      transform_list:
+        _target_: ${planar.transform_target}
+        # Explicit, one line per knob. The ARC factories take every one of
+        # these by name; anything they did not name would vanish into
+        # **_kwargs and the corresponding sweep axis would be a null
+        # experiment, which is how the first rotation sweep was wasted.
+        action_target_offset: ${planar.action_target_offset}
+        raw_action_horizon: ${planar.raw_action_horizon}
+        min_distance_unit: ${planar.arc_distance}
+        resampled_vector_length: ${planar.arc_waypoints}
+        dt: ${planar.arc_dt}
+        rotation_distance_unit: ${planar.arc_rotation_distance}
+    mode: train
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 2970
+    expected_valid_episode_count: 30
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_scoop:
+    <<: *artic_arc_scoop
+    mode: valid
+
+train_dataloader_params:
+  pushshapes_sim_scoop:
+    batch_size: ${planar.batch_size}
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+valid_dataloader_params:
+  pushshapes_sim_scoop:
+    batch_size: ${planar.batch_size}
+    num_workers: 2
+    pin_memory: true

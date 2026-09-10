@@ -1,0 +1,13 @@
+# Seven-embodiment articulated co-train corpus (ARC), ideal mode, 21,000 episodes.
+#
+# Held out as the generalization set: umi, scoop. They are NOT in this list, so no
+# gradient ever sees them. Their data configs exist separately for eval.
+defaults:
+  - /data/pusht/artic_ideal_arc_u_socket@_here_
+  - /data/pusht/artic_ideal_arc_gripper@_here_
+  - /data/pusht/artic_ideal_arc_chain_gripper@_here_
+  - /data/pusht/artic_ideal_arc_suction@_here_
+  - /data/pusht/artic_ideal_arc_triangle@_here_
+  - /data/pusht/artic_ideal_arc_flipper@_here_
+  - /data/pusht/artic_ideal_arc_spring@_here_
+  - _self_

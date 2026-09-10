@@ -1,0 +1,8 @@
+# Held-out generalization embodiments (ARC), ideal mode, 6,000 episodes.
+#
+# Held out as the generalization set: these two, evaluated never-trained. They are NOT in this list, so no
+# gradient ever sees them. Their data configs exist separately for eval.
+defaults:
+  - /data/pusht/artic_ideal_arc_umi@_here_
+  - /data/pusht/artic_ideal_arc_scoop@_here_
+  - _self_

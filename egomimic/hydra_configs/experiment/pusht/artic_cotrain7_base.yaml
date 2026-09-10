@@ -1,0 +1,39 @@
+# @package _global_
+# Seven-embodiment articulated co-train base: data wiring, the shared padded
+# action space, and the held-out generalization set.
+#
+# umi and scoop are ABSENT from every train/valid dataset here. That absence is
+# the experiment; do not add them to this file to "check" anything.
+defaults:
+  - /experiment/pusht/planar_v2_base
+  - _self_
+
+planar:
+  # Staged by osmo/articulated_cotrain_sweep.yaml. Episodes live at
+  # <root>/cells/ideal/<embodiment>/, the flat layout LocalEpisodeResolver reads.
+  articulated_root: /workspace/articulated
+  # Every embodiment shares the common-five padded space [x, y, cos, sin, grip]
+  # regardless of whether its native layout is 3-DOF or 4-DOF, because Sim V2
+  # pins slot 2 to orientation and slot 3 to grip for all of them.
+  action_dims:
+    pushshapes_sim_u_socket: 5
+    pushshapes_sim_gripper: 5
+    pushshapes_sim_chain_gripper: 5
+    pushshapes_sim_suction: 5
+    pushshapes_sim_triangle: 5
+    pushshapes_sim_flipper: 5
+    pushshapes_sim_spring: 5
+
+run_provenance:
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  dataset_observation_alignment: pre_step
+  corpus: s3://rldb/staged/pushshapes_articulated/articulated-20260909/
+  corpus_manifest_sha256: 78de5167ec165c8916e1d9a8768085f6765cbba34edfe13ad183e13ccf4df94e
+  control_mode: ideal
+  train_embodiments: [u_socket, gripper, chain_gripper, suction, triangle, flipper, spring]
+  heldout_embodiments: [umi, scoop]
+  train_episode_count_per_domain: 2970
+  valid_episode_count_per_domain: 30
+  union_episode_count_per_domain: 3000
+  union_episode_count_total: 21000

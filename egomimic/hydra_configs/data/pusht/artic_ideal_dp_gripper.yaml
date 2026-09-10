@@ -1,0 +1,52 @@
+# gripper, ideal control mode: 3,000 accepted articulated demonstrations.
+# Source: s3://rldb/staged/pushshapes_articulated/articulated-20260909/
+#   gripper/ideal/gripper/shard{000..023}.tar  (24 shards x 125 episodes)
+# Native action layout: (x, y, angle, grip) -> 4 DOF.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim_gripper: &artic_dp_gripper
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${planar.articulated_root}/cells/ideal/gripper
+      # The stored attr is already pushshapes_sim_gripper; the override makes the
+      # logical id explicit and independent of what the collector wrote.
+      embodiment_override: pushshapes_sim_gripper
+      expected_episode_count: 3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: ${planar.observation_horizon}
+        action_target_offset: ${planar.action_target_offset}
+      transform_list:
+        _target_: ${planar.transform_target}
+        # Paper-DP takes only these two. ARC budget knobs are deliberately NOT
+        # passed here: get_planar_paper_transform_list would swallow them
+        # through **_kwargs and the config would read as if they applied.
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: ${planar.action_target_offset}
+    mode: train
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 2970
+    expected_valid_episode_count: 30
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_gripper:
+    <<: *artic_dp_gripper
+    mode: valid
+
+train_dataloader_params:
+  pushshapes_sim_gripper:
+    batch_size: ${planar.batch_size}
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+valid_dataloader_params:
+  pushshapes_sim_gripper:
+    batch_size: ${planar.batch_size}
+    num_workers: 2
+    pin_memory: true

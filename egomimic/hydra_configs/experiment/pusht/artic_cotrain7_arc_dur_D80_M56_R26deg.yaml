@@ -1,0 +1,88 @@
+# @package _global_
+# Duration-timed: width-7 grip-carrying ARC token at D=80, M=56, R=26 deg.
+# Timing channels carry dt_translation / dt_rotation (seconds).
+defaults:
+  - /experiment/pusht/artic_cotrain7_base
+  - override /data: pusht/artic_cotrain7_arc
+  - override /model: bf/bf_planar_v2_arc_grip_paper_dp
+  - _self_
+
+name: artic_c7_arc_dur_D80_M56_R26deg
+description: artic7_dur_D80_M56_R26_DDPM100_obs2_EMA
+
+planar:
+  raw_action_horizon: 80
+  action_horizon: 16
+  observation_horizon: 2
+  action_target_offset: 1
+  batch_size: 32
+  arc_distance: 80.0
+  arc_waypoints: 56
+  arc_rotation_distance: 0.4537856055185257   # 26 degrees, in RADIANS
+  arc_dt: 0.0333333333333333
+  arc_token_rows: 56
+  transform_target: egomimic.rldb.embodiment.articulated_arc.get_articulated_arc_duration_grip_transform_list
+  eval_native_decoder: null
+
+evaluator:
+  # eval_planar_v2 hardcodes the width-5 partition. This token is width 7:
+  # [x, y] [timing_t] [cos, sin] [timing_r] [grip]. EnergyScore requires the
+  # blocks to partition EVERY channel exactly once.
+  semantic_blocks: [[0, 2], [2, 3], [3, 5], [5, 6], [6, 7]]
+  native_decoder: null
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+      resampled_vector_length: 56
+      action_horizon: 16
+      native_action_dim: 3
+      dt: 0.0333333333333333
+    pushshapes_sim_gripper:
+      _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+      resampled_vector_length: 56
+      action_horizon: 16
+      native_action_dim: 4
+      dt: 0.0333333333333333
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+      resampled_vector_length: 56
+      action_horizon: 16
+      native_action_dim: 4
+      dt: 0.0333333333333333
+    pushshapes_sim_suction:
+      _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+      resampled_vector_length: 56
+      action_horizon: 16
+      native_action_dim: 4
+      dt: 0.0333333333333333
+    pushshapes_sim_triangle:
+      _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+      resampled_vector_length: 56
+      action_horizon: 16
+      native_action_dim: 3
+      dt: 0.0333333333333333
+    pushshapes_sim_flipper:
+      _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+      resampled_vector_length: 56
+      action_horizon: 16
+      native_action_dim: 4
+      dt: 0.0333333333333333
+    pushshapes_sim_spring:
+      _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+      resampled_vector_length: 56
+      action_horizon: 16
+      native_action_dim: 4
+      dt: 0.0333333333333333
+
+eval_checkpoint:
+  use_ema: true
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true

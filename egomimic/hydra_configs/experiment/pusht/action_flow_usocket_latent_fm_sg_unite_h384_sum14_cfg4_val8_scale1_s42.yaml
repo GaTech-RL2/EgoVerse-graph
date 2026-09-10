@@ -1,0 +1,23 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+  - _self_
+
+name: action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42
+description: "UNITE-parity Action Flow plus decoded-Gaussian moment regularization at weight 1"
+
+model:
+  decoded_noise_scale_weight: 1.0
+  decode_noise: true
+
+run_provenance:
+  scale_ablation:
+    comparison_reference: usocket-latent-fm-sg-unite-h384-sum14-cfg4-val10k-full-s42-phoenix-h200-20260909-v1
+    sole_scientific_variable: decoded_noise_scale_weight
+    reference_weight: 0.0
+    candidate_weight: ${model.decoded_noise_scale_weight}
+    decoded_noise_distribution: per_token_normalized_x_y_cos_theta_sin_theta
+    target_mean: 0.0
+    target_covariance: identity_4x4
+  objective:
+    decoded_noise_scale_weight: ${model.decoded_noise_scale_weight}

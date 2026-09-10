@@ -117,7 +117,8 @@ workflow:
         CK=/workspace/ckpts
         mkdir -p "$CK"
         for J in $CKPT_JOBS; do
-          $S5 --numworkers 32 cp "s3://rldb/staged/usocket_codec/$J/*" "$CK/" || true
+          $S5 --numworkers 32 cp "s3://rldb/staged/usocket_codec/$J/*" "$CK/" \
+            >> /tmp/ckpt_pull.log 2>&1 || true
         done
         echo "--- checkpoint tree ---"
         # NOT `find ... | head`: pipefail turns head's early close into

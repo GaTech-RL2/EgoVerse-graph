@@ -61,6 +61,7 @@ def test_launcher_exposes_supported_bc_configs_and_explicit_training_limits():
     assert "pusht/planar_v2_usocket_direct_bc" in text
     assert "pusht/planar_v2_usocket_arc_bc" in text
     assert "pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc" in text
+    assert "pusht/planar_v2_usocket_arc_curvature_D40_M16_R24deg_bc" in text
     assert text.count(
         "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path="
     ) == 1

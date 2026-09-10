@@ -11,6 +11,7 @@ from egomimic.pipeline.pushshapes import (
 from egomimic.rldb.zarr.planar_arc import (
     PadPlanarAction,
     TokenizePlanarArcLength,
+    curvature_adaptive_curve_samples,
     lambda_for_radius,
     planar_step_distance,
 )
@@ -104,6 +105,70 @@ def test_zero_motion_holds_pose_and_grip():
     np.testing.assert_allclose(token[:3, :2], [[4, 7]] * 3)
     np.testing.assert_allclose(token[:3, 4], 0.75)
     assert token[-1, 0] == 0
+
+
+def test_curvature_sampling_reduces_spacing_on_a_bend():
+    straight_x = np.linspace(0.0, 10.0, 61)
+    straight = np.column_stack((straight_x, np.zeros_like(straight_x)))
+    angle = np.linspace(-math.pi / 2, 0.0, 41)[1:]
+    bend = np.column_stack((10.0 + 2.0 * np.cos(angle), 2.0 + 2.0 * np.sin(angle)))
+    xy = np.concatenate((straight, bend), axis=0)
+    cumulative = np.concatenate((np.zeros(1), np.cumsum(planar_step_distance(xy))))
+
+    _, targets = curvature_adaptive_curve_samples(
+        xy,
+        cumulative,
+        float(cumulative[-1]),
+        16,
+        dense_samples=513,
+    )
+    straight_end = cumulative[len(straight) - 1]
+    bend_gaps = np.diff(targets[targets >= straight_end])
+    straight_gaps = np.diff(targets[targets <= straight_end])
+    assert len(bend_gaps) >= 2
+    assert np.median(bend_gaps) < np.median(straight_gaps)
+
+
+def test_curvature_sampling_is_uniform_on_a_straight_curve():
+    xy = np.column_stack((np.linspace(0.0, 12.0, 31), np.zeros(31)))
+    cumulative = np.concatenate((np.zeros(1), np.cumsum(planar_step_distance(xy))))
+    sampled, targets = curvature_adaptive_curve_samples(
+        xy,
+        cumulative,
+        float(cumulative[-1]),
+        7,
+    )
+    np.testing.assert_allclose(targets, np.linspace(0.0, 12.0, 7), atol=1e-8)
+    np.testing.assert_allclose(sampled[:, 0], targets, atol=1e-8)
+    np.testing.assert_allclose(sampled[:, 1], 0.0, atol=1e-8)
+
+
+def test_curvature_token_preserves_anchor_shape_and_timing():
+    t = np.linspace(0.0, 1.0, 40)
+    action = np.column_stack((20.0 * t, 8.0 * t**2, 0.4 * t))
+    token = TokenizePlanarArcLength(
+        min_distance_unit=30.0,
+        resampled_vector_length=16,
+        waypoint_sampling="curvature",
+    ).transform({"actions": action})["actions"]
+    assert token.shape == (17, 5)
+    np.testing.assert_allclose(token[0, :2], action[0, :2])
+    assert token[-1, 0] > 0.0
+    np.testing.assert_allclose(token[-1, 1:], 0.0)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"waypoint_sampling": "unknown"}, "waypoint_sampling"),
+        ({"curvature_dense_samples": 8}, "curvature_dense_samples"),
+        ({"curvature_floor": 0.0}, "curvature_floor"),
+        ({"curvature_floor": float("nan")}, "curvature_floor"),
+    ],
+)
+def test_curvature_sampling_rejects_invalid_configuration(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        TokenizePlanarArcLength(resampled_vector_length=16, **kwargs)
 
 
 @pytest.mark.parametrize("native_dim", [2, 3, 4])

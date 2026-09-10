@@ -39,6 +39,12 @@ planar:
   # Null preserves the ordinary SE(2) arc window.  A positive value enables
   # the hybrid Cartesian/angular window cap in the Planar dataset transform.
   hybrid_rotation_unit: null
+  # Uniform preserves historical target semantics. Curvature mode fits a
+  # natural cubic XY curve and uses asymptotic L2 chord-error knot density.
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  # Null selects the scale-aware 1 / current-window-length floor.
+  arc_curvature_floor: null
   batch_size: 16
   encoder:
     _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder

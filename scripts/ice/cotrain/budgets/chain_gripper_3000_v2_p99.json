@@ -1,0 +1,22 @@
+{
+  "dataset": "/storage/ice1/4/5/agao81/data/Tsim_v2/chain_gripper_3000_v2",
+  "dataset_name": "chain_gripper_3000_v2",
+  "n_episodes": 3000,
+  "statistic": "p99",
+  "multiplier": 1.1,
+  "action_space": "cursor",
+  "formula": "ceil(multiplier * p99(total_frames | level))",
+  "by_level": {
+    "0": {
+      "n": 3000,
+      "min": 123,
+      "mean": 310.4,
+      "p95": 508,
+      "max": 1036,
+      "budget": 688,
+      "median": 287,
+      "max_over_p95": 2.039
+    }
+  },
+  "content_sha256": "aaa8cb67512ddf9b"
+}

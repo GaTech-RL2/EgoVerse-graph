@@ -1,0 +1,257 @@
+{
+  "chain_gripper_exact_reset_matches": 150,
+  "entries_per_level": 5,
+  "entries_verified": 150,
+  "gate_entries_verified": 40,
+  "gate_target_depth_observed_max_px": 183.7829229874456,
+  "gate_target_depth_observed_min_px": 90.62226661168302,
+  "gate_target_depth_required_px": 90.0,
+  "levels": 30,
+  "manifest": "/storage/ice1/4/5/agao81/protocol_mirror/seeds/eval_side_access_seeds_newgeom_150.json",
+  "manifest_sha256": "499560f289a829936afa7f16819f7bd9cb22712e5d366e4fdc6cd39603b2d89d",
+  "overview": "/storage/ice1/4/5/agao81/protocol_mirror/seeds/verify_overview_ice.png",
+  "per_level": {
+    "1": {
+      "target_clearance_max": 72.67059079379035,
+      "target_clearance_min": 60.85480895389861,
+      "target_obstacle_clearance_max": 84.90026527432377,
+      "target_obstacle_clearance_min": 57.613735330115645,
+      "verified": 5
+    },
+    "10": {
+      "target_clearance_max": 90.38068006431587,
+      "target_clearance_min": 56.58898324820341,
+      "target_obstacle_clearance_max": 71.79930564528438,
+      "target_obstacle_clearance_min": 67.14195889242365,
+      "verified": 5
+    },
+    "11": {
+      "target_clearance_max": 115.47527778940054,
+      "target_clearance_min": 61.71707652945133,
+      "target_gate_depth_max": 183.7829229874456,
+      "target_gate_depth_min": 109.600203443581,
+      "target_obstacle_clearance_max": 111.41842788751394,
+      "target_obstacle_clearance_min": 57.495197346690354,
+      "verified": 5
+    },
+    "12": {
+      "target_clearance_max": 95.0598037469855,
+      "target_clearance_min": 56.51111853972441,
+      "target_gate_depth_max": 142.81142986354064,
+      "target_gate_depth_min": 125.49966476999464,
+      "target_obstacle_clearance_max": 81.64497995470629,
+      "target_obstacle_clearance_min": 56.426036504246866,
+      "verified": 5
+    },
+    "13": {
+      "target_clearance_max": 61.8593023079153,
+      "target_clearance_min": 57.454622696505055,
+      "target_gate_depth_max": 176.40414915919334,
+      "target_gate_depth_min": 90.62226661168302,
+      "target_obstacle_clearance_max": 111.57782212258167,
+      "target_obstacle_clearance_min": 57.13761689617334,
+      "verified": 5
+    },
+    "14": {
+      "target_clearance_max": 91.48847626776313,
+      "target_clearance_min": 57.47518788648665,
+      "target_gate_depth_max": 181.24558660131487,
+      "target_gate_depth_min": 106.1270622479716,
+      "target_obstacle_clearance_max": 128.25506809560824,
+      "target_obstacle_clearance_min": 61.31481784678589,
+      "verified": 5
+    },
+    "15": {
+      "target_clearance_max": 95.98479764146683,
+      "target_clearance_min": 57.32371188491152,
+      "target_obstacle_clearance_max": 118.1175652904627,
+      "target_obstacle_clearance_min": 57.77052558028336,
+      "verified": 5
+    },
+    "16": {
+      "target_clearance_max": 100.69222529559221,
+      "target_clearance_min": 58.98300060561786,
+      "target_obstacle_clearance_max": 91.81603692672086,
+      "target_obstacle_clearance_min": 60.61076847651895,
+      "verified": 5
+    },
+    "17": {
+      "target_clearance_max": 95.13500132626348,
+      "target_clearance_min": 57.58100126727691,
+      "target_obstacle_clearance_max": 124.67003835345648,
+      "target_obstacle_clearance_min": 57.82076595125645,
+      "verified": 5
+    },
+    "18": {
+      "target_clearance_max": 103.29626128676624,
+      "target_clearance_min": 60.22552172624245,
+      "target_obstacle_clearance_max": 121.98928591184428,
+      "target_obstacle_clearance_min": 58.886573852808134,
+      "verified": 5
+    },
+    "19": {
+      "target_clearance_max": 94.18316938407816,
+      "target_clearance_min": 56.18326312451062,
+      "target_obstacle_clearance_max": 128.12156618150863,
+      "target_obstacle_clearance_min": 57.08533574073384,
+      "verified": 5
+    },
+    "2": {
+      "target_clearance_max": 69.87969527458614,
+      "target_clearance_min": 57.58100126727691,
+      "target_obstacle_clearance_max": 83.63443957461641,
+      "target_obstacle_clearance_min": 59.367323201910615,
+      "verified": 5
+    },
+    "20": {
+      "target_clearance_max": 108.78085629267991,
+      "target_clearance_min": 59.63240543477167,
+      "target_obstacle_clearance_max": 97.0497768382022,
+      "target_obstacle_clearance_min": 58.435278796537325,
+      "verified": 5
+    },
+    "21": {
+      "target_clearance_max": 72.67059079379035,
+      "target_clearance_min": 57.58100126727691,
+      "target_obstacle_clearance_max": 73.51218868432753,
+      "target_obstacle_clearance_min": 57.556839505008604,
+      "verified": 5
+    },
+    "22": {
+      "target_clearance_max": 71.75069486200795,
+      "target_clearance_min": 56.58898324820341,
+      "target_obstacle_clearance_max": 65.81828701214182,
+      "target_obstacle_clearance_min": 56.051468893720255,
+      "verified": 5
+    },
+    "23": {
+      "target_clearance_max": 104.99033768371842,
+      "target_clearance_min": 64.21114185490251,
+      "target_gate_depth_max": 174.69898722078452,
+      "target_gate_depth_min": 111.29390641590172,
+      "target_obstacle_clearance_max": 122.8855222074267,
+      "target_obstacle_clearance_min": 62.37041618342476,
+      "verified": 5
+    },
+    "24": {
+      "target_clearance_max": 89.01278358296518,
+      "target_clearance_min": 70.01678859395832,
+      "target_gate_depth_max": 140.22455698748075,
+      "target_gate_depth_min": 98.07687390047988,
+      "target_obstacle_clearance_max": 100.7571056682516,
+      "target_obstacle_clearance_min": 64.29138813940841,
+      "verified": 5
+    },
+    "25": {
+      "target_clearance_max": 97.65416787991592,
+      "target_clearance_min": 58.05348962590542,
+      "target_gate_depth_max": 177.39468330538668,
+      "target_gate_depth_min": 101.18839250704953,
+      "target_obstacle_clearance_max": 97.37641330167554,
+      "target_obstacle_clearance_min": 59.41978455294105,
+      "verified": 5
+    },
+    "26": {
+      "target_clearance_max": 72.69976460295658,
+      "target_clearance_min": 57.83210704999482,
+      "target_gate_depth_max": 179.6770312157297,
+      "target_gate_depth_min": 130.6541033240582,
+      "target_obstacle_clearance_max": 114.44187517646981,
+      "target_obstacle_clearance_min": 67.96007257473474,
+      "verified": 5
+    },
+    "27": {
+      "target_clearance_max": 75.56307682782085,
+      "target_clearance_min": 58.386336265153034,
+      "target_obstacle_clearance_max": 74.9870519354516,
+      "target_obstacle_clearance_min": 57.06741622587078,
+      "verified": 5
+    },
+    "28": {
+      "target_clearance_max": 75.06606059794362,
+      "target_clearance_min": 63.624255502189186,
+      "target_obstacle_clearance_max": 86.90309083832388,
+      "target_obstacle_clearance_min": 56.56112818849562,
+      "verified": 5
+    },
+    "29": {
+      "target_clearance_max": 83.83049734784834,
+      "target_clearance_min": 56.3796234560149,
+      "target_obstacle_clearance_max": 66.24698140943481,
+      "target_obstacle_clearance_min": 56.99116364130939,
+      "verified": 5
+    },
+    "3": {
+      "target_clearance_max": 71.75069486200795,
+      "target_clearance_min": 56.143070761946035,
+      "target_obstacle_clearance_max": 70.21832715327866,
+      "target_obstacle_clearance_min": 56.44392727381813,
+      "verified": 5
+    },
+    "30": {
+      "target_clearance_max": 72.67059079379035,
+      "target_clearance_min": 59.098036174671506,
+      "target_obstacle_clearance_max": 102.41634719453593,
+      "target_obstacle_clearance_min": 57.55683950500861,
+      "verified": 5
+    },
+    "4": {
+      "target_clearance_max": 71.75069486200795,
+      "target_clearance_min": 56.58898324820341,
+      "target_obstacle_clearance_max": 81.82903747837362,
+      "target_obstacle_clearance_min": 56.05146889372025,
+      "verified": 5
+    },
+    "5": {
+      "target_clearance_max": 98.3221092994736,
+      "target_clearance_min": 59.63240543477167,
+      "target_obstacle_clearance_max": 125.90785356184004,
+      "target_obstacle_clearance_min": 59.00416201550933,
+      "verified": 5
+    },
+    "6": {
+      "target_clearance_max": 111.9817623552153,
+      "target_clearance_min": 75.77977019832844,
+      "target_obstacle_clearance_max": 95.08207694668899,
+      "target_obstacle_clearance_min": 57.335074824314276,
+      "verified": 5
+    },
+    "7": {
+      "target_clearance_max": 86.83148031574524,
+      "target_clearance_min": 65.84435559408269,
+      "target_obstacle_clearance_max": 81.76707157348913,
+      "target_obstacle_clearance_min": 59.555996127451984,
+      "verified": 5
+    },
+    "8": {
+      "target_clearance_max": 92.15041916642343,
+      "target_clearance_min": 57.06543901231772,
+      "target_obstacle_clearance_max": 79.82025330104396,
+      "target_obstacle_clearance_min": 57.057955291738715,
+      "verified": 5
+    },
+    "9": {
+      "target_clearance_max": 99.89807589623004,
+      "target_clearance_min": 58.98300060561786,
+      "target_obstacle_clearance_max": 83.51706294020705,
+      "target_obstacle_clearance_min": 57.350369995522605,
+      "verified": 5
+    }
+  },
+  "physics": {
+    "socket_inside_friction_only": true,
+    "solid_contact_guard": true,
+    "solid_pusher": true
+  },
+  "route_validation_matches": 150,
+  "simulator_git_head": "7e75d4236baee59c88984f9f6a458790db2dce46",
+  "simulator_root": "/storage/ice1/4/5/agao81/sim_chain",
+  "status": "pass",
+  "target_edge_clearance_observed_max_px": 115.47527778940054,
+  "target_edge_clearance_observed_min_px": 56.143070761946035,
+  "target_edge_clearance_required_px": 56.0,
+  "target_obstacle_clearance_observed_max_px": 128.25506809560824,
+  "target_obstacle_clearance_observed_min_px": 56.05146889372025,
+  "target_obstacle_clearance_required_px": 56.0,
+  "usocket_object_goal_pose_matches": 150
+}

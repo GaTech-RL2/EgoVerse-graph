@@ -114,11 +114,16 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
                     f"{self.resampled_vector_length} would be "
                     f"{expected_rows} rows."
                 )
-            # A row count matching the OTHER velocity mode's token is a
+            # A row count matching the OTHER timing layout's token is a
             # data/evaluator mode mismatch, not a baseline chunk. Passing it
             # through would score arc tokens as if they were poses and read
-            # plausibly, so it stays a hard error.
-            other = {"mean": "per_waypoint", "per_waypoint": "mean"}[self.velocity_mode]
+            # plausibly, so it stays a hard error. duration and per_waypoint
+            # share the 2M layout, so only mean <-> granular is detectable.
+            other = (
+                "mean"
+                if self.velocity_mode in ("per_waypoint", "duration")
+                else "per_waypoint"
+            )
             if actions.ndim == 3 and int(actions.shape[-2]) == (
                 bimanual_arc_token_rows(self.resampled_vector_length, other)
             ):

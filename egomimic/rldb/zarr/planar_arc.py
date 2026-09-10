@@ -17,12 +17,15 @@ PLANAR_ACTION_DIM = 5  # [x, y, cos(theta), sin(theta), grip]
 #   "per_waypoint" M waypoints + M rate rows, one local SE(2) rate per interval,
 #                  measured from the bracketing source frames. Recovers the
 #                  elapsed-time parameterization of a non-uniform chunk.
+#   "duration"     M waypoints + M duration rows, one elapsed-time (seconds)
+#                  per interval. Same layout width as per_waypoint, but stores
+#                  Δt directly instead of arc_distance / Δt.
 #
 # "mean" stays the default so existing runs, checkpoints and norm stats are
 # untouched -- the token width differs between modes, so they are not
 # interchangeable within a run.
-VELOCITY_MODES = ("mean", "per_waypoint")
-_MEAN, _PER_WAYPOINT = VELOCITY_MODES
+VELOCITY_MODES = ("mean", "per_waypoint", "duration")
+_MEAN, _PER_WAYPOINT, _DURATION = VELOCITY_MODES
 
 
 def validate_velocity_mode(velocity_mode: str) -> str:
@@ -170,9 +173,7 @@ class TokenizePlanarArcLength:
         self.rotation_radius = float(rotation_radius)
         self.velocity_mode = validate_velocity_mode(velocity_mode)
         self.hybrid_rotation_unit = (
-            None
-            if hybrid_rotation_unit is None
-            else float(hybrid_rotation_unit)
+            None if hybrid_rotation_unit is None else float(hybrid_rotation_unit)
         )
         self.zero_dist_epsilon = float(zero_dist_epsilon)
 
@@ -205,31 +206,36 @@ class TokenizePlanarArcLength:
             translation_span > self.zero_dist_epsilon
             and rotation_span > self.zero_dist_epsilon
         ):
-            rotation_fraction = min(
-                1.0, self.hybrid_rotation_unit / rotation_span
-            )
+            rotation_fraction = min(1.0, self.hybrid_rotation_unit / rotation_span)
             end = min(end, translation_span * rotation_fraction)
         return end
 
-    def _interval_rates(
+    def _interval_times(
         self, cumulative: np.ndarray, targets: np.ndarray
     ) -> np.ndarray:
-        """Local SE(2) rate per waypoint interval, from the source frames.
+        """Elapsed time at each arc target, from the bracketing source frames.
 
-        The elapsed time at each sampled arc position is recovered from the
-        bracketing source frames -- ``(index + alpha) * dt`` -- rather than by
-        dividing the window by a single duration. That is what preserves local
-        speed changes, and stationary frames before motion, both of which a
-        chunk-level mean erases.
-
-        Returns one rate per waypoint; the final value repeats the last
-        interval so the array lines up with the waypoint rows.
+        Recovered as ``(index + alpha) * dt`` rather than by dividing the
+        window by a single duration. That preserves local speed changes and
+        stationary frames before motion, both of which a chunk-level mean
+        erases.
         """
         times = np.empty(self.num_waypoints, dtype=np.float64)
         times[0] = 0.0
         for index, target in enumerate(targets[1:], start=1):
             source_index, alpha = _bracket_segment(cumulative, float(target))
             times[index] = (source_index + alpha) * self.dt
+        return times
+
+    def _interval_rates(
+        self, cumulative: np.ndarray, targets: np.ndarray
+    ) -> np.ndarray:
+        """Local SE(2) rate per waypoint interval, from the source frames.
+
+        Returns one rate per waypoint; the final value repeats the last
+        interval so the array lines up with the waypoint rows.
+        """
+        times = self._interval_times(cumulative, targets)
         delta_time = np.diff(times)
         delta_arc = np.diff(targets)
         interval_rate = np.divide(
@@ -242,6 +248,21 @@ class TokenizePlanarArcLength:
         rates[:-1] = interval_rate
         rates[-1] = interval_rate[-1]
         return rates
+
+    def _interval_durations(
+        self, cumulative: np.ndarray, targets: np.ndarray
+    ) -> np.ndarray:
+        """Elapsed seconds per waypoint interval, from the source frames.
+
+        Returns one duration per waypoint; the final value repeats the last
+        interval so the array lines up with the waypoint rows.
+        """
+        times = self._interval_times(cumulative, targets)
+        delta_time = np.diff(times)
+        durations = np.zeros(self.num_waypoints, dtype=np.float64)
+        durations[:-1] = delta_time
+        durations[-1] = delta_time[-1]
+        return durations
 
     def tokenize(self, actions: np.ndarray) -> np.ndarray:
         xy, theta, grip = self._components(actions)
@@ -256,6 +277,7 @@ class TokenizePlanarArcLength:
             grip_waypoints = np.repeat(grip[0], self.num_waypoints)
             speed = 0.0
             rates = np.zeros(self.num_waypoints, dtype=np.float64)
+            durations = np.zeros(self.num_waypoints, dtype=np.float64)
         else:
             targets = np.linspace(0.0, end, self.num_waypoints)
             xy_waypoints = np.stack(
@@ -273,6 +295,7 @@ class TokenizePlanarArcLength:
             last_index = int(np.searchsorted(cumulative, end, side="left"))
             speed = end / (max(1, last_index) * self.dt)
             rates = self._interval_rates(cumulative, targets)
+            durations = self._interval_durations(cumulative, targets)
 
         xy_waypoints[0] = xy[0]
         theta_waypoints[0] = theta[0]
@@ -294,6 +317,14 @@ class TokenizePlanarArcLength:
             )
             rate_rows[:, 0] = rates
             return np.concatenate((waypoints, rate_rows), axis=0)
+        if self.velocity_mode == _DURATION:
+            # One duration row per waypoint. Column 0 carries Δt in seconds;
+            # the rest stay zero. Same rectangular layout as per_waypoint.
+            duration_rows = np.zeros(
+                (self.num_waypoints, PLANAR_ACTION_DIM), dtype=np.float64
+            )
+            duration_rows[:, 0] = durations
+            return np.concatenate((waypoints, duration_rows), axis=0)
         timing = np.zeros((1, PLANAR_ACTION_DIM), dtype=np.float64)
         timing[0, 0] = speed
         return np.concatenate((waypoints, timing), axis=0)

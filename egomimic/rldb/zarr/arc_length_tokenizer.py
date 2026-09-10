@@ -978,12 +978,15 @@ ARC_TOK_BIMANUAL_DIM = 2 * ARC_TOK_PER_ARM_DIM  # bimanual total (fourteen)
 #                   traversed at constant speed.
 #   "per_waypoint"  M waypoints + M velocity rows, one per interval. Recovers
 #                   the elapsed-time parameterization of a non-uniform chunk.
+#   "duration"      M waypoints + M duration rows, one elapsed-time (seconds)
+#                   per interval per arm. Same row count as per_waypoint, but
+#                   stores Δt directly instead of pose_delta / Δt.
 #
 # Note the chord-vs-arc correction the mean path needs does NOT apply here:
 # consecutive waypoints are joined by straight segments, so a single interval's
 # chord IS its arc length. That discrepancy only arises when one rate spans the
 # whole token.
-BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint")
+BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
 
 
 def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
@@ -1164,6 +1167,10 @@ class TokenizeBimanualArcLengthCartesian:
             out = np.concatenate(
                 [waypoints, self._per_waypoint_velocity(raw, waypoints)], axis=0
             )  # (2M, 14)
+        elif self.velocity_mode == "duration":
+            out = np.concatenate(
+                [waypoints, self._per_waypoint_duration(raw, waypoints)], axis=0
+            )  # (2M, 14)
         else:
             out = np.concatenate([waypoints, vel_token], axis=0)  # (M+1, 14)
         expected_rows = bimanual_arc_token_rows(M, self.velocity_mode)
@@ -1214,6 +1221,37 @@ class TokenizeBimanualArcLengthCartesian:
                 rows[-1, offset : offset + width] = rate[-1]
         return rows
 
+    def _per_waypoint_duration(
+        self, raw: np.ndarray, waypoints: np.ndarray
+    ) -> np.ndarray:
+        """One duration row per waypoint, in the same 14-slot layout.
+
+        Each interval stores the elapsed time (seconds) between consecutive
+        waypoints, recovered from the SOURCE frames the same way
+        ``_per_waypoint_velocity`` does. Per-arm Δt goes in the first column
+        of that arm's block (L col 0, R col 7); the rest stay zero.
+
+        The final row repeats the last interval so the block is rectangular;
+        ``detokenize`` reads ``[:-1]``, so that row is padding.
+        """
+        dt = self.tokenizer.config.dt
+        rows = np.zeros((waypoints.shape[0], ARC_TOK_BIMANUAL_DIM), dtype=np.float64)
+        for xyz_off, raw_xyz in (
+            (0, slice(0, 3)),
+            (7, slice(7, 10)),
+        ):
+            xyz_wp = waypoints[:, xyz_off : xyz_off + 3]
+            cumdist = cumulative_arc_length(xyz_wp)
+            source_cum = cumulative_arc_length(raw[:, raw_xyz])
+            times = np.empty(len(xyz_wp), dtype=np.float64)
+            for index, arc_position in enumerate(cumdist):
+                frame, alpha = _bracket_segment(source_cum, float(arc_position))
+                times[index] = (frame + alpha) * dt
+            delta_t = np.diff(times)
+            rows[:-1, xyz_off] = delta_t
+            rows[-1, xyz_off] = delta_t[-1]
+        return rows
+
     def detokenize(
         self,
         arc_actions: np.ndarray,
@@ -1250,8 +1288,8 @@ class TokenizeBimanualArcLengthCartesian:
                 f"{arc_actions.shape}"
             )
         rows = arc_actions.shape[0]
-        per_waypoint = self.velocity_mode == "per_waypoint"
-        M = rows // 2 if per_waypoint else rows - 1
+        granular = self.velocity_mode in ("per_waypoint", "duration")
+        M = rows // 2 if granular else rows - 1
         if M < 2:
             raise ValueError(f"Need M >= 2 waypoints, got {rows} rows")
         if rows != bimanual_arc_token_rows(M, self.velocity_mode):
@@ -1262,7 +1300,7 @@ class TokenizeBimanualArcLengthCartesian:
             )
 
         waypoints = arc_actions[:M]  # (M, 14)
-        vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) per-waypoint
+        vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular
         vel_token = vel_rows[0]
         dt = self.tokenizer.config.dt
         h = int(action_horizon)
@@ -1284,26 +1322,32 @@ class TokenizeBimanualArcLengthCartesian:
             cumdist = cumulative_arc_length(xyz_wp)
             total = float(cumdist[-1])
 
-            if per_waypoint:
-                # Each interval takes ||delta_xyz|| / ||interval velocity||
-                # seconds. Consecutive waypoints are joined by straight
-                # segments, so that chord IS the interval's arc length and no
-                # chord-to-arc correction is needed -- that discrepancy only
-                # arises for a rate spanning the whole token.
+            if granular:
+                # per_waypoint: duration = ||delta_xyz|| / ||interval velocity||
+                # duration mode: timing rows already store Δt in the arm's
+                # first column. Consecutive waypoints are joined by straight
+                # segments, so chord IS the interval arc -- no chord-to-arc
+                # correction (that only arises for a rate spanning the token).
                 interval_arc = np.diff(cumdist)
-                interval_rate = np.linalg.norm(
-                    vel_rows[:-1, vel_xyz_slice], axis=-1
-                )
                 moving = interval_arc > 1e-12
-                usable = interval_rate > 1e-8
-                duration = np.zeros_like(interval_arc)
-                np.divide(
-                    interval_arc,
-                    interval_rate,
-                    out=duration,
-                    where=moving & usable,
-                )
-                # A real interval with zero predicted rate must hold, not
+                if self.velocity_mode == "duration":
+                    interval_duration = vel_rows[:-1, xyz_off]
+                    usable = interval_duration > 1e-8
+                    duration = np.zeros_like(interval_arc)
+                    duration[moving & usable] = interval_duration[moving & usable]
+                else:
+                    interval_rate = np.linalg.norm(
+                        vel_rows[:-1, vel_xyz_slice], axis=-1
+                    )
+                    usable = interval_rate > 1e-8
+                    duration = np.zeros_like(interval_arc)
+                    np.divide(
+                        interval_arc,
+                        interval_rate,
+                        out=duration,
+                        where=moving & usable,
+                    )
+                # A real interval with zero predicted timing must hold, not
                 # teleport: give it more time than the whole horizon.
                 duration[moving & ~usable] = dt * (h + 1)
                 elapsed = np.concatenate((np.zeros(1), np.cumsum(duration)))
@@ -1311,9 +1355,7 @@ class TokenizeBimanualArcLengthCartesian:
                     pos_t = np.repeat(xyz_wp[:1], h, axis=0)
                     ypr_t = np.repeat(ypr_wp[:1], h, axis=0)
                     grip_t = np.repeat(grip_wp[:1], h, axis=0)
-                    arms_out.append(
-                        np.concatenate([pos_t, ypr_t, grip_t], axis=-1)
-                    )
+                    arms_out.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
                     continue
                 # Invert elapsed time -> arc position, then reuse the same
                 # interpolators the mean path uses.

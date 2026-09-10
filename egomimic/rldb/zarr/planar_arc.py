@@ -409,6 +409,132 @@ class TokenizeUSocketArcDuration(TokenizeUSocketArcVelocityStacked):
         return token
 
 
+#: Grip-carrying stacked ARC token width:
+#: ``[x, y, timing_translation, cos, sin, timing_rotation, grip]``.
+PLANAR_ARC_GRIP_DIM = 7
+
+
+def _grip_column(actions: np.ndarray) -> np.ndarray:
+    """Read the engage scalar out of a common-five or native-four chunk.
+
+    Sim V2 fixes slot 3 as grip for EVERY embodiment (``Agent.action_spec``),
+    and ``PadPlanarAction`` moves it to column 4 of the common-five layout. A
+    3-DOF tool has no grip channel at all and pads to a constant zero, which is
+    the correct value: "never engaged via the grip scalar". Those tools engage
+    through geometry instead.
+    """
+    if actions.shape[1] == PLANAR_ACTION_DIM:
+        return actions[:, 4]
+    if actions.shape[1] == 4:
+        return actions[:, 3]
+    return np.zeros(len(actions), dtype=np.float64)
+
+
+class _ArcGripMixin:
+    """Add a grip channel sampled on the TRANSLATION clock.
+
+    Grip belongs on the translation clock rather than its own: closing on an
+    object is an event at a place along the tool's path, so it must stay
+    registered to the xy waypoints. Giving it a third arc clock would let the
+    decoded grip slide relative to the pose that produced it, which is exactly
+    the failure the corpus was regenerated to remove.
+
+    The grip trace is interpolated, not resampled by a rate, because it has no
+    velocity: it is a level, and its own timing is the timing of the pose it
+    accompanies.
+    """
+
+    #: Subclasses set this so ``transform`` reports the right width.
+    token_width = PLANAR_ARC_GRIP_DIM
+
+    def _grip_waypoints(
+        self, actions: np.ndarray, cumulative: np.ndarray, end: float
+    ) -> np.ndarray:
+        grip = _grip_column(actions)[:, None]
+        if end <= self.zero_dist_epsilon:
+            return np.repeat(grip[:1], self.num_waypoints, axis=0)[:, 0]
+        targets = np.linspace(0.0, end, self.num_waypoints)
+        points = np.stack([_interpolate(grip, cumulative, t) for t in targets])
+        points[0] = grip[0]
+        return points[:, 0]
+
+
+class TokenizeArcVelocityStackedGrip(_ArcGripMixin, TokenizeUSocketArcVelocityStacked):
+    """Stacked velocity token widened to carry grip.
+
+    ``[M, 7] = [x, y, v_xy, cos, sin, omega, grip]``
+
+    Identical geometry and clocks to :class:`TokenizeUSocketArcVelocityStacked`;
+    the only addition is column 6. This exists because the articulated corpus is
+    ABOUT the engage channel -- six of its nine embodiments latch or grasp -- and
+    a width-6 token silently drops it, reproducing the "every grasp is a shove"
+    defect at the representation layer instead of the collection layer.
+    """
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        angle_arc = np.concatenate((np.zeros(1), np.cumsum(np.abs(np.diff(theta)))))
+        translation_end = min(self.distance, float(translation_arc[-1]))
+        rotation_end = float(angle_arc[-1])
+        if self.rotation_distance is not None:
+            rotation_end = min(self.rotation_distance, rotation_end)
+
+        xy_waypoints, linear_speed = self._sample_stream(
+            xy, translation_arc, translation_end, signed_rate=False
+        )
+        theta_waypoints, angular_velocity = self._sample_stream(
+            theta[:, None], angle_arc, rotation_end, signed_rate=True
+        )
+
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_GRIP_DIM))
+        token[:, 0:2] = xy_waypoints
+        token[:, 2] = linear_speed
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = angular_velocity
+        token[:, 6] = self._grip_waypoints(actions, translation_arc, translation_end)
+        return token
+
+
+class TokenizeArcDurationGrip(_ArcGripMixin, TokenizeUSocketArcDuration):
+    """Duration-timed stacked token widened to carry grip.
+
+    ``[M, 7] = [x, y, dt_translation, cos, sin, dt_rotation, grip]``
+    """
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        angle_arc = np.concatenate((np.zeros(1), np.cumsum(np.abs(np.diff(theta)))))
+        translation_end = min(self.distance, float(translation_arc[-1]))
+        rotation_end = float(angle_arc[-1])
+        if self.rotation_distance is not None:
+            rotation_end = min(self.rotation_distance, rotation_end)
+
+        xy_waypoints, xy_duration = self._sample_stream(
+            xy, translation_arc, translation_end,
+            signed_rate=False, return_durations=True,
+        )
+        theta_waypoints, theta_duration = self._sample_stream(
+            theta[:, None], angle_arc, rotation_end,
+            signed_rate=True, return_durations=True,
+        )
+
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_GRIP_DIM))
+        token[:, 0:2] = xy_waypoints
+        token[:, 2] = xy_duration
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = theta_duration
+        token[:, 6] = self._grip_waypoints(actions, translation_arc, translation_end)
+        return token
+
+
 class TokenizePlanarArcLength:
     """Legacy robot/Planar SE(2) tokenizer; its schema remains unchanged."""
 

@@ -28,6 +28,7 @@ import torch
 
 from egomimic.pipeline.core import Stage
 from egomimic.rldb.zarr.planar_arc import (
+    PLANAR_ARC_GRIP_DIM,
     PLANAR_ARC_STACKED_DIM,
     PLANAR_ACTION_DIM,
     TokenizeUSocketArcVelocity,
@@ -120,8 +121,11 @@ class ArcDetokenizeStage(Stage):
             raise ValueError("resampled_vector_length must be at least two")
         if self.action_horizon <= 0 or self.dt <= 0:
             raise ValueError("action_horizon and dt must be positive")
-        if self.native_action_dim not in (2, 3):
-            raise ValueError("native_action_dim must be 2 or 3 for U-Socket")
+        if self.native_action_dim not in (2, 3, 4):
+            raise ValueError(
+                "native_action_dim must be 2, 3, or 4 -- 4 is [x, y, theta, grip] "
+                "and requires a grip-carrying token"
+            )
 
     def _decode_stream(
         self, geometry: torch.Tensor, interval_distance: torch.Tensor, rate: torch.Tensor
@@ -302,4 +306,99 @@ class ArcDetokenizeDurationStage(ArcDetokenizeStackedStage):
         batch["pred_action_native"] = native[..., : self.native_action_dim]
         batch["log/ArcTranslationDuration"] = xy_duration.sum(dim=1).mean()
         batch["log/ArcRotationDuration"] = theta_duration.sum(dim=1).mean()
+        return batch
+
+
+class ArcDetokenizeStackedGripStage(ArcDetokenizeStackedStage):
+    """Decode the width-7 velocity token, grip included.
+
+    ``[x, y, v_xy, cos, sin, omega, grip]``
+
+    Pose decoding is the parent's, unchanged. Grip is then sampled at the SAME
+    decoded times as xy, which is what keeps "close here" registered to the
+    place it was commanded. It is clamped to [0, 1] because the simulator reads
+    it as a level with exactly that range (1.0 = holding on, 0.0 = released),
+    and an unclamped diffusion sample routinely lands outside it.
+    """
+
+    def forward(self, batch: dict) -> dict:
+        tokens = _as_batched(batch["pred_action"], "ArcDetokenizeStackedGripStage input")
+        expected = (self.num_waypoints, PLANAR_ARC_GRIP_DIM)
+        if tuple(tokens.shape[1:]) != expected:
+            raise ValueError(
+                f"ArcDetokenizeStackedGripStage expects (B, {expected[0]}, "
+                f"{expected[1]}), got {tuple(tokens.shape)}"
+            )
+
+        xy_distance = torch.linalg.vector_norm(
+            tokens[:, 1:, :2] - tokens[:, :-1, :2], dim=-1
+        )
+        rate = tokens[:, :-1, 2].clamp_min(0.0)
+        xy = self._decode_stream(tokens[..., :2], xy_distance, rate)
+        # Grip rides the translation clock, so it is decoded with the same
+        # distances and the same rate -- one interpolation, one schedule.
+        grip = self._decode_stream(tokens[..., 6:7], xy_distance, rate).clamp(0.0, 1.0)
+
+        heading_geometry = tokens[..., 3:5]
+        delta_cos = (
+            heading_geometry[:, 1:, 0] * heading_geometry[:, :-1, 0]
+            + heading_geometry[:, 1:, 1] * heading_geometry[:, :-1, 1]
+        )
+        delta_sin = (
+            heading_geometry[:, 1:, 1] * heading_geometry[:, :-1, 0]
+            - heading_geometry[:, 1:, 0] * heading_geometry[:, :-1, 1]
+        )
+        angle_distance = torch.atan2(delta_sin, delta_cos).abs()
+        heading = self._decode_stream(
+            heading_geometry, angle_distance, tokens[:, :-1, 5]
+        )
+        norm = torch.linalg.vector_norm(heading, dim=-1, keepdim=True)
+        heading = heading / norm.clamp_min(1e-8)
+        theta = torch.atan2(heading[..., 1], heading[..., 0]).unsqueeze(-1)
+        native = torch.cat((xy, theta, grip), dim=-1)
+
+        batch["pred_action_native"] = native[..., : self.native_action_dim]
+        batch["log/ArcLinearSpeed"] = tokens[..., 2].clamp_min(0.0).mean()
+        batch["log/ArcAngularVelocityAbs"] = tokens[..., 5].abs().mean()
+        batch["log/ArcTranslationDistance"] = xy_distance.sum(dim=1).mean()
+        batch["log/ArcRotationDistance"] = angle_distance.sum(dim=1).mean()
+        batch["log/ArcGripMean"] = grip.mean()
+        batch["log/ArcGripEngagedFrac"] = (grip > 0.5).to(grip.dtype).mean()
+        return batch
+
+
+class ArcDetokenizeDurationGripStage(ArcDetokenizeDurationStage):
+    """Decode the width-7 duration token, grip included.
+
+    ``[x, y, dt_translation, cos, sin, dt_rotation, grip]``
+    """
+
+    def forward(self, batch: dict) -> dict:
+        tokens = _as_batched(
+            batch["pred_action"], "ArcDetokenizeDurationGripStage input"
+        )
+        expected = (self.num_waypoints, PLANAR_ARC_GRIP_DIM)
+        if tuple(tokens.shape[1:]) != expected:
+            raise ValueError(
+                f"ArcDetokenizeDurationGripStage expects (B, {expected[0]}, "
+                f"{expected[1]}), got {tuple(tokens.shape)}"
+            )
+
+        xy_duration = tokens[:, :-1, 2].clamp_min(0.0)
+        theta_duration = tokens[:, :-1, 5].clamp_min(0.0)
+        xy = self._interpolate_at_times(tokens[..., :2], xy_duration)
+        grip = self._interpolate_at_times(tokens[..., 6:7], xy_duration).clamp(0.0, 1.0)
+
+        heading_geometry = tokens[..., 3:5]
+        heading = self._interpolate_at_times(heading_geometry, theta_duration)
+        norm = torch.linalg.vector_norm(heading, dim=-1, keepdim=True)
+        heading = heading / norm.clamp_min(1e-8)
+        theta = torch.atan2(heading[..., 1], heading[..., 0]).unsqueeze(-1)
+        native = torch.cat((xy, theta, grip), dim=-1)
+
+        batch["pred_action_native"] = native[..., : self.native_action_dim]
+        batch["log/ArcTranslationDuration"] = xy_duration.sum(dim=1).mean()
+        batch["log/ArcRotationDuration"] = theta_duration.sum(dim=1).mean()
+        batch["log/ArcGripMean"] = grip.mean()
+        batch["log/ArcGripEngagedFrac"] = (grip > 0.5).to(grip.dtype).mean()
         return batch

@@ -31,6 +31,21 @@ class EMBODIMENT(Enum):
     YAM_BIMANUAL = 7
     PUSHSHAPES_SIM_U_SOCKET = 19
     PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
+    # The articulated PushShapes roster (s3://rldb/staged/pushshapes_articulated/
+    # articulated-20260909/). Nine embodiments share one canonical action layout
+    # -- slot 2 is always orientation, slot 3 is always grip -- so they co-train
+    # in a single padded action space. u_socket (19) and chain_gripper (20) keep
+    # their pinned ids; the rest start at 21.
+    #
+    # These ids key norm_stats.json, so renumbering them silently invalidates
+    # every checkpoint trained against them. Append, never reorder.
+    PUSHSHAPES_SIM_GRIPPER = 21
+    PUSHSHAPES_SIM_SUCTION = 22
+    PUSHSHAPES_SIM_UMI = 23
+    PUSHSHAPES_SIM_TRIANGLE = 24
+    PUSHSHAPES_SIM_SCOOP = 25
+    PUSHSHAPES_SIM_FLIPPER = 26
+    PUSHSHAPES_SIM_SPRING = 27
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

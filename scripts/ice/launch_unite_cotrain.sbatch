@@ -144,6 +144,8 @@ esac
 case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_separate_nt8_h384_s42) ;;
   pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_split_tok_nt8_h384_s42) ;;
+  pusht/unite_cotrain_usocket_chain_val01_h16:bf/ct_unite_register_separate_nt8_h768_s42) ;;
+  pusht/unite_cotrain_usocket_chaingen_val01_h16:bf/ct_unite_register_separate_nt8_h768_s42) ;;
   pusht/unite_chain_points_val01_h16:bf/ch_unite_register_separate_nt8_h384_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_separate_nt8_h384_s42) ;;
   pusht/planar_v2_cotrain_dp_paper_points6:bf/bf_planar_v2_dp_paper_points6) ;;

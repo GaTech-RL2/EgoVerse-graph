@@ -93,6 +93,14 @@ case "$AF_LAUNCH_MODE" in
   preflight|run) ;;
   *) die "AF_LAUNCH_MODE must be preflight or run" ;;
 esac
+# The portable launcher carries a ten-minute USR1 checkpoint warning for long
+# GPU runs.  A CPU preflight has no requeue runner yet, so inheriting that
+# warning would terminate a legitimate normalization pass before it can write
+# PREFLIGHT_RESULT.json.  Ignore only the scheduler boundary signal in
+# preflight mode; run mode installs the maintained relay before training.
+if test "$AF_LAUNCH_MODE" = preflight; then
+  trap '' USR1
+fi
 case "$AF_RUN_KIND" in
   smoke|full) ;;
   *) die "AF_RUN_KIND must be smoke or full" ;;

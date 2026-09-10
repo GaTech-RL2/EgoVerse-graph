@@ -24,6 +24,15 @@ def test_launcher_has_valid_shell_syntax():
     assert "#SBATCH --kill-on-invalid-dep=yes" in _source()
 
 
+def test_cpu_preflight_ignores_the_gpu_checkpoint_warning_signal():
+    source = _source()
+    assert 'if test "$AF_LAUNCH_MODE" = preflight; then' in source
+    assert "trap '' USR1" in source
+    assert source.index("trap '' USR1") < source.index(
+        'if test "$AF_LAUNCH_MODE" = run; then'
+    )
+
+
 def test_launcher_uses_the_maintained_dataset_validator_success_token():
     validator_source = DATASET_VALIDATOR.read_text()
     match = re.search(r'"status":\s*"([A-Z_]+)"', validator_source)

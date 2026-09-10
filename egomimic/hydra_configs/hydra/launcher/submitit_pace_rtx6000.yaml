@@ -10,12 +10,12 @@ _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 # count is hardcoded (no ``eval`` OmegaConf resolver is registered here).
 name: ${hydra.job.name}
 partition: "gpu-rtx6000"
-account: "gts-dxu345-rl2"
+account: ${oc.env:PACE_ACCOUNT,gts-dxu345-rl2}
 cpus_per_task: 6
 nodes: ${launch_params.nodes}
 tasks_per_node: ${launch_params.gpus_per_node}
 gres: "gpu:rtx_6000:2"
-qos: "inferno"
+qos: ${oc.env:PACE_QOS,inferno}
 mem_per_gpu: 60G
 timeout_min: 2880
 additional_parameters:

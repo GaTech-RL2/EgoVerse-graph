@@ -8,7 +8,7 @@ _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 # (the H200 partition ran at 250G/GPU to fit its 141 GB cards).
 name: ${hydra.job.name}
 partition: "gpu-l40s"
-account: "gts-dxu345-rl2"
+account: ${oc.env:PACE_ACCOUNT,gts-dxu345-rl2}
 # PACE gpu-l40s partition enforces a 4:1 CPU:GPU ratio.
 cpus_per_task: 4
 nodes: ${launch_params.nodes}
@@ -17,7 +17,7 @@ tasks_per_node: ${launch_params.gpus_per_node}
 # resolver used by submitit_pace/submitit_skynet is not registered here, so
 # gres is spelled out. Override on the CLI if you need a different count.
 gres: "gpu:l40s:2"
-qos: "inferno"
+qos: ${oc.env:PACE_QOS,inferno}
 mem_per_gpu: 100G
 timeout_min: 2880
 additional_parameters:

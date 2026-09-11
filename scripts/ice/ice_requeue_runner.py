@@ -529,10 +529,14 @@ def discover_checkpoint_incrementally(
                     )
                 if observed["global_step"] == high_water["global_step"]:
                     if observed["sha256"] != high_water["sha256"]:
-                        raise SystemExit(
-                            "checkpoint identity fork refused: same-step observation "
-                            "differs from SHA-recorded high-water"
-                        )
+                        if path_text == high_water["path"] or not same_checkpoint_identity(
+                            observed.get("metadata_identity", {}),
+                            high_water.get("metadata", {}),
+                        ):
+                            raise SystemExit(
+                                "checkpoint identity fork refused: same-step observation "
+                                "differs from SHA-recorded high-water"
+                            )
                     synthetic = {"metadata": observed["metadata_identity"]}
                     mismatches = identity_mismatches(high_water, synthetic)
                     if mismatches:
@@ -564,12 +568,20 @@ def discover_checkpoint_incrementally(
             if info.global_step == high_water["global_step"] and (
                 info.sha256 != high_water["sha256"]
             ):
-                raise SystemExit(
-                    "checkpoint identity fork refused: same-step checkpoint differs "
-                    "from SHA-recorded high-water"
-                )
+                if path_text == high_water["path"] or not same_checkpoint_identity(
+                    info.metadata,
+                    high_water.get("metadata", {}),
+                ):
+                    raise SystemExit(
+                        "checkpoint identity fork refused: same-step checkpoint differs "
+                        "from SHA-recorded high-water"
+                    )
             if info.global_step >= high_water["global_step"]:
-                enforce_high_water(info, high_water)
+                enforce_high_water(
+                    info,
+                    high_water,
+                    allow_same_step_sibling=True,
+                )
             if (
                 info.global_step == high_water["global_step"]
                 and info.sha256 == high_water["sha256"]
@@ -590,10 +602,14 @@ def newest_checkpoint(*checkpoints: CheckpointInfo | None) -> CheckpointInfo | N
         item.sha256 for item in available if item.global_step == maximum_step
     }
     if len(maximum_digests) != 1:
-        raise SystemExit(
-            "checkpoint identity fork refused: semantic-maximum checkpoints at "
-            f"step {maximum_step} have different SHA-256 identities"
-        )
+        maximum = [
+            item for item in available if item.global_step == maximum_step
+        ]
+        if not same_checkpoint_identity(*(item.metadata for item in maximum)):
+            raise SystemExit(
+                "checkpoint identity fork refused: semantic-maximum checkpoints at "
+                f"step {maximum_step} have different SHA-256 identities"
+            )
     return max(
         available,
         key=lambda item: (item.global_step, item.mtime_ns, str(item.path)),
@@ -720,7 +736,28 @@ def identity_mismatches(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
     ]
 
 
-def enforce_high_water(info: CheckpointInfo | None, high_water: dict[str, Any] | None) -> None:
+def same_checkpoint_identity(*metadata: dict[str, Any]) -> bool:
+    """Return whether same-step checkpoint siblings belong to one run."""
+
+    if len(metadata) < 2:
+        return False
+    present = [
+        key for key in IDENTITY_KEYS if all(key in item for item in metadata)
+    ]
+    if not present or not any(key in present for key in ("run_id", "wandb_run_id")):
+        return False
+    return all(
+        all(item[key] == metadata[0][key] for item in metadata[1:])
+        for key in present
+    )
+
+
+def enforce_high_water(
+    info: CheckpointInfo | None,
+    high_water: dict[str, Any] | None,
+    *,
+    allow_same_step_sibling: bool = False,
+) -> None:
     if high_water is None:
         return
     if info is None:
@@ -731,9 +768,14 @@ def enforce_high_water(info: CheckpointInfo | None, high_water: dict[str, Any] |
             f"checkpoint rollback refused: selected step {info.global_step} < high-water {prior_step}"
         )
     if info.global_step == prior_step and info.sha256 != high_water["sha256"]:
-        raise SystemExit(
-            "checkpoint identity fork refused: same-step checkpoint differs from SHA-recorded high-water"
-        )
+        if not (
+            allow_same_step_sibling
+            and str(info.path) != str(high_water.get("path"))
+            and same_checkpoint_identity(info.metadata, high_water.get("metadata", {}))
+        ):
+            raise SystemExit(
+                "checkpoint identity fork refused: same-step checkpoint differs from SHA-recorded high-water"
+            )
     mismatches = identity_mismatches(high_water, info.as_dict())
     if mismatches:
         raise SystemExit(f"checkpoint identity mismatch for high-water keys: {', '.join(mismatches)}")
@@ -792,12 +834,24 @@ def commit_checkpoint_state(
     return reloaded
 
 
-def is_fresh(candidate: CheckpointInfo | None, baseline: CheckpointInfo | None) -> bool:
+def is_fresh(
+    candidate: CheckpointInfo | None,
+    baseline: CheckpointInfo | None,
+    *,
+    allow_same_step_sibling: bool = False,
+) -> bool:
     if candidate is None:
         return False
     if baseline is None:
         return True
-    return candidate.global_step > baseline.global_step
+    if candidate.global_step > baseline.global_step:
+        return True
+    return (
+        allow_same_step_sibling
+        and candidate.global_step == baseline.global_step
+        and candidate.sha256 != baseline.sha256
+        and candidate.path != baseline.path
+    )
 
 
 def forward_checkpoint_to_slurm_steps(
@@ -1420,7 +1474,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         prevalidated=(baseline,),
                     )
                     latest = newest_checkpoint(latest, candidate)
-                    if is_fresh(candidate, baseline):
+                    if is_fresh(
+                        candidate,
+                        baseline,
+                        allow_same_step_sibling=True,
+                    ):
                         latest = candidate
                         fresh = True
                         break
@@ -1441,7 +1499,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                     atomic_json(attempt_dir / "attempt.json", record)
                     return 74
-                enforce_high_water(latest, high_water)
+                enforce_high_water(
+                    latest,
+                    high_water,
+                    allow_same_step_sibling=True,
+                )
                 high_water = commit_checkpoint_state(
                     high_water_path=high_water_path,
                     observation_index_path=observation_index_path,

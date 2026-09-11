@@ -1,0 +1,58 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_base
+  - override /data: pusht/planar_v2_cotrain_obstacle_7920
+  - override /model: bf/bf_planar_v2_dp_paper
+  - _self_
+
+planar:
+  action_dim: 7
+  action_dims: {pushshapes_sim_u_socket: 7, pushshapes_sim_chain_gripper: 7}
+  observation_horizon: 2
+  action_target_offset: 1
+  raw_action_horizon: 80
+  arc_distance: 80.0
+  arc_dt: 0.0333333333333333
+  arc_rotation_distance: 0.4537856055185257
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_timed_transform_list
+  eval_native_decoder: null
+  batch_size: 32
+evaluator:
+  native_decoder: null
+  semantic_blocks: [[0, 2], [2, 3], [3, 5], [5, 6], [6, 7]]
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: 16
+      native_action_dim: 3
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: 16
+      native_action_dim: 4
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+eval_checkpoint: {use_ema: true}
+callbacks:
+  ema: {_target_: egomimic.utils.ema_callback.EMACallback, decay: 0.9999, use_warmup: true, update_after_step: 0, inv_gamma: 1.0, power: 0.75, min_decay: 0.0, validate_with_ema: true}
+run_provenance:
+  obstacle_data: true
+  dataset_count: 7920
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  split_manifest_path: null
+  split_manifest_sha256: 29b9e313a9e2aaa348e9ce9c5a113127b1df1ec5b8cbe63b111ce9cd9d0a6a43
+  train_episode_count_per_domain: null
+  valid_episode_count_per_domain: null
+  union_episode_count_per_domain: null
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: ${planar.action_horizon}
+    waypoint_count: ${planar.arc_waypoints}
+    replan_every: 8
+    execution_slice: "[0,8)"

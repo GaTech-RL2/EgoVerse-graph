@@ -8,7 +8,11 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     PlanarAgentStateToRotVec4,
     ThetaToRotVec,
 )
-from egomimic.rldb.zarr.planar_arc import PadPlanarAction, TokenizePlanarArcLength
+from egomimic.rldb.zarr.planar_arc import (
+    PadPlanarAction,
+    TokenizePlanarArcLength,
+    TokenizePlanarArcTimed,
+)
 
 
 def get_planar_keymap(
@@ -199,6 +203,42 @@ def get_planar_arc_length_transform_list(
             waypoint_sampling=waypoint_sampling,
             curvature_dense_samples=curvature_dense_samples,
             curvature_floor=curvature_floor,
+        )
+    )
+    return transforms
+
+
+def get_planar_arc_timed_transform_list(
+    keys: list[str] | None = None,
+    raw_action_horizon: int | None = None,
+    action_target_offset: int = 0,
+    min_distance_unit: float = 80.0,
+    resampled_vector_length: int = 56,
+    dt: float = 1.0 / 30.0,
+    rotation_distance_unit: float | None = None,
+    timing_mode: str = "duration",
+    **_kwargs,
+):
+    """Paper-DP alignment followed by the common seven-wide timed ARC codec."""
+    keys = keys or ["actions"]
+    if len(keys) != 1:
+        raise ValueError("Planar timed ARC tokenization requires one action key")
+    transforms = []
+    if action_target_offset:
+        if raw_action_horizon is None or int(raw_action_horizon) <= 0:
+            raise ValueError("raw_action_horizon must be positive with an offset")
+        transforms.append(
+            SliceActionTarget(keys, start=int(action_target_offset), horizon=int(raw_action_horizon))
+        )
+    transforms.append(
+        TokenizePlanarArcTimed(
+            action_key=keys[0],
+            output_action_key=keys[0],
+            min_distance_unit=min_distance_unit,
+            resampled_vector_length=resampled_vector_length,
+            dt=dt,
+            rotation_distance_unit=rotation_distance_unit,
+            timing_mode=timing_mode,
         )
     )
     return transforms

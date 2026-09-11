@@ -7,12 +7,23 @@ from scripts.train.verify_planar_paper_dp_arc_smoke import (
 )
 
 
-def test_verifier_approves_exactly_the_matched_arc_rows():
+def test_verifier_approves_only_the_paper_dp_rows_supported_by_the_launcher():
     assert set(ROWS) == {
         "pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
         "pusht/planar_v2_usocket_arc_paper_curvature_D40_M16_R24deg",
+        "pusht/planar_v2_cotrain_obstacle_paper_dp",
+        "pusht/planar_v2_cotrain_obstacle_arc_duration_D80_M56_R26deg_paper",
+        "pusht/planar_v2_cotrain_obstacle_arc_stacked_D80_M56_R26deg_paper",
+        "pusht/planar_v2_cotrain_obstacle_arc_duration_D80_M16_R26deg_paper",
+        "pusht/planar_v2_cotrain_obstacle_arc_stacked_D80_M16_R26deg_paper",
     }
-    assert {sampling for _, sampling in ROWS.values()} == {"uniform", "curvature"}
+    assert {row[1] for row in ROWS.values()} == {
+        "baseline",
+        "uniform",
+        "curvature",
+        "duration",
+        "velocity",
+    }
 
 
 def test_latest_checkpoint_uses_global_step_not_filename(monkeypatch, tmp_path: Path):

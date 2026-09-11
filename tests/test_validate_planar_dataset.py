@@ -131,6 +131,19 @@ def test_manifest_split_tampering_fails_closed():
         MODULE.validate_manifest_structure(tampered)
 
 
+def test_multidomain_manifest_selects_requested_domain():
+    first = _manifest({f"u_{index:03d}" for index in range(100)}, Path("/u"))
+    second = _manifest({f"c_{index:03d}" for index in range(200)}, Path("/c"))
+    first["domains"]["pushshapes_sim_chain_gripper"] = second["domains"].pop(
+        MODULE.DOMAIN
+    )
+    result = MODULE.validate_manifest_structure(
+        first, "pushshapes_sim_chain_gripper"
+    )
+    assert result["domain"] == "pushshapes_sim_chain_gripper"
+    assert result["total_count"] == 200
+
+
 def test_two_ids_resolving_to_one_physical_directory_fail(tmp_path):
     names = {"episode_a", "episode_b"}
     manifest = _manifest(names, Path("/original/dataset"))

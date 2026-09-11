@@ -20,6 +20,26 @@ def test_paper_dp_arc_launcher_is_valid_and_ice_t_bound():
     assert "skynet]" not in text
 
 
+def test_paper_dp_arc_preflight_model_instantiation_is_cpu_only():
+    text = LAUNCHER.read_text()
+    cpu_assignment = text.index('cfg.model.pipeline.device = "cpu"')
+    import_position = text.rindex(
+        "from omegaconf import OmegaConf, open_dict", 0, cpu_assignment
+    )
+    assert import_position < cpu_assignment
+
+
+def test_cotrain_preflight_records_the_true_cross_domain_global_batch():
+    text = LAUNCHER.read_text()
+    assert '"train_batch_size_per_domain": train_batch_sizes' in text
+    assert '"effective_global_batch": sum(train_batch_sizes.values())' in text
+
+
+def test_gpu_probe_preserves_the_slurm_device_binding():
+    text = LAUNCHER.read_text()
+    assert "CUDA_VISIBLE_DEVICES" not in text
+
+
 def test_paper_dp_arc_launcher_guards_both_fair_rows():
     text = LAUNCHER.read_text()
     uniform = "pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg"

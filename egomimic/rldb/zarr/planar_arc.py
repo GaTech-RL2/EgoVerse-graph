@@ -8,6 +8,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 
 PLANAR_ACTION_DIM = 5  # [x, y, cos(theta), sin(theta), grip]
+PLANAR_ARC_TIMED_DIM = 7  # [x, y, timing_xy, cos(theta), sin(theta), timing_theta, grip]
 
 
 def lambda_for_radius(radius: float) -> float:
@@ -185,6 +186,133 @@ class PadPlanarAction:
                 value.dtype if np.issubdtype(value.dtype, np.floating) else np.float32
             )
             batch[key] = output.astype(dtype, copy=False)
+        return batch
+
+
+class TokenizePlanarArcTimed:
+    """Encode Planar controls as independently timed translation/rotation arcs.
+
+    The common seven-channel layout keeps ChainGripper aperture instead of
+    dropping it as the historical U-Socket-only six-channel codec did.  The
+    two supported timing modes differ only in channels 2 and 5: ``velocity``
+    stores local rates and ``duration`` stores the elapsed interval seconds.
+    """
+
+    def __init__(
+        self,
+        action_key: str = "actions",
+        output_action_key: str = "actions",
+        min_distance_unit: float = 80.0,
+        resampled_vector_length: int = 56,
+        dt: float = 1.0 / 30.0,
+        rotation_distance_unit: float | None = None,
+        timing_mode: str = "duration",
+        zero_dist_epsilon: float = 1e-9,
+    ):
+        if min_distance_unit <= 0 or dt <= 0:
+            raise ValueError("min_distance_unit and dt must be positive")
+        if resampled_vector_length < 2:
+            raise ValueError("resampled_vector_length must be at least two")
+        if rotation_distance_unit is not None and (
+            not math.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0
+        ):
+            raise ValueError("rotation_distance_unit must be finite and positive")
+        if timing_mode not in {"velocity", "duration"}:
+            raise ValueError("timing_mode must be 'velocity' or 'duration'")
+        self.action_key = str(action_key)
+        self.output_action_key = str(output_action_key)
+        self.distance = float(min_distance_unit)
+        self.num_waypoints = int(resampled_vector_length)
+        self.dt = float(dt)
+        self.rotation_distance = (
+            None if rotation_distance_unit is None else float(rotation_distance_unit)
+        )
+        self.timing_mode = str(timing_mode)
+        self.zero_dist_epsilon = float(zero_dist_epsilon)
+
+    @staticmethod
+    def _components(actions: np.ndarray):
+        xy = actions[:, :2]
+        if actions.shape[1] == PLANAR_ACTION_DIM:
+            theta = np.unwrap(np.arctan2(actions[:, 3], actions[:, 2]))
+            grip = actions[:, 4]
+        else:
+            theta = np.unwrap(actions[:, 2]) if actions.shape[1] >= 3 else np.zeros(len(actions))
+            grip = actions[:, 3] if actions.shape[1] == 4 else np.zeros(len(actions))
+        return xy, theta, grip
+
+    def _sample_stream(
+        self,
+        values: np.ndarray,
+        cumulative: np.ndarray,
+        end: float,
+        *,
+        signed_rate: bool,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if end <= self.zero_dist_epsilon:
+            points = np.repeat(values[:1], self.num_waypoints, axis=0)
+            return points, np.zeros(self.num_waypoints), np.zeros(self.num_waypoints)
+        targets = np.linspace(0.0, end, self.num_waypoints)
+        points = np.stack([_interpolate(values, cumulative, target) for target in targets])
+        points[0] = values[0]
+        times = np.zeros(self.num_waypoints, dtype=np.float64)
+        for index, target in enumerate(targets[1:], start=1):
+            source_index, alpha = _bracket_segment(cumulative, float(target))
+            times[index] = (source_index + alpha) * self.dt
+        delta_t = np.diff(times)
+        if signed_rate:
+            delta_geometry = np.diff(points[:, 0])
+        else:
+            delta_geometry = np.linalg.norm(np.diff(points, axis=0), axis=-1)
+        rates = np.divide(
+            delta_geometry,
+            delta_t,
+            out=np.zeros_like(delta_geometry),
+            where=delta_t > self.zero_dist_epsilon,
+        )
+        timing = np.zeros(self.num_waypoints, dtype=np.float64)
+        interval = delta_t if self.timing_mode == "duration" else rates
+        timing[:-1] = interval
+        timing[-1] = interval[-1]
+        return points, timing, targets
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta, grip = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        angle_arc = np.concatenate((np.zeros(1), np.cumsum(np.abs(np.diff(theta)))))
+        translation_end = min(self.distance, float(translation_arc[-1]))
+        rotation_end = float(angle_arc[-1])
+        if self.rotation_distance is not None:
+            rotation_end = min(self.rotation_distance, rotation_end)
+        xy_waypoints, xy_timing, xy_targets = self._sample_stream(
+            xy, translation_arc, translation_end, signed_rate=False
+        )
+        theta_waypoints, theta_timing, _ = self._sample_stream(
+            theta[:, None], angle_arc, rotation_end, signed_rate=True
+        )
+        grip_waypoints = np.array(
+            [_interpolate(grip[:, None], translation_arc, target)[0] for target in xy_targets]
+        )
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_TIMED_DIM), dtype=np.float64)
+        token[:, :2] = xy_waypoints
+        token[:, 2] = xy_timing
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = theta_timing
+        token[:, 6] = grip_waypoints
+        return token
+
+    def transform(self, batch: dict) -> dict:
+        value = np.asarray(batch[self.action_key])
+        if value.ndim != 2 or value.shape[1] not in (2, 3, 4, PLANAR_ACTION_DIM):
+            raise ValueError(f"expected Planar (T, 2|3|4|5), got {value.shape}")
+        if len(value) < 2 or not np.isfinite(value).all():
+            raise ValueError("planar actions need at least two finite timesteps")
+        output = self.tokenize(value.astype(np.float64, copy=False))
+        dtype = value.dtype if np.issubdtype(value.dtype, np.floating) else np.float32
+        batch[self.output_action_key] = output.astype(dtype, copy=False)
         return batch
 
 

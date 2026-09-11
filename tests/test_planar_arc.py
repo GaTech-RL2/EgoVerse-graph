@@ -5,6 +5,7 @@ import pytest
 import torch
 
 from egomimic.pipeline.pushshapes import (
+    PlanarArcTimedNativeDecoder,
     PlanarArcWaypointZeroNativeDecoder,
     PlanarCommon5NativeDecoder,
 )
@@ -14,6 +15,7 @@ from egomimic.rldb.embodiment.pushshapes import (
 from egomimic.rldb.zarr.planar_arc import (
     PadPlanarAction,
     TokenizePlanarArcLength,
+    TokenizePlanarArcTimed,
     curvature_adaptive_curve_samples,
     lambda_for_radius,
     planar_step_distance,
@@ -223,3 +225,43 @@ def test_arc_rejects_nonfinite_or_short_input():
         transform.transform({"actions": np.zeros((1, 3))})
     with pytest.raises(ValueError):
         transform.transform({"actions": np.array([[0, 0], [np.nan, 1]])})
+
+
+@pytest.mark.parametrize("timing_mode", ["duration", "velocity"])
+def test_timed_arc_has_shared_planar_layout_and_preserves_grip(timing_mode):
+    actions = np.column_stack(
+        (np.arange(6.0), np.zeros(6), np.zeros(6), np.linspace(0.2, 0.8, 6))
+    )
+    token = TokenizePlanarArcTimed(
+        min_distance_unit=5,
+        resampled_vector_length=6,
+        dt=0.5,
+        timing_mode=timing_mode,
+    ).tokenize(actions)
+    assert token.shape == (6, 7)
+    np.testing.assert_allclose(token[:, :2], actions[:, :2])
+    np.testing.assert_allclose(token[:, 3:5], np.tile([1.0, 0.0], (6, 1)))
+    np.testing.assert_allclose(token[:, 6], actions[:, 3])
+
+
+@pytest.mark.parametrize("timing_mode", ["duration", "velocity"])
+def test_timed_arc_decoder_reconstructs_linear_native_actions(timing_mode):
+    actions = np.column_stack(
+        (np.arange(6.0), np.zeros(6), np.zeros(6), np.linspace(0.2, 0.8, 6))
+    )
+    token = TokenizePlanarArcTimed(
+        min_distance_unit=5,
+        resampled_vector_length=6,
+        dt=0.5,
+        timing_mode=timing_mode,
+    ).tokenize(actions)
+    decoder = PlanarArcTimedNativeDecoder(
+        resampled_vector_length=6,
+        action_horizon=6,
+        native_action_dim=4,
+        timing_mode=timing_mode,
+        dt=0.5,
+    )
+    decoded = decoder.decode(torch.tensor(token)[None, None]).numpy()
+    assert decoded.shape == (1, 1, 6, 4)
+    np.testing.assert_allclose(decoded[0, 0], actions, atol=1e-6)

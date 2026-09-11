@@ -144,7 +144,8 @@ def main() -> None:
     val_indices = np.flatnonzero(data["split"] == 1)
     source_key = config.get("source_key", "source_2d")
     source = torch.from_numpy(data[source_key]).float()
-    target = torch.from_numpy(data["target_3d"]).float()
+    target_key = config.get("target_key", "target_3d")
+    target = torch.from_numpy(data[target_key]).float()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     architecture = config.get("architecture", "shared_latent")
     if architecture == "shared_latent":
@@ -279,6 +280,7 @@ def main() -> None:
             config["evaluation_dataset"],
             source_key,
             int(config["evaluation_particles"]),
+            target_key,
         )
         src, tgt = src.to(device), tgt.to(device)
     else:
@@ -346,13 +348,18 @@ def main() -> None:
         diagnostic_clean = model.encoder(tgt)
         diagnostic_velocity = src - diagnostic_clean
         diagnostic_state = (
-            (1.0 - diagnostic_time) * diagnostic_clean + diagnostic_time * src
-        )
+            1.0 - diagnostic_time
+        ) * diagnostic_clean + diagnostic_time * src
         diagnostic_residual = (
             model.velocity(diagnostic_state, diagnostic_time) - diagnostic_velocity
         )
-        surface_kind = config.get("surface_kind", "torus")
-        if surface_kind == "torus":
+        surface_kind = config.get(
+            "surface_kind",
+            "torus" if config.get("distribution_name", "torus") == "torus" else None,
+        )
+        if surface_kind is None:
+            surface_metrics = {}
+        elif surface_kind == "torus":
             surface_metrics = {
                 "validation_torus_surface_rmse": float(
                     SyntheticTrajectoryEval.torus_surface_rmse(

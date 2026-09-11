@@ -13,7 +13,10 @@ class SyntheticTrajectoryEval:
 
     @staticmethod
     def load_validation_data(
-        path: str | Path, source_key: str, particles: int
+        path: str | Path,
+        source_key: str,
+        particles: int,
+        target_key: str = "target_3d",
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Load exactly ``particles`` held-out examples or fail explicitly."""
         if particles <= 0:
@@ -27,7 +30,7 @@ class SyntheticTrajectoryEval:
             )
         selected = indices[:particles]
         source = torch.from_numpy(archive[source_key][selected]).float()
-        target = torch.from_numpy(archive["target_3d"][selected]).float()
+        target = torch.from_numpy(archive[target_key][selected]).float()
         return source, target
 
     @staticmethod
@@ -75,9 +78,7 @@ class SyntheticTrajectoryEval:
         return (points.norm(dim=-1) - radius).square().mean().sqrt()
 
     @staticmethod
-    def cube_surface_rmse(
-        points: torch.Tensor, *, half_extent: float
-    ) -> torch.Tensor:
+    def cube_surface_rmse(points: torch.Tensor, *, half_extent: float) -> torch.Tensor:
         """Euclidean RMSE to the boundary of an axis-aligned cube."""
         if half_extent <= 0:
             raise ValueError("cube half-extent must be positive")
@@ -149,7 +150,7 @@ class SyntheticTrajectoryEval:
     @torch.inference_mode()
     def evaluate(model, source: torch.Tensor, target: torch.Tensor, *, steps: int):
         points = model.trajectory(source, steps=steps)
-        expected = (steps + 1, len(target), 3)
+        expected = (steps + 1, len(target), int(target.shape[-1]))
         if tuple(points.shape) != expected:
             raise RuntimeError(
                 f"synthetic trajectory must have shape {expected}, got {tuple(points.shape)}"

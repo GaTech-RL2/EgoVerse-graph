@@ -9,11 +9,18 @@ from torch.func import jacrev, jvp, vmap
 from .shared_latent_flow import _mlp
 
 
-def _fixed_lift(latent_dim: int, *, dtype: torch.dtype = torch.float32) -> torch.Tensor:
-    if latent_dim < 3:
-        raise ValueError("action-adapter latent_dim must be at least 3")
-    lift = torch.zeros(latent_dim, 3, dtype=dtype)
-    lift[:3] = torch.eye(3, dtype=dtype)
+def _fixed_lift(
+    latent_dim: int,
+    action_dim: int = 3,
+    *,
+    dtype: torch.dtype = torch.float32,
+) -> torch.Tensor:
+    if action_dim <= 0:
+        raise ValueError("action_dim must be positive")
+    if latent_dim < action_dim:
+        raise ValueError("action-adapter latent_dim must be at least action_dim")
+    lift = torch.zeros(latent_dim, action_dim, dtype=dtype)
+    lift[:action_dim] = torch.eye(action_dim, dtype=dtype)
     return lift
 
 
@@ -79,6 +86,7 @@ class SyntheticActionAdapterFlow(nn.Module):
     def __init__(
         self,
         *,
+        action_dim: int = 3,
         latent_dim: int = 8,
         adapter_family: str = "fixed_affine",
         residual_width: int = 32,
@@ -87,14 +95,15 @@ class SyntheticActionAdapterFlow(nn.Module):
         field_depth: int = 4,
     ) -> None:
         super().__init__()
+        self.action_dim = int(action_dim)
         self.latent_dim = int(latent_dim)
         if adapter_family not in self._ADAPTER_FAMILIES:
             raise ValueError(f"unknown adapter_family: {adapter_family}")
         self.adapter_family = adapter_family
-        lift = _fixed_lift(self.latent_dim)
+        lift = _fixed_lift(self.latent_dim, self.action_dim)
         if adapter_family == "nonlinear":
             self.encoder = ResidualActionAdapter(
-                3,
+                self.action_dim,
                 self.latent_dim,
                 lift,
                 residual_width=residual_width,
@@ -102,14 +111,14 @@ class SyntheticActionAdapterFlow(nn.Module):
             )
             self.decoder = ResidualActionAdapter(
                 self.latent_dim,
-                3,
+                self.action_dim,
                 lift.T,
                 residual_width=residual_width,
                 residual_depth=residual_depth,
             )
         else:
-            self.encoder = AffineActionAdapter(3, self.latent_dim, lift)
-            self.decoder = AffineActionAdapter(self.latent_dim, 3, lift.T)
+            self.encoder = AffineActionAdapter(self.action_dim, self.latent_dim, lift)
+            self.decoder = AffineActionAdapter(self.latent_dim, self.action_dim, lift.T)
         if adapter_family == "fixed_affine":
             self.encoder.requires_grad_(False)
             self.decoder.requires_grad_(False)
@@ -185,10 +194,10 @@ class SyntheticActionAdapterFlow(nn.Module):
         if state.shape != velocity_residual.shape:
             raise ValueError("state and velocity_residual must have matching shapes")
         decoded_residual = self.decoder_jvp(state, velocity_residual)
-        return decoded_residual.square().sum(dim=-1).mean() / 3.0
+        return decoded_residual.square().sum(dim=-1).mean() / float(self.action_dim)
 
     def scale_loss(self, noise: torch.Tensor) -> torch.Tensor:
-        identity = torch.eye(3, device=noise.device, dtype=noise.dtype)
+        identity = torch.eye(self.action_dim, device=noise.device, dtype=noise.dtype)
         if self.adapter_family != "nonlinear":
             mean = self.decoder.bias
             covariance = self.decoder.weight @ self.decoder.weight.T
@@ -199,7 +208,10 @@ class SyntheticActionAdapterFlow(nn.Module):
             mean = decoded.mean(dim=0)
             centered = decoded - mean
             covariance = centered.T @ centered / (len(decoded) - 1)
-        return mean.square().sum() / 3.0 + (covariance - identity).square().sum() / 3.0
+        scale = float(self.action_dim)
+        return (
+            mean.square().sum() / scale + (covariance - identity).square().sum() / scale
+        )
 
     def losses(
         self,
@@ -229,7 +241,14 @@ class SyntheticActionAdapterFlow(nn.Module):
         clean_many = (
             clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
         )
-        action_many = action[:, None].expand(-1, flow_samples, -1).reshape(-1, 3)
+        if action.shape[-1] != self.action_dim:
+            raise ValueError(
+                f"action width {action.shape[-1]} does not match action_dim "
+                f"{self.action_dim}"
+            )
+        action_many = (
+            action[:, None].expand(-1, flow_samples, -1).reshape(-1, self.action_dim)
+        )
         if noise is None:
             base_noise = torch.randn_like(clean)
         elif noise.shape == clean.shape:
@@ -245,8 +264,12 @@ class SyntheticActionAdapterFlow(nn.Module):
             time = torch.rand(len(clean_many), 1, device=action.device)
         if time.shape != (len(clean_many), 1):
             raise ValueError("time does not match the expanded action batch")
-        target_clean = clean_many if clean_gradient_mode == "full" else clean_many.detach()
-        state_clean = clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        target_clean = (
+            clean_many if clean_gradient_mode == "full" else clean_many.detach()
+        )
+        state_clean = (
+            clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        )
         target_velocity = noise_many - target_clean
         state = (1.0 - time) * state_clean + time * noise_many
         velocity_residual = self.velocity(state, time) - target_velocity

@@ -1,0 +1,21 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+  - _self_
+
+name: action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_val8_s42
+description: "Action Flow with unchanged H384 codec and a 90.4M H640 denoiser"
+
+model:
+  denoiser_hidden_dim: 640
+  denoiser_num_heads: 16
+  gradient_checkpointing: false
+
+run_provenance:
+  architecture:
+    encoder: {hidden_dim: 384, depth: 12, num_heads: 12}
+    denoiser: {hidden_dim: 640, depth: 12, num_heads: 16, parameters: 90396000}
+    decoder: {hidden_dim: 384, depth: 12, num_heads: 12}
+    total_parameters: 155626932
+    gradient_checkpointing: false
+    attention: pytorch_sdpa_flash_auto_except_decoder_jvp_math

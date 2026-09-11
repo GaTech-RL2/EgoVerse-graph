@@ -90,28 +90,31 @@ workflow:
         cd "$WORKDIR/EgoVerse-graph"
         git rev-parse HEAD
 
-        # The grip channel is the point of this corpus. A branch whose ARC
-        # configs still use the width-6 token would train every grasping
-        # embodiment with its engage channel discarded -- the exact defect the
-        # corpus was regenerated to remove -- and would do it silently.
+        # Cheap existence check first, so a typo'd experiment name fails in
+        # seconds rather than after uv sync.
         for EXP in $EXPERIMENTS; do
           F="egomimic/hydra_configs/experiment/pusht/${EXP}.yaml"
           test -f "$F" || { echo "FATAL: $F missing on $BRANCH"; exit 1; }
-          case "$EXP" in
-            *arc_*)
-              grep -q "arc_grip_paper_dp" "$F" || {
-                echo "FATAL: $EXP does not use the width-7 grip model"; exit 1; }
-              grep -q "rotation_distance_unit" "$F" || {
-                echo "FATAL: $EXP does not wire rotation_distance_unit"; exit 1; }
-              ;;
-          esac
-          grep -q "umi\|scoop" "$F" && {
-            echo "FATAL: $EXP mentions a held-out embodiment"; exit 1; } || true
         done
-        echo "preflight: grip model + rotation wiring present, no holdout leak"
 
         uv sync --frozen
         source .venv/bin/activate
+
+        # The real gate. An earlier version of this job grepped the experiment
+        # YAML for "rotation_distance_unit" and failed every ARC arm, because in
+        # this config family the wiring lives in the DATA config -- the text was
+        # in the right repo and the wrong file. Worse, a passing grep would have
+        # proved nothing anyway: the original bug was a factory that accepted
+        # the kwarg through **_kwargs and dropped it, so the YAML read correctly
+        # while every R cell tokenized identically.
+        #
+        # So this asserts against constructed OBJECTS instead: it composes each
+        # config, instantiates every transform list, checks D/M/R actually
+        # landed on the tokenizer, verifies that changing R changes the token,
+        # builds the pipeline graph, and pushes a real token through the
+        # denoiser. It also fails if any held-out embodiment reaches a dataset.
+        python tools/preflight_experiment_configs.py --holdout $HELD_EMB -- $EXPERIMENTS \
+          || { echo "FATAL: config preflight failed"; exit 1; }
 
         bash ./egomimic/utils/aws/setup_secret.sh
         test -s "$HOME/.egoverse_env"

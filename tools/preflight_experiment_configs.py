@@ -46,6 +46,59 @@ def _fake_native(dim: int, frames: int = 81) -> np.ndarray:
     return np.column_stack(cols).astype(np.float32)
 
 
+def _check_budgets_landed(steps, cfg, domain, declared_r) -> list[str]:
+    """Assert the ARC budgets reached the tokenizer OBJECT, not just the YAML.
+
+    A text search for "rotation_distance_unit" proves nothing: the original bug
+    was a factory that accepted the kwarg through **_kwargs and dropped it, so
+    the config read correctly while every R cell tokenized identically. The only
+    honest check is the attribute on the constructed tokenizer, plus evidence
+    that changing R changes the token.
+    """
+    problems: list[str] = []
+    tokenizer = next(
+        (st for st in steps if hasattr(st, "rotation_distance")), None
+    )
+    if tokenizer is None:
+        return problems  # not an ARC arm
+    planar = cfg.get("planar", {})
+    for attr, key in (("distance", "arc_distance"), ("num_waypoints", "arc_waypoints")):
+        want = planar.get(key, None)
+        if want is not None and float(getattr(tokenizer, attr)) != float(want):
+            problems.append(
+                f"{domain}: tokenizer.{attr}={getattr(tokenizer, attr)} but "
+                f"planar.{key}={want}"
+            )
+    if declared_r is not None and tokenizer.rotation_distance is None:
+        problems.append(
+            f"{domain}: planar.arc_rotation_distance={declared_r} never reached the "
+            "tokenizer -- the angular budget is uncapped and every R cell is identical"
+        )
+    elif declared_r is not None:
+        # Changing R must change the token, or the knob is decorative.
+        frames = np.linspace(0.0, 1.0, 81)
+        native = np.column_stack([
+            60.0 * frames, 25.0 * np.sin(2.2 * frames), 2.0 * frames,
+            (frames > 0.4).astype(float),
+        ]).astype(np.float32)
+        before = tokenizer.tokenize(
+            np.column_stack([
+                native[:, :2], np.cos(native[:, 2]), np.sin(native[:, 2]), native[:, 3]
+            ]).astype(np.float64)
+        )
+        saved = tokenizer.rotation_distance
+        tokenizer.rotation_distance = saved * 0.7
+        after = tokenizer.tokenize(
+            np.column_stack([
+                native[:, :2], np.cos(native[:, 2]), np.sin(native[:, 2]), native[:, 3]
+            ]).astype(np.float64)
+        )
+        tokenizer.rotation_distance = saved
+        if float(np.abs(before - after).max()) <= 1e-9:
+            problems.append(f"{domain}: changing R does not change the token")
+    return problems
+
+
 def _check(experiment: str, holdout: list[str]) -> list[str]:
     problems: list[str] = []
     cfg = compose(
@@ -62,6 +115,7 @@ def _check(experiment: str, holdout: list[str]) -> list[str]:
         problems.append(f"held-out embodiment(s) present in datasets: {leaked}")
 
     shapes = set()
+    declared_r = cfg.get("planar", {}).get("arc_rotation_distance", None)
     for domain, node in cfg.data.train_datasets.items():
         steps = instantiate(node.resolver.transform_list, keys=["actions"])
         short = domain.replace("pushshapes_sim_", "")
@@ -69,6 +123,7 @@ def _check(experiment: str, holdout: list[str]) -> list[str]:
         for step in steps:
             batch = step.transform(batch)
         shapes.add(tuple(np.asarray(batch["actions"]).shape))
+        problems += _check_budgets_landed(steps, cfg, domain, declared_r)
     if len(shapes) != 1:
         problems.append(f"embodiments disagree on token shape: {sorted(shapes)}")
     rows, width = sorted(shapes)[0]

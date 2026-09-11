@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
 from torch.func import jvp
 
-from egomimic.pipeline.core import Stage
+from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
 
 
 def _key(value: str, *, label: str) -> str:
@@ -30,6 +31,40 @@ def _module(value: nn.Module, *, label: str) -> nn.Module:
     if not isinstance(value, nn.Module):
         raise TypeError(f"{label} must be an nn.Module, got {type(value).__name__}")
     return value
+
+
+def _routed_modules(
+    modules: Mapping[str, nn.Module], *, label: str
+) -> nn.ModuleDict:
+    configured = {str(route): module for route, module in dict(modules).items()}
+    if not configured:
+        raise ValueError(f"{label} must contain at least one route")
+    if any(not route for route in configured):
+        raise ValueError(f"{label} route names must be non-empty")
+    if any(not isinstance(module, nn.Module) for module in configured.values()):
+        raise TypeError(f"{label} values must be nn.Module instances")
+    return nn.ModuleDict(configured)
+
+
+def _route_from_batch(
+    batch: Mapping,
+    *,
+    route_key: str,
+    route_aliases: Mapping,
+    routes,
+) -> str:
+    if route_key not in batch:
+        raise KeyError(f"route key {route_key!r} is absent from the batch")
+    route = str(
+        resolve_homogeneous_scalar(batch[route_key], label=f"route {route_key}")
+    )
+    route = route_aliases.get(route, route)
+    if route not in routes:
+        raise KeyError(
+            f"No routed module for {route_key}={route!r}; "
+            f"configured={tuple(routes)}"
+        )
+    return route
 
 
 class _SplitFieldPrediction(torch.autograd.Function):
@@ -107,6 +142,68 @@ class ContentEncoderStage(Stage):
                 f"{self.input_key} must have shape (B, ...), got {tuple(content.shape)}"
             )
         clean = self.encoder(content)
+        if not torch.is_tensor(clean) or clean.ndim < 2:
+            shape = tuple(clean.shape) if torch.is_tensor(clean) else None
+            raise ValueError(f"encoder output must have shape (B, ...), got {shape}")
+        if int(clean.shape[0]) != int(content.shape[0]):
+            raise ValueError(
+                "encoder output batch does not match target content: "
+                f"{clean.shape[0]} != {content.shape[0]}"
+            )
+        batch[self.output_key] = clean
+        return batch
+
+
+class RoutedContentEncoderStage(ContentEncoderStage):
+    """Select one ordinary content codec from homogeneous batch metadata.
+
+    This is a generic routing primitive: it neither interprets route labels nor
+    assumes an action representation.  The selected encoder is the only codec
+    evaluated for a batch, while downstream latent-flow stages stay shared.
+    """
+
+    def __init__(
+        self,
+        encoders: Mapping[str, nn.Module],
+        route_key: str = "route",
+        route_aliases: Mapping | None = None,
+        input_key: str = "target",
+        output_key: str = "action_flow/clean_latent",
+    ):
+        super().__init__(
+            encoder=_routed_modules(encoders, label="encoders"),
+            input_key=input_key,
+            output_key=output_key,
+        )
+        self.routes = tuple(self.encoder)
+        self.route_key = _key(route_key, label="route_key")
+        self.route_aliases = {
+            str(resolve_homogeneous_scalar(source, label="route alias")): str(target)
+            for source, target in dict(route_aliases or {}).items()
+        }
+        unknown = set(self.route_aliases.values()) - set(self.routes)
+        if unknown:
+            raise ValueError(f"route_aliases reference unknown encoders: {sorted(unknown)}")
+        self.reads = (self.input_key, self.route_key)
+
+    def encoder_for(self, batch: Mapping) -> nn.Module:
+        """Return the one codec selected by a homogeneous batch route."""
+
+        route = _route_from_batch(
+            batch,
+            route_key=self.route_key,
+            route_aliases=self.route_aliases,
+            routes=self.routes,
+        )
+        return self.encoder[route]
+
+    def forward(self, batch: dict) -> dict:
+        content = _tensor(batch, self.input_key)
+        if content.ndim < 2 or int(content.shape[0]) <= 0:
+            raise ValueError(
+                f"{self.input_key} must have shape (B, ...), got {tuple(content.shape)}"
+            )
+        clean = self.encoder_for(batch)(content)
         if not torch.is_tensor(clean) or clean.ndim < 2:
             shape = tuple(clean.shape) if torch.is_tensor(clean) else None
             raise ValueError(f"encoder output must have shape (B, ...), got {shape}")
@@ -617,8 +714,18 @@ class ContentDecoderStage(Stage):
         self.reads_by_mode = {"inference": (self.inference_latent_key,)}
         self.writes_by_mode = {"inference": (self.prediction_key,)}
 
-    def _decode(self, value: torch.Tensor, *, label: str) -> torch.Tensor:
-        decoded = self.decoder(value)
+    def _decoder_for(self, batch: Mapping) -> nn.Module:
+        del batch
+        return self.decoder
+
+    def _decode(
+        self,
+        value: torch.Tensor,
+        *,
+        label: str,
+        decoder: nn.Module | None = None,
+    ) -> torch.Tensor:
+        decoded = (self.decoder if decoder is None else decoder)(value)
         if not torch.is_tensor(decoded) or decoded.ndim < 2:
             shape = tuple(decoded.shape) if torch.is_tensor(decoded) else None
             raise ValueError(f"decoder {label} must have shape (B, ...), got {shape}")
@@ -635,6 +742,7 @@ class ContentDecoderStage(Stage):
             raise ValueError(
                 "latent state and velocity residual must have matching shapes"
             )
+        decoder = self._decoder_for(batch)
         reconstruction_input = clean
         if self.reconstruction_noising_probability > 0.0:
             batch_size = int(clean.shape[0])
@@ -650,17 +758,21 @@ class ContentDecoderStage(Stage):
                 < self.reconstruction_noising_probability
             ).reshape(batch_size, *([1] * (clean.ndim - 1)))
             reconstruction_input = torch.where(mask, noised, clean)
-        reconstruction = self._decode(reconstruction_input, label="reconstruction")
+        reconstruction = self._decode(
+            reconstruction_input, label="reconstruction", decoder=decoder
+        )
         decoded_noise = (
-            self._decode(noise, label="noise") if noise is not None else None
+            self._decode(noise, label="noise", decoder=decoder)
+            if noise is not None
+            else None
         )
         # PyTorch's non-reentrant activation checkpointing installs saved-tensor
         # hooks that are incompatible with ``torch.func`` transforms. Preserve
         # checkpointing for the reconstruction pass, but disable it only while
         # computing this required forward-mode JVP.
-        checkpointing = getattr(self.decoder, "gradient_checkpointing", None)
+        checkpointing = getattr(decoder, "gradient_checkpointing", None)
         if isinstance(checkpointing, bool):
-            self.decoder.gradient_checkpointing = False
+            decoder.gradient_checkpointing = False
         # CUDA FlashAttention does not implement forward-mode AD. Restrict the
         # decoder JVP to the mathematically equivalent SDPA math kernel; normal
         # reconstruction, training, and inference forwards keep their default
@@ -687,13 +799,13 @@ class ContentDecoderStage(Stage):
         try:
             with precision_context, attention_context:
                 decoded_residual = jvp(
-                    self.decoder,
+                    decoder,
                     (jvp_state,),
                     (jvp_residual,),
                 )[1]
         finally:
             if isinstance(checkpointing, bool):
-                self.decoder.gradient_checkpointing = checkpointing
+                decoder.gradient_checkpointing = checkpointing
         if not torch.is_tensor(decoded_residual) or decoded_residual.ndim < 2:
             shape = (
                 tuple(decoded_residual.shape)
@@ -711,7 +823,9 @@ class ContentDecoderStage(Stage):
 
     def _forward_inference(self, batch: dict) -> dict:
         latent = _tensor(batch, self.inference_latent_key)
-        batch[self.prediction_key] = self._decode(latent, label="prediction")
+        batch[self.prediction_key] = self._decode(
+            latent, label="prediction", decoder=self._decoder_for(batch)
+        )
         return batch
 
     def execute(self, batch: dict, *, mode: str) -> dict:
@@ -723,6 +837,45 @@ class ContentDecoderStage(Stage):
 
     def forward(self, batch: dict) -> dict:
         return self._forward_train(batch)
+
+
+class RoutedContentDecoderStage(ContentDecoderStage):
+    """Decode through a route-selected codec and differentiate its local JVP."""
+
+    def __init__(
+        self,
+        decoders: Mapping[str, nn.Module],
+        route_key: str,
+        route_aliases: Mapping | None = None,
+        **kwargs,
+    ):
+        super().__init__(decoder=_routed_modules(decoders, label="decoders"), **kwargs)
+        self.route_key = _key(route_key, label="route_key")
+        self.route_aliases = {
+            str(resolve_homogeneous_scalar(source, label="route alias")): str(target)
+            for source, target in dict(route_aliases or {}).items()
+        }
+        unknown = set(self.route_aliases.values()) - set(self.decoder)
+        if unknown:
+            raise ValueError(f"route_aliases reference unknown decoders: {sorted(unknown)}")
+        self.reads = (self.route_key,) + self.reads
+        self.reads_by_mode = {
+            "inference": (self.route_key,) + tuple(self.reads_by_mode["inference"])
+        }
+
+    def _decoder_for(self, batch: Mapping) -> nn.Module:
+        return self.decoder_for(batch)
+
+    def decoder_for(self, batch: Mapping) -> nn.Module:
+        """Return the one decoder selected by a homogeneous batch route."""
+
+        route = _route_from_batch(
+            batch,
+            route_key=self.route_key,
+            route_aliases=self.route_aliases,
+            routes=self.decoder,
+        )
+        return self.decoder[route]
 
 
 class ActionFlowObjectiveStage(Stage):

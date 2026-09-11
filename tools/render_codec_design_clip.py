@@ -98,21 +98,147 @@ def draw_path(ax, upto=N, dots=True):
                     color=TR, fontweight="bold")
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "results", "videos", "04_design.mp4"))
-    ap.add_argument("--fps", type=int, default=30)
-    a = ap.parse_args()
-    os.makedirs(os.path.dirname(a.out), exist_ok=True)
-    fps = a.fps
+def _writer(fps):
+    return FFMpegWriter(fps=fps, bitrate=6000, codec="libx264",
+                        extra_args=["-pix_fmt", "yuv420p", "-preset", "slow"])
+
+
+def clip_hybrid(out, fps):
+    """How two independently-resampled streams end up the same length."""
     fig, T, U = fig_new()
     keep = (T, U)
-    w = FFMpegWriter(fps=fps, bitrate=6000, codec="libx264",
-                     extra_args=["-pix_fmt", "yuv420p", "-preset", "slow"])
+    w = _writer(fps)
+    MD = 8          # small enough to count on screen
+    PITCH, GAP0 = .112, .10
 
-    with w.saving(fig, a.out, dpi=120):
+    with w.saving(fig, out, dpi=120):
+        # ---- act 1: the chunk has two things to describe ----------------
+        T.set_text("A chunk says two different things")
+        U.set_text("where the tool goes, and how it is turned — and they do not "
+                   "change at the same rate")
+        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
+        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+        for x, col, name, sub, q in (
+                (.10, TR, "translation", "x, y", "how far has it travelled?"),
+                (.56, ROT, "rotation", "cos, sin", "how much has it turned?")):
+            cell(ax, x, .40, .34, .26, name, PANEL, col, fs=26, sub=sub)
+            ax.text(x + .17, .33, q, ha="center", fontsize=16, color=col)
+        ax.text(.5, .19, "each one gets measured on its OWN cumulative clock",
+                ha="center", fontsize=18, color=INK)
+        ax.text(.5, .12, "with its own budget, and its own unit",
+                ha="center", fontsize=16, color=DIM)
+        hold(w, fps * 5)
+        clear(fig, keep)
+
+        # ---- act 2: two clocks, same row count --------------------------
+        T.set_text("Two clocks, resampled to the same row count")
+        U.set_text("this is the hybrid step — independent budgets, independent units, "
+                   "identical number of samples")
+        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
+        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+        BARS = [(.70, TR, "translation arc", "0", "D = 80 px", .085, .80),
+                (.47, ROT, "rotation arc", "0", "R = 26" + chr(176), .085, .52)]
+        for k in range(1, MD + 1):
+            # Clear every frame. Re-drawing the counter on top of itself stacked
+            # all eight strings into an unreadable blob.
+            ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+            for y, col, name, lo, hi, x0, x1 in BARS:
+                ax.add_patch(Rectangle((x0, y - .028), x1 - x0, .056,
+                                       facecolor=PANEL, edgecolor=col, lw=2.2))
+                ax.text(x0, y + .075, name, fontsize=17, color=col, fontweight="bold")
+                ax.text(x0, y - .075, lo, fontsize=13.5, color=DIM, ha="center")
+                ax.text(x1, y - .075, hi, fontsize=14.5, color=col, ha="center",
+                        fontweight="bold")
+                xs = np.linspace(x0, x1, MD)
+                for j in range(k):
+                    ax.plot([xs[j], xs[j]], [y - .028, y + .028], color=col, lw=2.6)
+                    ax.add_patch(Rectangle((xs[j] - .0055, y - .0125), .011, .025,
+                                           facecolor=col, edgecolor="none"))
+                ax.text(x1 + .035, y, "%d / %d" % (k, MD), fontsize=17, color=col,
+                        va="center", family="monospace", fontweight="bold")
+            ax.text(.085, .30, "different units, different totals, cut into the same "
+                    "number of samples", fontsize=17, color=INK)
+            if k == MD:
+                ax.text(.085, .21, "so each stream yields exactly M rows — they line "
+                        "up by ROW INDEX, not by timestamp", fontsize=17, color=INK)
+                ax.text(.085, .12, "a shared row is a shared waypoint number; row i of "
+                        "each stream sits at a different moment in time",
+                        fontsize=15.5, color=DIM)
+                ax.text(.085, .045, "(M = %d here so the ticks are countable; the real "
+                        "token uses M = 56)" % MD, fontsize=13.5, color=DIM)
+            grab(w, 6)
+        hold(w, fps * 5)
+        clear(fig, keep)
+
+        # ---- act 3: and therefore they concatenate ----------------------
+        T.set_text("Which is why they stack")
+        U.set_text("two [M, 3] blocks on different clocks concatenate along the "
+                   "feature axis")
+        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
+        L3 = ["x", "y", "timing"]; R3 = ["cos", "sin", "timing"]
+        for step in range(26):
+            ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+            f = min(1.0, step / 18.0)
+            # Blocks must MEET, not overlap: the right block starts exactly one
+            # block-width after the left one, plus the closing gap.
+            gap = GAP0 * (1 - f)
+            lx = .17
+            rx = lx + 3 * PITCH + gap
+            for x0, cols, col, name in ((lx, L3, TR, "translation"),
+                                        (rx, R3, ROT, "rotation")):
+                for j, c in enumerate(cols):
+                    cell(ax, x0 + j * PITCH, .34, .105, .30, c, PANEL, col, fs=17)
+                ax.text(x0 + 1.5 * PITCH - .003, .695, name + "   [M, 3]",
+                        fontsize=16.5, color=col, ha="center", fontweight="bold")
+            if f >= 1.0:
+                right_edge = rx + 2 * PITCH + .105
+                mid = (lx + right_edge) / 2
+                ax.add_patch(FancyBboxPatch((lx - .018, .31),
+                                            right_edge - lx + .036, .36,
+                                            boxstyle="round,pad=0.012",
+                                            facecolor="none", edgecolor=INK, lw=2.6))
+                ax.text(mid, .245, "[M, 6]", fontsize=26, color=INK, ha="center",
+                        fontweight="bold")
+                ax.text(mid, .175, "one row, six numbers, two clocks",
+                        fontsize=16, color=DIM, ha="center")
+            grab(w, 3)
+        hold(w, fps * 4)
+        clear(fig, keep)
+
+        # ---- act 4: why not just use one clock --------------------------
+        T.set_text("Why not one shared clock?")
+        U.set_text("it was tried — the ablation is called carry")
+        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
+        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+        rows = [("hybrid — two clocks", TR,
+                 "rotation gets its own budget R, so a fast turn is not under-sampled "
+                 "just because the tool barely moved"),
+                ("carry — one clock", DIM,
+                 "rotation rides the translation clock; there is no R at all, and a "
+                 "turn-in-place has nowhere to be sampled")]
+        y = .62
+        for name, col, why in rows:
+            ax.text(.09, y, name, fontsize=21, color=col, fontweight="bold")
+            ax.text(.09, y - .085, why, fontsize=16.5, color=DIM)
+            y -= .25
+        # Do NOT imply a controlled head-to-head. carry (0.415) and the best
+        # independent-clock cell (0.519) also differ in M, and carry actually
+        # beat the row-split baseline (0.408). The ablation did not settle it.
+        ax.text(.09, .145, "both were trained. carry scored 0.415 mean coverage; the "
+                "best two-clock cell scored 0.519", fontsize=16, color=INK)
+        ax.text(.09, .075, "but those cells differ in M as well, and at n = 40 the "
+                "comparison is not conclusive", fontsize=15, color=DIM)
+        hold(w, fps * 6)
+    plt.close(fig)
+    print("wrote", out)
+
+
+def clip_design(out, fps):
+    """What the two timing variants actually store."""
+    fig, T, U = fig_new()
+    keep = (T, U)
+    w = _writer(fps)
+    with w.saving(fig, out, dpi=120):
         # ---- act 1: the shapes, as plain boxes --------------------------
         T.set_text("What the codec stores")
         U.set_text("a variable-length chunk becomes a fixed-size token, and decodes back")
@@ -155,88 +281,6 @@ def main():
         ax.text(.5, .215, "the two red slots are the entire difference between the "
                 "variants", ha="center", fontsize=17, color=RED, fontweight="bold")
         hold(w, fps * 5)
-        clear(fig, keep)
-
-        # ---- act 2b: the hybrid step -- two clocks, one row count -------
-        # This is what makes the stacked [M, 6] layout possible at all, and it
-        # is the step people assume is impossible: the streams are resampled
-        # INDEPENDENTLY yet come out the same length, so they concatenate on
-        # the feature axis rather than the row axis.
-        MD = 8          # small enough to count on screen
-        T.set_text("Two clocks, resampled to the same row count")
-        U.set_text("this is the hybrid step — independent budgets, independent units, "
-                   "identical number of samples")
-        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
-        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-        BARS = [(.70, TR, "translation arc", "0", "D = 80 px", .085, .80),
-                (.47, ROT, "rotation arc", "0", "R = 26" + chr(176), .085, .52)]
-        for k in range(1, MD + 1):
-            # Clear every frame. Re-drawing the counter on top of itself stacked
-            # all eight strings into an unreadable blob.
-            ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-            for y, col, name, lo, hi, x0, x1 in BARS:
-                ax.add_patch(Rectangle((x0, y - .028), x1 - x0, .056,
-                                       facecolor=PANEL, edgecolor=col, lw=2.2))
-                ax.text(x0, y + .075, name, fontsize=17, color=col, fontweight="bold")
-                ax.text(x0, y - .075, lo, fontsize=13.5, color=DIM, ha="center")
-                ax.text(x1, y - .075, hi, fontsize=14.5, color=col, ha="center",
-                        fontweight="bold")
-                xs = np.linspace(x0, x1, MD)
-                for j in range(k):
-                    ax.plot([xs[j], xs[j]], [y - .028, y + .028], color=col, lw=2.6)
-                    ax.add_patch(Rectangle((xs[j] - .0055, y - .0125), .011, .025,
-                                           facecolor=col, edgecolor="none"))
-                ax.text(x1 + .035, y, "%d / %d" % (k, MD), fontsize=17, color=col,
-                        va="center", family="monospace", fontweight="bold")
-            ax.text(.085, .30, "different units, different totals, cut into the same "
-                    "number of samples", fontsize=17, color=INK)
-            if k == MD:
-                ax.text(.085, .21, "so each stream yields exactly M rows — they line "
-                        "up by ROW INDEX, not by timestamp", fontsize=17, color=INK)
-                ax.text(.085, .12, "a shared row is a shared waypoint number; row i of "
-                        "each stream sits at a different moment in time",
-                        fontsize=15.5, color=DIM)
-                ax.text(.085, .045, "(M = %d here so the ticks are countable; the real "
-                        "token uses M = 56)" % MD, fontsize=13.5, color=DIM)
-            grab(w, 6)
-        hold(w, fps * 5)
-        clear(fig, keep)
-
-        # ---- act 2c: and therefore they concatenate ----------------------
-        T.set_text("Which is why they stack")
-        U.set_text("two [M, 3] blocks on different clocks concatenate along the "
-                   "feature axis")
-        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
-        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-        L3 = ["x", "y", "timing"]; R3 = ["cos", "sin", "timing"]
-        for step in range(26):
-            ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-            f = min(1.0, step / 18.0)
-            # Blocks must MEET, not overlap: the right block starts exactly one
-            # block-width after the left one, plus the closing gap.
-            PITCH, GAP0 = .112, .10
-            gap = GAP0 * (1 - f)
-            lx = .17
-            rx = lx + 3 * PITCH + gap
-            for x0, cols, col, name in ((lx, L3, TR, "translation"),
-                                        (rx, R3, ROT, "rotation")):
-                for j, c in enumerate(cols):
-                    cell(ax, x0 + j * PITCH, .34, .105, .30, c, PANEL, col, fs=17)
-                ax.text(x0 + 1.5 * PITCH - .003, .695, name + "   [M, 3]",
-                        fontsize=16.5, color=col, ha="center", fontweight="bold")
-            if f >= 1.0:
-                right_edge = rx + 2 * PITCH + .105
-                mid = (lx + right_edge) / 2
-                ax.add_patch(FancyBboxPatch((lx - .018, .31),
-                                            right_edge - lx + .036, .36,
-                                            boxstyle="round,pad=0.012",
-                                            facecolor="none", edgecolor=INK, lw=2.6))
-                ax.text(mid, .245, "[M, 6]", fontsize=26, color=INK, ha="center",
-                        fontweight="bold")
-                ax.text(mid, .175, "one row, six numbers, two clocks",
-                        fontsize=16, color=DIM, ha="center")
-            grab(w, 3)
-        hold(w, fps * 4)
         clear(fig, keep)
 
         # ---- act 3: equal in space, unequal in time ---------------------
@@ -365,7 +409,22 @@ def main():
                 "change", ha="center", fontsize=16, color=INK)
         hold(w, fps * 7)
     plt.close(fig)
-    print("wrote", a.out)
+    print("wrote", out)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    here = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "results", "videos")
+    ap.add_argument("--outdir", default=here)
+    ap.add_argument("--fps", type=int, default=30)
+    ap.add_argument("--only", choices=["hybrid", "design"], default=None)
+    a = ap.parse_args()
+    os.makedirs(a.outdir, exist_ok=True)
+    if a.only in (None, "hybrid"):
+        clip_hybrid(os.path.join(a.outdir, "04_hybrid.mp4"), a.fps)
+    if a.only in (None, "design"):
+        clip_design(os.path.join(a.outdir, "05_design.mp4"), a.fps)
 
 
 if __name__ == "__main__":

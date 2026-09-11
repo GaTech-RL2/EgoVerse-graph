@@ -92,14 +92,16 @@ def test_action_flow_denoiser90m_adamw_reuses_only_unite_architecture(monkeypatc
     assert cfg.model.optimizer.weight_decay == pytest.approx(1.0e-4)
     assert cfg.model.optimizer_named_parameters is False
     assert cfg.model.scheduler._target_.endswith("warmup_cosine_scheduler")
-    assert cfg.model.scheduler.max_steps == 150_000
+    assert cfg.model.scheduler.max_steps == 240_000
     assert cfg.model.scheduler.warmup_steps == 8_000
     assert cfg.model.scheduler.eta_min == pytest.approx(1.0e-6)
     assert cfg.model.flow_samples_per_content == 14
     assert cfg.model.flow_loss_aggregation == "sum_samples"
     assert cfg.model.action_horizon == 16
-    assert cfg.trainer.max_steps == 150_000
+    assert cfg.trainer.max_steps == 240_000
+    assert cfg.trainer.val_check_interval == 240_000
     assert cfg.trainer.limit_val_batches == 0
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 40_000
     assert cfg.run_provenance.architecture.unite_usage == (
         "encoder_decoder_and_denoiser_architecture_only"
     )

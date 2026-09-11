@@ -39,6 +39,8 @@ callbacks:
     every_n_train_steps: 40000
 
 run_provenance:
+  validation:
+    interval_optimizer_steps: 240000
   architecture:
     unite_usage: encoder_decoder_and_denoiser_architecture_only
     optimizer_parameter_partitioning: none

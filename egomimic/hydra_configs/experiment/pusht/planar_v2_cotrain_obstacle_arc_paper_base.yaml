@@ -41,7 +41,13 @@ callbacks:
 run_provenance:
   obstacle_data: true
   dataset_count: 7920
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  split_manifest_path: null
   split_manifest_sha256: 29b9e313a9e2aaa348e9ce9c5a113127b1df1ec5b8cbe63b111ce9cd9d0a6a43
+  train_episode_count_per_domain: null
+  valid_episode_count_per_domain: null
+  union_episode_count_per_domain: null
   action_contract:
     observation_alignment: pre_step
     observation_horizon: 2

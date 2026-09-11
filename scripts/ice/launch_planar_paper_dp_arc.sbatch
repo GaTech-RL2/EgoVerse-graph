@@ -335,6 +335,9 @@ if test "$ICE_COTRAIN" = true; then
     "data.valid_datasets.pushshapes_sim_chain_gripper.expected_valid_episode_names_sha256=$ICE_CHAIN_EXPECTED_VALID_NAMES_SHA256"
     "data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size=$ICE_TRAIN_BATCH_SIZE"
     "data.valid_dataloader_params.pushshapes_sim_chain_gripper.batch_size=$ICE_VALID_BATCH_SIZE"
+    "run_provenance.train_episode_count_per_domain={pushshapes_sim_u_socket:$ICE_EXPECTED_TRAIN_COUNT,pushshapes_sim_chain_gripper:$ICE_CHAIN_EXPECTED_TRAIN_COUNT}"
+    "run_provenance.valid_episode_count_per_domain={pushshapes_sim_u_socket:$ICE_EXPECTED_VALID_COUNT,pushshapes_sim_chain_gripper:$ICE_CHAIN_EXPECTED_VALID_COUNT}"
+    "run_provenance.union_episode_count_per_domain={pushshapes_sim_u_socket:$ICE_EXPECTED_DATASET_COUNT,pushshapes_sim_chain_gripper:$ICE_CHAIN_EXPECTED_DATASET_COUNT}"
   )
 fi
 if test "$ICE_FAMILY" != paper_dp; then
@@ -544,6 +547,30 @@ for split in ("train_datasets", "valid_datasets"):
         assert chain.expected_train_episode_names_sha256 == chain_train_names_sha256
         assert int(chain.expected_valid_episode_count) == int(chain_valid_count)
         assert chain.expected_valid_episode_names_sha256 == chain_valid_names_sha256
+assert cfg.run_provenance.train_episode_count_per_domain == (
+    {
+        "pushshapes_sim_u_socket": int(train_count),
+        "pushshapes_sim_chain_gripper": int(chain_train_count),
+    }
+    if cotrain == "true"
+    else int(train_count)
+)
+assert cfg.run_provenance.valid_episode_count_per_domain == (
+    {
+        "pushshapes_sim_u_socket": int(valid_count),
+        "pushshapes_sim_chain_gripper": int(chain_valid_count),
+    }
+    if cotrain == "true"
+    else int(valid_count)
+)
+assert cfg.run_provenance.union_episode_count_per_domain == (
+    {
+        "pushshapes_sim_u_socket": int(dataset_count),
+        "pushshapes_sim_chain_gripper": int(chain_dataset_count),
+    }
+    if cotrain == "true"
+    else int(dataset_count)
+)
 assert int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(train_batch_size)
 assert int(cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(valid_batch_size)
 if family == "paper_dp":
@@ -722,7 +749,8 @@ if test "$ICE_LAUNCH_MODE" != run; then
     "$ICE_WANDB_PROJECT" "$ICE_WANDB_RUN_ID" \
     "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_UNITE_DIAGNOSTICS" \
     "$ICE_WORLD_SIZE" "$ICE_TRAINER_STRATEGY" "$ICE_RUN_KIND" \
-    "$ICE_EXPECTED_DATASET_NAMES_SHA256" <<'PY'
+    "$ICE_EXPECTED_DATASET_NAMES_SHA256" "$ICE_COTRAIN" \
+    "${ICE_CHAIN_EXPECTED_DATASET_NAMES_SHA256:-}" <<'PY'
 import json
 import os
 import pathlib
@@ -749,6 +777,8 @@ from omegaconf import OmegaConf
     trainer_strategy,
     run_kind,
     dataset_names_sha256,
+    cotrain,
+    chain_dataset_names_sha256,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(resolved_config_path)
 model = instantiate(cfg.model.pipeline)
@@ -776,6 +806,14 @@ payload = {
     "precision": "bf16-mixed",
     "run_kind": run_kind,
     "dataset_names_sha256": dataset_names_sha256,
+    "dataset_names_sha256_by_domain": {
+        "pushshapes_sim_u_socket": dataset_names_sha256,
+        **(
+            {"pushshapes_sim_chain_gripper": chain_dataset_names_sha256}
+            if cotrain == "true"
+            else {}
+        ),
+    },
     "resolved_config": resolved_config_path,
     "parameters": {
         "total": total_parameters,
@@ -839,12 +877,24 @@ test "$(sha256sum "$ICE_PREFLIGHT_RESULT" | awk '{print $1}')" = \
   "$ICE_EXPECTED_PREFLIGHT_SHA256" || die "preflight result hash mismatch"
 "$ICE_PYTHON" - "$ICE_PREFLIGHT_RESULT" "$ICE_EXPECTED_HEAD" \
   "$ICE_EXPERIMENT" "$ICE_DATASET_DIR" "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" \
-  "$ICE_RUN_KIND" "$ICE_EXPECTED_DATASET_NAMES_SHA256" <<'PY'
+  "$ICE_RUN_KIND" "$ICE_EXPECTED_DATASET_NAMES_SHA256" "$ICE_COTRAIN" \
+  "${ICE_CHAIN_DATASET_DIR:-}" "${ICE_CHAIN_EXPECTED_DATASET_NAMES_SHA256:-}" <<'PY'
 import json
 import pathlib
 import sys
 
-path, head, experiment, dataset, split_sha, run_kind, dataset_sha = sys.argv[1:]
+(
+    path,
+    head,
+    experiment,
+    dataset,
+    split_sha,
+    run_kind,
+    dataset_sha,
+    cotrain,
+    chain_dataset,
+    chain_dataset_sha,
+) = sys.argv[1:]
 payload = json.loads(pathlib.Path(path).read_text())
 assert payload["status"] == "PREFLIGHT_READY"
 assert payload["source"]["head"] == head
@@ -853,6 +903,10 @@ assert payload["dataset"] == dataset
 assert payload["split_manifest_sha256"] == split_sha
 assert payload["run_kind"] == run_kind
 assert payload["dataset_names_sha256"] == dataset_sha
+assert payload["datasets"]["pushshapes_sim_u_socket"] == dataset
+if cotrain == "true":
+    assert payload["datasets"]["pushshapes_sim_chain_gripper"] == chain_dataset
+    assert payload["dataset_names_sha256_by_domain"]["pushshapes_sim_chain_gripper"] == chain_dataset_sha
 PY
 
 if test "$ICE_RUN_KIND" = full; then
@@ -866,12 +920,23 @@ if test "$ICE_RUN_KIND" = full; then
     "$ICE_EXPECTED_SMOKE_SHA256" || die "smoke result hash mismatch"
   "$ICE_PYTHON" - "$ICE_SMOKE_RESULT" "$ICE_EXPECTED_HEAD" \
     "$ICE_EXPERIMENT" "$ICE_DATASET_DIR" "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" \
-    "$ICE_EXPECTED_DATASET_NAMES_SHA256" <<'PY'
+    "$ICE_EXPECTED_DATASET_NAMES_SHA256" "$ICE_COTRAIN" \
+    "${ICE_CHAIN_DATASET_DIR:-}" "${ICE_CHAIN_EXPECTED_DATASET_NAMES_SHA256:-}" <<'PY'
 import json
 import pathlib
 import sys
 
-path, head, experiment, dataset, split_sha, dataset_sha = sys.argv[1:]
+(
+    path,
+    head,
+    experiment,
+    dataset,
+    split_sha,
+    dataset_sha,
+    cotrain,
+    chain_dataset,
+    chain_dataset_sha,
+) = sys.argv[1:]
 payload = json.loads(pathlib.Path(path).read_text())
 assert payload["status"] == "passed"
 assert payload["source_head"] == head
@@ -879,6 +944,10 @@ assert payload["experiment"] == experiment
 assert payload["dataset"] == dataset
 assert payload["split_manifest_sha256"] == split_sha
 assert payload["dataset_names_sha256"] == dataset_sha
+assert payload["datasets"]["pushshapes_sim_u_socket"] == dataset
+if cotrain == "true":
+    assert payload["datasets"]["pushshapes_sim_chain_gripper"] == chain_dataset
+    assert payload["dataset_names_sha256_by_domain"]["pushshapes_sim_chain_gripper"] == chain_dataset_sha
 assert payload["optimizer_step"] >= 1
 assert payload["scheduled_validation"] == "passed"
 assert payload["strict_checkpoint_reload"] == "passed"

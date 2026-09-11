@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>ARC action codec — duration vs velocity</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d; --ink:#e6edf3; --dim:#8b949e;
+    --tr:#58a6ff;      /* translation stream */
+    --rot:#f0883e;     /* rotation stream */
+    --dur:#3fb950;     /* duration timing */
+    --vel:#bc8cff;     /* velocity timing */
+    --ref:#8b949e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+  #deck{height:100%;display:flex;flex-direction:column}
+  header{display:flex;align-items:baseline;gap:14px;padding:14px 30px 10px;
+    border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:16px;font-weight:600;letter-spacing:.2px}
+  header .sub{color:var(--dim);font-size:12.5px}
+  header .src{margin-left:auto;color:var(--dim);font-size:11.5px;font-family:ui-monospace,monospace}
+  main{flex:1;position:relative;overflow:hidden}
+  .slide{position:absolute;inset:0;padding:20px 30px 10px;display:flex;flex-direction:column;
+    gap:12px;opacity:0;pointer-events:none;transition:opacity .32s ease;overflow:auto}
+  .slide.on{opacity:1;pointer-events:auto}
+  .slide h2{margin:0;font-size:21px;font-weight:640;letter-spacing:-.2px}
+  .slide h2 small{font-weight:400;color:var(--dim);font-size:13px;margin-left:10px}
+  .lede{color:#c9d1d9;max-width:1150px;margin:0}
+  .lede b{color:#fff;font-weight:620}
+  .grid{display:grid;gap:14px;flex:1;min-height:0}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:9px;
+    padding:10px 12px;display:flex;flex-direction:column;min-height:0}
+  .card h3{margin:0 0 6px;font-size:12px;font-weight:600;color:var(--dim);
+    text-transform:uppercase;letter-spacing:.7px}
+  canvas{width:100%;flex:1;min-height:0;display:block}
+  .note{color:var(--dim);font-size:12.5px;margin:5px 0 0}
+  .note code,code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:#21262d;padding:1px 5px;border-radius:4px;font-size:12px;color:#d2a8ff}
+  footer{display:flex;align-items:center;gap:16px;padding:9px 30px 14px}
+  .dots{display:flex;gap:7px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#30363d;cursor:pointer;
+    transition:background .2s,transform .2s}
+  .dot.on{background:var(--tr);transform:scale(1.32)}
+  .hint{color:var(--dim);font-size:12px}
+  button{background:#21262d;border:1px solid var(--line);color:var(--ink);
+    border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer}
+  button:hover{background:#30363d}
+  .key{display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:12.5px}
+  .sw{width:12px;height:3px;border-radius:2px;display:inline-block}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 0;margin:2px 0 0}
+  table.tok{border-collapse:collapse;font-family:ui-monospace,monospace;font-size:11.5px}
+  table.tok th,table.tok td{border:1px solid var(--line);padding:3px 7px;text-align:right}
+  table.tok th{color:var(--dim);font-weight:600;background:#1c2128}
+  .hl-dur{background:rgba(63,185,80,.16)}
+  .hl-vel{background:rgba(188,140,255,.16)}
+  .big{font-size:27px;font-weight:680;letter-spacing:-.5px}
+  .eq{font-family:ui-monospace,monospace;font-size:13px;color:#c9d1d9;
+    background:#0b0f14;border:1px solid var(--line);border-radius:7px;padding:9px 12px;margin:6px 0}
+  .good{color:var(--dur)} .bad{color:#f85149} .vel{color:var(--vel)} .rot{color:var(--rot)} .tr{color:var(--tr)}
+</style>
+
+<div id="deck">
+  <header>
+    <h1>The ARC action codec</h1>
+    <span class="sub">duration-timed vs velocity-timed &mdash; same geometry, different clock carrier</span>
+    <span class="src" id="src"></span>
+  </header>
+  <main id="main"></main>
+  <footer>
+    <button id="prev">&larr;</button><button id="next">&rarr;</button>
+    <div class="dots" id="dots"></div>
+    <button id="replay">replay ⟳</button>
+    <span class="hint">arrow keys / click dots &middot; every number below comes from the real tokenizer on a real episode</span>
+  </footer>
+</div>
+
+<script>
+const DATA = {"meta":{"episode":"episode_T_u_socket_obs0_000000.zarr","start":0,"frames":80,"D":80.0,"M":56,"R_rad":0.4537856055185257,"R_deg":26.0,"dt":0.03333333333333333,"H":16},"raw":{"x":[198.5,198.5,198.5,198.5,199.0,199.0,199.5,201.5,204.5,204.5,204.5,204.5,202.5,201.5,201.5,201.5,201.5,201.0,201.0,201.0,201.0,201.0,201.0,201.0,201.0,203.0,206.0,207.0,207.0,207.0,208.0,213.0,214.5,217.0,221.5,224.0,224.5,225.0,225.5,226.0,226.5,226.5,226.5,228.0,228.5,230.5,233.5,235.5,236.0,237.0,237.5,238.5,242.0,246.5,255.0,264.5,283.5,301.0,309.0,308.5,305.0,298.0,289.5,278.0,262.5,252.0,242.5,236.0,228.0,221.0,216.5,212.5,209.0,205.0,203.0,201.5,199.0,195.5,193.0,190.0],"y":[192.5,192.5,192.5,192.5,192.0,191.0,190.0,186.5,181.5,179.5,179.5,179.5,184.0,191.5,194.5,195.0,196.5,197.0,198.5,199.0,199.0,199.5,199.5,199.5,198.5,195.0,191.5,188.0,188.0,186.0,185.0,184.0,184.0,182.0,179.0,177.0,176.5,176.5,175.0,174.0,174.0,173.5,173.5,174.5,175.0,177.0,179.0,180.0,181.0,181.0,182.0,183.0,184.5,186.0,188.0,191.0,196.0,199.5,201.0,202.0,207.5,216.0,222.5,231.0,243.5,254.5,262.5,269.5,278.5,285.0,291.0,296.0,301.5,306.5,310.0,313.5,317.5,323.0,326.5,330.5],"theta":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02618,0.05236,0.07854,0.10472,0.1309,0.15708,0.18326,0.20944,0.23562,0.2618,0.28798,0.31416,0.34034,0.34034,0.34034,0.34034,0.34034,0.34034,0.34034,0.34034,0.36652,0.3927,0.41888,0.44506,0.44506,0.44506,0.44506,0.44506,0.41888,0.3927,0.36652,0.34034,0.31416,0.28798,0.28798,0.28798,0.28798,0.28798,0.28798,0.2618,0.23562,0.20944,0.18326,0.15708,0.1309,0.10472,0.07854,0.05236,0.02618,0.0,-0.02618,-0.05236,-0.07854,-0.10472,-0.1309,-0.15708,-0.18326,-0.18326,-0.18326,-0.18326,-0.18326,-0.18326,-0.18326,-0.18326,-0.18326,-0.18326,-0.18326],"t":[0.0,0.0333,0.0667,0.1,0.1333,0.1667,0.2,0.2333,0.2667,0.3,0.3333,0.3667,0.4,0.4333,0.4667,0.5,0.5333,0.5667,0.6,0.6333,0.6667,0.7,0.7333,0.7667,0.8,0.8333,0.8667,0.9,0.9333,0.9667,1.0,1.0333,1.0667,1.1,1.1333,1.1667,1.2,1.2333,1.2667,1.3,1.3333,1.3667,1.4,1.4333,1.4667,1.5,1.5333,1.5667,1.6,1.6333,1.6667,1.7,1.7333,1.7667,1.8,1.8333,1.8667,1.9,1.9333,1.9667,2.0,2.0333,2.0667,2.1,2.1333,2.1667,2.2,2.2333,2.2667,2.3,2.3333,2.3667,2.4,2.4333,2.4667,2.5,2.5333,2.5667,2.6,2.6333]},"clocks":{"translation":[0.0,0.0,0.0,0.0,0.707,1.707,2.825,6.856,12.687,14.687,14.687,14.687,19.612,27.178,30.178,30.678,32.178,32.885,34.385,34.885,34.885,35.385,35.385,35.385,36.385,40.416,45.026,48.666,48.666,50.666,52.08,57.179,58.679,61.881,67.289,70.491,71.198,71.698,73.279,74.397,74.897,75.397,75.397,77.2,77.907,80.735,84.341,86.577,87.695,88.695,89.813,91.227,95.035,99.779,108.511,118.473,138.12,155.967,164.106,165.224,171.743,182.755,193.455,207.755,227.668,242.875,255.294,264.847,276.888,286.441,293.941,300.344,306.863,313.266,317.297,321.105,325.822,332.342,336.643,341.643],"angle":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02618,0.05236,0.07854,0.10472,0.1309,0.15708,0.18326,0.20944,0.23562,0.2618,0.28798,0.31416,0.34034,0.34034,0.34034,0.34034,0.34034,0.34034,0.34034,0.34034,0.36652,0.3927,0.41888,0.44506,0.44506,0.44506,0.44506,0.44506,0.47124,0.49742,0.5236,0.54978,0.57596,0.60214,0.60214,0.60214,0.60214,0.60214,0.60214,0.62832,0.6545,0.68068,0.70686,0.73304,0.75922,0.7854,0.81158,0.83776,0.86394,0.89012,0.9163,0.94248,0.96866,0.99484,1.02102,1.0472,1.07338,1.07338,1.07338,1.07338,1.07338,1.07338,1.07338,1.07338,1.07338,1.07338,1.07338],"translation_total":341.64,"angle_total":1.07338,"translation_end":80.0,"angle_end":0.45379},"waypoints":{"s_tr":[0.0,1.455,2.909,4.364,5.818,7.273,8.727,10.182,11.636,13.091,14.545,16.0,17.455,18.909,20.364,21.818,23.273,24.727,26.182,27.636,29.091,30.545,32.0,33.455,34.909,36.364,37.818,39.273,40.727,42.182,43.636,45.091,46.545,48.0,49.455,50.909,52.364,53.818,55.273,56.727,58.182,59.636,61.091,62.545,64.0,65.455,66.909,68.364,69.818,71.273,72.727,74.182,75.636,77.091,78.545,80.0],"s_an":[0.0,0.00825,0.0165,0.02475,0.033,0.04125,0.0495,0.05775,0.06601,0.07426,0.08251,0.09076,0.09901,0.10726,0.11551,0.12376,0.13201,0.14026,0.14851,0.15676,0.16501,0.17326,0.18151,0.18976,0.19802,0.20627,0.21452,0.22277,0.23102,0.23927,0.24752,0.25577,0.26402,0.27227,0.28052,0.28877,0.29702,0.30527,0.31352,0.32178,0.33003,0.33828,0.34653,0.35478,0.36303,0.37128,0.37953,0.38778,0.39603,0.40428,0.41253,0.42078,0.42903,0.43728,0.44553,0.45379],"t_tr":[0.0,0.1582,0.2007,0.2127,0.2247,0.2357,0.244,0.2523,0.2607,0.2734,0.2976,0.3756,0.3854,0.3952,0.4033,0.4097,0.4161,0.4225,0.4289,0.4384,0.4546,0.4912,0.5294,0.5793,0.6683,0.7993,0.8118,0.8239,0.8356,0.8461,0.8566,0.8673,0.8806,0.8939,0.9465,0.9724,1.0019,1.0114,1.0209,1.0304,1.0556,1.0766,1.0918,1.1041,1.1131,1.122,1.131,1.1445,1.1597,1.205,1.255,1.2936,1.4044,1.4313,1.4742,1.4913],"t_an":[0.0,0.4105,0.421,0.4315,0.442,0.4525,0.463,0.4735,0.484,0.4945,0.5051,0.5156,0.5261,0.5366,0.5471,0.5576,0.5681,0.5786,0.5891,0.5996,0.6101,0.6206,0.6311,0.6416,0.6521,0.6626,0.6731,0.6836,0.6941,0.7046,0.7152,0.7257,0.7362,0.7467,0.7572,0.7677,0.7782,0.7887,0.7992,0.8097,0.8202,0.8307,1.0745,1.0851,1.0956,1.1061,1.1166,1.1271,1.1376,1.1481,1.1586,1.1691,1.1796,1.1901,1.3339,1.3444],"x":[198.5,199.0,199.54,200.26,200.98,201.71,202.46,203.21,203.96,204.5,204.5,203.97,203.38,202.79,202.4,202.21,202.02,201.82,201.63,201.5,201.5,201.5,201.5,201.0,201.0,201.0,201.71,202.43,203.2,204.15,205.1,206.02,206.42,206.82,207.0,207.17,208.28,209.7,211.13,212.56,214.0,215.25,216.38,217.55,218.76,219.97,221.18,222.34,223.47,224.57,225.33,225.9,226.7,227.91,228.95,229.98],"y":[192.5,191.25,189.93,188.66,187.4,186.14,184.9,183.65,182.4,181.1,179.64,180.7,182.03,183.36,184.75,186.19,187.63,189.07,190.51,191.96,193.41,194.87,196.32,197.57,199.02,198.52,197.26,195.99,194.76,193.66,192.56,191.44,190.04,188.64,187.21,185.83,184.94,184.66,184.37,184.09,184.0,183.4,182.49,181.63,180.82,180.02,179.21,178.33,177.42,176.5,175.52,174.19,173.63,174.44,175.45,176.48],"cos":[1.0,0.99997,0.99986,0.99969,0.99946,0.99915,0.99877,0.99833,0.99782,0.99724,0.9966,0.99588,0.9951,0.99425,0.99334,0.99235,0.9913,0.99018,0.98899,0.98774,0.98642,0.98503,0.98357,0.98205,0.98046,0.9788,0.97708,0.97529,0.97343,0.97151,0.96952,0.96747,0.96535,0.96316,0.96091,0.95859,0.95621,0.95376,0.95125,0.94868,0.94603,0.94333,0.94056,0.93772,0.93483,0.93186,0.92884,0.92575,0.9226,0.91939,0.91611,0.91277,0.90937,0.90591,0.90279,0.90631],"sin":[0.0,0.00825,0.0165,0.02475,0.033,0.04124,0.04948,0.05772,0.06596,0.07419,0.08241,0.09063,0.09885,0.10705,0.11525,0.12344,0.13163,0.1398,0.14797,0.15612,0.16427,0.1724,0.18052,0.18863,0.19672,0.20481,0.21288,0.22093,0.22897,0.23699,0.245,0.25299,0.26096,0.26892,0.27686,0.28478,0.29268,0.30055,0.30841,0.31625,0.32407,0.33186,0.33963,0.34738,0.35511,0.36281,0.37048,0.37813,0.38576,0.39336,0.40093,0.40848,0.41599,0.42348,0.43008,0.42262],"theta":[0.0,0.00825,0.0165,0.02475,0.033,0.04125,0.0495,0.05775,0.06601,0.07426,0.08251,0.09076,0.09901,0.10726,0.11551,0.12376,0.13201,0.14026,0.14851,0.15676,0.16501,0.17326,0.18151,0.18976,0.19802,0.20627,0.21452,0.22277,0.23102,0.23927,0.24752,0.25577,0.26402,0.27227,0.28052,0.28877,0.29702,0.30527,0.31352,0.32178,0.33003,0.33828,0.34653,0.35478,0.36303,0.37128,0.37953,0.38778,0.39603,0.40428,0.41253,0.42078,0.42903,0.43728,0.44458,0.43633]},"token_velocity":{"v_xy":[8.4925,33.7334,120.9339,120.9339,132.6515,174.9286,174.9286,174.9286,110.9006,60.0,15.204,147.7329,147.7329,178.442,226.9912,226.9912,226.9912,226.9912,153.1196,90.0,39.7694,38.062,26.9089,16.3536,3.8351,115.5271,120.9339,123.8948,138.2932,138.2932,136.1372,109.2016,109.2016,27.4012,53.7809,48.0588,152.9706,152.9706,152.9706,57.4046,65.6973,96.0469,117.9454,162.2498,162.2498,162.2498,107.4328,96.0469,31.641,24.6128,37.6438,8.7747,54.0833,33.8818,84.8528,84.8528],"omega":[0.0201,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.03384,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.7854,0.05074,-0.7854,-0.7854]},"token_duration":{"dt_tr":[0.15825,0.04245,0.01203,0.01203,0.01096,0.00832,0.00832,0.00832,0.01274,0.02424,0.07792,0.00985,0.00985,0.00807,0.00641,0.00641,0.00641,0.00641,0.00948,0.01616,0.03657,0.03822,0.04994,0.08894,0.13102,0.01257,0.01203,0.0117,0.01052,0.01052,0.01064,0.01332,0.01332,0.05257,0.02592,0.02946,0.00951,0.00951,0.00951,0.02523,0.02102,0.01514,0.01232,0.00896,0.00896,0.00896,0.01353,0.01514,0.04533,0.05004,0.03855,0.11084,0.02689,0.04287,0.01714,0.01714],"dt_rot":[0.41051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.24384,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.01051,0.14384,0.01051,0.01051]},"decode":{"ref_x":[198.5,198.5,198.5,198.5,199.0,199.0,199.5,201.5,204.5,204.5,204.5,204.5,202.5,201.5,201.5,201.5],"ref_y":[192.5,192.5,192.5,192.5,192.0,191.0,190.0,186.5,181.5,179.5,179.5,179.5,184.0,191.5,194.5,195.0],"ref_theta":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02618,0.05236,0.07854],"v_x":[198.5,198.61,198.71,198.82,198.92,199.11,199.53,201.56,204.21,204.48,204.26,204.03,202.56,201.57,201.5,201.5],"v_y":[192.5,192.24,191.97,191.71,191.45,190.99,189.95,186.42,181.79,179.67,180.13,180.58,184.18,191.18,193.89,195.2],"v_theta":[0.0,0.00067,0.00134,0.00201,0.00268,0.00335,0.00402,0.00469,0.00536,0.00603,0.0067,0.00737,0.00804,0.02618,0.05236,0.07854],"d_x":[198.5,198.61,198.71,198.82,198.92,199.11,199.53,201.56,204.21,204.48,204.26,204.03,202.56,201.57,201.5,201.5],"d_y":[192.5,192.24,191.97,191.71,191.45,190.99,189.95,186.42,181.79,179.67,180.13,180.58,184.18,191.18,193.89,195.2],"d_theta":[0.0,0.00067,0.00134,0.00201,0.00268,0.00335,0.00402,0.00469,0.00536,0.00603,0.0067,0.00737,0.00804,0.02618,0.05236,0.07854],"err_v":1.079,"err_d":1.079}};
+const M = DATA.meta.M, Draw = {};
+const C = {tr:'#58a6ff', rot:'#f0883e', dur:'#3fb950', vel:'#bc8cff', dim:'#8b949e',
+           ink:'#e6edf3', grid:'#21262d', ref:'#6e7681'};
+document.getElementById('src').textContent =
+  DATA.meta.episode + '  frames[' + DATA.meta.start + ',' + (DATA.meta.start+DATA.meta.frames) + ')'
+  + '  D=' + DATA.meta.D + 'px  M=' + M + '  R=' + DATA.meta.R_deg.toFixed(0) + '°';
+
+/* ---------- tiny plotting kit ---------- */
+function fit(cv){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;
+  cv.width=Math.max(10,r.width*d);cv.height=Math.max(10,r.height*d);
+  const x=cv.getContext('2d');x.setTransform(d,0,0,d,0,0);return [x,r.width,r.height];}
+function ext(a){let lo=Infinity,hi=-Infinity;for(const v of a){if(v<lo)lo=v;if(v>hi)hi=v;}
+  if(lo===hi){lo-=1;hi+=1;} return [lo,hi];}
+function Ax(g,w,h,xd,yd,pad){
+  pad=pad||{l:46,r:12,t:10,b:26};
+  const X=v=>pad.l+(v-xd[0])/(xd[1]-xd[0])*(w-pad.l-pad.r);
+  const Y=v=>h-pad.b-(v-yd[0])/(yd[1]-yd[0])*(h-pad.t-pad.b);
+  g.strokeStyle=C.grid;g.lineWidth=1;g.fillStyle=C.dim;g.font='10px ui-monospace,monospace';
+  for(let i=0;i<=4;i++){const v=yd[0]+(yd[1]-yd[0])*i/4,y=Y(v);
+    g.beginPath();g.moveTo(pad.l,y);g.lineTo(w-pad.r,y);g.stroke();
+    g.textAlign='right';g.fillText(fmt(v),pad.l-6,y+3);}
+  for(let i=0;i<=4;i++){const v=xd[0]+(xd[1]-xd[0])*i/4,x=X(v);
+    g.textAlign='center';g.fillText(fmt(v),x,h-8);}
+  return {X,Y,pad};
+}
+function fmt(v){const a=Math.abs(v);
+  if(a>=1000)return v.toFixed(0); if(a>=100)return v.toFixed(0);
+  if(a>=10)return v.toFixed(1); if(a>=1)return v.toFixed(1);
+  if(a===0)return '0'; return v.toFixed(2);}
+function line(g,ax,xs,ys,col,wd,n){g.strokeStyle=col;g.lineWidth=wd||2;g.beginPath();
+  const k=(n===undefined)?xs.length:Math.min(n,xs.length);
+  for(let i=0;i<k;i++){const X=ax.X(xs[i]),Y=ax.Y(ys[i]);i?g.lineTo(X,Y):g.moveTo(X,Y);}
+  g.stroke();}
+function dots(g,ax,xs,ys,col,r,n){g.fillStyle=col;
+  const k=(n===undefined)?xs.length:Math.min(n,xs.length);
+  for(let i=0;i<k;i++){g.beginPath();g.arc(ax.X(xs[i]),ax.Y(ys[i]),r||2.4,0,7);g.fill();}}
+function hline(g,ax,w,y,col,label){g.save();g.setLineDash([5,4]);g.strokeStyle=col;g.lineWidth=1.5;
+  g.beginPath();g.moveTo(ax.pad.l,ax.Y(y));g.lineTo(w-ax.pad.r,ax.Y(y));g.stroke();g.restore();
+  if(label){g.fillStyle=col;g.font='11px ui-monospace,monospace';g.textAlign='right';
+    g.fillText(label,w-16,ax.Y(y)-5);}}
+function title(g,w,t,col){g.fillStyle=col||C.dim;g.font='11px ui-monospace,monospace';
+  g.textAlign='left';g.fillText(t,46,12);}
+function key(items){return '<div class="legend">'+items.map(i=>
+  '<span class="key"><span class="sw" style="background:'+i[1]+'"></span>'+i[0]+'</span>').join('')+'</div>';}
+
+/* ---------- slides ---------- */
+const S = [];
+
+/* 1 — the raw window */
+S.push({title:'One action chunk, as collected',
+  sub:'80 frames at 30 Hz',
+  lede:'The policy must emit this. <b>x and y sweep a long path while θ turns only a little</b> — the two channels move on completely different scales, and neither moves at a constant rate.',
+  html:'<div class="grid g3">'+
+    '<div class="card"><h3>path in the plane</h3><canvas id="c1a"></canvas></div>'+
+    '<div class="card"><h3>x, y vs time</h3><canvas id="c1b"></canvas>'+key([['x',C.tr],['y','#79c0ff']])+'</div>'+
+    '<div class="card"><h3>θ vs time</h3><canvas id="c1c"></canvas>'+key([['θ (rad)',C.rot]])+'</div></div>'+
+    '<p class="note">Total travel <b>'+DATA.clocks.translation_total.toFixed(0)+' px</b> and <b>'+
+    (DATA.clocks.angle_total*180/Math.PI).toFixed(0)+'°</b> of turning across the window.</p>',
+  draw:(p)=>{
+    const R=DATA.raw;
+    {const [g,w,h]=fit(document.getElementById('c1a'));
+     const xd=ext(R.x),yd=ext(R.y),n=Math.max(2,Math.round(p*R.x.length));
+     const ax=Ax(g,w,h,xd,yd);
+     line(g,ax,R.x,R.y,'#2d3748',1.5);
+     line(g,ax,R.x,R.y,C.tr,2.2,n);
+     if(n>1){const i=n-1;g.fillStyle='#fff';g.beginPath();g.arc(ax.X(R.x[i]),ax.Y(R.y[i]),4,0,7);g.fill();
+       const L=26,th=R.theta[i];g.strokeStyle=C.rot;g.lineWidth=2.5;g.beginPath();
+       g.moveTo(ax.X(R.x[i]),ax.Y(R.y[i]));
+       g.lineTo(ax.X(R.x[i])+L*Math.cos(th),ax.Y(R.y[i])-L*Math.sin(th));g.stroke();}
+     title(g,w,'tool pose, heading in orange');}
+    {const [g,w,h]=fit(document.getElementById('c1b'));
+     const yd=ext(R.x.concat(R.y)),ax=Ax(g,w,h,[0,R.t[R.t.length-1]],yd);
+     const n=Math.round(p*R.t.length);
+     line(g,ax,R.t,R.x,C.tr,2,n); line(g,ax,R.t,R.y,'#79c0ff',2,n);}
+    {const [g,w,h]=fit(document.getElementById('c1c'));
+     const ax=Ax(g,w,h,[0,R.t[R.t.length-1]],ext(R.theta));
+     line(g,ax,R.t,R.theta,C.rot,2,Math.round(p*R.t.length));}
+  }});
+
+/* 2 — two clocks */
+S.push({title:'Two arc clocks, not one',
+  sub:'cumulative distance travelled, per stream',
+  lede:'Instead of indexing by time, the codec indexes by <b>how far each stream has travelled</b>. Translation accumulates <code>|Δxy|</code>; rotation accumulates <code>|Δθ|</code>. They are separate cumulative sums with <b>separate budgets</b>, D and R.',
+  html:'<div class="grid g2">'+
+    '<div class="card"><h3>translation clock — cumsum |Δxy|</h3><canvas id="c2a"></canvas>'+
+    key([['arc length (px)',C.tr],['budget D = '+DATA.meta.D+' px','#f85149']])+'</div>'+
+    '<div class="card"><h3>rotation clock — cumsum |Δθ|</h3><canvas id="c2b"></canvas>'+
+    key([['arc length (deg)',C.rot],['budget R = '+DATA.meta.R_deg.toFixed(0)+'°','#f85149']])+'</div></div>'+
+    '<p class="note">Both clocks <b>saturate</b> here: the window travels '+DATA.clocks.translation_total.toFixed(0)+
+    ' px but D caps it at '+DATA.meta.D+', and turns '+(DATA.clocks.angle_total*180/Math.PI).toFixed(0)+
+    '° but R caps it at '+DATA.meta.R_deg.toFixed(0)+'°. So the token describes a <b>prefix</b> of the window — and the two streams stop at <b>different frames</b>.</p>',
+  draw:(p)=>{
+    const R=DATA.raw,K=DATA.clocks,n=Math.round(p*R.t.length);
+    {const [g,w,h]=fit(document.getElementById('c2a'));
+     const ax=Ax(g,w,h,[0,R.t[R.t.length-1]],[0,Math.max(K.translation_total,DATA.meta.D)*1.05]);
+     line(g,ax,R.t,K.translation,C.tr,2.4,n); hline(g,ax,w,DATA.meta.D,'#f85149','D');
+     title(g,w,'time →');}
+    {const [g,w,h]=fit(document.getElementById('c2b'));
+     const deg=K.angle.map(v=>v*180/Math.PI), tot=K.angle_total*180/Math.PI;
+     const ax=Ax(g,w,h,[0,R.t[R.t.length-1]],[0,Math.max(tot,DATA.meta.R_deg)*1.05]);
+     line(g,ax,R.t,deg,C.rot,2.4,n); hline(g,ax,w,DATA.meta.R_deg,'#f85149','R');
+     title(g,w,'time →');}
+  }});
+
+/* 3 — resampling */
+S.push({title:'Sample each clock at M even steps',
+  sub:'M = '+M+' waypoints per stream',
+  lede:'Evenly spaced in <b>arc length</b> is <b>unevenly spaced in time</b>. That is the whole trick: the waypoints crowd where the motion is slow and spread where it is fast, so geometry gets a uniform budget regardless of speed.',
+  html:'<div class="grid g2">'+
+    '<div class="card"><h3>even in arc → uneven in time</h3><canvas id="c3a"></canvas>'+
+    key([['translation waypoints',C.tr],['rotation waypoints',C.rot]])+'</div>'+
+    '<div class="card"><h3>the two streams land at different times</h3><canvas id="c3b"></canvas>'+
+    key([['source time of translation wp i',C.tr],['source time of rotation wp i',C.rot]])+'</div></div>'+
+    '<p class="note">Row <code>i</code> of the token is waypoint <code>i</code> of <b>each</b> stream — a shared <b>waypoint index</b>, not a shared timestamp. Sharing a row costs nothing because both streams produce exactly M samples.</p>',
+  draw:(p)=>{
+    const W=DATA.waypoints,K=DATA.clocks,R=DATA.raw,n=Math.max(1,Math.round(p*M));
+    {const [g,w,h]=fit(document.getElementById('c3a'));
+     const ax=Ax(g,w,h,[0,R.t[R.t.length-1]],[0,1.05]);
+     const nt=K.translation_total?K.translation.map(v=>v/Math.max(K.translation_end,1e-9)):[];
+     line(g,ax,R.t,nt.map(v=>Math.min(v,1)),'#2d3748',1.5);
+     for(let i=0;i<n;i++){const x=ax.X(W.t_tr[i]);
+       g.strokeStyle=C.tr;g.globalAlpha=.55;g.lineWidth=1;
+       g.beginPath();g.moveTo(x,ax.Y(0));g.lineTo(x,ax.Y(W.s_tr[i]/Math.max(K.translation_end,1e-9)));g.stroke();g.globalAlpha=1;}
+     dots(g,ax,W.t_tr,W.s_tr.map(v=>v/Math.max(K.translation_end,1e-9)),C.tr,2.6,n);
+     for(let i=0;i<n;i++){const x=ax.X(W.t_an[i]);
+       g.strokeStyle=C.rot;g.globalAlpha=.45;g.lineWidth=1;
+       g.beginPath();g.moveTo(x,ax.Y(0));g.lineTo(x,ax.Y(-0.04));g.stroke();g.globalAlpha=1;}
+     dots(g,ax,W.t_an,W.s_an.map(()=>-0.04),C.rot,2.6,n);
+     title(g,w,'source time →   (ticks = where waypoints fall)');}
+    {const [g,w,h]=fit(document.getElementById('c3b'));
+     const mx=Math.max(W.t_tr[M-1],W.t_an[M-1]);
+     const ax=Ax(g,w,h,[0,M-1],[0,mx*1.05]);
+     const idx=[...Array(M).keys()];
+     line(g,ax,idx,W.t_tr,C.tr,2.4,n); line(g,ax,idx,W.t_an,C.rot,2.4,n);
+     title(g,w,'waypoint index i →      y = source time (s)');}
+  }});
+
+/* 4 — the token */
+S.push({title:'The token: [M, 6]',
+  sub:'four geometry columns shared, two timing columns differ',
+  lede:'Both variants place the <b>identical</b> geometry in columns 0–1 and 3–4. They differ in <b>columns 2 and 5 only</b> — what carries the schedule.',
+  html:'<div class="grid g2">'+
+    '<div class="card"><h3>stacked velocity token</h3>'+
+    '<div class="eq">[ x, y, <span class="vel">v_xy</span>, cosθ, sinθ, <span class="vel">ω</span> ]</div>'+
+    '<canvas id="c4a"></canvas>'+key([['v_xy  (px/s)',C.vel],['ω  (rad/s, signed)','#d2a8ff']])+'</div>'+
+    '<div class="card"><h3>duration token</h3>'+
+    '<div class="eq">[ x, y, <span class="good">Δt_tr</span>, cosθ, sinθ, <span class="good">Δt_rot</span> ]</div>'+
+    '<canvas id="c4b"></canvas>'+key([['Δt translation (s)',C.dur],['Δt rotation (s)','#7ee787']])+'</div></div>'+
+    '<p class="note">Same rows, same geometry, same budgets. <b>One variable changes.</b></p>',
+  draw:(p)=>{
+    const V=DATA.token_velocity,U=DATA.token_duration,idx=[...Array(M).keys()],n=Math.round(p*M);
+    {const [g,w,h]=fit(document.getElementById('c4a'));
+     const ax=Ax(g,w,h,[0,M-1],ext(V.v_xy.concat(V.omega.map(v=>v*20))));
+     line(g,ax,idx,V.v_xy,C.vel,2.2,n);
+     line(g,ax,idx,V.omega.map(v=>v*20),'#d2a8ff',1.8,n);
+     title(g,w,'row i →    (ω scaled ×20 to share the axis)');}
+    {const [g,w,h]=fit(document.getElementById('c4b'));
+     const ax=Ax(g,w,h,[0,M-1],ext(U.dt_tr.concat(U.dt_rot)));
+     line(g,ax,idx,U.dt_tr,C.dur,2.2,n);
+     line(g,ax,idx,U.dt_rot,'#7ee787',1.8,n);
+     title(g,w,'row i →    both in the SAME unit: seconds');}
+  }});
+
+/* 5 — why duration */
+S.push({title:'Why duration is the more primitive carrier',
+  sub:'the velocity codec computes a duration and then divides it away',
+  lede:'',
+  html:'<div class="grid g2">'+
+    '<div class="card"><h3>encode</h3>'+
+    '<div class="eq"><span class="dim">_sample_stream, both variants:</span><br>'+
+    'Δt = diff(source_time_at_waypoint)<br><br>'+
+    '<span class="vel">velocity:</span> rate = Δgeometry / Δt   <span class="bad">← divides Δt away</span><br>'+
+    '<span class="good">duration:</span> store Δt                 <span class="good">← keeps what it had</span></div>'+
+    '<h3 style="margin-top:10px">decode</h3>'+
+    '<div class="eq"><span class="vel">velocity:</span> Δt = Δgeometry / |rate|  <span class="bad">← inverts the division</span><br>'+
+    '&nbsp;&nbsp;&nbsp;&nbsp;+ a synthetic stop_duration when rate≈0<br><br>'+
+    '<span class="good">duration:</span> Δt = clamp(value, 0)   <span class="good">← reads it</span></div></div>'+
+    '<div class="card"><h3>the sign of ω is never read</h3><canvas id="c5"></canvas>'+
+    '<p class="note">The decoder uses <code>rate.abs()</code> — direction is already carried by the cos/sin waypoints. So the velocity codec trains the model to predict a <b>sign that decoding discards</b>. Duration has no sign to waste: a hold is just a long interval, where a rate codec needs a zero-velocity special case.</p></div></div>',
+  draw:(p)=>{
+    const V=DATA.token_velocity,idx=[...Array(M).keys()],n=Math.round(p*M);
+    const [g,w,h]=fit(document.getElementById('c5'));
+    const ax=Ax(g,w,h,[0,M-1],ext(V.omega.concat(V.omega.map(Math.abs))));
+    hline(g,ax,w,0,'#30363d','');
+    line(g,ax,idx,V.omega,'#d2a8ff',2.2,n);
+    line(g,ax,idx,V.omega.map(Math.abs),C.dur,2,n);
+    title(g,w,'predicted ω (purple)  vs  what decode actually uses, |ω| (green)');}
+  });
+
+/* 6 — decode */
+S.push({title:'Both decode to the same trajectory',
+  sub:''+DATA.meta.H+'-step chunk, reconstructed',
+  lede:'This matters: duration is <b>not</b> a better fit to the data — it is a better thing for a network to predict. Reconstruction from ground-truth tokens is essentially identical.',
+  html:'<div class="grid g2">'+
+    '<div class="card"><h3>reconstructed path</h3><canvas id="c6a"></canvas>'+
+    key([['source',C.ref],['velocity decode',C.vel],['duration decode',C.dur]])+'</div>'+
+    '<div class="card"><h3>θ over the chunk</h3><canvas id="c6b"></canvas>'+
+    '<p class="note">Max xy error — velocity <b>'+DATA.decode.err_v+' px</b>, duration <b>'+DATA.decode.err_d+
+    ' px</b>. The codec is not the bottleneck; the 260M rollout study found all three action representations statistically indistinguishable (all pairwise p &gt; 0.78).</p></div></div>',
+  draw:(p)=>{
+    const d=DATA.decode,n=Math.max(2,Math.round(p*d.ref_x.length));
+    {const [g,w,h]=fit(document.getElementById('c6a'));
+     const ax=Ax(g,w,h,ext(d.ref_x.concat(d.v_x,d.d_x)),ext(d.ref_y.concat(d.v_y,d.d_y)));
+     line(g,ax,d.ref_x,d.ref_y,C.ref,4,n);
+     line(g,ax,d.v_x,d.v_y,C.vel,2.2,n);
+     line(g,ax,d.d_x,d.d_y,C.dur,2.2,n);
+     dots(g,ax,d.ref_x,d.ref_y,C.ref,2.2,n);}
+    {const [g,w,h]=fit(document.getElementById('c6b'));
+     const idx=[...Array(d.ref_theta.length).keys()];
+     const ax=Ax(g,w,h,[0,idx.length-1],ext(d.ref_theta.concat(d.v_theta,d.d_theta)));
+     line(g,ax,idx,d.ref_theta,C.ref,4,n);
+     line(g,ax,idx,d.v_theta,C.vel,2.2,n);
+     line(g,ax,idx,d.d_theta,C.dur,2.2,n);
+     title(g,w,'step →');}
+  }});
+
+/* 7 — grip */
+S.push({title:'And on the articulated corpus, a 7th column',
+  sub:'grip carries on the translation clock',
+  lede:'Six of the nine articulated embodiments latch, grasp or suction. A width-6 token throws the engage channel away — reproducing “every grasp is a shove” at the representation layer.',
+  html:'<div class="grid g2">'+
+    '<div class="card"><h3>the widened token</h3>'+
+    '<div class="eq">[ x, y, <span class="good">Δt_tr</span>, cosθ, sinθ, <span class="good">Δt_rot</span>, <span style="color:#f0883e">grip</span> ]</div>'+
+    '<p class="lede" style="margin-top:8px">Grip rides the <b>translation clock</b> — it is <i>carried</i>, with no clock and no budget of its own. Closing on an object is an event <b>at a place along the path</b>; a third clock would let decoded grip slide relative to the pose that commanded it.</p>'+
+    '<p class="note">It is interpolated, not rate-decoded — it is a level, not a motion — and clamped to [0,1], because the simulator reads it as a level and diffusion samples do not respect that range.</p></div>'+
+    '<div class="card"><h3>3-DOF tools pad to constant zero</h3><canvas id="c7"></canvas>'+
+    '<p class="note"><code>u_socket</code>, <code>triangle</code> and <code>scoop</code> have no grip channel; <code>PadPlanarAction</code> fills it with 0, which is correct — they engage through geometry. Verified: width 7 is <b>bit-identical</b> to width 6 on its first six columns, so the grip ablation is not confounded by a geometry change.</p></div></div>',
+  draw:(p)=>{
+    const [g,w,h]=fit(document.getElementById('c7'));
+    const idx=[...Array(M).keys()],n=Math.round(p*M);
+    const g4=idx.map(i=>1/(1+Math.exp(-(i-M*0.42)/2.0)));
+    const ax=Ax(g,w,h,[0,M-1],[-0.08,1.12]);
+    line(g,ax,idx,g4,C.rot,2.4,n);
+    line(g,ax,idx,idx.map(()=>0),C.tr,2.4,n);
+    g.fillStyle=C.rot;g.font='11px ui-monospace,monospace';g.textAlign='left';
+    g.fillText('4-DOF: gripper, chain_gripper, suction, umi, flipper, spring',ax.X(1),ax.Y(1.06));
+    g.fillStyle=C.tr;g.fillText('3-DOF: u_socket, triangle, scoop  — padded 0',ax.X(1),ax.Y(0.10));
+    title(g,w,'row i →      grip level');}
+  });
+
+/* ---------- runtime ---------- */
+const main=document.getElementById('main'),dotsEl=document.getElementById('dots');
+S.forEach((s,i)=>{
+  const d=document.createElement('section');d.className='slide';d.id='s'+i;
+  d.innerHTML='<h2>'+s.title+'<small>'+(s.sub||'')+'</small></h2>'+
+    (s.lede?'<p class="lede">'+s.lede+'</p>':'')+s.html;
+  main.appendChild(d);
+  const b=document.createElement('div');b.className='dot';b.onclick=()=>go(i);dotsEl.appendChild(b);
+});
+let cur=-1,raf=0,t0=0;
+function go(i){
+  if(i<0||i>=S.length)return;
+  cur=i;
+  [...main.children].forEach((e,k)=>e.classList.toggle('on',k===i));
+  [...dotsEl.children].forEach((e,k)=>e.classList.toggle('on',k===i));
+  play();
+}
+function play(){
+  cancelAnimationFrame(raf);t0=performance.now();
+  const dur=1150, s=S[cur];
+  (function step(now){
+    const p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3);
+    try{s.draw(e);}catch(err){console.error(err);}
+    if(p<1)raf=requestAnimationFrame(step);
+  })(performance.now());
+}
+document.getElementById('next').onclick=()=>go(cur+1);
+document.getElementById('prev').onclick=()=>go(cur-1);
+document.getElementById('replay').onclick=play;
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();go(cur+1);}
+  if(e.key==='ArrowLeft'){e.preventDefault();go(cur-1);}
+  if(e.key==='r')play();
+});
+addEventListener('resize',()=>{if(cur>=0)play();});
+go(0);
+</script>

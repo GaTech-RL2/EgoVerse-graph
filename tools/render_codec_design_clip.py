@@ -65,6 +65,11 @@ def hold(w, n):
         w.grab_frame()
 
 
+def grab(w, rep=1):
+    for _ in range(rep):
+        w.grab_frame()
+
+
 def cell(ax, x, y, w, h, label, face, edge, fs=17, bold=True, sub=None):
     ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.012",
                                 facecolor=face, edgecolor=edge, lw=2.4))
@@ -150,6 +155,88 @@ def main():
         ax.text(.5, .215, "the two red slots are the entire difference between the "
                 "variants", ha="center", fontsize=17, color=RED, fontweight="bold")
         hold(w, fps * 5)
+        clear(fig, keep)
+
+        # ---- act 2b: the hybrid step -- two clocks, one row count -------
+        # This is what makes the stacked [M, 6] layout possible at all, and it
+        # is the step people assume is impossible: the streams are resampled
+        # INDEPENDENTLY yet come out the same length, so they concatenate on
+        # the feature axis rather than the row axis.
+        MD = 8          # small enough to count on screen
+        T.set_text("Two clocks, resampled to the same row count")
+        U.set_text("this is the hybrid step — independent budgets, independent units, "
+                   "identical number of samples")
+        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
+        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+        BARS = [(.70, TR, "translation arc", "0", "D = 80 px", .085, .80),
+                (.47, ROT, "rotation arc", "0", "R = 26" + chr(176), .085, .52)]
+        for k in range(1, MD + 1):
+            # Clear every frame. Re-drawing the counter on top of itself stacked
+            # all eight strings into an unreadable blob.
+            ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+            for y, col, name, lo, hi, x0, x1 in BARS:
+                ax.add_patch(Rectangle((x0, y - .028), x1 - x0, .056,
+                                       facecolor=PANEL, edgecolor=col, lw=2.2))
+                ax.text(x0, y + .075, name, fontsize=17, color=col, fontweight="bold")
+                ax.text(x0, y - .075, lo, fontsize=13.5, color=DIM, ha="center")
+                ax.text(x1, y - .075, hi, fontsize=14.5, color=col, ha="center",
+                        fontweight="bold")
+                xs = np.linspace(x0, x1, MD)
+                for j in range(k):
+                    ax.plot([xs[j], xs[j]], [y - .028, y + .028], color=col, lw=2.6)
+                    ax.add_patch(Rectangle((xs[j] - .0055, y - .0125), .011, .025,
+                                           facecolor=col, edgecolor="none"))
+                ax.text(x1 + .035, y, "%d / %d" % (k, MD), fontsize=17, color=col,
+                        va="center", family="monospace", fontweight="bold")
+            ax.text(.085, .30, "different units, different totals, cut into the same "
+                    "number of samples", fontsize=17, color=INK)
+            if k == MD:
+                ax.text(.085, .21, "so each stream yields exactly M rows — they line "
+                        "up by ROW INDEX, not by timestamp", fontsize=17, color=INK)
+                ax.text(.085, .12, "a shared row is a shared waypoint number; row i of "
+                        "each stream sits at a different moment in time",
+                        fontsize=15.5, color=DIM)
+                ax.text(.085, .045, "(M = %d here so the ticks are countable; the real "
+                        "token uses M = 56)" % MD, fontsize=13.5, color=DIM)
+            grab(w, 6)
+        hold(w, fps * 5)
+        clear(fig, keep)
+
+        # ---- act 2c: and therefore they concatenate ----------------------
+        T.set_text("Which is why they stack")
+        U.set_text("two [M, 3] blocks on different clocks concatenate along the "
+                   "feature axis")
+        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
+        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+        L3 = ["x", "y", "timing"]; R3 = ["cos", "sin", "timing"]
+        for step in range(26):
+            ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+            f = min(1.0, step / 18.0)
+            # Blocks must MEET, not overlap: the right block starts exactly one
+            # block-width after the left one, plus the closing gap.
+            PITCH, GAP0 = .112, .10
+            gap = GAP0 * (1 - f)
+            lx = .17
+            rx = lx + 3 * PITCH + gap
+            for x0, cols, col, name in ((lx, L3, TR, "translation"),
+                                        (rx, R3, ROT, "rotation")):
+                for j, c in enumerate(cols):
+                    cell(ax, x0 + j * PITCH, .34, .105, .30, c, PANEL, col, fs=17)
+                ax.text(x0 + 1.5 * PITCH - .003, .695, name + "   [M, 3]",
+                        fontsize=16.5, color=col, ha="center", fontweight="bold")
+            if f >= 1.0:
+                right_edge = rx + 2 * PITCH + .105
+                mid = (lx + right_edge) / 2
+                ax.add_patch(FancyBboxPatch((lx - .018, .31),
+                                            right_edge - lx + .036, .36,
+                                            boxstyle="round,pad=0.012",
+                                            facecolor="none", edgecolor=INK, lw=2.6))
+                ax.text(mid, .245, "[M, 6]", fontsize=26, color=INK, ha="center",
+                        fontweight="bold")
+                ax.text(mid, .175, "one row, six numbers, two clocks",
+                        fontsize=16, color=DIM, ha="center")
+            grab(w, 3)
+        hold(w, fps * 4)
         clear(fig, keep)
 
         # ---- act 3: equal in space, unequal in time ---------------------

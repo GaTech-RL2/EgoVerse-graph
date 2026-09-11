@@ -146,9 +146,18 @@ def _check(experiment: str, holdout: list[str]) -> list[str]:
     else:
         net = denoiser[0].policy.model
         cond = int(cfg.model.pipeline.stages[3].condition_input_dim)
-        x = torch.zeros(2, rows, width)
+        # PipelineAlgo.__init__ does nets.to(cuda) when a GPU is present, so on
+        # a GPU host the weights are on cuda:0 while freshly made tensors are on
+        # cpu. Build the probes on the net's OWN device; hardcoding cpu made
+        # this tool pass on a laptop and fail the job it was gating.
+        device = next(net.parameters()).device
+        x = torch.zeros(2, rows, width, device=device)
         with torch.no_grad():
-            out = net(x, torch.zeros(2, dtype=torch.long), torch.zeros(2, cond))
+            out = net(
+                x,
+                torch.zeros(2, dtype=torch.long, device=device),
+                torch.zeros(2, cond, device=device),
+            )
         if tuple(out.shape) != tuple(x.shape):
             problems.append(
                 f"denoiser maps {tuple(x.shape)} -> {tuple(out.shape)}, not shape-preserving"

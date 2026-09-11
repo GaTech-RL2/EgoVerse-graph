@@ -42,3 +42,20 @@ ssh sky2 'bash -lc "sbatch --test-only /absolute/path/to/job.sbatch"'
 
 Fail closed if `command -v sbatch` is empty.  A plain `ssh host 'sbatch ...'`
 may run with a reduced `PATH` even though Slurm works in an interactive shell.
+
+## Frozen Python runtime
+
+Do not reuse a shared environment merely because its Python and PyTorch
+versions look compatible. Reconcile an explicit task runtime from the checked-in
+lock before capturing its runtime lock or launching training:
+
+```bash
+srun --account=<account> --partition=<cpu-partition> --time=00:30:00 \
+  scripts/clusters/common/sync_runtime.sh \
+  /absolute/clean/source /absolute/task/runtime
+```
+
+The command runs `uv sync --frozen`, so the task environment cannot silently
+omit a locked dependency. It then verifies the exact `torchdiffeq==0.2.5`
+required by EgoVerse. The command refuses to run outside a scheduled allocation;
+login nodes remain orchestration-only.

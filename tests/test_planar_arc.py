@@ -205,6 +205,18 @@ def test_common_and_arc_adapters_decode_same_anchor(native_dim):
     torch.testing.assert_close(arc, dense[:, :1])
 
 
+def test_native_decoders_preserve_energy_score_sample_and_batch_dimensions():
+    token = torch.zeros(32, 2, 17, 5)
+    token[..., 0, :2] = torch.tensor([2.0, 3.0])
+    token[..., 0, 3] = 1.0
+    arc = PlanarArcWaypointZeroNativeDecoder(16, 3).decode(token)
+    assert arc.shape == (32, 2, 1, 3)
+    torch.testing.assert_close(arc[..., 0, :2], token[..., 0, :2])
+
+    dense = PlanarCommon5NativeDecoder(17, 3).decode(token)
+    assert dense.shape == (32, 2, 17, 3)
+
+
 def test_arc_rejects_nonfinite_or_short_input():
     transform = TokenizePlanarArcLength()
     with pytest.raises(ValueError):

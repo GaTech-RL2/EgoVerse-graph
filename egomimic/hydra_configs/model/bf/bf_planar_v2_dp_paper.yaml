@@ -12,7 +12,7 @@ pipeline:
     - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
       action_horizon: ${planar.action_horizon}
-      action_dim: 5
+      action_dim: ${planar.action_dim}
       noise_scheduler: &paper_dp_scheduler
         _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
         num_train_timesteps: 100
@@ -22,7 +22,7 @@ pipeline:
         prediction_type: epsilon
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
       action_horizon: ${planar.action_horizon}
-      action_dim: 5
+      action_dim: ${planar.action_dim}
       condition_input_dim: 134
       policy:
         _target_: egomimic.models.diffusion_policy.DiffusionPolicy
@@ -30,7 +30,7 @@ pipeline:
         num_inference_steps: 100
         model:
           _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D
-          input_dim: 5
+          input_dim: ${planar.action_dim}
           global_cond_dim: 134
           diffusion_step_embed_dim: 128
           down_dims: [512, 1024, 2048]

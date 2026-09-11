@@ -26,6 +26,7 @@ evaluator:
   native_decoder: ${planar.eval_native_decoder}
 
 planar:
+  action_dim: 5
   action_dims: ???
   eval_native_decoder: ???
   raw_action_horizon: 16

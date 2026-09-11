@@ -9,7 +9,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     ChainGripperPoints6ToNative4,
     PlanarAgentStateToRotVec4,
 )
-from egomimic.rldb.zarr.planar_arc import PLANAR_ACTION_DIM
+from egomimic.rldb.zarr.planar_arc import PLANAR_ACTION_DIM, PLANAR_ARC_TIMED_DIM
 
 
 def _common5_to_native(actions, native_action_dim: int):
@@ -97,6 +97,109 @@ class PlanarArcWaypointZeroNativeDecoder:
                 f"expected (..., {expected[0]}, {expected[1]}), got {value.shape}"
             )
         return _common5_to_native(value[..., :1, :], self.native_action_dim)
+
+    __call__ = decode
+
+
+class PlanarArcTimedNativeDecoder:
+    """Decode seven-wide timed ARC tokens to fixed-rate native controls."""
+
+    preserves_decoded_timing = True
+
+    def __init__(
+        self,
+        resampled_vector_length: int,
+        action_horizon: int,
+        native_action_dim: int,
+        timing_mode: str,
+        dt: float = 1.0 / 30.0,
+        zero_dist_epsilon: float = 1e-9,
+    ):
+        self.num_waypoints = int(resampled_vector_length)
+        self.action_horizon = int(action_horizon)
+        self.native_action_dim = int(native_action_dim)
+        self.timing_mode = str(timing_mode)
+        self.dt = float(dt)
+        self.epsilon = float(zero_dist_epsilon)
+        if self.num_waypoints < 2 or self.action_horizon <= 0 or self.dt <= 0:
+            raise ValueError("waypoints, action_horizon, and dt must be positive")
+        if self.native_action_dim not in (2, 3, 4):
+            raise ValueError("native_action_dim must be 2, 3, or 4")
+        if self.timing_mode not in {"velocity", "duration"}:
+            raise ValueError("timing_mode must be 'velocity' or 'duration'")
+
+    def _durations(self, geometry, timing):
+        if self.timing_mode == "duration":
+            return timing.clamp_min(0.0)
+        distance = torch.linalg.vector_norm(geometry[:, 1:] - geometry[:, :-1], dim=-1)
+        active = distance > self.epsilon
+        usable = timing.abs() > self.epsilon
+        duration = torch.where(
+            active & usable,
+            distance / timing.abs().clamp_min(self.epsilon),
+            torch.zeros_like(distance),
+        )
+        stop = torch.full_like(duration, self.dt * (self.action_horizon + 1))
+        return torch.where(active & ~usable, stop, duration)
+
+    def _sample(self, geometry, duration):
+        cumulative = torch.cat(
+            (torch.zeros_like(duration[:, :1]), torch.cumsum(duration, dim=1)), dim=1
+        )
+        targets = self.dt * torch.arange(
+            self.action_horizon, device=geometry.device, dtype=geometry.dtype
+        )[None]
+        upper = torch.searchsorted(
+            cumulative.contiguous(), targets.expand(len(geometry), -1).contiguous(), right=True
+        ).clamp(1, self.num_waypoints - 1)
+        lower = upper - 1
+        lo_t = torch.gather(cumulative, 1, lower)
+        hi_t = torch.gather(cumulative, 1, upper)
+        alpha = ((targets - lo_t) / (hi_t - lo_t).clamp_min(self.epsilon)).clamp(0, 1)
+        width = geometry.shape[-1]
+        lo = torch.gather(geometry, 1, lower[..., None].expand(-1, -1, width))
+        hi = torch.gather(geometry, 1, upper[..., None].expand(-1, -1, width))
+        return (1 - alpha[..., None]) * lo + alpha[..., None] * hi
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        is_tensor = torch.is_tensor(actions)
+        value = actions if is_tensor else torch.as_tensor(np.asarray(actions))
+        squeeze = value.ndim == 2
+        if squeeze:
+            value = value.unsqueeze(0)
+        expected = (self.num_waypoints, PLANAR_ARC_TIMED_DIM)
+        if value.ndim < 3 or tuple(value.shape[-2:]) != expected:
+            raise ValueError(f"expected (..., {expected[0]}, {expected[1]}), got {value.shape}")
+        leading = tuple(value.shape[:-2])
+        value = value.reshape(-1, *expected)
+        xy_duration = self._durations(value[..., :2], value[:, :-1, 2])
+        heading_geometry = value[..., 3:5]
+        if self.timing_mode == "duration":
+            heading_duration = value[:, :-1, 5].clamp_min(0.0)
+        else:
+            dot = (heading_geometry[:, 1:] * heading_geometry[:, :-1]).sum(-1)
+            cross = (
+                heading_geometry[:, 1:, 1] * heading_geometry[:, :-1, 0]
+                - heading_geometry[:, 1:, 0] * heading_geometry[:, :-1, 1]
+            )
+            angle = torch.atan2(cross, dot).abs()
+            rate = value[:, :-1, 5]
+            heading_duration = torch.where(
+                (angle > self.epsilon) & (rate.abs() > self.epsilon),
+                angle / rate.abs().clamp_min(self.epsilon),
+                torch.zeros_like(angle),
+            )
+        xy = self._sample(value[..., :2], xy_duration)
+        heading = self._sample(heading_geometry, heading_duration)
+        heading = heading / torch.linalg.vector_norm(heading, dim=-1, keepdim=True).clamp_min(1e-8)
+        theta = torch.atan2(heading[..., 1], heading[..., 0])[..., None]
+        grip = self._sample(value[..., 6:7], xy_duration)
+        native = torch.cat((xy, theta, grip), dim=-1)[..., : self.native_action_dim]
+        native = native.reshape(*leading, self.action_horizon, self.native_action_dim)
+        if squeeze:
+            native = native.squeeze(0)
+        return native if is_tensor else native.cpu().numpy()
 
     __call__ = decode
 

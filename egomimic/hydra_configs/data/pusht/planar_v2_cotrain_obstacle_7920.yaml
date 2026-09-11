@@ -1,0 +1,97 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim_u_socket: &usocket
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_scripted_c3kb_ideal_3000_20260905_flat
+      embodiment_override: pushshapes_sim_u_socket
+      expected_episode_count: 3000
+      expected_episode_names_sha256: dc96141797743490f040ad3a90e24c015afa7e4ea052beebf2187464eb0dbc65
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: ${planar.observation_horizon}
+        action_target_offset: ${planar.action_target_offset}
+      transform_list:
+        _target_: ${planar.transform_target}
+        raw_action_horizon: ${planar.raw_action_horizon}
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: ${planar.action_target_offset}
+        min_distance_unit: ${planar.arc_distance}
+        resampled_vector_length: ${planar.arc_waypoints}
+        dt: ${planar.arc_dt}
+        rotation_distance_unit: ${planar.arc_rotation_distance}
+        timing_mode: ${planar.arc_timing_mode}
+    mode: train
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 2970
+    expected_train_episode_names_sha256: d9d0d46d5808963bb069c12ebe2bd63e330689331afe82950da940226dfceac6
+    expected_valid_episode_count: 30
+    expected_valid_episode_names_sha256: 9efbb1438fd8a42c2ed025e6b443f4e7e81c25a3b793ea659002c38407d3ad27
+    bounds_check: false
+  pushshapes_sim_chain_gripper: &chain
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2_plus_gen_frozen1920_20260911
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 4920
+      expected_episode_names_sha256: f2dd79f81376b7fb47848e3e3aa061cf35ec8014699e40db108d8eaf506afba2
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: ${planar.observation_horizon}
+        action_target_offset: ${planar.action_target_offset}
+      transform_list:
+        _target_: ${planar.transform_target}
+        raw_action_horizon: ${planar.raw_action_horizon}
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: ${planar.action_target_offset}
+        min_distance_unit: ${planar.arc_distance}
+        resampled_vector_length: ${planar.arc_waypoints}
+        dt: ${planar.arc_dt}
+        rotation_distance_unit: ${planar.arc_rotation_distance}
+        timing_mode: ${planar.arc_timing_mode}
+    mode: train
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 4871
+    expected_train_episode_names_sha256: d862d162202ce830840f19a78fbd18895e6e7c444732beab7b7f65c517560a56
+    expected_valid_episode_count: 49
+    expected_valid_episode_names_sha256: d06278a1e59f458cff7e7623b3f69fae8edc13692e533424e8c9a57f162f4667
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_u_socket:
+    <<: *usocket
+    mode: valid
+  pushshapes_sim_chain_gripper:
+    <<: *chain
+    mode: valid
+
+train_dataloader_params: &loaders
+  pushshapes_sim_u_socket:
+    batch_size: ${planar.batch_size}
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+  pushshapes_sim_chain_gripper:
+    batch_size: ${planar.batch_size}
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+valid_dataloader_params:
+  <<: *loaders
+  pushshapes_sim_u_socket:
+    batch_size: ${planar.batch_size}
+    num_workers: 4
+    pin_memory: true
+  pushshapes_sim_chain_gripper:
+    batch_size: ${planar.batch_size}
+    num_workers: 4
+    pin_memory: true

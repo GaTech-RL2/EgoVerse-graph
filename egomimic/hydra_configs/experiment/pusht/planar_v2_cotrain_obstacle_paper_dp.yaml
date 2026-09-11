@@ -1,0 +1,36 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_base
+  - override /data: pusht/planar_v2_cotrain_obstacle_7920
+  - override /model: bf/bf_planar_v2_dp_paper
+  - _self_
+
+name: planar_v2_cotrain_obstacle_paper_dp_h16
+description: paper_DP_baseline_usocket3k_chain3k_obstacle1920
+planar:
+  action_dim: 5
+  action_dims: {pushshapes_sim_u_socket: 5, pushshapes_sim_chain_gripper: 5}
+  observation_horizon: 2
+  action_target_offset: 1
+  raw_action_horizon: 16
+  action_horizon: 16
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list
+  arc_distance: 80.0
+  arc_waypoints: 16
+  arc_dt: 0.0333333333333333
+  arc_rotation_distance: 0.4537856055185257
+  arc_timing_mode: duration
+  eval_native_decoder: null
+  batch_size: 32
+evaluator:
+  native_decoder: null
+  native_decoders:
+    pushshapes_sim_u_socket: {_target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder, action_horizon: 16, native_action_dim: 3}
+    pushshapes_sim_chain_gripper: {_target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder, action_horizon: 16, native_action_dim: 4}
+eval_checkpoint: {use_ema: true}
+callbacks:
+  ema: {_target_: egomimic.utils.ema_callback.EMACallback, decay: 0.9999, use_warmup: true, update_after_step: 0, inv_gamma: 1.0, power: 0.75, min_decay: 0.0, validate_with_ema: true}
+run_provenance:
+  obstacle_data: true
+  dataset_count: 7920
+  split_manifest_sha256: 29b9e313a9e2aaa348e9ce9c5a113127b1df1ec5b8cbe63b111ce9cd9d0a6a43

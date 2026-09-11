@@ -174,9 +174,19 @@ def _diagnostic_source(
     condition = prepared[condition_key]
     batch_size = limit
 
-    encoder = encoder_stage.encoder
+    select_encoder = getattr(encoder_stage, "encoder_for", None)
+    encoder = (
+        select_encoder(prepared)
+        if callable(select_encoder)
+        else encoder_stage.encoder
+    )
     field = field_stage.field
-    decoder = decoder_stage.decoder
+    select_decoder = getattr(decoder_stage, "decoder_for", None)
+    decoder = (
+        select_decoder(prepared)
+        if callable(select_decoder)
+        else decoder_stage.decoder
+    )
     clean, encoder_activations, encoder_indices = _block_outputs(
         encoder,
         lambda: encoder(target),

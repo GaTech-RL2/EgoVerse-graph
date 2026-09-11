@@ -11,7 +11,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=H100|H200
 #SBATCH --requeue
-#SBATCH --signal=B:USR1@600
+#SBATCH --signal=B:USR1@1200
 
 set -Eeuo pipefail
 umask 077
@@ -757,7 +757,7 @@ RUNNER_ARGS=(
   --checkpoint-validator "$ICE_CHECKPOINT_VALIDATOR"
   --checkpoint-signal USR2
   --checkpoint-forwarding slurm-steps
-  --checkpoint-grace-seconds 480
+  --checkpoint-grace-seconds 900
   --max-restarts "$ICE_MAX_RESTARTS"
   --requeue-owner runner
   --confirm-child-requeue-disabled

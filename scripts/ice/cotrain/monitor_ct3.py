@@ -38,10 +38,17 @@ ROWS = {
 }
 # sweep 3 rows are appended by monitor_ct3_rows_s3.json if present (same schema, JSON)
 _extra = os.path.join(os.path.dirname(os.path.abspath(__file__)), "monitor_ct3_rows_s3.json")
-if os.path.exists(_extra):
-    for k, v in json.load(open(_extra)).items():
-        v["embs"] = tuple(v["embs"]); v["oec"] = {e: tuple(l) for e, l in v.get("oec", {}).items()}
-        ROWS[k] = v
+
+
+def reload_rows():
+    """Re-read the JSON registry so rows registered after start-up are scored (9-11: twice bitten)."""
+    if os.path.exists(_extra):
+        for k, v in json.load(open(_extra)).items():
+            v["embs"] = tuple(v["embs"]); v["oec"] = {e: tuple(l) for e, l in v.get("oec", {}).items()}
+            ROWS[k] = v
+
+
+reload_rows()
 
 
 def sh(cmd):
@@ -192,6 +199,7 @@ def one_pass():
 if __name__ == "__main__":
     if "--loop" in sys.argv:
         while True:
+            reload_rows()
             try:
                 one_pass()
             except Exception as exc:

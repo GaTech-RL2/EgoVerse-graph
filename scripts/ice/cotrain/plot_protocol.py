@@ -90,7 +90,7 @@ for ax in axes[:, 0]:
     ax.set_ylabel("mean peak coverage (IoU)")
 fig.suptitle("UNITE vs Paper-DP under the sim_v2 eval protocol (horizon rev 3, full horizon, EMA, replan 8; UNITE at CFG 1.0)" + (f"  ·  {stamp}" if stamp else ""), fontsize=11.5)
 fig.text(0.01, 0.005, "Error bars: standard error over episodes. UNITE cotrain = topology A, hidden 384 (the best UNITE variant so far). Bottom row: rows trained with the chain gripper's 1,919 obstacle episodes.\n"
-         "UNITE rows are still training; curves stop at the last scored checkpoint.", fontsize=7.5, color="#555")
+         "Each point is one protocol reading of 80 episodes (one policy sample per replan); replicate-mean comparisons of the selected checkpoints are in the companion figure.", fontsize=7.5, color="#555")
 fig.tight_layout(rect=(0, 0.035, 1, 0.97))
 fig.savefig(out, dpi=170)
 print("wrote", out)

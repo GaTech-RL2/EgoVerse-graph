@@ -376,5 +376,45 @@
     "26-30"
    ]
   }
+ },
+ "ctAcos90": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-cos90k-fork-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "ctAcos120": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-cos120k-fork-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
  }
 }

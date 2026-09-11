@@ -5,8 +5,7 @@ the ICE working stack `aidan/unite-cotrain-1 → -2 → unite-compile → -3 →
 plus the rollout-driver branch `aidan/rollout-eval-3`, re-based as a small set of
 commits on `main` (75525eb, PR #20). The raw stack keeps the exact per-row
 commits that every run's provenance records; this branch has the same content
-at different SHAs. Nothing here has been merged; the experiments are still
-running as of 13:30 ET.
+at different SHAs. Nothing here has been merged. All experiments finished 2026-09-11 15:50 ET.
 
 Question under test: does UNITE (released recipe, un-tied tokenizer/denoiser,
 hidden 384, topology A = shared tokenizer body + per-embodiment decoders),
@@ -14,10 +13,7 @@ co-trained on U-Socket (`[x, y, cos θ, sin θ]`) and ChainGripper (six-point
 `[x1 y1 x2 y2 x3 y3]`), beat Paper-DP behaviour cloning on each embodiment and
 Paper-DP co-training, under Elmo's closed-loop protocol?
 
-Short answer so far: on chain, yes (UNITE cotrain 0.637 vs DP cotrain 0.624 vs
-DP BC 0.583); on U-Socket, no (0.719 at 120k vs DP cotrain 0.748 at 240k), and
-the reason is a training-dynamics defect diagnosed on 9-10 (section 7), with
-five fix variants in flight.
+Short answer (final, 9-11): with eight protocol replicates per cell, UNITE cotrain beats DP BC on chain (+0.067 ± 0.023), ties it on U-Socket, and is level with DP cotrain on both embodiments (−0.027 ± 0.021 U-Socket, +0.024 ± 0.022 chain). No training-side variant moved that ceiling; section 7 has the tables.
 
 ---
 
@@ -196,71 +192,150 @@ at 120k/180k/240k; results and `summary.tsv` live in `~/scratch/rollouts/CT2-rev
 (columns: row, step, emb, level, variant, n, mean_peak, sr80, sr95,
 never_moved, budget, seeds0-39_mean).
 
-## 7. Results as of 2026-09-10 13:30 ET (protocol, level 0)
+## 7. Final results (2026-09-11 16:00 ET)
 
-Bars = best checkpoint per embodiment on the canonical seeds 0–39 (selection-
-biased upward, i.e. conservative for UNITE). UNITE at CFG 1.0.
+_Final write-up, 2026-09-11 16:00 ET. Every row of sweeps 2 and 3 and every
+variant has trained to 240k; scoring of the last five 240k single readings
+was still finishing (they cannot change anything below, which rests on
+replicate means). Numbers are peak coverage under Elmo's protocol (horizon
+rev 3, full horizon, EMA, replan 8, level 0, UNITE at CFG 1.0)._
+
+#### Headline
+
+Under this protocol UNITE cotrain (released recipe, topology A, hidden 384)
+**beats Paper-DP behaviour cloning on the chain gripper, ties it on U-Socket,
+and is level with Paper-DP cotraining on both embodiments.** Nothing tried on
+the training side moved that ceiling, and the apparent 0.03 deficit to DP
+cotrain on U-Socket that drove two days of variants is inside the noise once
+the noise is measured properly.
+
+#### The comparison that counts (8 replicates × 80 seeds per cell, paired by seed)
+
+![replicate means](UNITE%20Replicate%20Means%209-11.png)
+
+| sweep 2 grand mean | U-Socket | chain |
+|---|---:|---:|
+| DP BC | 0.680 | 0.546 |
+| DP cotrain, 240k | **0.700** | 0.588 |
+| UNITE cotrain A, 120k | 0.673 | **0.613** |
+| UNITE cotrain A + EMA 0.9999, 240k | 0.684 | 0.610 |
+
+Paired differences (mean ± SE over the 80 per-seed means):
 
 | | U-Socket | chain |
 |---|---:|---:|
-| DP BC | 0.678 (dpus 180k) | 0.583 (dpch 240k) |
-| DP cotrain | **0.748** (dpct 240k) | 0.624 (dpct 240k) |
-| UNITE BC | 0.567 (uniteusann 120k) | 0.535 (unitech 90k) |
-| UNITE cotrain A h384 | 0.719 (ctA 120k) | **0.637** (ctA 90k) |
-| UNITE cotrain A compiled replica | 0.690 (120k) | 0.679 (90k) |
-| UNITE cotrain B (split tokenizer) | 0.651 (150k) | 0.523 (150k) |
-| UNITE cotrain A h768 | 0.592 (60k) | 0.571 (30k) |
-| sweep 3: DP cotrain + chain obstacles | 0.739 (s3dpct 180k) | 0.605 (240k) |
-| sweep 3: UNITE cotrain A + chain obstacles | 0.540 (90k, still training) | 0.603 (90k) |
+| UNITE cotrain − DP BC | −0.006 ± 0.020 | **+0.067 ± 0.023 (t = 3.0)** |
+| UNITE cotrain − DP cotrain | −0.027 ± 0.021 (t = −1.3) | +0.024 ± 0.022 (t = 1.1) |
+| DP cotrain − DP BC | +0.020 ± 0.016 | +0.043 ± 0.016 (t = 2.6) |
 
-Predicate: units remaining 0.0616 (ctA 120k: U-Socket 0.719 vs 0.748, chain
-0.591 on that checkpoint vs 0.624). Pooled seeds 0–79: U-Socket DP cotrain
-0.735 > UNITE cotrain 0.715 > DP BC 0.682 > UNITE BC 0.613; chain UNITE cotrain
-0.623 ≥ DP cotrain 0.610 > DP BC 0.567 > UNITE BC 0.530.
+The EMA row's 240k checkpoint reproduces the 120k point (−0.016 / +0.022 vs
+DP cotrain, +0.004 / +0.065 vs DP BC), so this is the recipe's level, not
+one lucky checkpoint.
 
-Scene generalisation (U-Socket on the 30 OEC-56 obstacle levels, 150 episodes):
-every U-Socket policy freezes in 124–148 of 150 scenes; mean peak 0.071 (dpct),
-0.063 (dpus), 0.021 (ctA), 0.012 (uniteus), 0.010 (s3dpct). Chain obstacle
-data does not transfer to U-Socket for DP either. Chain on its own obstacle
-levels: s3dpct 0.448 (240k), s3dpch 0.336, s3unitech 0.303 (120k).
+| sweep 3 grand mean (+ 1,919 chain obstacle episodes) | U-Socket | chain |
+|---|---:|---:|
+| DP cotrain (180k U-Socket / 240k chain) | **0.663** | 0.625 |
+| UNITE cotrain A, 180k | 0.574 | **0.663** |
+| UNITE cotrain A, 210k | 0.635 | 0.637 |
+| UNITE cotrain A, 240k | 0.638 | 0.638 |
 
-Diagnostics that closed hypotheses: UNITE is not hesitant (first-contact time
-matches DP; `ttfc.py`) but finishes later (peak at median step 410 vs 254);
-CFG 1.5/2.0 and K-sample chunk averaging are worse than single-sample CFG 1.0;
-topology B trails A everywhere; width (h768) does not help.
+Paired vs DP cotrain: chain +0.038 ± 0.022 (180k, t = 1.8), +0.013 ± 0.024
+(240k); U-Socket −0.089 ± 0.030 (180k, t = −3.0), −0.025 ± 0.028 (240k).
+Same shape as sweep 2. The chain obstacle data lifts UNITE on chain more
+than DP (+0.05 vs +0.04 over sweep 2) and costs both on U-Socket, UNITE
+more.
 
-**The plateau (9-10 12:30).** UNITE cotrain climbs fast (U-Socket 0.60 at 60k
-when DP is at 0.36) and flattens from 90–120k, then slips; DP rises to 240k.
-W&B shows why: the tokenizer's output LayerNorm gain grows monotonically (rms
-1.22 at 30k → 1.67 at 180k, read directly from the checkpoints with
-`ln_gain.py`), so the detached flow target inflates all run; train flow loss
-2.0 → 3.4, validation flow loss 1.8 → 7.6, and validation action MSE, energy
-score and sample diversity are all best at 60k and degrade after. Reconstruction
-loss is ≈ 1e-5 from 30k on, the LR is flat 5e-5, weight decay is 0, and the
-reconstruction-noising term rewards a larger latent norm. h768 shows the same
-signature earlier and larger, so it is not capacity. UNITE's 60k checkpoint has
-a better validation MSE (0.0062) than any DP checkpoint (0.0093).
+#### Why replicates
 
-## 8. In flight and next steps
+Two rows that shared identical weights through 120k scored the same 90k
+checkpoint on the same 80 seeds at 0.478 vs 0.579 (U-Socket, canonical 40)
+and 0.491 vs 0.597 (chain): a single-sample flow or DDPM policy moves by
+≈ 0.1 per 40-seed reading. The DP cotrain "bar" of 0.748 that the loop
+chased was the best of eight readings of one checkpoint (mean 0.697). The
+pinned single-reading predicate is retired; every claim above uses eight
+replicates (`pool_reps.py`, `paired.py`). Both sides' checkpoints were
+chosen the same way (best first reading on canonical seeds) and then
+re-measured, so the selection is symmetric.
 
-Running (all 2 × H200, 240k steps, scored automatically by the monitor):
-ctA (164k+), ctB, ctAc, ctA768, ctAema, ctAann, uniteusema, uniteusann;
-s3ctA, s3ctA768, s3unitech; the five plateau variants ctApin, ctApinAnn,
-ctAwd, s3ctApin, s3ctApinAnn (launched 12:18–12:22, first checkpoints ≈ 15:30).
+#### Training curves
 
-Decision rule for the variants: if ctApin's validation flow loss stays within
-≈ 1.5× of train through 150k and its closed-loop keeps rising past 120k, the
-drift was the cause and `latent_norm_affine=false` becomes the recipe; if
-ctAwd alone closes the gap, it is plain overfitting and the fix is
-regularisation plus an anneal; if neither, the next levers are a two-phase
-schedule (freeze the tokenizer at 60k), `decoded_action_samples_per_reconstruction > 0`
-(already implemented, untested past 60k), and the 2-frame observation window
-(`bedbbba1` added `n_obs_steps 2` for U-Socket; DP uses 2 frames, UNITE 1).
+![protocol curves](UNITE%20Protocol%20Curves%209-11.png)
 
-Autoresearch loop ledger: `~/scratch/autoresearch/orchestrator-260910-0200/`
-(`orchestrator-state.json`, `pipeline.tsv`, `units-history.txt`). Vault notes:
-"UNITE Cotrain Sweep 2 9-9", "UNITE Cotrain Sweep 3 9-10", "PushShapes Eval
-Protocol sim_v2 9-8", and the handoff note "UNITE Cotrain Handoff 9-10".
+Single readings per checkpoint. UNITE cotrain leads early on both
+embodiments (U-Socket 0.60 at 60k when DP cotrain is at 0.36), flattens
+from ≈ 90–120k, and DP cotrain, on a cosine schedule to zero, catches up
+by 180k on U-Socket. On chain UNITE cotrain leads at every checkpoint.
+
+#### Scene generalisation (OEC-56, 30 obstacle levels × 5 seeds)
+
+- **U-Socket, obstacle scenes it never saw:** every policy fails, 0.01–0.07
+  mean peak, 124–148 of 150 episodes never move, including DP cotrain and
+  UNITE cotrain trained with the chain obstacle episodes. Scene knowledge
+  does not transfer across embodiments for either family.
+- **Chain, obstacle levels it trained on (sweep 3):** UNITE cotrain 0.413
+  at 120k falling to 0.350 at 240k; DP cotrain 0.335 rising to 0.448 at
+  240k; DP BC 0.336, UNITE BC 0.237 at 240k. Single readings (150
+  episodes, SE ≈ 0.03): UNITE ahead at 120k, DP ahead at 240k.
+
+#### What did not work (all labeled variants, single readings unless noted)
+
+| variant | result |
+|---|---|
+| topology B (per-embodiment tokenizers) | trails A everywhere (240k: 0.595 / 0.539) |
+| full width h768 (441 M) | trails h384 at every step; overfits earlier |
+| torch.compile replica | +39 % speed, bit-equivalent fp32, but closed-loop diverged from ctA (chain 0.509 at 240k); stays opt-in |
+| CFG 1.5 / 2.0, K-sample chunk averaging | worse than CFG 1.0 single sample |
+| EMA 0.9999 | same ceiling (8 reps: 0.684 / 0.610) |
+| late anneal 5e-5 → 1e-5 over 200k–240k | 0.624 / 0.613 at 240k, nothing |
+| cosine 5e-5 → 1e-6 forked from ctA at 90k / 120k | 0.656 / 0.604 (210k) and 0.656 / 0.551 (240k): nothing; the schedule is not the lever |
+| weight decay 0.1 | 0.649 / 0.652 at 210k, no better |
+| pinned latent scale (`latent_norm_affine=false`) | removes the LayerNorm-gain drift and the flow-loss climb, halves sample diversity, and is worse closed-loop (90k: 0.516 / 0.508 vs 0.636 / 0.598); the growing gain is the tokenizer spreading the code under reconstruction noising, a feature |
+| 2-frame observation | rejected on 9-08 (U-Socket BC) |
+
+The plateau's validation signature is real (validation flow loss 1.8 → 7.6
+and validation MSE / energy / diversity best at 60k while train loss keeps
+falling; h768 shows it earlier), but none of the levers aimed at it (scale
+pinning, anneal, EMA, weight decay) changed the closed-loop ceiling, and
+under replicates the ceiling was already level with DP cotrain.
+
+#### Compute
+
+19 training rows × 2 H200, 240k steps each (UNITE ≈ 22 h, DP ≈ 4–6 h),
+≈ 1,900 protocol rollouts, 3 boundary deaths recovered by continuation.
+
+## 8. State at hand-off and what a successor should do
+
+Everything is trained and scored; no jobs need attention. Worktrees on ICE
+now also include `s6` (956ca06, `ICE_INITIAL_CHECKPOINT`), `s7` (3523f33,
+`ICE_CONTINUATION_WANDB_RESUME=allow` forks) and `s8` (ace2433, USR1@1200 +
+900 s grace); all three are launcher-only on top of `s5`'s training code
+and are in PR #67. Results live in `~/scratch/rollouts/CT2-rev3/`
+(`summary.tsv` single readings; `*-repN.json` replicates; `peaks_export.json`;
+`replicate_means.png`). Ledger `~/scratch/autoresearch/orchestrator-260910-0200/`.
+
+What the evidence says to do next, if the goal is still "UNITE beats DP
+cotrain on both embodiments":
+
+1. **Measure, don't tune, first.** The level-0 protocol at 80 seeds cannot
+   separate policies closer than ≈ 0.04 without replicates. Budget 8
+   replicates per cell for any comparison, and treat every single reading
+   as ± 0.05.
+2. **The U-Socket gap to DP cotrain is ≈ 0.03 and not significant.** It
+   was not moved by schedule, EMA, weight decay, width, topology, CFG,
+   chunk averaging, latent-scale pinning or a 2-frame observation. The
+   untested levers are data-side: more U-Socket episodes, augmentation,
+   or the decoded-action / action-velocity terms already in the code
+   (`decoded_action_samples_per_reconstruction`, `action_velocity_*`) run
+   to 240k rather than 60k.
+3. **Chain is where UNITE cotrain has a real margin over DP BC (+0.067,
+   t 3.0)** and a nominal one over DP cotrain; the obstacle-level result
+   flips between 120k and 240k on single readings and needs replicates
+   before either family is claimed better there.
+4. **Scene generalisation across embodiments is zero for both families**;
+   a positive result needs U-Socket obstacle data in training, not more
+   chain data.
+5. The boundary race (section 9) will bite any 2×H200 row launched from a
+   worktree older than `s8`.
 
 ## 9. Traps (each cost time)
 

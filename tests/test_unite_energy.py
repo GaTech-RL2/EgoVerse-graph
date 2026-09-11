@@ -164,15 +164,22 @@ def test_generic_energy_identity_accepts_list_provenance_for_tuple_blocks(tmp_pa
     }
 
     identity = evaluator._typed_artifact_identity(
-        domains={"pushshapes_sim_chain_gripper": {"condition_ids": []}},
+        domains={
+            "pushshapes_sim_chain_gripper": {
+                "condition_ids": [
+                    {
+                        "batch_position": 0,
+                        "episode_hash": "episode-chain",
+                        "frame_index": 0,
+                        "normalized_target_sha256": "e" * 64,
+                    }
+                ]
+            }
+        },
         global_step=2,
     )
 
-    assert identity["distance_contract"]["semantic_blocks"] == [
-        [0, 2],
-        [2, 4],
-        [4, 5],
-    ]
+    assert identity["distance"]["semantic_blocks"] == ((0, 2), (2, 4), (4, 5))
 
 
 def test_chain_native_decoder_supports_seed_and_batch_leading_dimensions(tmp_path):

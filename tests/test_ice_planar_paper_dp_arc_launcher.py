@@ -45,3 +45,5 @@ def test_paper_dp_arc_launcher_keeps_smoke_and_checkpoint_gates():
     assert "Paper DP run mode requires hash-pinned precomputed normalization" in text
     assert "precomputed norm_stats hash mismatch" in text
     assert '"++run_provenance.source_commit=$ICE_EXPECTED_HEAD"' in text
+    assert 'OUTPUT_NORM_STATS=$ICE_OUTPUT_DIR/norm_stats/norm_stats.json' in text
+    assert 'die "copied norm_stats hash mismatch"' in text

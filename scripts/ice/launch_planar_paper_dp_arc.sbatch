@@ -778,7 +778,19 @@ else
   test -d "$ICE_OUTPUT_DIR" || die "requeued output directory is unavailable"
 fi
 mkdir -p "$ICE_OUTPUT_DIR/checkpoints" "$ICE_OUTPUT_DIR/provenance" \
-  "$ICE_OUTPUT_DIR/runner-state"
+  "$ICE_OUTPUT_DIR/runner-state" "$ICE_OUTPUT_DIR/norm_stats"
+if test -n "$EFFECTIVE_NORM_STATS_FILE"; then
+  OUTPUT_NORM_STATS=$ICE_OUTPUT_DIR/norm_stats/norm_stats.json
+  if test -e "$OUTPUT_NORM_STATS"; then
+    test "$(sha256sum "$OUTPUT_NORM_STATS" | awk '{print $1}')" = \
+      "$ICE_EXPECTED_NORM_STATS_SHA256" || die "output norm_stats hash mismatch"
+  else
+    cp -- "$EFFECTIVE_NORM_STATS_FILE" "$OUTPUT_NORM_STATS.tmp"
+    test "$(sha256sum "$OUTPUT_NORM_STATS.tmp" | awk '{print $1}')" = \
+      "$ICE_EXPECTED_NORM_STATS_SHA256" || die "copied norm_stats hash mismatch"
+    mv -- "$OUTPUT_NORM_STATS.tmp" "$OUTPUT_NORM_STATS"
+  fi
+fi
 ATTEMPT_PROVENANCE=$ICE_OUTPUT_DIR/provenance/restart-$RESTART_COUNT
 test ! -e "$ATTEMPT_PROVENANCE" || die "attempt provenance already exists"
 mkdir -p "$ATTEMPT_PROVENANCE"

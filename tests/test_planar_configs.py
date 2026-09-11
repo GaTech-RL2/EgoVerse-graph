@@ -118,6 +118,11 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     }:
         assert decoder._target_.endswith("PlanarArcWaypointZeroNativeDecoder")
         assert decoder.resampled_vector_length == 16
+        assert set(decoder) == {
+            "_target_",
+            "resampled_vector_length",
+            "native_action_dim",
+        }
         assert cfg.planar.arc_distance == 40.0
         assert cfg.planar.arc_rotation_radius == 0.0
         assert cfg.planar.hybrid_rotation_unit == 0.14776

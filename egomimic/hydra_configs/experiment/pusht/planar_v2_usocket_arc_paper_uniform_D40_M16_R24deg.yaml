@@ -1,13 +1,17 @@
 # @package _global_
 # Paper-DP baseline for the D40/M16/R24-degree arc representation.
 defaults:
-  - /experiment/pusht/planar_v2_usocket_dp_paper
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_dp_paper
   - _self_
 
 name: planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg
 description: u_socket_paper_DP_arc_uniform_D40_M16_R24deg_DDPM100_obs2_EMA
 
 planar:
+  observation_horizon: 2
+  action_target_offset: 1
+  batch_size: 32
   raw_action_horizon: 40
   action_horizon: 17
   arc_distance: 40.0
@@ -22,6 +26,20 @@ planar:
     resampled_vector_length: 16
     native_action_dim: 3
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+
+eval_checkpoint:
+  use_ema: true
+
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
 
 run_provenance:
   action_contract:

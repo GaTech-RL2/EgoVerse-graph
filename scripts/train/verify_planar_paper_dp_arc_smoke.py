@@ -83,6 +83,14 @@ def _latest_checkpoint(run_dir: Path) -> tuple[Path, dict]:
     return path, checkpoint
 
 
+def _metric_value(observed: dict[str, float], key: str) -> float:
+    """Resolve Lightning's on-step/on-epoch suffixes to one canonical metric."""
+    for candidate in (key, f"{key}_step", f"{key}_epoch"):
+        if candidate in observed:
+            return observed[candidate]
+    raise KeyError(key)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_dir", type=Path)
@@ -159,8 +167,11 @@ def main() -> None:
         "Valid/EnergyScoreDiversity@32",
     }
     observed = {key: value for row in history.values() for key, value in row.items()}
-    assert required <= observed.keys(), (required - observed.keys(), history)
-    checked = {key: observed[key] for key in required}
+    missing = {key for key in required if not any(
+        candidate in observed for candidate in (key, f"{key}_step", f"{key}_epoch")
+    )}
+    assert not missing, (missing, history)
+    checked = {key: _metric_value(observed, key) for key in required}
     assert all(math.isfinite(value) for value in checked.values()), checked
 
     artifacts = sorted(run_dir.glob("validation_predictions/energy_score/**/*.pt"))

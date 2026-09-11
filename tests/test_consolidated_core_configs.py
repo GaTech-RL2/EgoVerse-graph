@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 from hydra import compose, initialize_config_dir
 
+from egomimic.eval.empty_eval import NoOpEvaluator
+
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 
@@ -68,8 +70,19 @@ def test_action_flow_denoiser90m_changes_only_field_capacity(monkeypatch):
     assert cfg.model.action_flow_method == "latent_fm_stopgrad_unite"
     assert cfg.trainer.val_check_interval == 150_000
     assert cfg.trainer.limit_val_batches == 1
+    assert cfg.run_provenance.validation.evaluator_mode == "no_op_for_full_real_for_smoke"
     assert cfg.run_provenance.architecture.denoiser.parameters == 90_396_000
     assert cfg.run_provenance.architecture.total_parameters == 155_626_932
+
+
+def test_noop_evaluator_accepts_full_evaluator_surface():
+    evaluator = NoOpEvaluator(native_decoder=object(), energy_score_enabled=True)
+
+    evaluator.on_validation_start()
+    evaluator.on_validation_step({}, 0)
+    evaluator.on_validation_end()
+
+    assert evaluator.model is None
 
 
 def test_released_unite_cotrain_core_row_composes(monkeypatch):

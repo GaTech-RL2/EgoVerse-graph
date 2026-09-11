@@ -4,7 +4,7 @@ defaults:
   - _self_
 
 name: action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42
-description: "Action Flow with unchanged H384 codec, a 90.4M H640 denoiser, and terminal-only full validation"
+description: "Action Flow with unchanged H384 codec, a 90.4M H640 denoiser, and terminal-only one-batch full validation"
 
 model:
   denoiser_hidden_dim: 640
@@ -26,6 +26,7 @@ run_provenance:
   validation:
     interval_optimizer_steps: 150000
     limit_batches: 1
+    evaluator_mode: no_op_for_full_real_for_smoke
     per_rank_batch_size: 32
     world_size: 1
     global_batch_size: 32

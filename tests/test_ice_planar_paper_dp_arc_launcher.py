@@ -21,7 +21,12 @@ def test_paper_dp_arc_launcher_is_valid_and_ice_t_bound():
 
 
 def test_paper_dp_arc_preflight_model_instantiation_is_cpu_only():
-    assert 'cfg.model.pipeline.device = "cpu"' in LAUNCHER.read_text()
+    text = LAUNCHER.read_text()
+    cpu_assignment = text.index('cfg.model.pipeline.device = "cpu"')
+    import_position = text.rindex(
+        "from omegaconf import OmegaConf, open_dict", 0, cpu_assignment
+    )
+    assert import_position < cpu_assignment
 
 
 def test_paper_dp_arc_launcher_guards_both_fair_rows():

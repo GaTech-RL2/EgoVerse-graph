@@ -465,7 +465,7 @@ import math
 import pathlib
 import sys
 
-from omegaconf import OmegaConf, open_dict
+from omegaconf import OmegaConf
 
 (
     path,
@@ -757,7 +757,7 @@ import pathlib
 import sys
 
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, open_dict
 
 (
     output_path,

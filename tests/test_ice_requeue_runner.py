@@ -200,6 +200,52 @@ class CheckpointSelectionTest(unittest.TestCase):
                 info("/tmp/run/b.ckpt", "b" * 64),
             )
 
+    def test_same_step_scheduled_and_signal_siblings_share_identity(self):
+        def info(path: str, digest: str) -> MODULE.CheckpointInfo:
+            return MODULE.CheckpointInfo(
+                path=Path(path),
+                sha256=digest,
+                global_step=10,
+                size=1,
+                mtime_ns=2 if "signal" in path else 1,
+                inode=1,
+                metadata={
+                    "global_step": 10,
+                    "run_id": "run",
+                    "source_commit": "a" * 40,
+                },
+            )
+
+        selected = MODULE.newest_checkpoint(
+            info("/tmp/run/epoch-step-10.ckpt", "a" * 64),
+            info("/tmp/run/signal-step-10.ckpt", "b" * 64),
+        )
+        self.assertEqual(selected.path.name, "signal-step-10.ckpt")
+
+    def test_same_step_signal_sibling_is_fresh_only_when_explicitly_allowed(self):
+        baseline = MODULE.CheckpointInfo(
+            path=Path("/tmp/run/epoch-step-10.ckpt"),
+            sha256="a" * 64,
+            global_step=10,
+            size=1,
+            mtime_ns=1,
+            inode=1,
+            metadata={"run_id": "run"},
+        )
+        signal = MODULE.CheckpointInfo(
+            path=Path("/tmp/run/signal-step-10.ckpt"),
+            sha256="b" * 64,
+            global_step=10,
+            size=1,
+            mtime_ns=2,
+            inode=1,
+            metadata={"run_id": "run"},
+        )
+        self.assertFalse(MODULE.is_fresh(signal, baseline))
+        self.assertTrue(
+            MODULE.is_fresh(signal, baseline, allow_same_step_sibling=True)
+        )
+
     def test_checkpoint_forwarding_is_exact_scancel_and_never_killpg(self):
         completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
         with mock.patch.dict(

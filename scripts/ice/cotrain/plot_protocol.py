@@ -62,7 +62,7 @@ def series(row, emb, level0=True):
 SIMPLE = {  # panel -> [(row, label, color, lw)]
     ("usocket", True):  [("dpus", "DP BC", "#8a8a8a", 2.0), ("dpct", "DP cotrain", "#111111", 2.4), ("uniteus", "UNITE BC", "#7fbfc8", 2.0), ("ctA", "UNITE cotrain", "#0e7a86", 2.8)],
     ("chain",   True):  [("dpch", "DP BC", "#8a8a8a", 2.0), ("dpct", "DP cotrain", "#111111", 2.4), ("unitech", "UNITE BC", "#7fbfc8", 2.0), ("ctA", "UNITE cotrain", "#0e7a86", 2.8)],
-    ("usocket", False): [("dpus", "DP BC", "#8a8a8a", 2.0), ("s3dpct", "DP cotrain (+ chain obstacle data)", "#111111", 2.4), ("uniteus", "UNITE BC", "#7fbfc8", 2.0), ("s3ctA", "UNITE cotrain (+ chain obstacle data)", "#0e7a86", 2.8)],
+    ("usocket", False): [("dpus", "DP BC", "#8a8a8a", 2.0), ("dpct", "DP cotrain", "#111111", 2.4), ("s3dpct", "DP cotrain + chain obstacle data", "#111111", 1.4), ("uniteus", "UNITE BC", "#7fbfc8", 2.0), ("ctA", "UNITE cotrain", "#0e7a86", 2.8), ("s3ctA", "UNITE cotrain + chain obstacle data", "#0e7a86", 1.4)],
     ("chain",   False): [("s3dpch", "DP BC (+ obstacle data)", "#8a8a8a", 2.0), ("s3dpct", "DP cotrain (+ chain obstacle data)", "#111111", 2.4), ("s3unitech", "UNITE BC (+ obstacle data)", "#7fbfc8", 2.0), ("s3ctA", "UNITE cotrain (+ chain obstacle data)", "#0e7a86", 2.8)],
 }
 fig, axes = plt.subplots(2, 2, figsize=(13, 9), sharex=True)
@@ -78,9 +78,10 @@ for ax, emb, level0, title in panels:
         if not xs:
             ax.plot([], [], color=color, lw=lw, label=label + " (not scored yet)")
             continue
-        ax.errorbar(xs, ys, yerr=es, color=color, lw=lw, marker="o", ms=4, capsize=2.5, elinewidth=0.9, label=label)
+        ls = "--" if (not level0 and emb == "usocket" and r.startswith("s3")) else "-"
+        ax.errorbar(xs, ys, yerr=es, color=color, lw=lw, ls=ls, marker="o", ms=4, capsize=2.5, elinewidth=0.9, label=label)
     ax.set_title(title, fontsize=10.5, loc="left")
-    ax.set_ylim(0, 0.85 if level0 else 0.6)
+    ax.set_ylim(0, 0.85 if level0 else (0.6 if emb == "chain" else 0.2))
     ax.set_xticks([x / 1000 for x in STEPS]); ax.grid(alpha=0.25); ax.set_axisbelow(True)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(fontsize=8.5, loc="lower right" if level0 else "upper left", frameon=False)
@@ -89,7 +90,7 @@ for ax in axes[1]:
 for ax in axes[:, 0]:
     ax.set_ylabel("mean peak coverage (IoU)")
 fig.suptitle("UNITE vs Paper-DP under the sim_v2 eval protocol (horizon rev 3, full horizon, EMA, replan 8; UNITE at CFG 1.0)" + (f"  ·  {stamp}" if stamp else ""), fontsize=11.5)
-fig.text(0.01, 0.005, "Error bars: standard error over episodes. UNITE cotrain = topology A, hidden 384 (the best UNITE variant so far). Bottom row: rows trained with the chain gripper's 1,919 obstacle episodes.\n"
+fig.text(0.01, 0.005, "Error bars: standard error over episodes. UNITE cotrain = topology A, hidden 384. Bottom left: solid = sweep 2, dashed = sweep 3 (trained with the chain gripper's 1,919 obstacle episodes); bottom right: sweep 3 rows.\n"
          "Each point is one protocol reading of 80 episodes (one policy sample per replan); replicate-mean comparisons of the selected checkpoints are in the companion figure.", fontsize=7.5, color="#555")
 fig.tight_layout(rect=(0, 0.035, 1, 0.97))
 fig.savefig(out, dpi=170)

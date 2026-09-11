@@ -101,6 +101,7 @@ def test_action_flow_denoiser90m_adamw_reuses_only_unite_architecture(monkeypatc
     assert cfg.trainer.max_steps == 240_000
     assert cfg.trainer.val_check_interval == 240_000
     assert cfg.trainer.limit_val_batches == 0
+    assert cfg.trainer.precision == "bf16"
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 40_000
     assert cfg.run_provenance.architecture.unite_usage == (
         "encoder_decoder_and_denoiser_architecture_only"

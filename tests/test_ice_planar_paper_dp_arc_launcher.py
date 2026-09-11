@@ -29,6 +29,12 @@ def test_paper_dp_arc_preflight_model_instantiation_is_cpu_only():
     assert import_position < cpu_assignment
 
 
+def test_cotrain_preflight_records_the_true_cross_domain_global_batch():
+    text = LAUNCHER.read_text()
+    assert '"train_batch_size_per_domain": train_batch_sizes' in text
+    assert '"effective_global_batch": sum(train_batch_sizes.values())' in text
+
+
 def test_paper_dp_arc_launcher_guards_both_fair_rows():
     text = LAUNCHER.read_text()
     uniform = "pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg"

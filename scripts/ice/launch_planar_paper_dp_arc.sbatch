@@ -573,6 +573,9 @@ assert cfg.run_provenance.union_episode_count_per_domain == (
 )
 assert int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(train_batch_size)
 assert int(cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(valid_batch_size)
+if cotrain == "true":
+    assert int(cfg.data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size) == int(train_batch_size)
+    assert int(cfg.data.valid_dataloader_params.pushshapes_sim_chain_gripper.batch_size) == int(valid_batch_size)
 if family == "paper_dp":
     expected_names = {
         "pusht/planar_v2_usocket_dp_paper": "planar_v2_usocket_dp_paper_h16",
@@ -793,6 +796,14 @@ total_parameters = sum(parameter.numel() for parameter in model.nets.parameters(
 trainable_parameters = sum(
     parameter.numel() for parameter in model.nets.parameters() if parameter.requires_grad
 )
+train_batch_sizes = {
+    name: int(cfg.data.train_dataloader_params[name].batch_size)
+    for name in cfg.data.train_datasets
+}
+valid_batch_sizes = {
+    name: int(cfg.data.valid_dataloader_params[name].batch_size)
+    for name in cfg.data.valid_datasets
+}
 payload = {
     "status": "PREFLIGHT_READY",
     "source": {"repo": repo, "head": head},
@@ -856,7 +867,9 @@ payload = {
         "validation_interval": int(cfg.trainer.val_check_interval),
         "train_batch_size": int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size),
         "valid_batch_size": int(cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size),
-        "effective_global_batch": int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size) * int(world_size),
+        "train_batch_size_per_domain": train_batch_sizes,
+        "valid_batch_size_per_domain": valid_batch_sizes,
+        "effective_global_batch": sum(train_batch_sizes.values()) * int(world_size),
         "checkpoint_every_n_steps": int(cfg.callbacks.model_checkpoint.every_n_train_steps),
         "checkpoint_save_top_k": int(cfg.callbacks.model_checkpoint.save_top_k),
         "energy_score_k": 32,

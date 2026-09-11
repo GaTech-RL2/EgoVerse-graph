@@ -533,13 +533,14 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
     def _log_compute_contract(self) -> None:
         if self.flow_samples_per_content is None:
             return
-        field_calls = 2 if self._fm_endpoint_detached() else 1
+        endpoint_detached = self._fm_endpoint_detached()
         for name, value in (
-            ("Compute/FieldForwardCallsPerStep", field_calls),
+            ("Compute/FieldForwardCallsPerStep", 1),
             (
                 "Compute/FieldSampleEquivalentsPerStep",
-                field_calls * self.flow_samples_per_content,
+                self.flow_samples_per_content,
             ),
+            ("Compute/FieldBackwardVJPCallsPerStep", 2 if endpoint_detached else 1),
             ("Compute/DecoderJVPCallsPerStep", 1),
         ):
             self._log_telemetry(name, value)

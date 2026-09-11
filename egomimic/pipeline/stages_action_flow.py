@@ -32,6 +32,56 @@ def _module(value: nn.Module, *, label: str) -> nn.Module:
     return value
 
 
+class _SplitFieldPrediction(torch.autograd.Function):
+    """Share one field value while isolating the FM gradient from its state.
+
+    The action branch and FM branch see identical predictions. During backward,
+    both cotangents reach the field parameters and conditioning path, while a
+    direct state-gradient correction removes only the FM contribution from the
+    bridge state. This is equivalent to evaluating the field a second time on
+    ``state.detach()``, but avoids that additional forward evaluation.
+    """
+
+    @staticmethod
+    def forward(
+        ctx,
+        prediction: torch.Tensor,
+        state: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        ctx.save_for_backward(prediction, state)
+        return prediction, prediction
+
+    @staticmethod
+    def backward(
+        ctx,
+        action_gradient: torch.Tensor | None,
+        flow_gradient: torch.Tensor | None,
+    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+        prediction, state = ctx.saved_tensors
+        if action_gradient is None and flow_gradient is None:
+            return None, None
+        if flow_gradient is None:
+            return action_gradient, None
+
+        combined_gradient = flow_gradient
+        if action_gradient is not None:
+            combined_gradient = combined_gradient + action_gradient
+        if not state.requires_grad:
+            return combined_gradient, None
+
+        create_graph = torch.is_grad_enabled()
+        with torch.enable_grad():
+            flow_state_gradient = torch.autograd.grad(
+                prediction,
+                state,
+                flow_gradient,
+                create_graph=create_graph,
+                retain_graph=True,
+                allow_unused=False,
+            )[0]
+        return combined_gradient, -flow_state_gradient
+
+
 class ContentEncoderStage(Stage):
     """Encode paired target content into a clean latent endpoint."""
 
@@ -230,7 +280,8 @@ class ConditionalVelocityStage(Stage):
 
     ``all_stopgrad`` isolates only the latent-FM clean-state/target routes.
     The original state, prediction, and residual remain fully attached for
-    the decoder JVP. Both field calls use the same sampled bridge and mask.
+    the decoder JVP. Both loss branches share one field evaluation over the
+    same vectorized bridge batch.
     """
 
     def __init__(
@@ -389,18 +440,22 @@ class ConditionalVelocityStage(Stage):
         if target_velocity.shape != state.shape:
             raise ValueError("target velocity must match the latent state shape")
         prediction = self._predict(state, time, condition, drop_mask)
-        batch[self.predicted_velocity_key] = prediction
-        batch[self.residual_key] = prediction - target_velocity
+        residual = prediction - target_velocity
         if self.flow_clean_gradient_mode == "all_stopgrad":
             # The bridge consists only of the learned clean endpoint and
-            # action-independent Gaussian noise. Detaching its state and
-            # target removes both clean routes from FM, not from Action Flow.
-            flow_prediction = self._predict(
-                state.detach(), time, condition, drop_mask
+            # action-independent Gaussian noise. Share one field prediction,
+            # but cancel only the FM state gradient and detach its target so
+            # neither clean route reaches the encoder.
+            prediction, flow_prediction = _SplitFieldPrediction.apply(
+                prediction,
+                state,
             )
-            batch[self.flow_residual_key] = flow_prediction - target_velocity.detach()
+            flow_residual = flow_prediction - target_velocity.detach()
         else:
-            batch[self.flow_residual_key] = batch[self.residual_key]
+            flow_residual = residual
+        batch[self.predicted_velocity_key] = prediction
+        batch[self.residual_key] = residual
+        batch[self.flow_residual_key] = flow_residual
         return batch
 
     def _forward_inference(self, batch: dict) -> dict:

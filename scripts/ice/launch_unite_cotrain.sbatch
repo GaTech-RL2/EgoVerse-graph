@@ -695,6 +695,7 @@ test -x "$ICE_SRUN" || die "srun is unavailable"
 export ICE_REPO ICE_PYTHON ICE_EXPERIMENT ICE_OUTPUT_DIR ICE_EMBODIMENTS
 export ICE_DATASET_DIR_USOCKET ICE_DATASET_DIR_CHAIN
 export ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID ICE_WANDB_NAME
+export ICE_CONTINUATION_WANDB_RESUME=${ICE_CONTINUATION_WANDB_RESUME:-must}
 export ICE_WANDB_GROUP ICE_WANDB_TAGS ICE_SRUN
 export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY ICE_UNITE_COMPILE ICE_UNITE_LR_TERMINAL
 # The batch was submitted with an explicit environment allow-list. Nested
@@ -733,7 +734,12 @@ PY
   # Checkpoint filenames carry '=' (epoch=.../step=...), which Hydra's override
   # grammar rejects unquoted; single-quote the value.
   checkpoint_override="ckpt_path='$ICE_RESUME_CHECKPOINT'"
-  wandb_resume=must
+  # must: continue the original W&B run (ICE_WANDB_RUN_ID = its id).
+  # allow: a fork -- new W&B run id, weights/optimizer/step restored from the
+  # staged checkpoint, schedule and overrides from this launch (LambdaLR takes
+  # its lambda from the new config, only last_epoch from the checkpoint).
+  wandb_resume=${ICE_CONTINUATION_WANDB_RESUME:-must}
+  case "$wandb_resume" in must|allow) ;; *) echo "ICE_CONTINUATION_WANDB_RESUME must be must or allow" >&2; exit 64 ;; esac
 else
   test -z "${ICE_RESUME_CHECKPOINT_SHA256:-}${ICE_RESUME_GLOBAL_STEP:-}"
 fi

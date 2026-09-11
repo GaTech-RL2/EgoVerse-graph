@@ -104,43 +104,84 @@ def _writer(fps):
 
 
 def clip_hybrid(out, fps):
-    """How two independently-resampled streams end up the same length."""
+    """Timing mismatch between the streams, and how a row still aligns them."""
     fig, T, U = fig_new()
     keep = (T, U)
     w = _writer(fps)
-    MD = 8          # small enough to count on screen
-    PITCH, GAP0 = .112, .10
+    MD, PITCH, GAP0 = 8, .112, .10
+
+    # Two plausible sample-time patterns over the same window. Translation
+    # clumps where the tool crawls; rotation turns at a steadier rate. These are
+    # schematic, but the SHAPE is what the real data does.
+    T_END = 2.4
+    t_tr = np.array([0.00, 0.62, 0.79, 0.88, 0.95, 1.34, 1.86, 2.31])
+    t_rot = np.array([0.00, 0.21, 0.44, 0.70, 1.02, 1.38, 1.80, 2.26])
+    X0, X1, Y_TR, Y_RO = .11, .90, .70, .49
+
+    def tx(t):
+        return X0 + (t / T_END) * (X1 - X0)
+
+    def timelines(ax, upto=MD, mark=None):
+        for y, col, name, ts in ((Y_TR, TR, "translation stream", t_tr),
+                                 (Y_RO, ROT, "rotation stream", t_rot)):
+            ax.plot([X0, X1], [y, y], color=GRID, lw=2.4)
+            ax.text(X0, y + .062, name, fontsize=16, color=col, fontweight="bold")
+            for j in range(upto):
+                lit = (mark is not None and j == mark)
+                ax.plot([tx(ts[j])] * 2, [y - .030, y + .030], color=col,
+                        lw=4.0 if lit else 2.0, alpha=1.0 if lit else .40,
+                        zorder=4 if lit else 2)
+                if lit:
+                    ax.add_patch(Rectangle((tx(ts[j]) - .008, y - .016), .016, .032,
+                                           facecolor=col, edgecolor=BG, lw=1.2,
+                                           zorder=5))
+        ax.text(X1, Y_RO - .075, "time", fontsize=13.5, color=DIM, ha="right")
 
     with w.saving(fig, out, dpi=120):
-        # ---- act 1: the chunk has two things to describe ----------------
-        T.set_text("A chunk says two different things")
-        U.set_text("where the tool goes, and how it is turned — and they do not "
-                   "change at the same rate")
+        # ---- act 1: the timing mismatch ---------------------------------
+        T.set_text("The two streams do not sample at the same moments")
+        U.set_text("both produce sample i — but sample i happens at a different time "
+                   "in each stream")
         ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
-        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-        for x, col, name, sub, q in (
-                (.10, TR, "translation", "x, y", "how far has it travelled?"),
-                (.56, ROT, "rotation", "cos, sin", "how much has it turned?")):
-            cell(ax, x, .40, .34, .26, name, PANEL, col, fs=26, sub=sub)
-            ax.text(x + .17, .33, q, ha="center", fontsize=16, color=col)
-        ax.text(.5, .19, "each one gets measured on its OWN cumulative clock",
-                ha="center", fontsize=18, color=INK)
-        ax.text(.5, .12, "with its own budget, and its own unit",
-                ha="center", fontsize=16, color=DIM)
+        for i in range(MD):
+            ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+            timelines(ax, mark=i)
+            a, b = tx(t_tr[i]), tx(t_rot[i])
+            lo, hi = min(a, b), max(a, b)
+            ax.plot([a, a], [Y_TR - .030, Y_RO + .030], color=TR, lw=1.2,
+                    ls=(0, (3, 3)), alpha=.65)
+            ax.plot([b, b], [Y_TR - .030, Y_RO + .030], color=ROT, lw=1.2,
+                    ls=(0, (3, 3)), alpha=.65)
+            mid = (Y_TR + Y_RO) / 2
+            if hi - lo > .004:
+                ax.annotate("", xy=(hi, mid), xytext=(lo, mid),
+                            arrowprops=dict(arrowstyle="<->", color=RED, lw=2.4))
+                ax.text((lo + hi) / 2, mid + .026,
+                        "%.2f s apart" % abs(t_tr[i] - t_rot[i]), ha="center",
+                        fontsize=14.5, color=RED, fontweight="bold")
+            ax.text(.11, .30, "sample  i = %d" % i, fontsize=22, color=INK,
+                    fontweight="bold")
+            ax.text(.11, .225, "translation at  %.2f s" % t_tr[i], fontsize=17,
+                    color=TR, family="monospace")
+            ax.text(.11, .16, "rotation    at  %.2f s" % t_rot[i], fontsize=17,
+                    color=ROT, family="monospace")
+            grab(w, 9)
+        ax.text(.55, .225, "the mismatch is not a bug", fontsize=18, color=INK)
+        ax.text(.55, .16, "each stream is sampled on its own arc clock, so its "
+                "samples land\nwherever that quantity actually accumulated",
+                fontsize=15.5, color=DIM, va="top")
         hold(w, fps * 5)
         clear(fig, keep)
 
-        # ---- act 2: two clocks, same row count --------------------------
-        T.set_text("Two clocks, resampled to the same row count")
-        U.set_text("this is the hybrid step — independent budgets, independent units, "
-                   "identical number of samples")
+        # ---- act 2: interpolation gives both the same count -------------
+        T.set_text("Interpolation is what makes them the same length")
+        U.set_text("each clock is cut into M equal steps — different units, different "
+                   "totals, identical sample count")
         ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
         ax.set_xlim(0, 1); ax.set_ylim(0, 1)
         BARS = [(.70, TR, "translation arc", "0", "D = 80 px", .085, .80),
                 (.47, ROT, "rotation arc", "0", "R = 26" + chr(176), .085, .52)]
         for k in range(1, MD + 1):
-            # Clear every frame. Re-drawing the counter on top of itself stacked
-            # all eight strings into an unreadable blob.
             ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
             for y, col, name, lo, hi, x0, x1 in BARS:
                 ax.add_patch(Rectangle((x0, y - .028), x1 - x0, .056,
@@ -156,21 +197,65 @@ def clip_hybrid(out, fps):
                                            facecolor=col, edgecolor="none"))
                 ax.text(x1 + .035, y, "%d / %d" % (k, MD), fontsize=17, color=col,
                         va="center", family="monospace", fontweight="bold")
-            ax.text(.085, .30, "different units, different totals, cut into the same "
-                    "number of samples", fontsize=17, color=INK)
+            ax.text(.085, .30, "linspace(0, end, M) on each clock — the ONLY thing "
+                    "they share is M", fontsize=17, color=INK)
             if k == MD:
-                ax.text(.085, .21, "so each stream yields exactly M rows — they line "
-                        "up by ROW INDEX, not by timestamp", fontsize=17, color=INK)
-                ax.text(.085, .12, "a shared row is a shared waypoint number; row i of "
-                        "each stream sits at a different moment in time",
-                        fontsize=15.5, color=DIM)
-                ax.text(.085, .045, "(M = %d here so the ticks are countable; the real "
+                ax.text(.085, .21, "M samples each, whatever the budgets were",
+                        fontsize=17, color=INK)
+                ax.text(.085, .12, "(M = %d here so the ticks are countable; the real "
                         "token uses M = 56)" % MD, fontsize=13.5, color=DIM)
             grab(w, 6)
+        hold(w, fps * 4)
+        clear(fig, keep)
+
+        # ---- act 3: alignment -- row i takes one sample from each -------
+        T.set_text("A token row aligns them by INDEX")
+        U.set_text("row i holds translation sample i and rotation sample i — sampled "
+                   "at different moments")
+        ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
+        ROW_X, ROW_W, ROW_TOP, ROW_H, ROW_GAP = .215, .55, .345, .025, .006
+        for i in range(MD):
+            ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+            timelines(ax, mark=i)
+            # the token, drawn as M thin rows of six cells
+            for r in range(MD):
+                y = ROW_TOP - r * (ROW_H + ROW_GAP)
+                for c in range(6):
+                    lit = (r == i)
+                    col = TR if c < 3 else ROT
+                    ax.add_patch(Rectangle((ROW_X + c * (ROW_W / 6), y),
+                                           ROW_W / 6 - .004, ROW_H,
+                                           facecolor=col if lit else PANEL,
+                                           edgecolor=col if lit else GRID,
+                                           alpha=1.0 if lit else .55, lw=1.4))
+                ax.text(ROW_X - .022, y + ROW_H / 2, str(r), fontsize=12.5,
+                        color=INK if r == i else DIM, ha="right", va="center",
+                        family="monospace",
+                        fontweight="bold" if r == i else "normal")
+            yi = ROW_TOP - i * (ROW_H + ROW_GAP) + ROW_H / 2
+            ax.annotate("", xy=(ROW_X + ROW_W / 12, yi + ROW_H),
+                        xytext=(tx(t_tr[i]), Y_TR - .034),
+                        arrowprops=dict(arrowstyle="-|>", color=TR, lw=2.4,
+                                        connectionstyle="arc3,rad=-0.18",
+                                        mutation_scale=20))
+            ax.annotate("", xy=(ROW_X + ROW_W * 0.75, yi + ROW_H),
+                        xytext=(tx(t_rot[i]), Y_RO - .034),
+                        arrowprops=dict(arrowstyle="-|>", color=ROT, lw=2.4,
+                                        connectionstyle="arc3,rad=0.18",
+                                        mutation_scale=20))
+            ax.text(ROW_X + ROW_W + .03, yi, "row %d" % i, fontsize=16, color=INK,
+                    va="center", fontweight="bold")
+            ax.text(ROW_X + ROW_W + .03, yi - .030,
+                    "%.2f s  /  %.2f s" % (t_tr[i], t_rot[i]), fontsize=13,
+                    color=DIM, va="center", family="monospace")
+            grab(w, 9)
+        ax.text(.11, .045, "the row index is a WAYPOINT number, not a timestamp — "
+                "which is exactly why the two streams can share a row",
+                fontsize=16.5, color=INK)
         hold(w, fps * 5)
         clear(fig, keep)
 
-        # ---- act 3: and therefore they concatenate ----------------------
+        # ---- act 4: and therefore they concatenate ----------------------
         T.set_text("Which is why they stack")
         U.set_text("two [M, 3] blocks on different clocks concatenate along the "
                    "feature axis")
@@ -205,7 +290,7 @@ def clip_hybrid(out, fps):
         hold(w, fps * 4)
         clear(fig, keep)
 
-        # ---- act 4: why not just use one clock --------------------------
+        # ---- act 5: why not one shared clock ----------------------------
         T.set_text("Why not one shared clock?")
         U.set_text("it was tried — the ablation is called carry")
         ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")

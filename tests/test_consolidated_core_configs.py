@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from hydra import compose, initialize_config_dir
+from hydra.utils import instantiate
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 
@@ -95,7 +96,7 @@ def test_action_flow_denoiser90m_adamw_reuses_only_unite_modules(monkeypatch):
     assert stages[4]._target_.endswith("LatentBridgeStage")
     assert stages[4].time_sampling == "uniform"
     assert stages[5]._target_.endswith("ConditionalVelocityStage")
-    assert stages[5].inference_method == "reverse_euler"
+    assert stages[5].inference_method == "euler"
     assert stages[5].cfg_scale == pytest.approx(1.0)
     assert stages[6]._target_.endswith("ContentDecoderStage")
     assert stages[6].reconstruction_noising_probability == pytest.approx(0.0)
@@ -128,6 +129,12 @@ def test_action_flow_denoiser90m_adamw_reuses_only_unite_modules(monkeypatch):
         "encoder_decoder_and_denoiser_modules_only"
     )
     assert cfg.run_provenance.recipe.classifier_free_guidance is False
+
+    # Composition alone does not exercise constructor enums such as the stage's
+    # ``euler`` implementation name. Instantiate the real graph so this typed
+    # launch row cannot pass while remaining non-executable.
+    pipeline = instantiate(cfg.model.pipeline, device="cpu")
+    assert len(pipeline.pipeline.stages) == 8
 
 
 def test_released_unite_cotrain_core_row_composes(monkeypatch):

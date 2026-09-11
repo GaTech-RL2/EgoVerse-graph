@@ -97,7 +97,7 @@ pipeline:
     - _target_: egomimic.pipeline.stages_action_flow.ConditionalVelocityStage
       flow_clean_gradient_mode: all_stopgrad
       num_inference_steps: ${model.num_inference_steps}
-      inference_method: reverse_euler
+      inference_method: euler
       cfg_scale: 1.0
       field:
         _target_: egomimic.models.action_flow_unite.UniteActionFlowVelocityField

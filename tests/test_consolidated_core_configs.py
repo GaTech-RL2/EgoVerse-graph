@@ -128,6 +128,7 @@ def test_action_flow_denoiser90m_adamw_reuses_only_unite_modules(monkeypatch):
     assert cfg.run_provenance.architecture.unite_usage == (
         "encoder_decoder_and_denoiser_modules_only"
     )
+    assert cfg.run_provenance.architecture.total_parameters == 155_473_063
     assert cfg.run_provenance.recipe.classifier_free_guidance is False
 
     # Composition alone does not exercise constructor enums such as the stage's

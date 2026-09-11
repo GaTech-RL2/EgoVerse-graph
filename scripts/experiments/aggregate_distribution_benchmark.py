@@ -26,8 +26,11 @@ def _finite_number(value: object, label: str) -> float:
 def aggregate(manifest_path: Path) -> tuple[list[dict], list[dict]]:
     manifest = json.loads(manifest_path.read_text())
     runs = manifest["runs"]
-    if len(runs) != 72:
-        raise ValueError(f"expected 72 runs, found {len(runs)}")
+    expected_runs = (
+        len({(run["distribution"], run["dimension_regime"]) for run in runs}) * 3 * 2
+    )
+    if len(runs) != expected_runs:
+        raise ValueError(f"expected {expected_runs} runs, found {len(runs)}")
 
     rows = []
     by_pair: dict[tuple[str, str, int], dict[str, dict]] = defaultdict(dict)
@@ -72,8 +75,9 @@ def aggregate(manifest_path: Path) -> tuple[list[dict], list[dict]]:
                 },
             }
         )
-    if len(paired) != 36:
-        raise ValueError(f"expected 36 paired rows, found {len(paired)}")
+    expected_pairs = expected_runs // 2
+    if len(paired) != expected_pairs:
+        raise ValueError(f"expected {expected_pairs} paired rows, found {len(paired)}")
     return rows, paired
 
 

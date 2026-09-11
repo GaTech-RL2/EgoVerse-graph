@@ -30,6 +30,12 @@ def test_high_dimensional_embedding_is_deterministic_and_injective():
     assert high.shape == (64, 32)
     np.testing.assert_array_equal(high[:, : native.shape[1]], native)
     np.testing.assert_array_equal(high, _high_features(native, seed=456))
+    high100 = _high_features(native, seed=456, output_dim=100)
+    assert high100.shape == (64, 100)
+    np.testing.assert_array_equal(high100[:, : native.shape[1]], native)
+    np.testing.assert_array_equal(
+        high100, _high_features(native, seed=456, output_dim=100)
+    )
 
 
 def test_action_adapter_supports_high_dimensional_actions():
@@ -90,7 +96,7 @@ def test_all_stopgrad_reserves_encoder_updates_for_reconstruction():
     )
 
 
-def test_aggregate_requires_and_pairs_all_72_finite_runs(tmp_path):
+def test_aggregate_requires_and_pairs_all_finite_runs(tmp_path):
     runs = []
     for distribution in DISTRIBUTIONS:
         for dimension in ("low", "high32"):

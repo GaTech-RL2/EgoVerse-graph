@@ -171,9 +171,16 @@ def _write_dataset_pair(root: Path, distribution: str, regime: str):
     eval_split = _split(40_960, data_seed + 2)
     train_native = _native(distribution, 4_096, data_seed + 3)
     eval_native = _native(distribution, 40_960, data_seed + 4)
-    if regime == "high32":
-        train_raw = _high_features(train_native, seed=data_seed + 5)
-        eval_raw = _high_features(eval_native, seed=data_seed + 5)
+    if regime.startswith("high"):
+        output_dim = int(regime.removeprefix("high"))
+        if output_dim < 4:
+            raise ValueError(f"invalid high-dimensional regime: {regime}")
+        train_raw = _high_features(
+            train_native, seed=data_seed + 5, output_dim=output_dim
+        )
+        eval_raw = _high_features(
+            eval_native, seed=data_seed + 5, output_dim=output_dim
+        )
     elif regime == "low":
         train_raw, eval_raw = train_native, eval_native
     else:
@@ -312,6 +319,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument(
+        "--dimension-regimes",
+        nargs="+",
+        choices=("low", "high32", "high100"),
+        default=("low", "high32"),
+    )
     args = parser.parse_args()
     if len(args.source_commit) != 40 or any(
         character not in "0123456789abcdef" for character in args.source_commit
@@ -322,7 +335,7 @@ def main():
     config_dir.mkdir(parents=True, exist_ok=True)
     records = []
     for distribution in DISTRIBUTIONS:
-        for regime in ("low", "high32"):
+        for regime in args.dimension_regimes:
             paths, action_dim, latent_dim = _write_dataset_pair(
                 root, distribution, regime
             )
@@ -369,6 +382,7 @@ def main():
         "definitions": {
             "low": "native 1D, 2D, or 3D system state",
             "high32": "same intrinsic samples in deterministic injective nonlinear 32D embedding",
+            "high100": "same intrinsic samples in deterministic injective nonlinear 100D embedding",
             "benford": "continuous significand S=10^U, U uniform on [0,1]",
             "cauchy": "correlated Cauchy truncated to [-25,25] before train-only standardization",
         },

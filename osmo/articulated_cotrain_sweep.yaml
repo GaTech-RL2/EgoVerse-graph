@@ -50,6 +50,7 @@ workflow:
       BATCH_SIZE: "{{batch_size}}"
       WORKDIR: /workspace
       CORPUS: s3://rldb/staged/pushshapes_articulated/articulated-20260909
+      EXP_GROUP: pusht
       TRAIN_EMB: "u_socket gripper chain_gripper suction triangle flipper spring"
       HELD_EMB: "umi scoop"
       SHARDS: "24"
@@ -113,7 +114,16 @@ workflow:
         # landed on the tokenizer, verifies that changing R changes the token,
         # builds the pipeline graph, and pushes a real token through the
         # denoiser. It also fails if any held-out embodiment reaches a dataset.
-        python tools/preflight_experiment_configs.py --holdout $HELD_EMB -- $EXPERIMENTS \
+        # EXPERIMENTS holds bare names; trainHydra wants them group-qualified.
+        # Define the qualified list ONCE here and use it for both the gate and
+        # the training invocations -- the first version of this gate passed the
+        # bare names and failed with "Could not find experiment/<name>", which is
+        # the gate and the runner disagreeing about the same string.
+        QUALIFIED=""
+        for EXP in $EXPERIMENTS; do QUALIFIED="$QUALIFIED $EXP_GROUP/$EXP"; done
+        echo "gating: $QUALIFIED"
+
+        python tools/preflight_experiment_configs.py --holdout $HELD_EMB -- $QUALIFIED \
           || { echo "FATAL: config preflight failed"; exit 1; }
 
         bash ./egomimic/utils/aws/setup_secret.sh
@@ -238,7 +248,7 @@ workflow:
         for EXP in $EXPERIMENTS; do
           mkdir -p "$NORM_ROOT/$EXP"
           ( CUDA_VISIBLE_DEVICES=$i python egomimic/trainHydra.py \
-              +experiment=pusht/"$EXP" \
+              +experiment="$EXP_GROUP/$EXP" \
               $ROOT_OV \
               launch_params.gpus_per_node=1 \
               $BATCH_OV \
@@ -283,7 +293,7 @@ workflow:
           echo "launching $EXP on GPU(s) $DEVS port $PORT"
           ( CUDA_VISIBLE_DEVICES="$DEVS" MASTER_PORT=$PORT \
             python egomimic/trainHydra.py \
-              +experiment=pusht/"$EXP" \
+              +experiment="$EXP_GROUP/$EXP" \
               $ROOT_OV \
               launch_params.gpus_per_node="$GPUS_PER_RUN" \
               $BATCH_OV \

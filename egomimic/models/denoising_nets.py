@@ -5,6 +5,7 @@ from typing import Union
 import einops
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from einops.layers.torch import Rearrange
 
 logger = logging.getLogger(__name__)
@@ -369,6 +370,9 @@ class PaperConditionalUnet1D(nn.Module):
         )
         condition_dim = embed_dim + (self.global_cond_dim or 0)
         pairs = list(zip(all_dims[:-1], all_dims[1:]))
+        # Every non-final encoder stage halves the temporal axis. Pad inputs to
+        # this factor so odd horizons retain matching encoder/decoder skip sizes.
+        self.temporal_downsample_factor = 2 ** max(len(pairs) - 1, 0)
 
         def residual(input_channels, output_channels):
             return ConditionalResidualBlock1D(
@@ -446,6 +450,12 @@ class PaperConditionalUnet1D(nn.Module):
             condition = torch.cat((condition, global_cond), dim=-1)
 
         x = sample
+        original_horizon = x.shape[-1]
+        pad_right = (-original_horizon) % self.temporal_downsample_factor
+        if pad_right:
+            # Extending the terminal action avoids injecting an artificial zero
+            # boundary into the receptive field of the final real waypoint.
+            x = F.pad(x, (0, pad_right), mode="replicate")
         residuals = []
         for first, second, downsample in self.down_modules:
             x = first(x, condition)
@@ -457,7 +467,8 @@ class PaperConditionalUnet1D(nn.Module):
         for first, second, upsample in self.up_modules:
             x = first(torch.cat((x, residuals.pop()), dim=1), condition)
             x = upsample(second(x, condition))
-        return einops.rearrange(self.final_conv(x), "b t h -> b h t")
+        x = self.final_conv(x)[..., :original_horizon]
+        return einops.rearrange(x, "b t h -> b h t")
 
 
 class CrossBlock(nn.Module):

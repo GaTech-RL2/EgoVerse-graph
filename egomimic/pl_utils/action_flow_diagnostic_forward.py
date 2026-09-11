@@ -254,6 +254,18 @@ def _diagnostic_source(
     encoder = encoder_stage.encoder
     field = field_stage.field
     decoder = decoder_stage.decoder
+    encoder_selector_key = getattr(encoder_stage, "selector_key", None)
+    if encoder_selector_key is not None:
+        module_for = getattr(encoder, "module_for", None)
+        if not callable(module_for):
+            raise TypeError("routed Action Flow encoder lacks module_for(selector)")
+        encoder = module_for(prepared[encoder_selector_key])
+    decoder_selector_key = getattr(decoder_stage, "selector_key", None)
+    if decoder_selector_key is not None:
+        module_for = getattr(decoder, "module_for", None)
+        if not callable(module_for):
+            raise TypeError("routed Action Flow decoder lacks module_for(selector)")
+        decoder = module_for(prepared[decoder_selector_key])
     clean, encoder_activations, encoder_indices = _block_outputs(
         encoder,
         lambda: encoder(target),

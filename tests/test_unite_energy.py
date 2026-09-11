@@ -14,13 +14,23 @@ from egomimic.eval.energy_score import (
     usocket_energy_distance_metadata,
 )
 from egomimic.eval.planar_action_eval import PlanarActionEval
-from egomimic.pipeline.pushshapes import USocketRotVecNativeDecoder
+from egomimic.pipeline.pushshapes import (
+    PlanarCommon5NativeDecoder,
+    USocketRotVecNativeDecoder,
+)
 
 
 class _IdentityNormalizer:
     @staticmethod
     def unnormalize(values, embodiment_id):
         assert embodiment_id == 19
+        return values
+
+
+class _AnyIdentityNormalizer:
+    @staticmethod
+    def unnormalize(values, embodiment_id):
+        assert embodiment_id in (19, 20)
         return values
 
 
@@ -122,6 +132,67 @@ def _typed_evaluator(tmp_path):
     )
     evaluator.bind_data_context(normalizer=_IdentityNormalizer())
     return evaluator, run_dir, config_path, content_manifest_path
+
+
+def test_energy_score_supports_source_specific_action_partitions(tmp_path):
+    evaluator = _evaluator(
+        tmp_path,
+        semantic_blocks_by_source={
+            "pushshapes_sim_u_socket": ((0, 2), (2, 4)),
+            "pushshapes_sim_chain_gripper": ((0, 2), (2, 4), (4, 5)),
+        },
+    )
+    for embodiment_id, width in ((19, 4), (20, 5)):
+        target = torch.zeros(2, 16, width)
+        samples = target.unsqueeze(0).repeat(32, 1, 1, 1)
+        values = evaluator._energy_values(samples, target, embodiment_id)
+        assert values["score"] == pytest.approx(0.0)
+
+
+def test_generic_energy_identity_accepts_list_provenance_for_tuple_blocks(tmp_path):
+    evaluator, _, _, _ = _typed_evaluator(tmp_path)
+    evaluator.energy_score_distance = None
+    evaluator.energy_score_distance_metadata = {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4), (4, 5)),
+    }
+    evaluator.energy_score_provenance["distance_contract"] = {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": [[0, 2], [2, 4], [4, 5]],
+    }
+
+    identity = evaluator._typed_artifact_identity(
+        domains={
+            "pushshapes_sim_chain_gripper": {
+                "condition_ids": [
+                    {
+                        "batch_position": 0,
+                        "episode_hash": "episode-chain",
+                        "frame_index": 0,
+                        "normalized_target_sha256": "e" * 64,
+                    }
+                ]
+            }
+        },
+        global_step=2,
+    )
+
+    assert identity["distance"]["semantic_blocks"] == ((0, 2), (2, 4), (4, 5))
+
+
+def test_chain_native_decoder_supports_seed_and_batch_leading_dimensions(tmp_path):
+    evaluator = _evaluator(tmp_path)
+    evaluator.bind_data_context(normalizer=_AnyIdentityNormalizer())
+    common_five = torch.zeros(32, 2, 16, 5)
+    common_five[..., 2] = 1.0
+    decoded = evaluator._native(
+        common_five,
+        20,
+        PlanarCommon5NativeDecoder(action_horizon=16, native_action_dim=4),
+    )
+    assert decoded.shape == (32, 2, 16, 4)
 
 
 def test_energy_artifacts_preserve_validation_across_slurm_attempts(tmp_path, monkeypatch):

@@ -77,6 +77,7 @@ AF_CONFIG_VALIDATOR=${AF_CONFIG_VALIDATOR:-$AF_REPO/tools/validate_action_flow_c
 AF_SMOKE_VERIFIER=${AF_SMOKE_VERIFIER:-$AF_REPO/scripts/train/verify_action_flow_training_smoke.py}
 AF_SLURM_CONTRACT_VALIDATOR=${AF_SLURM_CONTRACT_VALIDATOR:-$AF_REPO/scripts/train/validate_slurm_job_contract.py}
 AF_STORAGE_VALIDATOR=${AF_STORAGE_VALIDATOR:-$AF_REPO/scripts/train/check_checkpoint_storage.py}
+AF_COTRAIN_DATASET_VALIDATOR=${AF_COTRAIN_DATASET_VALIDATOR:-$AF_TOOL_DIR/validate_planar_cotrain_dataset.py}
 AF_SPLIT_MANIFEST=${AF_SPLIT_MANIFEST:-}
 AF_PRECISION=${AF_PRECISION:-bf16}
 AF_SEED=${AF_SEED:-42}
@@ -88,6 +89,9 @@ CANONICAL_CONTENT_MANIFEST_SHA256=a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4
 CANONICAL_DATASET_CONTENT_AGGREGATE_SHA256=80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52
 CHAIN_CONTENT_MANIFEST_SHA256=65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726a1b0e0ef1df865
 CHAIN_DATASET_CONTENT_AGGREGATE_SHA256=2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb
+COTRAIN_CONTENT_MANIFEST_SHA256=bc507f56cb2231a465918903d71b687a2257108dacc4fad06b194391bfafb8a2
+COTRAIN_DATASET_CONTENT_AGGREGATE_SHA256=a5940b1c2891185ba55729ebb7dfa36fcfe5a172f9a96fdfb88dfc69b1ede4f8
+COTRAIN_CHAIN_CONTENT_MANIFEST_SHA256=9920658e35a6cffc3dd4dde82129b7d1ae08f77664f0cbb06498ebc13ca3eaa1
 
 case "$AF_LAUNCH_MODE" in
   preflight|run) ;;
@@ -118,7 +122,28 @@ AF_VALID_BATCH_SIZE=16
 AF_SOURCE=pushshapes_sim_u_socket
 AF_ACTION_DIM=4
 AF_EXPECTED_PARAMETER_COUNT=97956100
+AF_COTRAIN=0
+AF_TRAIN_BATCH_SIZE=32
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_cotrain_chain4919_usocket2999_private_codec_h384_d18_sum14_cfg4_val8_s42)
+    AF_METHOD=latent_fm_stopgrad_unite_private_codec
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_chain4919_usocket2999_private_codec_h384_d18_sum14_cfg4_val8_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=16
+    AF_TRAIN_BATCH_SIZE=16
+    AF_SOURCE=pushshapes_sim_chain_gripper
+    AF_SECONDARY_SOURCE=pushshapes_sim_u_socket
+    AF_ACTION_DIM=0
+    AF_EXPECTED_PARAMETER_COUNT=167960633
+    AF_COTRAIN=1
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,u-socket,cotrain,private-codec,action-flow,unite-h384,denoiser-d18,sum14,cfg4,val8x16,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
+    ;;
   pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -236,7 +261,9 @@ case "$AF_EXPERIMENT" in
 esac
 
 if test -z "$AF_SPLIT_MANIFEST"; then
-  if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
+  if test "$AF_COTRAIN" = 1; then
+    die "co-training requires an explicit AF_SPLIT_MANIFEST"
+  elif test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
     AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
   else
     AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json
@@ -261,7 +288,23 @@ fi
   die "AF_EXPECTED_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
 [[ "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
+if test "$AF_COTRAIN" = 1; then
+  for variable in \
+    AF_SECONDARY_DATASET_DIR AF_SECONDARY_CONTENT_MANIFEST \
+    AF_EXPECTED_SECONDARY_CONTENT_MANIFEST_SHA256 \
+    AF_PRIMARY_CONTENT_MANIFEST \
+    AF_EXPECTED_PRIMARY_CONTENT_MANIFEST_SHA256; do
+    required "$variable"
+  done
+  test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$COTRAIN_CONTENT_MANIFEST_SHA256" || \
+    die "content manifest is not the approved combined co-training manifest"
+  test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$COTRAIN_DATASET_CONTENT_AGGREGATE_SHA256" || \
+    die "dataset aggregate is not the approved combined co-training content"
+  test "$AF_EXPECTED_PRIMARY_CONTENT_MANIFEST_SHA256" = "$COTRAIN_CHAIN_CONTENT_MANIFEST_SHA256" || \
+    die "primary content manifest is not the approved Chain union"
+  test "$AF_EXPECTED_SECONDARY_CONTENT_MANIFEST_SHA256" = "$CANONICAL_CONTENT_MANIFEST_SHA256" || \
+    die "secondary content manifest is not the canonical U-Socket corpus"
+elif test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
   test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_CONTENT_MANIFEST_SHA256" || \
     die "content manifest is not the canonical ChainGripper corpus manifest"
   test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -302,6 +345,7 @@ for binding in \
   "AF_SMOKE_VERIFIER:$AF_SMOKE_VERIFIER" \
   "AF_SLURM_CONTRACT_VALIDATOR:$AF_SLURM_CONTRACT_VALIDATOR" \
   "AF_STORAGE_VALIDATOR:$AF_STORAGE_VALIDATOR" \
+  "AF_COTRAIN_DATASET_VALIDATOR:$AF_COTRAIN_DATASET_VALIDATOR" \
   "AF_CONTENT_MANIFEST:$AF_CONTENT_MANIFEST" \
   "AF_SPLIT_MANIFEST:$AF_SPLIT_MANIFEST"; do
   absolute_path "${binding%%:*}" "${binding#*:}"
@@ -321,8 +365,27 @@ test -s "$AF_SMOKE_VERIFIER" || die "Action Flow smoke verifier is unavailable"
 test -s "$AF_SLURM_CONTRACT_VALIDATOR" || \
   die "Slurm contract validator is unavailable"
 test -s "$AF_STORAGE_VALIDATOR" || die "storage validator is unavailable"
+test -s "$AF_COTRAIN_DATASET_VALIDATOR" || \
+  die "co-training dataset validator is unavailable"
 test -s "$AF_CONTENT_MANIFEST" || die "dataset content manifest is unavailable"
 test -s "$AF_SPLIT_MANIFEST" || die "split manifest is unavailable"
+if test "$AF_COTRAIN" = 1; then
+  for binding in \
+    "AF_SECONDARY_DATASET_DIR:$AF_SECONDARY_DATASET_DIR" \
+    "AF_PRIMARY_CONTENT_MANIFEST:$AF_PRIMARY_CONTENT_MANIFEST" \
+    "AF_SECONDARY_CONTENT_MANIFEST:$AF_SECONDARY_CONTENT_MANIFEST"; do
+    absolute_path "${binding%%:*}" "${binding#*:}"
+  done
+  test -d "$AF_SECONDARY_DATASET_DIR" || die "secondary dataset is unavailable"
+  test -s "$AF_PRIMARY_CONTENT_MANIFEST" || die "primary content manifest is unavailable"
+  test -s "$AF_SECONDARY_CONTENT_MANIFEST" || die "secondary content manifest is unavailable"
+  test "$(sha256 "$AF_PRIMARY_CONTENT_MANIFEST")" = \
+    "$AF_EXPECTED_PRIMARY_CONTENT_MANIFEST_SHA256" || \
+    die "primary content manifest SHA-256 mismatch"
+  test "$(sha256 "$AF_SECONDARY_CONTENT_MANIFEST")" = \
+    "$AF_EXPECTED_SECONDARY_CONTENT_MANIFEST_SHA256" || \
+    die "secondary content manifest SHA-256 mismatch"
+fi
 test "$(sha256 "$LAUNCHER")" = "$AF_EXPECTED_LAUNCHER_SHA256" || \
   die "launcher SHA-256 mismatch"
 test "$(sha256 "$AF_SPLIT_MANIFEST")" = "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" || \
@@ -354,6 +417,7 @@ export PATH="$(dirname "$AF_PYTHON"):$PATH"
 export PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
 export AF_EXTRA_PYTHONPATH
 export AF_REPO AF_PYTHON AF_EXPERIMENT AF_OUTPUT_DIR AF_DATASET_DIR
+export AF_SECONDARY_DATASET_DIR
 export AF_WANDB_ENTITY AF_WANDB_PROJECT AF_WANDB_RUN_ID AF_WANDB_NAME
 export AF_WANDB_GROUP AF_WANDB_TAGS
 export ICE_REQUIRE_LR_SCHEDULERS=1
@@ -433,7 +497,7 @@ BASE_OVERRIDES=(
   'runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints'
   "data.train_datasets.$AF_SOURCE.resolver.folder_path=$AF_DATASET_DIR"
   "data.valid_datasets.$AF_SOURCE.resolver.folder_path=$AF_DATASET_DIR"
-  "data.train_dataloader_params.$AF_SOURCE.batch_size=32"
+  "data.train_dataloader_params.$AF_SOURCE.batch_size=$AF_TRAIN_BATCH_SIZE"
   "data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE"
   evaluator.energy_score_validation_view.world_size=1
   "evaluator.energy_score_validation_view.per_rank_batch_size=$AF_VALID_BATCH_SIZE"
@@ -454,6 +518,16 @@ BASE_OVERRIDES=(
   "++run_provenance.content_manifest_sha256=$AF_EXPECTED_CONTENT_MANIFEST_SHA256"
   "++run_provenance.dataset_content_aggregate_sha256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256"
 )
+
+if test "$AF_COTRAIN" = 1; then
+  BASE_OVERRIDES+=(
+    "data.train_datasets.$AF_SECONDARY_SOURCE.resolver.folder_path=$AF_SECONDARY_DATASET_DIR"
+    "data.valid_datasets.$AF_SECONDARY_SOURCE.resolver.folder_path=$AF_SECONDARY_DATASET_DIR"
+    "data.train_dataloader_params.$AF_SECONDARY_SOURCE.batch_size=$AF_TRAIN_BATCH_SIZE"
+    "data.valid_dataloader_params.$AF_SECONDARY_SOURCE.batch_size=$AF_VALID_BATCH_SIZE"
+    "++run_provenance.split_manifest_path=$AF_SPLIT_MANIFEST"
+  )
+fi
 
 if test "$AF_METHOD" != gaussian_bridge_likelihood; then
   BASE_OVERRIDES+=(
@@ -507,7 +581,83 @@ if test "$AF_LAUNCH_MODE" = preflight; then
     --lock-input "$AF_REPO/pyproject.toml" \
     --lock-input "$AF_REPO/uv.lock" \
     --output "$AF_OUTPUT_DIR/runtime-lock.json"
-  if test -n "${AF_CACHED_DATASET_VALIDATION:-}"; then
+  if test "$AF_COTRAIN" = 1; then
+    if test -n "${AF_CACHED_DATASET_VALIDATION:-}"; then
+      cp -- "$AF_CACHED_DATASET_VALIDATION" \
+        "$AF_OUTPUT_DIR/dataset_validation.json"
+      "$AF_PYTHON" - "$AF_OUTPUT_DIR/dataset_validation.json" \
+        "$AF_SPLIT_MANIFEST" "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
+        "$AF_DATASET_DIR" "$AF_EXPECTED_PRIMARY_CONTENT_MANIFEST_SHA256" \
+        "$AF_SECONDARY_DATASET_DIR" \
+        "$AF_EXPECTED_SECONDARY_CONTENT_MANIFEST_SHA256" <<'PY'
+import json
+import pathlib
+import sys
+
+(
+    path,
+    split_manifest,
+    split_sha,
+    chain_root,
+    chain_content_sha,
+    usocket_root,
+    usocket_content_sha,
+) = sys.argv[1:]
+payload = json.load(open(path))
+if payload.get("status") != "COTRAIN_DATASETS_VALIDATED":
+    raise SystemExit("cached co-training dataset validation status differs")
+if payload.get("manifest_sha256") != split_sha:
+    raise SystemExit("cached co-training split SHA-256 differs")
+if pathlib.Path(payload.get("manifest", "")).resolve() != pathlib.Path(split_manifest).resolve():
+    raise SystemExit("cached co-training split path differs")
+expected = {
+    "pushshapes_sim_chain_gripper": (
+        pathlib.Path(chain_root).resolve(),
+        chain_content_sha,
+    ),
+    "pushshapes_sim_u_socket": (
+        pathlib.Path(usocket_root).resolve(),
+        usocket_content_sha,
+    ),
+}
+domains = payload.get("domains")
+if not isinstance(domains, dict) or set(domains) != set(expected):
+    raise SystemExit("cached co-training domain set differs")
+for name, (dataset_root, content_sha) in expected.items():
+    row = domains[name]
+    inventory = row.get("physical_inventory", {})
+    content = row.get("content_identity", {})
+    if pathlib.Path(inventory.get("dataset_root", "")).resolve() != dataset_root:
+        raise SystemExit(f"cached {name} dataset root differs")
+    if content.get("manifest_sha256") != content_sha:
+        raise SystemExit(f"cached {name} content SHA-256 differs")
+    if inventory.get("id_overlap_count") != 0:
+        raise SystemExit(f"cached {name} ID overlap is nonzero")
+    if inventory.get("resolved_path_overlap_count") != 0:
+        raise SystemExit(f"cached {name} resolved-path overlap is nonzero")
+    if inventory.get("union_matches_inventory") is not True:
+        raise SystemExit(f"cached {name} union does not cover inventory")
+    if content.get("verified_episode_count") != inventory.get("union_count"):
+        raise SystemExit(f"cached {name} content episode count differs")
+if payload.get("cross_domain_resolved_path_overlap_count") != 0:
+    raise SystemExit("cached co-training cross-domain overlap is nonzero")
+PY
+    else
+      "$AF_PYTHON" "$AF_COTRAIN_DATASET_VALIDATOR" \
+        --repo "$AF_REPO" \
+        --manifest "$AF_SPLIT_MANIFEST" \
+        --expected-manifest-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
+        --chain-dataset-root "$AF_DATASET_DIR" \
+        --chain-content-manifest "$AF_PRIMARY_CONTENT_MANIFEST" \
+        --expected-chain-content-manifest-sha256 \
+          "$AF_EXPECTED_PRIMARY_CONTENT_MANIFEST_SHA256" \
+        --usocket-dataset-root "$AF_SECONDARY_DATASET_DIR" \
+        --usocket-content-manifest "$AF_SECONDARY_CONTENT_MANIFEST" \
+        --expected-usocket-content-manifest-sha256 \
+          "$AF_EXPECTED_SECONDARY_CONTENT_MANIFEST_SHA256" \
+        --output "$AF_OUTPUT_DIR/dataset_validation.json"
+    fi
+  elif test -n "${AF_CACHED_DATASET_VALIDATION:-}"; then
     cp -- "$AF_CACHED_DATASET_VALIDATION" \
       "$AF_OUTPUT_DIR/dataset_validation.json"
     "$AF_PYTHON" - "$AF_OUTPUT_DIR/dataset_validation.json" \
@@ -567,7 +717,8 @@ PY
     "$LAUNCHER" "$AF_PYTHON" "$EFFECTIVE_NORM_FILE" "$AF_CLUSTER_LABEL" \
     "$SLURM_JOB_ID" "$AF_OUTPUT_DIR/runtime-lock.json" \
     "$AF_CONTENT_MANIFEST" "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
-    "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" <<'PY'
+    "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" "$AF_COTRAIN" \
+    "${AF_SECONDARY_DATASET_DIR:-}" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -590,6 +741,8 @@ import sys
     content_manifest_path,
     content_manifest_sha256,
     content_aggregate_sha256,
+    cotrain,
+    secondary_dataset,
 ) = sys.argv[1:]
 root = pathlib.Path(root)
 norm = pathlib.Path(norm)
@@ -601,13 +754,21 @@ def digest(path):
 dataset_report = json.loads((root / "dataset_validation.json").read_text())
 pair_report = json.loads((root / "action_flow_pair_preflight.json").read_text())
 runtime_lock = json.loads(runtime_lock_path.read_text())
-assert dataset_report["status"] == "DATASET_VALIDATED"
-assert dataset_report["content_identity"]["manifest_sha256"] == (
-    content_manifest_sha256
-)
-assert dataset_report["content_identity"]["aggregate_sha256"] == (
-    content_aggregate_sha256
-)
+if int(cotrain):
+    assert dataset_report["status"] == "COTRAIN_DATASETS_VALIDATED"
+    assert set(dataset_report["domains"]) == {
+        "pushshapes_sim_chain_gripper",
+        "pushshapes_sim_u_socket",
+    }
+    assert dataset_report["cross_domain_resolved_path_overlap_count"] == 0
+else:
+    assert dataset_report["status"] == "DATASET_VALIDATED"
+    assert dataset_report["content_identity"]["manifest_sha256"] == (
+        content_manifest_sha256
+    )
+    assert dataset_report["content_identity"]["aggregate_sha256"] == (
+        content_aggregate_sha256
+    )
 assert pair_report["status"] == "PASS"
 assert runtime_lock["status"] == "RUNTIME_LOCKED"
 payload = {
@@ -616,6 +777,7 @@ payload = {
     "source": {"repo": repo, "head": head},
     "experiment": experiment,
     "dataset_root": dataset,
+    "secondary_dataset_root": secondary_dataset or None,
     "content_manifest_path": content_manifest_path,
     "content_manifest_sha256": content_manifest_sha256,
     "dataset_content_aggregate_sha256": content_aggregate_sha256,
@@ -673,7 +835,7 @@ BASE_OVERRIDES+=(
   "$AF_EXPECTED_NORM_SHA256" "$AF_EXPECTED_LAUNCHER_SHA256" \
   "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
   "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" \
-  "$AF_CLUSTER_LABEL" <<'PY'
+  "$AF_CLUSTER_LABEL" "$AF_COTRAIN" "${AF_SECONDARY_DATASET_DIR:-}" <<'PY'
 import json
 import sys
 
@@ -688,12 +850,17 @@ import sys
     content_sha,
     content_aggregate_sha,
     cluster,
+    cotrain,
+    secondary_dataset,
 ) = sys.argv[1:]
 payload = json.load(open(path))
 assert payload["status"] == "PASS"
 assert payload["source"]["head"] == head
 assert payload["experiment"] == experiment
 assert payload["dataset_root"] == dataset
+assert payload.get("secondary_dataset_root") == (
+    secondary_dataset if int(cotrain) else None
+)
 assert payload["execution_cluster"] == cluster
 assert payload["split_manifest_sha256"] == split_sha
 assert payload["normalization_sha256"] == norm_sha
@@ -873,6 +1040,7 @@ export SRUN
   "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" "$AF_SOURCE" \
   "$AF_ACTION_DIM" "$AF_EXPECTED_PARAMETER_COUNT" <<'PY'
 import math
+import os
 import pathlib
 import sys
 
@@ -937,12 +1105,21 @@ else:
     assert smoke_sha == ""
 from tools.validate_action_flow_config import (
     LEGACY_METHOD, LIKELIHOOD_METHOD, GRAPH_METHOD, STOPGRAD_METHOD,
-    STOPGRAD_UNITE_METHOD,
+    STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD,
     validate_method_contract, _validate_dimensions_and_modules, _validate_topology,
 )
 method = validate_method_contract(cfg, experiment)
-assert cfg.model.action_horizon == 16 and cfg.model.action_dim == action_dim
-if method == STOPGRAD_UNITE_METHOD:
+assert cfg.model.action_horizon == 16
+if method == PRIVATE_COTRAIN_METHOD:
+    assert action_dim == 0 and dict(cfg.planar.action_dims) == {
+        "pushshapes_sim_u_socket": 4,
+        "pushshapes_sim_chain_gripper": 5,
+    }
+    assert cfg.model.num_latent_tokens == 8
+    assert cfg.model.latent_dim == 16 and cfg.model.condition_dim == 128
+    assert math.isclose(cfg.model.condition_dropout_probability, 0.1)
+elif method == STOPGRAD_UNITE_METHOD:
+    assert cfg.model.action_dim == action_dim
     assert cfg.model.num_latent_tokens == 8
     assert cfg.model.latent_dim == 16 and cfg.model.condition_dim == 128
     assert math.isclose(cfg.model.condition_dropout_probability, 0.1)
@@ -963,10 +1140,19 @@ else:
     assert effective_warmup_steps == full_warmup_steps == 0
 optimizer, scheduler = cfg.model.optimizer, cfg.model.scheduler
 unite_recipe = method == STOPGRAD_UNITE_METHOD
+private_cotrain_recipe = method == PRIVATE_COTRAIN_METHOD
 scaled_muon = experiment.endswith("_200m_muon_lr1e5_s42")
 scaled_adamw = experiment.endswith("_200m_adamw_lr1e5_s42")
 scaled_200m = scaled_muon or scaled_adamw
-if unite_recipe:
+if private_cotrain_recipe:
+    assert optimizer._target_ == "torch.optim.AdamW"
+    assert optimizer._partial_ is True and optimizer.lr == 3e-5
+    assert list(optimizer.betas) == [0.9, 0.999] and optimizer.eps == 1e-8
+    assert optimizer.weight_decay == 1e-4
+    assert scheduler._target_ == "egomimic.utils.schedulers.warmup_cosine_scheduler"
+    assert scheduler.max_steps == 150000 and scheduler.warmup_steps == 8000
+    assert scheduler.warmup_start_factor == 0.1 and scheduler.eta_min == 3e-6
+elif unite_recipe:
     assert optimizer._target_ == (
         "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
     )
@@ -1002,7 +1188,7 @@ else:
     assert optimizer.eps == 1e-8 and optimizer.weight_decay == 1e-4
     if scaled_adamw:
         assert cfg.model.optimizer_named_parameters is False
-if not unite_recipe:
+if not unite_recipe and not private_cotrain_recipe:
     assert scheduler.max_steps == 240000 and scheduler.warmup_steps == 8000
     assert scheduler.warmup_start_factor == 0.1
     assert scheduler.eta_min == (1e-6 if scaled_200m else 3e-6)
@@ -1028,11 +1214,21 @@ else:
 assert cfg.callbacks.model_checkpoint.save_top_k == -1
 assert cfg.callbacks.model_checkpoint.save_last == "link"
 assert "{step}" in str(cfg.callbacks.model_checkpoint.filename)
-assert set(cfg.data.train_datasets) == set(cfg.data.valid_datasets) == {source}
-assert cfg.data.train_datasets[source].resolver.folder_path == dataset
-assert cfg.data.valid_datasets[source].resolver.folder_path == dataset
-assert cfg.data.train_dataloader_params[source].batch_size == 32
-assert cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size
+if private_cotrain_recipe:
+    sources = {source, "pushshapes_sim_u_socket"}
+    assert set(cfg.data.train_datasets) == set(cfg.data.valid_datasets) == sources
+    assert cfg.data.train_datasets[source].resolver.folder_path == dataset
+    assert cfg.data.valid_datasets[source].resolver.folder_path == dataset
+    assert cfg.data.train_datasets["pushshapes_sim_u_socket"].resolver.folder_path == os.environ["AF_SECONDARY_DATASET_DIR"]
+    assert cfg.data.valid_datasets["pushshapes_sim_u_socket"].resolver.folder_path == os.environ["AF_SECONDARY_DATASET_DIR"]
+    assert all(cfg.data.train_dataloader_params[item].batch_size == 16 for item in sources)
+    assert all(cfg.data.valid_dataloader_params[item].batch_size == valid_batch_size for item in sources)
+else:
+    assert set(cfg.data.train_datasets) == set(cfg.data.valid_datasets) == {source}
+    assert cfg.data.train_datasets[source].resolver.folder_path == dataset
+    assert cfg.data.valid_datasets[source].resolver.folder_path == dataset
+    assert cfg.data.train_dataloader_params[source].batch_size == 32
+    assert cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size
 assert str(cfg.norm_stats.precomputed_norm_path) == norm
 assert cfg.norm_stats.save_cache_dir is None
 diagnostics = cfg.evaluator.action_flow_diagnostics
@@ -1048,7 +1244,7 @@ pipeline = instantiate(cfg.model.pipeline, device="cpu")
 _validate_topology(cfg, pipeline)
 _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
 count = sum(parameter.numel() for parameter in pipeline.nets.parameters())
-if method == STOPGRAD_UNITE_METHOD:
+if method in (STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD):
     assert count == expected_parameter_count, count
 elif method in (LEGACY_METHOD, STOPGRAD_METHOD):
     if scaled_200m:

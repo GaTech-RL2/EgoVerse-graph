@@ -52,6 +52,7 @@ from tools.validate_action_flow_config import (  # noqa: E402
     GRAPH_METHOD,
     STOPGRAD_METHOD,
     STOPGRAD_UNITE_METHOD,
+    PRIVATE_COTRAIN_METHOD,
     PreflightError,
     action_flow_method,
     method_stage_targets,
@@ -83,6 +84,10 @@ UNITE_H384_CHAIN_EXPERIMENT = (
 )
 UNITE_H384_PARAMETER_COUNT = 97_956_100
 UNITE_H384_CHAIN_PARAMETER_COUNT = 97_956_613
+PRIVATE_COTRAIN_EXPERIMENT = (
+    "pusht/action_flow_cotrain_chain4919_usocket2999_private_codec_h384_d18_sum14_cfg4_val8_s42"
+)
+PRIVATE_COTRAIN_PARAMETER_COUNT = 167_960_633
 APPROVED_EXPERIMENTS = {
     UNITE_H384_EXPERIMENT: (
         "action_flow_usocket_latent_fm_sg_unite_h384_s42",
@@ -96,6 +101,11 @@ APPROVED_EXPERIMENTS = {
     ),
     UNITE_H384_CHAIN_EXPERIMENT: (
         "action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        1.0,
+        1.0,
+    ),
+    PRIVATE_COTRAIN_EXPERIMENT: (
+        "action_flow_cotrain_chain4919_usocket2999_private_codec_h384_d18_sum14_cfg4_val8_s42",
         1.0,
         1.0,
     ),
@@ -184,7 +194,14 @@ CHAIN_CONTENT_MANIFEST_SHA256 = (
 CHAIN_DATASET_CONTENT_AGGREGATE_SHA256 = (
     "2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb"
 )
+PRIVATE_COTRAIN_CONTENT_MANIFEST_SHA256 = (
+    "bc507f56cb2231a465918903d71b687a2257108dacc4fad06b194391bfafb8a2"
+)
+PRIVATE_COTRAIN_DATASET_CONTENT_AGGREGATE_SHA256 = (
+    "a5940b1c2891185ba55729ebb7dfa36fcfe5a172f9a96fdfb88dfc69b1ede4f8"
+)
 SOURCE_LABEL = "pushshapes_sim_u_socket"
+SOURCE_LABELS = (SOURCE_LABEL,)
 NATIVE_LEVELS = ("t0000", "t0250", "t0500", "t0750", "t1000")
 
 
@@ -329,6 +346,251 @@ def _resolve_expected_hash(
     return expected
 
 
+def _validate_private_cotrain_config(
+    *,
+    config: DictConfig,
+    config_path: Path,
+    experiment: str,
+    run_dir: Path,
+    expected_head: str,
+    expected_config_sha256: str | None,
+    expected_split_sha256: str | None,
+    expected_normalization_sha256: str | None,
+    expected_content_manifest_sha256: str | None,
+    expected_dataset_content_aggregate_sha256: str | None,
+) -> tuple[DictConfig, dict[str, Any]]:
+    """Validate the exact two-domain private-codec smoke identity."""
+    sources = (
+        "pushshapes_sim_chain_gripper",
+        "pushshapes_sim_u_socket",
+    )
+    _exact(config, "name", APPROVED_EXPERIMENTS[experiment][0])
+    _exact(config, "model._target_", method_wrapper_target(PRIVATE_COTRAIN_METHOD))
+    targets = tuple(str(stage._target_) for stage in config.model.pipeline.stages)
+    _require(
+        targets == method_stage_targets(PRIVATE_COTRAIN_METHOD),
+        f"unexpected private co-training stage topology: {targets}",
+    )
+    exact_checks = (
+        ("mode", "train"),
+        ("seed", 42),
+        ("trainer.accelerator", "gpu"),
+        ("trainer.devices", 1),
+        ("trainer.num_nodes", 1),
+        ("trainer.strategy", "auto"),
+        ("trainer.precision", "bf16"),
+        ("trainer.max_steps", 2),
+        ("trainer.val_check_interval", 2),
+        ("trainer.limit_train_batches", 2),
+        ("trainer.limit_val_batches", 1),
+        ("trainer.num_sanity_val_steps", 0),
+        ("trainer.accumulate_grad_batches", 1),
+        ("callbacks.model_checkpoint.every_n_train_steps", 1),
+        ("callbacks.model_checkpoint.save_top_k", -1),
+        ("callbacks.model_checkpoint.save_last", "link"),
+        ("model.action_horizon", 16),
+        ("model.num_latent_tokens", 8),
+        ("model.latent_dim", 16),
+        ("model.condition_dim", 128),
+        ("model.hidden_dim", 384),
+        ("model.flow_samples_per_content", 14),
+        ("model.flow_mini_batch", 14),
+        ("model.flow_loss_aggregation", "sum_samples"),
+        ("model.num_inference_steps", 50),
+        ("model.gradient_telemetry_cadence", 2),
+        ("model.pipeline.stages.3.num_tokens", 8),
+        ("model.pipeline.stages.3.latent_dim", 16),
+        ("model.pipeline.stages.5.samples_per_content", 14),
+        ("model.pipeline.stages.6.field.backbone.hidden_dim", 384),
+        ("model.pipeline.stages.6.field.backbone.depth", 18),
+        ("model.pipeline.stages.6.field.backbone.num_heads", 12),
+        ("model.pipeline.stages.7.reconstruction_noising_start", 0.7),
+        ("model.pipeline.stages.7.reconstruction_noising_probability", 0.5),
+        ("model.optimizer._target_", "torch.optim.AdamW"),
+        ("model.optimizer._partial_", True),
+        ("model.scheduler._target_", "egomimic.utils.schedulers.warmup_cosine_scheduler"),
+        ("model.scheduler._partial_", True),
+        ("model.scheduler.max_steps", 150000),
+        ("model.scheduler.warmup_steps", 8000),
+        ("norm_stats.norm_mode", "minmax"),
+        ("run_provenance.split_seed", 42),
+        ("run_provenance.valid_ratio", 0.01),
+        ("run_provenance.id_overlap_count", 0),
+        ("run_provenance.resolved_path_overlap_count", 0),
+        ("run_provenance.architecture.denoiser_repeated_block_parameter_ratio_vs_d12", 1.5),
+        ("run_provenance.architecture.total_parameters", PRIVATE_COTRAIN_PARAMETER_COUNT),
+        ("run_provenance.inference.sampler", "dopri5"),
+        ("run_provenance.inference.steps", 50),
+        ("run_provenance.inference.classifier_free_guidance", True),
+        ("evaluator.energy_score_enabled", True),
+        ("evaluator.energy_score_max_batches_per_rank", 1),
+        ("evaluator.energy_score_validation_view.per_rank_batch_size", 16),
+        ("evaluator.energy_score_validation_view.world_size", 1),
+        ("evaluator.action_flow_diagnostics.enabled", True),
+        ("evaluator.action_flow_diagnostics.max_batches_per_rank", 1),
+    )
+    for path, expected in exact_checks:
+        _exact(config, path, expected)
+    _require(config.ckpt_path is None, "smoke must initialize from scratch")
+    _require(
+        "{step}" in str(_select(config, "callbacks.model_checkpoint.filename")),
+        "checkpoint filename must contain immutable step identity",
+    )
+    for path, expected in (
+        ("model.condition_dropout_probability", 0.1),
+        ("model.reconstruction_weight", 1.0),
+        ("model.flow_weight", 1.0),
+        ("model.pipeline.stages.8.flow_weight", 1.0),
+        ("model.pipeline.stages.8.reconstruction_weight", 1.0),
+        ("model.pipeline.stages.8.action_velocity_weight", 1.0),
+        ("model.optimizer.lr", 3.0e-5),
+        ("model.optimizer.eps", 1.0e-8),
+        ("model.optimizer.weight_decay", 1.0e-4),
+        ("model.scheduler.warmup_start_factor", 0.1),
+        ("model.scheduler.eta_min", 3.0e-6),
+        ("trainer.gradient_clip_val", 3.0),
+    ):
+        _float(config, path, expected)
+    _require(
+        [float(value) for value in config.model.optimizer.betas] == [0.9, 0.999],
+        "model.optimizer.betas must be [0.9, 0.999]",
+    )
+    _require(
+        tuple(config.data.train_datasets) == sources
+        and tuple(config.data.valid_datasets) == sources,
+        "private co-training datasets differ from the exact two-domain order",
+    )
+    for source in sources:
+        _exact(config, f"data.train_dataloader_params.{source}.batch_size", 16)
+        _exact(config, f"data.valid_dataloader_params.{source}.batch_size", 16)
+    _require(
+        dict(config.planar.action_dims)
+        == {"pushshapes_sim_u_socket": 4, "pushshapes_sim_chain_gripper": 5},
+        "per-embodiment action dimensions differ",
+    )
+    modules = config.model.pipeline.stages[4].encoder.modules
+    decoders = config.model.pipeline.stages[7].decoder.modules
+    for source, action_dim in ((sources[0], 5), (sources[1], 4)):
+        _exact(config, f"model.pipeline.stages.4.encoder.modules.{source}.action_dim", action_dim)
+        _exact(config, f"model.pipeline.stages.4.encoder.modules.{source}.backbone.depth", 12)
+        _exact(config, f"model.pipeline.stages.7.decoder.modules.{source}.action_dim", action_dim)
+        _exact(config, f"model.pipeline.stages.7.decoder.modules.{source}.depth", 12)
+    _require(set(modules) == set(decoders) == set(sources), "private codec routes differ")
+
+    expected_head = expected_head.lower()
+    _require(bool(COMMIT_RE.fullmatch(expected_head)), "expected HEAD is not a commit")
+    _exact(config, "run_provenance.source_commit", expected_head)
+    actual_head = _git_head()
+    _require(actual_head == expected_head, f"checkout HEAD mismatch: {actual_head}")
+    config_hash = _resolve_expected_hash(
+        supplied=expected_config_sha256,
+        recorded=None,
+        actual=_sha256(config_path),
+        label="resolved config SHA-256",
+    )
+    split_path = _resolve_path(
+        _select(config, "run_provenance.split_manifest_path"),
+        relative_to=REPOSITORY_ROOT,
+        label="split manifest",
+    )
+    split_hash = _resolve_expected_hash(
+        supplied=expected_split_sha256,
+        recorded=_recorded_hash(
+            config,
+            ("run_provenance.split_manifest_sha256", "evaluator.energy_score_validation_view.split_manifest_sha256"),
+        ),
+        actual=_sha256(split_path),
+        label="split manifest SHA-256",
+    )
+    normalization_path = _resolve_normalization_path(
+        _select(config, "norm_stats.precomputed_norm_path"),
+        relative_to=REPOSITORY_ROOT,
+    )
+    normalization_hash = _resolve_expected_hash(
+        supplied=expected_normalization_sha256,
+        recorded=_recorded_hash(
+            config,
+            ("run_provenance.normalization_sha256", "run_provenance.normalization_stats_sha256", "run_provenance.train_only_normalization_sha256"),
+        ),
+        actual=_sha256(normalization_path),
+        label="normalization SHA-256",
+    )
+    content_manifest_path = _resolve_path(
+        _select(config, "run_provenance.content_manifest_path"),
+        relative_to=REPOSITORY_ROOT,
+        label="dataset content manifest",
+    )
+    content_manifest_hash = _resolve_expected_hash(
+        supplied=expected_content_manifest_sha256,
+        recorded=_recorded_hash(
+            config,
+            ("run_provenance.content_manifest_sha256", "evaluator.energy_score_provenance.dataset_content.manifest_sha256", "evaluator.action_flow_diagnostics.provenance.dataset_content.manifest_sha256"),
+        ),
+        actual=_sha256(content_manifest_path),
+        label="dataset content manifest SHA-256",
+    )
+    _require(
+        content_manifest_hash == PRIVATE_COTRAIN_CONTENT_MANIFEST_SHA256,
+        "private co-training content manifest differs",
+    )
+    content_payload = json.loads(content_manifest_path.read_text())
+    manifest_aggregate = _validate_sha256(
+        str(content_payload.get("aggregate_sha256", "")),
+        "dataset content manifest aggregate SHA-256",
+    )
+    recorded_aggregate = _recorded_hash(
+        config,
+        ("run_provenance.dataset_content_aggregate_sha256", "evaluator.energy_score_provenance.dataset_content.aggregate_sha256", "evaluator.action_flow_diagnostics.provenance.dataset_content.aggregate_sha256"),
+    )
+    expected_aggregate = (
+        _validate_sha256(expected_dataset_content_aggregate_sha256, "dataset aggregate content SHA-256")
+        if expected_dataset_content_aggregate_sha256 is not None
+        else recorded_aggregate
+    )
+    _require(
+        recorded_aggregate == expected_aggregate == manifest_aggregate
+        == PRIVATE_COTRAIN_DATASET_CONTENT_AGGREGATE_SHA256,
+        "private co-training aggregate content differs",
+    )
+    expected_distance = {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": [[0, 2], [2, 4]],
+        "semantic_blocks_by_source": {
+            "pushshapes_sim_u_socket": [[0, 2], [2, 4]],
+            "pushshapes_sim_chain_gripper": [[0, 2], [2, 4], [4, 5]],
+        },
+    }
+    _require(
+        _plain_mapping(config.evaluator.energy_score_provenance.distance_contract, label="co-training EnergyScore distance")
+        == expected_distance,
+        "co-training EnergyScore distance contract differs",
+    )
+    for prefix in ("evaluator.energy_score_provenance", "evaluator.action_flow_diagnostics.provenance"):
+        _exact(config, f"{prefix}.source_commit", expected_head)
+        _exact(config, f"{prefix}.normalization_sha256", normalization_hash)
+        _exact(config, f"{prefix}.split_manifest_sha256", split_hash)
+    for path, label in (
+        ("evaluator.artifact_root", "EnergyScore artifact root"),
+        ("evaluator.action_flow_diagnostics.artifact_root", "Action Flow diagnostic artifact root"),
+    ):
+        root = Path(str(_select(config, path))).expanduser().resolve()
+        _require(root == run_dir or run_dir in root.parents, f"{label} escapes smoke run")
+    return config, {
+        "config_sha256": config_hash,
+        "content_manifest_path": str(content_manifest_path),
+        "content_manifest_sha256": content_manifest_hash,
+        "dataset_content_aggregate_sha256": manifest_aggregate,
+        "energy_score_distance": expected_distance,
+        "native_error": None,
+        "normalization_path": str(normalization_path),
+        "normalization_sha256": normalization_hash,
+        "repo_head": actual_head,
+        "split_manifest_path": str(split_path),
+        "split_manifest_sha256": split_hash,
+    }
+
+
 def _validate_config(
     *,
     config_path: Path,
@@ -348,6 +610,21 @@ def _validate_config(
         method = validate_method_contract(config, experiment)
     except PreflightError as error:
         raise SmokeVerificationError(str(error)) from error
+    if method == PRIVATE_COTRAIN_METHOD:
+        return _validate_private_cotrain_config(
+            config=config,
+            config_path=config_path,
+            experiment=experiment,
+            run_dir=run_dir,
+            expected_head=expected_head,
+            expected_config_sha256=expected_config_sha256,
+            expected_split_sha256=expected_split_sha256,
+            expected_normalization_sha256=expected_normalization_sha256,
+            expected_content_manifest_sha256=expected_content_manifest_sha256,
+            expected_dataset_content_aggregate_sha256=(
+                expected_dataset_content_aggregate_sha256
+            ),
+        )
 
     _exact(config, "name", expected_name)
     _exact(
@@ -1031,13 +1308,14 @@ def _validate_gradient_route_manifest(
         expected_empty = method in {
             STOPGRAD_METHOD,
             STOPGRAD_UNITE_METHOD,
+            PRIVATE_COTRAIN_METHOD,
         } and pair == "FM__Reconstruction"
         _require(
             bool(names) is not expected_empty,
             f"unexpected shared gradient pathway: {pair}",
         )
 
-    if method == STOPGRAD_UNITE_METHOD:
+    if method in {STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD}:
         stage_prefixes = {
             "observation": "nets.pipeline.stages.1.",
             "encoder": "nets.pipeline.stages.4.",
@@ -1056,7 +1334,7 @@ def _validate_gradient_route_manifest(
         "Reconstruction": ("encoder", "decoder"),
         "ActionVelocity": ("observation", "encoder", "field", "decoder"),
     }
-    if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD}:
+    if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD}:
         expected_reachability["FM"] = ("observation", "field")
     elif method == GRAPH_METHOD:
         del expected_reachability["Reconstruction"]
@@ -1312,6 +1590,12 @@ def _validate_checkpoint(
             f"parameter count mismatch: {parameter_count} != "
             f"{expected_unite_count}",
         )
+    elif method == PRIVATE_COTRAIN_METHOD:
+        _require(
+            parameter_count == PRIVATE_COTRAIN_PARAMETER_COUNT,
+            f"parameter count mismatch: {parameter_count} != "
+            f"{PRIVATE_COTRAIN_PARAMETER_COUNT}",
+        )
     elif method in (LEGACY_METHOD, STOPGRAD_METHOD):
         expected_parameter_count = EXPECTED_PARAMETER_COUNT
         if config is not None and str(config.get("name", "")) == APPROVED_EXPERIMENTS[
@@ -1471,7 +1755,9 @@ def _validate_history(
     if method == LIKELIHOOD_METHOD:
         component_names = ("TotalLoss", "InteriorBridgeNLL", "BoundaryNLL")
     components = tuple(f"Train/ActionFlow/{name}" for name in component_names)
-    per_source_components = tuple(f"{name}/{SOURCE_LABEL}" for name in components)
+    per_source_components = tuple(
+        f"{name}/{source}" for source in SOURCE_LABELS for name in components
+    )
     gradient_labels = (
         ("InteriorBridgeNLL", "BoundaryNLL")
         if method == LIKELIHOOD_METHOD
@@ -1499,7 +1785,7 @@ def _validate_history(
             for pair in gradient_pairs
         ),
         "Train/MSE",
-        f"Train/MSE/{SOURCE_LABEL}",
+        *(f"Train/MSE/{source}" for source in SOURCE_LABELS),
         "Train/ActionFlow/Compute/FieldForwardCallsPerStep",
         "Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep",
         "Train/ActionFlow/Compute/DecoderJVPCallsPerStep",
@@ -1510,6 +1796,13 @@ def _validate_history(
     ]
     if method == LIKELIHOOD_METHOD:
         telemetry = [name for name in telemetry if "/Schedule/" not in name]
+    per_source_gradient_telemetry = tuple(
+        f"{name}/{source}"
+        for source in SOURCE_LABELS
+        for name in telemetry
+        if "/Gradient" in name
+    )
+    telemetry.extend(per_source_gradient_telemetry)
     if method == STOPGRAD_UNITE_METHOD:
         telemetry.extend(("Optimizer/LR/AdamW", "Optimizer/LR/Muon"))
     train_step, train = _complete_row(
@@ -1522,7 +1815,8 @@ def _validate_history(
         empty_pair = method in {
             STOPGRAD_METHOD,
             STOPGRAD_UNITE_METHOD,
-        } and name.endswith("/FM__Reconstruction")
+            PRIVATE_COTRAIN_METHOD,
+        } and "/FM__Reconstruction" in name
         if (
             "GradientNorm" in name
             or "GradientParameterCount" in name
@@ -1542,13 +1836,15 @@ def _validate_history(
     for name, expected in (
         (
             "Train/ActionFlow/Compute/FieldForwardCallsPerStep",
-            2.0 if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD} else 1.0,
+            2.0
+            if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD}
+            else 1.0,
         ),
         (
             "Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep",
             (
                 28.0
-                if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD}
+                if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD, PRIVATE_COTRAIN_METHOD}
                 else 15.0 if method == LIKELIHOOD_METHOD else 14.0
             ),
         ),
@@ -1580,7 +1876,7 @@ def _validate_history(
         ),
         "joint smoke step did not enable both delayed objectives",
     )
-    for suffix in ("", f"/{SOURCE_LABEL}"):
+    for suffix in ("", *(f"/{source}" for source in SOURCE_LABELS)):
         expected_total = (
             (
                 train[f"Train/ActionFlow/InteriorBridgeNLL{suffix}"]
@@ -1620,7 +1916,7 @@ def _validate_history(
                 == 0.0,
                 "warmup smoke step enabled a delayed objective",
             )
-            for suffix in ("", f"/{SOURCE_LABEL}"):
+            for suffix in ("", *(f"/{source}" for source in SOURCE_LABELS)):
                 expected_total = (
                     reconstruction_weight
                     * concrete[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
@@ -1646,34 +1942,45 @@ def _validate_history(
         "Valid/EnergyScoreAccuracy@32",
         "Valid/EnergyScoreDiversity@32",
     ):
-        validity.extend((base, f"{base}/{SOURCE_LABEL}"))
+        validity.append(base)
+        validity.extend(f"{base}/{source}" for source in SOURCE_LABELS)
     validity.extend(f"Valid/ActionFlow/{name}" for name in component_names)
     diagnostics = (
         "Valid/ActionFlow/CleanReconstructionMSE",
-        "Valid/ActionFlow/CleanReconstructionNativeMSE",
         "Valid/ActionFlow/Latent/clean/RMS",
         "Valid/ActionFlow/Latent/generated/EffectiveRank",
         "Valid/ActionFlow/DecoderJacobian/clean/spectral_norm_mean",
         "Valid/ActionFlow/DecodedFullNoise/token_radius_mean",
         "Valid/ActionFlow/DenoisingTrajectory/LatentMSE/t1000",
         "Valid/ActionFlow/DenoisingTrajectory/DecodedMSE/t0000",
-        "Valid/ActionFlow/DenoisingTrajectory/DecodedNativeMSE/t0000",
         "Valid/ActionFlow/Alignment/FinalLatentCosine/t1000",
         "Valid/ActionFlow/Alignment/CKA/encoder_00__field_00/t0500",
         "Valid/ActionFlow/Alignment/CKNNA/encoder_00__field_00/t0500",
     )
+    native_diagnostics_enabled = (
+        method != PRIVATE_COTRAIN_METHOD
+        and SOURCE_LABEL != "pushshapes_sim_chain_gripper"
+    )
+    if native_diagnostics_enabled:
+        diagnostics = (
+            *diagnostics,
+            "Valid/ActionFlow/CleanReconstructionNativeMSE",
+            "Valid/ActionFlow/DenoisingTrajectory/DecodedNativeMSE/t0000",
+        )
     if method == LIKELIHOOD_METHOD:
         diagnostics = ()
     elif method == GRAPH_METHOD:
         diagnostics = tuple(name for name in diagnostics if "/Alignment/CK" not in name)
-    diagnostics = (
-        *diagnostics,
-        *(
-            f"{name}/{SOURCE_LABEL}"
-            for name in diagnostics
-            if "NativeMSE" in name or "decoded_native_mse" in name
-        ),
-    )
+    if native_diagnostics_enabled:
+        diagnostics = (
+            *diagnostics,
+            *(
+                f"{name}/{source}"
+                for source in SOURCE_LABELS
+                for name in diagnostics
+                if "NativeMSE" in name or "decoded_native_mse" in name
+            ),
+        )
     valid_step, valid = _complete_row(
         rows,
         (*validity, *diagnostics),
@@ -1788,11 +2095,20 @@ def _validate_artifacts(
     identities: Mapping[str, Any],
     checkpoint: Mapping[str, Any],
 ) -> dict[str, Any]:
+    private_cotrain = str(config.get("name", "")) == APPROVED_EXPERIMENTS[
+        PRIVATE_COTRAIN_EXPERIMENT
+    ][0]
     chain = str(config.get("name", "")) == APPROVED_EXPERIMENTS[
         UNITE_H384_CHAIN_EXPERIMENT
     ][0]
-    action_dim = 5 if chain else 4
-    native_action_dim = 4 if chain else 3
+    domain_specs = (
+        {
+            "pushshapes_sim_chain_gripper": (5, 4),
+            "pushshapes_sim_u_socket": (4, 3),
+        }
+        if private_cotrain
+        else {SOURCE_LABEL: (5, 4) if chain else (4, 3)}
+    )
     split_sha256 = str(identities["split_manifest_sha256"])
     energy_root = _artifact_root(config, "evaluator.artifact_root", run_dir)
     energy_path, energy = _step_two_artifact(energy_root, label="EnergyScore")
@@ -1813,74 +2129,70 @@ def _validate_artifacts(
         energy.get("seed_bank_sha256") == seed_hash,
         "EnergyScore seed-bank hash mismatch",
     )
-    expected_distance = (
-        {
-            "space": "normalized_action_chunk",
-            "formula": "mean_equal_weight_semantic_block_rms",
-            "semantic_blocks": [[0, 2], [2, 4], [4, 5]],
-        }
-        if chain
-        else usocket_energy_distance_metadata(USOCKET_ENERGY_DISTANCE_CONFIG)
-    )
+    expected_distance = identities["energy_score_distance"]
     _require(
         energy.get("distance") == expected_distance, "EnergyScore distance differs"
     )
     _require(
-        set(energy.get("domains", {})) == {SOURCE_LABEL},
+        set(energy.get("domains", {})) == set(domain_specs),
         "EnergyScore artifact source mismatch",
     )
-    domain = energy["domains"][SOURCE_LABEL]
     validation_batch_size = int(
         config.evaluator.energy_score_validation_view.per_rank_batch_size
     )
-    predictions = domain.get("predictions")
-    targets = domain.get("targets")
-    native_predictions = domain.get("native_predictions")
-    native_targets = domain.get("native_targets")
-    _require(
-        torch.is_tensor(predictions)
-        and tuple(predictions.shape) == (32, validation_batch_size, 16, action_dim),
-        "EnergyScore predictions have the wrong validation-batch shape",
-    )
-    _require(
-        torch.is_tensor(targets)
-        and tuple(targets.shape) == (validation_batch_size, 16, action_dim),
-        "EnergyScore targets have the wrong validation-batch shape",
-    )
-    _require(
-        torch.is_tensor(native_predictions)
-        and tuple(native_predictions.shape)
-        == (32, validation_batch_size, 16, native_action_dim),
-        "typed EnergyScore native predictions have the wrong shape",
-    )
-    _require(
-        torch.is_tensor(native_targets)
-        and tuple(native_targets.shape) == (validation_batch_size, 16, native_action_dim),
-        "typed EnergyScore native targets have the wrong shape",
-    )
-    conditions = domain.get("condition_ids")
-    _require(
-        isinstance(conditions, list) and len(conditions) == validation_batch_size,
-        "EnergyScore condition identities are incomplete",
-    )
-    for index, condition in enumerate(conditions):
+    conditions_by_source = {}
+    for source, (action_dim, native_action_dim) in domain_specs.items():
+        domain = energy["domains"][source]
+        predictions = domain.get("predictions")
+        targets = domain.get("targets")
+        native_predictions = domain.get("native_predictions")
+        native_targets = domain.get("native_targets")
         _require(
-            isinstance(condition, Mapping)
-            and condition.get("batch_position") == index
-            and isinstance(condition.get("episode_hash"), str)
-            and bool(condition["episode_hash"])
-            and isinstance(condition.get("frame_index"), int)
-            and condition["frame_index"] >= 0,
-            "EnergyScore condition identity order differs",
-        )
-        recorded_target = _validate_sha256(
-            str(condition.get("normalized_target_sha256", "")),
-            f"EnergyScore condition {index} target SHA-256",
+            torch.is_tensor(predictions)
+            and tuple(predictions.shape) == (32, validation_batch_size, 16, action_dim),
+            f"EnergyScore predictions have the wrong shape for {source}",
         )
         _require(
-            recorded_target == _target_tensor_sha256(targets[index]),
-            f"EnergyScore condition {index} target identity mismatch",
+            torch.is_tensor(targets)
+            and tuple(targets.shape) == (validation_batch_size, 16, action_dim),
+            f"EnergyScore targets have the wrong shape for {source}",
         )
+        _require(
+            torch.is_tensor(native_predictions)
+            and tuple(native_predictions.shape)
+            == (32, validation_batch_size, 16, native_action_dim),
+            f"typed EnergyScore native predictions have the wrong shape for {source}",
+        )
+        _require(
+            torch.is_tensor(native_targets)
+            and tuple(native_targets.shape)
+            == (validation_batch_size, 16, native_action_dim),
+            f"typed EnergyScore native targets have the wrong shape for {source}",
+        )
+        conditions = domain.get("condition_ids")
+        _require(
+            isinstance(conditions, list) and len(conditions) == validation_batch_size,
+            f"EnergyScore condition identities are incomplete for {source}",
+        )
+        for index, condition in enumerate(conditions):
+            _require(
+                isinstance(condition, Mapping)
+                and condition.get("batch_position") == index
+                and isinstance(condition.get("episode_hash"), str)
+                and bool(condition["episode_hash"])
+                and isinstance(condition.get("frame_index"), int)
+                and condition["frame_index"] >= 0,
+                f"EnergyScore condition identity order differs for {source}",
+            )
+            recorded_target = _validate_sha256(
+                str(condition.get("normalized_target_sha256", "")),
+                f"EnergyScore condition {index} target SHA-256 for {source}",
+            )
+            _require(
+                recorded_target == _target_tensor_sha256(targets[index]),
+                f"EnergyScore condition {index} target identity mismatch for {source}",
+            )
+        conditions_by_source[source] = conditions
     expected_energy_view = _plain_mapping(
         config.evaluator.energy_score_validation_view,
         label="EnergyScore validation view",
@@ -1963,7 +2275,7 @@ def _validate_artifacts(
         "typed EnergyScore identity validation view differs",
     )
     _require(
-        energy_identity.get("validation_conditions") == {SOURCE_LABEL: conditions},
+        energy_identity.get("validation_conditions") == conditions_by_source,
         "typed EnergyScore validation conditions differ",
     )
     binding = energy_identity.get("checkpoint_binding")
@@ -2011,7 +2323,7 @@ def _validate_artifacts(
     )
     _require(diagnostic.get("schema_version") == 1, "wrong diagnostic schema")
     _require(
-        set(diagnostic.get("sources", {})) == {SOURCE_LABEL},
+        set(diagnostic.get("sources", {})) == set(domain_specs),
         "Action Flow diagnostic source mismatch",
     )
     _require(
@@ -2025,7 +2337,9 @@ def _validate_artifacts(
         _canonical_json_sha256(identity) == identity_hash,
         "Action Flow diagnostic identity hash mismatch",
     )
-    expected_native_error = None if chain else USOCKET_NATIVE_ERROR_CONFIG
+    expected_native_error = (
+        None if chain or private_cotrain else USOCKET_NATIVE_ERROR_CONFIG
+    )
     _require(
         identity.get("native_error") == expected_native_error,
         "Action Flow diagnostic native-error identity differs",
@@ -2062,11 +2376,6 @@ def _validate_artifacts(
         },
         "Action Flow diagnostic provenance identity differs",
     )
-    source_payload = diagnostic["sources"][SOURCE_LABEL]
-    computed = source_payload.get("computed")
-    _require(isinstance(computed, Mapping), "diagnostic computed payload missing")
-    clean_native = computed.get("clean_reconstruction_native_mse_by_condition")
-    trajectory_native = computed.get("trajectory_decoded_native_mse_by_condition")
     diagnostic_steps = int(
         _select(
             config,
@@ -2078,40 +2387,60 @@ def _validate_artifacts(
         diagnostic_provenance.get("sampler_steps") == diagnostic_steps,
         "Action Flow diagnostic sampler-step provenance differs",
     )
-    if chain:
-        _require(clean_native is None, "Chain diagnostic unexpectedly has clean native errors")
-        _require(trajectory_native is None, "Chain diagnostic unexpectedly has trajectory native errors")
-    else:
+    for source in domain_specs:
+        source_payload = diagnostic["sources"][source]
+        computed = source_payload.get("computed")
         _require(
-            torch.is_tensor(clean_native) and tuple(clean_native.shape) == (16,),
-            "diagnostic clean native errors have wrong shape",
+            isinstance(computed, Mapping),
+            f"diagnostic computed payload missing for {source}",
         )
+        clean_native = computed.get("clean_reconstruction_native_mse_by_condition")
+        trajectory_native = computed.get("trajectory_decoded_native_mse_by_condition")
+        native_disabled = private_cotrain or source == "pushshapes_sim_chain_gripper"
+        if native_disabled:
+            _require(clean_native is None, f"{source} unexpectedly has clean native errors")
+            _require(
+                trajectory_native is None,
+                f"{source} unexpectedly has trajectory native errors",
+            )
+        else:
+            _require(
+                torch.is_tensor(clean_native) and tuple(clean_native.shape) == (16,),
+                f"diagnostic clean native errors have wrong shape for {source}",
+            )
+            _require(
+                torch.is_tensor(trajectory_native)
+                and tuple(trajectory_native.shape) == (diagnostic_steps + 1, 16),
+                f"diagnostic trajectory native errors have wrong shape for {source}",
+            )
+        fixed_metrics = computed.get("fixed_level_metrics")
         _require(
-            torch.is_tensor(trajectory_native)
-            and tuple(trajectory_native.shape) == (diagnostic_steps + 1, 16),
-            "diagnostic trajectory native errors have wrong shape",
+            isinstance(fixed_metrics, Mapping)
+            and set(fixed_metrics) == set(NATIVE_LEVELS),
+            f"diagnostic fixed-level bins differ for {source}",
         )
-    fixed_metrics = computed.get("fixed_level_metrics")
-    _require(
-        isinstance(fixed_metrics, Mapping) and set(fixed_metrics) == set(NATIVE_LEVELS),
-        "diagnostic fixed-level bins differ",
-    )
-    for label in NATIVE_LEVELS:
-        values = fixed_metrics[label]
-        _require(isinstance(values, Mapping), f"diagnostic {label} is malformed")
-        for metric in (
-            "state_decoded_native_mse",
-            "predicted_clean_decoded_native_mse",
-            "final_decoded_native_mse",
-        ):
-            value = values.get(metric)
-            if chain:
-                _require(value is None, f"Chain diagnostic unexpectedly has {metric}/{label}")
-            else:
-                _require(
-                    torch.is_tensor(value) and tuple(value.shape) == (16,),
-                    f"diagnostic {metric}/{label} has wrong shape",
-                )
+        for label in NATIVE_LEVELS:
+            values = fixed_metrics[label]
+            _require(
+                isinstance(values, Mapping),
+                f"diagnostic {label} is malformed for {source}",
+            )
+            for metric in (
+                "state_decoded_native_mse",
+                "predicted_clean_decoded_native_mse",
+                "final_decoded_native_mse",
+            ):
+                value = values.get(metric)
+                if native_disabled:
+                    _require(
+                        value is None,
+                        f"{source} unexpectedly has {metric}/{label}",
+                    )
+                else:
+                    _require(
+                        torch.is_tensor(value) and tuple(value.shape) == (16,),
+                        f"diagnostic {metric}/{label} has wrong shape for {source}",
+                    )
     sidecar = Path(f"{diagnostic_path}.sha256")
     _require(sidecar.is_file(), f"missing diagnostic SHA sidecar: {sidecar}")
     sidecar_payload = json.loads(sidecar.read_text())
@@ -2245,12 +2574,20 @@ def verify_smoke(
     expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
-    global SOURCE_LABEL
-    SOURCE_LABEL = (
-        "pushshapes_sim_chain_gripper"
-        if experiment == UNITE_H384_CHAIN_EXPERIMENT
-        else "pushshapes_sim_u_socket"
-    )
+    global SOURCE_LABEL, SOURCE_LABELS
+    if experiment == PRIVATE_COTRAIN_EXPERIMENT:
+        SOURCE_LABELS = (
+            "pushshapes_sim_chain_gripper",
+            "pushshapes_sim_u_socket",
+        )
+        SOURCE_LABEL = SOURCE_LABELS[0]
+    else:
+        SOURCE_LABEL = (
+            "pushshapes_sim_chain_gripper"
+            if experiment == UNITE_H384_CHAIN_EXPERIMENT
+            else "pushshapes_sim_u_socket"
+        )
+        SOURCE_LABELS = (SOURCE_LABEL,)
     run_dir = Path(run_dir).expanduser().resolve(strict=True)
     _require(run_dir.is_dir(), f"run directory is not a directory: {run_dir}")
     expected_head = str(expected_head).lower()

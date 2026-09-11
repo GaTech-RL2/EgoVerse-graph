@@ -194,6 +194,8 @@ def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():
     source = _source()
     assert "AF_CACHED_DATASET_VALIDATION" in source
     assert "AF_EXPECTED_CACHED_DATASET_VALIDATION_SHA256" in source
+    assert "cached co-training dataset validation status differs" in source
+    assert "cached co-training cross-domain overlap is nonzero" in source
     assert 'payload["status"] == "DATASET_VALIDATED"' in source
     assert "'~logger'" in source
     assert "logger=null" not in source

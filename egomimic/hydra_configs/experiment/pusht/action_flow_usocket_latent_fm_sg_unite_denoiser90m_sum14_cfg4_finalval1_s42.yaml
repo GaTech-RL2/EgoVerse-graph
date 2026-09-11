@@ -3,13 +3,17 @@ defaults:
   - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
   - _self_
 
-name: action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_val8_s42
-description: "Action Flow with unchanged H384 codec and a 90.4M H640 denoiser"
+name: action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42
+description: "Action Flow with unchanged H384 codec, a 90.4M H640 denoiser, and terminal-only full validation"
 
 model:
   denoiser_hidden_dim: 640
   denoiser_num_heads: 16
   gradient_checkpointing: false
+
+trainer:
+  val_check_interval: 150000
+  limit_val_batches: 1
 
 run_provenance:
   architecture:
@@ -19,3 +23,9 @@ run_provenance:
     total_parameters: 155626932
     gradient_checkpointing: false
     attention: pytorch_sdpa_flash_auto_except_decoder_jvp_math
+  validation:
+    interval_optimizer_steps: 150000
+    limit_batches: 1
+    per_rank_batch_size: 32
+    world_size: 1
+    global_batch_size: 32

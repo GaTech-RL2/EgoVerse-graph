@@ -1,0 +1,120 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/unite_cotrain_usocket_chain_val01_h16
+  - override /model: bf/action_flow_cotrain_usocket_chain_unite_arch_denoiser90m_adamw
+  - _self_
+
+name: action_flow_cotrain_usocket_chain_obstacle_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42
+description: "Action Flow co-training: U-Socket clean plus ChainGripper obstacle points6"
+
+train:
+  action_flow_method: latent_fm_stopgrad
+
+trainer:
+  max_steps: 240000
+  val_check_interval: 240000
+  limit_val_batches: 0
+  precision: bf16
+  log_every_n_steps: 10
+
+logger:
+  wandb:
+    project: pushshapes-action-flow
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 1.0
+  num_workers: 4
+  precomputed_norm_path: null
+
+callbacks:
+  model_checkpoint:
+    filename: "epoch-{epoch}-step-{step}"
+    save_last: link
+    save_top_k: -1
+    every_n_train_steps: 40000
+    every_n_epochs: null
+  ema: null
+
+evaluator:
+  action_flow_diagnostics:
+    enabled: true
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    max_batches_per_rank: 1
+    max_samples: 16
+    jacobian_samples: 2
+    capture_activations: true
+    activation_layer_map: {0: 0, 1: 11}
+    cknna_k: 10
+    artifact_root: ${paths.output_dir}/validation_predictions/action_flow_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_rank
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 16
+      world_size: 1
+    provenance:
+      source_commit: ${run_provenance.source_commit}
+      normalization_sha256: ${run_provenance.normalization_sha256}
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      clean_endpoint: t0
+      gaussian_endpoint: t1
+      latent_shape: [8, 16]
+      flow_samples_per_content: ${model.flow_samples_per_content}
+      condition_dropout_probability: ${model.condition_dropout_probability}
+      sampler: reverse_euler
+      sampler_steps: ${model.num_inference_steps}
+      fixed_level_coupling: one_clean_latent_and_one_gaussian_per_condition
+      decoder_jacobian_evaluation: declared_bridge_state_at_each_fixed_noise_level
+      activation_capture: real_forward_hooks_without_replay_or_replacement
+
+run_provenance:
+  architecture:
+    unite_usage: route_selected_private_codecs_shared_denoiser
+    latent_shape: [8, 16]
+    encoder: {hidden_dim: 384, depth: 12, num_heads: 12}
+    denoiser: {hidden_dim: 640, depth: 12, num_heads: 16}
+    decoder: {hidden_dim: 384, depth: 12, num_heads: 12, per_route: true}
+    separate_parameters: true
+    gradient_checkpointing: false
+    attention: pytorch_sdpa_flash_auto_except_decoder_jvp_math
+  objective:
+    method: latent_fm_stopgrad
+    flow_clean_gradient_mode: all_stopgrad
+    action_velocity_clean_gradient_mode: full
+    reconstruction_is_optimizer_objective: true
+    flow_weight: 1.0
+    reconstruction_weight: 1.0
+    action_velocity_weight: 1.0
+    flow_samples_per_content: 14
+    flow_aggregation: sum_samples
+    decoded_noise_scale_weight: 0.0
+  validation:
+    interval_optimizer_steps: 240000
+    limit_batches: 0
+    full_run_enabled: false
+    smoke_limit_batches: 1
+  optimizer:
+    type: adamw
+    base_lr: 1.0e-5
+    eta_min: 1.0e-6
+    warmup_steps: 8000
+    max_steps: 240000
+    weight_decay: 1.0e-4
+    fresh_initialization: true
+  recipe:
+    normalization: quantile
+    timestep_sampling: uniform
+    condition_dropout_probability: 0.3
+    sampler: reverse_euler
+    sampler_steps: 16
+    classifier_free_guidance: false
+    checkpoints_every_optimizer_steps: 40000
+  action_contract:
+    representations:
+      pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
+      pushshapes_sim_chain_gripper: left_xy_center_xy_right_xy_points6
+    cotrain:
+      sampling: one_batch_per_route_per_step
+      loss: mean_over_routes

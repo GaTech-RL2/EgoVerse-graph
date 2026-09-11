@@ -24,6 +24,7 @@ def _compose(row, *extra):
         "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
         "action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42",
         "action_flow_bc_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42",
+        "action_flow_bc_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_adamw_lr1e5_batch64_s42",
         "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42",
         "action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
     ),
@@ -136,6 +137,20 @@ def test_action_flow_denoiser90m_adamw_reuses_only_unite_modules(monkeypatch):
     # launch row cannot pass while remaining non-executable.
     pipeline = instantiate(cfg.model.pipeline, device="cpu")
     assert len(pipeline.pipeline.stages) == 8
+
+
+def test_action_flow_unite_arch_batch64_changes_only_train_batch(monkeypatch):
+    monkeypatch.setenv("PUSHSHAPES_DATA_ROOT", "/verified/cluster/datasets/Tsim_v2")
+    cfg = _compose(
+        "action_flow_bc_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_adamw_lr1e5_batch64_s42"
+    )
+
+    assert cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size == 64
+    assert cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size == 16
+    assert cfg.run_provenance.training.effective_global_batch_size == 64
+    assert cfg.model.optimizer.lr == pytest.approx(1.0e-5)
+    assert cfg.trainer.max_steps == 240_000
+    assert cfg.model.flow_samples_per_content == 14
 
 
 def test_released_unite_cotrain_core_row_composes(monkeypatch):

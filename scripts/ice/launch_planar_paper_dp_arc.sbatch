@@ -465,7 +465,7 @@ import math
 import pathlib
 import sys
 
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, open_dict
 
 (
     path,
@@ -781,6 +781,11 @@ from omegaconf import OmegaConf
     chain_dataset_names_sha256,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(resolved_config_path)
+# Preflight runs before the launcher's controlled GPU ``srun``.  Force this
+# parameter/shape-only instantiation onto CPU so it cannot contend for or bind
+# an arbitrary device when several Slurm jobs share a multi-GPU node.
+with open_dict(cfg.model.pipeline):
+    cfg.model.pipeline.device = "cpu"
 model = instantiate(cfg.model.pipeline)
 if not hasattr(model, "nets"):
     raise TypeError("configured PipelineAlgo must expose its wrapped nn.Module as .nets")
@@ -818,6 +823,7 @@ payload = {
     "parameters": {
         "total": total_parameters,
         "trainable": trainable_parameters,
+        "preflight_device": "cpu",
     },
     "model_contract": {
         "normalized_action_dim": int(cfg.model.pipeline.stages[2].action_dim),

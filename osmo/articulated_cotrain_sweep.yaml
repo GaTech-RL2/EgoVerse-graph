@@ -51,6 +51,13 @@ workflow:
       WORKDIR: /workspace
       CORPUS: s3://rldb/staged/pushshapes_articulated/articulated-20260909
       EXP_GROUP: pusht
+      # Validation cost scales with the number of co-trained domains. At
+      # limit_val_batches=80 across SEVEN domains, each pass took 4.3 h of
+      # DDPM-100 sampling at 260M -- 73% of wall-clock, projecting 5.8 days per
+      # run. It is diagnostic only here (monitor is None, so it selects no
+      # checkpoint), so it is cut rather than the step budget.
+      VAL_BATCHES: "{{val_batches}}"
+      VAL_INTERVAL: "{{val_interval}}"
       TRAIN_EMB: "u_socket gripper chain_gripper suction triangle flipper spring"
       HELD_EMB: "umi scoop"
       SHARDS: "24"
@@ -299,6 +306,8 @@ workflow:
               $BATCH_OV \
               norm_stats.precomputed_norm_path="$NORM_ROOT/$EXP/norm_stats/norm_stats.json" \
               trainer.max_steps="$MAX_STEPS" \
+              trainer.limit_val_batches="$VAL_BATCHES" \
+              trainer.val_check_interval="$VAL_INTERVAL" \
               callbacks.model_checkpoint.every_n_epochs=0 \
               +callbacks.model_checkpoint.every_n_train_steps="$CKPT_EVERY" \
               callbacks.model_checkpoint.save_top_k=-1 \

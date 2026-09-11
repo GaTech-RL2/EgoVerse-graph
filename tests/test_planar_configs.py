@@ -194,6 +194,18 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
             assert dataset.resolver.key_map.action_horizon == 40
             assert dataset.resolver.key_map.action_target_offset == 1
             assert dataset.resolver.transform_list.action_target_offset == 1
+            provenance = cfg.evaluator.energy_score_provenance
+            assert provenance.action_representation == (
+                "arc_waypoint_x_y_cos_theta_sin_theta_progress"
+            )
+            assert provenance.prediction_horizon == 17
+            assert provenance.distance_contract is None
+            assert cfg.run_provenance.content_manifest_sha256 == (
+                "a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4a878afb20b39733761"
+            )
+            assert cfg.run_provenance.dataset_content_aggregate_sha256 == (
+                "80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52"
+            )
         assert OmegaConf.to_container(cfg.run_provenance.action_contract) == expected_contract
     elif "dp_standard" in row:
         assert "DDIMScheduler" in model_yaml

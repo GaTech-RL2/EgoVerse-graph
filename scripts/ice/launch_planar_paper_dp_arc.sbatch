@@ -334,6 +334,11 @@ if test -n "${ICE_NORM_STATS_PATH:-}"; then
     EFFECTIVE_NORM_STATS_FILE=$ICE_NORM_STATS_PATH
   fi
   test -s "$EFFECTIVE_NORM_STATS_FILE" || die "precomputed norm_stats.json is unavailable"
+  required ICE_EXPECTED_NORM_STATS_SHA256
+  [[ "$ICE_EXPECTED_NORM_STATS_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
+    die "ICE_EXPECTED_NORM_STATS_SHA256 must be a lowercase SHA-256"
+  test "$(sha256sum "$EFFECTIVE_NORM_STATS_FILE" | awk '{print $1}')" = \
+    "$ICE_EXPECTED_NORM_STATS_SHA256" || die "precomputed norm_stats hash mismatch"
   BASE_OVERRIDES+=("norm_stats.precomputed_norm_path=$ICE_NORM_STATS_PATH" norm_stats.save_cache_dir=null)
 elif test "$RESTART_COUNT" -gt 0; then
   EFFECTIVE_NORM_STATS_FILE=$ICE_OUTPUT_DIR/norm_stats/norm_stats.json
@@ -343,6 +348,14 @@ elif test "$RESTART_COUNT" -gt 0; then
 else
   EFFECTIVE_NORM_STATS_FILE=
   BASE_OVERRIDES+=(norm_stats.precomputed_norm_path=null "norm_stats.save_cache_dir=$ICE_OUTPUT_DIR")
+fi
+if test "$ICE_LAUNCH_MODE" = run && test "$ICE_FAMILY" = paper_dp && \
+    test -z "$EFFECTIVE_NORM_STATS_FILE"; then
+  die "Paper DP run mode requires hash-pinned precomputed normalization for typed EnergyScore provenance"
+fi
+BASE_OVERRIDES+=("++run_provenance.source_commit=$ICE_EXPECTED_HEAD")
+if test -n "$EFFECTIVE_NORM_STATS_FILE"; then
+  BASE_OVERRIDES+=("++run_provenance.normalization_sha256=$ICE_EXPECTED_NORM_STATS_SHA256")
 fi
 
 PREFLIGHT_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/egoverse-planar-bc-preflight.XXXXXX")
@@ -478,6 +491,15 @@ if family == "paper_dp":
         assert int(action_contract.waypoint_count) == 16
         assert int(action_contract.timing_rows) == 1
         assert int(action_contract.replan_every) == 1
+        provenance = cfg.evaluator.energy_score_provenance
+        assert provenance.source_commit == cfg.run_provenance.source_commit
+        assert provenance.normalization_sha256 == cfg.run_provenance.normalization_sha256
+        assert provenance.split_manifest_sha256 == split_manifest_sha256
+        assert provenance.dataset_content.manifest_sha256 == cfg.run_provenance.content_manifest_sha256
+        assert provenance.dataset_content.aggregate_sha256 == cfg.run_provenance.dataset_content_aggregate_sha256
+        assert provenance.action_representation == "arc_waypoint_x_y_cos_theta_sin_theta_progress"
+        assert int(provenance.prediction_horizon) == 17
+        assert provenance.distance_contract is None
 elif family == "unite":
     assert experiment == "pusht/unite_usocket_register_sweep_val01_h16"
     assert cfg.name == "unite_usocket_register_sweep_h16"

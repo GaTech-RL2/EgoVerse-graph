@@ -14,7 +14,9 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-DOMAIN = "pushshapes_sim_u_socket"
+DEFAULT_DOMAIN = "pushshapes_sim_u_socket"
+# Backward-compatible public name used by existing manifests/tests.
+DOMAIN = DEFAULT_DOMAIN
 SPLIT_SEED = 42
 VALID_RATIO = 0.01
 SPLIT_ALGORITHM = (
@@ -66,7 +68,9 @@ def _id_list(value: Any, label: str) -> list[str]:
     return value
 
 
-def validate_manifest_structure(manifest: Mapping[str, Any]) -> dict[str, Any]:
+def validate_manifest_structure(
+    manifest: Mapping[str, Any], domain_name: str = DEFAULT_DOMAIN
+) -> dict[str, Any]:
     if manifest.get("schema_version") != 1 or manifest.get("status") != "PASS":
         raise RuntimeError("split manifest must be a schema-1 PASS artifact")
     if manifest.get("split_algorithm") != SPLIT_ALGORITHM:
@@ -80,9 +84,9 @@ def validate_manifest_structure(manifest: Mapping[str, Any]) -> dict[str, Any]:
     _digest(manifest.get("generator_sha256"), "generator_sha256")
 
     domains = manifest.get("domains")
-    if not isinstance(domains, Mapping) or set(domains) != {DOMAIN}:
-        raise RuntimeError(f"split manifest must contain only {DOMAIN}")
-    domain = domains[DOMAIN]
+    if not isinstance(domains, Mapping) or domain_name not in domains:
+        raise RuntimeError(f"split manifest does not contain {domain_name}")
+    domain = domains[domain_name]
     if not isinstance(domain, Mapping):
         raise RuntimeError("split manifest domain must be an object")
     source_root = domain.get("folder_path")
@@ -125,7 +129,7 @@ def validate_manifest_structure(manifest: Mapping[str, Any]) -> dict[str, Any]:
     _digest(domain.get("train_resolved_paths_sha256"), "train path SHA-256")
     _digest(domain.get("valid_resolved_paths_sha256"), "valid path SHA-256")
     return {
-        "domain": DOMAIN,
+        "domain": domain_name,
         "source_dataset_root": source_root,
         "inventory": inventory,
         "train": train,
@@ -140,9 +144,10 @@ def validate_physical_inventory(
     entries: Sequence[tuple[str | Path, str]],
     dataset_root: Path,
     *,
+    domain_name: str = DEFAULT_DOMAIN,
     excluded_deleted_paths: Iterable[str | Path] = (),
 ) -> dict[str, Any]:
-    expected = validate_manifest_structure(manifest)
+    expected = validate_manifest_structure(manifest, domain_name)
     root = dataset_root.expanduser().resolve(strict=True)
     if not root.is_dir():
         raise RuntimeError(f"dataset root is not a directory: {root}")
@@ -242,6 +247,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo", required=True, type=Path)
     parser.add_argument("--dataset-root", required=True, type=Path)
     parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument("--domain", default=DEFAULT_DOMAIN)
     parser.add_argument("--expected-manifest-sha256", required=True)
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()
@@ -304,6 +310,7 @@ def main() -> int:
         manifest,
         entries,
         root,
+        domain_name=args.domain,
         excluded_deleted_paths=excluded_deleted_paths,
     )
     training_train, training_valid = split_dataset_names(

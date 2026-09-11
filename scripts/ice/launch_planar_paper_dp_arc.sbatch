@@ -75,6 +75,7 @@ ICE_WANDB_NAME=${ICE_WANDB_NAME:-$ICE_WANDB_RUN_ID}
 ICE_WANDB_GROUP=${ICE_WANDB_GROUP:-usocket-paper-dp-arc-d40-m16-r24}
 ICE_WANDB_TAGS=${ICE_WANDB_TAGS:-'[pushshapes,u-socket,paper-dp,arc,d40,m16,r24,ice]'}
 ICE_FAMILY=unite
+ICE_COTRAIN=false
 ICE_WORLD_SIZE=1
 ICE_TRAINER_STRATEGY=auto
 ICE_UNITE_FAST=${ICE_UNITE_FAST:-false}
@@ -140,6 +141,16 @@ case "$ICE_EXPERIMENT:$ICE_MODEL" in
     ICE_UNITE_FAST=false
     ICE_UNITE_DIAGNOSTICS=false
     ;;
+  pusht/planar_v2_cotrain_obstacle_paper_dp:none|\
+  pusht/planar_v2_cotrain_obstacle_arc_duration_D80_M56_R26deg_paper:none|\
+  pusht/planar_v2_cotrain_obstacle_arc_stacked_D80_M56_R26deg_paper:none|\
+  pusht/planar_v2_cotrain_obstacle_arc_duration_D80_M16_R26deg_paper:none|\
+  pusht/planar_v2_cotrain_obstacle_arc_stacked_D80_M16_R26deg_paper:none)
+    ICE_FAMILY=paper_dp
+    ICE_COTRAIN=true
+    ICE_UNITE_FAST=false
+    ICE_UNITE_DIAGNOSTICS=false
+    ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_flow42_s42) ;;
   pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt16_s42) ;;
@@ -149,6 +160,15 @@ case "$ICE_EXPERIMENT:$ICE_MODEL" in
     ;;
   *) die "unsupported Paper DP, UNITE, or action-latent experiment/model row" ;;
 esac
+if test "$ICE_COTRAIN" = true; then
+  for variable in \
+    ICE_CHAIN_DATASET_DIR ICE_CHAIN_EXPECTED_DATASET_COUNT \
+    ICE_CHAIN_EXPECTED_DATASET_NAMES_SHA256 ICE_CHAIN_EXPECTED_TRAIN_COUNT \
+    ICE_CHAIN_EXPECTED_TRAIN_NAMES_SHA256 ICE_CHAIN_EXPECTED_VALID_COUNT \
+    ICE_CHAIN_EXPECTED_VALID_NAMES_SHA256; do
+    required "$variable"
+  done
+fi
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 [[ "$ICE_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || die "ICE_EXPECTED_HEAD must be a full commit"
 [[ "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
@@ -170,6 +190,16 @@ positive_integer ICE_VALID_BATCH_SIZE "$ICE_VALID_BATCH_SIZE"
 positive_integer ICE_EXPECTED_DATASET_COUNT "$ICE_EXPECTED_DATASET_COUNT"
 positive_integer ICE_EXPECTED_TRAIN_COUNT "$ICE_EXPECTED_TRAIN_COUNT"
 positive_integer ICE_EXPECTED_VALID_COUNT "$ICE_EXPECTED_VALID_COUNT"
+if test "$ICE_COTRAIN" = true; then
+  for digest in \
+    ICE_CHAIN_EXPECTED_DATASET_NAMES_SHA256 ICE_CHAIN_EXPECTED_TRAIN_NAMES_SHA256 \
+    ICE_CHAIN_EXPECTED_VALID_NAMES_SHA256; do
+    [[ "${!digest}" =~ ^[0-9a-f]{64}$ ]] || die "$digest must be a lowercase SHA-256"
+  done
+  positive_integer ICE_CHAIN_EXPECTED_DATASET_COUNT "$ICE_CHAIN_EXPECTED_DATASET_COUNT"
+  positive_integer ICE_CHAIN_EXPECTED_TRAIN_COUNT "$ICE_CHAIN_EXPECTED_TRAIN_COUNT"
+  positive_integer ICE_CHAIN_EXPECTED_VALID_COUNT "$ICE_CHAIN_EXPECTED_VALID_COUNT"
+fi
 positive_integer ICE_GRADIENT_TELEMETRY_CADENCE "$ICE_GRADIENT_TELEMETRY_CADENCE"
 positive_integer ICE_MAX_RESTARTS "$ICE_MAX_RESTARTS"
 positive_integer ICE_SEED "$ICE_SEED"
@@ -197,6 +227,10 @@ absolute_path ICE_PREFLIGHT_RESULT "$ICE_PREFLIGHT_RESULT"
 test -d "$ICE_REPO" || die "ICE_REPO is not a directory"
 test -x "$ICE_PYTHON" || die "ICE_PYTHON is not executable"
 test -d "$ICE_DATASET_DIR" || die "ICE_DATASET_DIR is not a directory"
+if test "$ICE_COTRAIN" = true; then
+  absolute_path ICE_CHAIN_DATASET_DIR "$ICE_CHAIN_DATASET_DIR"
+  test -d "$ICE_CHAIN_DATASET_DIR" || die "ICE_CHAIN_DATASET_DIR is not a directory"
+fi
 test -d "$ICE_TOOL_DIR" || die "ICE_TOOL_DIR is not a directory"
 test -s "$ICE_REQUEUE_RUNNER" || die "generic requeue runner is unavailable"
 test -s "$ICE_GPU_PROBE" || die "GPU probe is unavailable"
@@ -283,6 +317,26 @@ BASE_OVERRIDES=(
   "logger.wandb.tags=$ICE_WANDB_TAGS"
   "seed=$ICE_SEED"
 )
+if test "$ICE_COTRAIN" = true; then
+  BASE_OVERRIDES+=(
+    "data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$ICE_CHAIN_DATASET_DIR"
+    "data.valid_datasets.pushshapes_sim_chain_gripper.resolver.folder_path=$ICE_CHAIN_DATASET_DIR"
+    "data.train_datasets.pushshapes_sim_chain_gripper.resolver.expected_episode_count=$ICE_CHAIN_EXPECTED_DATASET_COUNT"
+    "data.valid_datasets.pushshapes_sim_chain_gripper.resolver.expected_episode_count=$ICE_CHAIN_EXPECTED_DATASET_COUNT"
+    "data.train_datasets.pushshapes_sim_chain_gripper.resolver.expected_episode_names_sha256=$ICE_CHAIN_EXPECTED_DATASET_NAMES_SHA256"
+    "data.valid_datasets.pushshapes_sim_chain_gripper.resolver.expected_episode_names_sha256=$ICE_CHAIN_EXPECTED_DATASET_NAMES_SHA256"
+    "data.train_datasets.pushshapes_sim_chain_gripper.expected_train_episode_count=$ICE_CHAIN_EXPECTED_TRAIN_COUNT"
+    "data.valid_datasets.pushshapes_sim_chain_gripper.expected_train_episode_count=$ICE_CHAIN_EXPECTED_TRAIN_COUNT"
+    "data.train_datasets.pushshapes_sim_chain_gripper.expected_train_episode_names_sha256=$ICE_CHAIN_EXPECTED_TRAIN_NAMES_SHA256"
+    "data.valid_datasets.pushshapes_sim_chain_gripper.expected_train_episode_names_sha256=$ICE_CHAIN_EXPECTED_TRAIN_NAMES_SHA256"
+    "data.train_datasets.pushshapes_sim_chain_gripper.expected_valid_episode_count=$ICE_CHAIN_EXPECTED_VALID_COUNT"
+    "data.valid_datasets.pushshapes_sim_chain_gripper.expected_valid_episode_count=$ICE_CHAIN_EXPECTED_VALID_COUNT"
+    "data.train_datasets.pushshapes_sim_chain_gripper.expected_valid_episode_names_sha256=$ICE_CHAIN_EXPECTED_VALID_NAMES_SHA256"
+    "data.valid_datasets.pushshapes_sim_chain_gripper.expected_valid_episode_names_sha256=$ICE_CHAIN_EXPECTED_VALID_NAMES_SHA256"
+    "data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size=$ICE_TRAIN_BATCH_SIZE"
+    "data.valid_dataloader_params.pushshapes_sim_chain_gripper.batch_size=$ICE_VALID_BATCH_SIZE"
+  )
+fi
 if test "$ICE_FAMILY" != paper_dp; then
   BASE_OVERRIDES+=(
     "evaluator.energy_score_validation_view.world_size=$ICE_WORLD_SIZE"
@@ -369,9 +423,21 @@ PYTHONPATH=$ICE_REPO "$ICE_PYTHON" "$ICE_DATASET_VALIDATOR" \
   --repo "$ICE_REPO" \
   --dataset-root "$ICE_DATASET_DIR" \
   --manifest "$ICE_SPLIT_MANIFEST" \
+  --domain pushshapes_sim_u_socket \
   --expected-manifest-sha256 "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" \
   --output "$PREFLIGHT_DATASET" >/dev/null
 test -s "$PREFLIGHT_DATASET" || die "dataset validation produced no artifact"
+if test "$ICE_COTRAIN" = true; then
+  PREFLIGHT_CHAIN_DATASET=$PREFLIGHT_ROOT/chain_dataset_validation.json
+  PYTHONPATH=$ICE_REPO "$ICE_PYTHON" "$ICE_DATASET_VALIDATOR" \
+    --repo "$ICE_REPO" \
+    --dataset-root "$ICE_CHAIN_DATASET_DIR" \
+    --manifest "$ICE_SPLIT_MANIFEST" \
+    --domain pushshapes_sim_chain_gripper \
+    --expected-manifest-sha256 "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" \
+    --output "$PREFLIGHT_CHAIN_DATASET" >/dev/null
+  test -s "$PREFLIGHT_CHAIN_DATASET" || die "chain dataset validation produced no artifact"
+fi
 (
   cd "$ICE_REPO"
   PYTHONPATH=$ICE_REPO HYDRA_FULL_ERROR=1 "$ICE_PYTHON" -m egomimic.trainHydra \
@@ -387,7 +453,11 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
   "$ICE_VALID_BATCH_SIZE" "$ICE_DATASET_DIR" "$ICE_SPLIT_MANIFEST" \
   "$ICE_EXPECTED_DATASET_COUNT" "$ICE_EXPECTED_DATASET_NAMES_SHA256" \
   "$ICE_EXPECTED_TRAIN_COUNT" "$ICE_EXPECTED_TRAIN_NAMES_SHA256" \
-  "$ICE_EXPECTED_VALID_COUNT" "$ICE_EXPECTED_VALID_NAMES_SHA256" <<'PY'
+  "$ICE_EXPECTED_VALID_COUNT" "$ICE_EXPECTED_VALID_NAMES_SHA256" \
+  "$ICE_COTRAIN" "${ICE_CHAIN_DATASET_DIR:-}" \
+  "${ICE_CHAIN_EXPECTED_DATASET_COUNT:-0}" "${ICE_CHAIN_EXPECTED_DATASET_NAMES_SHA256:-}" \
+  "${ICE_CHAIN_EXPECTED_TRAIN_COUNT:-0}" "${ICE_CHAIN_EXPECTED_TRAIN_NAMES_SHA256:-}" \
+  "${ICE_CHAIN_EXPECTED_VALID_COUNT:-0}" "${ICE_CHAIN_EXPECTED_VALID_NAMES_SHA256:-}" <<'PY'
 import math
 import pathlib
 import sys
@@ -417,6 +487,14 @@ from omegaconf import OmegaConf
     train_names_sha256,
     valid_count,
     valid_names_sha256,
+    cotrain,
+    chain_dataset_dir,
+    chain_dataset_count,
+    chain_dataset_names_sha256,
+    chain_train_count,
+    chain_train_names_sha256,
+    chain_valid_count,
+    chain_valid_names_sha256,
 ) = sys.argv[1:]
 world_size = int(world_size)
 cfg = OmegaConf.load(pathlib.Path(path))
@@ -457,6 +535,15 @@ for split in ("train_datasets", "valid_datasets"):
     assert dataset.expected_train_episode_names_sha256 == train_names_sha256
     assert int(dataset.expected_valid_episode_count) == int(valid_count)
     assert dataset.expected_valid_episode_names_sha256 == valid_names_sha256
+    if cotrain == "true":
+        chain = cfg.data[split].pushshapes_sim_chain_gripper
+        assert str(chain.resolver.folder_path) == chain_dataset_dir
+        assert int(chain.resolver.expected_episode_count) == int(chain_dataset_count)
+        assert chain.resolver.expected_episode_names_sha256 == chain_dataset_names_sha256
+        assert int(chain.expected_train_episode_count) == int(chain_train_count)
+        assert chain.expected_train_episode_names_sha256 == chain_train_names_sha256
+        assert int(chain.expected_valid_episode_count) == int(chain_valid_count)
+        assert chain.expected_valid_episode_names_sha256 == chain_valid_names_sha256
 assert int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(train_batch_size)
 assert int(cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(valid_batch_size)
 if family == "paper_dp":
@@ -468,9 +555,41 @@ if family == "paper_dp":
         "pusht/planar_v2_usocket_arc_paper_curvature_D40_M16_R24deg": (
             "planar_v2_usocket_arc_paper_curvature_D40_M16_R24deg"
         ),
+        "pusht/planar_v2_cotrain_obstacle_paper_dp": (
+            "planar_v2_cotrain_obstacle_paper_dp_h16"
+        ),
+        "pusht/planar_v2_cotrain_obstacle_arc_duration_D80_M56_R26deg_paper": (
+            "cotrain_obstacle_arc_duration_D80_M56_R26deg_paper"
+        ),
+        "pusht/planar_v2_cotrain_obstacle_arc_stacked_D80_M56_R26deg_paper": (
+            "cotrain_obstacle_arc_stacked_D80_M56_R26deg_paper"
+        ),
+        "pusht/planar_v2_cotrain_obstacle_arc_duration_D80_M16_R26deg_paper": (
+            "cotrain_obstacle_arc_duration_D80_M16_R26deg_paper"
+        ),
+        "pusht/planar_v2_cotrain_obstacle_arc_stacked_D80_M16_R26deg_paper": (
+            "cotrain_obstacle_arc_stacked_D80_M16_R26deg_paper"
+        ),
     }
     assert cfg.name == expected_names[experiment]
-    if "_arc_paper_" in experiment:
+    if "cotrain_obstacle_arc_" in experiment:
+        expected_horizon = 56 if "M56" in experiment else 16
+        expected_timing = "duration" if "duration" in experiment else "velocity"
+        assert int(cfg.planar.raw_action_horizon) == 80
+        assert int(cfg.planar.action_horizon) == expected_horizon
+        assert int(cfg.planar.arc_waypoints) == expected_horizon
+        assert int(cfg.planar.action_dim) == 7
+        assert math.isclose(float(cfg.planar.arc_distance), 80.0)
+        assert math.isclose(float(cfg.planar.arc_rotation_distance), 0.4537856055185257)
+        assert cfg.planar.arc_timing_mode == expected_timing
+        assert int(cfg.model.pipeline.stages[2].action_dim) == 7
+        assert int(cfg.model.pipeline.stages[3].action_dim) == 7
+        for domain in ("pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"):
+            transform = cfg.data.train_datasets[domain].resolver.transform_list
+            assert transform._target_.endswith("get_planar_arc_timed_transform_list")
+            assert int(transform.raw_action_horizon) == 80
+            assert transform.timing_mode == expected_timing
+    elif "_arc_paper_" in experiment:
         expected_sampling = "curvature" if "curvature" in experiment else "uniform"
         assert int(cfg.planar.raw_action_horizon) == 40
         assert int(cfg.planar.action_horizon) == 17
@@ -645,6 +764,10 @@ payload = {
     "experiment": experiment,
     "family": family,
     "dataset": dataset,
+    "datasets": {
+        name: str(item.resolver.folder_path)
+        for name, item in cfg.data.train_datasets.items()
+    },
     "split_manifest_sha256": split_sha,
     "output": output,
     "wandb": {"entity": entity, "project": project, "run_id": run_id},
@@ -661,7 +784,14 @@ payload = {
     "model_contract": {
         "normalized_action_dim": int(cfg.model.pipeline.stages[2].action_dim),
         "latent_dim": None,
-        "native_action_dim": int(cfg.planar.eval_native_decoder.native_action_dim),
+        "native_action_dim": (
+            int(cfg.planar.eval_native_decoder.native_action_dim)
+            if cfg.planar.eval_native_decoder is not None
+            else {
+                name: int(decoder.native_action_dim)
+                for name, decoder in cfg.evaluator.native_decoders.items()
+            }
+        ),
         "prediction_horizon": int(cfg.planar.action_horizon),
         "execution_horizon": int(cfg.run_provenance.action_contract.replan_every),
         "observation_horizon": int(cfg.planar.observation_horizon),
@@ -832,6 +962,9 @@ pathlib.Path(path).write_text(
 PY
 cp -- "$PREFLIGHT_CONFIG" "$ATTEMPT_PROVENANCE/resolved_config.yaml"
 cp -- "$PREFLIGHT_DATASET" "$ATTEMPT_PROVENANCE/dataset_validation.json"
+if test "$ICE_COTRAIN" = true; then
+  cp -- "$PREFLIGHT_CHAIN_DATASET" "$ATTEMPT_PROVENANCE/chain_dataset_validation.json"
+fi
 cp -- "$ICE_SPLIT_MANIFEST" "$ATTEMPT_PROVENANCE/split_manifest.json"
 cp -- "$ICE_PREFLIGHT_RESULT" "$ATTEMPT_PROVENANCE/PREFLIGHT_RESULT.json"
 if test "$ICE_RUN_KIND" = full; then
@@ -841,6 +974,10 @@ sha256sum "$ATTEMPT_PROVENANCE/resolved_config.yaml" \
   > "$ATTEMPT_PROVENANCE/resolved_config.sha256"
 sha256sum "$ATTEMPT_PROVENANCE/dataset_validation.json" \
   > "$ATTEMPT_PROVENANCE/dataset_validation.sha256"
+if test "$ICE_COTRAIN" = true; then
+  sha256sum "$ATTEMPT_PROVENANCE/chain_dataset_validation.json" \
+    > "$ATTEMPT_PROVENANCE/chain_dataset_validation.sha256"
+fi
 test "$(sha256sum "$ATTEMPT_PROVENANCE/split_manifest.json" | awk '{print $1}')" = \
   "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" || die "copied split manifest changed"
 if test -n "$EFFECTIVE_NORM_STATS_FILE"; then

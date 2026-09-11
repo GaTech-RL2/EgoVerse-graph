@@ -4,7 +4,7 @@ defaults:
   - _self_
 
 name: action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42
-description: "Action Flow with unchanged H384 codec, a 90.4M H640 denoiser, and terminal-only one-batch full validation"
+description: "Action Flow with unchanged H384 codec, a 90.4M H640 denoiser, one-batch smoke validation, and full-run validation disabled"
 
 model:
   denoiser_hidden_dim: 640
@@ -13,7 +13,7 @@ model:
 
 trainer:
   val_check_interval: 150000
-  limit_val_batches: 1
+  limit_val_batches: 0
 
 run_provenance:
   architecture:
@@ -25,8 +25,9 @@ run_provenance:
     attention: pytorch_sdpa_flash_auto_except_decoder_jvp_math
   validation:
     interval_optimizer_steps: 150000
-    limit_batches: 1
-    evaluator_mode: no_op_for_full_real_for_smoke
+    limit_batches: 0
+    full_run_enabled: false
+    smoke_limit_batches: 1
     per_rank_batch_size: 32
     world_size: 1
     global_batch_size: 32

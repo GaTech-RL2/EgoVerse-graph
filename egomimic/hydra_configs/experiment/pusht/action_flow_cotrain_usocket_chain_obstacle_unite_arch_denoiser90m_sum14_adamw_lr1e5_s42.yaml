@@ -70,6 +70,12 @@ evaluator:
       activation_capture: real_forward_hooks_without_replay_or_replacement
 
 run_provenance:
+  # Replace the released-UNITE base interpolation with the standard Action
+  # Flow field name used by this graph.
+  unite_update_schedule:
+    mode: standard_action_flow_joint
+    flow_samples_per_reconstruction: ${model.flow_samples_per_content}
+    total_optimizer_steps: ${trainer.max_steps}
   architecture:
     unite_usage: route_selected_private_codecs_shared_denoiser
     latent_shape: [8, 16]

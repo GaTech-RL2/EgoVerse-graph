@@ -1088,7 +1088,7 @@ export ICE_WORLD_SIZE ICE_TRAINER_STRATEGY
 # ``srun`` steps must inherit the runner-owned requeue contract as well.
 export SLURM_EXPORT_ENV=ALL
 
-CUDA_VISIBLE_DEVICES=0 SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
+SLURM_PROCID=0 SLURM_LOCALID=0 SLURM_NTASKS=1 \
   "$ICE_PYTHON" "$ICE_GPU_PROBE" \
   --expected-world-size 1 "${GPU_PROBE_ARGS[@]}" \
   --output "$ATTEMPT_PROVENANCE/gpu_probe_0.json"

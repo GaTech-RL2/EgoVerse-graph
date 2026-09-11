@@ -35,6 +35,11 @@ def test_cotrain_preflight_records_the_true_cross_domain_global_batch():
     assert '"effective_global_batch": sum(train_batch_sizes.values())' in text
 
 
+def test_gpu_probe_preserves_the_slurm_device_binding():
+    text = LAUNCHER.read_text()
+    assert "CUDA_VISIBLE_DEVICES" not in text
+
+
 def test_paper_dp_arc_launcher_guards_both_fair_rows():
     text = LAUNCHER.read_text()
     uniform = "pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg"

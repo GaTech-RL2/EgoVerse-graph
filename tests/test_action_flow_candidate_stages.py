@@ -66,7 +66,10 @@ def test_latent_only_stopgrad_blocks_both_clean_fm_routes_not_shared_condition()
     gradients = torch.autograd.grad(
         fm, tuple(encoder.parameters()), allow_unused=True, retain_graph=True
     )
-    assert all(gradient is None for gradient in gradients)
+    assert all(
+        gradient is None or torch.count_nonzero(gradient) == 0
+        for gradient in gradients
+    )
     field_gradients = torch.autograd.grad(
         fm, tuple(field.parameters()), retain_graph=True
     )
@@ -76,16 +79,89 @@ def test_latent_only_stopgrad_blocks_both_clean_fm_routes_not_shared_condition()
     assert torch.isfinite(condition_gradient).all()
     assert condition_gradient.abs().sum() > 0
 
-    attached, detached = field.calls
-    assert attached[0].requires_grad and not detached[0].requires_grad
-    torch.testing.assert_close(attached[0], detached[0], rtol=0, atol=0)
-    # No new bridge noise, time, observation encoding, or dropout mask draw.
-    for index in (1, 2, 3):
-        assert attached[index] is detached[index]
+    assert len(field.calls) == 1
+    assert field.calls[0][0].requires_grad
     torch.testing.assert_close(
         batch["action_flow/fm_velocity_residual"],
         batch["action_flow/velocity_residual"], rtol=0, atol=0,
     )
+
+
+def test_shared_forward_matches_two_forward_reference_gradients():
+    encoder, decoder, field, target, noise, condition = _models_and_inputs()
+    reference_encoder, reference_decoder, reference_field = (
+        copy.deepcopy(encoder),
+        copy.deepcopy(decoder),
+        copy.deepcopy(field),
+    )
+    reference_condition = condition.detach().clone().requires_grad_()
+
+    output = _forward(
+        "all_stopgrad", encoder, decoder, field, target, noise, condition
+    )
+    torch.manual_seed(72)
+    clean = reference_encoder(target)
+    bridge = LatentBridgeStage(
+        samples_per_content=3,
+        condition_dropout_probability=0.3,
+    )(
+        {
+            "action_flow/clean_latent": clean,
+            "sampler/noise": noise,
+            "condition": reference_condition,
+        }
+    )
+    state = bridge["action_flow/state"]
+    time = bridge["action_flow/time"]
+    repeated_condition = bridge["action_flow/condition"]
+    drop_mask = bridge["action_flow/condition_drop_mask"]
+    target_velocity = bridge["action_flow/target_velocity"]
+    action_prediction = reference_field(
+        state,
+        time,
+        repeated_condition,
+        condition_drop_mask=drop_mask,
+    )
+    flow_prediction = reference_field(
+        state.detach(),
+        time,
+        repeated_condition,
+        condition_drop_mask=drop_mask,
+    )
+    reference_batch = ContentDecoderStage(reference_decoder)(
+        {
+            **bridge,
+            "target": target,
+            "action_flow/velocity_residual": action_prediction - target_velocity,
+        }
+    )
+    reference_batch["action_flow/fm_velocity_residual"] = (
+        flow_prediction - target_velocity.detach()
+    )
+    reference_output = ActionFlowObjectiveStage(
+        residual_key="action_flow/fm_velocity_residual"
+    )(reference_batch)
+
+    parameters = (
+        *encoder.parameters(),
+        *decoder.parameters(),
+        *field.parameters(),
+        condition,
+    )
+    reference_parameters = (
+        *reference_encoder.parameters(),
+        *reference_decoder.parameters(),
+        *reference_field.parameters(),
+        reference_condition,
+    )
+    gradients = torch.autograd.grad(output["loss/action_flow"], parameters)
+    reference_gradients = torch.autograd.grad(
+        reference_output["loss/action_flow"], reference_parameters
+    )
+    for actual, expected in zip(gradients, reference_gradients):
+        torch.testing.assert_close(actual, expected, rtol=1.0e-10, atol=1.0e-12)
+    assert len(field.calls) == 1
+    assert len(reference_field.calls) == 2
 
 
 def test_latent_only_sg_preserves_all_action_flow_gradients_and_diagnostics():

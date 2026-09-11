@@ -11,6 +11,8 @@ num_latent_tokens: 8
 latent_dim: 16
 condition_dim: 128
 hidden_dim: 384
+denoiser_hidden_dim: ${model.hidden_dim}
+denoiser_num_heads: 12
 flow_samples_per_content: 14
 flow_mini_batch: 14
 condition_dropout_probability: 0.1
@@ -138,9 +140,9 @@ pipeline:
           condition_dim: ${model.condition_dim}
           max_condition_tokens: 1
           max_content_tokens: ${model.action_horizon}
-          hidden_dim: ${model.hidden_dim}
+          hidden_dim: ${model.denoiser_hidden_dim}
           depth: 12
-          num_heads: 12
+          num_heads: ${model.denoiser_num_heads}
           mlp_ratio: 4.0
           qk_norm: true
           use_rope: true

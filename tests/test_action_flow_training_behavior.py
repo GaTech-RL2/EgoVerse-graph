@@ -420,6 +420,9 @@ def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypat
         logged["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"][0]
     ) == pytest.approx(14.0)
     assert float(
+        logged["Train/ActionFlow/Compute/FieldBackwardVJPCallsPerStep"][0]
+    ) == pytest.approx(1.0)
+    assert float(
         logged["Train/ActionFlow/Compute/DecoderJVPCallsPerStep"][0]
     ) == pytest.approx(1.0)
 

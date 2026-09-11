@@ -582,21 +582,81 @@ if test "$AF_LAUNCH_MODE" = preflight; then
     --lock-input "$AF_REPO/uv.lock" \
     --output "$AF_OUTPUT_DIR/runtime-lock.json"
   if test "$AF_COTRAIN" = 1; then
-    test -z "${AF_CACHED_DATASET_VALIDATION:-}" || \
-      die "first co-training preflight must perform the two-domain audit"
-    "$AF_PYTHON" "$AF_COTRAIN_DATASET_VALIDATOR" \
-      --repo "$AF_REPO" \
-      --manifest "$AF_SPLIT_MANIFEST" \
-      --expected-manifest-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
-      --chain-dataset-root "$AF_DATASET_DIR" \
-      --chain-content-manifest "$AF_PRIMARY_CONTENT_MANIFEST" \
-      --expected-chain-content-manifest-sha256 \
-        "$AF_EXPECTED_PRIMARY_CONTENT_MANIFEST_SHA256" \
-      --usocket-dataset-root "$AF_SECONDARY_DATASET_DIR" \
-      --usocket-content-manifest "$AF_SECONDARY_CONTENT_MANIFEST" \
-      --expected-usocket-content-manifest-sha256 \
-        "$AF_EXPECTED_SECONDARY_CONTENT_MANIFEST_SHA256" \
-      --output "$AF_OUTPUT_DIR/dataset_validation.json"
+    if test -n "${AF_CACHED_DATASET_VALIDATION:-}"; then
+      cp -- "$AF_CACHED_DATASET_VALIDATION" \
+        "$AF_OUTPUT_DIR/dataset_validation.json"
+      "$AF_PYTHON" - "$AF_OUTPUT_DIR/dataset_validation.json" \
+        "$AF_SPLIT_MANIFEST" "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
+        "$AF_DATASET_DIR" "$AF_EXPECTED_PRIMARY_CONTENT_MANIFEST_SHA256" \
+        "$AF_SECONDARY_DATASET_DIR" \
+        "$AF_EXPECTED_SECONDARY_CONTENT_MANIFEST_SHA256" <<'PY'
+import json
+import pathlib
+import sys
+
+(
+    path,
+    split_manifest,
+    split_sha,
+    chain_root,
+    chain_content_sha,
+    usocket_root,
+    usocket_content_sha,
+) = sys.argv[1:]
+payload = json.load(open(path))
+if payload.get("status") != "COTRAIN_DATASETS_VALIDATED":
+    raise SystemExit("cached co-training dataset validation status differs")
+if payload.get("manifest_sha256") != split_sha:
+    raise SystemExit("cached co-training split SHA-256 differs")
+if pathlib.Path(payload.get("manifest", "")).resolve() != pathlib.Path(split_manifest).resolve():
+    raise SystemExit("cached co-training split path differs")
+expected = {
+    "pushshapes_sim_chain_gripper": (
+        pathlib.Path(chain_root).resolve(),
+        chain_content_sha,
+    ),
+    "pushshapes_sim_u_socket": (
+        pathlib.Path(usocket_root).resolve(),
+        usocket_content_sha,
+    ),
+}
+domains = payload.get("domains")
+if not isinstance(domains, dict) or set(domains) != set(expected):
+    raise SystemExit("cached co-training domain set differs")
+for name, (dataset_root, content_sha) in expected.items():
+    row = domains[name]
+    inventory = row.get("physical_inventory", {})
+    content = row.get("content_identity", {})
+    if pathlib.Path(inventory.get("dataset_root", "")).resolve() != dataset_root:
+        raise SystemExit(f"cached {name} dataset root differs")
+    if content.get("manifest_sha256") != content_sha:
+        raise SystemExit(f"cached {name} content SHA-256 differs")
+    if inventory.get("id_overlap_count") != 0:
+        raise SystemExit(f"cached {name} ID overlap is nonzero")
+    if inventory.get("resolved_path_overlap_count") != 0:
+        raise SystemExit(f"cached {name} resolved-path overlap is nonzero")
+    if inventory.get("union_matches_inventory") is not True:
+        raise SystemExit(f"cached {name} union does not cover inventory")
+    if content.get("verified_episode_count") != inventory.get("union_count"):
+        raise SystemExit(f"cached {name} content episode count differs")
+if payload.get("cross_domain_resolved_path_overlap_count") != 0:
+    raise SystemExit("cached co-training cross-domain overlap is nonzero")
+PY
+    else
+      "$AF_PYTHON" "$AF_COTRAIN_DATASET_VALIDATOR" \
+        --repo "$AF_REPO" \
+        --manifest "$AF_SPLIT_MANIFEST" \
+        --expected-manifest-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
+        --chain-dataset-root "$AF_DATASET_DIR" \
+        --chain-content-manifest "$AF_PRIMARY_CONTENT_MANIFEST" \
+        --expected-chain-content-manifest-sha256 \
+          "$AF_EXPECTED_PRIMARY_CONTENT_MANIFEST_SHA256" \
+        --usocket-dataset-root "$AF_SECONDARY_DATASET_DIR" \
+        --usocket-content-manifest "$AF_SECONDARY_CONTENT_MANIFEST" \
+        --expected-usocket-content-manifest-sha256 \
+          "$AF_EXPECTED_SECONDARY_CONTENT_MANIFEST_SHA256" \
+        --output "$AF_OUTPUT_DIR/dataset_validation.json"
+    fi
   elif test -n "${AF_CACHED_DATASET_VALIDATION:-}"; then
     cp -- "$AF_CACHED_DATASET_VALIDATION" \
       "$AF_OUTPUT_DIR/dataset_validation.json"

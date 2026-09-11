@@ -11,7 +11,7 @@ pipeline:
       encoder: ${planar.encoder}
     - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
-      action_horizon: 16
+      action_horizon: ${planar.action_horizon}
       action_dim: 5
       noise_scheduler: &paper_dp_scheduler
         _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
@@ -21,12 +21,12 @@ pipeline:
         clip_sample: true
         prediction_type: epsilon
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
-      action_horizon: 16
+      action_horizon: ${planar.action_horizon}
       action_dim: 5
       condition_input_dim: 134
       policy:
         _target_: egomimic.models.diffusion_policy.DiffusionPolicy
-        action_horizon: 16
+        action_horizon: ${planar.action_horizon}
         num_inference_steps: 100
         model:
           _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D

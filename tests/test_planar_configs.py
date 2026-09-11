@@ -14,6 +14,24 @@ ROWS = {
         1,
         "PlanarFlowSampler",
     ),
+    "usocket_arc_curvature_D40_M16_R24deg_bc": (
+        "pushshapes_sim_u_socket",
+        17,
+        1,
+        "PlanarFlowSampler",
+    ),
+    "usocket_arc_paper_uniform_D40_M16_R24deg": (
+        "pushshapes_sim_u_socket",
+        17,
+        2,
+        "PaperConditionalUnet1D",
+    ),
+    "usocket_arc_paper_curvature_D40_M16_R24deg": (
+        "pushshapes_sim_u_socket",
+        17,
+        2,
+        "PaperConditionalUnet1D",
+    ),
     "chain_arc_bc": ("pushshapes_sim_chain_gripper", 101, 1, "PlanarFlowSampler"),
     "usocket_direct_bc": ("pushshapes_sim_u_socket", 16, 1, "PlanarFlowSampler"),
     "chain_direct_bc": ("pushshapes_sim_chain_gripper", 16, 1, "PlanarFlowSampler"),
@@ -88,21 +106,43 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     assert cfg.run_provenance.dataset_observation_alignment == "pre_step"
     assert cfg.planar.observation_horizon == observation_horizon
     decoder = cfg.planar.eval_native_decoder
-    if "arc_bc" in row:
+    is_paper = "dp_paper" in row or "arc_paper" in row
+    if row in {"usocket_arc_bc", "chain_arc_bc"}:
         assert decoder._target_.endswith("PlanarArcWaypointZeroNativeDecoder")
         assert "action_horizon" not in decoder
-    elif "arc_hybrid" in row:
+    elif row in {
+        "usocket_arc_hybrid_D40_M16_R24deg_bc",
+        "usocket_arc_curvature_D40_M16_R24deg_bc",
+        "usocket_arc_paper_uniform_D40_M16_R24deg",
+        "usocket_arc_paper_curvature_D40_M16_R24deg",
+    }:
         assert decoder._target_.endswith("PlanarArcWaypointZeroNativeDecoder")
         assert decoder.resampled_vector_length == 16
+        assert set(decoder) == {
+            "_target_",
+            "resampled_vector_length",
+            "native_action_dim",
+        }
         assert cfg.planar.arc_distance == 40.0
         assert cfg.planar.arc_rotation_radius == 0.0
         assert cfg.planar.hybrid_rotation_unit == 0.14776
         assert dataset.resolver.transform_list.rotation_radius == 0.0
         assert dataset.resolver.transform_list.hybrid_rotation_unit == 0.14776
+        expected_sampling = "curvature" if "curvature" in row else "uniform"
+        assert cfg.planar.arc_waypoint_sampling == expected_sampling
+        assert dataset.resolver.transform_list.waypoint_sampling == expected_sampling
+        assert dataset.resolver.transform_list.curvature_dense_samples == 257
+        assert dataset.resolver.transform_list.curvature_floor is None
+        assert dataset.resolver.transform_list.raw_action_horizon == 40
     else:
         assert decoder._target_.endswith("PlanarCommon5NativeDecoder")
         assert decoder.action_horizon == 16
-    if "arc_hybrid" not in row:
+    if row not in {
+        "usocket_arc_hybrid_D40_M16_R24deg_bc",
+        "usocket_arc_curvature_D40_M16_R24deg_bc",
+        "usocket_arc_paper_uniform_D40_M16_R24deg",
+        "usocket_arc_paper_curvature_D40_M16_R24deg",
+    }:
         assert dataset.resolver.transform_list.rotation_radius == 30.0
         assert dataset.resolver.transform_list.hybrid_rotation_unit is None
     model_yaml = OmegaConf.to_yaml(cfg.model)
@@ -117,9 +157,9 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     }
     sampler = cfg.model.pipeline.stages[3]
     assert sampler.action_horizon == horizon
-    if "dp_paper" not in row:
+    if not is_paper:
         assert "eval_checkpoint" not in cfg
-    if "dp_paper" in row:
+    if is_paper:
         assert cfg.callbacks.ema.use_warmup is True
         assert cfg.eval_checkpoint.use_ema is True
         assert "DDPMScheduler" in model_yaml
@@ -132,7 +172,7 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
         ]
         assert cfg.planar.action_target_offset == 1
         assert cfg.model.pipeline.stages[3].action_dim == 5
-        assert OmegaConf.to_container(cfg.run_provenance.action_contract) == {
+        expected_contract = {
             "observation_alignment": "pre_step",
             "observation_horizon": 2,
             "training_action_target_offset": 1,
@@ -141,6 +181,32 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
             "replan_every": 8,
             "execution_slice": "[0,8)",
         }
+        if "arc_paper" in row:
+            expected_contract.update(
+                {
+                    "prediction_horizon": 17,
+                    "waypoint_count": 16,
+                    "timing_rows": 1,
+                    "replan_every": 1,
+                    "execution_slice": "[0,1)",
+                }
+            )
+            assert dataset.resolver.key_map.action_horizon == 40
+            assert dataset.resolver.key_map.action_target_offset == 1
+            assert dataset.resolver.transform_list.action_target_offset == 1
+            provenance = cfg.evaluator.energy_score_provenance
+            assert provenance.action_representation == (
+                "arc_waypoint_x_y_cos_theta_sin_theta_progress"
+            )
+            assert provenance.prediction_horizon == 17
+            assert provenance.distance_contract is None
+            assert cfg.run_provenance.content_manifest_sha256 == (
+                "a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4a878afb20b39733761"
+            )
+            assert cfg.run_provenance.dataset_content_aggregate_sha256 == (
+                "80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52"
+            )
+        assert OmegaConf.to_container(cfg.run_provenance.action_contract) == expected_contract
     elif "dp_standard" in row:
         assert "DDIMScheduler" in model_yaml
         assert "ema" not in cfg.callbacks
@@ -175,6 +241,36 @@ def test_dp_rows_inherit_model_neutral_domain_base(row, domain_base):
         "override /data": f"pusht/planar_v2_{DOMAIN_BASE_DATA[domain_base]}"
     }
     assert "model" not in base
+
+
+def test_paper_arc_baseline_and_curvature_rows_differ_only_in_sampling_identity():
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
+    rows = {}
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
+        for label in ("uniform", "curvature"):
+            rows[label] = compose(
+                config_name="train_zarr_cartesian",
+                overrides=[
+                    f"+experiment=pusht/planar_v2_usocket_arc_paper_{label}_D40_M16_R24deg",
+                    "++paths.root_dir=.",
+                ],
+            )
+    # Keep Hydra runtime interpolations unresolved; this test compares the
+    # authored scientific contract outside a launched Hydra application.
+    uniform = OmegaConf.to_container(rows["uniform"], resolve=False)
+    curvature = OmegaConf.to_container(rows["curvature"], resolve=False)
+    assert uniform["model"] == curvature["model"]
+    assert uniform["trainer"] == curvature["trainer"]
+    assert uniform["run_provenance"] == curvature["run_provenance"]
+    for payload in (uniform, curvature):
+        payload.pop("name")
+        payload.pop("description")
+        payload["planar"].pop("arc_waypoint_sampling")
+        for split in ("train_datasets", "valid_datasets"):
+            payload["data"][split]["pushshapes_sim_u_socket"]["resolver"][
+                "transform_list"
+            ].pop("waypoint_sampling")
+    assert uniform == curvature
 
 
 def test_standard_dp_clean_cotrain_composes_both_domains_without_obstacles():
@@ -212,10 +308,13 @@ def test_diffusion_mse_is_visible_during_long_training_epochs():
     model_wrapper = (
         Path(__file__).parents[1] / "egomimic" / "pl_utils" / "pl_model.py"
     ).read_text()
-    aggregate = model_wrapper.index('"Train/MSE",')
-    per_source = model_wrapper.index('f"Train/MSE/{source}",')
-    assert "on_step=True" in model_wrapper[aggregate : aggregate + 220]
-    assert "on_step=True" in model_wrapper[per_source : per_source + 220]
+    start = model_wrapper.index("def _log_prediction_metrics")
+    end = model_wrapper.index("def training_step", start)
+    implementation = model_wrapper[start:end]
+    assert 'step_visible = metric == "MSE"' in implementation
+    assert 'f"Train/{metric}/{source}"' in implementation
+    assert 'f"Train/{metric}"' in implementation
+    assert implementation.count("on_step=step_visible") == 2
 
 
 def test_ddp_device_count_is_per_node_without_eval_resolver():

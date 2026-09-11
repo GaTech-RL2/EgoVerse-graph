@@ -42,20 +42,13 @@ class PlanarCommon5NativeDecoder:
 
     def decode(self, actions, context: dict | None = None):
         del context
-        value = (
-            actions.unsqueeze(0)
-            if torch.is_tensor(actions) and actions.ndim == 2
-            else actions
-        )
-        value = (
-            np.asarray(actions)[None]
-            if not torch.is_tensor(actions) and np.asarray(actions).ndim == 2
-            else value
-        )
+        value = actions if torch.is_tensor(actions) else np.asarray(actions)
+        value = value.unsqueeze(0) if torch.is_tensor(value) and value.ndim == 2 else value
+        value = value[None] if not torch.is_tensor(value) and value.ndim == 2 else value
         expected = (self.action_horizon, PLANAR_ACTION_DIM)
-        if value.ndim != 3 or tuple(value.shape[1:]) != expected:
+        if value.ndim < 3 or tuple(value.shape[-2:]) != expected:
             raise ValueError(
-                f"expected (B, {expected[0]}, {expected[1]}), got {value.shape}"
+                f"expected (..., {expected[0]}, {expected[1]}), got {value.shape}"
             )
         return _common5_to_native(value, self.native_action_dim)
 
@@ -95,22 +88,15 @@ class PlanarArcWaypointZeroNativeDecoder:
 
     def decode(self, actions, context: dict | None = None):
         del context
-        value = (
-            actions.unsqueeze(0)
-            if torch.is_tensor(actions) and actions.ndim == 2
-            else actions
-        )
-        value = (
-            np.asarray(actions)[None]
-            if not torch.is_tensor(actions) and np.asarray(actions).ndim == 2
-            else value
-        )
+        value = actions if torch.is_tensor(actions) else np.asarray(actions)
+        value = value.unsqueeze(0) if torch.is_tensor(value) and value.ndim == 2 else value
+        value = value[None] if not torch.is_tensor(value) and value.ndim == 2 else value
         expected = (self.num_waypoints + 1, PLANAR_ACTION_DIM)
-        if value.ndim != 3 or tuple(value.shape[1:]) != expected:
+        if value.ndim < 3 or tuple(value.shape[-2:]) != expected:
             raise ValueError(
-                f"expected (B, {expected[0]}, {expected[1]}), got {value.shape}"
+                f"expected (..., {expected[0]}, {expected[1]}), got {value.shape}"
             )
-        return _common5_to_native(value[:, :1], self.native_action_dim)
+        return _common5_to_native(value[..., :1, :], self.native_action_dim)
 
     __call__ = decode
 

@@ -188,19 +188,20 @@ class ModelWrapper(LightningModule):
         for metric, source_values in self._prediction_log_metrics(
             predictions, reference
         ).items():
+            step_visible = metric == "MSE"
             for source, value in source_values:
                 self.log(
                     f"Train/{metric}/{source}",
                     value,
                     sync_dist=True,
-                    on_step=False,
+                    on_step=step_visible,
                     on_epoch=True,
                 )
             self.log(
                 f"Train/{metric}",
                 torch.stack([value for _, value in source_values]).mean(),
                 sync_dist=True,
-                on_step=False,
+                on_step=step_visible,
                 on_epoch=True,
             )
 

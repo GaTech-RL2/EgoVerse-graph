@@ -106,16 +106,22 @@ def test_planar_decoder_has_compact_sequential_state_keys():
     }
 
 
-def test_paper_unet_preserves_action_shape():
+@pytest.mark.parametrize("action_horizon", (16, 17))
+def test_paper_unet_preserves_action_shape(action_horizon):
     model = PaperConditionalUnet1D(
         input_dim=5,
         global_cond_dim=12,
         diffusion_step_embed_dim=8,
-        down_dims=(8, 16),
+        down_dims=(8, 16, 32),
         n_groups=4,
     )
-    output = model(torch.randn(2, 16, 5), torch.tensor([1, 2]), torch.randn(2, 12))
-    assert output.shape == (2, 16, 5)
+    output = model(
+        torch.randn(2, action_horizon, 5),
+        torch.tensor([1, 2]),
+        torch.randn(2, 12),
+    )
+    assert output.shape == (2, action_horizon, 5)
+    assert torch.isfinite(output).all()
 
 
 @pytest.mark.parametrize(

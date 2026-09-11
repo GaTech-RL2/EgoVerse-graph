@@ -75,7 +75,7 @@ def test_training_logs_each_opaque_source_and_equal_source_macro(monkeypatch):
         assert float(value) == pytest.approx(expected_value)
         assert kwargs == {
             "sync_dist": True,
-            "on_step": False,
+            "on_step": True,
             "on_epoch": True,
         }
 

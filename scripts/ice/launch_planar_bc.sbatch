@@ -88,7 +88,8 @@ case "$ICE_LAUNCH_MODE" in
 esac
 case "$ICE_EXPERIMENT" in
   pusht/planar_v2_usocket_direct_bc|pusht/planar_v2_usocket_arc_bc|\
-  pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc) ;;
+  pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc|\
+  pusht/planar_v2_usocket_arc_curvature_D40_M16_R24deg_bc) ;;
   *) die "ICE_EXPERIMENT must select a supported U-Socket BC config" ;;
 esac
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
@@ -281,6 +282,7 @@ assert experiment in {
     "pusht/planar_v2_usocket_direct_bc",
     "pusht/planar_v2_usocket_arc_bc",
     "pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc",
+    "pusht/planar_v2_usocket_arc_curvature_D40_M16_R24deg_bc",
 }
 PY
 

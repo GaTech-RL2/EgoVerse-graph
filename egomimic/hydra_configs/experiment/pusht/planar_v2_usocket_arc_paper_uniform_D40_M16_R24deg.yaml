@@ -1,0 +1,78 @@
+# @package _global_
+# Paper-DP baseline for the D40/M16/R24-degree arc representation.
+defaults:
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_dp_paper
+  - _self_
+
+name: planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg
+description: u_socket_paper_DP_arc_uniform_D40_M16_R24deg_DDPM100_obs2_EMA
+
+planar:
+  observation_horizon: 2
+  action_target_offset: 1
+  batch_size: 32
+  raw_action_horizon: 40
+  action_horizon: 17
+  arc_distance: 40.0
+  arc_waypoints: 16
+  arc_rotation_radius: 0.0
+  hybrid_rotation_unit: 0.14776
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
+    resampled_vector_length: 16
+    native_action_dim: 3
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+
+eval_checkpoint:
+  use_ema: true
+
+evaluator:
+  energy_score_max_batches_per_rank: 1
+  energy_score_validation_view:
+    definition: first_deterministic_validation_batch_per_ddp_rank
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    per_rank_batch_size: ${data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size}
+    world_size: ${trainer.devices}
+  energy_score_provenance:
+    source_commit: ${run_provenance.source_commit}
+    normalization_sha256: ${run_provenance.normalization_sha256}
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    resolved_config_path: ${paths.output_dir}/.hydra/config.yaml
+    wandb:
+      entity: ${logger.wandb.entity}
+      project: ${logger.wandb.project}
+      run_id: ${logger.wandb.id}
+    distance_contract: null
+    dataset_content:
+      manifest_path: ${run_provenance.content_manifest_path}
+      manifest_sha256: ${run_provenance.content_manifest_sha256}
+      aggregate_sha256: ${run_provenance.dataset_content_aggregate_sha256}
+    action_representation: arc_waypoint_x_y_cos_theta_sin_theta_progress
+    prediction_horizon: ${planar.action_horizon}
+
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+
+run_provenance:
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: 17
+    waypoint_count: 16
+    timing_rows: 1
+    rollout_action_chunk_start_index: 0
+    replan_every: 1
+    execution_slice: "[0,1)"

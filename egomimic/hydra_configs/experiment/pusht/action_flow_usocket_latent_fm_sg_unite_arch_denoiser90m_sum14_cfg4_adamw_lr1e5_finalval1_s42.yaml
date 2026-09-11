@@ -19,7 +19,7 @@ standard_adamw_optimizer:
 standard_adamw_scheduler:
   _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
   _partial_: true
-  max_steps: 150000
+  max_steps: 240000
   warmup_steps: 8000
   warmup_start_factor: 0.1
   eta_min: 1.0e-6
@@ -28,6 +28,14 @@ model:
   optimizer_named_parameters: false
   optimizer: ${standard_adamw_optimizer}
   scheduler: ${standard_adamw_scheduler}
+
+trainer:
+  max_steps: 240000
+  val_check_interval: 240000
+
+callbacks:
+  model_checkpoint:
+    every_n_train_steps: 40000
 
 run_provenance:
   architecture:
@@ -38,7 +46,11 @@ run_provenance:
     base_lr: 1.0e-5
     eta_min: 1.0e-6
     warmup_steps: 8000
+    max_steps: 240000
     weight_decay: 1.0e-4
     fresh_initialization: true
     comparison_reference: usocket-latent-fm-sg-unite-denoiser90m-sum14-cfg4-finalval1-full-s42-ice-t-h100h200-20260910-v1
-    sole_scientific_variable: optimizer_and_lr_schedule
+    controlled_changes_from_reference:
+      - optimizer_and_lr_schedule
+      - standard_240k_step_budget
+      - standard_40k_checkpoint_cadence

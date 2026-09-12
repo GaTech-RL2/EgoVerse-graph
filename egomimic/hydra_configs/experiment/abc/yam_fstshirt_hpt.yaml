@@ -1,0 +1,69 @@
+# @package _global_
+# ABC-130k single-domain HPT: fold and stack the t-shirts, yam_bimanual.
+#
+# The HPT arm of the architecture comparison. Same 20 episodes, same action
+# space and same dataloader params as experiment/abc/yam_fstshirt_dp -- the
+# only difference is the model, so a delta between the two is attributable to
+# the architecture rather than the data.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc/yam_fstshirt_hpt
+defaults:
+  - override /model: abc/yam_bimanual_hpt
+  - override /data: abc_arc/abc_fstshirt_bc
+  - override /evaluator: null
+  - override /hydra/launcher: submitit_pace
+  - _self_
+
+name: abc_yam_fstshirt_hpt
+description: hpt_flow_trunk16_embed256
+
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+      - abc
+      - hpt
+      - flow
+
+hpt:
+  # Shared bus width. Every stem output, cross_attn modality_embed_dim, the
+  # trunk and the head's cond_dim read this one value.
+  embed_dim: 256
+  num_blocks: 16
+  num_heads: 8
+  # Yam's cartesian transform list interpolates to chunk_length (default 100),
+  # so the loader hands over 100-row chunks; the flow stages validate that.
+  action_horizon: 100
+  action_dim: 14
+  # Cross-attention latent pooling, applied per modality by each stem.
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: 8
+      crossattn_dim_head: 64
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: ${hpt.embed_dim}

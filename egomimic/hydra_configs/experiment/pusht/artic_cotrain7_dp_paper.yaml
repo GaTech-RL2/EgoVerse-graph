@@ -18,7 +18,10 @@ planar:
   action_target_offset: 1
   batch_size: 32
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list
-  eval_native_decoder: null
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+    action_horizon: ${planar.action_horizon}
+    native_action_dim: 4
 
 evaluator:
   native_decoder: null

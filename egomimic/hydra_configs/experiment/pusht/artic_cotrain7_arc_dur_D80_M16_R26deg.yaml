@@ -22,7 +22,16 @@ planar:
   arc_dt: 0.0333333333333333
   arc_token_rows: 16
   transform_target: egomimic.rldb.embodiment.articulated_arc.get_articulated_arc_duration_grip_transform_list
-  eval_native_decoder: null
+  # Rollout eval scores ONE embodiment at a time, so it needs a single decoder
+  # here rather than the per-domain evaluator.native_decoders map that training
+  # uses. native_action_dim is overridden per embodiment at eval time: 3 for
+  # u_socket/triangle/scoop, 4 for the six tools with a grip channel.
+  eval_native_decoder:
+    _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+    resampled_vector_length: ${planar.arc_waypoints}
+    action_horizon: ${planar.action_horizon}
+    native_action_dim: 4
+    dt: ${planar.arc_dt}
 
 evaluator:
   # eval_planar_v2 hardcodes the width-5 partition. This token is width 7:

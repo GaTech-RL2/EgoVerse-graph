@@ -1,0 +1,216 @@
+# Closed-loop rollout scoring for the articulated co-train sweep.
+#
+# NON-PROTOCOL, exactly as osmo/usocket_codec_rollout.yaml is: the canonical
+# bf_eval_par.sbatch lives on Skynet and there is no registered inference
+# contract for the ARC family. Follows the protocol's SUBSTANCE (p99 frame
+# budget, PEAK coverage, SR@0.80 + SR@0.95, level-0 rollouts on seeds 0..n-1,
+# sim_v2) so the numbers are internally comparable and nothing else.
+#
+# The point of this job is the HELD-OUT pair. umi and scoop appear in no
+# training dataset, so their rows measure transfer to a tool the policy has
+# never seen; the seven trained embodiments are the in-domain reference.
+#
+# Scores every (experiment x embodiment) pair. Each embodiment gets its own
+# staged corpus, its own p99 budget computed from that corpus, and its own
+# native_action_dim -- 3 for the tools with no grip channel, 4 for the rest.
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: rollout
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+
+    environment:
+      BRANCH: "{{branch}}"
+      SIM_COMMIT: "{{sim_commit}}"
+      JOB_NAME: "{{job_name}}"
+      EXPERIMENTS: "{{experiments}}"
+      EMBODIMENTS: "{{embodiments}}"
+      CKPT_JOB: "{{ckpt_job}}"
+      N_EPISODES: "{{n_episodes}}"
+      REPLAN_EVERY: "{{replan_every}}"
+      CHUNK_START: "{{chunk_start}}"
+      EXP_GROUP: pusht
+      CORPUS: s3://rldb/staged/pushshapes_articulated/articulated-20260909
+      # Tools with no grip channel; PadPlanarAction pads them with a constant 0
+      # and the decoder must slice back to 3, not 4.
+      THREE_DOF: "u_socket triangle scoop"
+      HELD_OUT: "umi scoop"
+      PER_EMB_EPISODES: "3000"
+      SAMPLER_STEPS: "100"
+      TSIM_VERSION: sim_v2
+      SDL_VIDEODRIVER: dummy
+      PYTHONUNBUFFERED: "1"
+      HYDRA_FULL_ERROR: "1"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        # Both repos: EgoVerse-graph owns the ARC modules and the policy,
+        # EgoVerse owns Tsimulation.
+        mkdir -p /workspace && cd /workspace
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse-graph.git" EgoVerse-graph
+        git clone --filter=blob:none \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd /workspace/EgoVerse && git checkout "$SIM_COMMIT" && cd /workspace/EgoVerse-graph
+        git rev-parse HEAD
+
+        uv sync --frozen
+        source .venv/bin/activate
+        export PYTHONPATH="/workspace/EgoVerse:${PYTHONPATH:-}"
+
+        bash ./egomimic/utils/aws/setup_secret.sh
+        test -s "$HOME/.egoverse_env"
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        unset AWS_SESSION_TOKEN
+        S5="s5cmd --endpoint-url $R2_ENDPOINT_URL"
+        ulimit -n 65536 || true
+
+        # ---------------------------------------------- corpora + budgets
+        ROOT=/workspace/articulated
+        mkdir -p "$ROOT" /workspace/budgets
+        for EMB in $EMBODIMENTS; do
+          D="$ROOT/$EMB"; mkdir -p "$D/tars" "$D/raw" "$D/flat"
+          $S5 --numworkers 32 cp "$CORPUS/$EMB/ideal/$EMB/*.tar" "$D/tars/" \
+            >>/tmp/stage.log 2>&1 || { echo "FATAL: staging $EMB"; tail -30 /tmp/stage.log; exit 1; }
+          for T in "$D/tars"/*.tar; do
+            SH=$(basename "$T" .tar); mkdir -p "$D/raw/$SH"; tar -xf "$T" -C "$D/raw/$SH"
+          done
+          # The per-shard episode index restarts at zero, so the shard name has
+          # to be in the link name or 24 shards collapse onto 125 episodes.
+          find "$D/raw" -mindepth 1 -type d -name 'episode_*.zarr' -print0 \
+            | while IFS= read -r -d '' EP; do
+                SH=$(basename "$(dirname "$EP")")
+                ln -sfn "$EP" "$D/flat/ideal_${SH}_$(basename "$EP")"
+              done
+          N=$(find "$D/flat" -maxdepth 1 -mindepth 1 | wc -l)
+          echo "staged $EMB: $N episodes"
+          [ "$N" -eq "$PER_EMB_EPISODES" ] || { echo "FATAL: $EMB has $N, want $PER_EMB_EPISODES"; exit 1; }
+          rm -rf "$D/tars"
+          python scripts/eval/usocket_arc_rollout/episode_budget.py \
+            "$D/flat" --out "/workspace/budgets/${EMB}.json"
+          python -c "import json,sys; d=json.load(open(sys.argv[1])); print('  budget', sys.argv[2], d['by_level']['0']['budget'], 'frames from', d['episode_count'], 'episodes')" \
+            "/workspace/budgets/${EMB}.json" "$EMB"
+        done
+
+        # ---------------------------------------------- checkpoints
+        CK=/workspace/ckpts; mkdir -p "$CK"
+        $S5 --numworkers 32 cp "s3://rldb/staged/articulated_cotrain/$CKPT_JOB/*" "$CK/" \
+          >>/tmp/ckpt_pull.log 2>&1 || true
+        find "$CK" -name '*.ckpt' > /tmp/ckpts.txt || true
+        echo "checkpoints pulled: $(wc -l < /tmp/ckpts.txt)"
+
+        declare -A CKPT_OF NORM_OF
+        for EXP in $EXPERIMENTS; do
+          RN=$(grep -m1 '^name:' "egomimic/hydra_configs/experiment/$EXP_GROUP/${EXP}.yaml" | awk '{print $2}')
+          C=$(find "$CK/$RN" -name 'last.ckpt' 2>/dev/null | head -1 || true)
+          NRM=$(find "$CK/$RN" -name 'norm_stats.json' 2>/dev/null | head -1 || true)
+          if [ -z "$C" ] || [ -z "$NRM" ]; then
+            echo "FATAL: missing artifacts for $EXP (run dir $RN): ckpt='$C' norm='$NRM'"; exit 1
+          fi
+          CKPT_OF[$EXP]="$C"; NORM_OF[$EXP]="$NRM"
+          STEP=$(python -c "import sys,torch; print(torch.load(sys.argv[1], map_location='cpu', weights_only=False).get('global_step','?'))" "$C" 2>/dev/null || echo "?")
+          echo "  $EXP -> $C  (global_step $STEP)"
+        done
+
+        # ---------------------------------------------- score every pair
+        run_one () {
+          local EXP=$1 EMB=$2 NEPS=$3 TAG=$4
+          local ND=4
+          case " $THREE_DOF " in *" $EMB "*) ND=3;; esac
+          local HELD=in-domain
+          case " $HELD_OUT " in *" $EMB "*) HELD=HELD-OUT;; esac
+          echo "=== $TAG  $EXP  x  $EMB  ($HELD, native_action_dim=$ND)"
+          # ~evaluator.native_decoders and ~semantic_blocks: those belong to the
+          # training evaluator. SimRolloutPlanarEval scores ONE embodiment and
+          # takes a single decoder, so passing the seven-domain map is a
+          # TypeError rather than a no-op.
+          python egomimic/trainHydra.py \
+            +experiment="$EXP_GROUP/$EXP" mode=eval \
+            ckpt_path="${CKPT_OF[$EXP]}" \
+            planar.articulated_root=/workspace/articulated \
+            planar.eval_native_decoder.native_action_dim=$ND \
+            norm_stats.precomputed_norm_path="${NORM_OF[$EXP]}" \
+            evaluator=sim_rollout_planar_v2 \
+            ~evaluator.native_decoders \
+            'evaluator.native_decoder=${planar.eval_native_decoder}' \
+            evaluator.dataset_dir="/workspace/articulated/$EMB/flat" \
+            evaluator.budget_path="/workspace/budgets/${EMB}.json" \
+            evaluator.embodiment_name="pushshapes_sim_${EMB}" \
+            evaluator.n_episodes="$NEPS" \
+            evaluator.replan_every="$REPLAN_EVERY" \
+            evaluator.chunk_start="$CHUNK_START" \
+            evaluator.expected_sampler_steps="$SAMPLER_STEPS" \
+            launch_params.gpus_per_node=1 \
+            trainer.limit_val_batches=1 trainer.num_sanity_val_steps=0 \
+            '~logger' name="${TAG}_${EXP}_${EMB}" \
+            > "/tmp/${TAG}_${EXP}_${EMB}.log" 2>&1 \
+            || { echo "FAILED: $EXP x $EMB"; grep -E '\[sim\]|Error|Traceback' "/tmp/${TAG}_${EXP}_${EMB}.log" | tail -25; return 1; }
+          grep -E '\[sim\] SUMMARY' "/tmp/${TAG}_${EXP}_${EMB}.log" || true
+        }
+
+        # One-episode smoke over every pair first. Three separate config bugs in
+        # this family only surfaced at model-construction time, hours in.
+        FIRST_EXP=$(echo $EXPERIMENTS | awk '{print $1}')
+        for EMB in $EMBODIMENTS; do run_one "$FIRST_EXP" "$EMB" 1 smoke; done
+        echo "smoke complete over all embodiments"
+
+        RC=0
+        for EXP in $EXPERIMENTS; do
+          for EMB in $EMBODIMENTS; do
+            run_one "$EXP" "$EMB" "$N_EPISODES" rollout || RC=1
+          done
+        done
+
+        echo "================ RESULTS ================"
+        grep -h -E '\[sim\] SUMMARY' /tmp/rollout_*.log 2>/dev/null || echo "no summaries"
+
+        DEST="s3://rldb/staged/articulated_rollout/$JOB_NAME"
+        $S5 cp "/tmp/*.log" "$DEST/logs/" || true
+        $S5 cp "/workspace/budgets/*.json" "$DEST/budgets/" || true
+        echo "artifacts flushed to $DEST"
+        exit $RC
+
+  resources:
+    default:
+      cpu: {{cpu}}
+      gpu: {{num_gpu}}
+      memory: {{memory}}
+      storage: {{storage}}
+
+  timeout:
+    queue_timeout: 1d

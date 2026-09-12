@@ -30,6 +30,10 @@ class PipelineAlgo:
     def pipeline(self) -> Pipeline:
         return self.nets["pipeline"]
 
+    def bind_data_context(self, *, normalizer):
+        self.pipeline.bind_data_context(normalizer=normalizer)
+        self.nets.to(self.device)
+
     def _move_value(self, value):
         if torch.is_tensor(value):
             if value.dtype == torch.float64:

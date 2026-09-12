@@ -1,0 +1,23 @@
+viz_func:
+  eva_bimanual:
+    _target_: egomimic.campaigns.pi05.eva.Eva.viz_gt_preds
+    _partial_: true
+    image_key: base_0_rgb
+    action_key: actions_cartesian
+    mode: traj
+    annotation_key: sampled_prompt
+  human_bimanual:
+    _target_: egomimic.campaigns.pi05.human.Human.viz_gt_preds
+    _partial_: true
+    image_key: base_0_rgb
+    action_key: actions_cartesian
+    mode: traj
+    annotation_key: sampled_prompt
+_target_: egomimic.eval.pi05_graph_eval.PI05GraphEval
+viz_every_n_epochs: 100
+viz_max_batches: 10
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.campaigns.pi05.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
+  human_bimanual:
+    _target_: egomimic.campaigns.pi05.human._build_human_cartesian_revert_6d_wristframe_transform_list

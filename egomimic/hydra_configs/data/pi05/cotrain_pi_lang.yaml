@@ -1,0 +1,113 @@
+
+# Graph port: train_viz is a nested validation group; episode filters retained.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+    resolver:
+      _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset
+      key_map:
+        _target_: egomimic.campaigns.pi05.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.campaigns.pi05.eva.Eva.get_transform_list
+        mode: cartesian
+      image_hw:
+      - 480
+      - 640
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: dense-language
+      filter_lambdas:
+      - 'lambda row: (row[''embodiment''] == ''eva_bimanual'') & (row[''task''] == ''pick_place'') & (row[''zarr_processed_path'']
+        != '''')'
+    mode: train
+    valid_ratio: 0.05
+  human_bimanual:
+    _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+    resolver:
+      _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset
+      key_map:
+        _target_: egomimic.campaigns.pi05.human.Human.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.campaigns.pi05.human.Human.get_transform_list
+        mode: cartesian
+        stride: 3
+      image_hw:
+      - 480
+      - 640
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: dense-language
+      filter_lambdas:
+      - 'lambda row: (row[''embodiment''] == ''human_bimanual'') & (row[''task''] == ''pick_place'') & (row[''zarr_processed_path'']
+        != '''')'
+    mode: train
+    valid_ratio: 0.05
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+    resolver:
+      _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset
+      key_map:
+        _target_: egomimic.campaigns.pi05.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.campaigns.pi05.eva.Eva.get_transform_list
+        mode: cartesian
+      image_hw:
+      - 480
+      - 640
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: dense-language
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''eva_bimanual'' and row[''task''] == ''pick_place'' and row[''zarr_processed_path'']
+        != '''' and ''alignment'' not in (row.get(''task_description'') or '''')'
+    mode: valid
+    valid_ratio: 0.05
+  human_bimanual:
+    _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+    resolver:
+      _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset
+      key_map:
+        _target_: egomimic.campaigns.pi05.human.Human.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.campaigns.pi05.human.Human.get_transform_list
+        mode: cartesian
+        stride: 3
+      image_hw:
+      - 480
+      - 640
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: dense-language
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''human_bimanual'' and row[''task''] == ''pick_place'' and row[''zarr_processed_path'']
+        != '''' and ''alignment'' not in (row.get(''task_description'') or '''')'
+    mode: valid
+    valid_ratio: 0.05
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6

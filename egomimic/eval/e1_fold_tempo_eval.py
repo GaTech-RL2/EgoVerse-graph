@@ -78,7 +78,14 @@ class E1FoldTempoEval(BimanualCartesianEval):
     ):
         if arc_match_distance is not None:
             raise ValueError("E1 matching uses D and arcmatch_gt_span_m")
+        limit = kwargs.pop("limit_val_batches", None)
         super().__init__(**kwargs)
+        if limit is not None:
+            if isinstance(limit, float) and not 0 < limit <= 1:
+                raise ValueError("A fractional validation limit must be in (0, 1]")
+            if isinstance(limit, int) and limit < 1:
+                raise ValueError("A batch validation limit must be positive")
+            self.override_dict["limit_val_batches"] = limit
         self.time_key = str(time_key)
         self.results_path = Path(results_path) if results_path else None
         self.metric_options = dict(
@@ -94,7 +101,9 @@ class E1FoldTempoEval(BimanualCartesianEval):
             span_floor_m=span_floor_m,
             arcmatch_gt_span_m=arcmatch_gt_span_m,
         )
-        E1TempoAccumulator(**self.metric_options)  # validate before a run starts
+        reference = E1TempoAccumulator(**self.metric_options)
+        self.variant = reference.variant
+        self.gt_span_m = reference.gt_span_m
         if D <= 0 or M < 2 or dt <= 0 or h_match_frames < 1 or arc_match_points < 2:
             raise ValueError(
                 "E1 distances/time must be positive and waypoint counts >= 2"
@@ -179,4 +188,14 @@ class E1FoldTempoEval(BimanualCartesianEval):
         if self.results_path is not None:
             self.results_path.parent.mkdir(parents=True, exist_ok=True)
             self.results_path.write_text(json.dumps(result, indent=2) + "\n")
+            # Retain the source rescore/harvest scripts' metric-file contract.
+            flat = {}
+            for (group, label), accumulator in accumulators.items():
+                prefix = "Valid" if group == "valid" else f"Valid/{group}"
+                for key, value in accumulator.summary().items():
+                    if isinstance(value, (int, float)):
+                        flat[f"{prefix}/E1/{key}/{label}"] = value
+            self.results_path.with_name("eval_metrics.json").write_text(
+                json.dumps({"results": [flat]}, indent=2) + "\n"
+            )
         return result

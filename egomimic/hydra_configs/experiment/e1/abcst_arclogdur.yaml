@@ -1,0 +1,12 @@
+# @package _global_
+# ABC / YAM STATIONERY (ICE, front camera only) — arclogdur row (see abc_base and fold_arclogdur).
+defaults:
+- /experiment/e1/abc_base
+- override /data: e1/abc_stationery
+- override /model: e1/hpt_flow
+- _self_
+e1:
+  variant: arclogdur
+  chunk_length: 200
+  action_dim: 16
+  action_horizon: 100

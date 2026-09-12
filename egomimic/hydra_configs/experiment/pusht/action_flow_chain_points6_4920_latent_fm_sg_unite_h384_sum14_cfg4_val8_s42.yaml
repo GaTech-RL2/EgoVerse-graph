@@ -1,0 +1,146 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_chain_points6_4920_candidate_common
+  - override /model: bf/us_action_flow_latent_fm_sg_unite_h384
+  - _self_
+
+name: action_flow_chain_points6_4920_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+description: "Standalone ChainGripper points6 Action Flow H384; 3k real plus 1920 generated obstacle episodes"
+
+train:
+  action_flow_method: latent_fm_stopgrad_unite
+
+model:
+  flow_loss_aggregation: sum_samples
+  cfg_scale: 4.0
+  cfg_interval: [0.0, 1.0]
+
+planar:
+  action_dims: {pushshapes_sim_chain_gripper: 6}
+  action_model_dim: 6
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+
+evaluator:
+  native_decoder: ${planar.eval_native_decoder}
+  semantic_blocks: [[0, 2], [2, 4], [4, 6]]
+  energy_score_distance: null
+  energy_score_provenance:
+    action_representation: left_xy_center_xy_right_xy_points6
+    distance_contract:
+      space: normalized_action_chunk
+      formula: mean_equal_weight_semantic_block_rms
+      semantic_blocks: [[0, 2], [2, 4], [4, 6]]
+  action_flow_diagnostics:
+    enabled: true
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    max_batches_per_rank: 1
+    max_samples: 16
+    jacobian_samples: 2
+    capture_activations: true
+    activation_layer_map: {0: 0, 1: 11}
+    cknna_k: 10
+    native_error: null
+    artifact_root: ${paths.output_dir}/validation_predictions/action_flow_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_rank
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 32
+      world_size: 1
+    provenance:
+      source_commit: ${run_provenance.source_commit}
+      normalization_sha256: ${run_provenance.normalization_sha256}
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      dataset_content:
+        manifest_sha256: ${run_provenance.content_manifest_sha256}
+        aggregate_sha256: ${run_provenance.dataset_content_aggregate_sha256}
+      action_representation: left_xy_center_xy_right_xy_points6
+      clean_endpoint: t0
+      gaussian_endpoint: t1
+      latent_shape: [8, 16]
+      flow_samples_per_content: ${model.flow_samples_per_content}
+      condition_dropout_probability: ${model.condition_dropout_probability}
+      sampler: dopri5
+      sampler_steps: ${model.num_inference_steps}
+      flow_time_sampling: lognormal_shifted_mapped_to_t0_clean
+      reconstruction_noising: clean_fraction_uniform_0p7_to_1_probability_0p5
+      fixed_level_coupling: one_clean_latent_and_one_gaussian_per_condition
+      decoder_jacobian_evaluation: declared_bridge_state_at_each_fixed_noise_level
+      activation_capture: real_forward_hooks_without_replay_or_replacement
+
+callbacks:
+  model_checkpoint:
+    every_n_train_steps: 20000
+
+run_provenance:
+  architecture:
+    family: action_flow_with_separate_released_unite_modules
+    tokenizer: UniteDiTBackbone_h384_d12_h12
+    denoiser: UniteDiTBackbone_h384_d12_h12
+    decoder: UniteActionDecoder_h384_d12_h12
+    tokenizer_denoiser_weight_sharing: false
+    action_shape: [16, 6]
+    latent_shape: [8, 16]
+    observation_condition_dim: 128
+  objective:
+    method: latent_fm_stopgrad_unite
+    flow_clean_gradient_mode: all_stopgrad
+    action_velocity_clean_gradient_mode: full
+    reconstruction_is_optimizer_objective: true
+    flow_weight: 1.0
+    reconstruction_weight: 1.0
+    action_velocity_weight: 1.0
+    flow_samples_per_content: 14
+    flow_mini_batch: 14
+    decoded_noise_scale_weight: 0.0
+    monotonic_weight: 0.0
+    flow_aggregation: sum_of_14_per_sample_means
+    reconstruction_only_warmup_steps: 0
+  validation:
+    interval_optimizer_steps: 10000
+    limit_batches: 8
+    per_rank_batch_size: 32
+    world_size: 1
+    global_batch_size: 32
+  split_manifest_path: ${oc.env:CHAIN4920_SPLIT_MANIFEST,/required/chain4920_split_manifest.json}
+  split_manifest_sha256: ${oc.env:CHAIN4920_SPLIT_MANIFEST_SHA256,required}
+  content_manifest_path: ${oc.env:CHAIN4920_CONTENT_MANIFEST,/required/chain4920_content_manifest.json}
+  content_manifest_sha256: ${oc.env:CHAIN4920_CONTENT_MANIFEST_SHA256,required}
+  dataset_content_aggregate_sha256: ${oc.env:CHAIN4920_CONTENT_AGGREGATE_SHA256,required}
+  split_seed: 42
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 4871
+  valid_episode_count_per_domain: 49
+  union_episode_count_per_domain: 4920
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  dataset_observation_alignment: pre_step
+  action_contract:
+    representation: left_xy_center_xy_right_xy_points6
+    prediction_horizon: 16
+    native_decoder: ChainGripperPointsNativeDecoder
+  energy_score_contract:
+    distance:
+      space: normalized_action_chunk
+      formula: mean_equal_weight_semantic_block_rms
+      semantic_blocks: [[0, 2], [2, 4], [4, 6]]
+  requirements:
+    r1_full_conditional_distribution: PASS_design_under_fixed_endpoint_cfm_assumptions
+    r2_common_stochastic_latent: PASS_single_embodiment_design
+    r3_shared_conditional_generator: PASS_single_embodiment_design
+    r4_joint_learning_from_start: PASS_design
+    r5_ordinary_pairs_and_context_free_decoder: PASS_design
+    r6_flexible_nonlinear_interfaces: PASS_design
+    r7_simple_objectives_with_disclosed_jvp_cost: PASS_design
+    r8_no_required_action_path: PASS_optional_action_velocity_bias_disclosed
+    r9_collapse_and_decoder_sensitivity: OPEN_requires_training_diagnostics
+    r10_baseline_quality_and_compute: OPEN_requires_validation_and_rollout
+
+deployment:
+  observation_adapter:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperModelStateObservationAdapter
+  action_decoder:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+  chain_gripper_control_mode: points

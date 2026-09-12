@@ -86,6 +86,10 @@ class Stage(nn.Module):
     reads_by_mode: Mapping[str, Sequence[str]] = {}
     writes_by_mode: Mapping[str, Sequence[str]] = {}
 
+    def bind_data_context(self, *, normalizer):
+        """Bind data-owned state before optimizer construction or checkpoint loading."""
+        return None
+
     def contract(self, mode: str = "train") -> tuple[tuple[str, ...], tuple[str, ...]]:
         if mode not in _EXECUTION_MODES:
             raise ValueError(
@@ -122,6 +126,10 @@ class Pipeline(Stage):
 
     def forward(self, batch: dict, mode: str = "train") -> dict:
         return self.execute(batch, mode=mode)
+
+    def bind_data_context(self, *, normalizer):
+        for stage in self.stages:
+            stage.bind_data_context(normalizer=normalizer)
 
     def plan(
         self, seed_keys: Sequence[str], mode: str = "train"

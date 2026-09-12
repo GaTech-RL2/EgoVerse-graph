@@ -485,9 +485,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from
     # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
-    norm_stats = MultiDataset(
+    norm_kwargs = dict(
         state={},
         norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
+    )
+    norm_stats = (
+        hydra.utils.instantiate(cfg.normalizer, **norm_kwargs)
+        if cfg.get("normalizer") is not None
+        else MultiDataset(**norm_kwargs)
     )
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
@@ -565,6 +570,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = _instantiate_model_wrapper(cfg)
+    model.model.bind_data_context(normalizer=norm_stats)
 
     _log_dataset_frame_counts(
         datamodule.train_datasets, datamodule.iter_valid_datasets()
@@ -623,6 +629,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.bind_data_context(normalizer=norm_stats)
             model.evaluator = eval_obj
         log.info("Starting training!")
+        if (
+            cfg.get("val_at_start", False)
+            and not cfg.get("ckpt_path")
+            and os.environ.get("SLURM_RESTART_COUNT", "0") == "0"
+        ):
+            trainer.validate(model=model, datamodule=datamodule)
         trainer.fit(
             model=model,
             datamodule=datamodule,

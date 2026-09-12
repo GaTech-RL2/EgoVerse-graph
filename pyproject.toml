@@ -64,6 +64,12 @@ dependencies = [
     "scikit-learn>=1.8.0",
 ]
 
+[project.optional-dependencies]
+pi05 = [
+    "openpi @ git+https://github.com/GaTech-RL2/openpi.git@981483dca0fd9acba698fea00aa6e52d56a66c58",
+    "safetensors",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["egomimic*"]

@@ -1,0 +1,83 @@
+#!/bin/bash
+#SBATCH -A gts-dxu345-rl2
+#SBATCH -q inferno
+#SBATCH -N1
+#SBATCH --ntasks-per-node=4
+#SBATCH --cpus-per-task=8
+# 500G host RAM: 8 workers/rank fork the 41k-episode dataset and
+# refcount-driven CoW drift pushed each rank tree to ~75GB (~300GB total) —
+# the default 252GB allocation OOM-killed the run at step 5298 (job 10894868).
+#SBATCH --mem=500G
+#SBATCH --gres=gpu:h200:4
+#SBATCH --time=72:00:00
+#SBATCH --job-name=pi05_mecka_4g
+#SBATCH --output=pi05_%x_%j.log
+
+# Full pi0.5 BC on ALL SQL mecka episodes (cartesian_6d, 6D proprio), 4xH200.
+#
+# 4 GPUs, not 8: the 8-rank shape hits a pathological NCCL slowdown on these
+# HGX nodes (12.6 s/step vs 3.6 s/step measured at 4 ranks on the same
+# hardware/strategy — see legacy run obj_gen_..._9368273). bs64/GPU -> global
+# batch 256.
+#
+# Cadence (epoch = limit_train_batches = 100 steps):
+#   val every 50 epochs (5k steps, 80 batches, no shuffle)
+#   viz every 100 epochs (10k steps)  ckpt every 100 epochs, top-3 by step
+#
+# Requires the CPU norm job's output (norm_mecka_all_6d.sbatch):
+#   /storage/project/r-dxu345-0/agao81/norm_stats/mecka_all_6d/norm_stats
+#
+# Env knobs:
+#   NORM_PATH  - precomputed norm_stats dir (default above)
+#   CKPT_PATH  - resume from a Lightning checkpoint
+#   LR         - optimizer lr (default 5e-5, matching the remote mecka runs)
+
+set -euo pipefail
+WT=${WT:-$(git rev-parse --show-toplevel)}
+cd "$WT"
+PY=${PY:-python}
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+# wandb online (key from apikey.txt); falls back to offline if absent.
+if grep -q WANDB_API_KEY apikey.txt 2>/dev/null; then
+  export WANDB_API_KEY="$(grep -oP 'WANDB_API_KEY=\K.*' apikey.txt)"
+  export WANDB_MODE=online
+elif grep -q api.wandb.ai ~/.netrc 2>/dev/null; then
+  export WANDB_MODE=online   # netrc-authenticated
+else
+  export WANDB_MODE=offline
+fi
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+
+NORM_PATH="${NORM_PATH-/storage/project/r-dxu345-0/agao81/norm_stats/mecka_all_6d/norm_stats}"
+CKPT_PATH="${CKPT_PATH-}"
+LR="${LR-5e-5}"
+
+if [[ ! -f "$NORM_PATH/norm_stats.json" ]]; then
+  echo "ERROR: precomputed norm stats not found: $NORM_PATH/norm_stats.json" >&2
+  echo "Run scripts/pi05/norm_mecka_all_6d.sbatch first." >&2
+  exit 1
+fi
+
+ARGS=(
+  --config-name=train_zarr_cartesian_pi
+  data=pi05/mecka_all_pi_6d
+  model=pi05/pi0.5_bc_mecka_6d
+  evaluator=pi05/eval_pi_wristframe_6d
+  launch_params.gpus_per_node=4
+  "model.optimizer.lr=$LR"
+  "norm_stats.precomputed_norm_path=$NORM_PATH"
+  pi05.pretrained_weights=${PI05_WEIGHTS:?Set PI05_WEIGHTS}
+  # cadence (val 50 / viz 100 / ckpt 100 top-3) is the config default now
+  # (trainer/ddp_pi.yaml + callbacks/checkpoints.yaml). At 4-GPU pace
+  # 100 epochs is ~10h wall, and two crashes have now landed before the
+  # first save — checkpoint every 50 epochs (~5h) to bound the loss.
+  callbacks.model_checkpoint.every_n_epochs=50
+  name=pi05_mecka_all_6d
+  description=pi05_mecka_all_6d_bs64x4_constlr_wrist6d
+)
+# Lightning names checkpoints "epoch_epoch=..." — quote so hydra's grammar
+# doesn't choke on '='.
+[[ -n "$CKPT_PATH" ]] && ARGS+=("ckpt_path='$CKPT_PATH'")
+
+echo "[train] srun python -u egomimic/trainHydra.py ${ARGS[*]}"
+srun "$PY" -u egomimic/trainHydra.py "${ARGS[@]}"

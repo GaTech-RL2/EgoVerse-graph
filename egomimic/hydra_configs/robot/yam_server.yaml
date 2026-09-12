@@ -1,0 +1,34 @@
+# Copy this deployment YAML and fill paths/calibration from the trained recipe
+# and commissioned station. The server loads it with OmegaConf, without Hydra defaults.
+address: 127.0.0.1:18080
+model_id: ???
+task: ???
+policy:
+  training_config: ??? # saved fully composed training .hydra/config.yaml
+  checkpoint: ???
+  normalizer_path: ??? # norm_stats.json with normalizer_state
+  device: cuda
+  use_ema: false
+  adapter:
+    _target_: egomimic.robot.yam.adapter.YamCartesianAdapter
+    kinematics:
+      _target_: egomimic.robot.yam.kinematics.MujocoArmKinematics
+      xml_path: ??? # combined Yam arm/gripper MJCF from the station checkout
+      joint_names: ??? # six ordered arm joint names in that MJCF
+      site_name: tcp_site
+    # Per-arm base_T_model matrices, matching the model's training proprio frame.
+    # For camera-frame proprio, use calibrated base_T_camera for each arm.
+    # For E1/Yam world-frame proprio, use each base_T_station_world instead.
+    base_T_model: ???
+    embodiment_id: 7 # Yam; PI recipes whose stored metadata is Eva use 6
+    rotation_mode: euler # 6D for the PI continuous-rotation recipes
+    action_frame: eef_frame
+    action_key: actions_cartesian
+    proprio_key: observations.state.ee_pose
+    camera_keys:
+      top: observations.images.front_img_1 # base_0_rgb for PI
+      left_wrist: observations.images.left_wrist_img # left_wrist_0_rgb for PI
+      right_wrist: observations.images.right_wrist_img # right_wrist_0_rgb for PI
+    image_hw: [480, 640]
+    prompt: ${task}
+    decoder: null # ARC models must configure BimanualArcDecoder; see docs/YAM_RUNTIME.md

@@ -1,0 +1,79 @@
+// Copyright 2026 The HuggingFace Inc. team. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+
+syntax = "proto3";
+
+package lerobot.inference.v1;
+
+service PolicyInference {
+  rpc GetPolicyInfo(Empty) returns (PolicyInfo);
+  rpc Predict(PredictRequest) returns (ActionChunk);
+}
+
+message Empty {}
+
+message PolicyInfo {
+  uint32 protocol_version = 1;
+  string model_id = 2;
+  string task = 3;
+  uint32 fps = 4;
+  uint32 observation_history = 5;
+  uint32 action_chunk_size = 6;
+  repeated string state_names = 7;
+  repeated string action_names = 8;
+  repeated string camera_names = 9;
+  // Empty for RGB-only models; ["top"] requires aligned metric depth.
+  repeated string depth_names = 10;
+}
+
+message Image {
+  string name = 1;
+  string encoding = 2;
+  uint32 width = 3;
+  uint32 height = 4;
+  bytes data = 5;
+  uint64 capture_monotonic_ns = 6;
+}
+
+message Observation {
+  uint64 sequence = 1;
+  uint64 capture_monotonic_ns = 2;
+  repeated float left_joint_positions = 3;
+  repeated float right_joint_positions = 4;
+  repeated Image images = 5;
+  repeated DepthImage depths = 6;
+}
+
+message DepthImage {
+  string name = 1;
+  uint32 width = 2;
+  uint32 height = 3;
+  // Row-major little-endian float32, meters, color optical Z. Zero = invalid.
+  bytes data = 4;
+  uint64 capture_monotonic_ns = 5;
+  // Same source/calibration metadata as the recorded camera sample.
+  string metadata_json = 6;
+}
+
+message PredictRequest {
+  string session_id = 1;
+  uint64 request_id = 2;
+  uint64 next_action_step = 3;
+  repeated Observation observations = 4;
+}
+
+message ActionChunk {
+  string session_id = 1;
+  uint64 request_id = 2;
+  uint64 source_observation_sequence = 3;
+  uint64 start_action_step = 4;
+  uint32 rows = 5;
+  uint32 cols = 6;
+  repeated float actions = 7;
+  double inference_ms = 8;
+}

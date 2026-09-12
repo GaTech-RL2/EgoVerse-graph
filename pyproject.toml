@@ -65,6 +65,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+yam = ["grpcio>=1.73.1,<2", "protobuf>=6.31.1,<8"]
 pi05 = [
     "openpi @ git+https://github.com/GaTech-RL2/openpi.git@981483dca0fd9acba698fea00aa6e52d56a66c58",
     "safetensors",
@@ -75,7 +76,7 @@ where = ["."]
 include = ["egomimic*"]
 
 [tool.setuptools.package-data]
-egomimic = ["hydra_configs/**/*.yaml", "hydra_configs/**/*.json"]
+egomimic = ["hydra_configs/**/*.yaml", "hydra_configs/**/*.json", "robot/yam/*.proto"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

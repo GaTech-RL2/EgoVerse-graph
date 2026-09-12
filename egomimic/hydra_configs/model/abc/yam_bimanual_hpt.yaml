@@ -1,0 +1,116 @@
+# HPT over YAM bimanual cartesian actions, as graph stages.
+#
+# This is the real HPT architecture -- per-modality stems with cross-attention
+# latent pooling, a shared transformer trunk, and a flow-matching head -- not a
+# DP model matched to it. Compare model/abc/yam_bimanual_dp.yaml, which keeps
+# the same data and action space but a fused encoder plus DDIM diffusion.
+#
+# The dataflow the stage list makes visible:
+#
+#   observations --HPTStemStage--> hpt/tokens --HPTTrunkStage--> condition
+#   actions --ActionTargetBuilder--> target --FlowNoisingStage--> flow/*
+#   flow/* + condition --FlowDenoiserStage--> flow/predicted_velocity
+#                                       --FlowVelocityLossStage--> loss/*
+#
+# `hpt.embed_dim` is the SHARED BUS WIDTH. Every stem's output_dim, every
+# cross_attn modality_embed_dim, the trunk's embed_dim and the head's cond_dim
+# must move together -- the stem stage rejects a mismatch rather than letting a
+# silent broadcast through.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    # -- input side: one stem per modality, pooled to latent tokens ---------
+    - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
+      stems:
+        observations.state.ee_pose:
+          _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+          input_dim: ${hpt.action_dim}
+          output_dim: ${hpt.embed_dim}
+          widths: ["${hpt.embed_dim}"]
+          specs: ${hpt.stem_specs}
+        observations.images.front_img_1:
+          _target_: egomimic.models.stems.hpt_stems.ResNet
+          output_dim: ${hpt.embed_dim}
+          resnet_model: resnet18
+          weights: null
+          specs: ${hpt.stem_specs}
+        observations.images.left_wrist_img:
+          _target_: egomimic.models.stems.hpt_stems.ResNet
+          output_dim: ${hpt.embed_dim}
+          resnet_model: resnet18
+          weights: null
+          specs: ${hpt.stem_specs}
+        observations.images.right_wrist_img:
+          _target_: egomimic.models.stems.hpt_stems.ResNet
+          output_dim: ${hpt.embed_dim}
+          resnet_model: resnet18
+          weights: null
+          specs: ${hpt.stem_specs}
+
+    # -- shared trunk: attend over every modality's tokens, pool to one ----
+    - _target_: egomimic.pipeline.stages_hpt.HPTTrunkStage
+      embed_dim: ${hpt.embed_dim}
+      token_postprocessing: action_token
+      use_position_embedding: true
+      # 4 modalities x crossattn_latent, plus the action token.
+      max_tokens: 512
+      trunk:
+        _target_: egomimic.models.cores.hpt_transformer.SimpleTransformer
+        embed_dim: ${hpt.embed_dim}
+        num_blocks: ${hpt.num_blocks}
+        drop_path_rate: 0.1
+        weight_init_style: pytorch
+        attn_target:
+          _target_: egomimic.models.cores.hpt_transformer.MultiheadAttention
+          _partial_: true
+          embed_dim: ${hpt.embed_dim}
+          num_heads: ${hpt.num_heads}
+          batch_first: true
+
+    # -- target + flow-matching head ---------------------------------------
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+      action_key: actions_cartesian
+    - _target_: egomimic.pipeline.stages_flow.FlowNoisingStage
+      action_horizon: ${hpt.action_horizon}
+      action_dim: ${hpt.action_dim}
+      # beta(1.5, 1) leans toward the noisy end, matching upstream HPT.
+      time_dist: beta
+      beta_alpha: 1.5
+      beta_beta: 1.0
+    - _target_: egomimic.pipeline.stages_flow.FlowDenoiserStage
+      action_horizon: ${hpt.action_horizon}
+      action_dim: ${hpt.action_dim}
+      condition_input_dim: ${hpt.embed_dim}
+      num_inference_steps: 50
+      # CrossTransformer cross-attends over the condition, so it needs the
+      # token axis the trunk's pooled vector does not have.
+      condition_as_tokens: true
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: ${hpt.embed_dim}
+        hidden_dim: 128
+        act_dim: ${hpt.action_dim}
+        act_seq: ${hpt.action_horizon}
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+        time_conditioning: additive
+    - _target_: egomimic.pipeline.stages_flow.FlowVelocityLossStage
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3.0e-4
+  weight_decay: 1.0e-6
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 500
+  warmup_start_factor: 1.0e-8
+  eta_min: 0.0

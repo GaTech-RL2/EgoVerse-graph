@@ -1,4 +1,7 @@
+"""EgoVerse additions: world poses, stale-input expiry and bounded shutdown."""
+
 import os
+import socket
 import sys
 import threading
 import time
@@ -26,12 +29,19 @@ class OculusReader:
         APK_name="com.rail.oculus.teleop",
         print_FPS=False,
         run=True,
+        pose_frame="head",
+        max_age=None,
     ):
         self.running = False
         self.last_transforms = {}
         self.last_buttons = {}
         self._lock = threading.Lock()
-        self.tag = "wE9ryARX"
+        if pose_frame not in ("head", "world"):
+            raise ValueError("pose_frame must be head or world")
+        self.tag = "wE9ryARXWorld" if pose_frame == "world" else "wE9ryARX"
+        self.max_age = max_age
+        self.last_update = None
+        self._connection = None
 
         self.ip_address = ip_address
         self.port = port
@@ -54,14 +64,23 @@ class OculusReader:
             'am start -n "com.rail.oculus.teleop/com.rail.oculus.teleop.MainActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER'
         )
         self.thread = threading.Thread(
-            target=self.device.shell, args=("logcat -T 0", self.read_logcat_by_line)
+            target=self.device.shell,
+            args=("logcat -T 0", self.read_logcat_by_line),
+            daemon=True,
         )
         self.thread.start()
 
     def stop(self):
         self.running = False
-        if hasattr(self, "thread"):
-            self.thread.join()
+        connection = getattr(self, "_connection", None)
+        if connection is not None:
+            try:
+                connection.socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            connection.close()
+        if hasattr(self, "thread") and self.thread is not threading.current_thread():
+            self.thread.join(timeout=2.0)
 
     # ---------- Device selection helpers ----------
     def _adb_client(self):
@@ -290,28 +309,39 @@ class OculusReader:
         if self.tag in line:
             try:
                 output += line.split(self.tag + ": ")[1]
-            except ValueError:
+            except (ValueError, IndexError):
                 pass
         return output
 
     def get_transformations_and_buttons(self):
         with self._lock:
-            return self.last_transforms, self.last_buttons
+            if self.max_age is not None and (
+                self.last_update is None
+                or time.monotonic() - self.last_update > self.max_age
+            ):
+                return {}, {}
+            return dict(self.last_transforms or {}), dict(self.last_buttons or {})
 
     def read_logcat_by_line(self, connection):
+        self._connection = connection
         file_obj = connection.socket.makefile()
         while self.running:
             try:
-                line = file_obj.readline().strip()
-                data = self.extract_data(line)
+                line = file_obj.readline()
+                if not line:
+                    break
+                data = self.extract_data(line.strip())
                 if data:
                     transforms, buttons = OculusReader.process_data(data)
                     with self._lock:
                         self.last_transforms, self.last_buttons = transforms, buttons
+                        self.last_update = time.monotonic()
                     if self.print_FPS:
                         self.fps_counter.getAndPrintFPS()
-            except UnicodeDecodeError:
-                pass
+            except (UnicodeDecodeError, ValueError, IndexError):
+                continue
+            except OSError:
+                break
         file_obj.close()
         connection.close()
 

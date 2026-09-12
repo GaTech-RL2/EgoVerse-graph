@@ -1,0 +1,13 @@
+# @package _global_
+# Arc-mean row: the branch's (M+1, 14) arc token, D = 0.40 m, M = 100, with the
+# velocity row re-normed to path speed. Raw window 200 frames (6.7 s) so the
+# token has room to reach D; no interpolation (chunk_length == raw window).
+defaults:
+- /experiment/e1/fold_base
+- override /model: e1/hpt_flow
+- _self_
+e1:
+  variant: arcmean
+  chunk_length: 200
+  action_dim: 14
+  action_horizon: 101

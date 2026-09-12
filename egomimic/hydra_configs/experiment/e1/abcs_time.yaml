@@ -1,0 +1,11 @@
+# @package _global_
+# stationery E1 — time row on the lab's abc_arc/hpt_abc_bc_flow_baseline.
+defaults:
+- /experiment/e1/abcs_base
+- override /model: e1/hpt_flow_wrists
+- _self_
+e1:
+  variant: time
+  chunk_length: 100
+  action_dim: 14
+  action_horizon: 100

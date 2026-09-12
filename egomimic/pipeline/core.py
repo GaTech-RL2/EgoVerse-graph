@@ -72,12 +72,23 @@ def sum_losses(batch: dict):
 
 
 class Stage(nn.Module):
-    """A ``dict -> dict`` module with declarative read/write contracts."""
+    """A ``dict -> dict`` module with declarative read/write contracts.
+
+    ``train_only`` and ``inference_only`` drop a stage from the other mode's
+    graph. They exist because a stage that is merely missing a read is a
+    CONFIGURATION ERROR here -- ``Pipeline.execute`` raises on a blocked stage
+    rather than skipping it -- so mode-restricted stages have to say so rather
+    than rely on their inputs happening to be absent.
+    """
 
     reads: Sequence[str] = ()
     writes: Sequence[str] = ()
     reads_by_mode: Mapping[str, Sequence[str]] = {}
     writes_by_mode: Mapping[str, Sequence[str]] = {}
+
+    def bind_data_context(self, *, normalizer):
+        """Bind data-owned state before optimizer construction or checkpoint loading."""
+        return None
 
     def contract(self, mode: str = "train") -> tuple[tuple[str, ...], tuple[str, ...]]:
         if mode not in _EXECUTION_MODES:
@@ -116,6 +127,10 @@ class Pipeline(Stage):
     def forward(self, batch: dict, mode: str = "train") -> dict:
         return self.execute(batch, mode=mode)
 
+    def bind_data_context(self, *, normalizer):
+        for stage in self.stages:
+            stage.bind_data_context(normalizer=normalizer)
+
     def plan(
         self, seed_keys: Sequence[str], mode: str = "train"
     ) -> tuple[list[Stage], list[tuple[Stage, list[str]]]]:
@@ -131,6 +146,9 @@ class Pipeline(Stage):
         for stage in self.stages:
             if mode == "inference" and getattr(stage, "train_only", False):
                 excluded.append((stage, ["<train-only>"]))
+                continue
+            if mode == "train" and getattr(stage, "inference_only", False):
+                excluded.append((stage, ["<inference-only>"]))
                 continue
             reads, writes = stage.contract(mode)
             missing = [key for key in reads if not _read_is_available(key, available)]
@@ -159,7 +177,7 @@ class Pipeline(Stage):
         blocked = [
             (type(stage).__name__, missing)
             for stage, missing in excluded
-            if missing != ["<train-only>"]
+            if missing not in (["<train-only>"], ["<inference-only>"])
         ]
         if blocked:
             raise RuntimeError(f"Pipeline {mode} graph has blocked stages: {blocked}")
@@ -187,6 +205,8 @@ class Pipeline(Stage):
             reads, writes = stage.contract(mode)
             if mode == "inference" and getattr(stage, "train_only", False):
                 reason = " (EXCLUDED: train-only)"
+            elif mode == "train" and getattr(stage, "inference_only", False):
+                reason = " (EXCLUDED: inference-only)"
             else:
                 missing = [
                     key for key in reads if not _read_is_available(key, available)

@@ -1,0 +1,277 @@
+# MECKA_ABC_PI_6D — combined pretrain corpus: ALL mecka human episodes
+# (lab=mecka, 41.6k, human_bimanual) + the abc EVA robot collection
+# (embodiment='eva_bimanual', /abc/ paths, 18.5k). Both blocks are verbatim
+# copies of mecka_all_pi_6d / abc_eva_pi_6d — same shared mirror, same
+# transforms — only the batch sizes change (see below).
+#
+# Both corpora use WRIST-frame cartesian actions with continuous 6D rotation:
+# human is 18D (no gripper; proprio zero-padded to 20D so State: bins align
+# with the robot layout), eva is 20D native with grippers. The 32D pi packing
+# absorbs both widths; per-embodiment converters live in
+# model=pi0.5_bc_mecka_abc_6d.
+#
+# Mixing: CombinedLoader("max_size_cycle") draws ONE batch per key per step,
+# so every step is a 1:1 human/eva mix regardless of corpus size (the smaller
+# abc set just recycles ~2.2x more often). Batch is 32 per key (vs 64 in the
+# single-corpus configs) so the per-step sample count per GPU stays 64 — the
+# proven memory profile — and the global batch stays 512 at 8 GPUs.
+#
+# Norm stats: /storage/project/r-dxu345-0/agao81/norm_stats/mecka_abc_6d —
+# the union of the mecka_all_6d (id 3) and abc_eva_6d (id 6) jsons. Stats are
+# computed per embodiment id independently, so the merge is exactly
+# equivalent to recomputing on this combined config.
+# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
+# videos_train_viz/). No shuffle -> same leading slice every val.
+# Graph port: train_viz is a nested validation group; episode filters retained.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+        camera_keys:
+          observations.images.front_img_1: base_0_rgb
+          observations.images.left_wrist_img: left_wrist_0_rgb
+          observations.images.right_wrist_img: right_wrist_0_rgb
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        stride: 1
+        pad_proprio_gripper: true
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: 6D
+        local_frame_rotations: &id001
+          left.action_ee_pose:
+          - 0
+          - 0
+          - 0
+          - 1
+          left.obs_ee_pose:
+          - 0
+          - 0
+          - 0
+          - 1
+      image_hw:
+      - 480
+      - 640
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: str(row.get(''lab'', '''')).lower() == ''mecka'''
+    mode: train
+    valid_ratio: 0.05
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+        camera_keys:
+          observations.images.front_img_1: base_0_rgb
+          observations.images.left_wrist_img: left_wrist_0_rgb
+          observations.images.right_wrist_img: right_wrist_0_rgb
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: 6D
+        extrinsics: &id002
+          left:
+          - - -0.00540728648402
+            - -0.91864395735192
+            - 0.39504941573641
+            - -0.07230219027034
+          - - -0.99924104589933
+            - -0.01027605228132
+            - -0.03757306135427
+            - -0.23692835817344
+          - - 0.03857581422213
+            - -0.39495275966919
+            - -0.91789118319482
+            - 0.9778307002508
+          - - 0.0
+            - 0.0
+            - 0.0
+            - 1.0
+          right:
+          - - -0.00540728648402
+            - -0.91864395735192
+            - 0.39504941573641
+            - -0.07230219027034
+          - - -0.99924104589933
+            - -0.01027605228132
+            - -0.03757306135427
+            - -0.23692835817344
+          - - 0.03857581422213
+            - -0.39495275966919
+            - -0.91789118319482
+            - 0.9778307002508
+          - - 0.0
+            - 0.0
+            - 0.0
+            - 1.0
+      image_hw:
+      - 480
+      - 640
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: str(row.get(''embodiment'', '''')) == ''eva_bimanual'''
+      - 'lambda row: ''/abc/'' in str(row.get(''zarr_processed_path'', ''''))'
+    mode: train
+    valid_ratio: 0.05
+valid_datasets:
+  valid:
+    human_bimanual:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: cartesian
+          annotation_key: annotations
+          camera_keys:
+            observations.images.front_img_1: base_0_rgb
+            observations.images.left_wrist_img: left_wrist_0_rgb
+            observations.images.right_wrist_img: right_wrist_0_rgb
+        transform_list:
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          stride: 1
+          pad_proprio_gripper: true
+          action_mode: cartesian
+          coord_frame: eef_frame
+          rotation_mode: 6D
+          local_frame_rotations: *id001
+        image_hw:
+        - 480
+        - 640
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+        - 'lambda row: str(row.get(''lab'', '''')).lower() == ''mecka'''
+      mode: valid
+      valid_ratio: 0.05
+    eva_bimanual:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+        key_map:
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+          keymap_mode: cartesian
+          annotation_key: annotations
+          camera_keys:
+            observations.images.front_img_1: base_0_rgb
+            observations.images.left_wrist_img: left_wrist_0_rgb
+            observations.images.right_wrist_img: right_wrist_0_rgb
+        transform_list:
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+          action_mode: cartesian
+          coord_frame: eef_frame
+          rotation_mode: 6D
+          extrinsics: *id002
+        image_hw:
+        - 480
+        - 640
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+        - 'lambda row: str(row.get(''embodiment'', '''')) == ''eva_bimanual'''
+        - 'lambda row: ''/abc/'' in str(row.get(''zarr_processed_path'', ''''))'
+      mode: valid
+      valid_ratio: 0.05
+  train_viz:
+    human_bimanual:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: cartesian
+          annotation_key: annotations
+          camera_keys:
+            observations.images.front_img_1: base_0_rgb
+            observations.images.left_wrist_img: left_wrist_0_rgb
+            observations.images.right_wrist_img: right_wrist_0_rgb
+        transform_list:
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          stride: 1
+          pad_proprio_gripper: true
+          action_mode: cartesian
+          coord_frame: eef_frame
+          rotation_mode: 6D
+          local_frame_rotations: *id001
+        image_hw:
+        - 480
+        - 640
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+        - 'lambda row: str(row.get(''lab'', '''')).lower() == ''mecka'''
+      mode: train
+      valid_ratio: 0.05
+    eva_bimanual:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+        key_map:
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+          keymap_mode: cartesian
+          annotation_key: annotations
+          camera_keys:
+            observations.images.front_img_1: base_0_rgb
+            observations.images.left_wrist_img: left_wrist_0_rgb
+            observations.images.right_wrist_img: right_wrist_0_rgb
+        transform_list:
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+          action_mode: cartesian
+          coord_frame: eef_frame
+          rotation_mode: 6D
+          extrinsics: *id002
+        image_hw:
+        - 480
+        - 640
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+        - 'lambda row: str(row.get(''embodiment'', '''')) == ''eva_bimanual'''
+        - 'lambda row: ''/abc/'' in str(row.get(''zarr_processed_path'', ''''))'
+      mode: train
+      valid_ratio: 0.05
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+valid_dataloader_params:
+  valid:
+    human_bimanual:
+      batch_size: 32
+      num_workers: 6
+      shuffle: false
+    eva_bimanual:
+      batch_size: 32
+      num_workers: 6
+      shuffle: false
+  train_viz:
+    human_bimanual:
+      batch_size: 16
+      num_workers: 2
+      shuffle: false
+    eva_bimanual:
+      batch_size: 16
+      num_workers: 2
+      shuffle: false

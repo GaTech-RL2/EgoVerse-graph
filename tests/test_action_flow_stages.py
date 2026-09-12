@@ -346,7 +346,7 @@ def test_objective_averages_k_samples_and_applies_only_declared_weights():
     assert float(rec10["loss/action_flow"]) == pytest.approx(23.0)
 
 
-def test_objective_can_sum_fourteen_flow_sample_means_like_released_unite():
+def test_objective_sums_flow_and_action_velocity_over_fourteen_bridge_samples():
     values = {
         "target": torch.zeros(2, 3, 4),
         "action_flow/reconstruction": torch.ones(2, 3, 4),
@@ -358,7 +358,8 @@ def test_objective_can_sum_fourteen_flow_sample_means_like_released_unite():
         flow_samples_per_content=14,
     )(values)
     assert float(output["log/action_flow_fm"]) == pytest.approx(56.0)
-    assert float(output["loss/action_flow"]) == pytest.approx(66.0)
+    assert float(output["log/action_flow_action_velocity"]) == pytest.approx(126.0)
+    assert float(output["loss/action_flow"]) == pytest.approx(183.0)
 
 
 def test_reverse_euler_is_unguided_and_uses_the_same_field_and_decoder():

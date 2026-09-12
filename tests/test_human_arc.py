@@ -274,7 +274,7 @@ def test_the_cotrain_arc_unet_accepts_the_token_width():
     assert tuple(out.shape) == (2, rows, denoiser.action_dim)
 
 
-def test_every_abc_arc_experiment_shares_one_arcmatch_configuration():
+def test_original_abc_cotrain_study_shares_one_arcmatch_configuration():
     """All six arms must score in the same space or none of it is comparable.
 
     This is the regression that shipped twice: the two cotrain baselines kept
@@ -289,6 +289,9 @@ def test_every_abc_arc_experiment_shares_one_arcmatch_configuration():
     root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
     experiments = sorted(
         f"abc_arc/{p.stem}" for p in (root / "experiment/abc_arc").glob("abc_*.yaml")
+        # Stationery is a separate source campaign with controller-facing
+        # reconstruction metrics, covered by test_robot_arc_campaigns.py.
+        if not p.stem.startswith("abc_stationery_")
     )
     assert len(experiments) == 10, experiments
 

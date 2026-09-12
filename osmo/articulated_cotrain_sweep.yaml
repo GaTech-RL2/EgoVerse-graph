@@ -258,8 +258,10 @@ workflow:
             [ -n "$RN" ] || { echo "FATAL: no name: in ${EXP}.yaml"; exit 1; }
             D="$RESUME_ROOT/$EXP"; mkdir -p "$D"
             SRC="s3://rldb/staged/articulated_cotrain/$RESUME_JOB/$RN"
-            $S5 cp "$SRC/checkpoints/last.ckpt" "$D/last.ckpt" >>/tmp/resume.log 2>&1 || true
-            $S5 cp "$SRC/norm_stats.json" "$D/norm_stats.json" >>/tmp/resume.log 2>&1 || true
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp \
+              "$SRC/checkpoints/last.ckpt" "$D/last.ckpt" >>/tmp/resume.log 2>&1 || true
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp \
+              "$SRC/norm_stats.json" "$D/norm_stats.json" >>/tmp/resume.log 2>&1 || true
             if [ -s "$D/last.ckpt" ]; then
               # One line on purpose: a heredoc body has to sit at the YAML
               # block indent, and nesting one inside this if/for silently

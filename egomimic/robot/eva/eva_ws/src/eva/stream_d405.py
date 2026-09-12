@@ -51,6 +51,7 @@ class RealSenseRecorder:
         self._pipeline = rs.pipeline()
         self._config = rs.config()
         self._latest_image: Optional[np.ndarray] = None
+        self.last_frame_time = None
         self._lock = threading.Lock()
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -130,6 +131,7 @@ class RealSenseRecorder:
                 img = np.asanyarray(color_frame.get_data())
                 with self._lock:
                     self._latest_image = img
+                    self.last_frame_time = time.monotonic()
             except Exception:
                 time.sleep(0.01)
 

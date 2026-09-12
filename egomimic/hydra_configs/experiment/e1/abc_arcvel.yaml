@@ -1,0 +1,11 @@
+# @package _global_
+# ABC / YAM skirts — arcvel row (see abc_base and fold_arcvel).
+defaults:
+- /experiment/e1/abc_base
+- override /model: e1/hpt_flow
+- _self_
+e1:
+  variant: arcvel
+  chunk_length: 200
+  action_dim: 16
+  action_horizon: 100

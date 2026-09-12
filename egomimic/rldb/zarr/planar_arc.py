@@ -8,6 +8,47 @@ import numpy as np
 
 PLANAR_ACTION_DIM = 5  # [x, y, cos(theta), sin(theta), grip]
 
+# How a Planar arc token carries timing.
+#
+#   "mean"         M waypoints + ONE timing row holding the chunk's mean arc
+#                  speed. Exact when the chunk is traversed at constant speed,
+#                  and lossy otherwise: one scalar cannot express accelerating,
+#                  dwelling, or stop-and-go motion.
+#   "per_waypoint" M waypoints + M rate rows, one local SE(2) rate per interval,
+#                  measured from the bracketing source frames. Recovers the
+#                  elapsed-time parameterization of a non-uniform chunk.
+#   "duration"     M waypoints + M duration rows, one elapsed-time (seconds)
+#                  per interval. Same layout width as per_waypoint, but stores
+#                  Δt directly instead of arc_distance / Δt.
+#
+# "mean" stays the default so existing runs, checkpoints and norm stats are
+# untouched -- the token width differs between modes, so they are not
+# interchangeable within a run.
+VELOCITY_MODES = ("mean", "per_waypoint", "duration")
+_MEAN, _PER_WAYPOINT, _DURATION = VELOCITY_MODES
+
+
+def validate_velocity_mode(velocity_mode: str) -> str:
+    if velocity_mode not in VELOCITY_MODES:
+        raise ValueError(
+            f"velocity_mode must be one of {VELOCITY_MODES}, got {velocity_mode!r}"
+        )
+    return velocity_mode
+
+
+def arc_token_rows(resampled_vector_length: int, velocity_mode: str = _MEAN) -> int:
+    """Rows in one Planar arc token.
+
+    Single source of truth: the tokenizer, both graph stages, the native
+    decoder and the configs all size themselves from this, so a mode change
+    cannot leave one of them expecting the other layout.
+    """
+    validate_velocity_mode(velocity_mode)
+    num_waypoints = int(resampled_vector_length)
+    if num_waypoints < 2:
+        raise ValueError("resampled_vector_length must be at least two")
+    return num_waypoints + 1 if velocity_mode == _MEAN else 2 * num_waypoints
+
 
 def lambda_for_radius(radius: float) -> float:
     """Convert a physical rotation radius into the SE(2) metric weight."""
@@ -111,6 +152,7 @@ class TokenizePlanarArcLength:
         dt: float = 1.0 / 30.0,
         rotation_radius: float = 0.0,
         hybrid_rotation_unit: float | None = None,
+        velocity_mode: str = "mean",
         zero_dist_epsilon: float = 1e-9,
     ):
         if min_distance_unit <= 0 or dt <= 0:
@@ -129,10 +171,9 @@ class TokenizePlanarArcLength:
         self.num_waypoints = int(resampled_vector_length)
         self.dt = float(dt)
         self.rotation_radius = float(rotation_radius)
+        self.velocity_mode = validate_velocity_mode(velocity_mode)
         self.hybrid_rotation_unit = (
-            None
-            if hybrid_rotation_unit is None
-            else float(hybrid_rotation_unit)
+            None if hybrid_rotation_unit is None else float(hybrid_rotation_unit)
         )
         self.zero_dist_epsilon = float(zero_dist_epsilon)
 
@@ -165,11 +206,63 @@ class TokenizePlanarArcLength:
             translation_span > self.zero_dist_epsilon
             and rotation_span > self.zero_dist_epsilon
         ):
-            rotation_fraction = min(
-                1.0, self.hybrid_rotation_unit / rotation_span
-            )
+            rotation_fraction = min(1.0, self.hybrid_rotation_unit / rotation_span)
             end = min(end, translation_span * rotation_fraction)
         return end
+
+    def _interval_times(
+        self, cumulative: np.ndarray, targets: np.ndarray
+    ) -> np.ndarray:
+        """Elapsed time at each arc target, from the bracketing source frames.
+
+        Recovered as ``(index + alpha) * dt`` rather than by dividing the
+        window by a single duration. That preserves local speed changes and
+        stationary frames before motion, both of which a chunk-level mean
+        erases.
+        """
+        times = np.empty(self.num_waypoints, dtype=np.float64)
+        times[0] = 0.0
+        for index, target in enumerate(targets[1:], start=1):
+            source_index, alpha = _bracket_segment(cumulative, float(target))
+            times[index] = (source_index + alpha) * self.dt
+        return times
+
+    def _interval_rates(
+        self, cumulative: np.ndarray, targets: np.ndarray
+    ) -> np.ndarray:
+        """Local SE(2) rate per waypoint interval, from the source frames.
+
+        Returns one rate per waypoint; the final value repeats the last
+        interval so the array lines up with the waypoint rows.
+        """
+        times = self._interval_times(cumulative, targets)
+        delta_time = np.diff(times)
+        delta_arc = np.diff(targets)
+        interval_rate = np.divide(
+            delta_arc,
+            delta_time,
+            out=np.zeros_like(delta_arc),
+            where=delta_time > self.zero_dist_epsilon,
+        )
+        rates = np.zeros(self.num_waypoints, dtype=np.float64)
+        rates[:-1] = interval_rate
+        rates[-1] = interval_rate[-1]
+        return rates
+
+    def _interval_durations(
+        self, cumulative: np.ndarray, targets: np.ndarray
+    ) -> np.ndarray:
+        """Elapsed seconds per waypoint interval, from the source frames.
+
+        Returns one duration per waypoint; the final value repeats the last
+        interval so the array lines up with the waypoint rows.
+        """
+        times = self._interval_times(cumulative, targets)
+        delta_time = np.diff(times)
+        durations = np.zeros(self.num_waypoints, dtype=np.float64)
+        durations[:-1] = delta_time
+        durations[-1] = delta_time[-1]
+        return durations
 
     def tokenize(self, actions: np.ndarray) -> np.ndarray:
         xy, theta, grip = self._components(actions)
@@ -183,6 +276,8 @@ class TokenizePlanarArcLength:
             theta_waypoints = np.repeat(theta[0], self.num_waypoints)
             grip_waypoints = np.repeat(grip[0], self.num_waypoints)
             speed = 0.0
+            rates = np.zeros(self.num_waypoints, dtype=np.float64)
+            durations = np.zeros(self.num_waypoints, dtype=np.float64)
         else:
             targets = np.linspace(0.0, end, self.num_waypoints)
             xy_waypoints = np.stack(
@@ -199,6 +294,8 @@ class TokenizePlanarArcLength:
             )
             last_index = int(np.searchsorted(cumulative, end, side="left"))
             speed = end / (max(1, last_index) * self.dt)
+            rates = self._interval_rates(cumulative, targets)
+            durations = self._interval_durations(cumulative, targets)
 
         xy_waypoints[0] = xy[0]
         theta_waypoints[0] = theta[0]
@@ -211,6 +308,23 @@ class TokenizePlanarArcLength:
                 grip_waypoints,
             )
         )
+        if self.velocity_mode == _PER_WAYPOINT:
+            # One rate row per waypoint. Column 0 carries the local SE(2) rate;
+            # the rest stay zero and are reserved, so the block keeps the same
+            # width as the waypoint rows and the token is a plain 2-D array.
+            rate_rows = np.zeros(
+                (self.num_waypoints, PLANAR_ACTION_DIM), dtype=np.float64
+            )
+            rate_rows[:, 0] = rates
+            return np.concatenate((waypoints, rate_rows), axis=0)
+        if self.velocity_mode == _DURATION:
+            # One duration row per waypoint. Column 0 carries Δt in seconds;
+            # the rest stay zero. Same rectangular layout as per_waypoint.
+            duration_rows = np.zeros(
+                (self.num_waypoints, PLANAR_ACTION_DIM), dtype=np.float64
+            )
+            duration_rows[:, 0] = durations
+            return np.concatenate((waypoints, duration_rows), axis=0)
         timing = np.zeros((1, PLANAR_ACTION_DIM), dtype=np.float64)
         timing[0, 0] = speed
         return np.concatenate((waypoints, timing), axis=0)
@@ -224,6 +338,13 @@ class TokenizePlanarArcLength:
         if len(value) < 2 or not np.isfinite(value).all():
             raise ValueError("planar actions need at least two finite timesteps")
         output = self.tokenize(value.astype(np.float64, copy=False))
+        expected_rows = arc_token_rows(self.num_waypoints, self.velocity_mode)
+        if output.shape != (expected_rows, PLANAR_ACTION_DIM):
+            raise AssertionError(
+                f"{type(self).__name__} produced {output.shape}, expected "
+                f"{(expected_rows, PLANAR_ACTION_DIM)} for velocity_mode="
+                f"{self.velocity_mode!r}"
+            )
         dtype = value.dtype if np.issubdtype(value.dtype, np.floating) else np.float32
         batch[self.output_action_key] = output.astype(dtype, copy=False)
         return batch

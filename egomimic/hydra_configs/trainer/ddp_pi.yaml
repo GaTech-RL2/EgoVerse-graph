@@ -1,0 +1,10 @@
+defaults:
+- default
+strategy: ddp_find_unused_parameters_true
+inference_mode: false
+accelerator: gpu
+devices: ${launch_params.gpus_per_node}
+num_nodes: ${launch_params.nodes}
+sync_batchnorm: true
+check_val_every_n_epoch: 50
+num_sanity_val_steps: 0

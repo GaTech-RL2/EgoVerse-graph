@@ -17,7 +17,6 @@ def test_legacy_first_party_policy_surface_is_removed():
         "egomimic/eval/eval_latent.py",
         "egomimic/eval/eval_video.py",
         "egomimic/eval/latent_dataset.py",
-        "egomimic/robot/rollout.py",
         "egomimic/utils/hydra_resolvers.py",
         "egomimic/utils/scheduler_utils.py",
         "egomimic/utils/tensor_utils.py",

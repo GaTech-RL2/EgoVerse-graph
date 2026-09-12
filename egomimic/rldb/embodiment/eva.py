@@ -7,18 +7,17 @@ import numpy as np
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.zarr.action_chunk_transforms import (
+    CartesianRot6DToYPR,
     ActionChunkCoordinateFrameTransform,
-    BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
     InterpolateLinear,
     InterpolatePose,
     NumpyToTensor,
     PoseCoordinateFrameTransform,
-    QuaternionPoseToYPR,
     SplitKeys,
     Transform,
-    XYZWXYZ_to_XYZYPR,
+    transforms_for_rotation_mode,
 )
 from egomimic.utils.pose_utils import (
     _matrix_to_xyzwxyz,
@@ -48,16 +47,31 @@ class Eva(Embodiment):
 
     @staticmethod
     def get_transform_list(
-        mode: Literal[
-            "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
-        ],
+        action_mode: Literal["cartesian"] = "cartesian",
+        coord_frame: Literal["camframe", "eef_frame"] = "camframe",
+        rotation_mode: Literal["euler", "quat", "6D"] = "euler",
+        extrinsics: dict | None = None,
     ) -> list[Transform]:
-        if mode == "cartesian":
-            return _build_eva_bimanual_transform_list(is_quat=True)
-        elif mode == "cartesian_wristframe_ypr":
-            return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
-        elif mode == "cartesian_wristframe_quat":
-            return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+        """``action_mode`` is the action layout; ``coord_frame`` is where poses
+        live; ``rotation_mode`` is how rotation is stored.
+
+        Cam-frame actions are expressed in the wrist cameras via
+        :attr:`EXTRINSICS`. EEF-frame actions are a delta from the current EEF
+        pose. In both cases the geometric hops run in xyz+quat, then
+        ``rotation_mode`` converts rotation to euler (xyz+ypr, 14D), quat (16D),
+        or Zhou 6D (20D).
+        """
+        if action_mode != "cartesian":
+            raise ValueError(f"unknown action_mode {action_mode!r}")
+        if coord_frame == "camframe":
+            return _build_eva_bimanual_transform_list(
+                rotation_mode=rotation_mode, extrinsics=extrinsics
+            )
+        if coord_frame == "eef_frame":
+            return _build_eva_bimanual_eef_frame_transform_list(
+                rotation_mode=rotation_mode, extrinsics=extrinsics
+            )
+        raise ValueError(f"unknown coord_frame {coord_frame!r}")
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
@@ -239,11 +253,12 @@ def _build_eva_bimanual_eef_frame_transform_list(
     obs_key: str = "observations.state.ee_pose",
     chunk_length: int = 100,
     stride: int = 1,
-    is_quat: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
+    extrinsics: dict | None = None,
 ) -> list[Transform]:
     """EVA bimanual transform pipeline with actions expressed relative to the
     current EEF pose (wrist frame), analogous to keypoints relative to wrist pose."""
-    extrinsics = Eva.EXTRINSICS
+    extrinsics = {k: np.asarray(v) for k, v in (extrinsics or Eva.EXTRINSICS).items()}
     left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
     right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
     left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
@@ -318,27 +333,17 @@ def _build_eva_bimanual_eef_frame_transform_list(
         ),
     ]
 
-    if not is_quat:
-        transform_list.extend(
-            [
-                BatchQuaternionPoseToYPR(
-                    pose_key=left_cmd_wristframe,
-                    output_key=left_cmd_wristframe,
-                ),
-                BatchQuaternionPoseToYPR(
-                    pose_key=right_cmd_wristframe,
-                    output_key=right_cmd_wristframe,
-                ),
-                QuaternionPoseToYPR(
-                    pose_key=left_obs_camframe,
-                    output_key=left_obs_camframe,
-                ),
-                QuaternionPoseToYPR(
-                    pose_key=right_obs_camframe,
-                    output_key=right_obs_camframe,
-                ),
-            ]
+    transform_list.extend(
+        transforms_for_rotation_mode(
+            keys=[
+                left_cmd_wristframe,
+                right_cmd_wristframe,
+                left_obs_camframe,
+                right_obs_camframe,
+            ],
+            rotation_mode=rotation_mode,
         )
+    )
 
     transform_list.extend(
         [
@@ -403,56 +408,56 @@ def _build_eva_bimanual_transform_list(
     obs_key: str = "observations.state.ee_pose",
     chunk_length: int = 100,
     stride: int = 1,
-    is_quat: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
+    extrinsics: dict | None = None,
 ) -> list[Transform]:
     """Canonical EVA bimanual transform pipeline used by tests and notebooks."""
-    extrinsics = Eva.EXTRINSICS
+    extrinsics = {k: np.asarray(v) for k, v in (extrinsics or Eva.EXTRINSICS).items()}
     left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
     right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
     left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
     right_extra_batch_key = {"right_extrinsics_pose": right_extrinsics_pose}
 
-    mode = "xyzwxyz" if is_quat else "xyzypr"
     transform_list = [
         ActionChunkCoordinateFrameTransform(
             target_world=left_target_world,
             chunk_world=left_cmd_world,
             transformed_key_name=left_cmd_camframe,
             extra_batch_key=left_extra_batch_key,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         ActionChunkCoordinateFrameTransform(
             target_world=right_target_world,
             chunk_world=right_cmd_world,
             transformed_key_name=right_cmd_camframe,
             extra_batch_key=right_extra_batch_key,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
             target_world=left_target_world,
             pose_world=left_obs_pose,
             transformed_key_name=left_obs_pose,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
             target_world=right_target_world,
             pose_world=right_obs_pose,
             transformed_key_name=right_obs_pose,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_cmd_camframe,
             output_action_key=left_cmd_camframe,
             stride=stride,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=right_cmd_camframe,
             output_action_key=right_cmd_camframe,
             stride=stride,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolateLinear(
             new_chunk_length=chunk_length,
@@ -468,17 +473,17 @@ def _build_eva_bimanual_transform_list(
         ),
     ]
 
-    if is_quat:
-        transform_list.append(
-            XYZWXYZ_to_XYZYPR(
-                keys=[
-                    left_cmd_camframe,
-                    right_cmd_camframe,
-                    left_obs_pose,
-                    right_obs_pose,
-                ]
-            )
+    transform_list.extend(
+        transforms_for_rotation_mode(
+            keys=[
+                left_cmd_camframe,
+                right_cmd_camframe,
+                left_obs_pose,
+                right_obs_pose,
+            ],
+            rotation_mode=rotation_mode,
         )
+    )
 
     transform_list.extend(
         [
@@ -519,3 +524,109 @@ def _build_eva_bimanual_transform_list(
         ]
     )
     return transform_list
+
+
+# Where the arc tokenizer stashes the untokenized chunk it consumed, so
+# validation can score against the real thing instead of a reconstruction.
+# Nothing trains on it. It is not declared in any keymap, but MultiDataset's
+# `_infer_key_type` classifies post-transform keys by name and anything starting
+# with "actions" is inferred to be an action key -- so it does get normalized on
+# the way in, and the evaluator's `norm_stats.unnormalize` puts it back in
+# metres. Renaming it to something not starting with "actions" would skip both
+# halves; keep the two in step either way.
+UNTOKENIZED_ACTION_KEY = "actions_cartesian_untokenized"
+
+
+def _append_arc_tokenizer(
+    transform_list: list[Transform],
+    *,
+    min_distance_unit: float,
+    resampled_vector_length: int,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
+    dt: float | None = None,
+    action_key: str = "actions_cartesian",
+    preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
+    velocity_mode: str = "mean",
+) -> list[Transform]:
+    """Splice the arc-length tokenizer in before the final NumpyToTensor.
+
+    The tokenizer works on numpy arrays, so it has to run before the cast;
+    NumpyToTensor then converts the (M+1, 14) result to a torch tensor.
+
+    ``rotation_mode`` must be ``euler``: the tokenizer's chunk layout is a
+    hard-coded 14D ``[xyz(3), ypr(3), grip(1)] x 2``, and it SLERPs through
+    the ypr slots. quat (16D) and 6D (20D) chunks are rejected here rather
+    than at the first batch, where the shape check fires deep inside a run.
+    """
+    if rotation_mode != "euler":
+        raise ValueError(
+            "the arc-length tokenizer only supports rotation_mode='euler' "
+            f"(its chunk layout is 14D [xyz, ypr, grip] x 2); got {rotation_mode!r}"
+        )
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    kwargs = {} if dt is None else {"dt": float(dt)}
+    tokenize = TokenizeBimanualArcLengthCartesian(
+        action_key=action_key,
+        output_action_key=action_key,
+        min_distance_unit=float(min_distance_unit),
+        resampled_vector_length=int(resampled_vector_length),
+        preserve_action_key=preserve_action_key,
+        velocity_mode=velocity_mode,
+        **kwargs,
+    )
+    for i in range(len(transform_list) - 1, -1, -1):
+        if isinstance(transform_list[i], NumpyToTensor):
+            # The preserved chunk has to ride through the same cast as
+            # everything else or it reaches the collate fn as a numpy array.
+            if preserve_action_key is not None:
+                transform_list[i].keys = list(transform_list[i].keys) + [
+                    preserve_action_key
+                ]
+            return transform_list[:i] + [tokenize] + transform_list[i:]
+    return transform_list + [tokenize]
+
+
+def _build_eva_cartesian_revert_6d_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert camera-frame 6D-rotation EVA cartesian actions back to ypr.
+
+    Used by the cam-frame 6D evaluator: the action chunk is already in camera
+    frame (produced by the ``cartesian_6d`` transform mode), so only the
+    rotation representation is converted from xyz+6D (+gripper, 10/arm) back to
+    xyz+ypr (+gripper, 7/arm) so cam-frame MSE and the viz video see the same
+    ypr layout as the plain ``cartesian`` mode. The proprio ee_pose (also
+    6D-encoded by the ``cartesian_6d`` mode) is reverted the same way.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+    ]
+
+
+def _build_eva_cartesian_revert_6d_wristframe_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert wrist-frame 6D-rotation EVA actions back to camera-frame ypr.
+
+    Three stages for the cam-frame 6D wristframe evaluator: (1) convert the
+    action rotation from xyz+6D (+gripper) back to xyz+ypr (+gripper) via
+    ``CartesianRot6DToYPR`` (Gram-Schmidt re-orthonormalizes the possibly
+    non-orthonormal model prediction); (2) likewise revert the proprio
+    ``observations.state.ee_pose`` (6D-encoded by the ``cartesian_wristframe_6d``
+    mode) back to ypr; (3) project the wrist-frame ypr actions back into camera
+    frame using the standard eef-frame revert, which reads that ypr proprio to
+    define the frame.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        *_build_eva_bimanual_revert_eef_frame_transform_list(is_quat=False),
+    ]

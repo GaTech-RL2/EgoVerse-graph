@@ -1,0 +1,93 @@
+# Copy this configuration and set the station/training values before running.
+robot:
+  kind: yam
+  arms:
+  - left
+  - right
+  channels:
+    left: can0
+    right: can1
+  gripper_type: linear_4310
+  zero_gravity_mode: true
+  enable_auto_recovery: false
+  frequency: 30
+  home_duration: 3.0
+  home:
+    left:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 1
+    right:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 1
+  kinematics:
+    joint_names:
+    - joint1
+    - joint2
+    - joint3
+    - joint4
+    - joint5
+    - joint6
+    site_name: tcp_site
+  cameras:
+    front_img_1:
+      type: realsense
+      enabled: true
+      serial_number: ${oc.env:YAM_FRONT_SERIAL}
+      height: 480
+      width: 640
+      fps: 30
+    left_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: ${oc.env:YAM_LEFT_WRIST_SERIAL}
+      height: 480
+      width: 640
+      fps: 30
+    right_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: ${oc.env:YAM_RIGHT_WRIST_SERIAL}
+      height: 480
+      width: 640
+      fps: 30
+frequency: 30
+max_joint_velocity: 1.0
+execute_steps: 10
+max_steps: 3000
+preview:
+  enabled: true
+  width: 640
+policy:
+  kind: graph
+  training_config: ???
+  checkpoint: ???
+  normalizer_path: ???
+  device: cuda:0
+  use_ema: false
+  adapter:
+    _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+    embodiment_id: 7
+    base_T_model:
+      left: ???
+      right: ???
+    camera_keys:
+      front_img_1: observations.images.front_img_1
+    rotation_mode: euler
+    action_frame: eef_frame
+    image_hw:
+    - 480
+    - 640
+    proprio_key: observations.state.ee_pose
+    action_key: actions_cartesian
+    prompt: ???
+    decoder: null

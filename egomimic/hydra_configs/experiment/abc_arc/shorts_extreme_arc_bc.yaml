@@ -1,0 +1,69 @@
+# @package _global_
+# fold-shorts EXTREME-tempo family (autoresearch shorts-260910-0030), run 2 of 3.
+# Training set: slowest 100 + fastest 100 episodes by Step 0 tau -- 200 eps / 2.89 h,
+# CV 0.2254, with the band 0.366-0.436 m/s held out entirely as an interpolation probe.
+# Lab format throughout (front + both wrist cameras, eef_frame, 14-D state) so the
+# checkpoints are rolloutable. 30k steps, checkpoint every 5k.
+# The default paths.dataset_dir (/coc/flash7/scratch/egoverseS3ZarrDataset) is
+# owned by another user and mode drwxr-xr-x, so s5cmd's mkdir fails with
+# "permission denied" for any episode not already cached there. This directory
+# is writable and already holds the ABC episodes this run needs.
+# Single domain and hpt_bc_flow_base inherits no foreign stems, so the stem/head
+# side is clean. find_unused_parameters stays on for the image encoders:
+# hpt_bc_flow_base declares front/left/right wrist encoders but only front_img_1
+# feeds a stem, so the wrist ResNets never receive a gradient and plain `ddp`
+# would abort with "Expected to have finished reduction in the prior iteration".
+# Norm stats sampling fraction. The pass reads every sampled frame of every
+# episode before training starts and is the bulk of startup. A finished run's
+# stats land in <output_dir>/norm_stats/norm_stats.json -- pass that back via
+# norm_stats.precomputed_norm_path=<path> to skip it on a relaunch of the SAME
+# data config. Verify the file has BOTH embodiments populated first: cache_stats
+# writes after each embodiment, so an interrupted run leaves a partial file that
+# would silently leave one embodiment unnormalized.
+defaults:
+- /experiment/e1/fold_base
+- override /model: e1/hpt_flow_wrists
+- override /data: abc_arc/shorts_extreme_arc_bc_D40_M100
+- override /evaluator: eval_arc_bimanual_cartesian_D40_M100
+- override /trainer: ddp
+- override /logger: wandb
+- override /hydra/launcher: submitit_pace
+- _self_
+name: shorts_extreme_arc_bc
+description: arcD40M100
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 2
+  max_steps: 30000
+  max_epochs: 300
+  min_epochs: 0
+norm_stats:
+  sample_frac: 0.2
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+logger:
+  wandb:
+    project: arc
+    tags:
+    - abc
+    - bc
+    - arc
+e1:
+  variant: arcmean
+  action_dim: 14
+  action_horizon: 101
+  spread: extreme
+  train_root: unused-s3-resolver
+  valid_root: unused-s3-resolver
+evaluator:
+  velocity_mode: mean
+  viz_func: null
+  arcmatch_points: 100
+  include_reconstruction_loss: true
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 50
+    save_top_k: -1

@@ -28,6 +28,7 @@ dependencies = [
     "pyquaternion",
     "rospkg",
     "einops",
+    "timm",
     "av==12.0.0",
     "opencv-python",
     "dm-control==1.0.8",
@@ -61,6 +62,18 @@ dependencies = [
     "scaleapi",
     "openai",
     "scikit-learn>=1.8.0",
+]
+
+[project.optional-dependencies]
+robot = ["pure-python-adb"]
+yam = [
+    "pure-python-adb",
+    "pyrealsense2",
+    "i2rt @ git+https://github.com/rohan-bansal/i2rt.git@2b851d7f4511b6bda442db85e98ec1122835221b",
+]
+pi05 = [
+    "openpi @ git+https://github.com/GaTech-RL2/openpi.git@981483dca0fd9acba698fea00aa6e52d56a66c58",
+    "safetensors",
 ]
 
 [tool.setuptools.packages.find]

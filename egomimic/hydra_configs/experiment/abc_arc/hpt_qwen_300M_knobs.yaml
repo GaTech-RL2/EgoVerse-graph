@@ -1,0 +1,24 @@
+# @package _global_
+# Language-conditioned 300M HPT knobs shared by the abc_lang_* experiments.
+#
+# Pulled in via defaults so the four runs cannot drift on embed width, trunk
+# depth, or the Qwen checkpoint. action_horizon is NOT here: baseline uses
+# 100, arc uses ${abc.arc_token_rows}.
+hpt:
+  embed_dim: 840
+  num_blocks: 19
+  num_heads: 10
+  action_dim: 14
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: 10
+      crossattn_dim_head: 84
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: ${hpt.embed_dim}
+  qwen:
+    model_name: Qwen/Qwen3-Embedding-0.6B
+    max_length: 128
+    sampling_mode: random
+    default_prompt: ""

@@ -1,7 +1,7 @@
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import time
 import numpy as np
 import yaml
 from scipy.spatial.transform import Rotation as R
@@ -19,13 +19,6 @@ except ImportError:
     Arx5JointController = None
     ArxJointState = None
 
-try:
-    from stream_aria import AriaRecorder
-    from stream_d405 import RealSenseRecorder
-except ImportError:
-    AriaRecorder = None
-    RealSenseRecorder = None
-
 
 def _get_model_xml_path():
     candidates = [
@@ -40,16 +33,14 @@ def _get_model_xml_path():
 
 
 class Robot_Interface(ABC):
-    def __init__(self):
+    def __init__(self, config_path=None):
+        self.config_path = config_path
         if arx5 is None or Arx5JointController is None or ArxJointState is None:
             raise ImportError(
                 "Live robot interface dependencies are unavailable. Use offline debug mode or install the ARX interface stack."
             )
         self.cfg = {}
-        try:
-            self.cfg = self.__get_config(self.cfg)
-        except Exception as e:
-            print(f"Failed to load configs.yaml: {e}")
+        self.cfg = self.__get_config(self.cfg)
 
         # self.arm = arm
 
@@ -76,7 +67,8 @@ class Robot_Interface(ABC):
         # share = get_package_share_directory("eva")
         # cfg_path = os.path.join(share, "config", "configs.yaml")
         cfg_path = (
-            "/home/robot/robot_ws/egomimic/robot/eva/eva_ws/src/config/configs.yaml"
+            self.config_path
+            or Path(__file__).resolve().parents[1] / "config/configs.yaml"
         )
         with open(cfg_path, "r") as f:
             cfg = yaml.safe_load(f) or {}
@@ -116,16 +108,19 @@ class Robot_Interface(ABC):
 
 
 class ARXInterface(Robot_Interface):
-    def __init__(self, arms):
-        super().__init__()
-
-        self.arms = arms
-        self.controller = dict()
-        self._create_controllers(self.cfg)
-        self.__create_cam_recorders(self.cfg["cameras"])
+    def __init__(self, arms, config_path=None):
+        super().__init__(config_path=config_path)
+        self.arms = list(arms)
+        self.controller, self.recorders, self.camera_res = {}, {}, {}
         self.kinematics_solver = EvaMinkKinematicsSolver(
             model_path=_get_model_xml_path()
         )
+        try:
+            self._create_controllers(self.cfg)
+            self.__create_cam_recorders(self.cfg["cameras"])
+        except BaseException:
+            self.close()
+            raise
 
     def _create_controllers(self, cfg):
         interfaces_cfg = cfg.get("interfaces", {})
@@ -176,29 +171,37 @@ class ARXInterface(Robot_Interface):
             self.gripper_width[arm] = self.gripper_open[arm] - self.gripper_close[arm]
 
     def __create_cam_recorders(self, cameras_cfg):
-        if AriaRecorder is None or RealSenseRecorder is None:
-            raise ImportError(
-                "Camera recorder dependencies are unavailable. Install the live robot streaming stack to use ARXInterface."
-            )
-        self.recorders = dict()
-        self.camera_res = dict()
-        for name, cam_cfg in cameras_cfg.items():
-            if not cam_cfg["enabled"]:
-                continue
-            cam_type = cam_cfg["type"]
-            if cam_type == "aria":
-                self.recorders[name] = AriaRecorder(
-                    profile_name="profile15",
-                    use_security=True,
-                    height=cam_cfg["height"],
-                    width=cam_cfg["width"],
-                )
-                self.recorders[name].start()
-            elif cam_type == "d405":
-                self.recorders[name] = RealSenseRecorder(str(cam_cfg["serial_number"]))
-            else:
-                raise ValueError("Invalid value in the config")
-            self.camera_res[name] = (cam_cfg["height"], cam_cfg["width"])
+        from egomimic.robot.cameras import open_cameras
+
+        self.recorders, self.camera_res = open_cameras(cameras_cfg)
+
+    def close(self):
+        from egomimic.robot.cameras import close_cameras
+
+        errors = []
+        try:
+            close_cameras(self.recorders)
+        except Exception as error:
+            errors.append(error)
+        for controller in self.controller.values():
+            # arx5 releases its CAN loop on destruction; some versions expose close.
+            close = getattr(controller, "close", None)
+            if close is not None:
+                try:
+                    close()
+                except Exception as error:
+                    errors.append(error)
+        self.controller, self.recorders = {}, {}
+        if errors:
+            raise ExceptionGroup("Eva cleanup failed", errors)
+
+    def forward_kinematics(self, joints, arm):
+        from egomimic.robot.interface import pose_vector
+
+        pos, rot = self.kinematics_solver.fk(np.asarray(joints)[:6])
+        matrix = np.eye(4)
+        matrix[:3, 3], matrix[:3, :3] = pos, rot.as_matrix()
+        return pose_vector(matrix)
 
     def set_joints(self, desired_position, arm):
         """
@@ -259,14 +262,10 @@ class ARXInterface(Robot_Interface):
             if arm == "right":
                 arm_offset = 7
             joint_positions[arm_offset : arm_offset + 7] = self.get_joints(arm)
-            xyz, rot = self.get_pose(arm, se3=False)
-            ee_poses[arm_offset : arm_offset + 7] = np.concatenate(
-                [
-                    xyz,
-                    rot.as_euler("ZYX", degrees=False),
-                    [joint_positions[arm_offset + 6]],
-                ]
-            )
+            ee_poses[arm_offset : arm_offset + 7] = np.r_[
+                self.forward_kinematics(joint_positions[arm_offset : arm_offset + 6], arm),
+                joint_positions[arm_offset + 6],
+            ]
         obs["joint_positions"] = joint_positions
         obs["ee_poses"] = ee_poses
 

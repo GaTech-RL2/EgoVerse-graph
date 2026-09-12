@@ -1,0 +1,11 @@
+# @package _global_
+# stationery E1 — arclogdur row on the lab's abc_arc/hpt_abc_bc_flow_arc_D40_M100.
+defaults:
+- /experiment/e1/abcs_base
+- override /model: e1/hpt_flow_wrists
+- _self_
+e1:
+  variant: arclogdur
+  chunk_length: 200
+  action_dim: 16
+  action_horizon: 100

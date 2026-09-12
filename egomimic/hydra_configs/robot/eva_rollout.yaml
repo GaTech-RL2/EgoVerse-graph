@@ -1,0 +1,38 @@
+# Copy this configuration and set the station/training values before running.
+robot:
+  kind: eva
+  arms:
+  - left
+  - right
+  config_path: egomimic/robot/eva/eva_ws/src/config/configs.yaml
+frequency: 30
+max_joint_velocity: 1.0
+execute_steps: 10
+max_steps: 3000
+preview:
+  enabled: true
+  width: 640
+policy:
+  kind: graph
+  training_config: ???
+  checkpoint: ???
+  normalizer_path: ???
+  device: cuda:0
+  use_ema: false
+  adapter:
+    _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+    embodiment_id: 6
+    base_T_model:
+      left: ???
+      right: ???
+    camera_keys:
+      front_img_1: observations.images.front_img_1
+    rotation_mode: euler
+    action_frame: eef_frame
+    image_hw:
+    - 480
+    - 640
+    proprio_key: observations.state.ee_pose
+    action_key: actions_cartesian
+    prompt: ???
+    decoder: null

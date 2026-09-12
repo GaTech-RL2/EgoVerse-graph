@@ -1,0 +1,38 @@
+# @package _global_
+# U-Socket arc BC with tokenization as GRAPH NODES rather than a loader transform.
+#
+# The data config is the dense one the base already selects: the loader hands
+# over time-indexed actions and `ArcTokenizeStage` converts them, so the arc
+# window parameters live in one place (the `planar` block below) and are read by
+# both the tokenize and detokenize nodes.
+defaults:
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_arc_graph_tok
+  - _self_
+name: planar_v2_usocket_arc_graph_tok_D200_M100
+description: u_socket_arc_graph_tokenize_detokenize_DDIM100_obs1
+
+planar:
+  # Raw dense window handed to the graph. The tokenizer needs enough timesteps
+  # to cover `arc_distance`; 200 raw steps is what the loader-side arc config
+  # uses for the same window.
+  raw_action_horizon: 200
+  action_horizon: 16
+  arc_dt: 0.0333333333333333
+  # How the token carries timing:
+  #   mean          M waypoints + one mean-speed row  -> M + 1 rows
+  #   per_waypoint  M waypoints + M local-rate rows   -> 2 * M rows
+  # `mean` is exact only at constant speed; `per_waypoint` recovers a chunk
+  # that accelerates, decelerates or dwells. Changing this changes the token
+  # width, so arc_token_rows below must move with it -- and existing
+  # checkpoints and norm stats do not transfer.
+  arc_velocity_mode: mean
+  # M waypoints + one timing row, which is the target width the diffusion
+  # stages validate against.
+  arc_token_rows: 101
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
+    resampled_vector_length: ${planar.arc_waypoints}
+    native_action_dim: 3
+    # Reads the same knob, so the evaluator can never expect the other layout.
+    velocity_mode: ${planar.arc_velocity_mode}

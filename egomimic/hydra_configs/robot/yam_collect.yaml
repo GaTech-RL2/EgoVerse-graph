@@ -1,0 +1,90 @@
+# Copy this configuration and set the station/training values before running.
+robot:
+  kind: yam
+  arms:
+  - left
+  - right
+  channels:
+    left: can0
+    right: can1
+  gripper_type: linear_4310
+  zero_gravity_mode: true
+  enable_auto_recovery: false
+  frequency: 30
+  home_duration: 3.0
+  home:
+    left:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 1
+    right:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 1
+  kinematics:
+    joint_names:
+    - joint1
+    - joint2
+    - joint3
+    - joint4
+    - joint5
+    - joint6
+    site_name: tcp_site
+  cameras:
+    front_img_1:
+      type: realsense
+      enabled: true
+      serial_number: ${oc.env:YAM_FRONT_SERIAL}
+      height: 480
+      width: 640
+      fps: 30
+    left_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: ${oc.env:YAM_LEFT_WRIST_SERIAL}
+      height: 480
+      width: 640
+      fps: 30
+    right_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: ${oc.env:YAM_RIGHT_WRIST_SERIAL}
+      height: 480
+      width: 640
+      fps: 30
+frequency: 30
+max_joint_velocity: 1.0
+startup_timeout: 30.0
+quest:
+  ip_address: null
+  max_age: 0.25
+teleop:
+  translation_gain: 0.45
+  orientation_gain: 0.4
+  target_lpf: 0.4
+  max_controller_step_m: 0.08
+  max_controller_step_deg: 40.0
+  headset_yaw_degrees: 0.0
+  orientation_rx_degrees: 0.0
+  side_yaw: {}
+buttons:
+  record: B
+  stop: X
+  home: Y
+  quit: A
+recording:
+  enabled: true
+  directory: ./demos/yam
+  episode_start: 0
+  episode_length: 3000
+preview:
+  enabled: true
+  width: 640

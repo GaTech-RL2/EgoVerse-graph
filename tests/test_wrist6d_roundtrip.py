@@ -482,7 +482,7 @@ def test_bounds_check_warns_once_on_stat_shape_mismatch(caplog):
 def test_precomputed_norm_stats_provenance_is_checked(tmp_path):
     from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset as MultiDataset
 
-    writer = MultiDataset.__new__(MultiDataset)
+    writer = MultiDataset(state={}, norm_mode="quantile")
     writer.norm_mode = "quantile"
     writer._norm_run_metadata = None
     writer.norm_stats = {

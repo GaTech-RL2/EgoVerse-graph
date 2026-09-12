@@ -1,0 +1,35 @@
+# Copy this configuration and set the station/training values before running.
+robot:
+  kind: eva
+  arms:
+  - left
+  - right
+  config_path: egomimic/robot/eva/eva_ws/src/config/configs.yaml
+frequency: 30
+max_joint_velocity: 1.0
+startup_timeout: 30.0
+quest:
+  ip_address: null
+  max_age: 0.25
+teleop:
+  translation_gain: 0.45
+  orientation_gain: 0.4
+  target_lpf: 0.4
+  max_controller_step_m: 0.08
+  max_controller_step_deg: 40.0
+  headset_yaw_degrees: 0.0
+  orientation_rx_degrees: 0.0
+  side_yaw: {}
+buttons:
+  record: B
+  stop: X
+  home: Y
+  quit: A
+recording:
+  enabled: true
+  directory: ./demos/eva
+  episode_start: 0
+  episode_length: 3000
+preview:
+  enabled: true
+  width: 640

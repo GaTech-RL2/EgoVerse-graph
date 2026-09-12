@@ -56,6 +56,12 @@ workflow:
       # DDPM-100 sampling at 260M -- 73% of wall-clock, projecting 5.8 days per
       # run. It is diagnostic only here (monitor is None, so it selects no
       # checkpoint), so it is cut rather than the step budget.
+      # Name of a previous job whose checkpoints should be resumed from, or
+      # empty for a fresh start. This sweep has been preempted twice
+      # ("Killing: Stopping container"), losing 8+ h each time because the
+      # launcher could only start from zero. Checkpoints already sync to R2
+      # every 7 min; this makes them usable.
+      RESUME_JOB: "{{resume_job}}"
       VAL_BATCHES: "{{val_batches}}"
       VAL_INTERVAL: "{{val_interval}}"
       TRAIN_EMB: "u_socket gripper chain_gripper suction triangle flipper spring"
@@ -239,6 +245,38 @@ workflow:
           done
         }
 
+        # ------------------------------------------- resume (optional)
+        # The logs dir is named after the config's `name:`, which is NOT the
+        # experiment filename (artic_cotrain7_x -> artic_c7_x), so read it from
+        # the YAML rather than transforming the string.
+        RESUME_ROOT=/workspace/resume
+        declare -A RESUME_CKPT RESUME_NORM
+        if [ -n "${RESUME_JOB:-}" ]; then
+          for EXP in $EXPERIMENTS; do
+            RN=$(grep -m1 '^name:' "egomimic/hydra_configs/experiment/$EXP_GROUP/${EXP}.yaml" \
+                 | awk '{print $2}')
+            [ -n "$RN" ] || { echo "FATAL: no name: in ${EXP}.yaml"; exit 1; }
+            D="$RESUME_ROOT/$EXP"; mkdir -p "$D"
+            SRC="s3://rldb/staged/articulated_cotrain/$RESUME_JOB/$RN"
+            $S5 cp "$SRC/checkpoints/last.ckpt" "$D/last.ckpt" >>/tmp/resume.log 2>&1 || true
+            $S5 cp "$SRC/norm_stats.json" "$D/norm_stats.json" >>/tmp/resume.log 2>&1 || true
+            if [ -s "$D/last.ckpt" ]; then
+              # One line on purpose: a heredoc body has to sit at the YAML
+              # block indent, and nesting one inside this if/for silently
+              # terminated the block scalar.
+              STEP=$(python -c "import sys,torch; print(torch.load(sys.argv[1], map_location='cpu', weights_only=False).get('global_step','?'))" "$D/last.ckpt" 2>/dev/null || echo "?")
+              RESUME_CKPT[$EXP]="$D/last.ckpt"
+              echo "resume $EXP <- $RN/last.ckpt at global_step $STEP"
+            else
+              echo "FATAL: RESUME_JOB=$RESUME_JOB set but no checkpoint for $EXP ($RN)"
+              tail -20 /tmp/resume.log; exit 1
+            fi
+            # Reuse the exact stats the checkpoint was trained with rather than
+            # recomputing them; recomputation should match but does not have to.
+            [ -s "$D/norm_stats.json" ] && RESUME_NORM[$EXP]="$D/norm_stats.json"
+          done
+        fi
+
         # ---- phase 1: norm stats, ONE GPU per experiment, no DDP.
         # trainHydra computes stats before trainer.fit, so under DDP rank 1
         # waits at the process-group store while rank 0 does the whole pass and
@@ -253,7 +291,12 @@ workflow:
         NPIDS=""
         i=0
         for EXP in $EXPERIMENTS; do
-          mkdir -p "$NORM_ROOT/$EXP"
+          mkdir -p "$NORM_ROOT/$EXP/norm_stats"
+          if [ -n "${RESUME_NORM[$EXP]:-}" ]; then
+            cp "${RESUME_NORM[$EXP]}" "$NORM_ROOT/$EXP/norm_stats/norm_stats.json"
+            echo "phase 1 skipped for $EXP: reusing the resumed norm stats"
+            continue
+          fi
           ( CUDA_VISIBLE_DEVICES=$i python egomimic/trainHydra.py \
               +experiment="$EXP_GROUP/$EXP" \
               $ROOT_OV \
@@ -306,6 +349,7 @@ workflow:
               $BATCH_OV \
               norm_stats.precomputed_norm_path="$NORM_ROOT/$EXP/norm_stats/norm_stats.json" \
               trainer.max_steps="$MAX_STEPS" \
+              ${RESUME_CKPT[$EXP]:+ckpt_path=${RESUME_CKPT[$EXP]}} \
               trainer.limit_val_batches="$VAL_BATCHES" \
               trainer.val_check_interval="$VAL_INTERVAL" \
               callbacks.model_checkpoint.every_n_epochs=0 \

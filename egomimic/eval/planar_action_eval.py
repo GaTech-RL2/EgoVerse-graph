@@ -1058,7 +1058,11 @@ class PlanarActionEval(Eval):
             "provenance": self.energy_score_provenance,
             "domains": domains,
         }
-        if self.energy_score_distance is not None or self.native_decoder is not None:
+        # Native decoders also serve generic non-U-Socket embodiments such as
+        # ChainGripper. Only an explicit typed distance contract should select
+        # the typed artifact identity path; semantic-block distances remain
+        # schema-v1 artifacts with provenance.
+        if self.energy_score_distance is not None:
             payload["schema_version"] = 2
             identity = self._typed_artifact_identity(
                 domains=domains,

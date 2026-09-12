@@ -167,7 +167,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
     run([sys.executable, str(trainer), "--config", str(config_path)])
     control_path = next((tmp_path / "uninterrupted/checkpoints").glob("*.pt"))
     control = torch.load(control_path, map_location="cpu", weights_only=False)
-    for key in ("model", "optimizer", "rng", "step"):
+    for key in ("model", "optimizer", "lr_scheduler", "rng", "step"):
         _assert_equal(resumed[key], control[key])
     control_summary = json.loads(
         (tmp_path / "uninterrupted/summary.json").read_text()

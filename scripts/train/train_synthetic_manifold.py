@@ -115,6 +115,32 @@ def _atomic_torch_save(state: dict, checkpoint: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _build_lr_scheduler(
+    optimizer: torch.optim.Optimizer, config: dict
+) -> torch.optim.lr_scheduler.LRScheduler | None:
+    schedule = str(config.get("learning_rate_schedule", "constant")).lower()
+    if schedule == "constant":
+        return None
+    if schedule != "cosine":
+        raise ValueError(f"unknown learning_rate_schedule: {schedule}")
+    peak = float(config["learning_rate"])
+    minimum = float(config.get("learning_rate_min", 0.0))
+    decay_steps = int(config.get("learning_rate_decay_steps", config["max_steps"]))
+    if peak <= 0:
+        raise ValueError("learning_rate must be positive")
+    if not 0 <= minimum <= peak:
+        raise ValueError(
+            "learning_rate_min must satisfy 0 <= minimum <= learning_rate"
+        )
+    if decay_steps <= 0:
+        raise ValueError("learning_rate_decay_steps must be positive")
+    return torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=decay_steps,
+        eta_min=minimum,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
@@ -162,6 +188,7 @@ def main() -> None:
             f"model latent_dim {model.latent_dim}"
         )
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"])
+    lr_scheduler = _build_lr_scheduler(optimizer, config)
     generator = torch.Generator().manual_seed(seed + 2)
     start_step = 0
     resume_rng_restored = False
@@ -178,6 +205,13 @@ def main() -> None:
             )
         model.load_state_dict(checkpoint_state["model"], strict=True)
         optimizer.load_state_dict(checkpoint_state["optimizer"])
+        saved_scheduler = checkpoint_state.get("lr_scheduler")
+        if lr_scheduler is None and saved_scheduler is not None:
+            raise ValueError("checkpoint has scheduler state but config is constant")
+        if lr_scheduler is not None and saved_scheduler is None:
+            raise ValueError("cosine schedule requires checkpoint scheduler state")
+        if lr_scheduler is not None:
+            lr_scheduler.load_state_dict(saved_scheduler)
         if "rng" in checkpoint_state:
             _restore_rng_state(checkpoint_state["rng"], generator)
             resume_rng_restored = True
@@ -233,12 +267,17 @@ def main() -> None:
                 clean_gradient_mode=config.get("clean_gradient_mode", "full"),
                 noise=batch_source,
             )
+        learning_rate_used = float(optimizer.param_groups[0]["lr"])
         optimizer.zero_grad(set_to_none=True)
         losses["loss"].backward()
         optimizer.step()
+        if lr_scheduler is not None:
+            lr_scheduler.step()
         if step == 1 or step % config["log_every"] == 0:
             row = {
                 "step": step,
+                "learning_rate_used": learning_rate_used,
+                "learning_rate": float(optimizer.param_groups[0]["lr"]),
                 **{key: float(value.detach()) for key, value in losses.items()},
             }
             with log_path.open("a") as stream:
@@ -264,6 +303,9 @@ def main() -> None:
                     "config": config,
                     "model": model.state_dict(),
                     "optimizer": optimizer.state_dict(),
+                    "lr_scheduler": (
+                        lr_scheduler.state_dict() if lr_scheduler is not None else None
+                    ),
                     "rng": _capture_rng_state(generator),
                     "resume": {
                         "checkpoint": str(args.resume) if args.resume else None,

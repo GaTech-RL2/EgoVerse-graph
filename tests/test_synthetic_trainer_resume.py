@@ -54,6 +54,9 @@ def test_training_resume_preserves_checkpoints_and_appends_metrics(tmp_path):
         "flow_samples": 2,
         "reconstruction_noise_range": [0.5, 1.0],
         "learning_rate": 0.0003,
+        "learning_rate_schedule": "cosine",
+        "learning_rate_min": 0.00003,
+        "learning_rate_decay_steps": 4,
         "batch_size": 4,
         "max_steps": 2,
         "inference_steps": 2,
@@ -81,6 +84,11 @@ def test_training_resume_preserves_checkpoints_and_appends_metrics(tmp_path):
         for row in (output / "metrics.jsonl").read_text().splitlines()
     ]
     assert metric_steps == [1, 2, 3, 4]
+    metric_rows = [
+        json.loads(row) for row in (output / "metrics.jsonl").read_text().splitlines()
+    ]
+    assert metric_rows[0]["learning_rate_used"] == pytest.approx(0.0003)
+    assert metric_rows[-1]["learning_rate"] == pytest.approx(0.00003)
     final = torch.load(
         next((output / "checkpoints").glob("*global-step-000004.pt")),
         map_location="cpu",
@@ -90,6 +98,8 @@ def test_training_resume_preserves_checkpoints_and_appends_metrics(tmp_path):
     assert final["resume"]["checkpoint"] == str(checkpoint)
     assert final["resume"]["rng_restored"] is False
     assert "rng" in final
+    assert final["lr_scheduler"]["T_max"] == 4
+    assert final["lr_scheduler"]["eta_min"] == pytest.approx(0.00003)
 
 
 def test_restore_rng_state_moves_saved_cuda_states_to_cpu(monkeypatch):

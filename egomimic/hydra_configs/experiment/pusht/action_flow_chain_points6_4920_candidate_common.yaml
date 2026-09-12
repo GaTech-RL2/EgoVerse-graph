@@ -115,6 +115,9 @@ run_provenance:
     sampler: dopri5
     steps: 50
     classifier_free_guidance: true
+    timestep_shift_alpha: 0.5
+    atol: 1.0e-6
+    rtol: 1.0e-3
     cfg_scale: 4.0
     cfg_interval: [0.0, 1.0]
   energy_score_contract:

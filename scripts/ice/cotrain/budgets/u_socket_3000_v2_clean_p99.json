@@ -1,0 +1,22 @@
+{
+  "dataset": "/storage/ice1/4/5/agao81/data/Tsim_v2/u_socket_3000_v2_clean",
+  "dataset_name": "u_socket_3000_v2_clean",
+  "n_episodes": 2999,
+  "statistic": "p99",
+  "multiplier": 1.1,
+  "action_space": "cursor",
+  "formula": "ceil(multiplier * p99(total_frames | level))",
+  "by_level": {
+    "0": {
+      "n": 2999,
+      "min": 73,
+      "mean": 173.9,
+      "p95": 244,
+      "max": 379,
+      "budget": 318,
+      "median": 169,
+      "max_over_p95": 1.553
+    }
+  },
+  "content_sha256": "ea3977bda1480d91"
+}

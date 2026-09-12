@@ -1,0 +1,420 @@
+{
+ "s3ctA": {
+  "sweep": "unite-cotrain-3",
+  "prefix": "s3-ctA-chaingen-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s3",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ],
+   "chain": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "s3dpct": {
+  "sweep": "unite-cotrain-3",
+  "prefix": "s3-dp_paper-cotrain-chaingen-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s3",
+  "unite": false,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ],
+   "chain": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "s3unitech": {
+  "sweep": "unite-cotrain-3",
+  "prefix": "s3-unite-chaingen-points6-240k",
+  "embs": [
+   "chain"
+  ],
+  "bset": "s3",
+  "unite": true,
+  "oec": {
+   "chain": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "s3dpch": {
+  "sweep": "unite-cotrain-3",
+  "prefix": "s3-dp_paper-chaingen-points6-240k",
+  "embs": [
+   "chain"
+  ],
+  "bset": "s3",
+  "unite": false,
+  "oec": {
+   "chain": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "dpus": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "dp_paper-usocket-240k",
+  "embs": [
+   "usocket"
+  ],
+  "bset": "s2",
+  "unite": false,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "uniteus": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "unite-usocket-h384-240k",
+  "embs": [
+   "usocket"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "ctA": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-h384-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "dpct": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "dp_paper-cotrain-points6-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": false,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "ctA768": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA768-h768-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "s3ctA768": {
+  "sweep": "unite-cotrain-3",
+  "prefix": "s3-ctA768-chaingen-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s3",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ],
+   "chain": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "ctAema": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-ema9999-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {}
+ },
+ "ctAann": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-anneal200k-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {}
+ },
+ "uniteusema": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "unite-usocket-ema9999-240k",
+  "embs": [
+   "usocket"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {}
+ },
+ "uniteusann": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "unite-usocket-anneal200k-240k",
+  "embs": [
+   "usocket"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {}
+ },
+ "ctApin": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-pinlatent-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "ctApinAnn": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-pinlatent-cos120k-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "ctAwd": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-wd0.1-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "s3ctApin": {
+  "sweep": "unite-cotrain-3",
+  "prefix": "s3-ctA-pinlatent-chaingen-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s3",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ],
+   "chain": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "s3ctApinAnn": {
+  "sweep": "unite-cotrain-3",
+  "prefix": "s3-ctA-pinlatent-cos120k-chaingen-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s3",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ],
+   "chain": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "ctAcos90": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-cos90k-fork-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ },
+ "ctAcos120": {
+  "sweep": "unite-cotrain-2",
+  "prefix": "ctA-cos120k-fork-240k",
+  "embs": [
+   "usocket",
+   "chain"
+  ],
+  "bset": "s2",
+  "unite": true,
+  "oec": {
+   "usocket": [
+    "1-5",
+    "6-10",
+    "11-15",
+    "16-20",
+    "21-25",
+    "26-30"
+   ]
+  }
+ }
+}

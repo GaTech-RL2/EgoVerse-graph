@@ -19,6 +19,8 @@ trainer:
 
 planar:
   batch_size: 32
+  action_dims: {pushshapes_sim_u_socket: 4, pushshapes_sim_chain_gripper: 6}
+  eval_native_decoder: null
 
 data:
   valid_dataloader_params:
@@ -26,10 +28,6 @@ data:
       batch_size: 32
     pushshapes_sim_chain_gripper:
       batch_size: 32
-
-planar:
-  action_dims: {pushshapes_sim_u_socket: 4, pushshapes_sim_chain_gripper: 6}
-  eval_native_decoder: null
 
 evaluator:
   native_decoder: null

@@ -19,16 +19,14 @@ trainer:
 
 planar:
   batch_size: 32
+  action_dims: {pushshapes_sim_chain_gripper: 6}
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
 
 data:
   valid_dataloader_params:
     pushshapes_sim_chain_gripper:
       batch_size: 32
-
-planar:
-  action_dims: {pushshapes_sim_chain_gripper: 6}
-  eval_native_decoder:
-    _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
 
 evaluator:
   native_decoder: ${planar.eval_native_decoder}

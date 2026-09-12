@@ -25,6 +25,7 @@ def _compose(row, *extra):
         "action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42",
         "action_flow_bc_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42",
         "action_flow_bc_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_adamw_lr1e5_batch64_s42",
+        "action_flow_cotrain_usocket_chain_obstacle_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42",
         "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42",
         "action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
     ),
@@ -176,3 +177,35 @@ def test_released_unite_cotrain_core_row_composes(monkeypatch):
     assert cfg.model.training_behavior._target_.endswith(
         "ReleasedUniteTrainingBehavior"
     )
+
+
+def test_action_flow_cotrain_uses_one_shared_field_and_route_local_codecs(monkeypatch):
+    monkeypatch.setenv("PUSHSHAPES_DATA_ROOT", "/verified/cluster/datasets/Tsim_v2")
+    cfg = _compose(
+        "action_flow_cotrain_usocket_chain_obstacle_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42"
+    )
+
+    assert tuple(cfg.data.train_datasets) == (
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    )
+    stages = cfg.model.pipeline.stages
+    assert stages[3]._target_.endswith("RoutedContentEncoderStage")
+    assert stages[6]._target_.endswith("RoutedContentDecoderStage")
+    assert tuple(stages[3].encoders) == (
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    )
+    assert tuple(stages[6].decoders) == (
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    )
+    assert stages[5]._target_.endswith("ConditionalVelocityStage")
+    assert cfg.model.flow_samples_per_content == 14
+    assert cfg.model.condition_dropout_probability == pytest.approx(0.3)
+    assert cfg.trainer.max_steps == 240_000
+    assert cfg.trainer.limit_val_batches == 0
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 40_000
+
+    pipeline = instantiate(cfg.model.pipeline, device="cpu")
+    assert len(pipeline.pipeline.stages) == 8

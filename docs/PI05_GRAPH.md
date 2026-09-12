@@ -1,10 +1,14 @@
 # PI0.5 campaigns on the graph runtime
 
 The port of `aidan/abc-stationery-pi@d5f72068` uses `PI05Stage` inside
-`PipelineAlgo`. It retains the source PI adapter, action converters, camera
-calibration, normalization checks, metrics and campaign filters in
-`egomimic/campaigns/pi05/`. This scope keeps the source's continuous-6D
-conventions separate from the current graph ARC transform API.
+`PipelineAlgo`. The model adapter lives in `egomimic/models/pi05/`. Data loading and normalization
+use `rldb/zarr/zarr_dataset_multi.py`; pose transforms use the shared embodiment
+and transform modules. Calibration matrices and dataset corrections are in YAML.
+The old `campaigns/pi05` paths forward imports to these shared components;
+new code and configurations should use their canonical homes. Historical YAML
+using `mode`, `cartesian_pi`, or `fix_mecka_left_wrist` must migrate to the explicit
+`action_mode`/`coord_frame`/`rotation_mode`, `camera_keys`, and
+`local_frame_rotations` settings shown in the current recipes.
 
 ## Environment and entry point
 
@@ -54,12 +58,19 @@ the policy prefix and requires all policy tensors to match; optimizer and epoch
 state start fresh. Use `ckpt_path` for a full resume of a graph run. Legacy HPT
 and PI checkpoints are not interchangeable with arbitrary graph models.
 
-The PI evaluator consumes the source backend's native outputs so it preserves
-the original metric definitions and performs frame reversion once. The source
-train visualization loader is a graph validation group named `train_viz`;
-its metrics remain separately named, and multi-sample metrics stay off there.
-Only rank zero writes videos. The stationery `rl2yam` calibration intentionally
-does not geometrically match ABC images, as documented in the source recipe.
+HPT and PI use `BimanualCartesianEval` over graph `pred_action`, with shared
+`EvalVideo` buffering. Pose, DTW, Fréchet and optional multi-sample metrics are
+configured on that evaluator; it never inspects PI stages or calls a model backend.
+Predictions and targets are unnormalized once. The `train_viz` validation group
+uses the standard `Valid_train_viz/` metric prefix and its own video directory;
+its multi-sample metrics stay off. Other group names work the same way.
+Only rank zero writes videos; playback FPS accounts for distributed sampling.
+The stationery `rl2yam` calibration intentionally does not geometrically match
+ABC images, as documented in the source recipe.
+
+`python scripts/data/precompute_norm_stats.py --data <recipe> --model <recipe>
+--out <directory>` is available to any graph model. `trainHydra.py
+norm_stats_only=true norm_stats.save_cache_dir=<directory>` uses the same loader.
 
 ## Validation
 

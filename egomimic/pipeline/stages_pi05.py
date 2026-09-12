@@ -33,7 +33,10 @@ class PI05Stage(Stage):
             ),
             "inference": ("embodiment", "base_0_rgb", "observations.state.ee_pose"),
         }
-        self.writes_by_mode = {"train": ("loss/pi05",), "inference": ("pred_action",)}
+        self.writes_by_mode = {
+            "train": ("loss/pi05",),
+            "inference": ("pred_action", "sampled_prompt"),
+        }
 
     def bind_data_context(self, *, normalizer):
         if self.backend is not None:
@@ -108,6 +111,7 @@ class PI05Stage(Stage):
             with torch.inference_mode(False), torch.no_grad():
                 embodiment, prepared = self.prepare(batch)
                 label = get_embodiment(embodiment).lower()
+                batch["sampled_prompt"] = prepared[embodiment]["sampled_prompt"]
                 native = self.backend.forward_eval(prepared)[
                     f"{label}_{self.action_key}"
                 ]

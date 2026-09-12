@@ -8,7 +8,7 @@ REAL transform lists on synthetic world-frame poses and compare every stage
 against plain numpy/scipy SE(3) math that shares no code with the pipeline:
 
   raw world-frame poses
-    -> Human/Eva.get_transform_list("cartesian_wristframe_6d")   (data)
+    -> Human/Eva.get_transform_list("cartesian", coord_frame="eef_frame", rotation_mode="6D")   (data)
     -> quantile normalize (the dataset formula)
     -> to32_norm_6d / from32_norm_6d                            (model I/O)
     -> unnormalize
@@ -23,12 +23,12 @@ import pytest
 import torch
 from scipy.spatial.transform import Rotation as R
 
-from egomimic.campaigns.pi05.embodiment import Embodiment
-from egomimic.campaigns.pi05.transforms import (
+from egomimic.rldb.embodiment.embodiment import Embodiment
+from egomimic.rldb.zarr.action_chunk_transforms import (
     CartesianYPRToRot6D,
     SplitKeys,
 )
-from egomimic.campaigns.pi05.action_encoding import (
+from egomimic.utils.action_encoding import (
     HumanBimanualCartesianEuler,
     RobotBimanualCartesianEuler,
     _apply_norm_one,
@@ -37,7 +37,7 @@ from egomimic.campaigns.pi05.action_encoding import (
     _reconstruct_R_from_cols,
     _ypr_to_matrix,
 )
-from egomimic.campaigns.pi05.pose import _rot6d_to_ypr, _ypr_to_rot6d
+from egomimic.utils.pose_utils import _rot6d_to_ypr, _ypr_to_rot6d
 
 T = 100
 
@@ -100,7 +100,9 @@ def _assert_pose12_close(got, ref, atol):
     got = np.asarray(got, dtype=np.float64)
     ref = np.asarray(ref, dtype=np.float64)
     for off in (0, 6):
-        np.testing.assert_allclose(got[..., off : off + 3], ref[..., off : off + 3], atol=atol)
+        np.testing.assert_allclose(
+            got[..., off : off + 3], ref[..., off : off + 3], atol=atol
+        )
         Rg = _R_of_ypr(got[..., off + 3 : off + 6].reshape(-1, 3))
         Rr = _R_of_ypr(ref[..., off + 3 : off + 6].reshape(-1, 3))
         np.testing.assert_allclose(Rg, Rr, atol=atol)
@@ -139,7 +141,9 @@ def test_torch_ypr_matrix_matches_scipy_zyx():
     np.testing.assert_allclose(R_torch, R_scipy, atol=1e-12)
     # ...and _matrix_to_ypr inverts it on the principal branch.
     back = _matrix_to_ypr(torch.from_numpy(R_scipy)).numpy()
-    np.testing.assert_allclose(R.from_euler("ZYX", back).as_matrix(), R_scipy, atol=1e-12)
+    np.testing.assert_allclose(
+        R.from_euler("ZYX", back).as_matrix(), R_scipy, atol=1e-12
+    )
     # numpy 6D helpers use the same columns as the torch packers.
     six = _ypr_to_rot6d(ypr)
     np.testing.assert_allclose(six[:, :3], R_scipy[:, :, 0], atol=1e-12)
@@ -162,14 +166,16 @@ def test_gram_schmidt_matches_independent_and_is_proper():
     np.testing.assert_allclose(Rt, Rn, atol=1e-12)
     np.testing.assert_allclose(np.linalg.det(Rt), 1.0, atol=1e-12)
     np.testing.assert_allclose(
-        Rt @ np.transpose(Rt, (0, 2, 1)), np.broadcast_to(np.eye(3), Rt.shape), atol=1e-12
+        Rt @ np.transpose(Rt, (0, 2, 1)),
+        np.broadcast_to(np.eye(3), Rt.shape),
+        atol=1e-12,
     )
 
 
 # ------------------------------------------------------------ human path
 @pytest.mark.parametrize("fix_left", [False, True])
 def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
-    from egomimic.campaigns.pi05.human import (
+    from egomimic.rldb.embodiment.human import (
         Human,
         _build_human_cartesian_revert_6d_wristframe_transform_list,
     )
@@ -189,9 +195,15 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
             }
         )
     fwd = Human.get_transform_list(
-        "cartesian_wristframe_6d",
+        "cartesian",
+        coord_frame="eef_frame",
+        rotation_mode="6D",
         stride=1,
-        fix_mecka_left_wrist=fix_left,
+        local_frame_rotations=(
+            {"left.action_ee_pose": [0, 0, 0, 1], "left.obs_ee_pose": [0, 0, 0, 1]}
+            if fix_left
+            else None
+        ),
         pad_proprio_gripper=True,
     )
     outs = [_apply(fwd, r) for r in raws]
@@ -273,7 +285,7 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
 
 def test_human_wristframe_actions_are_headframe_invariant():
     """Wrist-relative targets must not depend on the head pose at all."""
-    from egomimic.campaigns.pi05.human import Human
+    from egomimic.rldb.embodiment.human import Human
 
     rng = _rng(7)
     lobs, robs = _rand_pose(rng), _rand_pose(rng)
@@ -283,7 +295,9 @@ def test_human_wristframe_actions_are_headframe_invariant():
         "left.action_ee_pose": _rand_chunk(rng, lobs),
         "right.action_ee_pose": _rand_chunk(rng, robs),
     }
-    fwd = Human.get_transform_list("cartesian_wristframe_6d", stride=1)
+    fwd = Human.get_transform_list(
+        "cartesian", coord_frame="eef_frame", rotation_mode="6D", stride=1
+    )
     a1 = _apply(fwd, {**raw, "obs_head_pose": _rand_pose(rng)})["actions_cartesian"]
     a2 = _apply(fwd, {**raw, "obs_head_pose": _rand_pose(rng)})["actions_cartesian"]
     np.testing.assert_allclose(a1, a2, atol=1e-12)
@@ -291,20 +305,22 @@ def test_human_wristframe_actions_are_headframe_invariant():
 
 # -------------------------------------------------------------- eva path
 def _eva_extrinsics_variants():
-    """Every calibration the checkout knows about. Older trees expose one
-    ``Eva.EXTRINSICS`` dict; newer ones a keyed ``EVA_EXTRINSICS`` registry
-    selected via ``get_transform_list(..., extrinsics_key=...)``."""
-    import egomimic.campaigns.pi05.eva as eva_mod
+    from pathlib import Path
+    import yaml
 
-    registry = getattr(eva_mod, "EVA_EXTRINSICS", None)
-    if registry is None:
-        return [pytest.param(None, eva_mod.Eva.EXTRINSICS, id="default")]
-    return [pytest.param(k, v, id=k) for k, v in registry.items()]
+    return [
+        pytest.param(p.stem, yaml.safe_load(p.read_text())["extrinsics"], id=p.stem)
+        for p in sorted(
+            (Path(__file__).parents[1] / "egomimic/hydra_configs/calibration").glob(
+                "*.yaml"
+            )
+        )
+    ]
 
 
 @pytest.mark.parametrize("extrinsics_key,extrinsics", _eva_extrinsics_variants())
 def test_eva_wristframe_6d_pipeline_round_trips_to_camframe(extrinsics_key, extrinsics):
-    from egomimic.campaigns.pi05.eva import (
+    from egomimic.rldb.embodiment.eva import (
         Eva,
         _build_eva_cartesian_revert_6d_wristframe_transform_list,
     )
@@ -326,8 +342,10 @@ def test_eva_wristframe_6d_pipeline_round_trips_to_camframe(extrinsics_key, extr
                 "right.cmd_gripper": rng.uniform(0, 1, (T, 1)),
             }
         )
-    kwargs = {} if extrinsics_key is None else {"extrinsics_key": extrinsics_key}
-    fwd = Eva.get_transform_list("cartesian_wristframe_6d", **kwargs)
+    kwargs = {"extrinsics": extrinsics}
+    fwd = Eva.get_transform_list(
+        "cartesian", coord_frame="eef_frame", rotation_mode="6D", **kwargs
+    )
     outs = [_apply(fwd, r) for r in raws]
     act6 = np.stack([o["actions_cartesian"] for o in outs])
     obs6 = np.stack([o["observations.state.ee_pose"] for o in outs])
@@ -339,9 +357,13 @@ def test_eva_wristframe_6d_pipeline_round_trips_to_camframe(extrinsics_key, extr
     for b, r in enumerate(raws):
         for si, side in enumerate(("left", "right")):
             Einv = np.linalg.inv(np.asarray(extrinsics[side]))
-            gt_act[b, :, 7 * si : 7 * si + 6] = _xyzypr(Einv[None] @ _T_chunk(r[f"{side}.cmd_ee_pose"]))
+            gt_act[b, :, 7 * si : 7 * si + 6] = _xyzypr(
+                Einv[None] @ _T_chunk(r[f"{side}.cmd_ee_pose"])
+            )
             gt_act[b, :, 7 * si + 6] = r[f"{side}.cmd_gripper"][:, 0]
-            gt_obs[b, 7 * si : 7 * si + 6] = _xyzypr(Einv @ _T(r[f"{side}.obs_ee_pose"]))
+            gt_obs[b, 7 * si : 7 * si + 6] = _xyzypr(
+                Einv @ _T(r[f"{side}.obs_ee_pose"])
+            )
             gt_obs[b, 7 * si + 6] = r[f"{side}.obs_gripper"][0]
 
     # the x5Dec13_2 rig calibration is ~6e-9 off orthonormal, hence 1e-7
@@ -395,7 +417,7 @@ def test_split_keys_rejects_width_mismatch():
 def test_ypr_revert_on_6d_batch_fails_loudly():
     """The evaluator/data-config mismatch the guard is for: eval_pi.yaml's
     ypr revert applied to a cartesian_wristframe_6d batch."""
-    from egomimic.campaigns.pi05.human import (
+    from egomimic.rldb.embodiment.human import (
         _build_human_cartesian_revert_eef_frame_transform_list,
     )
 
@@ -409,7 +431,7 @@ def test_ypr_revert_on_6d_batch_fails_loudly():
 
 
 def _bounds_dataset(key, width, q_low, q_high):
-    from egomimic.campaigns.pi05.data import PI05Dataset as MultiDataset
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset as MultiDataset
 
     md = MultiDataset.__new__(MultiDataset)
     md.norm_stats = {
@@ -430,31 +452,49 @@ def test_bounds_check_tolerates_roundoff_on_collapsed_bounds():
     md = _bounds_dataset("actions_cartesian", 18, 0.0, 0.0)
     arr = np.zeros((5, 18), dtype=np.float32)
     arr[0, 0] = 1e-9  # a roundoff-scale xyz value at a [0, 0] bound
-    assert md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep") is None
+    assert (
+        md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+        is None
+    )
     arr[0, 0] = 1e-3  # a real violation is still caught
-    assert md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep") is not None
+    assert (
+        md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+        is not None
+    )
 
 
 def test_bounds_check_warns_once_on_stat_shape_mismatch(caplog):
     md = _bounds_dataset("actions_cartesian", 18, -1.0, 1.0)
     arr = np.zeros((5, 20), dtype=np.float32)  # stats are 18-wide
     with caplog.at_level("WARNING"):
-        assert md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep") is None
-        assert md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 1, "ep") is None
+        assert (
+            md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+            is None
+        )
+        assert (
+            md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 1, "ep")
+            is None
+        )
     msgs = [r.message for r in caplog.records if "bounds check skipped" in r.message]
     assert len(msgs) == 1, msgs
 
 
 def test_precomputed_norm_stats_provenance_is_checked(tmp_path):
-    from egomimic.campaigns.pi05.data import PI05Dataset as MultiDataset
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset as MultiDataset
 
     writer = MultiDataset.__new__(MultiDataset)
     writer.norm_mode = "quantile"
     writer._norm_run_metadata = None
     writer.norm_stats = {
         1: {
-            "actions_cartesian": {"quantile_1": np.zeros((T, 18)), "quantile_99": np.ones((T, 18))},
-            "observations.state.ee_pose": {"quantile_1": np.zeros(20), "quantile_99": np.ones(20)},
+            "actions_cartesian": {
+                "quantile_1": np.zeros((T, 18)),
+                "quantile_99": np.ones((T, 18)),
+            },
+            "observations.state.ee_pose": {
+                "quantile_1": np.zeros(20),
+                "quantile_99": np.ones(20),
+            },
         }
     }
     writer.cache_stats(str(tmp_path))

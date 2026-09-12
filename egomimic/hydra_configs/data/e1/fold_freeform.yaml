@@ -12,10 +12,10 @@ train_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
       folder_path: ${e1.train_root}
       key_map:
-        _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
         horizon: ${e1.chunk_length}
       transform_list:
-        _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
         variant: ${e1.variant}
         chunk_length: ${e1.chunk_length}
         time_rows: ${e1.time_rows}
@@ -37,10 +37,10 @@ valid_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
       folder_path: ${e1.valid_root}
       key_map:
-        _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
         horizon: ${e1.chunk_length}
       transform_list:
-        _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
         variant: ${e1.variant}
         chunk_length: ${e1.chunk_length}
         time_rows: ${e1.time_rows}

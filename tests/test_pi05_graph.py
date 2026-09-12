@@ -15,7 +15,7 @@ from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
-from egomimic.campaigns.pi05.data import PI05Dataset
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pl_utils.pl_model import ModelWrapper
 
@@ -102,17 +102,17 @@ def tiny_openpi(monkeypatch):
             }
 
     # Reload so this fixture cannot leave a previous fixture's backend attached.
-    sys.modules.pop("egomimic.campaigns.pi05.policy", None)
-    module = importlib.import_module("egomimic.campaigns.pi05.policy")
+    sys.modules.pop("egomimic.models.pi05.policy", None)
+    module = importlib.import_module("egomimic.models.pi05.policy")
     monkeypatch.setattr(
         module.AutoTokenizer, "from_pretrained", lambda *args, **kwargs: Tokenizer()
     )
     yield
-    sys.modules.pop("egomimic.campaigns.pi05.policy", None)
+    sys.modules.pop("egomimic.models.pi05.policy", None)
 
 
 def normalizer():
-    norm = PI05Dataset(state={}, norm_mode="quantile")
+    norm = MultiDataset(state={}, norm_mode="quantile")
     kinds = {
         "actions_cartesian": "action_keys",
         "observations.state.ee_pose": "proprio_keys",
@@ -213,11 +213,12 @@ def test_pi_evaluator_works_through_lightning_wrapper(tiny_openpi, tmp_path):
     evaluator.on_validation_start()
     # Zero normalized output and targets must give zero native MSE. Revert lists
     # are disabled here; their numeric round-trip is covered by the source tests.
-    evaluator.options["transform_lists"] = {}
+    evaluator.revert_transforms = {}
+    evaluator.rkl_samples = 1
     values = evaluator.on_validation_step(batch(), 0)
     assert values["Valid/eva_bimanual_actions_cartesian_paired_mse_avg"] == 0
     assert len(logged) == 1
     evaluator.set_validation_group("train_viz")
     train_values = evaluator.on_validation_step(batch(), 0)
-    assert all(key.startswith("train_viz/") for key in train_values)
+    assert all(key.startswith("Valid_train_viz/") for key in train_values)
     evaluator.on_validation_end()

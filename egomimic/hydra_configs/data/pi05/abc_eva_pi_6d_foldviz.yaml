@@ -13,18 +13,58 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
   eva_bimanual:
-    _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       key_map:
-        _target_: egomimic.campaigns.pi05.eva.Eva.get_keymap
-        keymap_mode: cartesian_pi
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian
         annotation_key: annotations
+        camera_keys:
+          observations.images.front_img_1: base_0_rgb
+          observations.images.left_wrist_img: left_wrist_0_rgb
+          observations.images.right_wrist_img: right_wrist_0_rgb
       transform_list:
-        _target_: egomimic.campaigns.pi05.eva.Eva.get_transform_list
-        mode: cartesian_wristframe_6d
-        extrinsics_key: abc_fold_viz
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: 6D
+        extrinsics: &id001
+          left:
+          - - -0.00540728648402
+            - -0.91864395735192
+            - 0.39504941573641
+            - -0.07230219027034
+          - - -0.99924104589933
+            - -0.01027605228132
+            - -0.03757306135427
+            - -0.23692835817344
+          - - 0.03857581422213
+            - -0.39495275966919
+            - -0.91789118319482
+            - 0.9778307002508
+          - - 0.0
+            - 0.0
+            - 0.0
+            - 1.0
+          right:
+          - - -0.00540728648402
+            - -0.91864395735192
+            - 0.39504941573641
+            - -0.07230219027034
+          - - -0.99924104589933
+            - -0.01027605228132
+            - -0.03757306135427
+            - -0.23692835817344
+          - - 0.03857581422213
+            - -0.39495275966919
+            - -0.91789118319482
+            - 0.9778307002508
+          - - 0.0
+            - 0.0
+            - 0.0
+            - 1.0
       image_hw:
       - 480
       - 640
@@ -38,18 +78,24 @@ train_datasets:
 valid_datasets:
   valid:
     eva_bimanual:
-      _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
       resolver:
-        _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
         folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
         key_map:
-          _target_: egomimic.campaigns.pi05.eva.Eva.get_keymap
-          keymap_mode: cartesian_pi
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+          keymap_mode: cartesian
           annotation_key: annotations
+          camera_keys:
+            observations.images.front_img_1: base_0_rgb
+            observations.images.left_wrist_img: left_wrist_0_rgb
+            observations.images.right_wrist_img: right_wrist_0_rgb
         transform_list:
-          _target_: egomimic.campaigns.pi05.eva.Eva.get_transform_list
-          mode: cartesian_wristframe_6d
-          extrinsics_key: abc_fold_viz
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+          action_mode: cartesian
+          coord_frame: eef_frame
+          rotation_mode: 6D
+          extrinsics: *id001
         image_hw:
         - 480
         - 640
@@ -62,18 +108,24 @@ valid_datasets:
       valid_ratio: 0.05
   train_viz:
     eva_bimanual:
-      _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
       resolver:
-        _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
         folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
         key_map:
-          _target_: egomimic.campaigns.pi05.eva.Eva.get_keymap
-          keymap_mode: cartesian_pi
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+          keymap_mode: cartesian
           annotation_key: annotations
+          camera_keys:
+            observations.images.front_img_1: base_0_rgb
+            observations.images.left_wrist_img: left_wrist_0_rgb
+            observations.images.right_wrist_img: right_wrist_0_rgb
         transform_list:
-          _target_: egomimic.campaigns.pi05.eva.Eva.get_transform_list
-          mode: cartesian_wristframe_6d
-          extrinsics_key: abc_fold_viz
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+          action_mode: cartesian
+          coord_frame: eef_frame
+          rotation_mode: 6D
+          extrinsics: *id001
         image_hw:
         - 480
         - 640

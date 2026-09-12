@@ -1,7 +1,10 @@
 import torch
 import pytest
 
-from egomimic.campaigns.pi05.action_encoding import BaseActionConverter, RobotBimanualCartesianEuler
+from egomimic.utils.action_encoding import (
+    BaseActionConverter,
+    RobotBimanualCartesianEuler,
+)
 
 
 def _stats_for() -> dict[str, torch.Tensor]:
@@ -24,16 +27,22 @@ def _stats_for() -> dict[str, torch.Tensor]:
     }
 
 
-def _normalize(raw: torch.Tensor, stats: dict[str, torch.Tensor], norm_mode: str) -> torch.Tensor:
+def _normalize(
+    raw: torch.Tensor, stats: dict[str, torch.Tensor], norm_mode: str
+) -> torch.Tensor:
     if norm_mode == "zscore":
         return (raw - stats["mean"]) / (stats["std"] + 1e-6)
     if norm_mode == "minmax":
         return 2.0 * ((raw - stats["min"]) / (stats["max"] - stats["min"] + 1e-6)) - 1.0
     if norm_mode == "quantile":
-        return 2.0 * (
-            (raw - stats["quantile_1"])
-            / (stats["quantile_99"] - stats["quantile_1"] + 1e-6)
-        ) - 1.0
+        return (
+            2.0
+            * (
+                (raw - stats["quantile_1"])
+                / (stats["quantile_99"] - stats["quantile_1"] + 1e-6)
+            )
+            - 1.0
+        )
     raise AssertionError(f"unexpected norm mode {norm_mode}")
 
 

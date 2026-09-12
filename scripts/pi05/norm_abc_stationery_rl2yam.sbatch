@@ -26,7 +26,7 @@ OUT=/storage/project/r-dxu345-0/agao81/norm_stats/abc_stationery_rl2yam
 mkdir -p "$OUT"
 
 echo "=== commit=$(git rev-parse --short HEAD) node=$SLURMD_NODENAME $(date) ==="
-"$PY" -u scripts/pi05/precompute_norm_stats.py \
+"$PY" -u scripts/data/precompute_norm_stats.py \
   --data pi05/abc_stationery_pi_6d \
   --model pi05/pi0.5_bc_abc_eva_6d \
   --sample-frac 0.2 \

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from egomimic.eval.e1_fold_tempo_eval import E1FoldTempoEval
+from egomimic.eval.bimanual_tempo_eval import BimanualTempoEval
 from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
 
 
@@ -54,7 +54,7 @@ class Normalizer:
 
 
 def evaluator(pred, variant="time", **kwargs):
-    result = E1FoldTempoEval(variant=variant, **kwargs)
+    result = BimanualTempoEval(variant=variant, **kwargs)
     result.model = SimpleNamespace(
         forward_eval=lambda batch: {source: {"pred_action": pred} for source in batch}
     )
@@ -154,7 +154,9 @@ def test_validation_logs_through_lightning_and_writes_rescore_schema(tmp_path):
     logged = []
     obj.trainer = SimpleNamespace(
         is_global_zero=True,
-        lightning_module=SimpleNamespace(log_dict=lambda values, **kwargs: logged.append(values)),
+        lightning_module=SimpleNamespace(
+            log_dict=lambda values, **kwargs: logged.append(values)
+        ),
     )
     obj.on_validation_step(batch(truth), 0)
     obj.on_validation_end()

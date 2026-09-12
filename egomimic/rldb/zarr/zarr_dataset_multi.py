@@ -19,7 +19,6 @@ Each episode is self-contained with its own metadata, enabling:
 """
 
 from __future__ import annotations
-from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
 import copy
 import hashlib
@@ -50,6 +49,7 @@ from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
 )
+from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
 if TYPE_CHECKING:
     # Annotation-only import — avoids a runtime circular import with
@@ -1565,6 +1565,8 @@ class MultiDataset(torch.utils.data.Dataset):
             }
         payload = {
             "stats": stats_out,
+            # Full data contract for local graph rollout, without opening datasets.
+            "normalizer_state": self.to_state(),
             # What the stats are valid for — checked by _load_precomputed_stats
             # so a cached file from another norm_mode / keymap / transform mode
             # (same dims, different meaning) is refused instead of applied.
@@ -1587,7 +1589,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 if k in self._norm_run_metadata:
                     payload[k] = self._norm_run_metadata[k]
         with open(out_path, "w") as f:
-            json.dump(payload, f, indent=4)
+            json.dump(
+                payload, f, indent=4, default=lambda value: np.asarray(value).tolist()
+            )
         logger.info(f"[MultiDataset] Cached stats to {out_path}")
 
     # ---- normalize / unnormalize ----

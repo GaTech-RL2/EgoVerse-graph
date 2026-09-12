@@ -11,28 +11,28 @@ working repository.
 
 All new branches have prefix `codex/consolidate-arc-20260911/`.
 
-| Order | Branch suffix | Scope |
+| PR (merge order) | Branch suffix | Scope |
 |---|---|---|
-| 01 | `01-data-foundation` | Rotation transforms and nested validation |
-| 02 | `02-hpt-graph` | HPT primitives, stems, flow stages and Qwen |
-| 03 | `03-abc-yam` | ABC conversion, Yam embodiment and graph recipes |
-| 04 | `04-arc-codecs` | ARC codecs, shared-D metrics, duration and reconstruction |
-| 05 | `05-arc-resampling` | Vectorized arc-length resampling |
-| 06 | `06-e1-data-codecs` | E1 codecs, sampling and dataset adapters |
-| 07 | `07-e1-evaluation` | E1 tempo metrics and ground-truth-span diagnostics |
-| 08 | `08-e1-campaigns` | Human/robot E1 HPT campaigns, diagnostics and launchers |
-| 09 | `09-robot-campaigns` | Stationery/shorts splits and robot token decoders |
-| 10 | `10-pi-action-data` | PI action geometry, normalization, bounds and scoring |
-| 11 | `11-pi-graph-campaigns` | Optional PI graph stage and campaign integration |
-| 12 | `12-stack-validation` | Source mapping, review order and verification record |
+| [#81](https://github.com/GaTech-RL2/EgoVerse-graph/pull/81) | `01-data-foundation` | Rotation transforms and nested validation |
+| [#82](https://github.com/GaTech-RL2/EgoVerse-graph/pull/82) | `02-hpt-graph` | HPT primitives, stems, flow stages and Qwen |
+| [#83](https://github.com/GaTech-RL2/EgoVerse-graph/pull/83) | `03-abc-yam` | ABC conversion, Yam embodiment and graph recipes |
+| [#84](https://github.com/GaTech-RL2/EgoVerse-graph/pull/84) | `04-arc-codecs` | ARC codecs, shared-D metrics, duration and reconstruction |
+| [#85](https://github.com/GaTech-RL2/EgoVerse-graph/pull/85) | `05-arc-resampling` | Vectorized arc-length resampling |
+| [#86](https://github.com/GaTech-RL2/EgoVerse-graph/pull/86) | `06-e1-data-codecs` | E1 codecs, sampling and dataset adapters |
+| [#87](https://github.com/GaTech-RL2/EgoVerse-graph/pull/87) | `07-e1-evaluation` | E1 tempo metrics and ground-truth-span diagnostics |
+| [#88](https://github.com/GaTech-RL2/EgoVerse-graph/pull/88) | `08-e1-campaigns` | Human/robot E1 HPT campaigns, diagnostics and launchers |
+| [#89](https://github.com/GaTech-RL2/EgoVerse-graph/pull/89) | `09-robot-campaigns` | Stationery/shorts splits and robot token decoders |
+| [#90](https://github.com/GaTech-RL2/EgoVerse-graph/pull/90) | `10-pi-action-data` | PI action geometry, normalization, bounds and scoring |
+| [#91](https://github.com/GaTech-RL2/EgoVerse-graph/pull/91) | `11-pi-graph-campaigns` | Optional PI graph stage and campaign integration |
+| [#92](https://github.com/GaTech-RL2/EgoVerse-graph/pull/92) | `12-stack-validation` | Source mapping, review order and verification record |
 
 ## Source mapping
 
 | Original branches | New layers |
 |---|---|
-| `graph-transform_fixes`, `graph-nested-val` | 01 |
-| `graph-hpt-deps`, `graph-hpt-stems`, `graph-hpt-flow`, `graph-hpt-qwen`, `graph-bounds-gate` | 02 |
-| `graph-abc`, `graph-hpt-configs` | 03 |
+| `graph-transform_fixes`, `graph-nested-val` | [#81](https://github.com/GaTech-RL2/EgoVerse-graph/pull/81) |
+| `graph-hpt-deps`, `graph-hpt-stems`, `graph-hpt-flow`, `graph-hpt-qwen`, `graph-bounds-gate` | [#82](https://github.com/GaTech-RL2/EgoVerse-graph/pull/82) |
+| `graph-abc`, `graph-hpt-configs` | [#83](https://github.com/GaTech-RL2/EgoVerse-graph/pull/83) |
 | `graph-arc`, `09-09-feat_arc_shared-d_arcmatch_with_optional_reconstruction_path` | 04, with the timm dependency declaration placed in 02 |
 | `aidan/arc-tokenizer-fixes` (`209de8fd`) | 05; original EgoVerse PR #610 retained |
 | `aidan/arc-e1-tempo-ablation` (`e8aa10fa`) | 06–08, the canonical E1 campaign |

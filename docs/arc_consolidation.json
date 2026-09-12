@@ -25,62 +25,86 @@
     {
       "head": "codex/consolidate-arc-20260911/01-data-foundation",
       "base": "main",
-      "title": "refactor(data): consolidate rotation transforms and nested validation"
+      "title": "refactor(data): consolidate rotation transforms and nested validation",
+      "pr": 81,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/81"
     },
     {
       "head": "codex/consolidate-arc-20260911/02-hpt-graph",
       "base": "codex/consolidate-arc-20260911/01-data-foundation",
-      "title": "feat(hpt): consolidate HPT graph stems, trunk, flow and Qwen"
+      "title": "feat(hpt): consolidate HPT graph stems, trunk, flow and Qwen",
+      "pr": 82,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/82"
     },
     {
       "head": "codex/consolidate-arc-20260911/03-abc-yam",
       "base": "codex/consolidate-arc-20260911/02-hpt-graph",
-      "title": "feat(abc): consolidate ABC conversion and Yam graph recipes"
+      "title": "feat(abc): consolidate ABC conversion and Yam graph recipes",
+      "pr": 83,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/83"
     },
     {
       "head": "codex/consolidate-arc-20260911/04-arc-codecs",
       "base": "codex/consolidate-arc-20260911/03-abc-yam",
-      "title": "feat(arc): consolidate ARC codecs, metrics and duration timing"
+      "title": "feat(arc): consolidate ARC codecs, metrics and duration timing",
+      "pr": 84,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/84"
     },
     {
       "head": "codex/consolidate-arc-20260911/05-arc-resampling",
       "base": "codex/consolidate-arc-20260911/04-arc-codecs",
-      "title": "perf(arc): vectorize bimanual arc-length resampling"
+      "title": "perf(arc): vectorize bimanual arc-length resampling",
+      "pr": 85,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/85"
     },
     {
       "head": "codex/consolidate-arc-20260911/06-e1-data-codecs",
       "base": "codex/consolidate-arc-20260911/05-arc-resampling",
-      "title": "feat(e1): port tempo codecs, sampling and dataset adapters"
+      "title": "feat(e1): port tempo codecs, sampling and dataset adapters",
+      "pr": 86,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/86"
     },
     {
       "head": "codex/consolidate-arc-20260911/07-e1-evaluation",
       "base": "codex/consolidate-arc-20260911/06-e1-data-codecs",
-      "title": "feat(e1): port tempo and ground-truth-span metrics to graph evaluation"
+      "title": "feat(e1): port tempo and ground-truth-span metrics to graph evaluation",
+      "pr": 87,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/87"
     },
     {
       "head": "codex/consolidate-arc-20260911/08-e1-campaigns",
       "base": "codex/consolidate-arc-20260911/07-e1-evaluation",
-      "title": "feat(e1): port HPT campaign recipes and retain checkpoints"
+      "title": "feat(e1): port HPT campaign recipes and retain checkpoints",
+      "pr": 88,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/88"
     },
     {
       "head": "codex/consolidate-arc-20260911/09-robot-campaigns",
       "base": "codex/consolidate-arc-20260911/08-e1-campaigns",
-      "title": "feat(abc): preserve stationery and extreme-tempo robot campaigns"
+      "title": "feat(abc): preserve stationery and extreme-tempo robot campaigns",
+      "pr": 89,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/89"
     },
     {
       "head": "codex/consolidate-arc-20260911/10-pi-action-data",
       "base": "codex/consolidate-arc-20260911/09-robot-campaigns",
-      "title": "feat(pi): preserve action geometry, bounds and campaign scoring"
+      "title": "feat(pi): preserve action geometry, bounds and campaign scoring",
+      "pr": 90,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/90"
     },
     {
       "head": "codex/consolidate-arc-20260911/11-pi-graph-campaigns",
       "base": "codex/consolidate-arc-20260911/10-pi-action-data",
-      "title": "feat(pi): integrate PI0.5 campaigns with graph training"
+      "title": "feat(pi): integrate PI0.5 campaigns with graph training",
+      "pr": 91,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/91"
     },
     {
       "head": "codex/consolidate-arc-20260911/12-stack-validation",
       "base": "codex/consolidate-arc-20260911/11-pi-graph-campaigns",
-      "title": "docs(arc): document the consolidated stack and source provenance"
+      "title": "docs(arc): document the consolidated stack and source provenance",
+      "pr": 92,
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/92"
     }
   ],
   "duplicate_robot_commits": [

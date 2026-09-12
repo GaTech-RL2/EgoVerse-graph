@@ -148,7 +148,12 @@ class E1FoldTempoEval(BimanualCartesianEval):
                     for key, value in accumulator.update(pred, gt, label).items()
                 }
             )
-        return self._namespaced(metrics)
+        metrics = self._namespaced(metrics)
+        if self.trainer is not None:
+            self.trainer.lightning_module.log_dict(
+                metrics, sync_dist=True, add_dataloader_idx=False
+            )
+        return metrics
 
     def _combined_accumulators(self):
         local = {

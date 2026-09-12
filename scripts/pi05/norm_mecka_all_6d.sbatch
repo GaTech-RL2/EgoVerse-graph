@@ -23,7 +23,7 @@ cd "$WT"
 PY=${PY:-python}
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 
-"$PY" scripts/pi05/precompute_norm_stats.py \
+"$PY" scripts/data/precompute_norm_stats.py \
   --data pi05/mecka_all_pi_6d \
   --model pi05/pi0.5_bc_mecka_6d \
   --sample-frac 0.1 \

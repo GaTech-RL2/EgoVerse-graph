@@ -26,20 +26,36 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
   human_bimanual:
-    _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       key_map:
-        _target_: egomimic.campaigns.pi05.human.Human.get_keymap
-        keymap_mode: cartesian_pi
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
         annotation_key: annotations
+        camera_keys:
+          observations.images.front_img_1: base_0_rgb
+          observations.images.left_wrist_img: left_wrist_0_rgb
+          observations.images.right_wrist_img: right_wrist_0_rgb
       transform_list:
-        _target_: egomimic.campaigns.pi05.human.Human.get_transform_list
-        mode: cartesian_wristframe_6d
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         stride: 1
-        fix_mecka_left_wrist: true
         pad_proprio_gripper: true
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: 6D
+        local_frame_rotations: &id001
+          left.action_ee_pose:
+          - 0
+          - 0
+          - 0
+          - 1
+          left.obs_ee_pose:
+          - 0
+          - 0
+          - 0
+          - 1
       image_hw:
       - 480
       - 640
@@ -52,20 +68,26 @@ train_datasets:
 valid_datasets:
   valid:
     human_bimanual:
-      _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
       resolver:
-        _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
         folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
         key_map:
-          _target_: egomimic.campaigns.pi05.human.Human.get_keymap
-          keymap_mode: cartesian_pi
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: cartesian
           annotation_key: annotations
+          camera_keys:
+            observations.images.front_img_1: base_0_rgb
+            observations.images.left_wrist_img: left_wrist_0_rgb
+            observations.images.right_wrist_img: right_wrist_0_rgb
         transform_list:
-          _target_: egomimic.campaigns.pi05.human.Human.get_transform_list
-          mode: cartesian_wristframe_6d
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
           stride: 1
-          fix_mecka_left_wrist: true
           pad_proprio_gripper: true
+          action_mode: cartesian
+          coord_frame: eef_frame
+          rotation_mode: 6D
+          local_frame_rotations: *id001
         image_hw:
         - 480
         - 640
@@ -77,20 +99,26 @@ valid_datasets:
       valid_ratio: 0.05
   train_viz:
     human_bimanual:
-      _target_: egomimic.campaigns.pi05.data.PI05Dataset._from_resolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
       resolver:
-        _target_: egomimic.campaigns.pi05.resolvers.S3EpisodeResolver
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
         folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
         key_map:
-          _target_: egomimic.campaigns.pi05.human.Human.get_keymap
-          keymap_mode: cartesian_pi
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: cartesian
           annotation_key: annotations
+          camera_keys:
+            observations.images.front_img_1: base_0_rgb
+            observations.images.left_wrist_img: left_wrist_0_rgb
+            observations.images.right_wrist_img: right_wrist_0_rgb
         transform_list:
-          _target_: egomimic.campaigns.pi05.human.Human.get_transform_list
-          mode: cartesian_wristframe_6d
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
           stride: 1
-          fix_mecka_left_wrist: true
           pad_proprio_gripper: true
+          action_mode: cartesian
+          coord_frame: eef_frame
+          rotation_mode: 6D
+          local_frame_rotations: *id001
         image_hw:
         - 480
         - 640

@@ -9,7 +9,7 @@ pi05:
   pretrained_weights: ???
 val_at_start: false
 normalizer:
-  _target_: egomimic.campaigns.pi05.data.PI05Dataset
+  _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset
 name: pi05_abc_stationery_bc
 callbacks:
   model_checkpoint:

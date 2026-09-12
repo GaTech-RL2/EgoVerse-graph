@@ -6,6 +6,11 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
+    RotateLocalFrame,
+    KeypointsToGripper,
+    InsertGripperChannels,
+    CartesianRot6DToYPR,
+    UnpadGripperZeros,
     ActionChunkCoordinateFrameTransform,
     ConcatKeys,
     DeleteKeys,
@@ -221,23 +226,38 @@ class Human(Embodiment):
         keymap_mode: str,
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
+        include_grip_keypoints: bool = False,
         norm_mode: bool = False,
         annotation_key: str = None,
+        high_annotation_key=None,
+        camera_keys: dict | None = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
-        (Aria=True). ``norm_mode``/``annotation_key`` behave as in the base.
+        (Aria=True). ``norm_mode``/``annotation_key``/``high_annotation_key``
+        behave as in the base (subtask mode splits the single annotation array
+        into a ``level == "low"`` target and a ``level == "high"`` prompt).
         """
         key_map = cls._get_keymap(
             keymap_mode,
             has_head_pose=has_head_pose,
             include_aria_keypoints=include_aria_keypoints,
+            include_grip_keypoints=include_grip_keypoints,
         )
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",
                 "zarr_key": annotation_key,
             }
+            if high_annotation_key is not None:
+                # Subtask mode: split the single annotation array into a
+                # low-level (target) and high-level (prompt) view.
+                key_map[annotation_key]["level"] = "low"
+                key_map[high_annotation_key] = {
+                    "key_type": "annotation_keys",
+                    "zarr_key": annotation_key,
+                    "level": "high",
+                }
         if norm_mode:
             to_delete = [
                 k
@@ -246,7 +266,7 @@ class Human(Embodiment):
             ]
             for k in to_delete:
                 del key_map[k]
-        return key_map
+        return {(camera_keys or {}).get(k, k): v for k, v in key_map.items()}
 
     @classmethod
     def _get_keymap(
@@ -254,6 +274,7 @@ class Human(Embodiment):
         keymap_mode: str,
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
+        include_grip_keypoints: bool = False,
     ):
         """Build canonical MANO keys plus optional raw Aria keypoints."""
         front_key = cls.VIZ_IMAGE_KEY
@@ -290,6 +311,17 @@ class Human(Embodiment):
                     "zarr_key": "left.obs_ee_pose",
                 },
             }
+            if include_grip_keypoints:
+                for side in ("left", "right"):
+                    key_map[f"{side}.action_grip_keypoints"] = {
+                        "key_type": "action_keys",
+                        "zarr_key": f"{side}.obs_keypoints",
+                        "horizon": horizon,
+                    }
+                    key_map[f"{side}.obs_grip_keypoints"] = {
+                        "key_type": "proprio_keys",
+                        "zarr_key": f"{side}.obs_keypoints",
+                    }
         elif keymap_mode == "keypoints":
             kp = "obs_keypoints"  # canonical MANO keypoints for every vendor
             key_map = {
@@ -382,6 +414,9 @@ class Human(Embodiment):
         # How the arc token carries timing; see
         # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
         velocity_mode: str = "mean",
+        local_frame_rotations: dict | None = None,
+        pad_proprio_gripper: bool = False,
+        keypoint_gripper: bool = False,
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -465,7 +500,46 @@ class Human(Embodiment):
                 dt=float(stride) / 30.0,
                 velocity_mode=velocity_mode,
             )
-        return transform_list
+        prefix = []
+        suffix = []
+        if local_frame_rotations:
+            if action_mode == "keypoints":
+                raise ValueError("local_frame_rotations cannot apply to keypoints")
+            prefix.extend(
+                RotateLocalFrame(keys=[key], quat_wxyz=quat)
+                for key, quat in local_frame_rotations.items()
+            )
+        if keypoint_gripper:
+            if (
+                pad_proprio_gripper
+                or rotation_mode != "6D"
+                or action_mode != "cartesian"
+            ):
+                raise ValueError(
+                    "keypoint_gripper requires unpadded cartesian 6D and conflicts with pad_proprio_gripper"
+                )
+            prefix.insert(
+                0, KeypointsToGripper(chunk_length=chunk_length, stride=stride)
+            )
+            for key, suffix_name in [
+                ("actions_cartesian", "action_grip"),
+                ("observations.state.ee_pose", "obs_grip"),
+            ]:
+                suffix.append(
+                    InsertGripperChannels(
+                        action_key=key,
+                        left_grip_key=f"left.{suffix_name}",
+                        right_grip_key=f"right.{suffix_name}",
+                    )
+                )
+        if pad_proprio_gripper:
+            suffix.append(
+                PadGripperZeros(
+                    action_key="observations.state.ee_pose",
+                    pose_dim={"euler": 6, "quat": 7, "6D": 9}[rotation_mode],
+                )
+            )
+        return prefix + transform_list + suffix
 
 
 def _pad_human_cartesian_gripper(
@@ -1282,3 +1356,68 @@ def _build_human_cartesian_bimanual_transform_list(
         ]
     )
     return transform_list
+
+
+def _build_human_cartesian_revert_6d_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert head/camera-frame 6D-rotation cartesian actions back to ypr.
+
+    Used by the cam-frame 6D evaluator: the action chunk is already in
+    head/camera frame (produced by the ``cartesian_6d`` transform mode), so no
+    coordinate-frame change is needed — only the rotation representation is
+    converted from xyz+6D (9/arm) back to xyz+ypr (6/arm) so cam-frame MSE and
+    the viz video see the same ypr layout as the plain ``cartesian`` mode. The
+    proprio ee_pose (also 6D-encoded by ``cartesian_6d``) is reverted the same
+    way.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        UnpadGripperZeros(action_key=obs_key),
+    ]
+
+
+def _build_human_cartesian_revert_6d_wristframe_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert wrist-frame 6D-rotation ARIA actions back to head/camera-frame ypr.
+
+    (1) ``CartesianRot6DToYPR`` converts the action rotation xyz+6D -> xyz+ypr
+    (Gram-Schmidt re-orthonormalizes the possibly non-orthonormal model
+    prediction); (2) the proprio ``observations.state.ee_pose`` (6D-encoded by
+    the ``cartesian_wristframe_6d`` mode) is reverted to ypr the same way;
+    (3) the standard eef-frame revert projects wrist-frame ypr actions back
+    into head frame using that ypr proprio to define the frame.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        # padded proprio arrives 20-dim -> 14 after 6D->ypr; the eef revert's
+        # SplitKeys expects the gripperless 12-dim layout (no-op if unpadded).
+        UnpadGripperZeros(action_key=obs_key),
+        *_build_human_cartesian_revert_eef_frame_transform_list(is_quat=False),
+    ]
+
+
+def _build_human_cartesian_revert_6d_wristframe_grip_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert for the keypoint-gripper pipeline: human actions carry real
+    grip channels at the robot-layout slots (20D), so drop them from the
+    ACTION chunk first (UnpadGripperZeros 20 -> 18), then run the standard
+    wristframe 6D revert (which already unpads the proprio). The grip channels
+    are evaluated by the native-frame metrics; the cam-frame revert/viz is
+    pose-only."""
+    return [
+        UnpadGripperZeros(action_key=action_key),
+        *_build_human_cartesian_revert_6d_wristframe_transform_list(
+            action_key=action_key, obs_key=obs_key
+        ),
+    ]

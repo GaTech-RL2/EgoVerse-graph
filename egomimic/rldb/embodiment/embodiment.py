@@ -56,8 +56,15 @@ def get_embodiment(index):
     return EMBODIMENT_ID_TO_KEY.get(index, None)
 
 
+_HUMAN_VENDOR_PREFIXES = ("MECKA", "SCALE", "ARIA", "LIGHTWHEEL")
+
+
 def get_embodiment_id(embodiment_name):
-    return EMBODIMENT[embodiment_name.upper()].value
+    name = embodiment_name.upper()
+    vendor, _, suffix = name.partition("_")
+    if vendor in _HUMAN_VENDOR_PREFIXES and suffix:
+        name = f"HUMAN_{suffix}"
+    return EMBODIMENT[name].value
 
 
 class Embodiment(ABC):
@@ -151,7 +158,13 @@ class Embodiment(ABC):
         )
 
     @classmethod
-    def get_keymap(cls, keymap_mode: str, norm_mode: bool = False, annotation_key=None):
+    def get_keymap(
+        cls,
+        keymap_mode: str,
+        norm_mode: bool = False,
+        annotation_key=None,
+        camera_keys: dict | None = None,
+    ):
         """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
         key_map = cls._get_keymap(keymap_mode)
         if annotation_key is not None and not norm_mode:
@@ -167,7 +180,7 @@ class Embodiment(ABC):
             ]
             for k in to_delete:
                 del key_map[k]
-        return key_map
+        return {(camera_keys or {}).get(k, k): v for k, v in key_map.items()}
 
     @abstractmethod
     def _get_keymap(cls, keymap_mode: str):
@@ -182,6 +195,7 @@ class Embodiment(ABC):
         action_key,
         annotation_key=None,
         mode=Literal["traj", "traj+rotation", "axes", "keypoints"],
+        fallback_intrinsics=None,
         gt_alpha=1.0,
         pred_alpha=0.7,
         **kwargs,
@@ -204,6 +218,8 @@ class Embodiment(ABC):
             action = actions[i]
             pred_action = pred_actions[i]
             K_i = _intrinsics_from_batch(batch, i)
+            if K_i is None and fallback_intrinsics is not None:
+                K_i = np.asarray(fallback_intrinsics)
             ims = cls.viz(
                 image,
                 action,

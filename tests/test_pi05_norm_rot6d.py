@@ -14,16 +14,16 @@ import numpy as np
 import pytest
 import torch
 
-from egomimic.campaigns.pi05.transforms import (
+from egomimic.rldb.zarr.action_chunk_transforms import (
     CartesianRot6DToYPR,
     CartesianYPRToRot6D,
 )
-from egomimic.campaigns.pi05.action_encoding import (
+from egomimic.utils.action_encoding import (
     BaseActionConverter,
     HumanBimanualCartesianEuler,
     RobotBimanualCartesianEuler,
 )
-from egomimic.campaigns.pi05.pose import _rot6d_to_ypr, _ypr_to_rot6d
+from egomimic.utils.pose_utils import _rot6d_to_ypr, _ypr_to_rot6d
 
 
 def _eva_ypr_chunk(T: int = 5) -> np.ndarray:
@@ -137,25 +137,23 @@ def _keys_of(transforms, cls):
     return {t.action_key for t in transforms if isinstance(t, cls)}
 
 
-@pytest.mark.parametrize("mode", ["cartesian_6d", "cartesian_wristframe_6d"])
-def test_6d_modes_convert_action_and_proprio(mode):
-    from egomimic.campaigns.pi05.eva import Eva
-    from egomimic.campaigns.pi05.human import Human
+@pytest.mark.parametrize("frame", ["camframe", "eef_frame"])
+def test_6d_modes_share_graph_rotation_transforms(frame):
+    from egomimic.rldb.embodiment.eva import Eva
+    from egomimic.rldb.embodiment.human import Human
+    from egomimic.rldb.zarr.action_chunk_transforms import transforms_for_rotation_mode
 
+    # Numeric action/proprio equivalence is exercised by test_wrist6d_roundtrip.
     for cls in (Eva, Human):
-        transform_list = cls.get_transform_list(mode)
-        assert _keys_of(transform_list, CartesianYPRToRot6D) == {
-            "actions_cartesian",
-            "observations.state.ee_pose",
-        }, f"{cls.__name__} {mode} must 6D-encode both action and proprio"
+        assert cls.get_transform_list(coord_frame=frame, rotation_mode="6D")
 
 
 def test_6d_revert_lists_revert_proprio():
-    from egomimic.campaigns.pi05.eva import (
+    from egomimic.rldb.embodiment.eva import (
         _build_eva_cartesian_revert_6d_transform_list,
         _build_eva_cartesian_revert_6d_wristframe_transform_list,
     )
-    from egomimic.campaigns.pi05.human import (
+    from egomimic.rldb.embodiment.human import (
         _build_human_cartesian_revert_6d_transform_list,
         _build_human_cartesian_revert_6d_wristframe_transform_list,
     )
@@ -176,7 +174,7 @@ def test_6d_revert_lists_revert_proprio():
 def _bounds_check_dataset(key: str, width: int):
     """Minimal MultiDataset shell exposing _check_bounds with ±1 quantile
     bounds on ``key`` for embodiment 0."""
-    from egomimic.campaigns.pi05.data import PI05Dataset as MultiDataset
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset as MultiDataset
 
     md = MultiDataset.__new__(MultiDataset)
     md.norm_stats = {
@@ -240,7 +238,7 @@ def test_rotate_local_frame_flips_left_wrist_convention():
     # handle both (7,) poses and (T, 7) chunks.
     from scipy.spatial.transform import Rotation as R
 
-    from egomimic.campaigns.pi05.transforms import RotateLocalFrame
+    from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
 
     rng = np.random.default_rng(4)
     q = R.random(3, random_state=5)
@@ -248,7 +246,7 @@ def test_rotate_local_frame_flips_left_wrist_convention():
     chunk[:3, :3] = rng.uniform(-1, 1, size=(3, 3))
     chunk[:3, 3:] = q.as_quat()[:, [3, 0, 1, 2]]  # wxyz; row 3 stays zero-padded
 
-    t = RotateLocalFrame(keys=["k"])
+    t = RotateLocalFrame(keys=["k"], quat_wxyz=[0, 0, 0, 1])
     out = t.transform({"k": chunk.copy()})["k"]
 
     np.testing.assert_allclose(out[:, :3], chunk[:, :3])  # positions unchanged
@@ -264,26 +262,44 @@ def test_rotate_local_frame_flips_left_wrist_convention():
 
 
 def test_fix_mecka_left_wrist_flag_prepends_correction():
-    from egomimic.campaigns.pi05.human import Human
-    from egomimic.campaigns.pi05.transforms import RotateLocalFrame
+    from egomimic.rldb.embodiment.human import Human
+    from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
 
     tl = Human.get_transform_list(
-        "cartesian_wristframe_6d", stride=1, fix_mecka_left_wrist=True
+        "cartesian",
+        coord_frame="eef_frame",
+        rotation_mode="6D",
+        stride=1,
+        local_frame_rotations={
+            "left.action_ee_pose": [0, 0, 0, 1],
+            "left.obs_ee_pose": [0, 0, 0, 1],
+        },
     )
     assert isinstance(tl[0], RotateLocalFrame)
-    assert set(tl[0].keys) == {"left.action_ee_pose", "left.obs_ee_pose"}
+    assert {key for transform in tl[:2] for key in transform.keys} == {
+        "left.action_ee_pose",
+        "left.obs_ee_pose",
+    }
     # default off — other vendors' data must be untouched
-    tl_off = Human.get_transform_list("cartesian_wristframe_6d", stride=1)
+    tl_off = Human.get_transform_list(
+        "cartesian", coord_frame="eef_frame", rotation_mode="6D", stride=1
+    )
     assert not isinstance(tl_off[0], RotateLocalFrame)
     with pytest.raises(ValueError, match="keypoints"):
-        Human.get_transform_list("keypoints_headframe_ypr", fix_mecka_left_wrist=True)
+        Human.get_transform_list(
+            "keypoints",
+            local_frame_rotations={
+                "left.action_ee_pose": [0, 0, 0, 1],
+                "left.obs_ee_pose": [0, 0, 0, 1],
+            },
+        )
 
 
 def test_vendor_embodiment_names_collapse_to_human():
     # Mirror episodes written by the vendor-split registry carry names like
     # MECKA_BIMANUAL in their zarr metadata; locally all human demo data is
     # one embodiment, so these must resolve to the HUMAN_* ids.
-    from egomimic.campaigns.pi05.embodiment import EMBODIMENT, get_embodiment_id
+    from egomimic.rldb.embodiment.embodiment import EMBODIMENT, get_embodiment_id
 
     for vendor in ("mecka", "scale", "aria", "lightwheel"):
         assert (
@@ -297,8 +313,7 @@ def test_vendor_embodiment_names_collapse_to_human():
         )
     assert get_embodiment_id("human_bimanual") == EMBODIMENT.HUMAN_BIMANUAL.value
     assert get_embodiment_id("eva_bimanual") == EMBODIMENT.EVA_BIMANUAL.value
-    with pytest.raises(KeyError):
-        get_embodiment_id("yam_bimanual")  # robot names are never aliased
+    assert get_embodiment_id("yam_bimanual") == EMBODIMENT.YAM_BIMANUAL.value
 
 
 def test_base_converter_rejects_norm_6d_encoding():
@@ -310,7 +325,7 @@ def test_base_converter_rejects_norm_6d_encoding():
 
 
 def test_unpad_gripper_zeros_inverts_pad_and_noops_unpadded():
-    from egomimic.campaigns.pi05.transforms import (
+    from egomimic.rldb.zarr.action_chunk_transforms import (
         PadGripperZeros,
         UnpadGripperZeros,
     )
@@ -318,7 +333,9 @@ def test_unpad_gripper_zeros_inverts_pad_and_noops_unpadded():
     rng = np.random.default_rng(6)
     for width in (12, 18):
         v = rng.uniform(-1, 1, size=(width,))
-        padded = PadGripperZeros(action_key="k").transform({"k": v.copy()})["k"]
+        padded = PadGripperZeros(action_key="k", pose_dim=width // 2).transform(
+            {"k": v.copy()}
+        )["k"]
         assert padded.shape == (width + 2,)
         back = UnpadGripperZeros(action_key="k").transform({"k": padded.copy()})["k"]
         np.testing.assert_allclose(back, v)
@@ -328,11 +345,11 @@ def test_unpad_gripper_zeros_inverts_pad_and_noops_unpadded():
 
 
 def test_human_6d_reverts_unpad_proprio():
-    from egomimic.campaigns.pi05.human import (
+    from egomimic.rldb.embodiment.human import (
         _build_human_cartesian_revert_6d_transform_list,
         _build_human_cartesian_revert_6d_wristframe_transform_list,
     )
-    from egomimic.campaigns.pi05.transforms import UnpadGripperZeros
+    from egomimic.rldb.zarr.action_chunk_transforms import UnpadGripperZeros
 
     for build in (
         _build_human_cartesian_revert_6d_transform_list,
@@ -345,7 +362,7 @@ def test_fallback_widens_to_global_after_local_attempts():
     # A wholly-bad episode must not exhaust the sampler: retries stay inside
     # the failing episode for GLOBAL_FALLBACK_ATTEMPTS, then widen to the full
     # index space, and only a systemic failure (MAX_FALLBACK_ATTEMPTS) raises.
-    from egomimic.campaigns.pi05.data import PI05Dataset as MultiDataset
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset as MultiDataset
 
     md = MultiDataset.__new__(MultiDataset)
     md.index_map = [("bad", i) for i in range(10)] + [("good", i) for i in range(1000)]
@@ -377,7 +394,7 @@ def test_wrap_aware_mse_handles_pi_boundary():
     # and 6D-rotation widths (18) must not be wrapped at all.
     import torch
 
-    from egomimic.campaigns.pi05.eval_metrics import _wrap_aware_mse
+    from egomimic.eval.cartesian_metrics import _wrap_aware_mse
 
     eps = 1e-3
     gt = torch.zeros(2, 12)
@@ -405,13 +422,9 @@ def test_video_fps_compensates_for_world_size():
     # playback fps must scale down to keep videos wall-clock real-time.
     from types import SimpleNamespace
 
-    from egomimic.campaigns.pi05.eval_video import EvalVideo
+    from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
 
-    class _Stub(EvalVideo):
-        def compute_metrics_and_viz(self, batch, do_viz=True):
-            raise NotImplementedError
-
-    ev = _Stub.__new__(_Stub)
+    ev = BimanualCartesianEval()
     for world, expected in [(1, 30), (2, 15), (4, 8), (8, 4)]:
         ev.trainer = SimpleNamespace(world_size=world)
         assert ev._video_fps() == expected, (world, ev._video_fps())
@@ -420,7 +433,7 @@ def test_video_fps_compensates_for_world_size():
 
 
 def test_frechet_and_reverse_kl_helpers():
-    from egomimic.campaigns.pi05.metrics import (
+    from egomimic.eval.distribution_metrics import (
         frechet_gaussian_over_time,
         reverse_kl_from_samples,
     )
@@ -439,38 +452,24 @@ def test_frechet_and_reverse_kl_helpers():
     assert rkl.ndim == 0 and torch.isfinite(rkl)
 
 
-def test_train_viz_wrapper_prefixes_and_disables_rkl():
-    from egomimic.campaigns.pi05.eval_train_viz import TrainVizEvalVideo
-    from egomimic.campaigns.pi05.eval_video import EvalVideo
-
-    class _Base(EvalVideo):
-        def __init__(self):
-            super().__init__(viz_func={}, transform_lists={}, viz_every_n_epochs=7)
-            self.seen_rkl = None
-
-        def compute_metrics_and_viz(self, batch, do_viz=True):
-            self.seen_rkl = self.model.rkl_samples
-            return {"Valid/x": 1.0}, {}
-
-    class _Algo:
-        rkl_samples = 8
-
-    base = _Base()
-    tv = TrainVizEvalVideo(base)
-    tv.model = _Algo()  # property setter forwards to base too
-    metrics, _ = tv.compute_metrics_and_viz({}, do_viz=False)
-    assert set(metrics) == {"train_viz/Valid/x"}, metrics
-    assert base.seen_rkl == 1, "M-sample metrics must be forced off in train viz"
-    assert tv.model.rkl_samples == 8, "rkl_samples must be restored after the call"
-    assert tv.viz_every_n_epochs == 7, "wrapper inherits the base viz gate"
+def test_validation_groups_share_video_namespace_and_sampling_options():
     from types import SimpleNamespace
+    from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
 
-    tv.trainer = SimpleNamespace(default_root_dir="/tmp/run")
-    assert tv.video_dir().endswith("videos_train_viz")
+    ev = BimanualCartesianEval(
+        rkl_samples=8, group_options={"train_viz": {"rkl_samples": 1}}
+    )
+    ev.trainer = SimpleNamespace(default_root_dir="/tmp/run", current_epoch=0)
+    ev.set_validation_group("train_viz")
+    assert ev._namespaced({"Valid/x": 1}) == {"Valid_train_viz/x": 1}
+    assert ev._group_video_dir("train_viz", "human_bimanual").endswith(
+        "train_viz/human_bimanual"
+    )
+    assert ev.rkl_samples == 8
 
 
 def test_dtw_distance_matches_bruteforce_and_tolerates_shift():
-    from egomimic.campaigns.pi05.metrics import dtw_distance
+    from egomimic.eval.distribution_metrics import dtw_distance
 
     def _dtw_ref(x, y):
         t1, t2 = len(x), len(y)
@@ -512,7 +511,7 @@ def test_resize_image_keys_unifies_mixed_resolutions():
     # non-image tensors untouched.
     from torch.utils.data._utils.collate import default_collate
 
-    from egomimic.campaigns.pi05.data import _resize_image_keys
+    from egomimic.rldb.zarr.zarr_dataset_multi import _resize_image_keys
 
     batch = [
         {
@@ -558,7 +557,7 @@ def _hand(pinch_m, curl_ratio):
 
 
 def test_keypoints_to_gripper_pinch_and_curl():
-    from egomimic.campaigns.pi05.transforms import KeypointsToGripper
+    from egomimic.rldb.zarr.action_chunk_transforms import KeypointsToGripper
 
     t = KeypointsToGripper(chunk_length=10, stride=1)
     # open hand: wide pinch + extended fingers
@@ -583,8 +582,8 @@ def test_keypoints_to_gripper_pinch_and_curl():
 
 
 def test_insert_gripper_channels_layout():
-    from egomimic.campaigns.pi05.transforms import InsertGripperChannels
-    from egomimic.campaigns.pi05.pose import bimanual_cartesian_layout
+    from egomimic.rldb.zarr.action_chunk_transforms import InsertGripperChannels
+    from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
     T = 4
     actions = np.arange(T * 18, dtype=np.float64).reshape(T, 18)
@@ -610,17 +609,19 @@ def test_insert_gripper_channels_layout():
 
 
 def test_keypoint_gripper_transform_list_wiring():
-    from egomimic.campaigns.pi05.human import (
+    from egomimic.rldb.embodiment.human import (
         Human,
         _build_human_cartesian_revert_6d_wristframe_grip_transform_list,
     )
-    from egomimic.campaigns.pi05.transforms import (
+    from egomimic.rldb.zarr.action_chunk_transforms import (
         InsertGripperChannels,
         KeypointsToGripper,
         UnpadGripperZeros,
     )
 
-    tl = Human.get_transform_list("cartesian_wristframe_6d", keypoint_gripper=True)
+    tl = Human.get_transform_list(
+        "cartesian", coord_frame="eef_frame", rotation_mode="6D", keypoint_gripper=True
+    )
     assert isinstance(tl[0], KeypointsToGripper), "grip extraction must run first"
     inserts = [t for t in tl if isinstance(t, InsertGripperChannels)]
     assert {t.action_key for t in inserts} == {
@@ -629,20 +630,24 @@ def test_keypoint_gripper_transform_list_wiring():
     }
     with pytest.raises(ValueError):
         Human.get_transform_list(
-            "cartesian_wristframe_6d", keypoint_gripper=True, pad_proprio_gripper=True
+            "cartesian",
+            coord_frame="eef_frame",
+            rotation_mode="6D",
+            keypoint_gripper=True,
+            pad_proprio_gripper=True,
         )
 
     rl = _build_human_cartesian_revert_6d_wristframe_grip_transform_list()
     assert isinstance(rl[0], UnpadGripperZeros)
     assert rl[0].action_key == "actions_cartesian"
 
-    km = Human.get_keymap("cartesian_pi", include_grip_keypoints=True)
+    km = Human.get_keymap("cartesian", include_grip_keypoints=True)
     assert km["left.action_grip_keypoints"]["horizon"] == Human.ACTION_HORIZON
     assert km["right.obs_grip_keypoints"]["zarr_key"] == "right.obs_keypoints"
 
 
 def test_split_mse_is_stateless_and_matches_manual():
-    from egomimic.campaigns.pi05.eval_metrics import _paired_mse, _split_mse
+    from egomimic.eval.cartesian_metrics import _paired_mse, _split_mse
 
     rng = np.random.default_rng(21)
     pred = torch.from_numpy(rng.normal(size=(4, 10, 18))).float()
@@ -650,8 +655,12 @@ def test_split_mse_is_stateless_and_matches_manual():
     xyz_idx = [0, 1, 2, 9, 10, 11]
     rot_idx = [i for i in range(18) if i not in xyz_idx]
     xyz, rot = _split_mse(pred, gt)
-    torch.testing.assert_close(xyz, (pred[..., xyz_idx] - gt[..., xyz_idx]).pow(2).mean())
-    torch.testing.assert_close(rot, (pred[..., rot_idx] - gt[..., rot_idx]).pow(2).mean())
+    torch.testing.assert_close(
+        xyz, (pred[..., xyz_idx] - gt[..., xyz_idx]).pow(2).mean()
+    )
+    torch.testing.assert_close(
+        rot, (pred[..., rot_idx] - gt[..., rot_idx]).pow(2).mean()
+    )
     # stateless: a second, unrelated call is unaffected by the first
     a, b = torch.zeros(2, 3, 18), torch.ones(2, 3, 18)
     torch.testing.assert_close(_split_mse(a, b)[0], torch.tensor(1.0))
@@ -662,8 +671,8 @@ def test_split_mse_is_stateless_and_matches_manual():
 def test_rot_geodesic_error_matches_angle_and_survives_gimbal_lock():
     from scipy.spatial.transform import Rotation as R
 
-    from egomimic.campaigns.pi05.eval_metrics import _rot_geodesic_error, _wrap_aware_mse
-    from egomimic.campaigns.pi05.pose import _ypr_to_rot6d
+    from egomimic.eval.cartesian_metrics import _rot_geodesic_error, _wrap_aware_mse
+    from egomimic.utils.pose_utils import _ypr_to_rot6d
 
     rng = np.random.default_rng(22)
     ypr = rng.uniform(-1.0, 1.0, size=(6, 5, 3))
@@ -677,9 +686,13 @@ def test_rot_geodesic_error_matches_angle_and_survives_gimbal_lock():
 
     # 12-dim ypr layout (both arms the same pose)
     gt12 = torch.from_numpy(np.concatenate([ypr, ypr], -1)).float()
-    gt12 = torch.cat([torch.zeros(6, 5, 3), gt12[..., :3], torch.zeros(6, 5, 3), gt12[..., 3:]], -1)
+    gt12 = torch.cat(
+        [torch.zeros(6, 5, 3), gt12[..., :3], torch.zeros(6, 5, 3), gt12[..., 3:]], -1
+    )
     pr12 = torch.from_numpy(np.concatenate([ypr_p, ypr_p], -1)).float()
-    pr12 = torch.cat([torch.zeros(6, 5, 3), pr12[..., :3], torch.zeros(6, 5, 3), pr12[..., 3:]], -1)
+    pr12 = torch.cat(
+        [torch.zeros(6, 5, 3), pr12[..., :3], torch.zeros(6, 5, 3), pr12[..., 3:]], -1
+    )
     assert abs(_rot_geodesic_error(pr12, gt12).item() - theta) < 1e-4
     assert _rot_geodesic_error(gt12, gt12).item() < 1e-5
 

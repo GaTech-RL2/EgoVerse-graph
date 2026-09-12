@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from egomimic.rldb.embodiment.e1_fold import get_transform_list
+from egomimic.rldb.embodiment.bimanual_arc import get_transform_list
 from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeBimanualArcLengthCartesian
 from egomimic.rldb.zarr.e1_arc_tokenizer import (
     TokenizeBimanualArcLengthE1,

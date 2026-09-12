@@ -1,4 +1,4 @@
-_target_: egomimic.eval.e1_fold_tempo_eval.E1FoldTempoEval
+_target_: egomimic.eval.bimanual_tempo_eval.BimanualTempoEval
 variant: ${e1.variant}
 time_key: actions_time
 D: ${e1.D}

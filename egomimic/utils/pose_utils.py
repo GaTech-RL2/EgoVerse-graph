@@ -222,11 +222,7 @@ def _xyzrot6d_to_matrix(xyzrot6d: np.ndarray) -> np.ndarray:
     if xyzrot6d.ndim != 2 or xyzrot6d.shape[-1] != 9:
         raise ValueError(f"Expected (B, 9) array, got shape {xyzrot6d.shape}")
     B = xyzrot6d.shape[0]
-    dtype = (
-        xyzrot6d.dtype
-        if np.issubdtype(xyzrot6d.dtype, np.floating)
-        else np.float64
-    )
+    dtype = xyzrot6d.dtype if np.issubdtype(xyzrot6d.dtype, np.floating) else np.float64
     a1 = xyzrot6d[:, 3:6]
     a2 = xyzrot6d[:, 6:9]
     n1 = np.linalg.norm(a1, axis=-1, keepdims=True)
@@ -302,11 +298,13 @@ def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = Tru
         right_keypoints = keypoints[..., 63:]
         return left_keypoints, right_keypoints
 
+
 from scipy.spatial.transform import Rotation
 import scipy
 
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
     """
@@ -320,6 +318,7 @@ def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
 
     ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
+
 
 def base_frame_to_cam_frame(base_frame, T_cam_base):
     """
@@ -338,6 +337,7 @@ def base_frame_to_cam_frame(base_frame, T_cam_base):
     ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
+
 def cam_frame_to_base_frame(cam_frame, T_cam_base):
     """
     cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
@@ -354,6 +354,7 @@ def cam_frame_to_base_frame(cam_frame, T_cam_base):
     xyz = base_frame[:, :3, 3]
     ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
+
 
 def pose_to_transform(pose):
     """
@@ -386,6 +387,7 @@ def pose_to_transform(pose):
     T[:3, 3] = [x, y, z]
     return T
 
+
 def transform_to_pose(T):
     """
     Convert a 4x4 homogeneous transform back to a 6D pose [x, y, z, yaw, pitch, roll].
@@ -407,6 +409,7 @@ def transform_to_pose(T):
         roll = np.arctan2(-R[0, 1], R[1, 1])
     return np.array([x, y, z, yaw, pitch, roll])
 
+
 def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     """
     camera frame 3d coordinates to pixels in camera frame
@@ -423,6 +426,7 @@ def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     # print("2d pos cam frame: ", px_val)
 
     return px_val.T
+
 
 def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     """
@@ -483,6 +487,7 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
 
     return np.stack(outputs, axis=0)  # (B, seq_length, D)
 
+
 def interpolate_arr(v, seq_length):
     """
     v: (B, T, D)
@@ -502,6 +507,7 @@ def interpolate_arr(v, seq_length):
         interpolated.append(interp(np.linspace(0, 1, seq_length)))
 
     return np.array(interpolated)
+
 
 def get_vector_from_yaw_pitch(
     yaw_rads: float,
@@ -535,3 +541,91 @@ def get_vector_from_yaw_pitch(
         return unit_dir
     else:
         return unit_dir * depth
+
+
+def _ypr_to_rot6d(ypr: np.ndarray) -> np.ndarray:
+    """Convert euler ypr to the continuous 6D rotation representation.
+
+    args:
+        ypr: (..., 3) array of [yaw, pitch, roll] (radians, ZYX convention)
+    returns:
+        (..., 6) array = first two columns of the rotation matrix,
+        concatenated as [col0(3), col1(3)].
+
+    Matches the column convention used by the torch packers in
+    ``egomimic.utils.action_encoding`` (``_ypr_to_matrix`` = Rz@Ry@Rx, and
+    ``to32`` taking ``R[..., 0]`` / ``R[..., 1]``).
+    """
+    ypr = np.asarray(ypr)
+    if ypr.shape[-1] != 3:
+        raise ValueError(f"Expected (..., 3) ypr, got shape {ypr.shape}")
+    dtype = ypr.dtype if np.issubdtype(ypr.dtype, np.floating) else np.float64
+    shape = ypr.shape[:-1]
+    flat = ypr.reshape(-1, 3).astype(np.float64)
+    mats = R.from_euler("ZYX", flat, degrees=False).as_matrix()  # (N, 3, 3)
+    six = np.concatenate([mats[:, :, 0], mats[:, :, 1]], axis=-1)  # cols 0,1
+    return six.reshape(*shape, 6).astype(dtype, copy=False)
+
+
+def _rot6d_to_ypr(six: np.ndarray) -> np.ndarray:
+    """Inverse of :func:`_ypr_to_rot6d`.
+
+    args:
+        six: (..., 6) array = [col0(3), col1(3)] of a rotation matrix.
+    returns:
+        (..., 3) array of [yaw, pitch, roll] (radians, ZYX convention).
+
+    Reconstructs a proper rotation via Gram-Schmidt (mirroring
+    ``_reconstruct_R_from_cols`` in ``action_utils``) before extracting euler
+    angles, so ``_rot6d_to_ypr(_ypr_to_rot6d(ypr)) == ypr``.
+    """
+    six = np.asarray(six)
+    if six.shape[-1] != 6:
+        raise ValueError(f"Expected (..., 6) rot6d, got shape {six.shape}")
+    dtype = six.dtype if np.issubdtype(six.dtype, np.floating) else np.float64
+    shape = six.shape[:-1]
+    flat = six.reshape(-1, 6).astype(np.float64)
+    c1 = flat[:, 0:3]
+    c2 = flat[:, 3:6]
+    eps = 1e-8
+    c1n = c1 / np.clip(np.linalg.norm(c1, axis=-1, keepdims=True), eps, None)
+    proj = np.sum(c2 * c1n, axis=-1, keepdims=True) * c1n
+    c2o = c2 - proj
+    c2n = c2o / np.clip(np.linalg.norm(c2o, axis=-1, keepdims=True), eps, None)
+    c3n = np.cross(c1n, c2n)
+    mats = np.stack([c1n, c2n, c3n], axis=-1)  # columns
+    ypr = R.from_matrix(mats).as_euler("ZYX", degrees=False)
+    return ypr.reshape(*shape, 3).astype(dtype, copy=False)
+
+
+def bimanual_cartesian_layout(width: int) -> dict | None:
+    """Index layout for a bimanual cartesian action/proprio vector.
+
+    Returns a dict with ``xyz`` / ``rot`` / ``grip`` index tuples, or ``None``
+    if ``width`` is not a recognized native width (12/14 ypr, 18/20 6D).
+    """
+    return BIMANUAL_CARTESIAN_LAYOUTS.get(int(width))
+
+
+BIMANUAL_CARTESIAN_LAYOUTS = {
+    12: {  # human ypr:  [L xyz ypr | R xyz ypr]
+        "xyz": (0, 1, 2, 6, 7, 8),
+        "rot": (3, 4, 5, 9, 10, 11),
+        "grip": (),
+    },
+    14: {  # robot ypr:  [L xyz ypr g | R xyz ypr g]
+        "xyz": (0, 1, 2, 7, 8, 9),
+        "rot": (3, 4, 5, 10, 11, 12),
+        "grip": (6, 13),
+    },
+    18: {  # human 6d:   [L xyz c1 c2 | R xyz c1 c2]
+        "xyz": (0, 1, 2, 9, 10, 11),
+        "rot": (3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17),
+        "grip": (),
+    },
+    20: {  # robot 6d:   [L xyz c1 c2 g | R xyz c1 c2 g]
+        "xyz": (0, 1, 2, 10, 11, 12),
+        "rot": (3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18),
+        "grip": (9, 19),
+    },
+}

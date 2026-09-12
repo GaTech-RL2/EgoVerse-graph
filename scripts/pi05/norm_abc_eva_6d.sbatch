@@ -22,7 +22,7 @@ PY=${PY:-python}
 OUT=/storage/project/r-dxu345-0/agao81/norm_stats/abc_eva_6d
 mkdir -p "$OUT"
 
-"$PY" -u scripts/pi05/precompute_norm_stats.py \
+"$PY" -u scripts/data/precompute_norm_stats.py \
   --data pi05/abc_eva_pi_6d \
   --model pi05/pi0.5_ft_abc_eva_6d \
   --sample-frac 0.1 \

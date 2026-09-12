@@ -1,11 +1,19 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
-  - override /data: pusht/action_flow_chain_points6_4920_val01_h16
+  - /experiment/pusht/action_flow_chain_points6_4920_candidate_common
+  - override /model: bf/us_action_flow_latent_fm_sg_unite_h384
   - _self_
 
 name: action_flow_chain_points6_4920_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
 description: "Standalone ChainGripper points6 Action Flow H384; 3k real plus 1920 generated obstacle episodes"
+
+train:
+  action_flow_method: latent_fm_stopgrad_unite
+
+model:
+  flow_loss_aggregation: sum_samples
+  cfg_scale: 4.0
+  cfg_interval: [0.0, 1.0]
 
 planar:
   action_dims: {pushshapes_sim_chain_gripper: 6}
@@ -34,7 +42,26 @@ callbacks:
 
 run_provenance:
   architecture:
+    family: action_flow_with_separate_released_unite_modules
+    tokenizer: UniteDiTBackbone_h384_d12_h12
+    denoiser: UniteDiTBackbone_h384_d12_h12
+    decoder: UniteActionDecoder_h384_d12_h12
+    tokenizer_denoiser_weight_sharing: false
     action_shape: [16, 6]
+    latent_shape: [8, 16]
+    observation_condition_dim: 128
+  objective:
+    method: latent_fm_stopgrad_unite
+    flow_clean_gradient_mode: all_stopgrad
+    action_velocity_clean_gradient_mode: full
+    reconstruction_is_optimizer_objective: true
+    flow_weight: 1.0
+    reconstruction_weight: 1.0
+    action_velocity_weight: 1.0
+    flow_samples_per_content: 14
+    flow_mini_batch: 14
+    flow_aggregation: sum_of_14_per_sample_means
+    reconstruction_only_warmup_steps: 0
   split_manifest_path: ${oc.env:CHAIN4920_SPLIT_MANIFEST,/required/chain4920_split_manifest.json}
   split_manifest_sha256: ${oc.env:CHAIN4920_SPLIT_MANIFEST_SHA256,required}
   content_manifest_path: ${oc.env:CHAIN4920_CONTENT_MANIFEST,/required/chain4920_content_manifest.json}

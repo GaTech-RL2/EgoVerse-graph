@@ -1002,14 +1002,17 @@ class ActionFlowObjectiveStage(Stage):
 
         flow = residual.square().mean()
         if self.flow_aggregation == "sum_samples":
-            # Each repeated sample already has a mean over latent coordinates.
-            # Multiplying the all-sample mean by K is exactly the sum of the K
-            # per-sample means used by the reference multi-sample objective.
+            # Both residuals are evaluated at the same K repeated bridge
+            # samples. Multiplying each all-sample mean by K yields the sum of
+            # per-sample means, so FM and decoder-JVP action velocity have the
+            # same K:1 ratio to the one clean reconstruction term.
             flow = flow * self.flow_samples_per_content
         reconstruction_error = reconstruction - target
         reconstruction_loss = reconstruction_error.square().mean()
         reconstruction_l1 = reconstruction_error.abs().mean()
         action_velocity = decoded_residual.square().mean()
+        if self.flow_aggregation == "sum_samples":
+            action_velocity = action_velocity * self.flow_samples_per_content
         total = (
             self.flow_weight * flow
             + self.reconstruction_weight * reconstruction_loss

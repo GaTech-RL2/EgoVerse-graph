@@ -11,6 +11,8 @@ from egomimic.pipeline.stages_action_flow import (
     ContentDecoderStage,
     ContentEncoderStage,
     LatentBridgeStage,
+    RoutedContentDecoderStage,
+    RoutedContentEncoderStage,
 )
 from egomimic.pipeline.stages_sampler import GaussianLatentNoise
 
@@ -48,6 +50,57 @@ class _TinyField(nn.Module):
             + self.time_weight * time[:, None, None]
             + projected[:, None, :]
         )
+
+
+def test_routed_codecs_are_private_and_select_exactly_one_route():
+    us_encoder = _LastDimLinear(4, 3)
+    chain_encoder = _LastDimLinear(6, 3)
+    encoder = RoutedContentEncoderStage(
+        encoders={"usocket": us_encoder, "chain": chain_encoder},
+        route_key="embodiment",
+        route_aliases={19: "usocket", 20: "chain"},
+    )
+    assert encoder.encoder["usocket"] is us_encoder
+    assert encoder.encoder["chain"] is chain_encoder
+    assert encoder.encoder["usocket"] is not encoder.encoder["chain"]
+
+    us_batch = {"target": torch.randn(2, 5, 4), "embodiment": torch.tensor([19, 19])}
+    chain_batch = {
+        "target": torch.randn(2, 5, 6),
+        "embodiment": torch.tensor([20, 20]),
+    }
+    assert encoder(us_batch)["action_flow/clean_latent"].shape == (2, 5, 3)
+    assert encoder(chain_batch)["action_flow/clean_latent"].shape == (2, 5, 3)
+
+    us_decoder = _LastDimLinear(3, 4)
+    chain_decoder = _LastDimLinear(3, 6)
+    decoder = RoutedContentDecoderStage(
+        decoders={"usocket": us_decoder, "chain": chain_decoder},
+        route_key="embodiment",
+        route_aliases={19: "usocket", 20: "chain"},
+    )
+    assert decoder.decoder["usocket"] is not decoder.decoder["chain"]
+    latent = torch.randn(2, 5, 3)
+    assert decoder.execute(
+        {"action_flow/generated_latent": latent, "embodiment": torch.tensor([19, 19])},
+        mode="inference",
+    )["pred_action"].shape == (2, 5, 4)
+    assert decoder.execute(
+        {"action_flow/generated_latent": latent, "embodiment": torch.tensor([20, 20])},
+        mode="inference",
+    )["pred_action"].shape == (2, 5, 6)
+
+
+def test_routed_codecs_reject_mixed_or_unknown_routes():
+    stage = RoutedContentEncoderStage(
+        encoders={"usocket": _LastDimLinear(4, 3)},
+        route_key="embodiment",
+        route_aliases={19: "usocket"},
+    )
+    with pytest.raises(ValueError, match="homogeneous"):
+        stage({"target": torch.randn(2, 5, 4), "embodiment": torch.tensor([19, 20])})
+    with pytest.raises(KeyError, match="No routed module"):
+        stage({"target": torch.randn(2, 5, 4), "embodiment": torch.tensor([20, 20])})
 
 
 class _ConstantField(nn.Module):

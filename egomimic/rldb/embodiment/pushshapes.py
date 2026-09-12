@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ChainGripperNative4ToPoints6,
-    PadActionWidth,
     PlanarAgentStateToRotVec4,
     ThetaToRotVec,
 )
@@ -186,6 +185,18 @@ def get_usocket_rotvec_action_state_transform_list(
     """Encode action theta and the observed U-Socket agent pose."""
     return [
         ThetaToRotVec(keys=[action_key], angle_col=2),
+        PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
+    ]
+
+
+def get_chain_gripper_points_action_state_transform_list(
+    action_key: str = "actions",
+    state_key: str = "state_agent_model",
+    world_size: float = 512.0,
+):
+    """Encode native ChainGripper controls as three ordered 2-D points."""
+    return [
+        ChainGripperNative4ToPoints6(keys=[action_key], world_size=world_size),
         PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
     ]
 

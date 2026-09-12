@@ -1,0 +1,3065 @@
+{
+  "repository": "GaTech-RL2/EgoVerse-graph",
+  "base": "6209dd5a58f0ba2a4e3692d67d73869106efe61b",
+  "source_tips": {
+    "refs/consolidation/20260911/aidan/abc-stationery-pi": "d5f72068bfcad604d385db612eb60145fd03c843",
+    "refs/consolidation/20260911/aidan/arc-e1-abc": "fff5d641b3452e6a7908dd868a6fb23b57210a95",
+    "refs/consolidation/20260911/aidan/arc-e1-fold-speed": "b3ea94b3d0c8468e0a3d1afcd29a9652e415a0b6",
+    "refs/consolidation/20260911/aidan/arc-e1-tempo-ablation": "e8aa10fa40701f46bae8f26ab38765aa2e095013",
+    "refs/consolidation/20260911/aidan/arc-tokenizer-fixes": "209de8fd34808a5cf09894dbcafe738d29ca9b95",
+    "refs/consolidation/20260911/aidan/shorts-extreme": "55932d992c8fd5a3cf45aa3a67a945c38de001a9",
+    "refs/consolidation/20260911/graph/graph-abc": "037f68cf8f32820b27b1b2f819ba20664af2ef4c",
+    "refs/consolidation/20260911/graph/graph-arc": "80a84f21881a00df43904336e189b64d942b4bf0",
+    "refs/consolidation/20260911/graph/graph-bounds-gate": "4bfbcaa233d16e1bda01b3ae705676fdfbcdfa56",
+    "refs/consolidation/20260911/graph/graph-hpt-configs": "111cb46dc1462a31c7ee4aad9ec0f4f9209dc935",
+    "refs/consolidation/20260911/graph/graph-hpt-deps": "10031526bd3077f3a10c13284f482c12aa020c0d",
+    "refs/consolidation/20260911/graph/graph-hpt-flow": "bdc2203100d9ebf587a43d7e445fb7bb75b0c088",
+    "refs/consolidation/20260911/graph/graph-hpt-qwen": "c1308cfd203c0274627164f442cfc1d16bd1e640",
+    "refs/consolidation/20260911/graph/graph-hpt-stems": "1ea7234ba6e00722a733952aa29273dcf975aea7",
+    "refs/consolidation/20260911/graph/graph-nested-val": "cdfd427bff27dfc7002e2a6d866571654c1ca2cd",
+    "refs/consolidation/20260911/graph/graph-transform_fixes": "7b9224c9257b3a47e476cef48fc1b8202725d5c0",
+    "refs/consolidation/20260911/graph/main": "6209dd5a58f0ba2a4e3692d67d73869106efe61b",
+    "refs/consolidation/20260911/graph/shared-d": "d9f7c3fb9fbe56c72c5469c550bd25f9ca55d109"
+  },
+  "stack": [
+    {
+      "head": "codex/consolidate-arc-20260911/01-data-foundation",
+      "base": "main",
+      "title": "refactor(data): consolidate rotation transforms and nested validation"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/02-hpt-graph",
+      "base": "codex/consolidate-arc-20260911/01-data-foundation",
+      "title": "feat(hpt): consolidate HPT graph stems, trunk, flow and Qwen"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/03-abc-yam",
+      "base": "codex/consolidate-arc-20260911/02-hpt-graph",
+      "title": "feat(abc): consolidate ABC conversion and Yam graph recipes"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/04-arc-codecs",
+      "base": "codex/consolidate-arc-20260911/03-abc-yam",
+      "title": "feat(arc): consolidate ARC codecs, metrics and duration timing"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/05-arc-resampling",
+      "base": "codex/consolidate-arc-20260911/04-arc-codecs",
+      "title": "perf(arc): vectorize bimanual arc-length resampling"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/06-e1-data-codecs",
+      "base": "codex/consolidate-arc-20260911/05-arc-resampling",
+      "title": "feat(e1): port tempo codecs, sampling and dataset adapters"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/07-e1-evaluation",
+      "base": "codex/consolidate-arc-20260911/06-e1-data-codecs",
+      "title": "feat(e1): port tempo and ground-truth-span metrics to graph evaluation"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/08-e1-campaigns",
+      "base": "codex/consolidate-arc-20260911/07-e1-evaluation",
+      "title": "feat(e1): port HPT campaign recipes and retain checkpoints"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/09-robot-campaigns",
+      "base": "codex/consolidate-arc-20260911/08-e1-campaigns",
+      "title": "feat(abc): preserve stationery and extreme-tempo robot campaigns"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/10-pi-action-data",
+      "base": "codex/consolidate-arc-20260911/09-robot-campaigns",
+      "title": "feat(pi): preserve action geometry, bounds and campaign scoring"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/11-pi-graph-campaigns",
+      "base": "codex/consolidate-arc-20260911/10-pi-action-data",
+      "title": "feat(pi): integrate PI0.5 campaigns with graph training"
+    },
+    {
+      "head": "codex/consolidate-arc-20260911/12-stack-validation",
+      "base": "codex/consolidate-arc-20260911/11-pi-graph-campaigns",
+      "title": "docs(arc): document the consolidated stack and source provenance"
+    }
+  ],
+  "duplicate_robot_commits": [
+    {
+      "robot": "c7ef8332174f3a83948cc19cd438825f9c8f4a33",
+      "canonical": "102ba20fe382753d467e178ff7590c24bd7ddaf4",
+      "patch_id": "97dec507a2002ac0d4cc6d60ff504422365d4a6a"
+    },
+    {
+      "robot": "ed428900d542d315e593f4238c26c678fa81fffb",
+      "canonical": "52dc9ebec2866be42e71e3d02ca35a1c381548ca",
+      "patch_id": "1e08e63db38a94a60d1c50ae305ee824c9e59f98"
+    },
+    {
+      "robot": "02f5af7b2ef4f2c2133ebee78167e4e208257fe0",
+      "canonical": "b5eee5450f7db69ff380c54716ece2377526ef65",
+      "patch_id": "ffa4a955b1abfa690ee73a1449d8fdb7a508f3f3"
+    },
+    {
+      "robot": "981bdddc4d9d07dbe06135df913e78f424cf7f36",
+      "canonical": "58bef60b38a5ad5c2ce72f8b8ab195003efa99a8",
+      "patch_id": "e7d6ac1d2c435e6c761e7169cefba01de7e3be82"
+    },
+    {
+      "robot": "0b55e18fcfa10c011b10381af31486e5e773a870",
+      "canonical": "8c15d91a5ae1ab17dbbc30e9e991920c7f8d2b06",
+      "patch_id": "08e204e2d0e6b94973509bbabb58c7f5c97d1934"
+    },
+    {
+      "robot": "629ad1cfb6ba5edd43421d770d73a1610168123f",
+      "canonical": "337005bc5076f1edb70bbb3adfe5f37946bef115",
+      "patch_id": "932035bbba1651f800dd0fae20535cb889054ab6"
+    },
+    {
+      "robot": "28da1271624067b1022fdb1fd3e456b32e9d6a8d",
+      "canonical": "19c05bdb43bf1899712136fcb8a6b064f9d71097",
+      "patch_id": "c67218a3be4d12abb6e0ae19c50c1e40ccd91bf9"
+    },
+    {
+      "robot": "dd7af382085a0a941e1fb8cf8bde7af3109eea0f",
+      "canonical": "b3ea94b3d0c8468e0a3d1afcd29a9652e415a0b6",
+      "patch_id": "0a0a795a52d04f17bbbc240e1950df10cb62669b"
+    },
+    {
+      "robot": "ebf15a785542f3d09a0d29251d64c8ebf40156a0",
+      "canonical": "315c4748e95fc7654fbb17f415d7892ba9b29f0d",
+      "patch_id": "c9fe82d416c13b08f6db2d88678bafc05b78a962"
+    },
+    {
+      "robot": "43df0e29a56cb5378604bec9490ad4277281a8db",
+      "canonical": "595d0f78ea2ead22e47cbf89e048d5b9113b97e0",
+      "patch_id": "37a516f24bdc12fbf87775149ad7ecb3e2f89f87"
+    },
+    {
+      "robot": "07836ca38f72d30b0f335d64265063bc616a3d57",
+      "canonical": "227ddc7c002c0d5ab16a7c6c7b146b206d44e0d9",
+      "patch_id": "f99d608e2ca2fdd091bad235f22485dde32cbfc8"
+    },
+    {
+      "robot": "59e23a8a3306b0f6ec11cc0ce0831fa5d391f573",
+      "canonical": "e4d0b89065027482760a4957c60e78625ede01bd",
+      "patch_id": "2b2c81d825e821f2d77f02301bbde03cde631e1d"
+    },
+    {
+      "robot": "93702228a04a8659bcb022f883b14ab1dea496ed",
+      "canonical": "d88a22c9c1a44ac2711e48e7cb503d3acc0015e6",
+      "patch_id": "25cfeb135805dcddeba208812183234179240316"
+    },
+    {
+      "robot": "9624fad8b2e35cc080cb1e70b64c64e3317b653d",
+      "canonical": "cd324bc565c939d6684b13d6b5ef5fad6f6d2549",
+      "patch_id": "97a230db6ba86b6c9031c82c22026bbb1d86ed87"
+    },
+    {
+      "robot": "54f91b33b33fa93f7ddd842261b9a0df3bc66060",
+      "canonical": "c83817b947dfba016cdb6ef65485dba94f80d5c3",
+      "patch_id": "2c4a9b87faff5cb007847aeb90fde935ebef2412"
+    },
+    {
+      "robot": "c49a3694285cf8054f5f12b72903d62c11ff03fd",
+      "canonical": "af41a5e6ced226096f10a2a6f528a5aa57e2e95c",
+      "patch_id": "a84ae8b18e721c340b6694e5cb4ff72ec89335ea"
+    },
+    {
+      "robot": "255097eda14b15f8473b0477c95823b78da7ea64",
+      "canonical": "a304a17df08859ae8c5451179e135378bbb7997b",
+      "patch_id": "9a5fb33bdf99444ffc2727bcd2d1b6a0fac6ceb5"
+    }
+  ],
+  "campaign_commits": {
+    "human-e1": [
+      {
+        "sha": "102ba20fe382753d467e178ff7590c24bd7ddaf4",
+        "subject": "e1: fold speed-spread rows on mecka freeform (time / arcmean path-norm / arcvel profile), local-folder data config, tempo evaluator, launcher",
+        "patch_id": "97dec507a2002ac0d4cc6d60ff504422365d4a6a",
+        "files": [
+          "A\tegomimic/eval/e1_fold_tempo_eval.py",
+          "A\tegomimic/hydra_configs/data/e1/fold_freeform.yaml",
+          "A\tegomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arcmean.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arcvel.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_time.yaml",
+          "A\tegomimic/hydra_configs/model/e1/fold_arcvel.yaml",
+          "A\tegomimic/rldb/embodiment/e1_fold.py",
+          "A\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "A\tscripts/e1/e1_data_smoke.py",
+          "A\tscripts/e1/fold_train_eval.sbatch"
+        ]
+      },
+      {
+        "sha": "52dc9ebec2866be42e71e3d02ca35a1c381548ca",
+        "subject": "e1: arcvel profile from raw path speed (7-frame MA) instead of a chunk-local Butterworth; clock diagnostic in the smoke",
+        "patch_id": "1e08e63db38a94a60d1c50ae305ee824c9e59f98",
+        "files": [
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "M\tscripts/e1/e1_data_smoke.py"
+        ]
+      },
+      {
+        "sha": "b5eee5450f7db69ff380c54716ece2377526ef65",
+        "subject": "e1: budget in epochs (100 batches each); val every 10, ckpt every 50",
+        "patch_id": "ffa4a955b1abfa690ee73a1449d8fdb7a508f3f3",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "M\tscripts/e1/fold_train_eval.sbatch"
+        ]
+      },
+      {
+        "sha": "58bef60b38a5ad5c2ce72f8b8ab195003efa99a8",
+        "subject": "e1: save_top_k=1 (no monitor); arcvel model config at model/ top level",
+        "patch_id": "e7d6ac1d2c435e6c761e7169cefba01de7e3be82",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/fold_arcvel.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "D\tegomimic/hydra_configs/model/e1/fold_arcvel.yaml",
+          "A\tegomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100.yaml"
+        ]
+      },
+      {
+        "sha": "8c15d91a5ae1ab17dbbc30e9e991920c7f8d2b06",
+        "subject": "e1: state stem input_dim 14 (gripper-padded proprio)",
+        "patch_id": "08e204e2d0e6b94973509bbabb58c7f5c97d1934",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml"
+        ]
+      },
+      {
+        "sha": "337005bc5076f1edb70bbb3adfe5f37946bef115",
+        "subject": "e1: trainer.limit_val_batches follows e1.limit_val_batches during training",
+        "patch_id": "932035bbba1651f800dd0fae20535cb889054ab6",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml"
+        ]
+      },
+      {
+        "sha": "19c05bdb43bf1899712136fcb8a6b064f9d71097",
+        "subject": "e1: vectorized arc tokenize/detokenize (parent-identical, 35x faster); OMP threads=1 in the launcher; tokenizer equivalence check",
+        "patch_id": "c67218a3be4d12abb6e0ae19c50c1e40ccd91bf9",
+        "files": [
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "A\tscripts/e1/e1_tokenizer_check.py",
+          "M\tscripts/e1/fold_train_eval.sbatch"
+        ]
+      },
+      {
+        "sha": "b3ea94b3d0c8468e0a3d1afcd29a9652e415a0b6",
+        "subject": "e1: D_match (0.75 m) arc-mean row config, not launched",
+        "patch_id": "0a0a795a52d04f17bbbc240e1950df10cb62669b",
+        "files": [
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arcmean_D75.yaml"
+        ]
+      },
+      {
+        "sha": "315c4748e95fc7654fbb17f415d7892ba9b29f0d",
+        "subject": "e1: tempo-invariance ablation \u2014 logdur timing channel (#1+#2), progress-weighted anchor sampler (#3), 3 Hz progress smoothing (#4), E_time_prog metric, ablation launcher",
+        "patch_id": "c9fe82d416c13b08f6db2d88678bafc05b78a962",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "M\tegomimic/hydra_configs/data/e1/fold_freeform.yaml",
+          "M\tegomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arclogdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arclogdur_ps.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "M\tegomimic/pl_utils/pl_data_utils.py",
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "A\tegomimic/rldb/zarr/e1_anchor_sampler.py",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "A\tscripts/e1/e1_ablation_check.py",
+          "M\tscripts/e1/e1_data_smoke.py",
+          "A\tscripts/e1/fold_ablation.sbatch"
+        ]
+      },
+      {
+        "sha": "595d0f78ea2ead22e47cbf89e048d5b9113b97e0",
+        "subject": "e1: ablation submit helper",
+        "patch_id": "37a516f24bdc12fbf87775149ad7ecb3e2f89f87",
+        "files": [
+          "A\tscripts/e1/submit_ablation.sh"
+        ]
+      },
+      {
+        "sha": "227ddc7c002c0d5ab16a7c6c7b146b206d44e0d9",
+        "subject": "e1: bound the decoded logdur mean speed to [0.01, 5] m/s (d_clock comparability with the profile clock floor)",
+        "patch_id": "f99d608e2ca2fdd091bad235f22485dde32cbfc8",
+        "files": [
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py"
+        ]
+      },
+      {
+        "sha": "e4d0b89065027482760a4957c60e78625ede01bd",
+        "subject": "e1: ABC / YAM skirts replication \u2014 yam keymap (front camera only) + eef-frame transforms into the E1 tokenizer, embodiment-override folder resolver, abc_{time,arcmean,arcvel,arclogdur} configs, launcher",
+        "patch_id": "2b2c81d825e821f2d77f02301bbde03cde631e1d",
+        "files": [
+          "A\tegomimic/hydra_configs/data/e1/abc_skirts.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arclogdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arcmean.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arcvel.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_base.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_time.yaml",
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "A\tegomimic/rldb/zarr/e1_resolvers.py",
+          "A\tscripts/e1/abc_e1.sbatch"
+        ]
+      },
+      {
+        "sha": "d88a22c9c1a44ac2711e48e7cb503d3acc0015e6",
+        "subject": "e1: data smoke takes the experiment prefix from E1_EXP and the first dataset key",
+        "patch_id": "25cfeb135805dcddeba208812183234179240316",
+        "files": [
+          "M\tscripts/e1/e1_data_smoke.py"
+        ]
+      },
+      {
+        "sha": "cd324bc565c939d6684b13d6b5ef5fad6f6d2549",
+        "subject": "e1 launchers: VALID_SET override for smokes",
+        "patch_id": "97a230db6ba86b6c9031c82c22026bbb1d86ed87",
+        "files": [
+          "M\tscripts/e1/abc_e1.sbatch",
+          "M\tscripts/e1/fold_ablation.sbatch"
+        ]
+      },
+      {
+        "sha": "c83817b947dfba016cdb6ef65485dba94f80d5c3",
+        "subject": "e1 abc: per-domain head entry for yam_bimanual (shared head)",
+        "patch_id": "2c4a9b87faff5cb007847aeb90fde935ebef2412",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/abc_arclogdur.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/abc_arcmean.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/abc_arcvel.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/abc_time.yaml"
+        ]
+      },
+      {
+        "sha": "af41a5e6ced226096f10a2a6f528a5aa57e2e95c",
+        "subject": "e1 logdur: normalise the relative-duration rows at decode (exact for true tokens; row 0 alone owns the total time)",
+        "patch_id": "a84ae8b18e721c340b6694e5cb4ff72ec89335ea",
+        "files": [
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py"
+        ]
+      },
+      {
+        "sha": "add6969b54bbcf852c2bd604889b7f825a40907e",
+        "subject": "e1: chord-rate decode for lab tokens, evaluator velocity_norm, stationery configs (mirror of the Phoenix commit)",
+        "patch_id": "2a8f497da9ae09b0543be440a23566cb58adf740",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "M\tegomimic/hydra_configs/data/e1/abc_skirts.yaml",
+          "A\tegomimic/hydra_configs/data/e1/abc_stationery.yaml",
+          "M\tegomimic/hydra_configs/data/e1/fold_freeform.yaml",
+          "M\tegomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcs_arclogdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcs_arcmean.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcs_base.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcs_time.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py"
+        ]
+      },
+      {
+        "sha": "a304a17df08859ae8c5451179e135378bbb7997b",
+        "subject": "e1 abc: image_hw on the folder resolver (ABC mixes 640x480 and 1280x720 front images)",
+        "patch_id": "9a5fb33bdf99444ffc2727bcd2d1b6a0fac6ceb5",
+        "files": [
+          "M\tegomimic/hydra_configs/data/e1/abc_skirts.yaml",
+          "M\tegomimic/hydra_configs/data/e1/abc_stationery.yaml",
+          "M\tegomimic/rldb/zarr/e1_resolvers.py"
+        ]
+      },
+      {
+        "sha": "537ff4ef225007d7989ee7d25002678c68f0dc67",
+        "subject": "e1: ICE stationery rows (abcst_*, front camera only)",
+        "patch_id": "dd7878cd40f8c9e373aa4d85d298616084c2134a",
+        "files": [
+          "M\tegomimic/hydra_configs/data/e1/abc_stationery.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcst_arclogdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcst_arcmean.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcst_time.yaml"
+        ]
+      },
+      {
+        "sha": "33a5b1a80ab5df700984ce9019031b4e50210741",
+        "subject": "e1: fixed waypoint spacing with a plateau past the valid length (rule 1); logdur masks zero-length segments; *_fs experiment rows",
+        "patch_id": "981ebce1cb13a9d8d883784a5c1a696ab5117729",
+        "files": [
+          "M\tegomimic/hydra_configs/data/e1/abc_skirts.yaml",
+          "M\tegomimic/hydra_configs/data/e1/abc_stationery.yaml",
+          "M\tegomimic/hydra_configs/data/e1/fold_freeform.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arclogdur_fs.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arcmean_fs.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcst_arclogdur_fs.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcst_arcmean_fs.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "A\tscripts/e1/e1_fixed_spacing_check.py"
+        ]
+      },
+      {
+        "sha": "d6be307cf19107a10f15cd7a9b1e256a6c156285",
+        "subject": "e1: paired MSE (repo definition, all actions) in the E1 evaluator; D_match=0.75 arms for ABC skirts",
+        "patch_id": "111b14b8f5d856a59c25f51cd4709cb6e0e66a3f",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arclogdur_D75.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arcmean_D75.yaml"
+        ]
+      },
+      {
+        "sha": "d3df2edcb78efd201a975c12c64852de4451b5c3",
+        "subject": "e1: arc-matched MSE (port of the lab eval_eef_arcmatch, M=100) in the evaluator; val_e1 selection + in-flight checkpoint pruner in the cell launcher; metric-parameterized re-score",
+        "patch_id": "cf59915e6acac717c585822c1a7d621317ed3b5d",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "M\tscripts/e1/abc_e1.sbatch",
+          "A\tscripts/e1/abc_rescore.sbatch"
+        ]
+      },
+      {
+        "sha": "8304f8d25f603d714044d2467dbddf9f9053ce14",
+        "subject": "e1: eval-only backfill launcher",
+        "patch_id": "7e6fa23f0a761cc4f7bef8c1c00ce5f800f6a65b",
+        "files": [
+          "A\tscripts/e1/abc_eval_only.sbatch"
+        ]
+      },
+      {
+        "sha": "f88946d1567080e56bdcab1384eacf1a76e70e4d",
+        "subject": "e1: port Ryan's duration-timed ARC codec as velocity_mode=\"dur\" (arcdur row)",
+        "patch_id": "0d45aea969e44add6fcc6ce8e86bdec347501aaa",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arcdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arcdur.yaml",
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "A\tscripts/e1/e1_duration_check.py"
+        ]
+      },
+      {
+        "sha": "5194f7cda927ee731f202fb6361bf8cc4e91bf04",
+        "subject": "e1: measure logdur's clock bias on the eef-frame representation; fold arc-matched re-score launcher",
+        "patch_id": "91c2798e794a8d831b634035cf8141b37a4cc25e",
+        "files": [
+          "A\tscripts/e1/e1_clock_bias_check.py",
+          "A\tscripts/e1/fold_eval_only.sbatch"
+        ]
+      },
+      {
+        "sha": "14d98c5321303b7e8c4d5083ebfaeadade6975d4",
+        "subject": "e1: ground-truth-span arc-matched MSE, a diagnostic beside the lab metric",
+        "patch_id": "37750d0ffed812d7ee28e00b53d1968347054b18",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "M\tegomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "A\tscripts/e1/e1_gtspan_check.py"
+        ]
+      },
+      {
+        "sha": "1fe8c2c3521b7cc90d1700b7b82262dc7eb51089",
+        "subject": "e1: verdict table -- lab arc-matched, gt-span and time-indexed xyz side by side",
+        "patch_id": "8a817549d016e416f6856b42453e57ffa729199f",
+        "files": [
+          "A\tscripts/e1/e1_verdict.py"
+        ]
+      },
+      {
+        "sha": "d7751eb072391e966a1d300b7c68cf43a971c8b9",
+        "subject": "e1: compose-only preflight for the eval configs",
+        "patch_id": "f2c79981acf7a46da4e7ef53241d7189d8c08b66",
+        "files": [
+          "A\tscripts/e1/e1_compose_check.py"
+        ]
+      },
+      {
+        "sha": "2a49905c6f4bfad23e68cbe7486f75577417ea58",
+        "subject": "e1: make the verdict table like-for-like",
+        "patch_id": "759baddb46de77ad0aec4482c326700654651ed6",
+        "files": [
+          "M\tscripts/e1/e1_verdict.py"
+        ]
+      },
+      {
+        "sha": "18aca75c9a70f07d441547725002028a5a1fc30c",
+        "subject": "e1: final arc-vs-time read on the ground-truth-span metric",
+        "patch_id": "9a822517e19b6634b928632dad80735bf0f1dd03",
+        "files": [
+          "A\tscripts/e1/e1_final.py"
+        ]
+      },
+      {
+        "sha": "b4635abee208d044aa84d583b3dd8f0860202068",
+        "subject": "e1: FORCE=1 on the re-score launcher",
+        "patch_id": "037b5c999826c0c078169dc9d2c4997425625d2c",
+        "files": [
+          "M\tscripts/e1/abc_rescore.sbatch"
+        ]
+      },
+      {
+        "sha": "c434e4e1e3f5871bf8d47700efd951c6961be516",
+        "subject": "e1: snapshot the robot Time baseline; e1_final falls back to it",
+        "patch_id": "e705a5a0d7b7b13c89f0d55be1dbfc8187981fbd",
+        "files": [
+          "M\tscripts/e1/e1_final.py",
+          "A\tscripts/e1/time_baseline_snapshot.json"
+        ]
+      },
+      {
+        "sha": "e8aa10fa40701f46bae8f26ab38765aa2e095013",
+        "subject": "e1: harvest E2 (error vs test tempo) on the fixed-progress metric",
+        "patch_id": "455f233b706c3688e0b5097227ec1e935ccaee2f",
+        "files": [
+          "A\tscripts/e1/e1_e2_test_tempo.py"
+        ]
+      }
+    ],
+    "robot-e1": [
+      {
+        "sha": "c7ef8332174f3a83948cc19cd438825f9c8f4a33",
+        "subject": "e1: fold speed-spread rows on mecka freeform (time / arcmean path-norm / arcvel profile), local-folder data config, tempo evaluator, launcher",
+        "patch_id": "97dec507a2002ac0d4cc6d60ff504422365d4a6a",
+        "files": [
+          "A\tegomimic/eval/e1_fold_tempo_eval.py",
+          "A\tegomimic/hydra_configs/data/e1/fold_freeform.yaml",
+          "A\tegomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arcmean.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arcvel.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_time.yaml",
+          "A\tegomimic/hydra_configs/model/e1/fold_arcvel.yaml",
+          "A\tegomimic/rldb/embodiment/e1_fold.py",
+          "A\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "A\tscripts/e1/e1_data_smoke.py",
+          "A\tscripts/e1/fold_train_eval.sbatch"
+        ]
+      },
+      {
+        "sha": "ed428900d542d315e593f4238c26c678fa81fffb",
+        "subject": "e1: arcvel profile from raw path speed (7-frame MA) instead of a chunk-local Butterworth; clock diagnostic in the smoke",
+        "patch_id": "1e08e63db38a94a60d1c50ae305ee824c9e59f98",
+        "files": [
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "M\tscripts/e1/e1_data_smoke.py"
+        ]
+      },
+      {
+        "sha": "02f5af7b2ef4f2c2133ebee78167e4e208257fe0",
+        "subject": "e1: budget in epochs (100 batches each); val every 10, ckpt every 50",
+        "patch_id": "ffa4a955b1abfa690ee73a1449d8fdb7a508f3f3",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "M\tscripts/e1/fold_train_eval.sbatch"
+        ]
+      },
+      {
+        "sha": "981bdddc4d9d07dbe06135df913e78f424cf7f36",
+        "subject": "e1: save_top_k=1 (no monitor); arcvel model config at model/ top level",
+        "patch_id": "e7d6ac1d2c435e6c761e7169cefba01de7e3be82",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/fold_arcvel.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "D\tegomimic/hydra_configs/model/e1/fold_arcvel.yaml",
+          "A\tegomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100.yaml"
+        ]
+      },
+      {
+        "sha": "0b55e18fcfa10c011b10381af31486e5e773a870",
+        "subject": "e1: state stem input_dim 14 (gripper-padded proprio)",
+        "patch_id": "08e204e2d0e6b94973509bbabb58c7f5c97d1934",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml"
+        ]
+      },
+      {
+        "sha": "629ad1cfb6ba5edd43421d770d73a1610168123f",
+        "subject": "e1: trainer.limit_val_batches follows e1.limit_val_batches during training",
+        "patch_id": "932035bbba1651f800dd0fae20535cb889054ab6",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml"
+        ]
+      },
+      {
+        "sha": "28da1271624067b1022fdb1fd3e456b32e9d6a8d",
+        "subject": "e1: vectorized arc tokenize/detokenize (parent-identical, 35x faster); OMP threads=1 in the launcher; tokenizer equivalence check",
+        "patch_id": "c67218a3be4d12abb6e0ae19c50c1e40ccd91bf9",
+        "files": [
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "A\tscripts/e1/e1_tokenizer_check.py",
+          "M\tscripts/e1/fold_train_eval.sbatch"
+        ]
+      },
+      {
+        "sha": "dd7af382085a0a941e1fb8cf8bde7af3109eea0f",
+        "subject": "e1: D_match (0.75 m) arc-mean row config, not launched",
+        "patch_id": "0a0a795a52d04f17bbbc240e1950df10cb62669b",
+        "files": [
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arcmean_D75.yaml"
+        ]
+      },
+      {
+        "sha": "ebf15a785542f3d09a0d29251d64c8ebf40156a0",
+        "subject": "e1: tempo-invariance ablation \u2014 logdur timing channel (#1+#2), progress-weighted anchor sampler (#3), 3 Hz progress smoothing (#4), E_time_prog metric, ablation launcher",
+        "patch_id": "c9fe82d416c13b08f6db2d88678bafc05b78a962",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "M\tegomimic/hydra_configs/data/e1/fold_freeform.yaml",
+          "M\tegomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arclogdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/fold_arclogdur_ps.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "M\tegomimic/pl_utils/pl_data_utils.py",
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "A\tegomimic/rldb/zarr/e1_anchor_sampler.py",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py",
+          "A\tscripts/e1/e1_ablation_check.py",
+          "M\tscripts/e1/e1_data_smoke.py",
+          "A\tscripts/e1/fold_ablation.sbatch"
+        ]
+      },
+      {
+        "sha": "43df0e29a56cb5378604bec9490ad4277281a8db",
+        "subject": "e1: ablation submit helper",
+        "patch_id": "37a516f24bdc12fbf87775149ad7ecb3e2f89f87",
+        "files": [
+          "A\tscripts/e1/submit_ablation.sh"
+        ]
+      },
+      {
+        "sha": "07836ca38f72d30b0f335d64265063bc616a3d57",
+        "subject": "e1: bound the decoded logdur mean speed to [0.01, 5] m/s (d_clock comparability with the profile clock floor)",
+        "patch_id": "f99d608e2ca2fdd091bad235f22485dde32cbfc8",
+        "files": [
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py"
+        ]
+      },
+      {
+        "sha": "59e23a8a3306b0f6ec11cc0ce0831fa5d391f573",
+        "subject": "e1: ABC / YAM skirts replication \u2014 yam keymap (front camera only) + eef-frame transforms into the E1 tokenizer, embodiment-override folder resolver, abc_{time,arcmean,arcvel,arclogdur} configs, launcher",
+        "patch_id": "2b2c81d825e821f2d77f02301bbde03cde631e1d",
+        "files": [
+          "A\tegomimic/hydra_configs/data/e1/abc_skirts.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arclogdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arcmean.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_arcvel.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_base.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abc_time.yaml",
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "A\tegomimic/rldb/zarr/e1_resolvers.py",
+          "A\tscripts/e1/abc_e1.sbatch"
+        ]
+      },
+      {
+        "sha": "93702228a04a8659bcb022f883b14ab1dea496ed",
+        "subject": "e1: data smoke takes the experiment prefix from E1_EXP and the first dataset key",
+        "patch_id": "25cfeb135805dcddeba208812183234179240316",
+        "files": [
+          "M\tscripts/e1/e1_data_smoke.py"
+        ]
+      },
+      {
+        "sha": "9624fad8b2e35cc080cb1e70b64c64e3317b653d",
+        "subject": "e1 launchers: VALID_SET override for smokes",
+        "patch_id": "97a230db6ba86b6c9031c82c22026bbb1d86ed87",
+        "files": [
+          "M\tscripts/e1/abc_e1.sbatch",
+          "M\tscripts/e1/fold_ablation.sbatch"
+        ]
+      },
+      {
+        "sha": "54f91b33b33fa93f7ddd842261b9a0df3bc66060",
+        "subject": "e1 abc: per-domain head entry for yam_bimanual (shared head)",
+        "patch_id": "2c4a9b87faff5cb007847aeb90fde935ebef2412",
+        "files": [
+          "M\tegomimic/hydra_configs/experiment/e1/abc_arclogdur.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/abc_arcmean.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/abc_arcvel.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/abc_time.yaml"
+        ]
+      },
+      {
+        "sha": "c49a3694285cf8054f5f12b72903d62c11ff03fd",
+        "subject": "e1 logdur: normalise the relative-duration rows at decode (exact for true tokens; row 0 alone owns the total time)",
+        "patch_id": "a84ae8b18e721c340b6694e5cb4ff72ec89335ea",
+        "files": [
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py"
+        ]
+      },
+      {
+        "sha": "e56cf2a49400145000a2b8036df61955f5aa89de",
+        "subject": "e1 stationery on Phoenix: lab-format rollout pair (abc_stationery_{bc,arc_bc}), E1 rows on the lab BC model with wrist cameras (abcs_{time,arcmean,arclogdur}), chord-rate decode for lab tokens, evaluator velocity_norm",
+        "patch_id": "3911e595b137b362d8b8f921588f36ba36a13f70",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "A\tegomimic/hydra_configs/data/abc_arc/abc_stationery_arc_bc_D40_M100.yaml",
+          "A\tegomimic/hydra_configs/data/abc_arc/abc_stationery_bc.yaml",
+          "M\tegomimic/hydra_configs/data/e1/abc_skirts.yaml",
+          "A\tegomimic/hydra_configs/data/e1/abc_stationery.yaml",
+          "M\tegomimic/hydra_configs/data/e1/fold_freeform.yaml",
+          "M\tegomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+          "A\tegomimic/hydra_configs/experiment/abc_arc/abc_stationery_arc_bc.yaml",
+          "A\tegomimic/hydra_configs/experiment/abc_arc/abc_stationery_bc.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcs_arclogdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcs_arcmean.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcs_base.yaml",
+          "A\tegomimic/hydra_configs/experiment/e1/abcs_time.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py"
+        ]
+      },
+      {
+        "sha": "255097eda14b15f8473b0477c95823b78da7ea64",
+        "subject": "e1 abc: image_hw on the folder resolver (ABC mixes 640x480 and 1280x720 front images)",
+        "patch_id": "9a5fb33bdf99444ffc2727bcd2d1b6a0fac6ceb5",
+        "files": [
+          "M\tegomimic/hydra_configs/data/e1/abc_skirts.yaml",
+          "M\tegomimic/hydra_configs/data/e1/abc_stationery.yaml",
+          "M\tegomimic/rldb/zarr/e1_resolvers.py"
+        ]
+      },
+      {
+        "sha": "a65a6f859fcccafea9c14ae602ab5d4936e46edf",
+        "subject": "abc stationery: S3 resolver with embodiment override (Phoenix mirror zarrs still say eva_bimanual)",
+        "patch_id": "991abacb9476804d0cf156a94eb6724582f54361",
+        "files": [
+          "M\tegomimic/hydra_configs/data/abc_arc/abc_stationery_arc_bc_D40_M100.yaml",
+          "M\tegomimic/hydra_configs/data/abc_arc/abc_stationery_bc.yaml",
+          "M\tegomimic/rldb/zarr/e1_resolvers.py"
+        ]
+      },
+      {
+        "sha": "fff5d641b3452e6a7908dd868a6fb23b57210a95",
+        "subject": "eval_hpt: viz_func null -> metrics only (no overlay); Phoenix-mirror ABC zarrs have no intrinsics",
+        "patch_id": "d3c37f9e1b1f8ee2d2d955dde0a2d74e40df0391",
+        "files": [
+          "M\tegomimic/eval/hpt/eval_hpt.py"
+        ]
+      }
+    ],
+    "shorts": [
+      {
+        "sha": "4d2c31b6c8845609491a0fd4d724147b5d6e4c44",
+        "subject": "shorts-extreme: bring the arcdur codec and the gt-span metric to Phoenix",
+        "patch_id": "51929c0594b765aad0a8dc84398c40b62837646b",
+        "files": [
+          "M\tegomimic/eval/e1_fold_tempo_eval.py",
+          "M\tegomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+          "M\tegomimic/hydra_configs/experiment/e1/fold_base.yaml",
+          "M\tegomimic/rldb/embodiment/e1_fold.py",
+          "M\tegomimic/rldb/zarr/e1_arc_tokenizer.py"
+        ]
+      },
+      {
+        "sha": "55932d992c8fd5a3cf45aa3a67a945c38de001a9",
+        "subject": "shorts-extreme: three extreme-tempo configs, and an (M,16) robot decoder",
+        "patch_id": "b6beb78999804ea42168f9df8226eeca8d7a0322",
+        "files": [
+          "A\tegomimic/hydra_configs/data/abc_arc/shorts_extreme_arc_bc_D40_M100.yaml",
+          "A\tegomimic/hydra_configs/data/abc_arc/shorts_extreme_arcdur_D40_M100.yaml",
+          "A\tegomimic/hydra_configs/data/abc_arc/shorts_extreme_bc.yaml",
+          "A\tegomimic/hydra_configs/experiment/abc_arc/shorts_extreme_arc_bc.yaml",
+          "A\tegomimic/hydra_configs/experiment/abc_arc/shorts_extreme_arcdur.yaml",
+          "A\tegomimic/hydra_configs/experiment/abc_arc/shorts_extreme_bc.yaml",
+          "A\tegomimic/hydra_configs/model/abc_arc/hpt_abc_bc_flow_arcdur_D40_M100.yaml",
+          "M\tegomimic/robot/rollout-arc.py"
+        ]
+      }
+    ],
+    "stationery": [
+      {
+        "sha": "349e6c804bea6b7606376fad366abacaf0797a98",
+        "subject": "Fix PI0.5 raw rotation action encoding",
+        "patch_id": "8ef5e04acbb27c68d242658d55adf2b47aa6fd58",
+        "files": [
+          "M\tegomimic/algo/pi.py",
+          "M\tegomimic/hydra_configs/model/pi0.5_bc_eva.yaml",
+          "M\tegomimic/utils/action_utils.py",
+          "A\tegomimic/utils/test_pi05_action_encoding.py"
+        ]
+      },
+      {
+        "sha": "b2223eaa6788a762598ff4561f0fa7b25e5915d9",
+        "subject": "Tighten raw rotation action encoding",
+        "patch_id": "eb6bf197bfd0b06b603ee14c0bfa80fdd7c048b7",
+        "files": [
+          "M\tegomimic/hydra_configs/model/pi0.5_bc_eva.yaml",
+          "M\tegomimic/utils/action_utils.py",
+          "M\tegomimic/utils/test_pi05_action_encoding.py"
+        ]
+      },
+      {
+        "sha": "309e5f99385d2a90c9962ca1191d08568d7cf948",
+        "subject": "Harden raw rotation action handling",
+        "patch_id": "d8fb47bb2884aa2cb201e191686682144ee57d42",
+        "files": [
+          "M\tegomimic/algo/pi.py",
+          "M\tegomimic/utils/action_utils.py"
+        ]
+      },
+      {
+        "sha": "6494762f2d22c534565422aaa1c6f990676c9312",
+        "subject": "6D pi data transform",
+        "patch_id": "e94484d2fddf62978b71f424d52d2090eb0703ab",
+        "files": [
+          "M\t.gitignore",
+          "M\tegomimic/algo/pi.py",
+          "M\tegomimic/hydra_configs/callbacks/checkpoints.yaml",
+          "M\tegomimic/hydra_configs/data/cotrain_pi_base.yaml",
+          "M\tegomimic/hydra_configs/data/cotrain_pi_lang.yaml",
+          "A\tegomimic/hydra_configs/data/cotrain_pi_lang_6d.yaml",
+          "A\tegomimic/hydra_configs/data/obj_gen_pi_lang.yaml",
+          "A\tegomimic/hydra_configs/data/obj_gen_pi_lang_6d.yaml",
+          "A\tegomimic/hydra_configs/data/obj_gen_pi_lang_wristframe.yaml",
+          "A\tegomimic/hydra_configs/data/obj_gen_pi_lang_wristframe_6d.yaml",
+          "A\tegomimic/hydra_configs/evaluator/eval_pi_camframe_6d.yaml",
+          "A\tegomimic/hydra_configs/evaluator/eval_pi_wristframe_6d.yaml",
+          "A\tegomimic/hydra_configs/model/pi0.5_cotrain_eva_aria_6d.yaml",
+          "M\tegomimic/rldb/embodiment/eva.py",
+          "M\tegomimic/rldb/embodiment/human.py",
+          "M\tegomimic/rldb/zarr/action_chunk_transforms.py",
+          "M\tegomimic/rldb/zarr/zarr_dataset_multi.py",
+          "M\tegomimic/utils/action_utils.py",
+          "M\tegomimic/utils/pose_utils.py",
+          "A\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "19c59e50f0e3eb920288c140719dee72e3d81546",
+        "subject": "6D proprio, rotation-free bounds check, constant LR, mecka 6D configs",
+        "patch_id": "061c108f48c36f32b83346f0d99317e076ceba7f",
+        "files": [
+          "A\tegomimic/hydra_configs/data/mecka_all_pi_6d.yaml",
+          "M\tegomimic/hydra_configs/model/pi0.5_base.yaml",
+          "A\tegomimic/hydra_configs/model/pi0.5_bc_mecka_6d.yaml",
+          "M\tegomimic/hydra_configs/model/pi0.5_cotrain_eva_aria_6d.yaml",
+          "M\tegomimic/rldb/embodiment/eva.py",
+          "M\tegomimic/rldb/embodiment/human.py",
+          "M\tegomimic/rldb/zarr/zarr_dataset_multi.py",
+          "M\tegomimic/utils/pose_utils.py",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "96b439d15fcd9e786d7ed54173cec0a2ca02737c",
+        "subject": "mecka wristframe-6d: launch infra, precomputed norm stats, left-wrist Rz(180) fix",
+        "patch_id": "df7c12409bec45be10310143b403bca1933beafb",
+        "files": [
+          "M\tegomimic/hydra_configs/data/mecka_all_pi_6d.yaml",
+          "M\tegomimic/hydra_configs/model/pi0.5_base.yaml",
+          "M\tegomimic/hydra_configs/model/pi0.5_bc_mecka_6d.yaml",
+          "M\tegomimic/rldb/embodiment/embodiment.py",
+          "M\tegomimic/rldb/embodiment/human.py",
+          "M\tegomimic/rldb/zarr/action_chunk_transforms.py",
+          "M\tegomimic/rldb/zarr/zarr_dataset_multi.py",
+          "A\tegomimic/scripts/abc_process/viz_eva_episode.py",
+          "M\tegomimic/scripts/mecka_process/mecka_to_zarr.py",
+          "A\tegomimic/scripts/mecka_process/viz_mecka_episode.py",
+          "A\tegomimic/scripts/norm_mecka_all_6d.sbatch",
+          "A\tegomimic/scripts/precompute_norm_stats.py",
+          "A\tegomimic/scripts/smoke_mecka_all_6d.sbatch",
+          "A\tegomimic/scripts/train_mecka_all_6d.sbatch",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "5820bea75e88665fefb66bf53f544abfa2a3f1c7",
+        "subject": "6D pipeline hardening: loud config mismatches, bounds tolerance, norm-stats provenance, independent round-trip tests",
+        "patch_id": "2d7396395ff2da416376e9d3103602d50bdadd00",
+        "files": [
+          "M\tegomimic/rldb/zarr/action_chunk_transforms.py",
+          "M\tegomimic/rldb/zarr/zarr_dataset_multi.py",
+          "A\tegomimic/utils/test_wrist6d_roundtrip.py"
+        ]
+      },
+      {
+        "sha": "96ce8873e93c358b8a42ea5c9e9f42f80a4c94da",
+        "subject": "split val metrics/viz",
+        "patch_id": "7cba3d8292abe49c071853e71f6bba099bc00437",
+        "files": [
+          "M\tegomimic/eval/eval_act.py",
+          "M\tegomimic/eval/eval_hpt.py",
+          "M\tegomimic/eval/eval_latent.py",
+          "M\tegomimic/eval/eval_pi.py",
+          "M\tegomimic/eval/eval_video.py",
+          "M\tegomimic/hydra_configs/callbacks/checkpoints.yaml",
+          "M\tegomimic/hydra_configs/evaluator/eval_hpt.yaml",
+          "M\tegomimic/hydra_configs/evaluator/eval_pi.yaml",
+          "M\tegomimic/hydra_configs/trainer/ddp_pi.yaml"
+        ]
+      },
+      {
+        "sha": "51e979c656499f13cc6789714e56edffb689b9f0",
+        "subject": "val every 20 epochs, viz every 100; align viz gate with Lightning val epochs",
+        "patch_id": "5c2f3cf53358ec48b0d1caa8870e9cb020fe2b53",
+        "files": [
+          "M\tegomimic/eval/eval_video.py",
+          "M\tegomimic/hydra_configs/data/mecka_all_pi_6d.yaml",
+          "M\tegomimic/hydra_configs/evaluator/eval_pi.yaml",
+          "M\tegomimic/hydra_configs/evaluator/eval_pi_camframe_6d.yaml",
+          "M\tegomimic/hydra_configs/evaluator/eval_pi_wristframe_6d.yaml",
+          "M\tegomimic/hydra_configs/trainer/ddp_pi.yaml"
+        ]
+      },
+      {
+        "sha": "954e47063ca8ceb4d186fac7a72b44a74ac3e0f2",
+        "subject": "sampler: widen bad-sample retries to global index space after 25 attempts",
+        "patch_id": "5e75ad6b2b21321aea53c98d465a0b6f32ea176a",
+        "files": [
+          "M\tegomimic/hydra_configs/data/mecka_all_pi_6d.yaml",
+          "M\tegomimic/rldb/zarr/zarr_dataset_multi.py",
+          "M\tegomimic/scripts/train_mecka_all_6d.sbatch",
+          "A\tegomimic/scripts/train_mecka_all_6d_4g.sbatch",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "b19a592794df4942859343853bf670274488ca13",
+        "subject": "4xH200 launch: bs64/GPU (global 256), 8-rank NCCL slowdown documented",
+        "patch_id": "9f0f900e51f10d6cb028fc2e7ffa48875d7770e7",
+        "files": [
+          "M\tegomimic/scripts/train_mecka_all_6d_4g.sbatch"
+        ]
+      },
+      {
+        "sha": "d923a8e516eeaa3793e7e7f6bcc80ac358b28a60",
+        "subject": "cadence defaults: val@50, viz@100 + ckpt@100 (top-3 by step)",
+        "patch_id": "0bd81c75292e445c9cd1b168dd5eec9d9b0595c7",
+        "files": [
+          "M\tegomimic/hydra_configs/callbacks/checkpoints.yaml",
+          "M\tegomimic/hydra_configs/trainer/ddp_pi.yaml",
+          "M\tegomimic/scripts/train_mecka_all_6d.sbatch",
+          "M\tegomimic/scripts/train_mecka_all_6d_4g.sbatch"
+        ]
+      },
+      {
+        "sha": "e670af81c762a8a51930f46541b5c06bafa421fb",
+        "subject": "4g relaunch: 500G host RAM (worker CoW drift OOM at 252GB), ckpt every 50 epochs",
+        "patch_id": "2c39c65ab97a269c6e1757e99387173376c712ea",
+        "files": [
+          "M\tegomimic/scripts/train_mecka_all_6d_4g.sbatch"
+        ]
+      },
+      {
+        "sha": "fa628879377434b0e500e9d20fc44c6e713bbf90",
+        "subject": "8g: exclude bad node atl1-1-01-009-16-0, 1TB RAM, ckpt@50, start-time ckpt handoff",
+        "patch_id": "e60b37efad5f0d14b81f3ff6a55ed31ce8dbfe25",
+        "files": [
+          "M\tegomimic/scripts/train_mecka_all_6d.sbatch"
+        ]
+      },
+      {
+        "sha": "a3787eba4f9f852890c3935e5c9c635f173b8ffe",
+        "subject": "wrap-aware cam-frame MSE: wrap YPR errors to \u00b1pi, keep *_nowrap companions",
+        "patch_id": "12b39f5f135389d6cb92730fe392534c6c5bcf80",
+        "files": [
+          "M\tegomimic/eval/eval_pi.py",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "47505c63332506b1c40d3a9624e76618c49abdc4",
+        "subject": "val videos: scale playback fps by 1/world_size (DistributedSampler stride)",
+        "patch_id": "e4c551d9f479a12271fd7e869c6cf2dc3f7a5602",
+        "files": [
+          "M\tegomimic/eval/eval_video.py",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "70bc694e69fd8741591194ac303f6d69db18a746",
+        "subject": "port better-val-metrics + train viz from ryanco/better-val-metrics",
+        "patch_id": "de79ae4ca270a3c14428a4ed619fe76f3c24b990",
+        "files": [
+          "M\tegomimic/algo/pi.py",
+          "M\tegomimic/eval/eval_pi.py",
+          "A\tegomimic/eval/eval_train_viz.py",
+          "M\tegomimic/hydra_configs/data/mecka_all_pi_6d.yaml",
+          "A\tegomimic/hydra_configs/evaluator/train_viz_pi_wristframe_6d.yaml",
+          "M\tegomimic/hydra_configs/model/pi0.5_base.yaml",
+          "M\tegomimic/hydra_configs/model/pi0.5_bc_mecka_6d.yaml",
+          "M\tegomimic/hydra_configs/train_zarr_cartesian_pi.yaml",
+          "M\tegomimic/pl_utils/pl_data_utils.py",
+          "M\tegomimic/pl_utils/pl_model.py",
+          "M\tegomimic/scripts/train_mecka_all_6d.sbatch",
+          "M\tegomimic/trainHydra.py",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "44175ef79b9b6e2615dae3abab36820801fd62cb",
+        "subject": "val metrics: batched DTW distance (native frame, per-step normalized)",
+        "patch_id": "d79397374e65afce375ea7b071fc267affa5c70f",
+        "files": [
+          "M\tegomimic/eval/eval_pi.py",
+          "M\tegomimic/utils/metrics.py",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "8a8498889c60ff75b65950604238096ffd8d6286",
+        "subject": "debug run: mecka flagship fold_clothes subset, 2xH200, all branch features",
+        "patch_id": "c769cfdbe871a7430f7c51f9af8b84a0a500cfa7",
+        "files": [
+          "A\tegomimic/hydra_configs/data/mecka_fold_flagship_pi_6d.yaml",
+          "A\tegomimic/scripts/debug_mecka_fold_2g.sbatch"
+        ]
+      },
+      {
+        "sha": "4c13207d1b0512f69fc310897482121683ac96a0",
+        "subject": "pi trainer: validate under no_grad, not inference_mode (cudagraph capture crash)",
+        "patch_id": "df4dbde8314b0c4df2078e3225019b17a4b9343d",
+        "files": [
+          "M\tegomimic/hydra_configs/trainer/ddp_pi.yaml"
+        ]
+      },
+      {
+        "sha": "39e39b30acb9d2d7d6d5c83fc2e98ab31aeb5a0a",
+        "subject": "val_at_start off by default",
+        "patch_id": "9341ae0bda7ab7ccd62891d4a0a85e54ca781d31",
+        "files": [
+          "M\tegomimic/hydra_configs/train_zarr_cartesian_pi.yaml"
+        ]
+      },
+      {
+        "sha": "efdba007ff76f2a754b490ceffababa14fa821d7",
+        "subject": "abc-eva finetune chain: sync -> norm -> 8xH200 train from mecka ckpt",
+        "patch_id": "8c7ef8c1e714f8dcf9c06fa4b1e369e4dd2b9a52",
+        "files": [
+          "A\tegomimic/hydra_configs/data/abc_eva_pi_6d.yaml",
+          "A\tegomimic/hydra_configs/model/pi0.5_ft_abc_eva_6d.yaml",
+          "A\tegomimic/scripts/norm_abc_eva_6d.sbatch",
+          "A\tegomimic/scripts/sync_abc_eva.py",
+          "A\tegomimic/scripts/sync_abc_eva.sbatch",
+          "A\tegomimic/scripts/train_abc_eva_ft.sbatch",
+          "M\tegomimic/trainHydra.py"
+        ]
+      },
+      {
+        "sha": "5d140619f5ee4f83edeca8020fc3f7b6631ec1c1",
+        "subject": "collate: resize mixed-resolution camera images to 480x640 (abc eva)",
+        "patch_id": "8f602bd84af998aed05c295739325469365f85c6",
+        "files": [
+          "M\tegomimic/pl_utils/pl_data_utils.py",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "3ffb4b3642b154a8eaacd0a7059fbe5864779379",
+        "subject": "smoke sbatch for the abc-eva finetune path",
+        "patch_id": "24c8d20729a018c828265ee6444cba6463b6b166",
+        "files": [
+          "A\tegomimic/scripts/smoke_abc_eva.sbatch"
+        ]
+      },
+      {
+        "sha": "3964647546944f86781cace72937a8fd7a379faa",
+        "subject": "keypoint pseudo-gripper: aria fold finetune stack (KeypointsToGripper)",
+        "patch_id": "a73c5b8d18f5679e77006e8349595dff82667357",
+        "files": [
+          "A\tegomimic/hydra_configs/data/aria_fold_pi_6d_grip.yaml",
+          "A\tegomimic/hydra_configs/evaluator/eval_pi_wristframe_6d_grip.yaml",
+          "A\tegomimic/hydra_configs/evaluator/train_viz_pi_wristframe_6d_grip.yaml",
+          "A\tegomimic/hydra_configs/model/pi0.5_ft_aria_fold_grip.yaml",
+          "M\tegomimic/rldb/embodiment/human.py",
+          "M\tegomimic/rldb/zarr/action_chunk_transforms.py",
+          "A\tegomimic/scripts/norm_aria_fold_grip.sbatch",
+          "A\tegomimic/scripts/smoke_aria_fold_grip.sbatch",
+          "A\tegomimic/scripts/sync_aria_fold.py",
+          "A\tegomimic/scripts/sync_aria_fold.sbatch",
+          "A\tegomimic/scripts/train_aria_fold_grip.sbatch",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "b859e625ad12b1450d38bfa5573391788a2b1105",
+        "subject": "eval-only sbatch: aria fold grip val split at 400 batches",
+        "patch_id": "2860cf2b317d8bac81171dde9bbcb25663908cfd",
+        "files": [
+          "A\tegomimic/scripts/eval_aria_fold_grip.sbatch"
+        ]
+      },
+      {
+        "sha": "b58fd4b000a63630e831963ea3d482a055ea8b84",
+        "subject": "aria fold: dedicated decode-verified data folder (stale shared-mirror copies)",
+        "patch_id": "32ec776bf0503e6b976c31ef13411c80f09e8a25",
+        "files": [
+          "M\tegomimic/hydra_configs/data/aria_fold_pi_6d_grip.yaml",
+          "A\tegomimic/scripts/sync_aria_fold_fresh.py",
+          "A\tegomimic/scripts/sync_aria_fold_fresh.sbatch"
+        ]
+      },
+      {
+        "sha": "bf17051d9c7fa3f7cf747a25758e72c41105170c",
+        "subject": "aria fold grip finetune from the eva+human base (abc-eva epoch-399)",
+        "patch_id": "1aef821f7acbcb3b462d701c7f1d2f4a00749d9a",
+        "files": [
+          "A\tegomimic/scripts/train_aria_fold_grip_evahuman.sbatch"
+        ]
+      },
+      {
+        "sha": "d0eda8673398e884d57e0bb6292e2999acce2d04",
+        "subject": "combined mecka+abc pretrain + abc_fold_viz eva extrinsics",
+        "patch_id": "57014cacf619d150a0595f35b5faf9f4f0a192fc",
+        "files": [
+          "M\tegomimic/eval/eval_train_viz.py",
+          "M\tegomimic/eval/eval_video.py",
+          "M\tegomimic/hydra_configs/data/abc_eva_pi_6d.yaml",
+          "A\tegomimic/hydra_configs/data/abc_eva_pi_6d_foldviz.yaml",
+          "A\tegomimic/hydra_configs/data/mecka_abc_pi_6d.yaml",
+          "M\tegomimic/hydra_configs/evaluator/eval_pi_wristframe_6d.yaml",
+          "M\tegomimic/hydra_configs/evaluator/eval_pi_wristframe_6d_grip.yaml",
+          "A\tegomimic/hydra_configs/model/pi0.5_bc_mecka_abc_6d.yaml",
+          "M\tegomimic/rldb/embodiment/eva.py",
+          "A\tegomimic/scripts/norm_abc_eva_foldviz_debug.sbatch",
+          "A\tegomimic/scripts/smoke_mecka_abc_6d.sbatch"
+        ]
+      },
+      {
+        "sha": "9e206dceee07f4fdbb726af6cad61be71c7fc047",
+        "subject": "eval_pi: stateless MSE helpers, geodesic rotation-error metric",
+        "patch_id": "dfd7ab878c8719009edf1b4fb39888eeba1b055c",
+        "files": [
+          "M\tegomimic/eval/eval_pi.py",
+          "M\tegomimic/utils/test_pi05_norm_rot6d.py"
+        ]
+      },
+      {
+        "sha": "99fd54430fb10492cdc543ccc1d11afc319ef3bf",
+        "subject": "abc stationery pi0.5: BC from pi0.5 base in the rl2yam camera frame",
+        "patch_id": "26079889b110268017d3fde21d6955290ed9e6c6",
+        "files": [
+          "A\tegomimic/hydra_configs/data/abc_stationery_pi_6d.yaml",
+          "A\tegomimic/hydra_configs/model/pi0.5_bc_abc_eva_6d.yaml",
+          "M\tegomimic/rldb/embodiment/eva.py",
+          "A\tegomimic/scripts/norm_abc_stationery_rl2yam.sbatch",
+          "A\tegomimic/scripts/smoke_abc_stationery_pi.sbatch",
+          "A\tegomimic/scripts/train_abc_stationery_pi.sbatch"
+        ]
+      },
+      {
+        "sha": "eb42e05b6a16764e19f401ce289d3d4fbdc0c0bc",
+        "subject": "abc stationery: exclude atl1-1-02-012-2-0 (thermally throttled H200)",
+        "patch_id": "80dfc9e5869030d03ebf9f6a428058458bca4c99",
+        "files": [
+          "M\tegomimic/scripts/train_abc_stationery_pi.sbatch"
+        ]
+      },
+      {
+        "sha": "d5f72068bfcad604d385db612eb60145fd03c843",
+        "subject": "abc stationery: dataloader timeouts + NCCL_DEBUG after a rank-2 stall",
+        "patch_id": "5221991d24ca24778930014a5012f38ec95918a4",
+        "files": [
+          "M\tegomimic/scripts/train_abc_stationery_pi.sbatch"
+        ]
+      }
+    ]
+  },
+  "source_files": [
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/eval/e1_fold_tempo_eval.py",
+      "source_sha256": "45be328a23c3e90e615aca4abc9ef1b7199ec57ae1498a62caee1f4ce8db0f57",
+      "targets": [
+        "egomimic/eval/e1_fold_tempo_eval.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/data/e1/abc_skirts.yaml",
+      "source_sha256": "bde9e7a1086fb199356bb344fe3bc30263a32e620955ba10eb24ef39f2edb028",
+      "targets": [
+        "egomimic/hydra_configs/data/e1/abc_skirts.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/data/e1/abc_stationery.yaml",
+      "source_sha256": "60a05ab3005d96210b2333d30de524922127ef3c57a932dac287b0b46c0c9119",
+      "targets": [
+        "egomimic/hydra_configs/data/e1/abc_stationery.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/data/e1/fold_freeform.yaml",
+      "source_sha256": "d60d6c4a67601bc73f1c04db62cd3a00a3b3ab6d4a9d18aedbfa6dcda9cc2275",
+      "targets": [
+        "egomimic/hydra_configs/data/e1/fold_freeform.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+      "source_sha256": "f0633426abe79aea282b38c2c674fa9d9f537b07a3799324a4e3b4b9f91b4d1b",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/e1/fold_tempo.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arcdur.yaml",
+      "source_sha256": "4496eae02c95518f35e331551f094605d293bccc06fb4de7ffa5de11387fe77b",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arcdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arclogdur.yaml",
+      "source_sha256": "85a16a08aa62909e9bbafcd83c1718f2171c6193fbfc0596b93d15187db41d47",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arclogdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arclogdur_D75.yaml",
+      "source_sha256": "b29248b20effa01707c66f34ca3ce3b8a0b80f2aa950101b7b3daa9b40f4bda1",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arclogdur_D75.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arclogdur_fs.yaml",
+      "source_sha256": "ae4b44af3b5ed4b8e7643cccb1e1164b036da9f7b9f888cb117df3a25a93d4b5",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arclogdur_fs.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arcmean.yaml",
+      "source_sha256": "37c52b53de8265c70b305e142ba7386974237f06f6626036751f8f1f43cebd7b",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arcmean.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arcmean_D75.yaml",
+      "source_sha256": "f5a2254bf4b44dec2e33602cb1a8eb4d8ec7946595d3e4350003609e2d5798b9",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arcmean_D75.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arcmean_fs.yaml",
+      "source_sha256": "c0ac189c3ca48cbcd634286ed091de1a044b02e2910d1d5f4f1d95b794ae5cee",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arcmean_fs.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arcvel.yaml",
+      "source_sha256": "379098bb9ca5ccc6f7e88c32f8e31ec9684a266e1c3ff40e79ce4350dd61eef5",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arcvel.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_base.yaml",
+      "source_sha256": "25bb50e580e3bbdfa819c4efa6aebd640ee0c4b9d9878a64631663c0ff60ee26",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_base.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_time.yaml",
+      "source_sha256": "845b177e2810528d7ca6ea9e28b56ba6913412537e0042ce18c0c1228dfc13c0",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_time.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcs_arclogdur.yaml",
+      "source_sha256": "5415195cec6f2e5d1d07f4a39371afdfa3dc8cf17c3a2dfa676511d2243baa89",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcs_arclogdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcs_arcmean.yaml",
+      "source_sha256": "c6ef277d9d3bd313d61a85b0bdcdaad5c2c76c447b4c0246dced8257709dd4a4",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcs_arcmean.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcs_base.yaml",
+      "source_sha256": "112f0865c2c54a6d825b9a4e449f548d6e6a96ebc1b11a890d99bb890b2c12db",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcs_base.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcs_time.yaml",
+      "source_sha256": "f911b398d18f1205309dd9732e354bc8c504fcae9faf0315b7d614ed373e4623",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcs_time.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcst_arclogdur.yaml",
+      "source_sha256": "0fe2147ce2ef7022c07ff87a30e59469b00c133b53a10a001a53cef678be7801",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcst_arclogdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcst_arclogdur_fs.yaml",
+      "source_sha256": "6cef0d3924934da0e036c123809c438080d281ba0c5930595d46f33cca40ebdd",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcst_arclogdur_fs.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcst_arcmean.yaml",
+      "source_sha256": "2cc036521186def1d144234e64d95c3b7011ac625987f58ea83c4f14688b804f",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcst_arcmean.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcst_arcmean_fs.yaml",
+      "source_sha256": "6373d5d79a1436a4d6be9d739a0184a3bc7cec54d87d91d123e205b651b5891f",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcst_arcmean_fs.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcst_time.yaml",
+      "source_sha256": "f8d41e23a4d49ec7ba6fa6bb41d823d319890951a0553f8b9c2c00a0cb3f4b82",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcst_time.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arcdur.yaml",
+      "source_sha256": "1d09554e0358477be109edfd07ec21dbf8a7747485a5f72fe5c34495000b18b1",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arcdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arclogdur.yaml",
+      "source_sha256": "da3a1aaf081368c660ff505a36bf390c673c05320d76efb726de223ebca182c4",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arclogdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arclogdur_ps.yaml",
+      "source_sha256": "ca39afbdb5150d030383460b3d8dc35673f12eb9699844adc0d38f1c5e9e796a",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arclogdur_ps.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arcmean.yaml",
+      "source_sha256": "895941046cebcf847eae0b72820e7d58ae821a4d05a8e08858aac420ff8648cb",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arcmean.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arcmean_D75.yaml",
+      "source_sha256": "6789e41bdce01f184433321462cac564568c3c07427e2f833f9c7b649743ca25",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arcmean_D75.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arcvel.yaml",
+      "source_sha256": "8aac1eede336ef31d5b04e1eb8b76cddd00ba3438fc0da8037acc76f2e3a0d9b",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arcvel.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_base.yaml",
+      "source_sha256": "348a294806fe5cbaccdf0cef9f6addb0ef981e0695bdcd740a2a7faffa5d4a61",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_base.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_time.yaml",
+      "source_sha256": "7a01c55142fe92471a6607b5940b4a10b9b49a35ba35f48c6a9fc5771afabb0e",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_time.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100.yaml",
+      "source_sha256": "9072a11c47cd2a45f4fdc3486b4f0cbbd1b3bacb89d287b4dc62131f35a6b0d3",
+      "targets": [
+        "egomimic/hydra_configs/model/e1/hpt_flow.yaml",
+        "egomimic/hydra_configs/model/e1/hpt_flow_wrists.yaml"
+      ],
+      "disposition": "graph architecture port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/pl_utils/pl_data_utils.py",
+      "source_sha256": "12ab80c1651c544de28ea157e7cb008e45bd7941a50f0c49cc86d7e5fcd99ee3",
+      "targets": [
+        "egomimic/pl_utils/pl_data_utils.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/rldb/embodiment/e1_fold.py",
+      "source_sha256": "e70dd188741be1563050d556929492c39dc8b25451f0b01af904caa2592976a2",
+      "targets": [
+        "egomimic/rldb/embodiment/e1_fold.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/rldb/zarr/e1_anchor_sampler.py",
+      "source_sha256": "f642958511f9b01be07f5ab44fd600de1b4eb2c3f413f984b9d357e3a18a2898",
+      "targets": [
+        "egomimic/rldb/zarr/e1_anchor_sampler.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/rldb/zarr/e1_arc_tokenizer.py",
+      "source_sha256": "e08b42b2749b88c263a6cc03fd47bb7720d3afa7c11a0a013fcecd377104756b",
+      "targets": [
+        "egomimic/rldb/zarr/e1_arc_tokenizer.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "egomimic/rldb/zarr/e1_resolvers.py",
+      "source_sha256": "08041343d29389716f3531749e2f3d3de517f49c3056e629a40d26a3111ffc5a",
+      "targets": [
+        "egomimic/rldb/zarr/e1_resolvers.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/abc_e1.sbatch",
+      "source_sha256": "7d64738271aff0c50e370a8f1d911f96090a79e1b441c1e1a6816f6cb9e1f4f8",
+      "targets": [
+        "scripts/e1/abc_e1.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/abc_eval_only.sbatch",
+      "source_sha256": "63ca963d55e90e53d37f36e1baaa13c24f6fd64be1c5f580cf3dbcdb0d5afdaa",
+      "targets": [
+        "scripts/e1/abc_eval_only.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/abc_rescore.sbatch",
+      "source_sha256": "f80e2c7fa36e1df7324f58b63b969ac1828a0cd555c631c2a0f29ee179f83dea",
+      "targets": [
+        "scripts/e1/abc_rescore.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_ablation_check.py",
+      "source_sha256": "d3f61ab3bf3c546979a4d8e3b2e9cba4f4f32ebb6c294f45dacf2873d316f60a",
+      "targets": [
+        "scripts/e1/e1_ablation_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_clock_bias_check.py",
+      "source_sha256": "253e2b185b50f47083be0c32ca6c859800033e14044c5665224ee857c308d742",
+      "targets": [
+        "scripts/e1/e1_clock_bias_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_compose_check.py",
+      "source_sha256": "ba856b43ada90ff51cd165ee28dfbc2a0b72842068c3516eff71f892f94d1adb",
+      "targets": [
+        "scripts/e1/e1_compose_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_data_smoke.py",
+      "source_sha256": "52e62a204a78ba83d129c1f1d8cf55aac72056c36f494fbfa50f84703f3e5432",
+      "targets": [
+        "scripts/e1/e1_data_smoke.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_duration_check.py",
+      "source_sha256": "6c7b5ffb2a7ffafe9e3b591dab4a78b3ee1db099bce6f8c6a1908aa901c07242",
+      "targets": [
+        "scripts/e1/e1_duration_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_e2_test_tempo.py",
+      "source_sha256": "0242139b225bce40dda91e60b960314f11151bab3779c08ef5c771717f88d87f",
+      "targets": [
+        "scripts/e1/e1_e2_test_tempo.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_final.py",
+      "source_sha256": "b26f36649a31a01ecab1d1fac9b6b335aca5253de24ace1d86f7ccdef8844748",
+      "targets": [
+        "scripts/e1/e1_final.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_fixed_spacing_check.py",
+      "source_sha256": "e4c5dccbb60bdaabd2ee12637ba913cc747fd63acf92bc264123f9bc18de2e50",
+      "targets": [
+        "scripts/e1/e1_fixed_spacing_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_gtspan_check.py",
+      "source_sha256": "737c506f16f7b64638315428046e5c1d5fb3bb7c46dc9c0d362133add92fd9d1",
+      "targets": [
+        "scripts/e1/e1_gtspan_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_tokenizer_check.py",
+      "source_sha256": "5dca6282a53894326d54cee5dae9d42e5fd6d4369e9ab2bbddcfce0cd362663c",
+      "targets": [
+        "scripts/e1/e1_tokenizer_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/e1_verdict.py",
+      "source_sha256": "0efcd6e674ec149250d6b96549ec54f48919bf3262680946e4e27438dac57ed7",
+      "targets": [
+        "scripts/e1/e1_verdict.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/fold_ablation.sbatch",
+      "source_sha256": "fb64c4b7af9875bf65fe57230ea11b8e7f471fa364f73693b7d0a730c27b1e69",
+      "targets": [
+        "scripts/e1/fold_ablation.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/fold_eval_only.sbatch",
+      "source_sha256": "0baf75353dccfb0674746c9aa47d9143472277d6bf26120cdebe6d42349a8cff",
+      "targets": [
+        "scripts/e1/fold_eval_only.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/fold_train_eval.sbatch",
+      "source_sha256": "cf9f8497f165cf3c0cce77545571dc567f40324fab31cae9456438e76a7d7028",
+      "targets": [
+        "scripts/e1/fold_train_eval.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/submit_ablation.sh",
+      "source_sha256": "cf7d7a5c63c6772fa9a9102f4302d3bbc24edc44a54c790b96702f7349ded3e9",
+      "targets": [
+        "scripts/e1/submit_ablation.sh"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "e1",
+      "source_file": "scripts/e1/time_baseline_snapshot.json",
+      "source_sha256": "124271ce94c69aa6c389db1bbae01751559694c77fc5abad425e8d08034fd7a7",
+      "targets": [
+        "scripts/e1/time_baseline_snapshot.json"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/eval/e1_fold_tempo_eval.py",
+      "source_sha256": "45be328a23c3e90e615aca4abc9ef1b7199ec57ae1498a62caee1f4ce8db0f57",
+      "targets": [
+        "egomimic/eval/e1_fold_tempo_eval.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/eval/eval_eef_arcmatch.py",
+      "source_sha256": "901d62c21d42c1b631c3fd037c101bc629aa8d2de5b581de9f59f2e85f0a22e3",
+      "targets": [
+        "egomimic/eval/e1_metrics.py",
+        "egomimic/eval/arc_metrics.py"
+      ],
+      "disposition": "metrics consolidated into graph and E1 families",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/eval/hpt/eval_hpt.py",
+      "source_sha256": "f04d0cb5c5bafbc3f6380cbd29f9ae6448ffca17b15ad35361a06c6e8edb0fb3",
+      "targets": [],
+      "disposition": "source provenance only",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/data/abc_arc/abc_stationery_arc_bc_D40_M100.yaml",
+      "source_sha256": "aaf7f823ff4a534f173937833057550806ef1fff9eff0f62b067b5ac0cf64617",
+      "targets": [
+        "egomimic/hydra_configs/data/abc_arc/abc_stationery_arc_bc_D40_M100.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/data/abc_arc/abc_stationery_bc.yaml",
+      "source_sha256": "44cceb8371cc367dcfb69ab43a7a05774788ac8f18cc87fca68b7f1a9eff556d",
+      "targets": [
+        "egomimic/hydra_configs/data/abc_arc/abc_stationery_bc.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/data/abc_arc/shorts_extreme_arc_bc_D40_M100.yaml",
+      "source_sha256": "97b80d845a21aff458a76ba99b37f1ac8dfc94e3cf8e1f87f371be140941a0da",
+      "targets": [
+        "egomimic/hydra_configs/data/abc_arc/shorts_extreme_arc_bc_D40_M100.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/data/abc_arc/shorts_extreme_arcdur_D40_M100.yaml",
+      "source_sha256": "7a720a54b56660db2863b676d83f939abb835113f5116f5ddc20084503003d2f",
+      "targets": [
+        "egomimic/hydra_configs/data/abc_arc/shorts_extreme_arcdur_D40_M100.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/data/abc_arc/shorts_extreme_bc.yaml",
+      "source_sha256": "8771ec00c0310ef3d4a0cf8399ce5a16274f69b6de1a5d8ae2fe98e1923e4c6c",
+      "targets": [
+        "egomimic/hydra_configs/data/abc_arc/shorts_extreme_bc.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/data/e1/abc_skirts.yaml",
+      "source_sha256": "d0e8a0241a864b56e24c27a05f90244219c5a8fe5b41b01be970ef570ac79dd0",
+      "targets": [
+        "egomimic/hydra_configs/data/e1/abc_skirts.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/data/e1/abc_stationery.yaml",
+      "source_sha256": "b627164e4faeee4aa5968de6df29914811bbf9d0e279a189239699ac04970ea3",
+      "targets": [
+        "egomimic/hydra_configs/data/e1/abc_stationery.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/data/e1/fold_freeform.yaml",
+      "source_sha256": "8da1f549778a827704556ae81dc54ca16205d18cd125c7e5da5c2d5e5aa989b3",
+      "targets": [
+        "egomimic/hydra_configs/data/e1/fold_freeform.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/evaluator/e1/fold_tempo.yaml",
+      "source_sha256": "f0633426abe79aea282b38c2c674fa9d9f537b07a3799324a4e3b4b9f91b4d1b",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/e1/fold_tempo.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/abc_arc/abc_stationery_arc_bc.yaml",
+      "source_sha256": "edc24d1a7d274dfe542882ca31a01f7c8f04c7b9712736e437ecf444b423535c",
+      "targets": [
+        "egomimic/hydra_configs/experiment/abc_arc/abc_stationery_arc_bc.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/abc_arc/abc_stationery_bc.yaml",
+      "source_sha256": "a97b819f649848e7327cd564bb459efba852c2f1b894cde29240dbaeee2daacf",
+      "targets": [
+        "egomimic/hydra_configs/experiment/abc_arc/abc_stationery_bc.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/abc_arc/shorts_extreme_arc_bc.yaml",
+      "source_sha256": "689f9b5d50c41dc59dea857f12817d6dcbf10dc3404f20bda7dfa311ecf859e5",
+      "targets": [
+        "egomimic/hydra_configs/experiment/abc_arc/shorts_extreme_arc_bc.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/abc_arc/shorts_extreme_arcdur.yaml",
+      "source_sha256": "157b02fb2e17f86839a9bf776aaef6c97978195b21c9a663eb24abc2355b10b4",
+      "targets": [
+        "egomimic/hydra_configs/experiment/abc_arc/shorts_extreme_arcdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/abc_arc/shorts_extreme_bc.yaml",
+      "source_sha256": "1b2fe402323cf3c482d8e84b70719d6e6a40c1dc1204f60ddbc98df7b39cb73d",
+      "targets": [
+        "egomimic/hydra_configs/experiment/abc_arc/shorts_extreme_bc.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arclogdur.yaml",
+      "source_sha256": "85a16a08aa62909e9bbafcd83c1718f2171c6193fbfc0596b93d15187db41d47",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arclogdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arcmean.yaml",
+      "source_sha256": "37c52b53de8265c70b305e142ba7386974237f06f6626036751f8f1f43cebd7b",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arcmean.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_arcvel.yaml",
+      "source_sha256": "379098bb9ca5ccc6f7e88c32f8e31ec9684a266e1c3ff40e79ce4350dd61eef5",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_arcvel.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_base.yaml",
+      "source_sha256": "25bb50e580e3bbdfa819c4efa6aebd640ee0c4b9d9878a64631663c0ff60ee26",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_base.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abc_time.yaml",
+      "source_sha256": "845b177e2810528d7ca6ea9e28b56ba6913412537e0042ce18c0c1228dfc13c0",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abc_time.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcs_arclogdur.yaml",
+      "source_sha256": "5415195cec6f2e5d1d07f4a39371afdfa3dc8cf17c3a2dfa676511d2243baa89",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcs_arclogdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcs_arcmean.yaml",
+      "source_sha256": "c6ef277d9d3bd313d61a85b0bdcdaad5c2c76c447b4c0246dced8257709dd4a4",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcs_arcmean.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcs_base.yaml",
+      "source_sha256": "112f0865c2c54a6d825b9a4e449f548d6e6a96ebc1b11a890d99bb890b2c12db",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcs_base.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/abcs_time.yaml",
+      "source_sha256": "f911b398d18f1205309dd9732e354bc8c504fcae9faf0315b7d614ed373e4623",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/abcs_time.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arclogdur.yaml",
+      "source_sha256": "da3a1aaf081368c660ff505a36bf390c673c05320d76efb726de223ebca182c4",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arclogdur.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arclogdur_ps.yaml",
+      "source_sha256": "ca39afbdb5150d030383460b3d8dc35673f12eb9699844adc0d38f1c5e9e796a",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arclogdur_ps.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arcmean.yaml",
+      "source_sha256": "895941046cebcf847eae0b72820e7d58ae821a4d05a8e08858aac420ff8648cb",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arcmean.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arcmean_D75.yaml",
+      "source_sha256": "6789e41bdce01f184433321462cac564568c3c07427e2f833f9c7b649743ca25",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arcmean_D75.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_arcvel.yaml",
+      "source_sha256": "8aac1eede336ef31d5b04e1eb8b76cddd00ba3438fc0da8037acc76f2e3a0d9b",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_arcvel.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_base.yaml",
+      "source_sha256": "348a294806fe5cbaccdf0cef9f6addb0ef981e0695bdcd740a2a7faffa5d4a61",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_base.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/experiment/e1/fold_time.yaml",
+      "source_sha256": "7a01c55142fe92471a6607b5940b4a10b9b49a35ba35f48c6a9fc5771afabb0e",
+      "targets": [
+        "egomimic/hydra_configs/experiment/e1/fold_time.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/model/abc_arc/hpt_abc_bc_flow_arcdur_D40_M100.yaml",
+      "source_sha256": "27e1eb8e96a4c5fa133891cab1f4db1f68af59681482276131453eaaf038437e",
+      "targets": [
+        "egomimic/hydra_configs/model/e1/hpt_flow.yaml",
+        "egomimic/hydra_configs/model/e1/hpt_flow_wrists.yaml"
+      ],
+      "disposition": "graph architecture port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100.yaml",
+      "source_sha256": "9072a11c47cd2a45f4fdc3486b4f0cbbd1b3bacb89d287b4dc62131f35a6b0d3",
+      "targets": [
+        "egomimic/hydra_configs/model/e1/hpt_flow.yaml",
+        "egomimic/hydra_configs/model/e1/hpt_flow_wrists.yaml"
+      ],
+      "disposition": "graph architecture port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/pl_utils/pl_data_utils.py",
+      "source_sha256": "12ab80c1651c544de28ea157e7cb008e45bd7941a50f0c49cc86d7e5fcd99ee3",
+      "targets": [
+        "egomimic/pl_utils/pl_data_utils.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/rldb/embodiment/e1_fold.py",
+      "source_sha256": "e70dd188741be1563050d556929492c39dc8b25451f0b01af904caa2592976a2",
+      "targets": [
+        "egomimic/rldb/embodiment/e1_fold.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/rldb/zarr/e1_anchor_sampler.py",
+      "source_sha256": "f642958511f9b01be07f5ab44fd600de1b4eb2c3f413f984b9d357e3a18a2898",
+      "targets": [
+        "egomimic/rldb/zarr/e1_anchor_sampler.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/rldb/zarr/e1_arc_tokenizer.py",
+      "source_sha256": "e08b42b2749b88c263a6cc03fd47bb7720d3afa7c11a0a013fcecd377104756b",
+      "targets": [
+        "egomimic/rldb/zarr/e1_arc_tokenizer.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/rldb/zarr/e1_resolvers.py",
+      "source_sha256": "71f0f5515156179c9e77ae457c0587030641690527b087e7fe6a03fbc2047ef6",
+      "targets": [
+        "egomimic/rldb/zarr/e1_resolvers.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "egomimic/robot/rollout-arc.py",
+      "source_sha256": "3af25007335a1eb05a0e392cf159d6fca741355835fa07232fd8f060adf55f71",
+      "targets": [
+        "egomimic/robot/arc_decoder.py"
+      ],
+      "disposition": "decoder port; hardware control runtime retained on original branch",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "scripts/e1/abc_e1.sbatch",
+      "source_sha256": "29f422087cb58bdeaab96256a30821bcacfa7386c7525636fa6f3c0026042c83",
+      "targets": [
+        "scripts/e1/abc_e1.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "scripts/e1/e1_ablation_check.py",
+      "source_sha256": "d3f61ab3bf3c546979a4d8e3b2e9cba4f4f32ebb6c294f45dacf2873d316f60a",
+      "targets": [
+        "scripts/e1/e1_ablation_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "scripts/e1/e1_data_smoke.py",
+      "source_sha256": "52e62a204a78ba83d129c1f1d8cf55aac72056c36f494fbfa50f84703f3e5432",
+      "targets": [
+        "scripts/e1/e1_data_smoke.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "scripts/e1/e1_tokenizer_check.py",
+      "source_sha256": "5dca6282a53894326d54cee5dae9d42e5fd6d4369e9ab2bbddcfce0cd362663c",
+      "targets": [
+        "scripts/e1/e1_tokenizer_check.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": true
+    },
+    {
+      "source_family": "robot",
+      "source_file": "scripts/e1/fold_ablation.sbatch",
+      "source_sha256": "fb64c4b7af9875bf65fe57230ea11b8e7f471fa364f73693b7d0a730c27b1e69",
+      "targets": [
+        "scripts/e1/fold_ablation.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "scripts/e1/fold_train_eval.sbatch",
+      "source_sha256": "cf9f8497f165cf3c0cce77545571dc567f40324fab31cae9456438e76a7d7028",
+      "targets": [
+        "scripts/e1/fold_train_eval.sbatch"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "robot",
+      "source_file": "scripts/e1/submit_ablation.sh",
+      "source_sha256": "cf7d7a5c63c6772fa9a9102f4302d3bbc24edc44a54c790b96702f7349ded3e9",
+      "targets": [
+        "scripts/e1/submit_ablation.sh"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": ".gitignore",
+      "source_sha256": "80ac51324aef7cd557e14e2a72ba1eef016a4fc05abb7cbf360d8f0ac5a02e36",
+      "targets": [
+        ".gitignore"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/algo/algo.py",
+      "source_sha256": "04aaeb9080746b6f772979e84554ccfd2f03ba3777186650f42721ce4654fd12",
+      "targets": [
+        "egomimic/pipeline/algo.py"
+      ],
+      "disposition": "legacy dispatch not restored; shared cadence/scoring behavior retained for PI; full source on original branch",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/algo/pi.py",
+      "source_sha256": "87b15d93a9943332d73cb4b7732c738fecbd72b23face191c4968a8038ed1fe3",
+      "targets": [
+        "egomimic/campaigns/pi05/policy.py",
+        "egomimic/pipeline/stages_pi05.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/eval/eval_act.py",
+      "source_sha256": "95f72456bf34e79b4c66b0bf9d9e8ce1df6d0ffaec2215154950f4b5e64be047",
+      "targets": [
+        "egomimic/campaigns/pi05/eval_video.py"
+      ],
+      "disposition": "legacy dispatch not restored; shared cadence/scoring behavior retained for PI; full source on original branch",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/eval/eval_hpt.py",
+      "source_sha256": "cb623e7d7b12d7391e34a0d98f3a187ab499aa85c95c2ff2a4228e2d2aeea29e",
+      "targets": [
+        "egomimic/campaigns/pi05/eval_video.py"
+      ],
+      "disposition": "legacy dispatch not restored; shared cadence/scoring behavior retained for PI; full source on original branch",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/eval/eval_latent.py",
+      "source_sha256": "acf173af5ddf029b813fe6b36bc13cef7d56fc5d4f6d99bc47579a0faf38b626",
+      "targets": [
+        "egomimic/campaigns/pi05/eval_video.py"
+      ],
+      "disposition": "legacy dispatch not restored; shared cadence/scoring behavior retained for PI; full source on original branch",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/eval/eval_pi.py",
+      "source_sha256": "ad791ac41056d74ab2068329862e90ae08e05bed4aa110522a97520bd0719ee6",
+      "targets": [
+        "egomimic/campaigns/pi05/eval_metrics.py",
+        "egomimic/eval/pi05_graph_eval.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/eval/eval_train_viz.py",
+      "source_sha256": "d7c91742f9bcba30e3304f26b7f12c39eb0a47ba09722be56eba1bf37509cc02",
+      "targets": [
+        "egomimic/campaigns/pi05/eval_train_viz.py",
+        "egomimic/eval/pi05_graph_eval.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/eval/eval_video.py",
+      "source_sha256": "bce68a1421f3419b4f13afa6a2ec1f476cf5e128f59c863d791185574af8717e",
+      "targets": [
+        "egomimic/campaigns/pi05/eval_video.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/callbacks/checkpoints.yaml",
+      "source_sha256": "20cdf735f8617fabaf300e3e07c2e12126c9bf667058392ca914f23ad68c1b5e",
+      "targets": [
+        "egomimic/hydra_configs/train_zarr_cartesian_pi.yaml"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/abc_eva_pi_6d.yaml",
+      "source_sha256": "3ace1b8b6c19f9b51b30bccc1d7a8fae4bf0840c2aa307972d5c278f29c7b75b",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/abc_eva_pi_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/abc_eva_pi_6d_foldviz.yaml",
+      "source_sha256": "056ba2f910047a7edc3aac93bd2cc8b101013d9f20ac1546cb5421253eb39bc5",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/abc_eva_pi_6d_foldviz.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/abc_stationery_pi_6d.yaml",
+      "source_sha256": "bc59bddc40eadab1b79a10fc69789f2b20c71643aca3166081f96973c4e7e67e",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/abc_stationery_pi_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/aria_fold_pi_6d_grip.yaml",
+      "source_sha256": "7ca58a1ed5be434c8678d180f5be6eb49bd59acc5f88709d3d4814c0e1a18339",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/aria_fold_pi_6d_grip.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/cotrain_pi_base.yaml",
+      "source_sha256": "5af3e383d9fc6de2019e395ce912562cda5db2acb739be7b7cd6a7bd57ef6e31",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/cotrain_pi_base.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/cotrain_pi_lang.yaml",
+      "source_sha256": "db624beafcd6bdd092626ab3df310c7b24e151875f6ffdbc788a84c1d8c6a588",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/cotrain_pi_lang.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/cotrain_pi_lang_6d.yaml",
+      "source_sha256": "e5032cf226e9eaf6e665812be4f5642a160c5c137a3b0c06d5f74000e027c1f2",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/cotrain_pi_lang_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/mecka_abc_pi_6d.yaml",
+      "source_sha256": "cdba5f0694ab058f9ccc05f3421ff93e228e5de1ddf11d8344c960f323c2da9e",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/mecka_abc_pi_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/mecka_all_pi_6d.yaml",
+      "source_sha256": "e7b1428865cc28aa2017f0667307cf25a2127950e06eb71781ec081f3387126d",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/mecka_all_pi_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/mecka_fold_flagship_pi_6d.yaml",
+      "source_sha256": "de41f3c836a11680f92ee557be799cc49660b01313ecc8e9dec7012242cc2417",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/mecka_fold_flagship_pi_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/obj_gen_pi_lang.yaml",
+      "source_sha256": "49adbab1e86d97509bf01ffd21579cc5054318a01a1baaa62c3042e2c3f21aef",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/obj_gen_pi_lang.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/obj_gen_pi_lang_6d.yaml",
+      "source_sha256": "14c58314323d184474c6b8cb163420c614d9e50dc73f2fde60fc085fadeac413",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/obj_gen_pi_lang_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/obj_gen_pi_lang_wristframe.yaml",
+      "source_sha256": "8239026be60aec8f128c09c695009c42eb22e247ecfac03fa3686d1f8d76fac6",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/obj_gen_pi_lang_wristframe.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/data/obj_gen_pi_lang_wristframe_6d.yaml",
+      "source_sha256": "cdd6554f7da07520cf18742b9bee720ab914e68e915185632dbe406cadf6bbed",
+      "targets": [
+        "egomimic/hydra_configs/data/pi05/obj_gen_pi_lang_wristframe_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/evaluator/eval_hpt.yaml",
+      "source_sha256": "0280f2140791397e3056189468c759fa45742a72e50c1b63902a88fc3ad22b68",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/pi05/eval_pi.yaml"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/evaluator/eval_pi.yaml",
+      "source_sha256": "63de589fb80e88460b2abea301bf1b1804d6f65c8a6617eddd235abbf5054602",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/pi05/eval_pi.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/evaluator/eval_pi_camframe_6d.yaml",
+      "source_sha256": "797c1e3642bc16629d39ed3056bdc182769076b33f9184ce68fdb2d6badc741b",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/pi05/eval_pi_camframe_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/evaluator/eval_pi_wristframe_6d.yaml",
+      "source_sha256": "558314570b1693bde565bd65ccb772ca2e75c72b33bfce45440641fc91d6d89e",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/pi05/eval_pi_wristframe_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/evaluator/eval_pi_wristframe_6d_grip.yaml",
+      "source_sha256": "13633a42aaae277ef4666e273a4a85b996fe0c7a4d2c4eaed4334a84098b5460",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/pi05/eval_pi_wristframe_6d_grip.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/evaluator/train_viz_pi_wristframe_6d.yaml",
+      "source_sha256": "ee003abda1d5b27e07b3a8c5575da6c0103be9451029706d1aeb76c3c5a4a70a",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/pi05/eval_pi_wristframe_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/evaluator/train_viz_pi_wristframe_6d_grip.yaml",
+      "source_sha256": "731c953ea5cde167af323711da59700958a511f1954eabbd1ec31e99c3c432f8",
+      "targets": [
+        "egomimic/hydra_configs/evaluator/pi05/eval_pi_wristframe_6d_grip.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/model/pi0.5_base.yaml",
+      "source_sha256": "0bbf9640752f1f5ad6e5278a45a3184986bf2cd6f8892c45fb0125b533dc4917",
+      "targets": [
+        "egomimic/hydra_configs/model/pi05/pi0.5_bc_abc_eva_6d.yaml"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/model/pi0.5_bc_abc_eva_6d.yaml",
+      "source_sha256": "1933df4580e59c5dc66ab288fea7aa86fabb65f4648e60078a18902e522c9134",
+      "targets": [
+        "egomimic/hydra_configs/model/pi05/pi0.5_bc_abc_eva_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/model/pi0.5_bc_eva.yaml",
+      "source_sha256": "6f0d39af61ad15c0b08e0e52588092617f8385d28009dbc4b55faef7ca541a92",
+      "targets": [
+        "egomimic/hydra_configs/model/pi05/pi0.5_bc_eva.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/model/pi0.5_bc_mecka_6d.yaml",
+      "source_sha256": "ff9a09b5c451d7cfed79e4b2bb02d6421d962fa17ff2268811ee1fd67dfe4620",
+      "targets": [
+        "egomimic/hydra_configs/model/pi05/pi0.5_bc_mecka_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/model/pi0.5_bc_mecka_abc_6d.yaml",
+      "source_sha256": "2656e5b9f08053451debe58a445687c75916dcf00a3f277d003a763ea82483fb",
+      "targets": [
+        "egomimic/hydra_configs/model/pi05/pi0.5_bc_mecka_abc_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/model/pi0.5_cotrain_eva_aria_6d.yaml",
+      "source_sha256": "6839139c99b06304432a212d007f75966c7b5cf7fa3901f3f41abb77edd007ce",
+      "targets": [
+        "egomimic/hydra_configs/model/pi05/pi0.5_cotrain_eva_aria_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/model/pi0.5_ft_abc_eva_6d.yaml",
+      "source_sha256": "c71319def918b3bcd4dfb3aa943d45d94632231212ff71cc7bd952667d39a683",
+      "targets": [
+        "egomimic/hydra_configs/model/pi05/pi0.5_ft_abc_eva_6d.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/model/pi0.5_ft_aria_fold_grip.yaml",
+      "source_sha256": "16e55259af32fa1e857f88bd036e7d7d6016d2f17681680cac8de6d35fa11261",
+      "targets": [
+        "egomimic/hydra_configs/model/pi05/pi0.5_ft_aria_fold_grip.yaml"
+      ],
+      "disposition": "graph config port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/train_zarr_cartesian_pi.yaml",
+      "source_sha256": "b3d0566db9d844c5356aa30bebdeac6dd31628b53b65450d91a1bd2e59bebcdf",
+      "targets": [
+        "egomimic/hydra_configs/train_zarr_cartesian_pi.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/hydra_configs/trainer/ddp_pi.yaml",
+      "source_sha256": "378fdce67b45f04dabe718f6cff766c4d627817a9ef9b26b71506474c50e8104",
+      "targets": [
+        "egomimic/hydra_configs/trainer/ddp_pi.yaml"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/models/preprocess_pi_obs.py",
+      "source_sha256": "91f426d25b014883bbb7f2b01084ebc4bb112b13f6f5dddc393d51f6ee6a4820",
+      "targets": [
+        "egomimic/campaigns/pi05/observations.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/pl_utils/pl_data_utils.py",
+      "source_sha256": "e70fdc844d3daddd11f05a35242f4f55b96a8e095f403baa0ccdc4d82fef98a2",
+      "targets": [
+        "egomimic/pl_utils/pl_data_utils.py",
+        "egomimic/campaigns/pi05/data.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/pl_utils/pl_model.py",
+      "source_sha256": "0235abeb0afbb1ac217af3de5ee4251dbcde509ea079d7f093b144f63f8777b9",
+      "targets": [
+        "egomimic/pl_utils/pl_model.py",
+        "egomimic/eval/pi05_graph_eval.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/rldb/embodiment/embodiment.py",
+      "source_sha256": "340c8168d84ff827032bf7ab0a79bd8453747516ee2659d91ea61098d8c29f4b",
+      "targets": [
+        "egomimic/campaigns/pi05/embodiment.py"
+      ],
+      "disposition": "scoped geometry port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/rldb/embodiment/eva.py",
+      "source_sha256": "f6880f5cc5ea4b7a4c0e19c6bee18e9bfbc2f9e1ffcddcf31bb4b325f0ec0a26",
+      "targets": [
+        "egomimic/campaigns/pi05/eva.py"
+      ],
+      "disposition": "scoped geometry port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/rldb/embodiment/human.py",
+      "source_sha256": "521094e6cfc563cec2938154b037db713eb460ead629ce1ed365a8104b5f432e",
+      "targets": [
+        "egomimic/campaigns/pi05/human.py"
+      ],
+      "disposition": "scoped geometry port",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/rldb/zarr/action_chunk_transforms.py",
+      "source_sha256": "69e663228f6fb29c168d05a67a2bc371e5bfa5d76b00c905eb61a6e481b8d6d0",
+      "targets": [
+        "egomimic/campaigns/pi05/transforms.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/rldb/zarr/zarr_dataset_multi.py",
+      "source_sha256": "1c60e7b9caad453ffdba5c7a5d5a4e3e9363bb02341861dbabd89a1e9e4ce995",
+      "targets": [
+        "egomimic/campaigns/pi05/data.py",
+        "egomimic/campaigns/pi05/resolvers.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/abc_process/viz_eva_episode.py",
+      "source_sha256": "1feb338c51a2ffefcc0866d8f58735dd40f6a412f1ed3d61b7915c05e32e30a0",
+      "targets": [
+        "scripts/pi05/abc_process/viz_eva_episode.py"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/debug_mecka_fold_2g.sbatch",
+      "source_sha256": "3a16881f191fd1a16117ac1751e484bb2290de4998b62c6ddbe453380f254a57",
+      "targets": [
+        "scripts/pi05/debug_mecka_fold_2g.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/eval_aria_fold_grip.sbatch",
+      "source_sha256": "becc009fd9e0a4c08e66960159d280d1c0d0e712b02e1e0cd26448c4696cfab1",
+      "targets": [
+        "scripts/pi05/eval_aria_fold_grip.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/mecka_process/mecka_to_zarr.py",
+      "source_sha256": "909da42e099ad71ac6143e5aa476163d5f294cd98a915de0a2c8aef92fe500f6",
+      "targets": [
+        "scripts/pi05/mecka_process/mecka_to_zarr.py"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/mecka_process/viz_mecka_episode.py",
+      "source_sha256": "cbb400d2692561cd6b074843934c15a1641c08bcdd638fc5e80b777d144e3a5e",
+      "targets": [
+        "scripts/pi05/mecka_process/viz_mecka_episode.py"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/norm_abc_eva_6d.sbatch",
+      "source_sha256": "b1c74a2a82763301f57d667d63290953e3a5364dba3aa0a5adb37ced9fbd1a43",
+      "targets": [
+        "scripts/pi05/norm_abc_eva_6d.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/norm_abc_eva_foldviz_debug.sbatch",
+      "source_sha256": "7f99272d807a7ea3cda333ccc8a38853f17bb5a956f94bffb84ab5df61ff9638",
+      "targets": [
+        "scripts/pi05/norm_abc_eva_foldviz_debug.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/norm_abc_stationery_rl2yam.sbatch",
+      "source_sha256": "a4ff82c6850df62bce235d5566ef1acd81dff8d255721fadb3f1edbdc5d63f19",
+      "targets": [
+        "scripts/pi05/norm_abc_stationery_rl2yam.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/norm_aria_fold_grip.sbatch",
+      "source_sha256": "b29cec8005dc30223cc7f68588d14e36c65fbad57465cdbca59611f2702bc8ed",
+      "targets": [
+        "scripts/pi05/norm_aria_fold_grip.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/norm_mecka_all_6d.sbatch",
+      "source_sha256": "afbbf045ae72bab8b015712d2383978a63430c87a6ace626ae739bf1c4a8aa67",
+      "targets": [
+        "scripts/pi05/norm_mecka_all_6d.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/precompute_norm_stats.py",
+      "source_sha256": "088fbf650d43b9ef2e39a03d42f076a04fac49eeb410e02fce5ebb077c98f8ca",
+      "targets": [
+        "scripts/pi05/precompute_norm_stats.py"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/smoke_abc_eva.sbatch",
+      "source_sha256": "32d0ac4ccfade7807408d578edb0898b5206e69cdeea7816f8a1781372db0186",
+      "targets": [
+        "scripts/pi05/smoke_abc_eva.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/smoke_abc_stationery_pi.sbatch",
+      "source_sha256": "6c3036ed9ad96a509c3b74c3ce17e86e465b813da4fb90e7f8beb2248fffc45b",
+      "targets": [
+        "scripts/pi05/smoke_abc_stationery_pi.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/smoke_aria_fold_grip.sbatch",
+      "source_sha256": "166656d664854b862c8316370edc39efe80ad243ac17477e280c1f7710be35bb",
+      "targets": [
+        "scripts/pi05/smoke_aria_fold_grip.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/smoke_mecka_abc_6d.sbatch",
+      "source_sha256": "2f841f18c8e7659809a879515043c67a8d4a03b00c55116df39c629bb8d30598",
+      "targets": [
+        "scripts/pi05/smoke_mecka_abc_6d.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/smoke_mecka_all_6d.sbatch",
+      "source_sha256": "c4a35c6634ceb9a28780e4798395290816e0d3ead2c6ec423b18e539a488aa8b",
+      "targets": [
+        "scripts/pi05/smoke_mecka_all_6d.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/sync_abc_eva.py",
+      "source_sha256": "0a63cd9cb7fbded722623b484af8a6ce0eee1f608d2fba2ef4bb4dddeb06a4c6",
+      "targets": [
+        "scripts/pi05/sync_abc_eva.py"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": true
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/sync_abc_eva.sbatch",
+      "source_sha256": "2107e2ac62ec34f379d4da7cefbcd4c3025c4636389fe31422b59fcfb9b5b8dc",
+      "targets": [
+        "scripts/pi05/sync_abc_eva.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/sync_aria_fold.py",
+      "source_sha256": "ca4939d6b623fd4265f1256725bb8db32f2915837134af084760371a7eb4e66c",
+      "targets": [
+        "scripts/pi05/sync_aria_fold.py"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": true
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/sync_aria_fold.sbatch",
+      "source_sha256": "74896eedeab1d03d28777a129564aecb977fdbd33f3828ef0d770b0ee039edad",
+      "targets": [
+        "scripts/pi05/sync_aria_fold.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/sync_aria_fold_fresh.py",
+      "source_sha256": "6c015e4d7c3011a02266fdd06eee37b4b260ce7eecf1a857edc804c3be0a1e52",
+      "targets": [
+        "scripts/pi05/sync_aria_fold_fresh.py"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": true
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/sync_aria_fold_fresh.sbatch",
+      "source_sha256": "bf06fad69971802014ff25ce9e9dbf7602d258c0a999a24568bb606cc6e86f53",
+      "targets": [
+        "scripts/pi05/sync_aria_fold_fresh.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/train_abc_eva_ft.sbatch",
+      "source_sha256": "5ac13173998fab0dea870c06a43698d4aa78fdf003fba2cfebf8ec922ad302af",
+      "targets": [
+        "scripts/pi05/train_abc_eva_ft.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/train_abc_stationery_pi.sbatch",
+      "source_sha256": "cc3eaa16b044b9c2ee3613550f65974b22861cf9fb789b5e78b091682544f35c",
+      "targets": [
+        "scripts/pi05/train_abc_stationery_pi.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/train_aria_fold_grip.sbatch",
+      "source_sha256": "852f200b2ed50b265f82e0022d9efe3a8fa2e0bfeddc3fb6b537ce2848bc6fae",
+      "targets": [
+        "scripts/pi05/train_aria_fold_grip.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/train_aria_fold_grip_evahuman.sbatch",
+      "source_sha256": "e02e113d71d1a7decf9d5c46cffc90d63c6f0f9c1d89e80e3ca5cd4073a40e8b",
+      "targets": [
+        "scripts/pi05/train_aria_fold_grip_evahuman.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/train_mecka_all_6d.sbatch",
+      "source_sha256": "2d2cc7a5a8041365bd5023575440d049eaf0c539325b338d4217d9afd2f7bb9e",
+      "targets": [
+        "scripts/pi05/train_mecka_all_6d.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/scripts/train_mecka_all_6d_4g.sbatch",
+      "source_sha256": "1a117177ecec62080dac9865ad70e480ae4c160f966ae7c496086c6bd8b7b78c",
+      "targets": [
+        "scripts/pi05/train_mecka_all_6d_4g.sbatch"
+      ],
+      "disposition": "tool/launcher port; not executed",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/trainHydra.py",
+      "source_sha256": "8e6e24cb8e2053a9534dc1c18455349dc9024d6a84bfca6d2a7b1444949b5287",
+      "targets": [
+        "egomimic/trainHydra.py"
+      ],
+      "disposition": "retained or graph-adapted",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/utils/action_utils.py",
+      "source_sha256": "556a40823328e16ba089f6ab9005caa1c8356d457ef38445a244c788ee79fa18",
+      "targets": [
+        "egomimic/campaigns/pi05/action_encoding.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/utils/metrics.py",
+      "source_sha256": "90d9afd5a5a8fe2ac9656b086951705551becc5d840a938e9e65fe279511ab77",
+      "targets": [
+        "egomimic/campaigns/pi05/metrics.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/utils/pose_utils.py",
+      "source_sha256": "c4db5c74fbfd3793e8dafb0827e6d8b31ae0eadc67eec7d70dd96ad57ac79ec5",
+      "targets": [
+        "egomimic/campaigns/pi05/pose.py"
+      ],
+      "disposition": "graph adapter or existing graph equivalent; source patch retained",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/utils/test_pi05_action_encoding.py",
+      "source_sha256": "87fa1c50088de2e586e5a7a7ed764e0c0779c3ad24895b0e0495f4a3b0da3484",
+      "targets": [
+        "tests/test_pi05_action_encoding.py"
+      ],
+      "disposition": "source tests with namespace imports",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/utils/test_pi05_norm_rot6d.py",
+      "source_sha256": "afe1be5b208aea667d13164f51b5a4c3a40b3cc7a7a517b02f787720abaf3f24",
+      "targets": [
+        "tests/test_pi05_norm_rot6d.py"
+      ],
+      "disposition": "source tests with namespace imports",
+      "byte_identical": false
+    },
+    {
+      "source_family": "pi",
+      "source_file": "egomimic/utils/test_wrist6d_roundtrip.py",
+      "source_sha256": "096035b6ca428c94c59924bcfcac4c4e5aa0b8ad53ee0215fc8454a654facebf",
+      "targets": [
+        "tests/test_wrist6d_roundtrip.py"
+      ],
+      "disposition": "source tests with namespace imports",
+      "byte_identical": false
+    }
+  ],
+  "preservation": "Original branches, PRs, worktrees and source-tip refs are retained; no force pushes or branch deletion.",
+  "validation_limit": "CPU tests and config checks only. No GPU training, real dataset jobs or robot actuation."
+}

@@ -22,6 +22,10 @@ HELPER = os.path.expanduser("~/scratch/autoresearch/orchestrator-260909-1520/rol
 STATE = os.path.join(OUT, "monitor-state.json")
 STEPS = tuple(range(30000, 240001, 30000))
 MAX_INFLIGHT = int(os.environ.get("CT3_MAX_INFLIGHT", "24"))
+# Level-0 seed blocks to score per checkpoint. Elmo's protocol is the canonical block only
+# (seeds 0-39); block 40 (seeds 40-79) is a labelled non-canonical extension, opt in with
+# CT3_SEED_BLOCKS=0,40. Obstacles are always the full OEC-56 bank (30 levels x 5 seeds).
+SEED_BLOCKS = tuple(int(b) for b in os.environ.get("CT3_SEED_BLOCKS", "0").split(","))
 OEC_LEVELS = tuple(range(1, 31))
 
 # row -> dict(sweep_dir, prefix, embodiments, budget_set, unite, oec_levels_by_emb)
@@ -78,7 +82,7 @@ def jobs_for(row):
     cfg = ROWS[row]
     variants = [("cfgemb", [])] if not cfg["unite"] else [("cfgemb", []), ("cfg1", ["--cfg", "1.0"])]
     for emb in cfg["embs"]:
-        for block in (0, 40):
+        for block in SEED_BLOCKS:
             for vname, vargs in variants:
                 yield f"{row}-STEP-{emb}-L0-s{block}-{vname}", ["0", "--seed-block", str(block), "--budget-set", cfg["bset"], *vargs]
         for chunk in cfg["oec"].get(emb, ()):  # "a-b" level ranges -> one GPU job, results <tag>-L<level>.json

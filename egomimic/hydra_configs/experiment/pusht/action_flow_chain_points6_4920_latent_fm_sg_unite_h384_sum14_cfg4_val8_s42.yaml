@@ -1,42 +1,62 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/action_flow_chain_points6_4920_candidate_common
-  - override /model: bf/us_action_flow_latent_fm_sg_unite_h384
+  - /experiment/pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+  - override /data: pusht/action_flow_chain_points6_4920_val01_h16
   - _self_
 
 name: action_flow_chain_points6_4920_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
 description: "Standalone ChainGripper points6 Action Flow H384; 3k real plus 1920 generated obstacle episodes"
 
-train:
-  action_flow_method: latent_fm_stopgrad_unite
+planar:
+  action_dims: {pushshapes_sim_chain_gripper: 6}
+  action_model_dim: 6
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
 
-model:
-  flow_loss_aggregation: sum_samples
-  cfg_scale: 4.0
-  cfg_interval: [0.0, 1.0]
+evaluator:
+  native_decoder: ${planar.eval_native_decoder}
+  semantic_blocks: [[0, 2], [2, 4], [4, 6]]
+  energy_score_distance: null
+  energy_score_provenance:
+    action_representation: left_xy_center_xy_right_xy_points6
+    distance_contract:
+      space: normalized_action_chunk
+      formula: mean_equal_weight_semantic_block_rms
+      semantic_blocks: [[0, 2], [2, 4], [4, 6]]
+  action_flow_diagnostics:
+    native_error: null
+    provenance:
+      action_representation: left_xy_center_xy_right_xy_points6
+
+callbacks:
+  model_checkpoint:
+    every_n_train_steps: 20000
 
 run_provenance:
   architecture:
-    family: action_flow_with_separate_released_unite_modules
-    tokenizer: UniteDiTBackbone_h384_d12_h12
-    denoiser: UniteDiTBackbone_h384_d12_h12
-    decoder: UniteActionDecoder_h384_d12_h12
-    tokenizer_denoiser_weight_sharing: false
     action_shape: [16, 6]
-    latent_shape: [8, 16]
-    observation_condition_dim: 128
-  objective:
-    method: latent_fm_stopgrad_unite
-    flow_clean_gradient_mode: all_stopgrad
-    action_velocity_clean_gradient_mode: full
-    reconstruction_is_optimizer_objective: true
-    flow_weight: 1.0
-    reconstruction_weight: 1.0
-    action_velocity_weight: 1.0
-    flow_samples_per_content: 14
-    flow_mini_batch: 14
-    flow_aggregation: sum_of_14_per_sample_means
-    reconstruction_only_warmup_steps: 0
+  split_manifest_path: ${oc.env:CHAIN4920_SPLIT_MANIFEST,/required/chain4920_split_manifest.json}
+  split_manifest_sha256: ${oc.env:CHAIN4920_SPLIT_MANIFEST_SHA256,required}
+  content_manifest_path: ${oc.env:CHAIN4920_CONTENT_MANIFEST,/required/chain4920_content_manifest.json}
+  content_manifest_sha256: ${oc.env:CHAIN4920_CONTENT_MANIFEST_SHA256,required}
+  dataset_content_aggregate_sha256: ${oc.env:CHAIN4920_CONTENT_AGGREGATE_SHA256,required}
+  split_seed: 42
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 4871
+  valid_episode_count_per_domain: 49
+  union_episode_count_per_domain: 4920
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  dataset_observation_alignment: pre_step
+  action_contract:
+    representation: left_xy_center_xy_right_xy_points6
+    prediction_horizon: 16
+    native_decoder: ChainGripperPointsNativeDecoder
+  energy_score_contract:
+    distance:
+      space: normalized_action_chunk
+      formula: mean_equal_weight_semantic_block_rms
+      semantic_blocks: [[0, 2], [2, 4], [4, 6]]
   requirements:
     r1_full_conditional_distribution: PASS_design_under_fixed_endpoint_cfm_assumptions
     r2_common_stochastic_latent: PASS_single_embodiment_design
@@ -49,3 +69,9 @@ run_provenance:
     r9_collapse_and_decoder_sensitivity: OPEN_requires_training_diagnostics
     r10_baseline_quality_and_compute: OPEN_requires_validation_and_rollout
 
+deployment:
+  observation_adapter:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperModelStateObservationAdapter
+  action_decoder:
+    _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+  chain_gripper_control_mode: points

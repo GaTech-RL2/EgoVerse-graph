@@ -99,7 +99,7 @@ class EvalVideo(Eval):
             )
 
     def on_validation_end(self):
-        if not self._should_viz():
+        if not self.trainer.is_global_zero or not self._should_viz():
             return
         for key, buffer in self.val_image_buffer.items():
             os.makedirs(
@@ -126,7 +126,7 @@ class EvalVideo(Eval):
             self.val_image_buffer[key] = []
 
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
-        do_viz = self._should_viz() and (
+        do_viz = self.trainer.is_global_zero and self._should_viz() and (
             self.viz_max_batches is None or batch_idx < self.viz_max_batches
         )
         metrics, images_dict = self.compute_metrics_and_viz(batch, do_viz=do_viz)

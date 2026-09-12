@@ -1,0 +1,23 @@
+defaults:
+- train_zarr_cartesian
+- override model: pi05/pi0.5_bc_abc_eva_6d
+- override data: pi05/abc_stationery_pi_6d
+- override trainer: ddp_pi
+- override evaluator: pi05/eval_pi_wristframe_6d
+- _self_
+pi05:
+  pretrained_weights: ???
+val_at_start: false
+normalizer:
+  _target_: egomimic.campaigns.pi05.data.PI05Dataset
+name: pi05_abc_stationery_bc
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 50
+    save_top_k: -1
+trainer:
+  max_epochs: 400
+  min_epochs: 0
+model:
+  optimizer:
+    lr: 5.0e-05

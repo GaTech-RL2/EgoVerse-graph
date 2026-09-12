@@ -32,9 +32,43 @@ evaluator:
       formula: mean_equal_weight_semantic_block_rms
       semantic_blocks: [[0, 2], [2, 4], [4, 6]]
   action_flow_diagnostics:
+    enabled: true
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    max_batches_per_rank: 1
+    max_samples: 16
+    jacobian_samples: 2
+    capture_activations: true
+    activation_layer_map: {0: 0, 1: 11}
+    cknna_k: 10
     native_error: null
+    artifact_root: ${paths.output_dir}/validation_predictions/action_flow_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_rank
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 32
+      world_size: 1
     provenance:
+      source_commit: ${run_provenance.source_commit}
+      normalization_sha256: ${run_provenance.normalization_sha256}
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      dataset_content:
+        manifest_sha256: ${run_provenance.content_manifest_sha256}
+        aggregate_sha256: ${run_provenance.dataset_content_aggregate_sha256}
       action_representation: left_xy_center_xy_right_xy_points6
+      clean_endpoint: t0
+      gaussian_endpoint: t1
+      latent_shape: [8, 16]
+      flow_samples_per_content: ${model.flow_samples_per_content}
+      condition_dropout_probability: ${model.condition_dropout_probability}
+      sampler: dopri5
+      sampler_steps: ${model.num_inference_steps}
+      flow_time_sampling: lognormal_shifted_mapped_to_t0_clean
+      reconstruction_noising: clean_fraction_uniform_0p7_to_1_probability_0p5
+      fixed_level_coupling: one_clean_latent_and_one_gaussian_per_condition
+      decoder_jacobian_evaluation: declared_bridge_state_at_each_fixed_noise_level
+      activation_capture: real_forward_hooks_without_replay_or_replacement
 
 callbacks:
   model_checkpoint:

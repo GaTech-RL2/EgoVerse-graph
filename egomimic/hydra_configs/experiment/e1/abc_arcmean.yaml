@@ -1,0 +1,11 @@
+# @package _global_
+# ABC / YAM skirts — arcmean row (see abc_base and fold_arcmean).
+defaults:
+- /experiment/e1/abc_base
+- override /model: e1/hpt_flow
+- _self_
+e1:
+  variant: arcmean
+  chunk_length: 200
+  action_dim: 14
+  action_horizon: 101

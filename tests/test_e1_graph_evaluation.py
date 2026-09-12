@@ -146,3 +146,19 @@ def test_missing_time_targets_fail_instead_of_writing_empty_metrics():
         obj.on_validation_step({"source": {"embodiment": torch.tensor([7])}}, 0)
     with pytest.raises(RuntimeError, match="no prediction"):
         obj.on_validation_end()
+
+
+def test_validation_logs_through_lightning_and_writes_rescore_schema(tmp_path):
+    pred, truth = example()
+    obj = evaluator(pred, results_path=tmp_path / "e1_tempo.json")
+    logged = []
+    obj.trainer = SimpleNamespace(
+        is_global_zero=True,
+        lightning_module=SimpleNamespace(log_dict=lambda values, **kwargs: logged.append(values)),
+    )
+    obj.on_validation_step(batch(truth), 0)
+    obj.on_validation_end()
+    assert len(logged) == 1
+    assert logged[0]["Valid/E1/E_time/yam_bimanual"] == 0
+    result = json.loads((tmp_path / "eval_metrics.json").read_text())
+    assert result["results"][0]["Valid/E1/paired_mse/yam_bimanual"] == 0

@@ -5,7 +5,7 @@ the ICE working stack `aidan/unite-cotrain-1 → -2 → unite-compile → -3 →
 plus the rollout-driver branch `aidan/rollout-eval-3`, re-based as a small set of
 commits on `main` (75525eb, PR #20). The raw stack keeps the exact per-row
 commits that every run's provenance records; this branch has the same content
-at different SHAs. Nothing here has been merged. All experiments finished 2026-09-11 15:50 ET.
+at different SHAs. Nothing here has been merged. All experiments finished 2026-09-11 15:50 ET; a CFG sweep of the best checkpoints followed on 2026-09-12 (section 3).
 
 Question under test: does UNITE (released recipe, un-tied tokenizer/denoiser,
 hidden 384, topology A = shared tokenizer body + per-embodiment decoders),
@@ -85,9 +85,11 @@ when porting.
   (`PadActionWidth`), chain six points, no embodiment token, per-embodiment
   norm stats, `CombinedLoader max_size_cycle` (one 32-batch per embodiment per
   step, losses averaged), `PaddedPlanarCommon5NativeDecoder` decodes U-Socket.
-- Inference: UNITE at CFG 1.0 (declared 9-10; the embedded 4.0 is reported
-  alongside as `cfgemb`; 1.5 and 2.0 were worse; K-sample chunk averaging is
-  worse), dopri5, replan every 8 of a 16-step chunk, EMA weights.
+- Inference: UNITE at CFG 1.0, dopri5, replan every 8 of a 16-step chunk, EMA
+  weights. CFG sweep 9-12 (`scripts/ice/cotrain/cfg_final.sh`, `cfg_final_summary.py`,
+  `cfg_paired.py`; 1.0 / 1.5 / 2.0 / 3.0 / 4.0 / 6.0, three replicates, paired):
+  chain falls monotonically above 1.0 (−0.30 at the embedded 4.0, t ≈ −6);
+  U-Socket flat 1.0–4.0, off a cliff at 6.0. K-sample chunk averaging is worse.
 - `torch.compile` (`ICE_UNITE_COMPILE=true`) is bit-equivalent in fp32 and
   +39 % throughput, but needs `functorch donated_buffer=False` because the
   telemetry calls `autograd.grad(retain_graph=True)` every 100 steps; not

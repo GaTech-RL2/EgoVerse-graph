@@ -865,6 +865,88 @@ class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
         return datasets
 
 
+class LocalFolderEpisodeResolver(EpisodeResolver):
+    """
+    Resolves every zarr episode inside ``folder_path`` — no SQL, no external
+    filters. The folder itself is the source of truth: if a zarr is in it,
+    it's included.
+
+    Optional ``embodiment`` restricts to episodes whose zarr ``attrs.embodiment``
+    matches, which is what cotraining data configs use to route each domain
+    (e.g. ``eva_bimanual``, ``human_bimanual``) to the right transform stack.
+    """
+
+    def __init__(
+        self,
+        folder_path: Path,
+        key_map: dict | None = None,
+        transform_list: list | None = None,
+        embodiment: str | None = None,
+        debug: int | bool | None = None,
+    ):
+        super().__init__(folder_path, key_map, transform_list)
+        self.embodiment = embodiment
+        self.debug = debug
+
+    def resolve(
+        self,
+        sync_from_s3: bool = False,
+        filters: DatasetFilter | None = None,
+    ) -> dict[str, "ZarrDataset"]:
+        if sync_from_s3:
+            logger.warning(
+                "LocalFolderEpisodeResolver does not sync from S3; ignoring sync_from_s3=True."
+            )
+        if filters is not None:
+            logger.info(
+                "LocalFolderEpisodeResolver ignores `filters`; using every episode in %s%s.",
+                self.folder_path,
+                f" with embodiment={self.embodiment}" if self.embodiment else "",
+            )
+
+        if not self.folder_path.is_dir():
+            raise ValueError(f"folder_path is not a directory: {self.folder_path}")
+
+        selected: list[str] = []
+        for p in sorted(self.folder_path.iterdir()):
+            if not p.is_dir():
+                continue
+            name = p.name[:-5] if p.name.endswith(".zarr") else p.name
+            if self.embodiment is not None:
+                try:
+                    attrs = dict(zarr.open_group(str(p), mode="r").attrs)
+                except Exception as e:
+                    logger.warning("Failed to read metadata for %s: %s", p, e)
+                    continue
+                if attrs.get("embodiment") != self.embodiment:
+                    continue
+            selected.append(name)
+
+        if self.debug is not None and self.debug is not False:
+            k = min(10 if self.debug is True else int(self.debug), len(selected))
+            if k < len(selected):
+                logger.info("Debug mode: limiting to %d datasets.", k)
+            selected = selected[:k]
+
+        if not selected:
+            raise ValueError(
+                f"No episodes found in {self.folder_path}"
+                + (f" for embodiment={self.embodiment}" if self.embodiment else "")
+            )
+
+        logger.info(
+            "LocalFolderEpisodeResolver: %d episodes from %s%s",
+            len(selected),
+            self.folder_path,
+            f" (embodiment={self.embodiment})" if self.embodiment else "",
+        )
+
+        return self._load_zarr_datasets(
+            search_path=self.folder_path,
+            valid_folder_names=set(selected),
+        )
+
+
 class MultiDataset(torch.utils.data.Dataset):
     """
     Wraps a dict of child datasets (Zarr leaves or other MultiDatasets) and

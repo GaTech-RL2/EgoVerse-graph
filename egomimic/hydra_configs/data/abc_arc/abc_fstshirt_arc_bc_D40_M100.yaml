@@ -3,18 +3,19 @@
 # These splits happen to be uniform today, but a batch cannot mix image sizes and
 # ABC/mecka ship 640x480, 640x360, 1280x720 and 848x480 -- so adding an episode
 # without this would crash collate rather than resize.
-# ABC-ONLY (no cotraining) time-indexed BC data: fold_and_stack_the_t_shirts,
-# yam_bimanual.
+# ABC-ONLY (no cotraining) ARC-TOKENIZED BC data at D = 0.40 m / M = 100:
+# fold_and_stack_the_t_shirts, yam_bimanual.
 #
 # This is the single-domain arm of the cotrain ablation. The yam block below is
-# byte-for-byte the yam block of abc_fstshirt_mecka_freefold_baseline_cotrain --
-# same 20 episodes, same coord_frame, same action space, same dataloader params.
-# The ONLY difference is that the human_bimanual split is absent. That is what
+# byte-for-byte the yam block of
+# abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100 -- same 20 episodes, same
+# coord_frame, same action space, same arc knobs, same dataloader params. The
+# ONLY difference is that the human_bimanual split is absent. That is what
 # isolates the effect of cotraining: robot data volume is held fixed at 20
 # episodes / 48,286 frames, so any delta against the cotrain run is attributable
 # to the human data, not to seeing more or less robot data.
 #
-# Its arc twin is abc_fstshirt_arc_bc_D40_M100.
+# Its time-indexed twin is abc_fstshirt_bc.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -34,12 +35,17 @@ train_datasets:
       debug: 20
       key_map:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
-        action_mode: cartesian
+        action_mode: arc_tokenizer_cartesian
         coord_frame: eef_frame
         rotation_mode: euler
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
+        # One knob, read by the evaluator too. per_waypoint keeps a local rate
+        # per interval instead of one token-wide mean.
+        velocity_mode: ${abc.arc_velocity_mode}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -52,10 +58,6 @@ train_datasets:
 # needing to walk up to `train_datasets` after it's been mutated in place.
 valid_datasets:
   yam_bimanual:
-    # Keys the transform_list ADDS after the key_map is read. The graph
-    # linter (tools/config_graph.py) derives a source's batch keys from its
-    # key_map alone, so without this it reports the concatenated pose and
-    # action keys as unprovided.
     batch_keys: [observations.state.ee_pose, actions_cartesian]
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
@@ -65,12 +67,17 @@ valid_datasets:
       debug: 20
       key_map:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
-        action_mode: cartesian
+        action_mode: arc_tokenizer_cartesian
         coord_frame: eef_frame
         rotation_mode: euler
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
+        # One knob, read by the evaluator too. per_waypoint keeps a local rate
+        # per interval instead of one token-wide mean.
+        velocity_mode: ${abc.arc_velocity_mode}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

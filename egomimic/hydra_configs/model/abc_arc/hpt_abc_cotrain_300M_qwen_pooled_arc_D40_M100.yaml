@@ -1,0 +1,124 @@
+# Thin arc override of hpt_abc_cotrain_300M_qwen_pooled.
+#
+# Same Qwen stem, shared front, per-domain pose/wrists, 840-wide trunk.
+# The only structural difference is the FM horizon: it follows
+# ${abc.arc_token_rows} (200 under this fork's per_waypoint tokenizer, not
+# main's 101-row mean tokens).
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_hpt.AnnotationPromptStage
+      annotation_key: annotations
+      prompt_key: observations.annotation
+      sampling_mode: ${hpt.qwen.sampling_mode}
+      default_prompt: ${hpt.qwen.default_prompt}
+
+    - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
+      selector_key: embodiment
+      selector_aliases:
+        3: human_bimanual
+        7: yam_bimanual
+      stems:
+        observations.images.front_img_1:
+          _target_: egomimic.models.stems.hpt_stems.ResNet
+          output_dim: ${hpt.embed_dim}
+          resnet_model: resnet18
+          weights: null
+          specs: ${hpt.stem_specs}
+        observations.annotation:
+          _target_: egomimic.models.stems.text_encoders.QwenPooledEncoder
+          model_name: ${hpt.qwen.model_name}
+          max_length: ${hpt.qwen.max_length}
+          freeze: true
+          dtype: float16
+          output_dim: ${hpt.embed_dim}
+          specs: ${hpt.stem_specs}
+      domain_stems:
+        yam_bimanual:
+          observations.state.ee_pose:
+            _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+            input_dim: ${hpt.action_dim}
+            output_dim: ${hpt.embed_dim}
+            widths: ["${hpt.embed_dim}"]
+            specs: ${hpt.stem_specs}
+          observations.images.left_wrist_img:
+            _target_: egomimic.models.stems.hpt_stems.ResNet
+            output_dim: ${hpt.embed_dim}
+            resnet_model: resnet18
+            weights: null
+            specs: ${hpt.stem_specs}
+          observations.images.right_wrist_img:
+            _target_: egomimic.models.stems.hpt_stems.ResNet
+            output_dim: ${hpt.embed_dim}
+            resnet_model: resnet18
+            weights: null
+            specs: ${hpt.stem_specs}
+        human_bimanual:
+          observations.state.ee_pose:
+            _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+            input_dim: ${hpt.action_dim}
+            output_dim: ${hpt.embed_dim}
+            widths: ["${hpt.embed_dim}"]
+            specs: ${hpt.stem_specs}
+
+    - _target_: egomimic.pipeline.stages_hpt.HPTTrunkStage
+      embed_dim: ${hpt.embed_dim}
+      token_postprocessing: action_token
+      use_position_embedding: true
+      max_tokens: 512
+      use_domain_embedding: true
+      domains: [yam_bimanual, human_bimanual]
+      selector_key: embodiment
+      selector_aliases:
+        3: human_bimanual
+        7: yam_bimanual
+      trunk:
+        _target_: egomimic.models.cores.hpt_transformer.SimpleTransformer
+        embed_dim: ${hpt.embed_dim}
+        num_blocks: ${hpt.num_blocks}
+        drop_path_rate: 0.1
+        weight_init_style: pytorch
+        attn_target:
+          _target_: egomimic.models.cores.hpt_transformer.MultiheadAttention
+          _partial_: true
+          embed_dim: ${hpt.embed_dim}
+          num_heads: ${hpt.num_heads}
+          batch_first: true
+
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+      action_key: actions_cartesian
+    - _target_: egomimic.pipeline.stages_flow.FlowNoisingStage
+      action_horizon: ${abc.arc_token_rows}
+      action_dim: ${hpt.action_dim}
+      time_dist: beta
+      beta_alpha: 1.5
+      beta_beta: 1.0
+    - _target_: egomimic.pipeline.stages_flow.FlowDenoiserStage
+      action_horizon: ${abc.arc_token_rows}
+      action_dim: ${hpt.action_dim}
+      condition_input_dim: ${hpt.embed_dim}
+      num_inference_steps: 50
+      condition_as_tokens: true
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: ${hpt.embed_dim}
+        hidden_dim: 320
+        act_dim: ${hpt.action_dim}
+        act_seq: ${abc.arc_token_rows}
+        n_heads: 8
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+        time_conditioning: additive
+    - _target_: egomimic.pipeline.stages_flow.FlowVelocityLossStage
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+scheduler: null

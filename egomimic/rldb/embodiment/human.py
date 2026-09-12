@@ -76,14 +76,32 @@ ARIA_T_RGB_CPF = np.array(
 # Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
 # only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
 ARIA_FINGER_EDGES = [
-    (5, 6), (6, 7), (7, 0),                # thumb
-    (5, 8), (8, 9), (9, 10), (10, 1),      # index
-    (5, 11), (11, 12), (12, 13), (13, 2),  # middle
-    (5, 14), (14, 15), (15, 16), (16, 3),  # ring
-    (5, 17), (17, 18), (18, 19), (19, 4),  # pinky
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
 ]
 ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
 ]
 
 
@@ -99,16 +117,37 @@ class Human(Embodiment):
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
     """
+
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
+    # Wider raw window used only by the arc_tokenizer_cartesian keymap. Human
+    # data is subsampled by ``stride``, so at stride=3 these 600 raw frames
+    # yield 200 samples -- matching yam's arc raw window in physical time
+    # (~6.7 s at 30 fps) rather than in row count.
+    ARC_TOK_ACTION_HORIZON = 600
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -218,7 +257,13 @@ class Human(Embodiment):
     ):
         """Build canonical MANO keys plus optional raw Aria keypoints."""
         front_key = cls.VIZ_IMAGE_KEY
-        horizon = cls.ACTION_HORIZON
+        # The arc keymap is plain cartesian with a wider raw window, so per-arm
+        # arc length has room to reach D before the padded tail begins.
+        if keymap_mode == "arc_tokenizer_cartesian":
+            horizon = cls.ARC_TOK_ACTION_HORIZON
+            keymap_mode = "cartesian"
+        else:
+            horizon = cls.ACTION_HORIZON
 
         if keymap_mode == "cartesian":
             key_map = {
@@ -316,6 +361,8 @@ class Human(Embodiment):
         action_mode: Literal[
             "cartesian",
             "cartesian_gripper_padded",
+            "arc_tokenizer_cartesian",
+            "arc_tokenizer_cartesian_gripper_padded",
             "keypoints",
         ] = "cartesian",
         coord_frame: Literal[
@@ -328,6 +375,13 @@ class Human(Embodiment):
             "6D",
         ] = "euler",
         stride: int = 3,
+        # Arc-tokenizer args, consulted only by the arc_tokenizer_* modes.
+        min_distance_unit: float = 0.60,
+        resampled_vector_length: int = 20,
+        chunk_length: int | None = None,
+        # How the arc token carries timing; see
+        # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
+        velocity_mode: str = "mean",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -339,7 +393,29 @@ class Human(Embodiment):
         zero gripper per arm so the layout matches Eva/Yam (14D euler, 16D quat,
         20D Zhou 6D).
         """
-        if action_mode in ("cartesian", "cartesian_gripper_padded"):
+        # Rows the raw window is interpolated to before anything else runs.
+        # Arc defaults to the raw window itself, i.e. NO resampling: the
+        # tokenizer is what selects the frames covering D and resamples those
+        # to M. Interpolating to 100 first would decimate the human window,
+        # and arc length measured on a decimated path reads systematically
+        # short.
+        if chunk_length is None:
+            chunk_length = (
+                cls.ARC_TOK_ACTION_HORIZON
+                if action_mode.startswith("arc_tokenizer_cartesian")
+                else 100
+            )
+        if action_mode == "arc_tokenizer_cartesian":
+            raise ValueError(
+                f"{cls.__name__} cartesian has no gripper column, so the "
+                "arc-length tokenizer's 14D layout cannot be built from it; "
+                "use action_mode='arc_tokenizer_cartesian_gripper_padded'"
+            )
+        if action_mode in (
+            "cartesian",
+            "cartesian_gripper_padded",
+            "arc_tokenizer_cartesian_gripper_padded",
+        ):
             builders = {
                 "camframe": _build_human_cartesian_bimanual_transform_list,
                 "eef_frame": _build_human_cartesian_eef_frame_transform_list,
@@ -359,11 +435,35 @@ class Human(Embodiment):
                 f"action_mode '{action_mode}'"
             )
         transform_list = builders[coord_frame](
-            stride=stride, rotation_mode=rotation_mode
+            stride=stride, rotation_mode=rotation_mode, chunk_length=chunk_length
         )
-        if action_mode == "cartesian_gripper_padded":
-            return _pad_human_cartesian_gripper(
+        if action_mode in (
+            "cartesian_gripper_padded",
+            "arc_tokenizer_cartesian_gripper_padded",
+        ):
+            # Padding runs BEFORE the tokenizer: human has no gripper signal,
+            # and the tokenizer's layout routes gripper into slot 6 per arm, so
+            # the zero column has to exist by then.
+            transform_list = _pad_human_cartesian_gripper(
                 transform_list, rotation_mode=rotation_mode
+            )
+        if action_mode == "arc_tokenizer_cartesian_gripper_padded":
+            from egomimic.rldb.embodiment.eva import _append_arc_tokenizer
+
+            # dt MUST reflect the stride. The action chunk is subsampled by
+            # actions[::stride], so consecutive samples are stride/30 s apart,
+            # not 1/30. Leaving the tokenizer's default inflates the velocity
+            # channel by exactly `stride` -- 3x on real stride=3 data. It
+            # cancels inside tokenize -> detokenize, but it is what the model
+            # learns and what a deployed policy would command, so it has to be
+            # right. Yam is unstrided and keeps the 1/30 default.
+            return _append_arc_tokenizer(
+                transform_list,
+                min_distance_unit=min_distance_unit,
+                resampled_vector_length=resampled_vector_length,
+                rotation_mode=rotation_mode,
+                dt=float(stride) / 30.0,
+                velocity_mode=velocity_mode,
             )
         return transform_list
 
@@ -904,8 +1004,12 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
             (right_action_wristframe, pose_shape),
             (right_grip, 1),
         ]
-        concat_keys = [left_action_headframe, left_grip,
-                       right_action_headframe, right_grip]
+        concat_keys = [
+            left_action_headframe,
+            left_grip,
+            right_action_headframe,
+            right_grip,
+        ]
     else:
         obs_split = [
             (left_obs_headframe, pose_shape),

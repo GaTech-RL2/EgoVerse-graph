@@ -75,9 +75,7 @@ class SyntheticTrajectoryEval:
         return (points.norm(dim=-1) - radius).square().mean().sqrt()
 
     @staticmethod
-    def cube_surface_rmse(
-        points: torch.Tensor, *, half_extent: float
-    ) -> torch.Tensor:
+    def cube_surface_rmse(points: torch.Tensor, *, half_extent: float) -> torch.Tensor:
         """Euclidean RMSE to the boundary of an axis-aligned cube."""
         if half_extent <= 0:
             raise ValueError("cube half-extent must be positive")

@@ -146,13 +146,18 @@ def _nodes(
         raw = _plain(config)
         target = str(raw.get("_target_", "")) if isinstance(raw, Mapping) else ""
         name = target.rsplit(".", 1)[-1] or type(stage).__name__
+        restricted = None
         if mode == "inference" and bool(getattr(stage, "train_only", False)):
+            restricted = "train-only"
+        elif mode == "train" and bool(getattr(stage, "inference_only", False)):
+            restricted = "inference-only"
+        if restricted is not None:
             skipped.append(
                 {
                     "source_i": source_index,
                     "t": name,
                     "target": target,
-                    "reason": "train-only",
+                    "reason": restricted,
                 }
             )
             continue

@@ -62,6 +62,12 @@ run_provenance:
     flow_mini_batch: 14
     flow_aggregation: sum_of_14_per_sample_means
     reconstruction_only_warmup_steps: 0
+  validation:
+    interval_optimizer_steps: 10000
+    limit_batches: 8
+    per_rank_batch_size: 32
+    world_size: 1
+    global_batch_size: 32
   split_manifest_path: ${oc.env:CHAIN4920_SPLIT_MANIFEST,/required/chain4920_split_manifest.json}
   split_manifest_sha256: ${oc.env:CHAIN4920_SPLIT_MANIFEST_SHA256,required}
   content_manifest_path: ${oc.env:CHAIN4920_CONTENT_MANIFEST,/required/chain4920_content_manifest.json}

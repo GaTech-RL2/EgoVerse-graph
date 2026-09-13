@@ -231,6 +231,7 @@ def test_full_validation_cadence_has_a_typed_override():
     assert 'AF_FULL_VALIDATE_EVERY_OVERRIDE must be a positive integer' in source
     assert 'AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE' in source
     assert '++run_provenance.validation_every_n_steps=$AF_FULL_VALIDATE_EVERY' in source
+    assert source.index('*) die "AF_EXPERIMENT must select an explicitly approved Action Flow config"') < source.index('AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE')
 
 
 def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():

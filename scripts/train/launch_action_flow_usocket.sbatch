@@ -107,11 +107,6 @@ case "$AF_LAUNCH_MODE" in
   *) die "AF_LAUNCH_MODE must be preflight or run" ;;
 esac
 
-if test -n "${AF_FULL_VALIDATE_EVERY_OVERRIDE:-}"; then
-  [[ "$AF_FULL_VALIDATE_EVERY_OVERRIDE" =~ ^[1-9][0-9]*$ ]] || \
-    die "AF_FULL_VALIDATE_EVERY_OVERRIDE must be a positive integer"
-  AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE
-fi
 # The portable launcher carries a ten-minute USR1 checkpoint warning for long
 # GPU runs.  A CPU preflight has no requeue runner yet, so inheriting that
 # warning would terminate a legitimate normalization pass before it can write
@@ -382,6 +377,12 @@ case "$AF_EXPERIMENT" in
     ;;
   *) die "AF_EXPERIMENT must select an explicitly approved Action Flow config" ;;
 esac
+
+if test -n "${AF_FULL_VALIDATE_EVERY_OVERRIDE:-}"; then
+  [[ "$AF_FULL_VALIDATE_EVERY_OVERRIDE" =~ ^[1-9][0-9]*$ ]] || \
+    die "AF_FULL_VALIDATE_EVERY_OVERRIDE must be a positive integer"
+  AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE
+fi
 
 if test "$AF_SCALED_H512" = true; then
   AF_SMOKE_VERIFIER=$AF_REPO/scripts/train/verify_scaled_action_flow_training_smoke.py

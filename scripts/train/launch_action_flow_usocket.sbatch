@@ -991,8 +991,12 @@ PY
           --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.resolver.expected_episode_count=4918"
           --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_count=4869"
           --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_count=4869"
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_names_sha256=$CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_names_sha256=$CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256"
           --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_count=49"
           --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_count=49"
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
         )
       fi
     fi

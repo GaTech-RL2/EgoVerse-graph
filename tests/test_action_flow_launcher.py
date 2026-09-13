@@ -208,6 +208,22 @@ def test_second_preflight_can_reuse_the_first_train_only_normalization():
     assert 'normalization SHA-256 mismatch' in source
 
 
+def test_scaled_chain_rows_are_pinned_to_the_clean_4918_episode_corpus():
+    source = _source()
+    assert "CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256=80e88dc9" in source
+    assert "CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256=1b7dca2b" in source
+    assert "CLEAN_CHAIN_4918_SPLIT_MANIFEST_SHA256=aa7ea8e8" in source
+    assert "CLEAN_CHAIN_4918_SCHEMA_VALIDATION_SHA256=f1b8feaa" in source
+    assert source.count("AF_CLEAN_CHAIN_4918=true") == 2
+    assert "points6,clean4918,action-flow" in source
+    assert "points6,clean4918,cotrain" in source
+    assert 'assert payload["episode_count"] == 4918' in source
+    assert 'assert payload["validated_episode_count"] == 4918' in source
+    assert "expected_episode_count=4918" in source
+    assert "expected_train_episode_count=4869" in source
+    assert "expected_valid_episode_count=49" in source
+
+
 def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():
     source = _source()
     assert "AF_CACHED_DATASET_VALIDATION" in source

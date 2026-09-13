@@ -94,6 +94,13 @@ CHAIN_CONTENT_MANIFEST_SHA256=65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726
 CHAIN_DATASET_CONTENT_AGGREGATE_SHA256=2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb
 CHAIN_4920_CONTENT_MANIFEST_SHA256=d47337ec051351c37def6078ce96a9d4187d44ca6d2d89867e716aea8b5573a9
 CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256=241ef7cab22303088c46ef1dca4379c4c4932409b494fc88db413fcb687e1afe
+CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256=80e88dc9d4daba6d3fce650cc47a327b9f4e8f48bc48ba61ef4c6f2751c146d2
+CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256=1b7dca2bc60a125095bd50a05bcf923735f5c4062e5373a7fa0f47e13ba99f99
+CLEAN_CHAIN_4918_SPLIT_MANIFEST_SHA256=aa7ea8e8731019479d82836c6d5ecac921d911c7ade66b665dcd65ee1f962456
+CLEAN_CHAIN_4918_SCHEMA_VALIDATION_SHA256=f1b8feaabc694fe48b04adaaffa539a158b80e1ff9d27edef79ca48a9c084998
+CLEAN_CHAIN_4918_EPISODE_NAMES_SHA256=6ef23e95d85c916ef302b27bfc16891f110afa29de506f9765ca2004c8746589
+CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256=fdde9546fd621d0e8e9f53eebb6257e54baf9160fb9e0a2e7cea4dc8e3d60c94
+CLEAN_CHAIN_4918_VALID_NAMES_SHA256=e3f6625f932675c9352c969bc44b38009a4db9fba42d827e8633b9964bc05275
 
 case "$AF_LAUNCH_MODE" in
   preflight|run) ;;
@@ -127,6 +134,7 @@ AF_EXPECTED_PARAMETER_COUNT=97956100
 AF_COTRAIN=false
 AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
+AF_CLEAN_CHAIN_4918=false
 case "$AF_EXPERIMENT" in
   pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -158,8 +166,8 @@ case "$AF_EXPERIMENT" in
     AF_ACTION_DIM=6
     AF_EXPECTED_PARAMETER_COUNT=190210206
     AF_SCALED_H512=true
-    AF_FROZEN_CHAIN_4920=true
-    AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,frozen4920,action-flow,unite-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    AF_CLEAN_CHAIN_4918=true
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,clean4918,action-flow,unite-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -175,9 +183,9 @@ case "$AF_EXPERIMENT" in
     AF_EXPECTED_PARAMETER_COUNT=301792030
     AF_COTRAIN=true
     AF_SCALED_H512=true
-    AF_FROZEN_CHAIN_4920=true
+    AF_CLEAN_CHAIN_4918=true
     AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
-    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,points6,frozen4920,cotrain,action-flow,private-codecs,shared-field,unite-h512d14h16,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,points6,clean4918,cotrain,action-flow,private-codecs,shared-field,unite-h512d14h16,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -383,9 +391,50 @@ if test "$AF_COTRAIN" = true; then
   done
 fi
 
-if test -z "$AF_SPLIT_MANIFEST" && test "$AF_FROZEN_CHAIN_4920" = true \
+if test "$AF_CLEAN_CHAIN_4918" = true; then
+  if test "$AF_COTRAIN" = true; then
+    required AF_SECOND_SCHEMA_VALIDATION
+    CLEAN_SCHEMA_VALIDATION=$AF_SECOND_SCHEMA_VALIDATION
+    CLEAN_DATASET_DIR=$AF_SECOND_DATASET_DIR
+    CLEAN_SPLIT_SHA256=$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256
+    CLEAN_CONTENT_SHA256=$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256
+    CLEAN_AGGREGATE_SHA256=$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256
+  else
+    required AF_SCHEMA_VALIDATION
+    CLEAN_SCHEMA_VALIDATION=$AF_SCHEMA_VALIDATION
+    CLEAN_DATASET_DIR=$AF_DATASET_DIR
+    CLEAN_SPLIT_SHA256=$AF_EXPECTED_SPLIT_MANIFEST_SHA256
+    CLEAN_CONTENT_SHA256=$AF_EXPECTED_CONTENT_MANIFEST_SHA256
+    CLEAN_AGGREGATE_SHA256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256
+  fi
+  absolute_path CLEAN_SCHEMA_VALIDATION "$CLEAN_SCHEMA_VALIDATION"
+  test -s "$CLEAN_SCHEMA_VALIDATION" || die "clean ChainGripper schema validation is unavailable"
+  test "$(sha256 "$CLEAN_SCHEMA_VALIDATION")" = "$CLEAN_CHAIN_4918_SCHEMA_VALIDATION_SHA256" || \
+    die "clean ChainGripper schema validation SHA-256 mismatch"
+  test "$CLEAN_SPLIT_SHA256" = "$CLEAN_CHAIN_4918_SPLIT_MANIFEST_SHA256" || \
+    die "split manifest is not the clean 4,918-episode ChainGripper split"
+  test "$CLEAN_CONTENT_SHA256" = "$CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256" || \
+    die "content manifest is not the clean 4,918-episode ChainGripper manifest"
+  test "$CLEAN_AGGREGATE_SHA256" = "$CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256" || \
+    die "dataset aggregate is not the clean 4,918-episode ChainGripper content"
+  "$AF_PYTHON" - "$CLEAN_SCHEMA_VALIDATION" "$CLEAN_DATASET_DIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text())
+assert payload["status"] == "PASS"
+assert payload["episode_count"] == 4918
+assert payload["validated_episode_count"] == 4918
+assert not payload["failures"]
+assert Path(payload["dataset_root"]).resolve() == Path(sys.argv[2]).resolve()
+PY
+fi
+
+if test -z "$AF_SPLIT_MANIFEST" \
+  && { test "$AF_FROZEN_CHAIN_4920" = true || test "$AF_CLEAN_CHAIN_4918" = true; } \
   && test "$AF_COTRAIN" = false; then
-  die "AF_SPLIT_MANIFEST is required for the frozen 4,920-episode ChainGripper row"
+  die "AF_SPLIT_MANIFEST is required for the selected expanded ChainGripper corpus"
 elif test -z "$AF_SPLIT_MANIFEST"; then
   if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
     AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
@@ -413,7 +462,12 @@ fi
 [[ "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
 if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
-  if test "$AF_FROZEN_CHAIN_4920" = true; then
+  if test "$AF_CLEAN_CHAIN_4918" = true; then
+    test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256" || \
+      die "content manifest is not the clean 4,918-episode ChainGripper manifest"
+    test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256" || \
+      die "dataset aggregate is not the clean 4,918-episode ChainGripper content"
+  elif test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "content manifest is not the frozen 4,920-episode ChainGripper manifest"
     test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -437,7 +491,12 @@ if test "$AF_COTRAIN" = true; then
     die "AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
   [[ "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
     die "AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-  if test "$AF_FROZEN_CHAIN_4920" = true; then
+  if test "$AF_CLEAN_CHAIN_4918" = true; then
+    test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256" || \
+      die "second content manifest is not the clean 4,918-episode ChainGripper manifest"
+    test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256" || \
+      die "second dataset aggregate is not the clean 4,918-episode ChainGripper content"
+  elif test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "second content manifest is not the frozen 4,920-episode ChainGripper manifest"
     test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -704,6 +763,27 @@ if test "$AF_COTRAIN" = true; then
     "++run_provenance.content_manifests.$AF_SECOND_SOURCE.path=$AF_SECOND_CONTENT_MANIFEST"
     "++run_provenance.content_manifests.$AF_SECOND_SOURCE.manifest_sha256=$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256"
     "++run_provenance.content_manifests.$AF_SECOND_SOURCE.aggregate_sha256=$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256"
+  )
+fi
+if test "$AF_CLEAN_CHAIN_4918" = true; then
+  if test "$AF_COTRAIN" = true; then
+    CLEAN_SOURCE=$AF_SECOND_SOURCE
+  else
+    CLEAN_SOURCE=$AF_SOURCE
+  fi
+  BASE_OVERRIDES+=(
+    "data.train_datasets.$CLEAN_SOURCE.resolver.expected_episode_count=4918"
+    "data.valid_datasets.$CLEAN_SOURCE.resolver.expected_episode_count=4918"
+    "data.train_datasets.$CLEAN_SOURCE.expected_train_episode_count=4869"
+    "data.valid_datasets.$CLEAN_SOURCE.expected_train_episode_count=4869"
+    "data.train_datasets.$CLEAN_SOURCE.expected_train_episode_names_sha256=$CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256"
+    "data.valid_datasets.$CLEAN_SOURCE.expected_train_episode_names_sha256=$CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256"
+    "data.train_datasets.$CLEAN_SOURCE.expected_valid_episode_count=49"
+    "data.valid_datasets.$CLEAN_SOURCE.expected_valid_episode_count=49"
+    "data.train_datasets.$CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
+    "data.valid_datasets.$CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
+    "++run_provenance.clean_chain_episode_count=4918"
+    "++run_provenance.clean_chain_inventory_names_sha256=$CLEAN_CHAIN_4918_EPISODE_NAMES_SHA256"
   )
 fi
 if test "$AF_SCALED_H512" = true; then

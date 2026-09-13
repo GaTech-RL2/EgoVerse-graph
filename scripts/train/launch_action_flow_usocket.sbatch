@@ -1830,12 +1830,16 @@ if scaled_h512:
         if cotrain
         else (encoder_stage.encoder, decoder_stage.decoder)
     ):
-        width = (
-            module.backbone.hidden_dim
-            if hasattr(module, "backbone")
-            else module.hidden_dim
+        architecture = module.backbone if hasattr(module, "backbone") else module
+        assert (
+            architecture.hidden_dim,
+            architecture.depth,
+            architecture.num_heads,
+        ) == (
+            cfg.model.codec_hidden_dim,
+            cfg.model.codec_depth,
+            cfg.model.codec_num_heads,
         )
-        assert width == 512
 elif cotrain:
     stages = tuple(pipeline.pipeline.stages)
     assert tuple(stages[3].encoder) == (source, second_source)

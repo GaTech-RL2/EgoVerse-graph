@@ -68,6 +68,7 @@ def test_training_logs_each_opaque_source_and_equal_source_macro(monkeypatch):
         "Train/MSE/pushshapes_sim_u_socket": 2.0,
         "Train/MSE/another_source": 6.0,
         "Train/MSE": 4.0,
+        "Train/Loss": 1.0,
     }
     assert expected.keys() <= logged.keys()
     for name, expected_value in expected.items():
@@ -75,7 +76,7 @@ def test_training_logs_each_opaque_source_and_equal_source_macro(monkeypatch):
         assert float(value) == pytest.approx(expected_value)
         assert kwargs == {
             "sync_dist": True,
-            "on_step": False,
+            "on_step": True,
             "on_epoch": True,
         }
 

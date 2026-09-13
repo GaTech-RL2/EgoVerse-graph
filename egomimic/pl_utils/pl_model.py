@@ -214,14 +214,14 @@ class ModelWrapper(LightningModule):
                     f"Train/{metric}/{source}",
                     value,
                     sync_dist=True,
-                    on_step=False,
+                    on_step=True,
                     on_epoch=True,
                 )
             self.log(
                 f"Train/{metric}",
                 torch.stack([value for _, value in source_values]).mean(),
                 sync_dist=True,
-                on_step=False,
+                on_step=True,
                 on_epoch=True,
             )
 
@@ -242,21 +242,21 @@ class ModelWrapper(LightningModule):
         self.log(
             "Timing/Process_Batch_Sec",
             t1 - t0,
-            on_step=False,
+            on_step=True,
             on_epoch=True,
             sync_dist=True,
         )
         self.log(
             "Timing/Forward_Pass_Sec",
             t2 - t1,
-            on_step=False,
+            on_step=True,
             on_epoch=True,
             sync_dist=True,
         )
         self.log(
             "Timing/Compute_Losses_Sec",
             t3 - t2,
-            on_step=False,
+            on_step=True,
             on_epoch=True,
             sync_dist=True,
         )
@@ -269,7 +269,7 @@ class ModelWrapper(LightningModule):
         }
         self._log_prediction_metrics(predictions, losses["loss"])
         for k, v in self.model.log_info(info).items():
-            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
+            self.log("Train/" + k, v, sync_dist=True, on_step=True, on_epoch=True)
 
         return losses["loss"]
 
@@ -311,7 +311,7 @@ class ModelWrapper(LightningModule):
         if not grad_norm_flagged:
             self.grad_norm_history.append(grad_norm_val)
         for k, v in info.items():
-            self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
+            self.log("Train/" + k, v, on_step=True, on_epoch=True, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer):
         return self.training_behavior.on_before_optimizer_step(optimizer)
@@ -325,7 +325,7 @@ class ModelWrapper(LightningModule):
         self.log(
             "Train/pipeline_grad_norms_clipped",
             float(grad_norm),
-            on_step=False,
+            on_step=True,
             on_epoch=True,
             sync_dist=True,
         )

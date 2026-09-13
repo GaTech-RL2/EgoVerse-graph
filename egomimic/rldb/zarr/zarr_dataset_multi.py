@@ -348,11 +348,17 @@ class EpisodeResolver:
                 skipped.append(p.name)
                 continue
             try:
+                dataset_kwargs = {
+                    "key_map": self.key_map,
+                    "transform_list": self.transform_list,
+                    "image_hw": self.image_hw,
+                }
+                embodiment_override = getattr(self, "embodiment_override", None)
+                if embodiment_override is not None:
+                    dataset_kwargs["embodiment_override"] = embodiment_override
                 ds_obj = dataset_class(
                     p,
-                    key_map=self.key_map,
-                    transform_list=self.transform_list,
-                    image_hw=self.image_hw,
+                    **dataset_kwargs,
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -1901,6 +1907,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         key_map: dict,
         transform_list: list | None = None,
         image_hw: tuple[int, int] | None = None,
+        embodiment_override: str | None = None,
     ):
         """
         Args:
@@ -1910,6 +1917,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         self.episode_path = Episode_path
         self.metadata = None
+        self.embodiment_override = embodiment_override
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
@@ -1930,9 +1938,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_reader = ZarrEpisode(self.episode_path)
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
-        self.embodiment = get_embodiment(
-            get_embodiment_id(self.metadata["embodiment"])
-        ).lower()
+        embodiment = self.embodiment_override or self.metadata["embodiment"]
+        self.embodiment = get_embodiment(get_embodiment_id(embodiment)).lower()
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()

@@ -157,11 +157,15 @@ SCALED_H512_ROWS = {
         "config_name": "action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_208_924,
         "sources": {"pushshapes_sim_u_socket": 4},
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_210_206,
         "sources": {"pushshapes_sim_chain_gripper": 6},
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
@@ -170,6 +174,32 @@ SCALED_H512_ROWS = {
             "pushshapes_sim_u_socket": 4,
             "pushshapes_sim_chain_gripper": 6,
         },
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 121_459_376,
+        "sources": {"pushshapes_sim_u_socket": 4},
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 121_460_402,
+        "sources": {"pushshapes_sim_chain_gripper": 6},
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 175_494_502,
+        "sources": {
+            "pushshapes_sim_u_socket": 4,
+            "pushshapes_sim_chain_gripper": 6,
+        },
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
     },
 }
 SCALED_H512_STAGE_TYPES = (
@@ -1741,6 +1771,8 @@ def _validate_scaled_h512_config(
 
     row = SCALED_H512_ROWS[experiment]
     sources = dict(row["sources"])
+    codec_hidden_dim, codec_depth, codec_num_heads = row["codec"]
+    denoiser_hidden_dim, denoiser_depth, denoiser_num_heads = row["denoiser"]
     routed = len(sources) == 2
     resolved, resolved_hash = resolved_config_payload(config)
     _exact(str(config.name), row["config_name"], "scaled config name")
@@ -1788,6 +1820,12 @@ def _validate_scaled_h512_config(
         ("latent_dim", 16),
         ("condition_dim", 128),
         ("hidden_dim", 512),
+        ("codec_hidden_dim", codec_hidden_dim),
+        ("codec_depth", codec_depth),
+        ("codec_num_heads", codec_num_heads),
+        ("denoiser_hidden_dim", denoiser_hidden_dim),
+        ("denoiser_depth", denoiser_depth),
+        ("denoiser_num_heads", denoiser_num_heads),
         ("flow_samples_per_content", 14),
         ("flow_mini_batch", 14),
         ("num_inference_steps", 50),
@@ -1904,18 +1942,30 @@ def _validate_scaled_h512_config(
             encoder.backbone is not field.backbone,
             f"{source} encoder shares field backbone",
         )
-        for label, backbone in (
-            (f"{source} encoder", encoder.backbone),
-            ("shared field", field.backbone),
+        for label, backbone, width, depth, heads in (
+            (
+                f"{source} encoder",
+                encoder.backbone,
+                codec_hidden_dim,
+                codec_depth,
+                codec_num_heads,
+            ),
+            (
+                "shared field",
+                field.backbone,
+                denoiser_hidden_dim,
+                denoiser_depth,
+                denoiser_num_heads,
+            ),
         ):
             for key, expected in (
                 ("input_dim", 16),
                 ("output_dim", 16),
                 ("horizon", 8),
                 ("condition_dim", 128),
-                ("hidden_dim", 512),
-                ("depth", 14),
-                ("num_heads", 16),
+                ("hidden_dim", width),
+                ("depth", depth),
+                ("num_heads", heads),
                 ("in_context_start", 4),
                 ("in_context_len", 32),
             ):
@@ -1925,9 +1975,9 @@ def _validate_scaled_h512_config(
             ("latent_dim", 16),
             ("num_latent_tokens", 8),
             ("action_horizon", 16),
-            ("hidden_dim", 512),
-            ("depth", 14),
-            ("num_heads", 16),
+            ("hidden_dim", codec_hidden_dim),
+            ("depth", codec_depth),
+            ("num_heads", codec_num_heads),
         ):
             _exact(getattr(decoder, key), expected, f"{source} decoder {key}")
         _exact(bool(decoder.gradient_checkpointing), True, f"{source} decoder checkpointing")
@@ -2167,7 +2217,7 @@ def _validate_scaled_h512_config(
     )
     optimization = {
         "max_steps": 150_000,
-        "validation_every_steps": 10_000,
+        "validation_every_steps": validation_cadence,
         "checkpoint_every_steps": 30_000,
         "precision": str(config.trainer.precision),
         "optimizer": {"target": str(optimizer._target_), "lr": lr_schedule["max_lr"]},

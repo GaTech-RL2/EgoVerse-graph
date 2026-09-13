@@ -21,11 +21,15 @@ EXPERIMENTS = {
         "config_name": "action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_208_924,
         "sources": {"pushshapes_sim_u_socket": 4},
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_210_206,
         "sources": {"pushshapes_sim_chain_gripper": 6},
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
@@ -34,6 +38,32 @@ EXPERIMENTS = {
             "pushshapes_sim_u_socket": 4,
             "pushshapes_sim_chain_gripper": 6,
         },
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 121_459_376,
+        "sources": {"pushshapes_sim_u_socket": 4},
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 121_460_402,
+        "sources": {"pushshapes_sim_chain_gripper": 6},
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 175_494_502,
+        "sources": {
+            "pushshapes_sim_u_socket": 4,
+            "pushshapes_sim_chain_gripper": 6,
+        },
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
     },
 }
 
@@ -234,7 +264,17 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(config.trainer.limit_val_batches == 1, "smoke must run one real validation batch")
     require(config.model.flow_samples_per_content == 14, "FM sample count mismatch")
     require(config.model.flow_mini_batch == 14, "FM mini-batch mismatch")
-    require(config.model.hidden_dim == 512, "model width mismatch")
+    require(config.model.hidden_dim == 512, "model compatibility width mismatch")
+    require(tuple(row["codec"]) == (
+        int(config.model.codec_hidden_dim),
+        int(config.model.codec_depth),
+        int(config.model.codec_num_heads),
+    ), "codec architecture mismatch")
+    require(tuple(row["denoiser"]) == (
+        int(config.model.denoiser_hidden_dim),
+        int(config.model.denoiser_depth),
+        int(config.model.denoiser_num_heads),
+    ), "denoiser architecture mismatch")
     require(config.model.cfg_scale == 4.0, "CFG scale mismatch")
     require(config.model.flow_loss_aggregation == "sum_samples", "FM aggregation mismatch")
     require(

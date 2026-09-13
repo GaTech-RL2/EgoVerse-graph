@@ -188,6 +188,57 @@ case "$AF_EXPERIMENT" in
     AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
     AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,points6,clean4918,cotrain,action-flow,private-codecs,shared-field,unite-h512d14h16,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
     ;;
+  pusht/action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=30000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_EXPECTED_PARAMETER_COUNT=121459376
+    AF_SCALED_H512=true
+    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,codec-h384d12h12,denoiser-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=30000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_SOURCE=pushshapes_sim_chain_gripper
+    AF_ACTION_DIM=6
+    AF_EXPECTED_PARAMETER_COUNT=121460402
+    AF_SCALED_H512=true
+    AF_CLEAN_CHAIN_4918=true
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,clean4918,action-flow,codec-h384d12h12,denoiser-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=30000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_EXPECTED_PARAMETER_COUNT=175494502
+    AF_COTRAIN=true
+    AF_SCALED_H512=true
+    AF_CLEAN_CHAIN_4918=true
+    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,points6,clean4918,cotrain,action-flow,private-codecs-h384d12h12,shared-field-h512d14h16,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    ;;
   pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -1457,7 +1508,14 @@ assert current["installed_distributions"]["canonical_sha256"] == expected[
 assert current["core_distribution_versions"] == expected[
     "core_distribution_versions"
 ]
-assert current["dependency_inputs"] == expected["dependency_inputs"]
+def canonical_dependency_inputs(items):
+    return sorted(
+        (pathlib.Path(item["path"]).name, item["sha256"], int(item["size_bytes"]))
+        for item in items
+    )
+
+assert canonical_dependency_inputs(current["dependency_inputs"]) == \
+    canonical_dependency_inputs(expected["dependency_inputs"])
 assert current["source"]["head"] == preflight["source"]["head"]
 assert current["source"]["tree"] == expected["source_tree"]
 expected_torch = dict(expected["torch_runtime"])

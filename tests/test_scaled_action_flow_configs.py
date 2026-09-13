@@ -26,6 +26,12 @@ ROWS = (
     "action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
 )
 
+HYBRID_ROWS = (
+    "action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+    "action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+    "action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+)
+
 
 @pytest.mark.parametrize("row", ROWS)
 def test_scaled_rows_preserve_linked_action_flow_recipe(row, monkeypatch):
@@ -101,3 +107,51 @@ def test_cotrain_row_has_two_private_codecs_and_one_shared_field(monkeypatch):
     assert cfg.run_provenance.objective.domain_aggregation == (
         "equal_mean_from_one_batch32_per_domain"
     )
+
+
+@pytest.mark.parametrize("row", HYBRID_ROWS)
+def test_hybrid_rows_keep_h384_codecs_and_scale_only_denoiser(row, monkeypatch):
+    cfg = _compose(row, monkeypatch)
+    stages = cfg.model.pipeline.stages
+    field = next(
+        stage for stage in stages if stage._target_.endswith("ConditionalVelocityStage")
+    )
+    encoder_stage = next(
+        stage for stage in stages
+        if stage._target_.endswith(("ContentEncoderStage", "RoutedContentEncoderStage"))
+    )
+    decoder_stage = next(
+        stage for stage in stages
+        if stage._target_.endswith(("ContentDecoderStage", "RoutedContentDecoderStage"))
+    )
+    encoders = (
+        encoder_stage.encoders.values()
+        if "encoders" in encoder_stage
+        else (encoder_stage.encoder,)
+    )
+    decoders = (
+        decoder_stage.decoders.values()
+        if "decoders" in decoder_stage
+        else (decoder_stage.decoder,)
+    )
+
+    assert (cfg.model.codec_hidden_dim, cfg.model.codec_depth, cfg.model.codec_num_heads) == (384, 12, 12)
+    assert (cfg.model.denoiser_hidden_dim, cfg.model.denoiser_depth, cfg.model.denoiser_num_heads) == (512, 14, 16)
+    assert all((encoder.backbone.hidden_dim, encoder.backbone.depth, encoder.backbone.num_heads) == (384, 12, 12) for encoder in encoders)
+    assert all((decoder.hidden_dim, decoder.depth, decoder.num_heads) == (384, 12, 12) for decoder in decoders)
+    assert (field.field.backbone.hidden_dim, field.field.backbone.depth, field.field.backbone.num_heads) == (512, 14, 16)
+    assert cfg.trainer.val_check_interval == 30_000
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 30_000
+
+
+def test_hybrid_cotrain_has_two_private_codecs_and_one_shared_field(monkeypatch):
+    cfg = _compose(HYBRID_ROWS[2], monkeypatch)
+    stages = cfg.model.pipeline.stages
+    encoder = next(stage for stage in stages if stage._target_.endswith("RoutedContentEncoderStage"))
+    decoder = next(stage for stage in stages if stage._target_.endswith("RoutedContentDecoderStage"))
+    fields = [stage for stage in stages if stage._target_.endswith("ConditionalVelocityStage")]
+    routes = {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
+
+    assert set(encoder.encoders) == routes
+    assert set(decoder.decoders) == routes
+    assert len(fields) == 1

@@ -2,11 +2,13 @@ from pathlib import Path
 
 import pytest
 from hydra import compose, initialize_config_dir
+from hydra.utils import instantiate
 
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.trainHydra import _resolve_model_wrapper_class
 from tools.validate_action_flow_config import (
     STOPGRAD_UNITE_METHOD,
+    _validate_dimensions_and_modules,
     action_flow_method,
     validate_method_contract,
 )
@@ -81,3 +83,14 @@ def test_h384_points6_is_registered_as_stopgrad_unite(monkeypatch):
     cfg = _compose(monkeypatch)
     assert action_flow_method(cfg, f"pusht/{ROW}") == STOPGRAD_UNITE_METHOD
     assert validate_method_contract(cfg, f"pusht/{ROW}") == STOPGRAD_UNITE_METHOD
+
+
+def test_h384_points6_full_dimension_gate_accepts_native_six_dim(monkeypatch):
+    cfg = _compose(monkeypatch)
+    pipeline = instantiate(cfg.model.pipeline)
+    dimensions, parameters = _validate_dimensions_and_modules(
+        cfg, list(pipeline.stages)
+    )
+    assert dimensions["action"] == [16, 6]
+    assert parameters["encoder_e"]["total"] == 32_726_064
+    assert parameters["decoder_g"]["total"] == 21_304_326

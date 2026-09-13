@@ -587,8 +587,9 @@ def _validate_unite_dimensions_and_modules(
         "tokenizer and denoiser must be separate",
     )
 
+    action_dim = int(config.model.action_dim)
+    _require(action_dim in {4, 6}, "UNITE action dimension must be 4 or 6")
     _exact(int(config.model.action_horizon), 16, "model action horizon")
-    _exact(int(config.model.action_dim), 4, "model action dimension")
     _exact(int(config.model.num_latent_tokens), 8, "model latent token count")
     _exact(int(config.model.latent_dim), 16, "model latent dimension")
     _exact(int(config.model.condition_dim), 128, "model condition dimension")
@@ -597,7 +598,7 @@ def _validate_unite_dimensions_and_modules(
     _exact(int(noise.latent_dim), 16, "Gaussian source latent dimension")
     _exact(int(observation.n_obs_steps), 1, "observation steps")
     _exact(int(projection.output_dim), 64, "projected proprio width")
-    _exact(int(encoder.input_dim), 4, "tokenizer action dimension")
+    _exact(int(encoder.input_dim), action_dim, "tokenizer action dimension")
     _exact(int(encoder.action_horizon), 16, "tokenizer action horizon")
     _exact(int(encoder.num_latent_tokens), 8, "tokenizer register count")
     _exact(int(encoder.latent_dim), 16, "tokenizer latent dimension")
@@ -625,7 +626,7 @@ def _validate_unite_dimensions_and_modules(
         _exact(bool(backbone.gradient_checkpointing), True, f"{label} checkpointing")
     for attribute, expected in {
         "latent_dim": 16,
-        "action_dim": 4,
+        "action_dim": action_dim,
         "num_latent_tokens": 8,
         "action_horizon": 16,
         "hidden_dim": 384,
@@ -648,14 +649,13 @@ def _validate_unite_dimensions_and_modules(
         True,
         "independent condition dropout",
     )
-    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
     _exact(field_stage.flow_clean_gradient_mode, "all_stopgrad", "FM stop-gradient")
     _exact(field_stage.inference_method, "dopri5", "inference method")
     _exact(int(field_stage.num_inference_steps), 50, "Dopri5 output points")
     _float(field_stage.timestep_shift_alpha, 0.5, "inference timestep shift")
     _float(field_stage.dopri5_atol, 1.0e-6, "Dopri5 absolute tolerance")
     _float(field_stage.dopri5_rtol, 1.0e-3, "Dopri5 relative tolerance")
-    _float(field_stage.cfg_scale, 4.0 if parity else 1.0, "CFG scale")
+    _float(field_stage.cfg_scale, float(config.model.cfg_scale), "CFG scale")
     _exact(tuple(field_stage.cfg_interval), (0.0, 1.0), "CFG interval")
     _float(
         decoder_stage.reconstruction_noising_start,
@@ -672,7 +672,7 @@ def _validate_unite_dimensions_and_modules(
     _float(objective.action_velocity_weight, 1.0, "action-velocity weight")
     _exact(
         objective.flow_aggregation,
-        "sum_samples" if parity else "mean",
+        str(config.model.flow_loss_aggregation),
         "flow aggregation",
     )
     _exact(int(objective.flow_samples_per_content), 14, "objective flow samples")
@@ -684,21 +684,26 @@ def _validate_unite_dimensions_and_modules(
         "field_v": _parameter_manifest(field),
         "decoder_g": _parameter_manifest(decoder),
     }
+    action_specific_counts = {
+        4: {"encoder_e": 32_725_808, "decoder_g": 21_303_556},
+        6: {"encoder_e": 32_726_064, "decoder_g": 21_304_326},
+    }
     expected_counts = {
         "state_projection": 4_480,
         "observation_encoder": 11_197_088,
-        "encoder_e": 32_725_808,
+        "encoder_e": action_specific_counts[action_dim]["encoder_e"],
         "field_v": 32_725_168,
-        "decoder_g": 21_303_556,
+        "decoder_g": action_specific_counts[action_dim]["decoder_g"],
     }
     for label, expected in expected_counts.items():
         _exact(parameters[label]["total"], expected, f"{label} parameter count")
         _exact(
             parameters[label]["trainable"], expected, f"{label} trainable count"
         )
-    _exact(sum(expected_counts.values()), 97_956_100, "total parameter accounting")
+    expected_total = {4: 97_956_100, 6: 97_957_126}[action_dim]
+    _exact(sum(expected_counts.values()), expected_total, "total parameter accounting")
     dimensions = {
-        "action": [16, 4],
+        "action": [16, action_dim],
         "condition": 128,
         "image_feature": 64,
         "latent": [8, 16],
@@ -2210,9 +2215,15 @@ def validate_config(
     )
     _exact(accounted, parameters["pipeline_total"]["total"], "parameter accounting")
     if method == STOPGRAD_UNITE_METHOD:
+        action_dim = int(config.model.action_dim)
+        expected_total = {4: 97_956_100, 6: 97_957_126}.get(action_dim)
+        _require(
+            expected_total is not None,
+            "UNITE action dimension must have a verified parameter contract",
+        )
         _exact(
             parameters["pipeline_total"]["total"],
-            97_956_100,
+            expected_total,
             "UNITE Action Flow total parameter count",
         )
         adamw_named, muon_named = partition_released_unite_parameters(

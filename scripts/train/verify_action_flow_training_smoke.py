@@ -1744,6 +1744,22 @@ def _target_tensor_sha256(value: torch.Tensor) -> str:
     return digest.hexdigest()
 
 
+def _expected_energy_distance(identities: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the exact serialized distance contract for the active embodiment."""
+    if identities.get(
+        "energy_score_distance", USOCKET_ENERGY_DISTANCE_CONFIG
+    ) is not None:
+        return usocket_energy_distance_metadata(USOCKET_ENERGY_DISTANCE_CONFIG)
+    return {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        # PlanarActionEval canonicalizes configured blocks to tuples before
+        # saving the torch artifact.  Match that representation exactly so a
+        # genuine contract difference still fails closed.
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+        "space": "normalized_action_chunk",
+    }
+
+
 def _validate_artifacts(
     *,
     config: DictConfig,
@@ -1771,7 +1787,7 @@ def _validate_artifacts(
         energy.get("seed_bank_sha256") == seed_hash,
         "EnergyScore seed-bank hash mismatch",
     )
-    expected_distance = usocket_energy_distance_metadata(USOCKET_ENERGY_DISTANCE_CONFIG)
+    expected_distance = _expected_energy_distance(identities)
     _require(
         energy.get("distance") == expected_distance, "EnergyScore distance differs"
     )

@@ -201,6 +201,25 @@ and requires another explicit activation. Use `--no-cameras` for teleop-only
 operation; it disables preview and recording and reads the same single-key
 controls from the interactive terminal without requiring Enter.
 
+#### Virtual GELLO teleop viewer
+
+This hardware-free visual smoke uses i2rt's installed dual-YAM station MJCF and
+synthetic, bounded GELLO samples. It exercises the same relative alignment,
+joint/gripper velocity limits, and follower command path as physical GELLO
+teleop, but never constructs a Yam driver or opens CAN, cameras, USB, Quest, or
+robot hardware:
+
+```bash
+python -m egomimic.robot.virtual_gello_teleop --duration 30
+```
+
+It opens the MuJoCo viewer and animates both YAM arms. For an automation-safe
+no-window validation, use:
+
+```bash
+python -m egomimic.robot.virtual_gello_teleop --headless --duration 3
+```
+
 ### Preserved HDF5 format
 
 Files remain `demo_<id>.hdf5`, with `sim=False`. Each row uses left arm then

@@ -1,0 +1,43 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Clean 4,918-episode ChainGripper corpus with native six-point action targets.
+train_datasets:
+  pushshapes_sim_chain_gripper: &dataset
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_CHAIN_GRIPPER_ROOT}
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 4918
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_points_action_state_transform_list
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 4869
+    expected_train_episode_names_sha256: fdde9546fd621d0e8e9f53eebb6257e54baf9160fb9e0a2e7cea4dc8e3d60c94
+    expected_valid_episode_count: 49
+    expected_valid_episode_names_sha256: e3f6625f932675c9352c969bc44b38009a4db9fba42d827e8633b9964bc05275
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_chain_gripper:
+    <<: *dataset
+    mode: valid
+
+train_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+
+valid_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true

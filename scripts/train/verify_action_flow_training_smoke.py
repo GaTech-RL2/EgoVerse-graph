@@ -25,6 +25,7 @@ from typing import Any
 
 import torch
 from omegaconf import DictConfig, OmegaConf
+from omegaconf.errors import ConfigKeyError
 
 # ``python scripts/train/...`` otherwise places only ``scripts/train`` on the
 # import path.  Resolve imports from the exact checkout being verified.
@@ -79,6 +80,12 @@ UNITE_H384_PARITY_EXPERIMENT = (
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
 )
 UNITE_H384_PARAMETER_COUNT = 97_956_100
+CHAIN_H384_EXPERIMENT = (
+    "pusht/action_flow_chain_points6_latent_fm_sg_unite_"
+    "h384d12h12_sum14_cfg4_val10k_s42"
+)
+CHAIN_H384_PARAMETER_COUNT = 97_957_126
+CHAIN_SOURCE_LABEL = "pushshapes_sim_chain_gripper"
 APPROVED_EXPERIMENTS = {
     UNITE_H384_EXPERIMENT: (
         "action_flow_usocket_latent_fm_sg_unite_h384_s42",
@@ -87,6 +94,12 @@ APPROVED_EXPERIMENTS = {
     ),
     UNITE_H384_PARITY_EXPERIMENT: (
         "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        1.0,
+        1.0,
+    ),
+    CHAIN_H384_EXPERIMENT: (
+        "action_flow_chain_points6_latent_fm_sg_unite_"
+        "h384d12h12_sum14_cfg4_val10k_s42",
         1.0,
         1.0,
     ),
@@ -347,7 +360,11 @@ def _validate_config(
     scaled_muon = experiment == SCALED_MUON_EXPERIMENT
     scaled_200m = experiment in SCALED_200M_EXPERIMENTS
     unite_recipe = method == STOPGRAD_UNITE_METHOD
-    unite_parity = experiment == UNITE_H384_PARITY_EXPERIMENT
+    chain_h384 = experiment == CHAIN_H384_EXPERIMENT
+    unite_parity = experiment in {UNITE_H384_PARITY_EXPERIMENT, CHAIN_H384_EXPERIMENT}
+    source_label = CHAIN_SOURCE_LABEL if chain_h384 else SOURCE_LABEL
+    action_dim = 6 if chain_h384 else 4
+    episode_counts = (4_869, 49, 4_918) if chain_h384 else (2_970, 29, 2_999)
     field_hidden_dim = 1_024 if scaled_200m else 512
     field_depth = 14 if scaled_200m else 12
     field_num_heads = 16 if scaled_200m else 8
@@ -355,7 +372,7 @@ def _validate_config(
 
     common_checks = (
         ("model.action_horizon", 16),
-        ("model.action_dim", 4),
+        ("model.action_dim", action_dim),
         ("model.flow_samples_per_content", 14),
         ("trainer.max_steps", 2),
         ("trainer.val_check_interval", 2 if unite_recipe else 1),
@@ -374,9 +391,9 @@ def _validate_config(
         ("planar.observation_horizon", 1),
         ("planar.batch_size", 32),
         ("run_provenance.split_seed", 42),
-        ("run_provenance.train_episode_count_per_domain", 2_970),
-        ("run_provenance.valid_episode_count_per_domain", 29),
-        ("run_provenance.union_episode_count_per_domain", 2_999),
+        ("run_provenance.train_episode_count_per_domain", episode_counts[0]),
+        ("run_provenance.valid_episode_count_per_domain", episode_counts[1]),
+        ("run_provenance.union_episode_count_per_domain", episode_counts[2]),
         ("run_provenance.id_overlap_count", 0),
         ("run_provenance.resolved_path_overlap_count", 0),
         ("run_provenance.objective.flow_samples_per_content", 14),
@@ -587,32 +604,47 @@ def _validate_config(
     _exact(
         config,
         "run_provenance.action_contract.representation",
-        "x_y_cos_theta_sin_theta",
+        "left_xy_center_xy_right_xy_points6" if chain_h384 else "x_y_cos_theta_sin_theta",
     )
     _exact(config, "norm_stats.norm_mode", "minmax" if unite_recipe else "quantile")
     _float(config, "norm_stats.sample_frac", 1.0)
 
-    distance_contract = _same_mapping(
-        config,
-        (
-            "evaluator.energy_score_distance",
-            "evaluator.energy_score_provenance.distance_contract",
-            "run_provenance.energy_score_contract.distance",
-        ),
-        label="typed USocket EnergyScore distance contract",
-    )
-    try:
-        normalized_distance = normalize_usocket_energy_distance_config(
-            distance_contract
+    if chain_h384:
+        _require(
+            config.evaluator.get("energy_score_distance") is None
+            and config.evaluator.energy_score_provenance.get("distance_contract") is None
+            and config.run_provenance.energy_score_contract.get("distance") is None,
+            "native points6 must use the generic semantic-block distance",
         )
-    except (TypeError, ValueError) as error:
-        raise SmokeVerificationError(
-            f"invalid typed USocket EnergyScore distance contract: {error}"
-        ) from error
-    _require(
-        normalized_distance == USOCKET_ENERGY_DISTANCE_CONFIG,
-        "typed USocket EnergyScore distance contract differs",
-    )
+        _require(
+            OmegaConf.to_container(config.evaluator.semantic_blocks, resolve=True)
+            == [[0, 2], [2, 4], [4, 6]],
+            "native points6 semantic blocks differ",
+        )
+        normalized_distance = None
+        native_error_contract = None
+    else:
+        distance_contract = _same_mapping(
+            config,
+            (
+                "evaluator.energy_score_distance",
+                "evaluator.energy_score_provenance.distance_contract",
+                "run_provenance.energy_score_contract.distance",
+            ),
+            label="typed USocket EnergyScore distance contract",
+        )
+        try:
+            normalized_distance = normalize_usocket_energy_distance_config(
+                distance_contract
+            )
+        except (TypeError, ValueError) as error:
+            raise SmokeVerificationError(
+                f"invalid typed USocket EnergyScore distance contract: {error}"
+            ) from error
+        _require(
+            normalized_distance == USOCKET_ENERGY_DISTANCE_CONFIG,
+            "typed USocket EnergyScore distance contract differs",
+        )
     if method == LIKELIHOOD_METHOD:
         _exact(
             config,
@@ -620,7 +652,7 @@ def _validate_config(
             "egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder",
         )
         native_error_contract = dict(USOCKET_NATIVE_ERROR_CONFIG)
-    else:
+    elif not chain_h384:
         try:
             native_error_contract = normalize_usocket_native_error_config(
                 _plain_mapping(
@@ -632,29 +664,30 @@ def _validate_config(
             raise SmokeVerificationError(
                 f"invalid Action Flow native-error contract: {error}"
             ) from error
-    _require(
-        native_error_contract == USOCKET_NATIVE_ERROR_CONFIG,
-        "Action Flow native-error contract differs",
-    )
+    if not chain_h384:
+        _require(
+            native_error_contract == USOCKET_NATIVE_ERROR_CONFIG,
+            "Action Flow native-error contract differs",
+        )
 
     sources = tuple(config.data.train_datasets)
-    _require(sources == (SOURCE_LABEL,), f"unexpected training source: {sources}")
+    _require(sources == (source_label,), f"unexpected training source: {sources}")
     _require(
         tuple(config.data.valid_datasets) == sources,
         "training and validation sources differ",
     )
     _exact(
         config,
-        f"data.train_dataloader_params.{SOURCE_LABEL}.batch_size",
+        f"data.train_dataloader_params.{source_label}.batch_size",
         32,
     )
     _exact(
         config,
-        f"data.valid_dataloader_params.{SOURCE_LABEL}.batch_size",
+        f"data.valid_dataloader_params.{source_label}.batch_size",
         32 if unite_parity else 16,
     )
     global_batch = (
-        int(config.data.train_dataloader_params[SOURCE_LABEL].batch_size)
+        int(config.data.train_dataloader_params[source_label].batch_size)
         * int(config.trainer.devices)
         * int(config.trainer.num_nodes)
         * int(config.trainer.accumulate_grad_batches)
@@ -749,10 +782,11 @@ def _validate_config(
         actual=content_manifest_hash,
         label="dataset content manifest SHA-256",
     )
-    _require(
-        content_manifest_hash == CANONICAL_CONTENT_MANIFEST_SHA256,
-        "dataset content manifest is not the canonical USocket corpus manifest",
-    )
+    if not chain_h384:
+        _require(
+            content_manifest_hash == CANONICAL_CONTENT_MANIFEST_SHA256,
+            "dataset content manifest is not the canonical USocket corpus manifest",
+        )
     try:
         content_manifest_payload = json.loads(content_manifest_path.read_text())
     except (OSError, json.JSONDecodeError) as error:
@@ -788,10 +822,11 @@ def _validate_config(
         aggregate_recorded == expected_aggregate == manifest_aggregate,
         "dataset aggregate content SHA-256 mismatch",
     )
-    _require(
-        manifest_aggregate == CANONICAL_DATASET_CONTENT_AGGREGATE_SHA256,
-        "dataset aggregate is not the canonical USocket corpus content",
-    )
+    if not chain_h384:
+        _require(
+            manifest_aggregate == CANONICAL_DATASET_CONTENT_AGGREGATE_SHA256,
+            "dataset aggregate is not the canonical USocket corpus content",
+        )
 
     energy_content_path = _resolve_path(
         _select(
@@ -859,7 +894,12 @@ def _validate_config(
         "content_manifest_path": str(content_manifest_path),
         "content_manifest_sha256": content_manifest_hash,
         "dataset_content_aggregate_sha256": manifest_aggregate,
-        "energy_score_distance": usocket_energy_distance_metadata(normalized_distance),
+        "energy_score_distance": (
+            None
+            if normalized_distance is None
+            else usocket_energy_distance_metadata(normalized_distance)
+        ),
+        "source_label": source_label,
         "native_error": native_error_contract,
         "normalization_path": str(normalization_path),
         "normalization_sha256": normalization_hash,
@@ -911,6 +951,11 @@ def _canonical_json_sha256(value: Any) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _json_equivalent(left: Any, right: Any) -> bool:
+    """Compare JSON-shaped metadata independent of tuple/list containers."""
+    return _canonical_json_sha256(left) == _canonical_json_sha256(right)
 
 
 def _validate_gradient_route_manifest(
@@ -1102,6 +1147,7 @@ def _validate_optimizer_state(
             APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_PARITY_EXPERIMENT][0],
+            APPROVED_EXPERIMENTS[CHAIN_H384_EXPERIMENT][0],
         }
     )
     if not composite_optimizer:
@@ -1245,6 +1291,10 @@ def _validate_checkpoint(
             },
             "likelihood checkpoint scientific contract mismatch",
         )
+    elif method == STOPGRAD_UNITE_METHOD:
+        from egomimic.pl_utils.pl_model import ModelWrapper
+
+        wrapper_type = ModelWrapper
     try:
         restored = wrapper_type.load_from_checkpoint(
             last_path,
@@ -1260,17 +1310,29 @@ def _validate_checkpoint(
         type(restored) is wrapper_type,
         f"checkpoint restored unexpected wrapper {type(restored)!r}",
     )
-    if loss_schedule is not None:
+    if loss_schedule is not None and hasattr(
+        restored, "reconstruction_only_warmup_steps"
+    ):
         _require(
             restored.reconstruction_only_warmup_steps == expected_warmup_steps,
             "strict reload lost the reconstruction-only warmup",
         )
+    elif loss_schedule is not None:
+        _require(
+            method == STOPGRAD_UNITE_METHOD and expected_warmup_steps == 0,
+            "strict reload wrapper cannot represent the configured warmup schedule",
+        )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
     if method == STOPGRAD_UNITE_METHOD:
+        expected_parameter_count = (
+            CHAIN_H384_PARAMETER_COUNT
+            if config is not None and int(config.model.action_dim) == 6
+            else UNITE_H384_PARAMETER_COUNT
+        )
         _require(
-            parameter_count == UNITE_H384_PARAMETER_COUNT,
+            parameter_count == expected_parameter_count,
             f"parameter count mismatch: {parameter_count} != "
-            f"{UNITE_H384_PARAMETER_COUNT}",
+            f"{expected_parameter_count}",
         )
     elif method in (LEGACY_METHOD, STOPGRAD_METHOD):
         expected_parameter_count = EXPECTED_PARAMETER_COUNT
@@ -1294,6 +1356,9 @@ def _validate_checkpoint(
     if method == LIKELIHOOD_METHOD:
         stages = restored.model.pipeline.stages
         owners = (stages[3].mean_encoder, stages[5].field, stages[6].decoder)
+    elif method == STOPGRAD_UNITE_METHOD:
+        stages = restored.model.pipeline.stages
+        owners = (stages[4].encoder, stages[6].field, stages[7].decoder)
     else:
         owners = (restored.encoder_e, restored.field_v, restored.decoder_g)
     _require(
@@ -1416,9 +1481,11 @@ def _complete_row(
 def _validate_history(
     rows: Mapping[int, Mapping[str, float]],
     *,
+    source_label: str = SOURCE_LABEL,
     reconstruction_weight: float = 1.0,
     flow_weight: float = 1.0,
     expect_reconstruction_warmup: bool = False,
+    expect_native_diagnostics: bool = True,
     method: str = LEGACY_METHOD,
 ) -> dict[str, Any]:
     component_names = (
@@ -1431,7 +1498,7 @@ def _validate_history(
     if method == LIKELIHOOD_METHOD:
         component_names = ("TotalLoss", "InteriorBridgeNLL", "BoundaryNLL")
     components = tuple(f"Train/ActionFlow/{name}" for name in component_names)
-    per_source_components = tuple(f"{name}/{SOURCE_LABEL}" for name in components)
+    per_source_components = tuple(f"{name}/{source_label}" for name in components)
     gradient_labels = (
         ("InteriorBridgeNLL", "BoundaryNLL")
         if method == LIKELIHOOD_METHOD
@@ -1459,7 +1526,7 @@ def _validate_history(
             for pair in gradient_pairs
         ),
         "Train/MSE",
-        f"Train/MSE/{SOURCE_LABEL}",
+        f"Train/MSE/{source_label}",
         "Train/ActionFlow/Compute/FieldForwardCallsPerStep",
         "Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep",
         "Train/ActionFlow/Compute/DecoderJVPCallsPerStep",
@@ -1540,7 +1607,7 @@ def _validate_history(
         ),
         "joint smoke step did not enable both delayed objectives",
     )
-    for suffix in ("", f"/{SOURCE_LABEL}"):
+    for suffix in ("", f"/{source_label}"):
         expected_total = (
             (
                 train[f"Train/ActionFlow/InteriorBridgeNLL{suffix}"]
@@ -1580,7 +1647,7 @@ def _validate_history(
                 == 0.0,
                 "warmup smoke step enabled a delayed objective",
             )
-            for suffix in ("", f"/{SOURCE_LABEL}"):
+            for suffix in ("", f"/{source_label}"):
                 expected_total = (
                     reconstruction_weight
                     * concrete[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
@@ -1606,7 +1673,7 @@ def _validate_history(
         "Valid/EnergyScoreAccuracy@32",
         "Valid/EnergyScoreDiversity@32",
     ):
-        validity.extend((base, f"{base}/{SOURCE_LABEL}"))
+        validity.extend((base, f"{base}/{source_label}"))
     validity.extend(f"Valid/ActionFlow/{name}" for name in component_names)
     diagnostics = (
         "Valid/ActionFlow/CleanReconstructionMSE",
@@ -1626,10 +1693,12 @@ def _validate_history(
         diagnostics = ()
     elif method == GRAPH_METHOD:
         diagnostics = tuple(name for name in diagnostics if "/Alignment/CK" not in name)
+    if not expect_native_diagnostics:
+        diagnostics = tuple(name for name in diagnostics if "NativeMSE" not in name)
     diagnostics = (
         *diagnostics,
         *(
-            f"{name}/{SOURCE_LABEL}"
+            f"{name}/{source_label}"
             for name in diagnostics
             if "NativeMSE" in name or "decoded_native_mse" in name
         ),
@@ -1741,6 +1810,22 @@ def _target_tensor_sha256(value: torch.Tensor) -> str:
     return digest.hexdigest()
 
 
+def _expected_energy_distance(identities: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the exact serialized distance contract for the active embodiment."""
+    if identities.get(
+        "energy_score_distance", USOCKET_ENERGY_DISTANCE_CONFIG
+    ) is not None:
+        return usocket_energy_distance_metadata(USOCKET_ENERGY_DISTANCE_CONFIG)
+    return {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        # PlanarActionEval canonicalizes configured blocks to tuples before
+        # saving the torch artifact.  Match that representation exactly so a
+        # genuine contract difference still fails closed.
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+        "space": "normalized_action_chunk",
+    }
+
+
 def _validate_artifacts(
     *,
     config: DictConfig,
@@ -1749,6 +1834,12 @@ def _validate_artifacts(
     checkpoint: Mapping[str, Any],
 ) -> dict[str, Any]:
     split_sha256 = str(identities["split_manifest_sha256"])
+    source_label = str(identities.get("source_label", SOURCE_LABEL))
+    try:
+        action_dim = int(config.model.action_dim)
+    except (AttributeError, ConfigKeyError):
+        action_dim = 6 if source_label == CHAIN_SOURCE_LABEL else 4
+    has_typed_native_error = identities.get("native_error", USOCKET_NATIVE_ERROR_CONFIG) is not None
     energy_root = _artifact_root(config, "evaluator.artifact_root", run_dir)
     energy_path, energy = _step_two_artifact(energy_root, label="EnergyScore")
     _require(energy.get("schema_version") == 2, "wrong typed EnergyScore schema")
@@ -1768,15 +1859,16 @@ def _validate_artifacts(
         energy.get("seed_bank_sha256") == seed_hash,
         "EnergyScore seed-bank hash mismatch",
     )
-    expected_distance = usocket_energy_distance_metadata(USOCKET_ENERGY_DISTANCE_CONFIG)
+    expected_distance = _expected_energy_distance(identities)
     _require(
-        energy.get("distance") == expected_distance, "EnergyScore distance differs"
+        _json_equivalent(energy.get("distance"), expected_distance),
+        "EnergyScore distance differs",
     )
     _require(
-        set(energy.get("domains", {})) == {SOURCE_LABEL},
+        set(energy.get("domains", {})) == {source_label},
         "EnergyScore artifact source mismatch",
     )
-    domain = energy["domains"][SOURCE_LABEL]
+    domain = energy["domains"][source_label]
     validation_batch_size = int(
         config.evaluator.energy_score_validation_view.per_rank_batch_size
     )
@@ -1786,25 +1878,31 @@ def _validate_artifacts(
     native_targets = domain.get("native_targets")
     _require(
         torch.is_tensor(predictions)
-        and tuple(predictions.shape) == (32, validation_batch_size, 16, 4),
+        and tuple(predictions.shape) == (32, validation_batch_size, 16, action_dim),
         "EnergyScore predictions have the wrong validation-batch shape",
     )
     _require(
         torch.is_tensor(targets)
-        and tuple(targets.shape) == (validation_batch_size, 16, 4),
+        and tuple(targets.shape) == (validation_batch_size, 16, action_dim),
         "EnergyScore targets have the wrong validation-batch shape",
     )
-    _require(
-        torch.is_tensor(native_predictions)
-        and tuple(native_predictions.shape)
-        == (32, validation_batch_size, 16, 3),
-        "typed EnergyScore native predictions have the wrong shape",
-    )
-    _require(
-        torch.is_tensor(native_targets)
-        and tuple(native_targets.shape) == (validation_batch_size, 16, 3),
-        "typed EnergyScore native targets have the wrong shape",
-    )
+    if has_typed_native_error:
+        _require(
+            torch.is_tensor(native_predictions)
+            and tuple(native_predictions.shape)
+            == (32, validation_batch_size, 16, 3),
+            "typed EnergyScore native predictions have the wrong shape",
+        )
+        _require(
+            torch.is_tensor(native_targets)
+            and tuple(native_targets.shape) == (validation_batch_size, 16, 3),
+            "typed EnergyScore native targets have the wrong shape",
+        )
+    else:
+        _require(
+            native_predictions is None and native_targets is None,
+            "generic native-action EnergyScore must not fabricate a second space",
+        )
     conditions = domain.get("condition_ids")
     _require(
         isinstance(conditions, list) and len(conditions) == validation_batch_size,
@@ -1898,7 +1996,7 @@ def _validate_artifacts(
         "typed EnergyScore dataset-content identity differs",
     )
     _require(
-        energy_identity.get("distance") == expected_distance,
+        _json_equivalent(energy_identity.get("distance"), expected_distance),
         "typed EnergyScore identity distance differs",
     )
     _require(
@@ -1910,7 +2008,7 @@ def _validate_artifacts(
         "typed EnergyScore identity validation view differs",
     )
     _require(
-        energy_identity.get("validation_conditions") == {SOURCE_LABEL: conditions},
+        energy_identity.get("validation_conditions") == {source_label: conditions},
         "typed EnergyScore validation conditions differ",
     )
     binding = energy_identity.get("checkpoint_binding")
@@ -1958,7 +2056,7 @@ def _validate_artifacts(
     )
     _require(diagnostic.get("schema_version") == 1, "wrong diagnostic schema")
     _require(
-        set(diagnostic.get("sources", {})) == {SOURCE_LABEL},
+        set(diagnostic.get("sources", {})) == {source_label},
         "Action Flow diagnostic source mismatch",
     )
     _require(
@@ -1973,12 +2071,13 @@ def _validate_artifacts(
         "Action Flow diagnostic identity hash mismatch",
     )
     _require(
-        identity.get("native_error") == USOCKET_NATIVE_ERROR_CONFIG,
+        identity.get("native_error")
+        == identities.get("native_error", USOCKET_NATIVE_ERROR_CONFIG),
         "Action Flow diagnostic native-error identity differs",
     )
     _require(
         diagnostic.get("statistics", {}).get("native_action_error")
-        == USOCKET_NATIVE_ERROR_CONFIG,
+        == identities.get("native_error", USOCKET_NATIVE_ERROR_CONFIG),
         "Action Flow diagnostic native-error statistics differ",
     )
     expected_diagnostic_view = _plain_mapping(
@@ -2008,7 +2107,7 @@ def _validate_artifacts(
         },
         "Action Flow diagnostic provenance identity differs",
     )
-    source_payload = diagnostic["sources"][SOURCE_LABEL]
+    source_payload = diagnostic["sources"][source_label]
     computed = source_payload.get("computed")
     _require(isinstance(computed, Mapping), "diagnostic computed payload missing")
     clean_native = computed.get("clean_reconstruction_native_mse_by_condition")
@@ -2024,15 +2123,21 @@ def _validate_artifacts(
         diagnostic_provenance.get("sampler_steps") == diagnostic_steps,
         "Action Flow diagnostic sampler-step provenance differs",
     )
-    _require(
-        torch.is_tensor(clean_native) and tuple(clean_native.shape) == (16,),
-        "diagnostic clean native errors have wrong shape",
-    )
-    _require(
-        torch.is_tensor(trajectory_native)
-        and tuple(trajectory_native.shape) == (diagnostic_steps + 1, 16),
-        "diagnostic trajectory native errors have wrong shape",
-    )
+    if has_typed_native_error:
+        _require(
+            torch.is_tensor(clean_native) and tuple(clean_native.shape) == (16,),
+            "diagnostic clean native errors have wrong shape",
+        )
+        _require(
+            torch.is_tensor(trajectory_native)
+            and tuple(trajectory_native.shape) == (diagnostic_steps + 1, 16),
+            "diagnostic trajectory native errors have wrong shape",
+        )
+    else:
+        _require(
+            clean_native is None and trajectory_native is None,
+            "generic native-action diagnostics must not fabricate converted errors",
+        )
     fixed_metrics = computed.get("fixed_level_metrics")
     _require(
         isinstance(fixed_metrics, Mapping) and set(fixed_metrics) == set(NATIVE_LEVELS),
@@ -2041,16 +2146,23 @@ def _validate_artifacts(
     for label in NATIVE_LEVELS:
         values = fixed_metrics[label]
         _require(isinstance(values, Mapping), f"diagnostic {label} is malformed")
-        for metric in (
+        native_metrics = (
             "state_decoded_native_mse",
             "predicted_clean_decoded_native_mse",
             "final_decoded_native_mse",
-        ):
+        )
+        for metric in native_metrics:
             value = values.get(metric)
-            _require(
-                torch.is_tensor(value) and tuple(value.shape) == (16,),
-                f"diagnostic {metric}/{label} has wrong shape",
-            )
+            if has_typed_native_error:
+                _require(
+                    torch.is_tensor(value) and tuple(value.shape) == (16,),
+                    f"diagnostic {metric}/{label} has wrong shape",
+                )
+            else:
+                _require(
+                    value is None,
+                    f"generic native-action diagnostics unexpectedly contain {metric}/{label}",
+                )
     sidecar = Path(f"{diagnostic_path}.sha256")
     _require(sidecar.is_file(), f"missing diagnostic SHA sidecar: {sidecar}")
     sidecar_payload = json.loads(sidecar.read_text())
@@ -2271,9 +2383,18 @@ def verify_smoke(
     rows, exit_code = _wandb_history(streams[0])
     metrics = _validate_history(
         rows,
+        source_label=identities["source_label"],
         reconstruction_weight=APPROVED_EXPERIMENTS[experiment][1],
         flow_weight=APPROVED_EXPERIMENTS[experiment][2],
         expect_reconstruction_warmup=expect_reconstruction_warmup,
+        expect_native_diagnostics=(
+            OmegaConf.select(
+                config,
+                "evaluation.action_flow_diagnostics.native_error",
+                default=None,
+            )
+            is not None
+        ),
         method=method,
     )
     artifacts = _validate_artifacts(

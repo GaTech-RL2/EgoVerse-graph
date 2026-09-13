@@ -51,6 +51,7 @@ def _resolved_smoke_config(
         cfg.trainer.val_check_interval = 2 if experiment in {
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+            MODULE.CHAIN_H384_EXPERIMENT,
         } else 1
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
@@ -60,6 +61,26 @@ def _resolved_smoke_config(
         cfg.norm_stats.precomputed_norm_path = str(normalization)
         cfg.run_provenance.source_commit = HEAD
         cfg.run_provenance.normalization_sha256 = normalization_hash
+        if experiment == MODULE.CHAIN_H384_EXPERIMENT:
+            receipt_root = Path(
+                "/storage/ice1/2/9/tlertuss3/egoverse/shared-datasets/"
+                "pushshapes/receipts/chain_gripper_clean4918_20260913"
+            )
+            cfg.run_provenance.split_manifest_path = str(
+                receipt_root / "split_seed42_val01.json"
+            )
+            cfg.run_provenance.split_manifest_sha256 = (
+                "aa7ea8e8731019479d82836c6d5ecac921d911c7ade66b665dcd65ee1f962456"
+            )
+            cfg.run_provenance.content_manifest_path = str(
+                receipt_root / "content_manifest.json"
+            )
+            cfg.run_provenance.content_manifest_sha256 = (
+                "80e88dc9d4daba6d3fce650cc47a327b9f4e8f48bc48ba61ef4c6f2751c146d2"
+            )
+            cfg.run_provenance.dataset_content_aggregate_sha256 = (
+                "1b7dca2bc60a125095bd50a05bcf923735f5c4062e5373a7fa0f47e13ba99f99"
+            )
         cfg.evaluator.artifact_root = str(run_dir / "energy")
         cfg.evaluator.action_flow_diagnostics.artifact_root = str(
             run_dir / "diagnostics"
@@ -198,6 +219,32 @@ def test_config_gate_accepts_unite_h384_parity_contract(tmp_path, monkeypatch):
     assert config.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size == 32
 
 
+def test_config_gate_accepts_chain_h384_native_points6_contract(tmp_path, monkeypatch):
+    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
+        tmp_path,
+        experiment=MODULE.CHAIN_H384_EXPERIMENT,
+    )
+    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+
+    config, identities = MODULE._validate_config(
+        config_path=config_path,
+        experiment=experiment,
+        run_dir=run_dir,
+        expected_head=HEAD,
+        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        expected_split_sha256=None,
+        expected_normalization_sha256=normalization_hash,
+    )
+
+    assert config.model.action_dim == 6
+    assert identities["source_label"] == MODULE.CHAIN_SOURCE_LABEL
+    assert identities["energy_score_distance"] is None
+    assert identities["native_error"] is None
+    assert MODULE.CHAIN_H384_EXPERIMENT in MODULE._parser()._option_string_actions[
+        "--experiment"
+    ].choices
+
+
 @pytest.mark.parametrize(
     ("path", "value", "message"),
     [
@@ -297,6 +344,33 @@ def test_history_gate_requires_components_gradients_and_scheduled_validation():
     assert result["train_step"] == 2
     assert result["valid_step"] == 2
     assert result["train"]["Train/ActionFlow/FlowMatchingLoss"] == 1.25
+
+
+def test_history_gate_omits_native_diagnostics_when_disabled():
+    row = _history_row()
+    del row["Valid/ActionFlow/CleanReconstructionNativeMSE"]
+    del row[
+        f"Valid/ActionFlow/CleanReconstructionNativeMSE/{MODULE.SOURCE_LABEL}"
+    ]
+    del row["Valid/ActionFlow/DenoisingTrajectory/DecodedNativeMSE/t0000"]
+    del row[
+        "Valid/ActionFlow/DenoisingTrajectory/DecodedNativeMSE/t0000/"
+        f"{MODULE.SOURCE_LABEL}"
+    ]
+
+    result = MODULE._validate_history(
+        {2: row}, expect_native_diagnostics=False
+    )
+
+    assert result["valid_step"] == 2
+
+
+def test_chain_energy_distance_matches_serialized_generic_contract():
+    assert MODULE._expected_energy_distance({"energy_score_distance": None}) == {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+        "space": "normalized_action_chunk",
+    }
 
 
 def test_history_gate_accepts_float32_flow_weight_telemetry():
@@ -558,6 +632,21 @@ def test_artifact_gate_verifies_energy_and_diagnostic_immutability(tmp_path):
 
     assert result["energy_score"]["sha256"]
     assert result["action_flow_diagnostics"]["path"] == str(diagnostic_path)
+
+
+def test_json_equivalent_normalizes_semantic_block_container_types():
+    artifact_distance = {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+    }
+    expected_distance = {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": [[0, 2], [2, 4], [4, 6]],
+        "space": "normalized_action_chunk",
+    }
+
+    assert MODULE._json_equivalent(artifact_distance, expected_distance)
 
 
 def test_artifact_gate_selects_exact_slurm_attempt_and_checks_execution(tmp_path, monkeypatch):

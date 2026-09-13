@@ -92,6 +92,8 @@ CHAIN_CONTENT_MANIFEST_SHA256=65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726
 CHAIN_DATASET_CONTENT_AGGREGATE_SHA256=2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb
 CHAIN_4920_CONTENT_MANIFEST_SHA256=d47337ec051351c37def6078ce96a9d4187d44ca6d2d89867e716aea8b5573a9
 CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256=241ef7cab22303088c46ef1dca4379c4c4932409b494fc88db413fcb687e1afe
+CHAIN_CLEAN4918_CONTENT_MANIFEST_SHA256=80e88dc9d4daba6d3fce650cc47a327b9f4e8f48bc48ba61ef4c6f2751c146d2
+CHAIN_CLEAN4918_DATASET_CONTENT_AGGREGATE_SHA256=1b7dca2bc60a125095bd50a05bcf923735f5c4062e5373a7fa0f47e13ba99f99
 
 case "$AF_LAUNCH_MODE" in
   preflight|run) ;;
@@ -125,6 +127,7 @@ AF_EXPECTED_PARAMETER_COUNT=97956100
 AF_COTRAIN=false
 AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
+AF_CLEAN_CHAIN_4918=false
 case "$AF_EXPERIMENT" in
   pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -158,6 +161,23 @@ case "$AF_EXPERIMENT" in
     AF_SCALED_H512=true
     AF_FROZEN_CHAIN_4920=true
     AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,frozen4920,action-flow,unite-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_chain_points6_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_chain_points6_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_SOURCE=pushshapes_sim_chain_gripper
+    AF_ACTION_DIM=6
+    AF_EXPECTED_PARAMETER_COUNT=97957126
+    AF_CLEAN_CHAIN_4918=true
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,clean4918,action-flow,unite-h384d12h12,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -381,9 +401,10 @@ if test "$AF_COTRAIN" = true; then
   done
 fi
 
-if test -z "$AF_SPLIT_MANIFEST" && test "$AF_FROZEN_CHAIN_4920" = true \
+if test -z "$AF_SPLIT_MANIFEST" && { test "$AF_FROZEN_CHAIN_4920" = true \
+  || test "$AF_CLEAN_CHAIN_4918" = true; } \
   && test "$AF_COTRAIN" = false; then
-  die "AF_SPLIT_MANIFEST is required for the frozen 4,920-episode ChainGripper row"
+  die "AF_SPLIT_MANIFEST is required for an explicitly pinned ChainGripper row"
 elif test -z "$AF_SPLIT_MANIFEST"; then
   if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
     AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
@@ -411,7 +432,12 @@ fi
 [[ "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
 if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
-  if test "$AF_FROZEN_CHAIN_4920" = true; then
+  if test "$AF_CLEAN_CHAIN_4918" = true; then
+    test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_CLEAN4918_CONTENT_MANIFEST_SHA256" || \
+      die "content manifest is not the clean 4,918-episode ChainGripper manifest"
+    test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_CLEAN4918_DATASET_CONTENT_AGGREGATE_SHA256" || \
+      die "dataset aggregate is not the clean 4,918-episode ChainGripper content"
+  elif test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "content manifest is not the frozen 4,920-episode ChainGripper manifest"
     test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -866,7 +892,8 @@ PY
     if test -n "$AF_COMPARISON_EXPERIMENT"; then
       CONFIG_VALIDATOR_ARGS+=(--compare-experiment "$AF_COMPARISON_EXPERIMENT")
     fi
-    if test "$AF_COTRAIN" = true && test "$AF_SCALED_H512" = false; then
+    if { test "$AF_COTRAIN" = true || test "$AF_CLEAN_CHAIN_4918" = true; } \
+      && test "$AF_SCALED_H512" = false; then
       # The live single-domain validator only recognizes its historical fixed
       # cotrain experiment and topology.  The current routed H384 cotrain graph
       # is composed, instantiated, and audited by the strict resolved-config
@@ -886,7 +913,7 @@ payload = {
     "validation_mode": "launcher_strict_routed_cotrain",
     "note": (
         "The historical external validator does not accept arbitrary routed "
-        "cotrain experiment names/topologies; the launcher composes, "
+        "cotrain or native-points6 experiment names/topologies; the launcher composes, "
         "instantiates, and fail-closed audits the exact resolved config."
     ),
     "external_validator_path": str(validator),

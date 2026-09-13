@@ -838,8 +838,10 @@ class PlanarActionEval(Eval):
             )
 
         distance_contract = provenance.get("distance_contract")
-        normalized_distance = normalize_usocket_energy_distance_config(
-            distance_contract
+        normalized_distance = (
+            None
+            if distance_contract is None
+            else normalize_usocket_energy_distance_config(distance_contract)
         )
         if normalized_distance != self.energy_score_distance:
             raise ValueError("EnergyScore provenance distance contract differs")
@@ -993,6 +995,21 @@ class PlanarActionEval(Eval):
         temporary = destination.with_suffix(".tmp")
         if destination.exists() or temporary.exists():
             raise FileExistsError(f"refusing to overwrite {destination}")
+        identity_fields = {
+            "source_commit",
+            "normalization_sha256",
+            "split_manifest_sha256",
+            "resolved_config_path",
+            "wandb",
+            "dataset_content",
+        }
+        has_identity_contract = identity_fields.issubset(
+            self.energy_score_provenance or {}
+        )
+        if self.energy_score_distance is not None and not has_identity_contract:
+            raise ValueError(
+                "typed EnergyScore requires complete immutable provenance"
+            )
         domains = {}
         if set(samples) != set(scores) or set(samples) != set(batch):
             raise ValueError("Energy Score source identities do not match")
@@ -1014,10 +1031,13 @@ class PlanarActionEval(Eval):
                 .cpu(),
                 "score_by_condition": values["score_by_condition"].float().cpu(),
             }
+            if has_identity_contract:
+                domain["condition_ids"] = self._condition_ids(
+                    batch[source_id], target
+                )
             if self.energy_score_distance is not None:
                 decoder = self._native_decoder(embodiment_id)
                 self._require_usocket_decoder(decoder)
-                domain["condition_ids"] = self._condition_ids(batch[source_id], target)
                 domain["native_predictions"] = (
                     self._native(predictions, embodiment_id, decoder)
                     .detach()
@@ -1053,7 +1073,7 @@ class PlanarActionEval(Eval):
             "provenance": self.energy_score_provenance,
             "domains": domains,
         }
-        if self.energy_score_distance is not None:
+        if has_identity_contract:
             payload["schema_version"] = 2
             identity = self._typed_artifact_identity(
                 domains=domains,

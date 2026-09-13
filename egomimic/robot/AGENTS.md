@@ -12,6 +12,11 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   byte-exact `yam/streaming_ik.py` path and its 60 Hz parameters; do not replace
   it with the fully converged graph IK. The controller delta is measured in the
   fixed VR world basis.
+- `collect_gello.py`: local USB/Dynamixel GELLO collection using the same HDF5
+  writer and YAM follower interface. Static checks and serial listing must open
+  no device. A normal run must reject incomplete calibration, preflight cameras,
+  serial paths, and follower CAN before opening a motor, and start disarmed. Its
+  stop key must also disarm; camera-free mode must retain interactive key input.
 - `cameras.py`: shared camera setup, freshness checks and live front/wrist views;
   Yam must validate configured RealSense serials before opening robot drivers.
   Camera drivers remain in `eva/eva_ws/src/eva/stream_{aria,d405}.py`.
@@ -24,6 +29,10 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   RL2 profile's `headset_yaw_degrees: 180.0`; update copies, hashes and parity
   tests together if the source pin changes.
   `yam/kinematics.py`: MuJoCo FK/IK using the configured Yam model and TCP site.
+  `yam/gello.py`: self-contained, read-only leader adapter using the official
+  Dynamixel SDK. Keep its SDK import lazy, torque disabled, stable by-id paths,
+  protocol/control-table values in YAML, per-arm freshness, relative activation,
+  and validate-both-before-commanding guard. Do not add a GELLO repo dependency.
 - `rollout.py`: shared rollout loop. Inference uses only the local graph path.
 - `graph_policy.py`: strict PipelineAlgo checkpoint loading, full normalization
   state, camera/proprio mapping and explicit Cartesian action-frame conversion.
@@ -45,7 +54,9 @@ Use the same graph, data normalization and evaluation components for HPT and PI.
 Do not introduce an embodiment-specific inference server or upstream runtime
 launcher. Do not deprecate Eva when adding another robot implementation.
 
-Run `tests/test_robot_runtime.py` and `tests/test_robot_graph_policy.py` for CPU
-validation. `--help` and uploader `--list` open no devices. Collection/rollout
-commands open hardware; operate a physical station only when the user requests
-that operation. Preserve source branches, user worktrees and recorded data.
+Run `tests/test_gello_teleop.py`, `tests/test_robot_runtime.py`, and
+`tests/test_robot_graph_policy.py` for CPU validation. `--help`, GELLO
+`--check-config`/`--list-ports`, and uploader `--list` open no devices.
+Collection/rollout commands open hardware; operate a physical station only when
+the user requests that operation. Preserve source branches, user worktrees and
+recorded data.

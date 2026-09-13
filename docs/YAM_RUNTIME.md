@@ -20,7 +20,8 @@ The i2rt extra pins the SDK revision used by that upstream snapshot:
 ## Station setup
 
 Activate the project environment before Python commands. On a Linux Yam
-station, install `.[yam]`. Aria capture and processing use `.[robot,aria]`.
+station, install `.[yam]`; that extra includes the pinned official Dynamixel SDK
+for USB GELLO input. Aria capture and processing use `.[robot,aria]`.
 Those extras deliberately cannot be installed together: Project Aria 2.0.0 pins
 `rerun-sdk==0.22.1`, whereas the pinned i2rt SDK requires `rerun-sdk>=0.32.2`.
 ADB must be installed and the Quest authorized. i2rt's `ruckig` build requires
@@ -118,6 +119,56 @@ Default controls (Quest buttons can be reassigned in YAML):
 Recording ends automatically at `recording.episode_length`. A held button only
 causes one transition. Starting another episode chooses the next unused number.
 Recording streams to disk, avoiding an episode-sized camera buffer in RAM.
+
+### USB/Dynamixel GELLO collection
+
+The GELLO path is self-contained in EgoVerse and does not require another GELLO
+checkout or Dynamixel Wizard at runtime. Wizard may still be used separately to
+provision servo IDs, baudrate, and operating mode. The checked-in profile is
+intentionally marked `gello.calibrated: false`: before a physical run, fill each
+leader's stable `/dev/serial/by-id` path, six joint signs/offsets, and measured
+open/closed gripper radians, then set that flag true. Do not use transient
+`/dev/ttyUSB*` enumeration to assign left and right.
+
+These commands are safe before the GELLOs are connected:
+
+```bash
+python -m egomimic.robot.collect_gello \
+  --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \
+  --check-config
+python -m egomimic.robot.collect_gello \
+  --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \
+  --list-ports
+```
+
+Once connected and calibrated, the read-only device preflight checks stable USB
+paths, both follower SocketCAN interfaces, and configured cameras without
+opening motors:
+
+```bash
+python -m egomimic.robot.collect_gello \
+  --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \
+  --check-devices
+```
+
+The physical collection command is:
+
+```bash
+python -m egomimic.robot.collect_gello \
+  --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml
+```
+
+The leader adapter disables torque on every Dynamixel and never sends leader
+position targets. Its two serial reads run concurrently. Followers start
+disarmed: press **g** to toggle both, **l** or **r** to toggle one side, **b** to
+start/finish an episode, **x** to disarm and preserve an interrupted episode,
+**y** to home, and **q** to quit. Relative alignment captures the measured
+follower/leader offset at every activation, preventing an arm-joint activation
+jump; the gripper remains velocity-limited. All joint commands are
+velocity-limited. A missing, malformed, or stale sample disarms both followers
+and requires another explicit activation. Use `--no-cameras` for teleop-only
+operation; it disables preview and recording and reads the same single-key
+controls from the interactive terminal without requiring Enter.
 
 ### Preserved HDF5 format
 

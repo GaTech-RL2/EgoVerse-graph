@@ -30,6 +30,7 @@ def test_yam_dependencies_are_isolated_from_aria_and_pi05() -> None:
     )
     assert extras["aria"] == ["projectaria-tools[all]==2.0.0"]
     assert "mink==1.1.0" in base_dependencies
+    assert "dynamixel-sdk==4.0.5" in extras["yam"]
 
     conflict_pairs = _extra_conflict_pairs(conflicts)
     assert frozenset(("aria", "yam")) in conflict_pairs

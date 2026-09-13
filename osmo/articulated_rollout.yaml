@@ -125,9 +125,13 @@ workflow:
           find "$D/raw" -mindepth 1 -type d -name 'episode_*.zarr' -print0 \
             | while IFS= read -r -d '' EP; do
                 SH=$(basename "$(dirname "$EP")")
-                ln -sfn "$EP" "$FLAT/ideal_${SH}_$(basename "$EP")"
+                # Must start with episode_: episode_budget.py globs
+                # episode_*.zarr, and the shard prefix has to go AFTER it
+                # because the per-shard episode index restarts at zero.
+                B=$(basename "$EP")
+                ln -sfn "$EP" "$FLAT/episode_${SH}_${B#episode_}"
               done
-          N=$(find "$FLAT" -maxdepth 1 -mindepth 1 | wc -l)
+          N=$(find "$FLAT" -maxdepth 1 -mindepth 1 -name 'episode_*.zarr' | wc -l)
           echo "staged $EMB: $N episodes"
           [ "$N" -eq "$PER_EMB_EPISODES" ] || { echo "FATAL: $EMB has $N, want $PER_EMB_EPISODES"; exit 1; }
           rm -rf "$D/tars"

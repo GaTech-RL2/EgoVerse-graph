@@ -12,6 +12,9 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
+from egomimic.eval.action_flow_diagnostic_forward import (
+    collect_action_flow_diagnostics,
+)
 from egomimic.eval.planar_action_eval import (
     USOCKET_NATIVE_ERROR_CONFIG,
     PlanarActionEval,
@@ -22,6 +25,8 @@ from egomimic.pipeline.stages_action_flow import (
     ConditionalVelocityStage,
     ContentDecoderStage,
     ContentEncoderStage,
+    RoutedContentDecoderStage,
+    RoutedContentEncoderStage,
 )
 from egomimic.pl_utils.pl_model_action_flow import ActionFlowModelWrapper
 
@@ -533,6 +538,50 @@ def test_action_flow_consumer_matches_real_wrapper_schema(tmp_path):
     assert "Valid/ActionFlow/Latent/clean/RMS" in metrics
     assert "Valid/ActionFlow/Alignment/CKA/encoder_01__field_01/t1000" in metrics
     assert all(bool(torch.isfinite(value)) for value in metrics.values())
+
+
+def test_action_flow_diagnostic_forward_selects_private_routed_codecs():
+    torch.manual_seed(92)
+    model = PipelineAlgo(
+        stages=[
+            RoutedContentEncoderStage(
+                encoders={"route_a": _TwoBlockCodec(), "route_b": _TwoBlockCodec()},
+                route_key="route",
+            ),
+            ConditionalVelocityStage(_TwoBlockField(), num_inference_steps=2),
+            RoutedContentDecoderStage(
+                decoders={"route_a": _TwoBlockCodec(), "route_b": _TwoBlockCodec()},
+                route_key="route",
+            ),
+        ],
+        device="cpu",
+    )
+    batch = {
+        route: {
+            "target": torch.randn(3, 2, 2),
+            "condition": torch.randn(3, 2),
+            "route": route,
+        }
+        for route in ("route_a", "route_b")
+    }
+
+    diagnostics = collect_action_flow_diagnostics(
+        model,
+        batch,
+        raw_noise_levels=(0.0, 1.0),
+        noise_seed=101,
+        max_samples=3,
+        jacobian_samples=1,
+        capture_activations=True,
+        already_processed=True,
+    )
+
+    assert tuple(diagnostics) == ("route_a", "route_b")
+    for diagnostic in diagnostics.values():
+        assert diagnostic["provenance/encoder_class"] == "_TwoBlockCodec"
+        assert diagnostic["provenance/decoder_class"] == "_TwoBlockCodec"
+        assert diagnostic["activation/encoder_blocks"].shape[:2] == (2, 3)
+        assert diagnostic["decoded/generated"].shape == (3, 2, 2)
 
 
 @pytest.mark.parametrize(

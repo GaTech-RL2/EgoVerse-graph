@@ -437,6 +437,10 @@ def test_distributed_gradient_makes_strided_autograd_values_contiguous(monkeypat
 def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypatch):
     wrapper = _action_flow_wrapper(pipeline=_ToyAlgo(), gradient_telemetry_cadence=1)
     wrapper.training_behavior.flow_samples_per_content = 14
+    wrapper.training_behavior.flow_mini_batch = 14
+    monkeypatch.setattr(
+        wrapper.training_behavior, "_fm_endpoint_detached", lambda: True
+    )
     logged = _capture_logs(monkeypatch, wrapper)
     batch = OrderedDict(
         source={
@@ -476,13 +480,16 @@ def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypat
     ) == pytest.approx(1.0)
     assert float(
         logged["Train/ActionFlow/Compute/FieldForwardCallsPerStep"][0]
-    ) == pytest.approx(1.0)
+    ) == pytest.approx(2.0)
     assert float(
         logged["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"][0]
-    ) == pytest.approx(14.0)
+    ) == pytest.approx(28.0)
     assert float(
         logged["Train/ActionFlow/Compute/FieldBackwardVJPCallsPerStep"][0]
-    ) == pytest.approx(1.0)
+    ) == pytest.approx(2.0)
+    assert float(
+        logged["Train/ActionFlow/Compute/FlowMiniBatchPerStep"][0]
+    ) == pytest.approx(14.0)
     assert float(
         logged["Train/ActionFlow/Compute/DecoderJVPCallsPerStep"][0]
     ) == pytest.approx(1.0)

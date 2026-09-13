@@ -31,6 +31,7 @@ data:
 
 evaluator:
   native_decoder: null
+  energy_score_distance: null
   native_decoders:
     pushshapes_sim_u_socket:
       _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder

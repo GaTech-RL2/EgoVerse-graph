@@ -1739,6 +1739,11 @@ def _validate_scaled_h512_config(
             None,
             "non-USocket Action Flow diagnostic native error",
         )
+        _exact(
+            config.evaluator.get("energy_score_distance"),
+            None,
+            "non-USocket typed EnergyScore distance",
+        )
     expected_types = (
         SCALED_H512_ROUTED_STAGE_TYPES if routed else SCALED_H512_STAGE_TYPES
     )

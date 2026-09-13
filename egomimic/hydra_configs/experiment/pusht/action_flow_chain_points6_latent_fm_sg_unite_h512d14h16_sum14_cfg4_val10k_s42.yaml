@@ -31,6 +31,7 @@ data:
 evaluator:
   native_decoder: ${planar.eval_native_decoder}
   semantic_blocks: [[0, 2], [2, 4], [4, 6]]
+  energy_score_distance: null
   energy_score_validation_view:
     per_rank_batch_size: 32
   action_flow_diagnostics:

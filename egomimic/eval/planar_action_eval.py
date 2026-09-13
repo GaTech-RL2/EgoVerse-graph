@@ -91,6 +91,7 @@ class PlanarActionEval(Eval):
         semantic_blocks_by_embodiment: Mapping | None = None,
         energy_score_enabled: bool = True,
         action_key: str = "actions",
+        target_encoder=None,
         native_decoder=None,
         native_decoders=None,
         deterministic_seed: int = _DEFAULT_DETERMINISTIC_SEED,
@@ -107,6 +108,7 @@ class PlanarActionEval(Eval):
         self.action_key = str(action_key)
         if not self.action_key:
             raise ValueError("action_key must be non-empty")
+        self.target_encoder = target_encoder
         if native_decoder is not None and native_decoders is not None:
             raise ValueError("configure native_decoder or native_decoders, not both")
         self.native_decoder = native_decoder
@@ -648,6 +650,22 @@ class PlanarActionEval(Eval):
             raise KeyError(f"No native decoder configured for {label!r}")
         return self.native_decoders[label]
 
+    def _normalized_target(self, source_batch):
+        """Return the target in the representation predicted by the policy.
+
+        Most Planar policies predict the loader's normalized ``actions``
+        tensor directly. Graph-owned ARC policies instead tokenize that tensor
+        inside the training-only graph, so validation must apply the identical
+        encoder before computing normalized, native, or EnergyScore metrics.
+        """
+        target = source_batch[self.action_key]
+        if self.target_encoder is None:
+            return target
+        encoded = self.target_encoder.forward({self.action_key: target})
+        if "target" not in encoded:
+            raise KeyError("Planar evaluation target_encoder must write 'target'")
+        return encoded["target"]
+
     @staticmethod
     def _decoder_identity(decoder) -> str | None:
         if decoder is None:
@@ -1023,7 +1041,7 @@ class PlanarActionEval(Eval):
             raise ValueError("Action Flow native error contract changed")
         return functions
 
-    def _save_artifact(self, batch_idx, samples, scores, batch):
+    def _save_artifact(self, batch_idx, samples, scores, batch, targets=None):
         destination = self._artifact_destination(self.artifact_root, batch_idx)
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_suffix(".tmp")
@@ -1037,7 +1055,12 @@ class PlanarActionEval(Eval):
             if name in domains:
                 raise ValueError(f"Duplicate Planar evaluation embodiment {name!r}")
             values = scores[source_id]
-            target = batch[source_id][self.action_key].detach().float().cpu()
+            target_source = (
+                batch[source_id][self.action_key]
+                if targets is None
+                else targets[source_id]
+            )
+            target = target_source.detach().float().cpu()
             domain = {
                 "source_id": source_id,
                 "embodiment_id": embodiment_id,
@@ -1063,7 +1086,7 @@ class PlanarActionEval(Eval):
                 )
                 domain["native_targets"] = (
                     self._native(
-                        batch[source_id][self.action_key], embodiment_id, decoder
+                        target_source, embodiment_id, decoder
                     )
                     .detach()
                     .float()
@@ -1150,6 +1173,7 @@ class PlanarActionEval(Eval):
             )
         normalized_values = []
         native_values = []
+        targets = {}
         labels = set()
         for source_id, source_batch in batch.items():
             embodiment_id, label = self._embodiment(source_batch)
@@ -1157,7 +1181,14 @@ class PlanarActionEval(Eval):
                 raise ValueError(f"Duplicate Planar evaluation embodiment {label!r}")
             labels.add(label)
             prediction = result[source_id]["pred_action"]
-            target = source_batch[self.action_key]
+            target = self._normalized_target(source_batch)
+            if prediction.shape != target.shape:
+                raise ValueError(
+                    "Planar prediction/metric target shape mismatch after target "
+                    f"encoding for {label!r}: prediction={tuple(prediction.shape)} "
+                    f"target={tuple(target.shape)}"
+                )
+            targets[source_id] = target
             normalized_mse = (prediction - target).square().mean()
             decoder = self._native_decoder(embodiment_id)
             native_mse = self._native_mse(
@@ -1179,7 +1210,7 @@ class PlanarActionEval(Eval):
                 embodiment_id, label = self._embodiment(batch[source_id])
                 values = self._energy_values(
                     samples,
-                    batch[source_id][self.action_key],
+                    targets[source_id],
                     embodiment_id,
                     label,
                 )
@@ -1196,7 +1227,9 @@ class PlanarActionEval(Eval):
                 metrics[metric_name] = torch.stack(
                     [value[key] for value in scores]
                 ).mean()
-            self._save_artifact(batch_idx, sampled, scores_by_source, batch)
+            self._save_artifact(
+                batch_idx, sampled, scores_by_source, batch, targets=targets
+            )
         self.trainer.lightning_module.log_dict(
             self._namespaced(metrics), sync_dist=True
         )

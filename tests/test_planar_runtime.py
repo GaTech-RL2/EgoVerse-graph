@@ -426,6 +426,46 @@ def test_planar_evaluator_selects_native_decoder_per_embodiment():
     assert logged["Valid/Native_MSE/pushshapes_sim_chain_gripper"] == 0
 
 
+def test_planar_evaluator_encodes_graph_owned_validation_target():
+    raw_target = torch.arange(15, dtype=torch.float32).reshape(1, 3, 5)
+    encoded_target = raw_target[:, :2]
+
+    class TargetEncoder:
+        @staticmethod
+        def forward(batch):
+            assert set(batch) == {"actions"}
+            return {"target": batch["actions"][:, :2]}
+
+    evaluator = PlanarActionEval(
+        energy_score_enabled=False,
+        target_encoder=TargetEncoder(),
+    )
+    evaluator.bind_data_context(normalizer=_IdentityNormalizer())
+    evaluator.model = SimpleNamespace(
+        forward_eval=lambda _batch: {
+            "opaque-stream": {"pred_action": encoded_target.clone()}
+        }
+    )
+    logged = {}
+    evaluator.trainer = SimpleNamespace(
+        lightning_module=SimpleNamespace(
+            log_dict=lambda metrics, **_kwargs: logged.update(metrics)
+        )
+    )
+    evaluator.on_validation_step(
+        {
+            "opaque-stream": {
+                "actions": raw_target,
+                "embodiment": torch.tensor([19]),
+            }
+        },
+        batch_idx=0,
+    )
+
+    assert logged["Valid/MSE"] == 0
+    assert logged["Valid/Native_MSE"] == 0
+
+
 def test_strict_checkpoint_loader_overlays_ema_and_retains_online_buffers():
     class BufferedPolicy(nn.Module):
         def __init__(self):

@@ -104,6 +104,11 @@ grep -q 'save_top_k: -1' "$RUN_DIR/provenance/resolved_config.yaml"
 if test "$MODE" = smoke; then
   if test -n "$PRECOMPUTED_NORM_DIR"; then
     test -s "$PRECOMPUTED_NORM_DIR/norm_stats.json"
+    mkdir -p "$RUN_DIR/norm_stats"
+    cp --reflink=auto "$PRECOMPUTED_NORM_DIR/norm_stats.json" \
+      "$RUN_DIR/norm_stats/norm_stats.json"
+    test "$(sha256sum "$RUN_DIR/norm_stats/norm_stats.json" | awk '{print $1}')" = \
+      "$(sha256sum "$PRECOMPUTED_NORM_DIR/norm_stats.json" | awk '{print $1}')"
     COMMON+=("norm_stats.precomputed_norm_path=$PRECOMPUTED_NORM_DIR")
     printf '%s\n' "$PRECOMPUTED_NORM_DIR" > "$RUN_DIR/provenance/precomputed_norm_dir.txt"
   else

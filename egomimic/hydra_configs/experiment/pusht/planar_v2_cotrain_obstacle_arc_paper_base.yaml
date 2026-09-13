@@ -30,6 +30,18 @@ planar:
   batch_size: 64
   eval_native_decoder: null
 evaluator:
+  target_encoder:
+    _target_: egomimic.pipeline.stages_arc.ArcTokenizeStage
+    action_key: actions
+    min_distance_unit: ${planar.arc_distance}
+    resampled_vector_length: ${planar.arc_waypoints}
+    rotation_radius: ${planar.arc_rotation_radius}
+    hybrid_rotation_unit: ${planar.hybrid_rotation_unit}
+    dt: ${planar.arc_dt}
+    waypoint_sampling: ${planar.arc_waypoint_sampling}
+    curvature_dense_samples: ${planar.arc_curvature_dense_samples}
+    curvature_floor: ${planar.arc_curvature_floor}
+    velocity_mode: ${planar.arc_velocity_mode}
   native_decoder: null
   native_decoders:
     pushshapes_sim_u_socket:

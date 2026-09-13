@@ -153,7 +153,8 @@ def main() -> None:
     assert artifacts
     artifact = torch.load(artifacts[-1], map_location="cpu", weights_only=False)
     assert artifact["metric"] == "EnergyScore@32"
-    assert len(artifact["seeds"]) == 32 and len(set(artifact["seeds"])) == 32
+    assert len(artifact["seed_bank"]) == 32
+    assert len(set(artifact["seed_bank"])) == 32
     assert set(artifact["domains"]) == set(DOMAINS)
 
     result = {

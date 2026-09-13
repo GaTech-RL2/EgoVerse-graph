@@ -1728,6 +1728,17 @@ def _validate_scaled_h512_config(
         "egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior",
         "scaled Action Flow training behavior",
     )
+    _exact(
+        str(config.model.diagnostic_provider._target_),
+        "egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider",
+        "scaled Action Flow diagnostic provider",
+    )
+    if set(sources) != {"pushshapes_sim_u_socket"}:
+        _exact(
+            config.evaluator.action_flow_diagnostics.get("native_error"),
+            None,
+            "non-USocket Action Flow diagnostic native error",
+        )
     expected_types = (
         SCALED_H512_ROUTED_STAGE_TYPES if routed else SCALED_H512_STAGE_TYPES
     )

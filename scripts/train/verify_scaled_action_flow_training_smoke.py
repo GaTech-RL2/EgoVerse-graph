@@ -360,6 +360,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "gradient route manifest hash mismatch",
     )
 
+    from egomimic.eval.pipeline_diagnostics import ActionFlowDiagnosticProvider
     from egomimic.pl_utils.pl_model import ModelWrapper
     from egomimic.pl_utils.training_behavior_action_flow import (
         ActionFlowTrainingBehavior,
@@ -375,6 +376,10 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(
         isinstance(restored.training_behavior, ActionFlowTrainingBehavior),
         "restored training behavior is not ActionFlowTrainingBehavior",
+    )
+    require(
+        isinstance(restored.diagnostic_provider, ActionFlowDiagnosticProvider),
+        "restored diagnostic provider is not ActionFlowDiagnosticProvider",
     )
     require(
         restored.training_behavior.flow_samples_per_content == 14,

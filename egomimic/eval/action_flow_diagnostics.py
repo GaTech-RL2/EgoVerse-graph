@@ -1087,9 +1087,12 @@ class ActionFlowDiagnostics:
     ) -> dict[str, torch.Tensor]:
         if not self.should_run():
             return {}
-        if not hasattr(model, "forward_action_flow_diagnostics"):
+        generic_runner = getattr(model, "run_diagnostic", None)
+        legacy_runner = getattr(model, "forward_action_flow_diagnostics", None)
+        if not callable(generic_runner) and not callable(legacy_runner):
             raise AttributeError(
                 "Action Flow diagnostics require "
+                "model.run_diagnostic('action_flow', ...) or the legacy "
                 "model.forward_action_flow_diagnostics(...)"
             )
         if set(source_labels) != set(batch):
@@ -1117,13 +1120,21 @@ class ActionFlowDiagnostics:
         with torch.random.fork_rng(devices=list(cuda_devices)):
             torch.manual_seed(noise_seed)
             with torch.inference_mode(False):
-                diagnostics = model.forward_action_flow_diagnostics(
-                    batch,
-                    raw_noise_levels=self.noise_levels,
-                    noise_seed=noise_seed,
-                    max_samples=self.max_samples,
-                    jacobian_samples=self.jacobian_samples,
-                    capture_activations=self.capture_activations,
+                kwargs = {
+                    "raw_noise_levels": self.noise_levels,
+                    "noise_seed": noise_seed,
+                    "max_samples": self.max_samples,
+                    "jacobian_samples": self.jacobian_samples,
+                    "capture_activations": self.capture_activations,
+                }
+                use_generic = callable(generic_runner) and (
+                    not callable(legacy_runner)
+                    or getattr(model, "diagnostic_provider", None) is not None
+                )
+                diagnostics = (
+                    generic_runner("action_flow", batch, **kwargs)
+                    if use_generic
+                    else legacy_runner(batch, **kwargs)
                 )
         if not isinstance(diagnostics, Mapping) or set(diagnostics) != set(batch):
             raise ValueError(

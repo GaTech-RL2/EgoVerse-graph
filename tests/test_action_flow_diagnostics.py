@@ -212,7 +212,8 @@ class _DiagnosticModel:
             for source, source_batch in batch.items()
         }
 
-    def forward_action_flow_diagnostics(self, batch, **kwargs):
+    def run_diagnostic(self, capability, batch, **kwargs):
+        assert capability == "action_flow"
         assert not torch.is_inference_mode_enabled()
         self.calls.append(kwargs)
         return {source: self.diagnostic for source in batch}
@@ -642,7 +643,7 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
     clean = torch.cat((target, torch.ones_like(target[..., :1])), dim=-1)
     feature = torch.arange(1, 7, dtype=torch.float32)[:, None, None].repeat(1, 2, 3)
     evaluator.model = SimpleNamespace(
-        forward_unite_diagnostics=lambda _batch, raw_noise_levels: {
+        run_diagnostic=lambda capability, _batch, raw_noise_levels: {
             "validation/usocket": {
                 "clean_latent": clean,
                 "sampler_latents": torch.stack((clean + 1.0, clean)),
@@ -653,7 +654,7 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
                     "layer": torch.stack((feature, feature * 2.0))
                 },
             }
-        }
+        } if capability == "unite" else pytest.fail("unexpected diagnostic capability")
     )
     evaluator.trainer = SimpleNamespace(
         current_epoch=1,

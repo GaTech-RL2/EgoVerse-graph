@@ -41,6 +41,11 @@ def test_scaled_rows_preserve_linked_action_flow_recipe(row, monkeypatch):
     assert cfg.model.training_behavior._target_.endswith(
         "ActionFlowTrainingBehavior"
     )
+    assert cfg.model.diagnostic_provider._target_ == (
+        "egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider"
+    )
+    if row != ROWS[0]:
+        assert cfg.evaluator.action_flow_diagnostics.native_error is None
     assert _resolve_model_wrapper_class(cfg) is ModelWrapper
     assert cfg.model.flow_mini_batch == 14
     assert cfg.model.flow_samples_per_content == 14

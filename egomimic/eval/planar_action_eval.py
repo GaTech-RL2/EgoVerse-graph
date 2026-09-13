@@ -488,6 +488,11 @@ class PlanarActionEval(Eval):
                 (decoded - target.float().unsqueeze(0)).square().mean(dim=(-2, -1))
             )
             native_target = self._native(target, embodiment_id, decoder)
+            clean_decoded_native = (
+                None
+                if clean_decoded is None
+                else self._native(clean_decoded, embodiment_id, decoder)
+            )
             decoded_native = torch.stack(
                 [self._native(state, embodiment_id, decoder) for state in decoded],
                 dim=0,
@@ -683,7 +688,7 @@ class PlanarActionEval(Eval):
         theta_residual = torch.atan2(
             torch.sin(residual[..., 2]), torch.cos(residual[..., 2])
         )
-        return torch.cat(
+        residual = torch.cat(
             (residual[..., :2], theta_residual.unsqueeze(-1), residual[..., 3:]),
             dim=-1,
         )

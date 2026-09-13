@@ -12,7 +12,9 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
-from egomimic.eval.pipeline_diagnostics import ActionFlowDiagnosticProvider
+from egomimic.eval.action_flow_diagnostic_forward import (
+    collect_action_flow_diagnostics,
+)
 from egomimic.eval.planar_action_eval import (
     USOCKET_NATIVE_ERROR_CONFIG,
     PlanarActionEval,
@@ -23,11 +25,10 @@ from egomimic.pipeline.stages_action_flow import (
     ConditionalVelocityStage,
     ContentDecoderStage,
     ContentEncoderStage,
+    RoutedContentDecoderStage,
+    RoutedContentEncoderStage,
 )
-from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.pl_utils.training_behavior_action_flow import (
-    ActionFlowTrainingBehavior,
-)
+from egomimic.pl_utils.pl_model_action_flow import ActionFlowModelWrapper
 
 _CONFIG_DIR = Path(__file__).parents[1] / "egomimic/hydra_configs"
 
@@ -503,7 +504,7 @@ def test_native_action_flow_error_wraps_theta_at_pi_boundary():
 
 def test_action_flow_consumer_matches_real_wrapper_schema(tmp_path):
     torch.manual_seed(91)
-    wrapper = ModelWrapper(
+    wrapper = ActionFlowModelWrapper(
         pipeline=PipelineAlgo(
             stages=[
                 ContentEncoderStage(_TwoBlockCodec()),
@@ -512,10 +513,7 @@ def test_action_flow_consumer_matches_real_wrapper_schema(tmp_path):
             ],
             device="cpu",
         ),
-        training_behavior=ActionFlowTrainingBehavior(
-            gradient_telemetry_cadence=0
-        ),
-        diagnostic_provider=ActionFlowDiagnosticProvider(),
+        gradient_telemetry_cadence=0,
     )
     wrapper.eval()
     runner = ActionFlowDiagnostics(_config(tmp_path, activation_layer_map={0: 0, 1: 1}))
@@ -542,22 +540,58 @@ def test_action_flow_consumer_matches_real_wrapper_schema(tmp_path):
     assert all(bool(torch.isfinite(value)) for value in metrics.values())
 
 
+def test_action_flow_diagnostic_forward_selects_private_routed_codecs():
+    torch.manual_seed(92)
+    model = PipelineAlgo(
+        stages=[
+            RoutedContentEncoderStage(
+                encoders={"route_a": _TwoBlockCodec(), "route_b": _TwoBlockCodec()},
+                route_key="route",
+            ),
+            ConditionalVelocityStage(_TwoBlockField(), num_inference_steps=2),
+            RoutedContentDecoderStage(
+                decoders={"route_a": _TwoBlockCodec(), "route_b": _TwoBlockCodec()},
+                route_key="route",
+            ),
+        ],
+        device="cpu",
+    )
+    batch = {
+        route: {
+            "target": torch.randn(3, 2, 2),
+            "condition": torch.randn(3, 2),
+            "route": route,
+        }
+        for route in ("route_a", "route_b")
+    }
+
+    diagnostics = collect_action_flow_diagnostics(
+        model,
+        batch,
+        raw_noise_levels=(0.0, 1.0),
+        noise_seed=101,
+        max_samples=3,
+        jacobian_samples=1,
+        capture_activations=True,
+        already_processed=True,
+    )
+
+    assert tuple(diagnostics) == ("route_a", "route_b")
+    for diagnostic in diagnostics.values():
+        assert diagnostic["provenance/encoder_class"] == "_TwoBlockCodec"
+        assert diagnostic["provenance/decoder_class"] == "_TwoBlockCodec"
+        assert diagnostic["activation/encoder_blocks"].shape[:2] == (2, 3)
+        assert diagnostic["decoded/generated"].shape == (3, 2, 2)
+
+
 @pytest.mark.parametrize(
-    ("experiment", "expected_activation_layers"),
+    "experiment",
     (
-        (
-            "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
-            ((0, 0), (1, 13)),
-        ),
-        (
-            "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
-            ((0, 0), (1, 11)),
-        ),
+        "action_flow_bc_usocket_recon1_s42",
+        "action_flow_bc_usocket_recon10_s42",
     ),
 )
-def test_real_action_flow_config_constructs_strict_diagnostics(
-    tmp_path, experiment, expected_activation_layers
-):
+def test_real_action_flow_config_constructs_strict_diagnostics(tmp_path, experiment):
     with initialize_config_dir(
         version_base=None, config_dir=str(_CONFIG_DIR.resolve())
     ):
@@ -582,7 +616,7 @@ def test_real_action_flow_config_constructs_strict_diagnostics(
     assert runner.noise_levels == [0.0, 0.25, 0.5, 0.75, 1.0]
     assert runner.max_samples == 16
     assert runner.jacobian_samples == 2
-    assert runner.activation_layer_map == expected_activation_layers
+    assert runner.activation_layer_map == ((0, 0), (1, 11))
     assert runner.cknna_k == 10
 
 
@@ -669,7 +703,7 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
                     "layer": torch.stack((feature, feature * 2.0))
                 },
             }
-        } if capability == "unite" else None
+        } if capability == "unite" else pytest.fail("unexpected diagnostic capability")
     )
     evaluator.trainer = SimpleNamespace(
         current_epoch=1,

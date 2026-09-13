@@ -1,0 +1,101 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42
+  - override /data: pusht/action_flow_cotrain_usocket_chain_points6_frozen4920_val01_h16
+  - override /model: bf/cotrain_uc_action_flow_latent_fm_sg_unite_h512d14h16
+  - _self_
+
+name: action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42
+description: "Scaled U-Socket plus ChainGripper Action Flow with private codecs and one shared field"
+
+model:
+  flow_loss_aggregation: sum_samples
+  cfg_scale: 4.0
+  cfg_interval: [0.0, 1.0]
+
+trainer:
+  val_check_interval: 10000
+  limit_val_batches: 8
+
+planar:
+  batch_size: 32
+  action_dims: {pushshapes_sim_u_socket: 4, pushshapes_sim_chain_gripper: 6}
+  eval_native_decoder: null
+
+data:
+  valid_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 32
+    pushshapes_sim_chain_gripper:
+      batch_size: 32
+
+evaluator:
+  native_decoder: null
+  energy_score_distance: null
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+  semantic_blocks_by_embodiment:
+    pushshapes_sim_u_socket: [[0, 2], [2, 4]]
+    pushshapes_sim_chain_gripper: [[0, 2], [2, 4], [4, 6]]
+  energy_score_validation_view:
+    per_rank_batch_size: 32
+  action_flow_diagnostics:
+    native_error: null
+    validation_view:
+      per_rank_batch_size: 32
+
+run_provenance:
+  normalization_sha256: null
+  content_manifest_path: null
+  content_manifest_sha256: null
+  dataset_content_aggregate_sha256: null
+  split_manifest_path: null
+  split_manifest_sha256: null
+  train_episode_count_per_domain:
+    pushshapes_sim_u_socket: 2970
+    pushshapes_sim_chain_gripper: 4871
+  valid_episode_count_per_domain:
+    pushshapes_sim_u_socket: 29
+    pushshapes_sim_chain_gripper: 49
+  union_episode_count_per_domain:
+    pushshapes_sim_u_socket: 2999
+    pushshapes_sim_chain_gripper: 4920
+  architecture:
+    family: action_flow_private_codecs_shared_field_h512d14h16
+    tokenizer: two_private_UniteDiTBackbone_h512_d14_h16
+    denoiser: one_shared_UniteDiTBackbone_h512_d14_h16
+    decoder: two_private_UniteActionDecoder_h512_d14_h16
+    action_shapes:
+      pushshapes_sim_u_socket: [16, 4]
+      pushshapes_sim_chain_gripper: [16, 6]
+  objective:
+    flow_aggregation: sum_of_14_per_sample_means
+    domain_aggregation: equal_mean_from_one_batch32_per_domain
+  action_contract:
+    representations:
+      pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
+      pushshapes_sim_chain_gripper: left_xy_center_xy_right_xy_points6
+    prediction_horizon: 16
+  inference:
+    classifier_free_guidance: true
+    cfg_scale: 4.0
+    cfg_interval: [0.0, 1.0]
+  validation:
+    interval_optimizer_steps: 10000
+    limit_batches: 8
+    per_rank_batch_size: 32
+
+deployment:
+  observation_adapters:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperModelStateObservationAdapter
+  action_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder

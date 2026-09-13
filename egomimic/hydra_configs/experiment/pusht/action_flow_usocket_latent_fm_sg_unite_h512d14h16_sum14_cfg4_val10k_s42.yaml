@@ -1,0 +1,49 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42
+  - override /model: bf/us_action_flow_latent_fm_sg_unite_h512d14h16
+  - _self_
+
+name: action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42
+description: "Scaled Action Flow H512/D14/H16 with the linked U-Socket training recipe"
+
+model:
+  flow_loss_aggregation: sum_samples
+  cfg_scale: 4.0
+  cfg_interval: [0.0, 1.0]
+
+trainer:
+  val_check_interval: 10000
+  limit_val_batches: 8
+
+planar:
+  batch_size: 32
+
+data:
+  valid_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 32
+
+evaluator:
+  energy_score_validation_view:
+    per_rank_batch_size: 32
+  action_flow_diagnostics:
+    validation_view:
+      per_rank_batch_size: 32
+
+run_provenance:
+  architecture:
+    family: action_flow_private_codec_shared_field_h512d14h16
+    tokenizer: UniteDiTBackbone_h512_d14_h16
+    denoiser: UniteDiTBackbone_h512_d14_h16
+    decoder: UniteActionDecoder_h512_d14_h16
+  objective:
+    flow_aggregation: sum_of_14_per_sample_means
+  inference:
+    classifier_free_guidance: true
+    cfg_scale: 4.0
+    cfg_interval: [0.0, 1.0]
+  validation:
+    interval_optimizer_steps: 10000
+    limit_batches: 8
+    per_rank_batch_size: 32

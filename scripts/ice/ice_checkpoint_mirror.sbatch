@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 #SBATCH --job-name=ice-ckpt-mirror
 #SBATCH --account=coc
 #SBATCH --partition=ice-cpu
@@ -20,12 +21,17 @@ set -euo pipefail
 : "${ICE_MIRROR_REMOTE_HOST:?set ICE_MIRROR_REMOTE_HOST}"
 : "${ICE_MIRROR_SCRIPT:?set the exact absolute ice_checkpoint_mirror.py path}"
 : "${ICE_MIRROR_PYTHON:?set the exact absolute Python with validator dependencies}"
+: "${ICE_MIRROR_PYTHONPATH:?set the exact absolute model source path}"
 
 [[ "${ICE_MIRROR_SCRIPT}" = /* ]]
 [[ "${ICE_MIRROR_PYTHON}" = /* ]]
+[[ "${ICE_MIRROR_PYTHONPATH}" = /* ]]
 test -f "${ICE_MIRROR_SCRIPT}"
 test -r "${ICE_MIRROR_SCRIPT}"
 test -x "${ICE_MIRROR_PYTHON}"
+test -d "${ICE_MIRROR_PYTHONPATH}"
+export PATH="$(dirname "${ICE_MIRROR_PYTHON}"):${PATH}"
+export PYTHONPATH="${ICE_MIRROR_PYTHONPATH}${PYTHONPATH:+:${PYTHONPATH}}"
 
 ARGS=(
   --manifest "${ICE_MIRROR_MANIFEST}"
@@ -36,6 +42,9 @@ ARGS=(
 )
 if [[ "${ICE_MIRROR_PRUNE:-0}" == "1" ]]; then
   ARGS+=(--prune-after-verify)
+fi
+if [[ "${ICE_MIRROR_ONCE:-0}" == "1" ]]; then
+  ARGS+=(--once)
 fi
 if [[ -n "${ICE_MIRROR_POLL_SECONDS:-}" ]]; then
   ARGS+=(--poll-seconds "${ICE_MIRROR_POLL_SECONDS}")

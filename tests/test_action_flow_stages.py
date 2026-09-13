@@ -11,6 +11,8 @@ from egomimic.pipeline.stages_action_flow import (
     ContentDecoderStage,
     ContentEncoderStage,
     LatentBridgeStage,
+    RoutedContentDecoderStage,
+    RoutedContentEncoderStage,
 )
 from egomimic.pipeline.stages_sampler import GaussianLatentNoise
 
@@ -48,6 +50,57 @@ class _TinyField(nn.Module):
             + self.time_weight * time[:, None, None]
             + projected[:, None, :]
         )
+
+
+def test_routed_codecs_are_private_and_select_exactly_one_route():
+    us_encoder = _LastDimLinear(4, 3)
+    chain_encoder = _LastDimLinear(6, 3)
+    encoder = RoutedContentEncoderStage(
+        encoders={"usocket": us_encoder, "chain": chain_encoder},
+        route_key="embodiment",
+        route_aliases={19: "usocket", 20: "chain"},
+    )
+    assert encoder.encoder["usocket"] is us_encoder
+    assert encoder.encoder["chain"] is chain_encoder
+    assert encoder.encoder["usocket"] is not encoder.encoder["chain"]
+
+    us_batch = {"target": torch.randn(2, 5, 4), "embodiment": torch.tensor([19, 19])}
+    chain_batch = {
+        "target": torch.randn(2, 5, 6),
+        "embodiment": torch.tensor([20, 20]),
+    }
+    assert encoder(us_batch)["action_flow/clean_latent"].shape == (2, 5, 3)
+    assert encoder(chain_batch)["action_flow/clean_latent"].shape == (2, 5, 3)
+
+    us_decoder = _LastDimLinear(3, 4)
+    chain_decoder = _LastDimLinear(3, 6)
+    decoder = RoutedContentDecoderStage(
+        decoders={"usocket": us_decoder, "chain": chain_decoder},
+        route_key="embodiment",
+        route_aliases={19: "usocket", 20: "chain"},
+    )
+    assert decoder.decoder["usocket"] is not decoder.decoder["chain"]
+    latent = torch.randn(2, 5, 3)
+    assert decoder.execute(
+        {"action_flow/generated_latent": latent, "embodiment": torch.tensor([19, 19])},
+        mode="inference",
+    )["pred_action"].shape == (2, 5, 4)
+    assert decoder.execute(
+        {"action_flow/generated_latent": latent, "embodiment": torch.tensor([20, 20])},
+        mode="inference",
+    )["pred_action"].shape == (2, 5, 6)
+
+
+def test_routed_codecs_reject_mixed_or_unknown_routes():
+    stage = RoutedContentEncoderStage(
+        encoders={"usocket": _LastDimLinear(4, 3)},
+        route_key="embodiment",
+        route_aliases={19: "usocket"},
+    )
+    with pytest.raises(ValueError, match="homogeneous"):
+        stage({"target": torch.randn(2, 5, 4), "embodiment": torch.tensor([19, 20])})
+    with pytest.raises(KeyError, match="No routed module"):
+        stage({"target": torch.randn(2, 5, 4), "embodiment": torch.tensor([20, 20])})
 
 
 class _ConstantField(nn.Module):
@@ -157,42 +210,6 @@ def test_base_noise_and_bridge_times_are_resampled_online():
     for output, base_noise in ((first, first_noise), (second, second_noise)):
         base_index = output["action_flow/base_index"]
         assert torch.equal(output["action_flow/noise"], base_noise[base_index])
-
-
-def test_decoded_noise_moment_objective_updates_only_decoder_path():
-    decoder_module = _LastDimLinear(3, 4)
-    decoder = ContentDecoderStage(decoder_module, decode_noise=True)
-    objective = ActionFlowObjectiveStage(
-        flow_weight=0.0,
-        reconstruction_weight=0.0,
-        action_velocity_weight=0.0,
-        moment_weight=1.0,
-    )
-    clean = torch.randn(2, 5, 3, requires_grad=True)
-    state = torch.randn(4, 5, 3, requires_grad=True)
-    residual = torch.randn(4, 5, 3, requires_grad=True)
-    output = decoder(
-        {
-            "target": torch.randn(2, 5, 4),
-            "sampler/noise": torch.randn(2, 5, 3),
-            "action_flow/clean_latent": clean,
-            "action_flow/state": state,
-            "action_flow/velocity_residual": residual,
-        }
-    )
-    output = objective(output)
-    output["loss/action_flow"].backward()
-
-    assert clean.grad is not None and float(clean.grad.abs().sum()) == 0.0
-    assert state.grad is not None and float(state.grad.abs().sum()) == 0.0
-    assert residual.grad is not None and float(residual.grad.abs().sum()) == 0.0
-    gradients = [parameter.grad for parameter in decoder_module.parameters()]
-    assert any(
-        gradient is not None
-        and bool(torch.isfinite(gradient).all())
-        and float(gradient.abs().sum()) > 0.0
-        for gradient in gradients
-    )
 
 
 def test_training_objective_preserves_all_joint_gradient_routes():

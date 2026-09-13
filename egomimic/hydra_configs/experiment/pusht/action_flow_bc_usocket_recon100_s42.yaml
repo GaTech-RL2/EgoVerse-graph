@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_bc_usocket_recon1_s42
+  - _self_
+
+name: action_flow_bc_usocket_recon100_s42
+description: h16_z8_adaln12x512_k14_recon100_action1
+
+model:
+  reconstruction_weight: 100.0

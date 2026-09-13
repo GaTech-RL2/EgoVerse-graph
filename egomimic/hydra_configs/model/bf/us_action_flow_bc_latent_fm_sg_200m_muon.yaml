@@ -1,9 +1,5 @@
 # Option-A 200M Action Flow: context-free 1M codecs and a wide shared field.
-_target_: egomimic.pl_utils.pl_model.ModelWrapper
-training_behavior:
-  _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
-diagnostic_provider:
-  _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
+_target_: egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper
 
 action_horizon: 16
 action_dim: 4

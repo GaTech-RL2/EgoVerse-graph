@@ -40,15 +40,6 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         ("ReconstructionLoss", "log/action_flow_reconstruction"),
         ("ReconstructionL1", "log/action_flow_reconstruction_l1"),
         ("ActionVelocityLoss", "log/action_flow_action_velocity"),
-        ("DecodedNoiseMomentLoss", "log/action_flow_decoded_noise_moments"),
-        (
-            "DecodedNoiseMeanPenalty",
-            "log/action_flow_decoded_noise_mean_penalty",
-        ),
-        (
-            "DecodedNoiseCovariancePenalty",
-            "log/action_flow_decoded_noise_covariance_penalty",
-        ),
     )
     _gradient_components = (
         ("FM", "FlowMatchingLoss"),
@@ -63,12 +54,14 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         *,
         gradient_telemetry_cadence: int | None = None,
         reconstruction_only_warmup_steps: int | None = None,
+        flow_mini_batch: int | None = None,
     ) -> None:
         super().__init__()
         self._requested_gradient_telemetry_cadence = gradient_telemetry_cadence
         self._requested_reconstruction_only_warmup_steps = (
             reconstruction_only_warmup_steps
         )
+        self._requested_flow_mini_batch = flow_mini_batch
 
     def on_bind(self) -> None:
         config_tree = getattr(self.context.hparams, "config_tree", None)
@@ -134,6 +127,37 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
             ):
                 raise ValueError("flow_samples_per_content must be a positive integer")
         self.flow_samples_per_content = configured_samples
+
+        configured_flow_mini_batch = None
+        if config_tree is not None:
+            configured_flow_mini_batch = self.context._as_config(config_tree).model.get(
+                "flow_mini_batch", None
+            )
+        effective_flow_mini_batch = (
+            self._requested_flow_mini_batch
+            if self._requested_flow_mini_batch is not None
+            else (
+                configured_samples
+                if configured_flow_mini_batch is None
+                else configured_flow_mini_batch
+            )
+        )
+        if effective_flow_mini_batch is not None:
+            if (
+                isinstance(effective_flow_mini_batch, bool)
+                or not isinstance(effective_flow_mini_batch, int)
+                or effective_flow_mini_batch <= 0
+            ):
+                raise ValueError("flow_mini_batch must be a positive integer")
+            if (
+                configured_samples is not None
+                and effective_flow_mini_batch != configured_samples
+            ):
+                raise ValueError(
+                    "flow_mini_batch must equal flow_samples_per_content; "
+                    "Action Flow executes the complete flow set in one parallel field call"
+                )
+        self.flow_mini_batch = effective_flow_mini_batch
 
     def optimizer_instantiation_kwargs(self, cfg) -> dict[str, Any]:
         """Bind stable names when Action Flow selects a composite optimizer."""
@@ -534,13 +558,15 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         if self.flow_samples_per_content is None:
             return
         endpoint_detached = self._fm_endpoint_detached()
+        field_calls = 2 if endpoint_detached else 1
         for name, value in (
-            ("Compute/FieldForwardCallsPerStep", 1),
+            ("Compute/FieldForwardCallsPerStep", field_calls),
             (
                 "Compute/FieldSampleEquivalentsPerStep",
-                self.flow_samples_per_content,
+                field_calls * self.flow_samples_per_content,
             ),
             ("Compute/FieldBackwardVJPCallsPerStep", 2 if endpoint_detached else 1),
+            ("Compute/FlowMiniBatchPerStep", self.flow_mini_batch),
             ("Compute/DecoderJVPCallsPerStep", 1),
         ):
             self._log_telemetry(name, value)

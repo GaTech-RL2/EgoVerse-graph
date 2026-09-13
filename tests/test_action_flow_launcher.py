@@ -1,0 +1,216 @@
+from __future__ import annotations
+
+import re
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+LAUNCHER = ROOT / "scripts" / "train" / "launch_action_flow_usocket.sbatch"
+DATASET_VALIDATOR = ROOT / "scripts" / "ice" / "validate_planar_dataset.py"
+
+
+def _source() -> str:
+    return LAUNCHER.read_text()
+
+
+def test_launcher_has_valid_shell_syntax():
+    completed = subprocess.run(
+        ["bash", "-n", str(LAUNCHER)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "#SBATCH --kill-on-invalid-dep=yes" in _source()
+
+
+def test_launcher_uses_the_maintained_dataset_validator_success_token():
+    validator_source = DATASET_VALIDATOR.read_text()
+    match = re.search(r'"status":\s*"([A-Z_]+)"', validator_source)
+    assert match is not None
+    assert f'dataset_report["status"] == "{match.group(1)}"' in _source()
+
+
+def test_launcher_is_one_portable_fail_closed_contract():
+    source = _source()
+    assert "AF_EXPECTED_HEAD" in source
+    assert "AF_EXPECTED_LAUNCHER_SHA256" in source
+    assert "AF_EXPECTED_SPLIT_MANIFEST_SHA256" in source
+    assert "AF_EXPECTED_CONTENT_MANIFEST_SHA256" in source
+    assert "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" in source
+    assert "AF_EXPECTED_NORM_SHA256" in source
+    assert "AF_PREFLIGHT_RESULT" in source
+    assert "AF_EXPECTED_PREFLIGHT_SHA256" in source
+    assert "validate_action_flow_config.py" in source
+    assert "capture_runtime_lock.py" in source
+    assert "dataset_loader_probe.json" in source
+    assert 'dataset = instantiate(dataset_cfg)' in source
+    assert "validate_slurm_job_contract.py" in source
+    assert "check_checkpoint_storage.py" in source
+    assert "--gres=gpu:1 --constraint='H100|H200'" in source
+    assert '--allowed-gpu-name "NVIDIA H100 80GB HBM3"' in source
+    assert '--allowed-gpu-name "NVIDIA H200"' in source
+    assert "AF_EXPECTED_GPU_CONSTRAINT" in source
+    assert '--expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT"' in source
+    assert "trainer.devices=1" in source
+    assert "trainer.strategy=auto" in source
+    assert "#SBATCH --requeue" in source
+    assert "#SBATCH --signal=B:USR1@600" in source
+    assert "/coc/" not in source
+    assert "/storage/ice" not in source
+    assert "/storage/project" not in source
+    assert 'absolute_path AF_EXTRA_PYTHONPATH "$AF_EXTRA_PYTHONPATH"' in source
+    assert (
+        'AF_EXTRA_PYTHONPATH=${AF_EXTRA_PYTHONPATH:-$(dirname "$AF_CONFIG_VALIDATOR")}'
+        in source
+    )
+    assert (
+        'PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"'
+        in source
+    )
+
+
+def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
+    source = _source()
+    assert "pusht/action_flow_bc_usocket_recon1_s42" in source
+    assert "pusht/action_flow_bc_usocket_recon10_s42" in source
+    assert "pusht/action_flow_bc_usocket_recon100_s42" in source
+    assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42" in source
+    assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42" in source
+    assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42" in source
+    assert "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42" in source
+    assert (
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
+        in source
+    )
+    assert (
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
+        in source
+    )
+    assert (
+        "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
+        in source
+    )
+    assert (
+        "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
+        in source
+    )
+    assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
+    assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42" in source
+    assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42" in source
+    assert "expected_name = {" not in source
+    assert "AF_FULL_MAX_STEPS=240000" in source
+    assert "AF_FULL_VALIDATE_EVERY=10000" in source
+    assert "AF_FULL_CHECKPOINT_EVERY=40000" in source
+    assert "AF_FULL_MAX_STEPS=150000" in source
+    assert "AF_FULL_VALIDATE_EVERY=30000" in source
+    assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
+    assert "TELEMETRY_EVERY=100" in source
+    assert 'data.train_dataloader_params.$AF_SOURCE.batch_size=32' in source
+    assert (
+        'data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE'
+        in source
+    )
+    assert "AF_FULL_LIMIT_VAL_BATCHES=8" in source
+    assert "AF_VALID_BATCH_SIZE=32" in source
+    assert 'cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size' in source
+    assert 'diagnostics.validation_view.per_rank_batch_size == valid_batch_size' in source
+    assert 'cfg.trainer.val_check_interval == full_validate_every' in source
+    assert 'cfg.callbacks.model_checkpoint.every_n_train_steps == full_checkpoint_every' in source
+    assert "ckpt_path=null" in source
+    assert "norm_stats.precomputed_norm_path=$AF_NORM_STATS_PATH" in source
+    assert "++run_provenance.source_commit=$AF_EXPECTED_HEAD" in source
+    assert "++run_provenance.content_manifest_sha256=" in source
+    assert "++run_provenance.dataset_content_aggregate_sha256=" in source
+    assert "++run_provenance.normalization_sha256=$AF_EXPECTED_NORM_SHA256" in source
+    assert (
+        "++run_provenance.preflight_result_sha256=$AF_EXPECTED_PREFLIGHT_SHA256"
+        in source
+    )
+    assert '"runtime_lock_sha256": digest(runtime_lock_path)' in source
+    assert 'current["installed_distributions"]["canonical_sha256"]' in source
+    assert "[run-preflight] PASS kind={run_kind} parameters={count}" in source
+    assert "expected_count = 50_725_221" in source
+    assert "50_801_685" in source
+    assert "expected_count = 199_754_837" in source
+    assert "AF_EXPECTED_PARAMETER_COUNT=97956100" in source
+    assert "ReleasedUniteCompositeOptimizer" in source
+    assert 'optimizer.muon_adjust_lr_fn == "match_rms_adamw"' in source
+    assert "AF_SECOND_DATASET_DIR" in source
+    assert "AF_SECOND_SPLIT_MANIFEST" in source
+    assert "AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" in source
+    assert "RoutedContentEncoderStage" in source
+    assert "RoutedContentDecoderStage" in source
+    assert "cfg.model.flow_mini_batch == 14" in source
+    assert "activation_layer_map.items()" in source
+
+
+def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
+    source = _source()
+    assert "MAX_STEPS=2" in source
+    assert "VALIDATE_EVERY=2" in source
+    assert "LIMIT_VAL_BATCHES=1" in source
+    assert "CHECKPOINT_EVERY=1" in source
+    assert "TELEMETRY_EVERY=2" in source
+    assert "verify_action_flow_training_smoke.py" in source
+    assert "--planned-checkpoint-count 14" in source
+    assert '--expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT"' in source
+    assert "--expected-reconstruction-weight" in source
+    assert "--expected-config-sha256" in source
+    assert (
+        '--expected-config-sha256 "$(sha256 '
+        '"$AF_OUTPUT_DIR/.hydra/config.yaml")"' in source
+    )
+    assert "--expected-normalization-sha256" in source
+    assert "--expected-content-manifest-sha256" in source
+    assert "--expected-dataset-content-aggregate-sha256" in source
+    assert "--expected-preflight-sha256" in source
+    assert "callbacks.model_checkpoint.save_last=link" in source
+    assert "single-gpu,$AF_RUN_KIND" in source
+
+
+def test_full_and_smoke_share_the_requeue_and_strict_checkpoint_path():
+    source = _source()
+    assert "ice_requeue_runner.py" in source
+    assert "validate_lightning_checkpoint.py" in source
+    assert "--checkpoint-validator" in source
+    assert "--requeue-owner runner" in source
+    assert "--confirm-child-requeue-disabled" in source
+    assert "runtime.slurm_requeue_owner=runner" in source
+    assert "runtime.slurm_save_signal=SIGUSR2" in source
+
+
+def test_full_mode_requires_the_exact_passed_smoke_gate():
+    source = _source()
+    assert "required AF_SMOKE_RESULT" in source
+    assert "required AF_EXPECTED_SMOKE_SHA256" in source
+    assert 'payload["status"] == "PASS"' in source
+    assert 'payload["experiment"] == experiment' in source
+    assert 'identities["repo_head"] == head' in source
+    assert 'identities["split_manifest_sha256"] == split_sha' in source
+    assert 'identities["normalization_sha256"] == norm_sha' in source
+    assert 'identities["content_manifest_sha256"] == content_sha' in source
+    assert 'payload["preflight"]["sha256"] == preflight_sha' in source
+    assert "++run_provenance.smoke_result_sha256=$AF_EXPECTED_SMOKE_SHA256" in source
+    assert 'cp -- "$AF_SMOKE_RESULT" "$ATTEMPT/SMOKE_RESULT.json"' in source
+
+
+def test_second_preflight_can_reuse_the_first_train_only_normalization():
+    source = _source()
+    assert 'if test -z "${AF_NORM_STATS_PATH:-}"; then' in source
+    assert 'test -s "$EFFECTIVE_NORM_FILE"' in source
+    assert 'normalization SHA-256 mismatch' in source
+
+
+def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():
+    source = _source()
+    assert "AF_CACHED_DATASET_VALIDATION" in source
+    assert "AF_EXPECTED_CACHED_DATASET_VALIDATION_SHA256" in source
+    assert 'payload["status"] == "DATASET_VALIDATED"' in source
+    assert "'~logger'" in source
+    assert "logger=null" not in source
+    assert "++logger.wandb.offline=false" in source
+    assert "++logger.wandb.name=$AF_WANDB_NAME" in source
+    assert "++logger.wandb.resume=allow" in source
+    for key in ("entity", "project", "group", "id", "tags"):
+        assert f"++logger.wandb.{key}=" in source

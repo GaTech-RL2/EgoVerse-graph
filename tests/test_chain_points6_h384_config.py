@@ -89,7 +89,7 @@ def test_h384_points6_full_dimension_gate_accepts_native_six_dim(monkeypatch):
     cfg = _compose(monkeypatch)
     pipeline = instantiate(cfg.model.pipeline)
     dimensions, parameters = _validate_dimensions_and_modules(
-        cfg, list(pipeline.stages)
+        cfg, list(pipeline.pipeline.stages)
     )
     assert dimensions["action"] == [16, 6]
     assert parameters["encoder_e"]["total"] == 32_726_064

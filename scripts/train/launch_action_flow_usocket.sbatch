@@ -84,6 +84,8 @@ AF_PRECISION=${AF_PRECISION:-bf16}
 AF_SEED=${AF_SEED:-42}
 AF_EXPECTED_GPU_CONSTRAINT=${AF_EXPECTED_GPU_CONSTRAINT:-H100|H200}
 AF_STORAGE_SAFETY_RESERVE_BYTES=${AF_STORAGE_SAFETY_RESERVE_BYTES:-2147483648}
+AF_SCHEDULE_MAX_LR=${AF_SCHEDULE_MAX_LR:-1e-4}
+AF_SCHEDULE_MIN_LR=${AF_SCHEDULE_MIN_LR:-5e-5}
 RESTART_COUNT=${SLURM_RESTART_COUNT:-0}
 LAUNCHER=${BASH_SOURCE[0]}
 CANONICAL_CONTENT_MANIFEST_SHA256=a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4a878afb20b39733761
@@ -559,6 +561,15 @@ export AF_EXTRA_PYTHONPATH
 export AF_REPO AF_PYTHON AF_EXPERIMENT AF_OUTPUT_DIR AF_DATASET_DIR
 export AF_WANDB_ENTITY AF_WANDB_PROJECT AF_WANDB_RUN_ID AF_WANDB_NAME
 export AF_WANDB_GROUP AF_WANDB_TAGS
+"$AF_PYTHON" - "$AF_SCHEDULE_MAX_LR" "$AF_SCHEDULE_MIN_LR" <<'PY'
+import math
+import sys
+
+max_lr, min_lr = map(float, sys.argv[1:])
+assert math.isfinite(max_lr) and max_lr > 0.0
+assert math.isfinite(min_lr) and min_lr > 0.0
+assert min_lr <= max_lr
+PY
 export ICE_REQUIRE_LR_SCHEDULERS=1
 export ICE_EXPECTED_SOURCE_COMMIT=$AF_EXPECTED_HEAD
 export ICE_EXPECTED_RUN_ID=$AF_WANDB_RUN_ID
@@ -667,6 +678,17 @@ BASE_OVERRIDES=(
   "++run_provenance.content_manifest_sha256=$AF_EXPECTED_CONTENT_MANIFEST_SHA256"
   "++run_provenance.dataset_content_aggregate_sha256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256"
 )
+
+if test "$AF_METHOD" = latent_fm_stopgrad_unite; then
+  BASE_OVERRIDES+=(
+    "model.optimizer.lr=$AF_SCHEDULE_MAX_LR"
+    "model.scheduler.base_lr_1=$AF_SCHEDULE_MAX_LR"
+    "model.scheduler.base_lr_2=$AF_SCHEDULE_MIN_LR"
+    "model.scheduler.final_lr=$AF_SCHEDULE_MIN_LR"
+    "++run_provenance.optimizer_schedule.max_lr=$AF_SCHEDULE_MAX_LR"
+    "++run_provenance.optimizer_schedule.min_lr=$AF_SCHEDULE_MIN_LR"
+  )
+fi
 
 if test "$AF_COTRAIN" = true; then
   BASE_OVERRIDES+=(
@@ -837,6 +859,16 @@ PY
       --config-root "$AF_REPO/egomimic/hydra_configs"
       --output "$AF_OUTPUT_DIR/action_flow_pair_preflight.json"
     )
+    if test "$AF_METHOD" = latent_fm_stopgrad_unite; then
+      CONFIG_VALIDATOR_ARGS+=(
+        --override "model.optimizer.lr=$AF_SCHEDULE_MAX_LR"
+        --override "model.scheduler.base_lr_1=$AF_SCHEDULE_MAX_LR"
+        --override "model.scheduler.base_lr_2=$AF_SCHEDULE_MIN_LR"
+        --override "model.scheduler.final_lr=$AF_SCHEDULE_MIN_LR"
+        --override "++run_provenance.optimizer_schedule.max_lr=$AF_SCHEDULE_MAX_LR"
+        --override "++run_provenance.optimizer_schedule.min_lr=$AF_SCHEDULE_MIN_LR"
+      )
+    fi
     if test "$AF_SCALED_H512" = true; then
       CONFIG_VALIDATOR_ARGS+=(
         --override "data.train_datasets.$AF_SOURCE.resolver.folder_path=$AF_DATASET_DIR"
@@ -1187,7 +1219,8 @@ if test "$AF_RUN_KIND" = full; then
     "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" \
     "${AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256:-}" \
     "${AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256:-}" \
-    "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" <<'PY'
+    "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" \
+    "$AF_SCHEDULE_MAX_LR" "$AF_SCHEDULE_MIN_LR" <<'PY'
 import json
 import sys
 
@@ -1206,6 +1239,8 @@ import sys
     second_split_sha,
     second_content_sha,
     second_content_aggregate_sha,
+    schedule_max_lr,
+    schedule_min_lr,
 ) = sys.argv[1:]
 payload = json.load(open(path))
 assert payload["schema_version"] == 1 and payload["status"] == "PASS"
@@ -1222,6 +1257,10 @@ assert payload["checkpoint"]["file_size_bytes"] > 0
 assert payload["checkpoint"]["gradient_routes"]["manifest_sha256"]
 if scaled_h512 == "true":
     assert payload["checkpoint"]["parameter_count"] == int(expected_parameter_count)
+    assert payload["optimization"] == {
+        "max_lr": float(schedule_max_lr),
+        "min_lr": float(schedule_min_lr),
+    }
     assert payload["artifacts"]["energy_score"]["sha256"]
     assert payload["artifacts"]["action_flow_diagnostics"]["sha256"]
     if cotrain == "true":
@@ -1362,7 +1401,8 @@ export SRUN
   "$AF_FULL_VALIDATE_EVERY" "$AF_FULL_CHECKPOINT_EVERY" \
   "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" "$AF_SOURCE" \
   "$AF_ACTION_DIM" "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" "$AF_SCALED_H512" \
-  "${AF_SECOND_SOURCE:-}" "${AF_SECOND_DATASET_DIR:-}" <<'PY'
+  "${AF_SECOND_SOURCE:-}" "${AF_SECOND_DATASET_DIR:-}" \
+  "$AF_SCHEDULE_MAX_LR" "$AF_SCHEDULE_MIN_LR" <<'PY'
 import math
 import pathlib
 import sys
@@ -1402,6 +1442,8 @@ from omegaconf import OmegaConf
     scaled_h512,
     second_source,
     second_dataset,
+    schedule_max_lr,
+    schedule_min_lr,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
@@ -1417,6 +1459,8 @@ action_dim = int(action_dim)
 expected_parameter_count = int(expected_parameter_count)
 cotrain = cotrain == "true"
 scaled_h512 = scaled_h512 == "true"
+schedule_max_lr = float(schedule_max_lr)
+schedule_min_lr = float(schedule_min_lr)
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -1503,7 +1547,7 @@ if unite_recipe:
     assert optimizer._target_ == (
         "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
     )
-    assert optimizer._partial_ is True and optimizer.lr == 1e-4
+    assert optimizer._partial_ is True and math.isclose(optimizer.lr, schedule_max_lr)
     assert list(optimizer.betas) == [0.9, 0.999] and optimizer.eps == 1e-6
     assert optimizer.adamw_weight_decay == optimizer.muon_weight_decay == 0.0
     assert optimizer.muon_momentum == 0.95
@@ -1516,8 +1560,11 @@ if unite_recipe:
     assert scheduler.decay_start_1_steps == 12000
     assert scheduler.decay_end_1_steps == 20000
     assert scheduler.decay_start_2_steps == scheduler.decay_end_2_steps == 1200000
-    assert scheduler.base_lr_1 == 1e-4
-    assert scheduler.base_lr_2 == scheduler.final_lr == 5e-5
+    assert math.isclose(scheduler.base_lr_1, schedule_max_lr)
+    assert math.isclose(scheduler.base_lr_2, schedule_min_lr)
+    assert math.isclose(scheduler.final_lr, schedule_min_lr)
+    assert math.isclose(cfg.run_provenance.optimizer_schedule.max_lr, schedule_max_lr)
+    assert math.isclose(cfg.run_provenance.optimizer_schedule.min_lr, schedule_min_lr)
 elif scaled_muon:
     assert optimizer._target_ == (
         "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
@@ -1771,7 +1818,11 @@ if test "$AF_RUN_KIND" = smoke; then
   fi
   SCALED_SMOKE_ARGS=()
   if test "$AF_SCALED_H512" = true; then
-    SCALED_SMOKE_ARGS+=(--expected-parameter-count "$AF_EXPECTED_PARAMETER_COUNT")
+    SCALED_SMOKE_ARGS+=(
+      --expected-parameter-count "$AF_EXPECTED_PARAMETER_COUNT"
+      --expected-max-lr "$AF_SCHEDULE_MAX_LR"
+      --expected-min-lr "$AF_SCHEDULE_MIN_LR"
+    )
     if test "$AF_COTRAIN" = true; then
       SCALED_SMOKE_ARGS+=(
         --expected-second-split-sha256 "$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256"

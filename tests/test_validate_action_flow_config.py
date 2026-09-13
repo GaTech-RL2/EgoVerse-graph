@@ -148,6 +148,46 @@ def test_scaled_h512_usocket_config_passes_the_dedicated_contract():
     assert report["optimization"]["parameter_groups"]["complete"] is True
 
 
+def test_scaled_h512_config_allows_only_a_declared_bounded_lr_pair():
+    overrides = [
+        "model.optimizer.lr=1e-5",
+        "model.scheduler.base_lr_1=1e-5",
+        "model.scheduler.base_lr_2=1e-6",
+        "model.scheduler.final_lr=1e-6",
+        "++run_provenance.optimizer_schedule.max_lr=1e-5",
+        "++run_provenance.optimizer_schedule.min_lr=1e-6",
+    ]
+    report, _ = preflight.validate_experiment(
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
+        config_root=CONFIG_ROOT,
+        overrides=overrides,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["optimization"]["optimizer"]["lr"] == pytest.approx(1e-5)
+    scheduler = report["optimization"]["scheduler"]
+    assert scheduler["target"] == "egomimic.utils.unite_optim.released_unite_two_stage_scheduler"
+    assert scheduler["max_lr"] == pytest.approx(1e-5)
+    assert scheduler["min_lr"] == pytest.approx(1e-6)
+
+
+def test_scaled_h512_config_rejects_an_inverted_lr_pair():
+    overrides = [
+        "model.optimizer.lr=1e-5",
+        "model.scheduler.base_lr_1=1e-5",
+        "model.scheduler.base_lr_2=2e-5",
+        "model.scheduler.final_lr=2e-5",
+        "++run_provenance.optimizer_schedule.max_lr=1e-5",
+        "++run_provenance.optimizer_schedule.min_lr=2e-5",
+    ]
+    with pytest.raises(preflight.PreflightError, match="minimum LR exceeds maximum LR"):
+        preflight.validate_experiment(
+            "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
+            config_root=CONFIG_ROOT,
+            overrides=overrides,
+        )
+
+
 def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",

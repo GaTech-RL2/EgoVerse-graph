@@ -39,6 +39,8 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "AF_EXPECTED_CONTENT_MANIFEST_SHA256" in source
     assert "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" in source
     assert "AF_EXPECTED_NORM_SHA256" in source
+    assert "AF_SCHEDULE_MAX_LR" in source
+    assert "AF_SCHEDULE_MIN_LR" in source
     assert "AF_PREFLIGHT_RESULT" in source
     assert "AF_EXPECTED_PREFLIGHT_SHA256" in source
     assert "validate_action_flow_config.py" in source
@@ -122,6 +124,8 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "++run_provenance.source_commit=$AF_EXPECTED_HEAD" in source
     assert "++run_provenance.content_manifest_sha256=" in source
     assert "++run_provenance.dataset_content_aggregate_sha256=" in source
+    assert "++run_provenance.optimizer_schedule.max_lr=$AF_SCHEDULE_MAX_LR" in source
+    assert "++run_provenance.optimizer_schedule.min_lr=$AF_SCHEDULE_MIN_LR" in source
     assert "++run_provenance.normalization_sha256=$AF_EXPECTED_NORM_SHA256" in source
     assert (
         "++run_provenance.preflight_result_sha256=$AF_EXPECTED_PREFLIGHT_SHA256"
@@ -165,6 +169,8 @@ def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
     assert "--expected-content-manifest-sha256" in source
     assert "--expected-dataset-content-aggregate-sha256" in source
     assert "--expected-preflight-sha256" in source
+    assert "--expected-max-lr" in source
+    assert "--expected-min-lr" in source
     assert "callbacks.model_checkpoint.save_last=link" in source
     assert "single-gpu,$AF_RUN_KIND" in source
 

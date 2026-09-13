@@ -989,6 +989,35 @@ def _validate_topology(
     }
 
 
+def _validate_unite_lr_schedule(config: DictConfig) -> dict[str, float]:
+    """Validate the released two-stage shape while allowing an explicit LR pair."""
+
+    optimizer = config.model.optimizer
+    scheduler = config.model.scheduler
+    max_lr = float(optimizer.lr)
+    min_lr = float(scheduler.final_lr)
+    _require(math.isfinite(max_lr) and max_lr > 0.0, "optimizer LR must be finite and positive")
+    _require(math.isfinite(min_lr) and min_lr > 0.0, "scheduler minimum LR must be finite and positive")
+    _require(min_lr <= max_lr, "scheduler minimum LR exceeds maximum LR")
+    _float(scheduler.base_lr_1, max_lr, "scheduler base LR 1")
+    _float(scheduler.base_lr_2, min_lr, "scheduler base LR 2")
+
+    declared_max = OmegaConf.select(
+        config, "run_provenance.optimizer_schedule.max_lr", default=None
+    )
+    declared_min = OmegaConf.select(
+        config, "run_provenance.optimizer_schedule.min_lr", default=None
+    )
+    _require(
+        (declared_max is None) == (declared_min is None),
+        "optimizer-schedule provenance must declare both max and min LR",
+    )
+    if declared_max is not None:
+        _float(declared_max, max_lr, "provenance maximum LR")
+        _float(declared_min, min_lr, "provenance minimum LR")
+    return {"max_lr": max_lr, "min_lr": min_lr}
+
+
 def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     optimizer = config.model.optimizer
     if action_flow_method(config) == STOPGRAD_UNITE_METHOD:
@@ -998,7 +1027,6 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
             "optimizer target",
         )
         _exact(bool(optimizer._partial_), True, "optimizer partial construction")
-        _float(optimizer.lr, 1.0e-4, "learning rate")
         _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
         _float(optimizer.eps, 1.0e-6, "Adam epsilon")
         _float(optimizer.adamw_weight_decay, 0.0, "AdamW weight decay")
@@ -1020,9 +1048,7 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
             ("decay_end_2_steps", 1_200_000),
         ):
             _exact(int(scheduler[key]), expected, f"scheduler {key}")
-        _float(scheduler.base_lr_1, 1.0e-4, "scheduler base LR 1")
-        _float(scheduler.base_lr_2, 5.0e-5, "scheduler base LR 2")
-        _float(scheduler.final_lr, 5.0e-5, "scheduler final LR")
+        lr_schedule = _validate_unite_lr_schedule(config)
         trainer = config.trainer
         _exact(int(trainer.max_steps), 150_000, "trainer maximum steps")
         validation_every = (
@@ -1044,9 +1070,9 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
             "checkpoint_every_steps": 30_000,
             "gradient_clip_norm": 3.0,
             "max_steps": 150_000,
-            "optimizer": {"target": str(optimizer._target_), "lr": 1.0e-4},
+            "optimizer": {"target": str(optimizer._target_), "lr": lr_schedule["max_lr"]},
             "precision": str(trainer.precision),
-            "scheduler": {"target": str(scheduler._target_)},
+            "scheduler": {"target": str(scheduler._target_), **lr_schedule},
             "validation_every_steps": validation_every,
         }
     scaled_muon = str(config.name) == SCALED_MUON_CONFIG_NAME
@@ -1934,7 +1960,6 @@ def _validate_scaled_h512_config(
         "optimizer target",
     )
     _exact(bool(optimizer._partial_), True, "optimizer partial")
-    _float(optimizer.lr, 1.0e-4, "optimizer learning rate")
     _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
     _float(optimizer.eps, 1.0e-6, "Adam epsilon")
     _float(optimizer.adamw_weight_decay, 0.0, "AdamW weight decay")
@@ -1954,9 +1979,7 @@ def _validate_scaled_h512_config(
         ("decay_end_2_steps", 1_200_000),
     ):
         _exact(int(scheduler[key]), expected, f"scheduler {key}")
-    _float(scheduler.base_lr_1, 1.0e-4, "scheduler base LR 1")
-    _float(scheduler.base_lr_2, 5.0e-5, "scheduler base LR 2")
-    _float(scheduler.final_lr, 5.0e-5, "scheduler final LR")
+    lr_schedule = _validate_unite_lr_schedule(config)
     _exact(int(config.trainer.max_steps), 150_000, "maximum optimizer steps")
     _exact(int(config.trainer.val_check_interval), 10_000, "validation cadence")
     _exact(int(config.trainer.limit_val_batches), 8, "validation batch limit")
@@ -2116,8 +2139,8 @@ def _validate_scaled_h512_config(
         "validation_every_steps": 10_000,
         "checkpoint_every_steps": 30_000,
         "precision": str(config.trainer.precision),
-        "optimizer": {"target": str(optimizer._target_), "lr": 1.0e-4},
-        "scheduler": {"target": str(scheduler._target_)},
+        "optimizer": {"target": str(optimizer._target_), "lr": lr_schedule["max_lr"]},
+        "scheduler": {"target": str(scheduler._target_), **lr_schedule},
         "parameter_groups": {
             "adamw_parameters": sum(parameter.numel() for _, parameter in adamw_named),
             "muon_parameters": sum(parameter.numel() for _, parameter in muon_named),

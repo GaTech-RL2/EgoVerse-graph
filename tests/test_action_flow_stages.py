@@ -11,6 +11,8 @@ from egomimic.pipeline.stages_action_flow import (
     ContentDecoderStage,
     ContentEncoderStage,
     LatentBridgeStage,
+    RoutedContentDecoderStage,
+    RoutedContentEncoderStage,
 )
 from egomimic.pipeline.stages_sampler import GaussianLatentNoise
 
@@ -277,6 +279,51 @@ def test_decoder_jvp_matches_explicit_linear_jacobian_and_is_differentiable():
     assert float(decoder.linear.weight.grad.abs().sum()) > 0.0
 
 
+def test_routed_codecs_select_one_homogeneous_batch_route_for_jvp():
+    left_encoder = _LastDimLinear(4, 3)
+    right_encoder = _LastDimLinear(6, 3)
+    left_decoder = _LastDimLinear(3, 4)
+    right_decoder = _LastDimLinear(3, 6)
+    encoder = RoutedContentEncoderStage(
+        encoders={"left": left_encoder, "right": right_encoder},
+        route_key="route",
+        route_aliases={19: "left", 20: "right"},
+    )
+    decoder = RoutedContentDecoderStage(
+        decoders={"left": left_decoder, "right": right_decoder},
+        route_key="route",
+        route_aliases={19: "left", 20: "right"},
+    )
+    target = torch.randn(2, 5, 6)
+    encoded = encoder({"route": torch.tensor([20, 20]), "target": target})
+    output = decoder(
+        {
+            **encoded,
+            "route": torch.tensor([20, 20]),
+            "action_flow/state": torch.randn(4, 5, 3, requires_grad=True),
+            "action_flow/velocity_residual": torch.randn(
+                4, 5, 3, requires_grad=True
+            ),
+        }
+    )
+
+    assert output["action_flow/reconstruction"].shape == target.shape
+    assert output["action_flow/decoded_velocity_residual"].shape == (4, 5, 6)
+    output["action_flow/decoded_velocity_residual"].square().mean().backward()
+    assert right_decoder.linear.weight.grad is not None
+    assert left_decoder.linear.weight.grad is None
+
+
+def test_routed_codecs_reject_mixed_route_batches():
+    stage = RoutedContentEncoderStage(
+        encoders={"one": _LastDimLinear(4, 3)},
+        route_key="route",
+        route_aliases={19: "one"},
+    )
+    with pytest.raises(ValueError, match="homogeneous"):
+        stage({"route": torch.tensor([19, 20]), "target": torch.randn(2, 3, 4)})
+
+
 def test_objective_averages_k_samples_and_applies_only_declared_weights():
     target = torch.zeros(2, 3, 4)
     reconstruction = torch.ones_like(target)
@@ -299,7 +346,7 @@ def test_objective_averages_k_samples_and_applies_only_declared_weights():
     assert float(rec10["loss/action_flow"]) == pytest.approx(23.0)
 
 
-def test_objective_can_sum_fourteen_flow_sample_means_like_released_unite():
+def test_objective_sums_flow_and_action_velocity_over_fourteen_bridge_samples():
     values = {
         "target": torch.zeros(2, 3, 4),
         "action_flow/reconstruction": torch.ones(2, 3, 4),
@@ -311,7 +358,8 @@ def test_objective_can_sum_fourteen_flow_sample_means_like_released_unite():
         flow_samples_per_content=14,
     )(values)
     assert float(output["log/action_flow_fm"]) == pytest.approx(56.0)
-    assert float(output["loss/action_flow"]) == pytest.approx(66.0)
+    assert float(output["log/action_flow_action_velocity"]) == pytest.approx(126.0)
+    assert float(output["loss/action_flow"]) == pytest.approx(183.0)
 
 
 def test_reverse_euler_is_unguided_and_uses_the_same_field_and_decoder():

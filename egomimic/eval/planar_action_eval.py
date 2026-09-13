@@ -135,15 +135,23 @@ class PlanarActionEval(Eval):
             if energy_score_distance is None
             else normalize_usocket_energy_distance_config(energy_score_distance)
         )
-        self.energy_score_distance_metadata = (
-            {
+        if self.energy_score_distance is None:
+            self.energy_score_distance_metadata = {
                 "space": "normalized_action_chunk",
                 "formula": "mean_equal_weight_semantic_block_rms",
-                "semantic_blocks": self.blocks,
+                **(
+                    {
+                        "fallback_semantic_blocks": self.blocks,
+                        "semantic_blocks_by_embodiment": self.blocks_by_embodiment,
+                    }
+                    if self.blocks_by_embodiment
+                    else {"semantic_blocks": self.blocks}
+                ),
             }
-            if self.energy_score_distance is None
-            else usocket_energy_distance_metadata(self.energy_score_distance)
-        )
+        else:
+            self.energy_score_distance_metadata = usocket_energy_distance_metadata(
+                self.energy_score_distance
+            )
         self.unite_diagnostics = (
             self._metadata_copy(
                 unite_diagnostics,
@@ -671,6 +679,14 @@ class PlanarActionEval(Eval):
             return unnormalized
         return decoder.decode(unnormalized)
 
+    def _semantic_blocks(self, embodiment_id):
+        if not self.blocks_by_embodiment:
+            return self.blocks
+        name = get_embodiment(embodiment_id)
+        if name is None:
+            raise KeyError(f"Unknown Planar embodiment id {embodiment_id}")
+        return self.blocks_by_embodiment.get(name.lower(), self.blocks)
+
     @staticmethod
     def _native_mse_by_condition(prediction, target, decoder):
         """Measure native Planar chunks with a circular theta residual."""
@@ -720,7 +736,7 @@ class PlanarActionEval(Eval):
             for name, value in energy_score(
                 samples,
                 target,
-                self.blocks,
+                self._semantic_blocks(embodiment_id),
                 distance_fn=distance_fn,
             ).items()
         }

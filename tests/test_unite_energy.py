@@ -17,6 +17,13 @@ from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.pipeline.pushshapes import USocketRotVecNativeDecoder
 
 
+@pytest.fixture(autouse=True)
+def _isolate_scheduler_execution_identity(monkeypatch):
+    """Keep artifact-path tests independent of the scheduler running pytest."""
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.delenv("SLURM_RESTART_COUNT", raising=False)
+
+
 class _IdentityNormalizer:
     @staticmethod
     def unnormalize(values, embodiment_id):
@@ -530,3 +537,23 @@ def test_energy_batch_cap_does_not_cap_normal_mse_validation(tmp_path):
     assert energy_calls == [True]
     assert "Valid/MSE" in logged[0] and "Valid/EnergyScore@32" not in logged[0]
     assert "Valid/MSE" in logged[1] and "Valid/EnergyScore@32" in logged[1]
+
+
+def test_generic_energy_score_selects_semantic_blocks_by_embodiment(tmp_path):
+    blocks = {
+        "pushshapes_sim_u_socket": ((0, 2), (2, 4)),
+        "pushshapes_sim_chain_gripper": ((0, 2), (2, 4), (4, 6)),
+    }
+    evaluator = _evaluator(tmp_path, semantic_blocks_by_embodiment=blocks)
+    target = torch.zeros(2, 2, 6)
+    samples = target.unsqueeze(0).repeat(32, 1, 1, 1)
+
+    values = evaluator._energy_values(samples, target, 20)
+
+    assert all(not bool(torch.count_nonzero(value)) for value in values.values())
+    assert evaluator.energy_score_distance_metadata == {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "fallback_semantic_blocks": ((0, 2), (2, 4)),
+        "semantic_blocks_by_embodiment": blocks,
+    }

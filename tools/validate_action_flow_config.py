@@ -230,6 +230,8 @@ def method_stage_targets(method: str) -> tuple[str, ...]:
 def method_wrapper_target(method: str) -> str:
     if method == LIKELIHOOD_METHOD:
         return "egomimic.pl_utils.pl_model_action_flow_likelihood.ActionFlowLikelihoodModelWrapper"
+    if method == STOPGRAD_UNITE_METHOD:
+        return "egomimic.pl_utils.pl_model.ModelWrapper"
     return "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper"
 
 

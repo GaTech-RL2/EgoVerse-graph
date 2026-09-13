@@ -5,7 +5,11 @@ from hydra import compose, initialize_config_dir
 
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.trainHydra import _resolve_model_wrapper_class
-from tools.validate_action_flow_config import STOPGRAD_UNITE_METHOD, action_flow_method
+from tools.validate_action_flow_config import (
+    STOPGRAD_UNITE_METHOD,
+    action_flow_method,
+    validate_method_contract,
+)
 
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
@@ -76,3 +80,4 @@ def test_h384_points6_uses_strict_routed_preflight_instead_of_legacy_name_gate()
 def test_h384_points6_is_registered_as_stopgrad_unite(monkeypatch):
     cfg = _compose(monkeypatch)
     assert action_flow_method(cfg, f"pusht/{ROW}") == STOPGRAD_UNITE_METHOD
+    assert validate_method_contract(cfg, f"pusht/{ROW}") == STOPGRAD_UNITE_METHOD

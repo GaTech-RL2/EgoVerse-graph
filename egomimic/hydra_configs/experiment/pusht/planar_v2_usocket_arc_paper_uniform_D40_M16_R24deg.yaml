@@ -1,0 +1,47 @@
+# @package _global_
+# Paper-DP baseline for the duration-timed D40/M16/R24-degree ARC token.
+defaults:
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_dp_paper
+  - _self_
+
+name: planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg
+description: u_socket_paper_DP_arc_uniform_duration_D40_M16_R24deg
+
+planar:
+  observation_horizon: 2
+  action_target_offset: 1
+  batch_size: 32
+  raw_action_horizon: 40
+  action_horizon: 32
+  arc_distance: 40.0
+  arc_waypoints: 16
+  arc_rotation_radius: 0.0
+  hybrid_rotation_unit: 0.14776
+  arc_velocity_mode: duration
+  arc_waypoint_sampling: uniform
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcTrajectoryNativeDecoder
+    resampled_vector_length: ${planar.arc_waypoints}
+    native_action_dim: 3
+    raw_action_horizon: ${planar.raw_action_horizon}
+    dt: ${planar.arc_dt}
+    rotation_radius: ${planar.arc_rotation_radius}
+    velocity_mode: ${planar.arc_velocity_mode}
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+
+eval_checkpoint:
+  use_ema: true
+
+run_provenance:
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: 32
+    waypoint_count: 16
+    timing_rows: 16
+    timing_semantics: per_waypoint_interval_duration_seconds
+    rollout_action_chunk_start_index: 0
+    execution_horizon: 40
+    execution_slice: "[0,40)"

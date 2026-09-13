@@ -35,10 +35,16 @@ planar:
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
   arc_distance: 200.0
   arc_waypoints: 100
+  arc_dt: 0.0333333333333333
   arc_rotation_radius: 30.0
   # Null preserves the ordinary SE(2) arc window.  A positive value enables
   # the hybrid Cartesian/angular window cap in the Planar dataset transform.
   hybrid_rotation_unit: null
+  # ARC timing is local: M interval-duration rows follow the M curve supports.
+  arc_velocity_mode: duration
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
   batch_size: 16
   encoder:
     _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder

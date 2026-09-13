@@ -5,12 +5,14 @@ import pytest
 import torch
 
 from egomimic.pipeline.pushshapes import (
+    PlanarArcTrajectoryNativeDecoder,
     PlanarArcWaypointZeroNativeDecoder,
     PlanarCommon5NativeDecoder,
 )
 from egomimic.rldb.zarr.planar_arc import (
     PadPlanarAction,
     TokenizePlanarArcLength,
+    curvature_adaptive_curve_samples,
     lambda_for_radius,
     planar_step_distance,
 )
@@ -45,11 +47,12 @@ def test_planar_arc_shape_anchor_and_timing():
         rotation_radius=0,
     )
     token = transform.transform({"actions": action})["actions"]
-    assert token.shape == (5, 5)
+    assert token.shape == (8, 5)
     np.testing.assert_allclose(token[0, :2], action[0, :2])
     np.testing.assert_allclose(token[0, 2:4], [1, 0], atol=1e-6)
     assert token[0, 4] == action[0, 3]
-    np.testing.assert_allclose(token[-1], [2, 0, 0, 0, 0], atol=1e-6)
+    np.testing.assert_allclose(token[4:, 0], 0.5, atol=1e-6)
+    np.testing.assert_allclose(token[4:, 1:], 0.0, atol=1e-6)
 
 
 def test_rotation_radius_adds_metric_distance():
@@ -106,12 +109,53 @@ def test_zero_motion_holds_pose_and_grip():
     assert token[-1, 0] == 0
 
 
+def test_curvature_sampling_allocates_denser_support_on_a_bend():
+    straight_x = np.linspace(0.0, 10.0, 61)
+    straight = np.column_stack((straight_x, np.zeros_like(straight_x)))
+    angle = np.linspace(-math.pi / 2, 0.0, 41)[1:]
+    bend = np.column_stack((10.0 + 2.0 * np.cos(angle), 2.0 + 2.0 * np.sin(angle)))
+    xy = np.concatenate((straight, bend), axis=0)
+    cumulative = np.concatenate((np.zeros(1), np.cumsum(planar_step_distance(xy))))
+
+    _, targets = curvature_adaptive_curve_samples(
+        xy, cumulative, float(cumulative[-1]), 16, dense_samples=513
+    )
+    straight_end = cumulative[len(straight) - 1]
+    bend_gaps = np.diff(targets[targets >= straight_end])
+    straight_gaps = np.diff(targets[targets <= straight_end])
+    assert len(bend_gaps) >= 2
+    assert np.median(bend_gaps) < np.median(straight_gaps)
+
+
+def test_duration_decoder_restores_the_full_control_rate_trajectory():
+    raw = np.column_stack(
+        (np.arange(40, dtype=np.float32), np.zeros(40), np.zeros(40))
+    )
+    token = TokenizePlanarArcLength(
+        min_distance_unit=40.0,
+        resampled_vector_length=16,
+        dt=1.0 / 30.0,
+    ).tokenize(raw)
+    decoder = PlanarArcTrajectoryNativeDecoder(
+        resampled_vector_length=16,
+        native_action_dim=3,
+        raw_action_horizon=40,
+    )
+    trajectory = decoder.decode(token)
+    assert trajectory.shape == (1, 40, 3)
+    np.testing.assert_allclose(trajectory[0], raw, atol=1e-5)
+    with pytest.raises(ValueError, match="requires per-point timing"):
+        PlanarArcTrajectoryNativeDecoder(16, 3, 40, velocity_mode="mean")
+
+
 @pytest.mark.parametrize("native_dim", [2, 3, 4])
 def test_common_and_arc_adapters_decode_same_anchor(native_dim):
     token = torch.tensor([[[2.0, 3.0, 0.0, 1.0, 0.4], [9.0, 8.0, 1.0, 0.0, 0.0]]])
     dense = PlanarCommon5NativeDecoder(2, native_dim).decode(token)
     arc_input = torch.cat((token, torch.zeros(1, 1, 5)), dim=1)
-    arc = PlanarArcWaypointZeroNativeDecoder(2, native_dim).decode(arc_input)
+    arc = PlanarArcWaypointZeroNativeDecoder(
+        2, native_dim, velocity_mode="mean"
+    ).decode(arc_input)
     assert dense.shape == (1, 2, native_dim)
     torch.testing.assert_close(arc, dense[:, :1])
 

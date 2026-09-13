@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
+from egomimic.pipeline.stages_arc import ArcDetokenizeStage
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ChainGripperPoints6ToNative4,
     PlanarAgentStateToRotVec4,
@@ -101,7 +102,7 @@ class PlanarArcWaypointZeroNativeDecoder:
         self,
         resampled_vector_length: int,
         native_action_dim: int,
-        velocity_mode: str = "mean",
+        velocity_mode: str = "duration",
     ):
         self.num_waypoints = int(resampled_vector_length)
         self.native_action_dim = int(native_action_dim)
@@ -131,6 +132,63 @@ class PlanarArcWaypointZeroNativeDecoder:
                 f"{self.velocity_mode!r}, got {value.shape}"
             )
         return _common5_to_native(value[:, :1], self.native_action_dim)
+
+    __call__ = decode
+
+
+class PlanarArcTrajectoryNativeDecoder:
+    """Decode all ARC supports into a smooth, fixed-rate native trajectory."""
+
+    preserves_decoded_timing = True
+    timing_semantics = "per_waypoint_duration_cubic_v1"
+
+    def __init__(
+        self,
+        resampled_vector_length: int,
+        native_action_dim: int,
+        raw_action_horizon: int,
+        dt: float = 1.0 / 30.0,
+        rotation_radius: float = 0.0,
+        velocity_mode: str = "duration",
+    ):
+        self.num_waypoints = int(resampled_vector_length)
+        self.native_action_dim = int(native_action_dim)
+        self.action_horizon = int(raw_action_horizon)
+        self.velocity_mode = validate_velocity_mode(velocity_mode)
+        if self.velocity_mode == "mean":
+            raise ValueError(
+                "full ARC trajectory reconstruction requires per-point timing"
+            )
+        self.detokenizer = ArcDetokenizeStage(
+            resampled_vector_length=self.num_waypoints,
+            action_horizon=self.action_horizon,
+            dt=dt,
+            native_action_dim=self.native_action_dim,
+            rotation_radius=rotation_radius,
+            velocity_mode=self.velocity_mode,
+        )
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        is_torch = torch.is_tensor(actions)
+        value = actions if is_torch else torch.as_tensor(np.asarray(actions))
+        if value.ndim == 2:
+            value = value.unsqueeze(0)
+        expected = (
+            arc_token_rows(self.num_waypoints, self.velocity_mode),
+            PLANAR_ACTION_DIM,
+        )
+        if value.ndim < 2 or tuple(value.shape[-2:]) != expected:
+            raise ValueError(
+                f"expected (..., {expected[0]}, {expected[1]}) for velocity_mode="
+                f"{self.velocity_mode!r}, got {tuple(value.shape)}"
+            )
+        leading = value.shape[:-2]
+        flat = value.reshape(-1, *expected)
+        decoded = self.detokenizer.forward({"pred_action": flat})[
+            "pred_action_native"
+        ].reshape(*leading, self.action_horizon, self.native_action_dim)
+        return decoded if is_torch else decoded.cpu().numpy()
 
     __call__ = decode
 

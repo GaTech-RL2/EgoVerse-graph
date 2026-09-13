@@ -7,14 +7,14 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 ROWS = {
-    "usocket_arc_bc": ("pushshapes_sim_u_socket", 101, 1, "PlanarFlowSampler"),
+    "usocket_arc_bc": ("pushshapes_sim_u_socket", 200, 1, "PlanarFlowSampler"),
     "usocket_arc_hybrid_D40_M16_R24deg_bc": (
         "pushshapes_sim_u_socket",
-        17,
+        32,
         1,
         "PlanarFlowSampler",
     ),
-    "chain_arc_bc": ("pushshapes_sim_chain_gripper", 101, 1, "PlanarFlowSampler"),
+    "chain_arc_bc": ("pushshapes_sim_chain_gripper", 200, 1, "PlanarFlowSampler"),
     "usocket_direct_bc": ("pushshapes_sim_u_socket", 16, 1, "PlanarFlowSampler"),
     "chain_direct_bc": ("pushshapes_sim_chain_gripper", 16, 1, "PlanarFlowSampler"),
     "usocket_dp_standard": ("pushshapes_sim_u_socket", 16, 1, "ConditionalUnet1D"),

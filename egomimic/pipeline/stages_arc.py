@@ -73,7 +73,10 @@ class ArcTokenizeStage(Stage):
         dt: float = 1.0 / 30.0,
         rotation_radius: float = 0.0,
         hybrid_rotation_unit: float | None = None,
-        velocity_mode: str = "mean",
+        velocity_mode: str = "duration",
+        waypoint_sampling: str = "uniform",
+        curvature_dense_samples: int = 257,
+        curvature_floor: float | None = None,
     ):
         super().__init__()
         self.action_key = str(action_key)
@@ -91,6 +94,9 @@ class ArcTokenizeStage(Stage):
             rotation_radius=rotation_radius,
             hybrid_rotation_unit=hybrid_rotation_unit,
             velocity_mode=self.velocity_mode,
+            waypoint_sampling=waypoint_sampling,
+            curvature_dense_samples=curvature_dense_samples,
+            curvature_floor=curvature_floor,
         )
 
     def forward(self, batch: dict) -> dict:
@@ -109,12 +115,10 @@ class ArcTokenizeStage(Stage):
 class ArcDetokenizeStage(Stage):
     """Decode a predicted arc token back to a time-indexed action chunk.
 
-    The token is ``num_waypoints`` waypoints uniform in SE(2) arc length
-    followed by one timing row whose first field is the chunk's mean arc speed.
-    Reconstruction walks the waypoint polyline at ``speed * dt * k`` for each
-    output step k, which is the inverse of how the tokenizer laid the waypoints
-    out; a zero-speed token (a stationary or degenerate chunk) holds the first
-    waypoint, matching the tokenizer's own degenerate branch.
+    The token is ``num_waypoints`` curve supports followed by one timing row per
+    support. Duration is the default timing contract; reconstruction inverts
+    the cumulative duration clock and samples a C1 cubic XY curve at the
+    control period.
 
     ``rotation_radius`` MUST match the tokenizer's. The token's speed is a rate
     in the tokenizer's SE(2) metric -- translation plus ``lambda * rotation``,
@@ -146,7 +150,7 @@ class ArcDetokenizeStage(Stage):
         dt: float = 1.0 / 30.0,
         native_action_dim: int = 3,
         rotation_radius: float = 0.0,
-        velocity_mode: str = "mean",
+        velocity_mode: str = "duration",
         zero_dist_epsilon: float = 1e-9,
     ):
         super().__init__()
@@ -288,6 +292,55 @@ class ArcDetokenizeStage(Stage):
         s_hi = torch.gather(cumulative, 1, upper)
         return s_lo + alpha * (s_hi - s_lo)
 
+    def _smooth_xy(
+        self,
+        waypoints: torch.Tensor,
+        cumulative: torch.Tensor,
+        lower: torch.Tensor,
+        upper: torch.Tensor,
+        alpha: torch.Tensor,
+    ) -> torch.Tensor:
+        """C1 cubic Hermite interpolation through every XY support point."""
+        xy = waypoints[..., :2]
+        segment_span = cumulative[:, 1:] - cumulative[:, :-1]
+        segment_delta = xy[:, 1:] - xy[:, :-1]
+        secant = torch.where(
+            (segment_span > self.zero_dist_epsilon).unsqueeze(-1),
+            segment_delta / segment_span.clamp_min(self.zero_dist_epsilon).unsqueeze(-1),
+            torch.zeros_like(segment_delta),
+        )
+        tangent = torch.zeros_like(xy)
+        tangent[:, 0] = secant[:, 0]
+        tangent[:, -1] = secant[:, -1]
+        if self.num_waypoints > 2:
+            inner_span = cumulative[:, 2:] - cumulative[:, :-2]
+            inner_delta = xy[:, 2:] - xy[:, :-2]
+            tangent[:, 1:-1] = torch.where(
+                (inner_span > self.zero_dist_epsilon).unsqueeze(-1),
+                inner_delta
+                / inner_span.clamp_min(self.zero_dist_epsilon).unsqueeze(-1),
+                torch.zeros_like(inner_delta),
+            )
+
+        xy_index_lo = lower.unsqueeze(-1).expand(-1, -1, 2)
+        xy_index_hi = upper.unsqueeze(-1).expand(-1, -1, 2)
+        p0 = torch.gather(xy, 1, xy_index_lo)
+        p1 = torch.gather(xy, 1, xy_index_hi)
+        m0 = torch.gather(tangent, 1, xy_index_lo)
+        m1 = torch.gather(tangent, 1, xy_index_hi)
+        ds = (
+            torch.gather(cumulative, 1, upper)
+            - torch.gather(cumulative, 1, lower)
+        ).unsqueeze(-1)
+        u = alpha
+        u2, u3 = u * u, u * u * u
+        return (
+            (2 * u3 - 3 * u2 + 1) * p0
+            + (u3 - 2 * u2 + u) * ds * m0
+            + (-2 * u3 + 3 * u2) * p1
+            + (u3 - u2) * ds * m1
+        )
+
     def forward(self, batch: dict) -> dict:
         tokens = _as_batched(batch["pred_action"], "ArcDetokenizeStage input")
         rows = arc_token_rows(self.num_waypoints, self.velocity_mode)
@@ -319,9 +372,16 @@ class ArcDetokenizeStage(Stage):
 
         index_lo = lower.unsqueeze(-1).expand(-1, -1, PLANAR_ACTION_DIM)
         index_hi = upper.unsqueeze(-1).expand(-1, -1, PLANAR_ACTION_DIM)
-        decoded = (1.0 - alpha) * torch.gather(
+        decoded_linear = (1.0 - alpha) * torch.gather(
             waypoints, 1, index_lo
         ) + alpha * torch.gather(waypoints, 1, index_hi)
+        decoded = torch.cat(
+            (
+                self._smooth_xy(waypoints, cumulative, lower, upper, alpha),
+                decoded_linear[..., 2:],
+            ),
+            dim=-1,
+        )
 
         heading = decoded[..., 2:4]
         norm = torch.linalg.vector_norm(heading, dim=-1, keepdim=True)

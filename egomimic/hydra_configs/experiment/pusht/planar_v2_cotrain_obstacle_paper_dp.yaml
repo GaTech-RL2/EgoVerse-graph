@@ -1,0 +1,56 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_base
+  - override /data: pusht/planar_v2_cotrain_obstacle_7920
+  - override /model: bf/bf_planar_v2_dp_paper
+  - _self_
+
+name: planar_v2_cotrain_obstacle_paper_dp_h16
+description: paper_dp_baseline_usocket3k_chain3k_obstacle1920
+planar:
+  action_dims: {pushshapes_sim_u_socket: 5, pushshapes_sim_chain_gripper: 5}
+  observation_horizon: 2
+  action_target_offset: 1
+  raw_action_horizon: 16
+  action_horizon: 16
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list
+  batch_size: 64
+  eval_native_decoder: null
+evaluator:
+  native_decoder: null
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: 16
+      native_action_dim: 3
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: 16
+      native_action_dim: 4
+callbacks:
+  model_checkpoint:
+    filename: "epoch_{epoch}-step_{step}"
+    monitor: null
+    save_top_k: -1
+    save_last: false
+    every_n_epochs: null
+    every_n_train_steps: 60000
+    train_time_interval: null
+    save_on_train_epoch_end: false
+    save_weights_only: true
+run_provenance:
+  obstacle_data: true
+  dataset_count: 7920
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: 16
+    replan_every: 8
+    execution_slice: "[0,8)"
+  checkpoint_contract:
+    steps: [60000, 120000, 180000, 240000]
+    save_weights_only: true
+    optimizer_state_saved: false

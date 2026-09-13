@@ -73,6 +73,9 @@ class ArcTokenizeStage(Stage):
         dt: float = 1.0 / 30.0,
         rotation_radius: float = 0.0,
         hybrid_rotation_unit: float | None = None,
+        waypoint_sampling: str = "uniform",
+        curvature_dense_samples: int = 257,
+        curvature_floor: float | None = None,
         velocity_mode: str = "mean",
     ):
         super().__init__()
@@ -90,6 +93,9 @@ class ArcTokenizeStage(Stage):
             dt=dt,
             rotation_radius=rotation_radius,
             hybrid_rotation_unit=hybrid_rotation_unit,
+            waypoint_sampling=waypoint_sampling,
+            curvature_dense_samples=curvature_dense_samples,
+            curvature_floor=curvature_floor,
             velocity_mode=self.velocity_mode,
         )
 

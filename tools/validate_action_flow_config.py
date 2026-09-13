@@ -179,21 +179,21 @@ SCALED_H512_ROWS = {
     },
     "pusht/action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
         "config_name": "action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
-        "parameter_count": 121_459_376,
+        "parameter_count": 132_660_944,
         "sources": {"pushshapes_sim_u_socket": 4},
         "codec": (384, 12, 12),
         "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
         "config_name": "action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
-        "parameter_count": 121_460_402,
+        "parameter_count": 132_661_970,
         "sources": {"pushshapes_sim_chain_gripper": 6},
         "codec": (384, 12, 12),
         "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
         "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
-        "parameter_count": 175_494_502,
+        "parameter_count": 186_695_814,
         "sources": {
             "pushshapes_sim_u_socket": 4,
             "pushshapes_sim_chain_gripper": 6,

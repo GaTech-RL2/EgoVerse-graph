@@ -247,6 +247,29 @@ Same shape as sweep 2. The chain obstacle data lifts UNITE on chain more
 than DP (+0.05 vs +0.04 over sweep 2) and costs both on U-Socket, UNITE
 more.
 
+#### Restated on the protocol's canonical seeds (0–39), 9-13
+
+The tables above pooled seeds 0–79 (the 40–79 block is a labelled
+extension). On the canonical 40 alone, same eight replicates, same pairing:
+
+| canonical 40, 8 replicates | U-Socket | chain |
+|---|---:|---:|
+| DP BC | 0.654 ± 0.035 | 0.552 ± 0.026 |
+| DP cotrain 240k | **0.697 ± 0.031** | 0.602 ± 0.024 |
+| UNITE cotrain A 120k | 0.661 ± 0.032 | **0.614 ± 0.029** |
+| UNITE cotrain A + EMA 240k | 0.673 ± 0.037 | 0.617 ± 0.034 |
+| sweep 3: DP cotrain | **0.684 ± 0.027** (180k) | 0.632 ± 0.023 (240k) |
+| sweep 3: UNITE cotrain A 180k | 0.578 ± 0.038 | **0.667 ± 0.020** |
+| sweep 3: UNITE cotrain A 240k | 0.637 ± 0.040 | 0.633 ± 0.027 |
+
+Paired on the 40 seeds: UNITE cotrain − DP BC +0.006 ± 0.028 (U-Socket),
+**+0.062 ± 0.032 (t 2.0)** (chain); UNITE − DP cotrain −0.036 ± 0.023
+(t −1.6), +0.012 ± 0.033; DP cotrain − DP BC +0.042 ± 0.025, +0.050 ±
+0.024 (t 2.1); sweep 3 UNITE 180k − DP cotrain −0.105 ± 0.037 (t −2.9),
++0.035 ± 0.030. Every sign matches the 80-seed tables; error bars are
+≈ 1.4× wider. The CFG sweep (9-12) already used the canonical 40. Full
+listing: `docs/experiments/results_2026-09-13/` on the branch.
+
 #### Why replicates
 
 Two rows that shared identical weights through 120k scored the same 90k
@@ -311,9 +334,10 @@ Everything is trained and scored; no jobs need attention. Worktrees on ICE
 now also include `s6` (956ca06, `ICE_INITIAL_CHECKPOINT`), `s7` (3523f33,
 `ICE_CONTINUATION_WANDB_RESUME=allow` forks) and `s8` (ace2433, USR1@1200 +
 900 s grace); all three are launcher-only on top of `s5`'s training code
-and are in PR #67. Results live in `~/scratch/rollouts/CT2-rev3/`
-(`summary.tsv` single readings; `*-repN.json` replicates; `peaks_export.json`;
-`replicate_means.png`). Ledger `~/scratch/autoresearch/orchestrator-260910-0200/`.
+and are in PR #67. Every result is on the branch under
+`docs/experiments/results_2026-09-13/` (single readings, replicate tables on
+canonical 40 and pooled 80, CFG sweep, OEC summary, per-episode peaks); the raw
+JSONs stay in `~/scratch/rollouts/CT2-rev3/` on ICE. Ledger `~/scratch/autoresearch/orchestrator-260910-0200/`.
 
 What the evidence says to do next, if the goal is still "UNITE beats DP
 cotrain on both embodiments":

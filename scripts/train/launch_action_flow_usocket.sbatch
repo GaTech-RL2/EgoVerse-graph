@@ -106,6 +106,12 @@ case "$AF_LAUNCH_MODE" in
   preflight|run) ;;
   *) die "AF_LAUNCH_MODE must be preflight or run" ;;
 esac
+
+if test -n "${AF_FULL_VALIDATE_EVERY_OVERRIDE:-}"; then
+  [[ "$AF_FULL_VALIDATE_EVERY_OVERRIDE" =~ ^[1-9][0-9]*$ ]] || \
+    die "AF_FULL_VALIDATE_EVERY_OVERRIDE must be a positive integer"
+  AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE
+fi
 # The portable launcher carries a ten-minute USR1 checkpoint warning for long
 # GPU runs.  A CPU preflight has no requeue runner yet, so inheriting that
 # warning would terminate a legitimate normalization pass before it can write
@@ -972,6 +978,21 @@ PY
           --override "++run_provenance.content_manifests.$AF_SECOND_SOURCE.path=$AF_SECOND_CONTENT_MANIFEST"
           --override "++run_provenance.content_manifests.$AF_SECOND_SOURCE.manifest_sha256=$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256"
           --override "++run_provenance.content_manifests.$AF_SECOND_SOURCE.aggregate_sha256=$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256"
+        )
+      fi
+      if test "$AF_CLEAN_CHAIN_4918" = true; then
+        if test "$AF_COTRAIN" = true; then
+          CONFIG_VALIDATOR_CLEAN_SOURCE=$AF_SECOND_SOURCE
+        else
+          CONFIG_VALIDATOR_CLEAN_SOURCE=$AF_SOURCE
+        fi
+        CONFIG_VALIDATOR_ARGS+=(
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.resolver.expected_episode_count=4918"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.resolver.expected_episode_count=4918"
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_count=4869"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_count=4869"
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_count=49"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_count=49"
         )
       fi
     fi

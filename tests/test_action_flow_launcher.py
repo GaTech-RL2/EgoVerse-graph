@@ -222,6 +222,14 @@ def test_scaled_chain_rows_are_pinned_to_the_clean_4918_episode_corpus():
     assert "expected_episode_count=4918" in source
     assert "expected_train_episode_count=4869" in source
     assert "expected_valid_episode_count=49" in source
+    assert "CONFIG_VALIDATOR_CLEAN_SOURCE" in source
+    assert '--override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.resolver.expected_episode_count=4918"' in source
+
+
+def test_full_validation_cadence_has_a_typed_override():
+    source = _source()
+    assert 'AF_FULL_VALIDATE_EVERY_OVERRIDE must be a positive integer' in source
+    assert 'AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE' in source
 
 
 def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():

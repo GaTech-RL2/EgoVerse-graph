@@ -140,6 +140,9 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
     record = config["recording"]
     if int(record["episode_length"]) <= 0:
         raise ValueError("episode_length must be positive")
+    record_rate = float(record.get("rate_hz", frequency))
+    if not np.isfinite(record_rate) or not 0 < record_rate <= frequency:
+        raise ValueError("Recording rate must be positive and no faster than control")
     control = TeleopControl(
         robot,
         WorldFrameTeleop(robot.arms, **config["teleop"]),
@@ -148,7 +151,7 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
     )
     view = view or CameraView(robot.camera_res, **config["preview"])
     edges = {action: ButtonEdge(key) for action, key in config["buttons"].items()}
-    writer, steps, ready = None, 0, False
+    writer, steps, ready, record_phase = None, 0, False, 0.0
     started = time.monotonic()
     try:
         while max_steps is None or steps < max_steps:
@@ -173,6 +176,7 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                     writer.close(complete=False)
                     print(f"Preserved interrupted episode: {writer.path}")
                     writer = None
+                    record_phase = 0.0
                 if events.get("home") or key == "y":
                     control.reset()
                     robot.set_home()
@@ -183,20 +187,26 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                     writer.close()
                     print(f"Saved {writer.path} ({writer.frames} frames)")
                     writer = None
+                    record_phase = 0.0
                 else:
                     writer = EpisodeWriter(
                         next_episode_path(record["directory"], record["episode_start"]),
                         robot.camera_res,
                     )
+                    record_phase = 0.0
                     print(f"Recording {writer.path}")
             if ready:
                 joints, ee_pose = control.step(poses, buttons, obs)
                 if writer is not None and cameras_ready:
-                    writer.append(obs, joints, ee_pose)
-                    if writer.frames >= int(record["episode_length"]):
-                        writer.close()
-                        print(f"Saved {writer.path} ({writer.frames} frames)")
-                        writer = None
+                    record_phase += record_rate / frequency
+                    if writer.frames == 0 or record_phase >= 1.0:
+                        writer.append(obs, joints, ee_pose)
+                        record_phase = max(0.0, record_phase - 1.0)
+                        if writer.frames >= int(record["episode_length"]):
+                            writer.close()
+                            print(f"Saved {writer.path} ({writer.frames} frames)")
+                            writer = None
+                            record_phase = 0.0
             steps += 1
             time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
     finally:

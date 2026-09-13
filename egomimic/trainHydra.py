@@ -475,12 +475,31 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # exactly the mapping it did before groups existed.
         valid_datasets = valid_datasets[DEFAULT_VALID_GROUP]
 
-    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert "MultiDataModuleWrapper" in cfg.data._target_, (
-        "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    # Episode-level evaluators need an ordered, complete-episode validation
+    # prefix. Pass these controls into the datamodule before Lightning creates
+    # its loaders; evaluator attachment happens later in this function.
+    data_controls = {}
+    limit_val_episodes = OmegaConf.select(
+        cfg, "evaluator.limit_val_episodes", default=None
     )
+    requires_ordered_validation = bool(
+        OmegaConf.select(cfg, "evaluator.requires_ordered_validation", default=False)
+    )
+    if limit_val_episodes is not None:
+        data_controls["valid_episode_limit"] = int(limit_val_episodes)
+        requires_ordered_validation = True
+    if requires_ordered_validation:
+        data_controls["force_valid_order"] = True
+
+    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
+    assert (
+        "MultiDataModuleWrapper" in cfg.data._target_
+    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
     datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
+        cfg.data,
+        train_datasets=train_datasets,
+        valid_datasets=valid_datasets,
+        **data_controls,
     )
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from

@@ -1,0 +1,614 @@
+"""Episode-level open-loop segment simulation for bimanual cartesian policies.
+
+This evaluator measures a policy over an entire recorded episode rather than
+averaging independent action chunks.  Validation samples are observations at
+known episode/frame indices.  We cache the prediction made from each
+observation, then replay the episode at validation end:
+
+* execute the first ``execute_fraction`` of a baseline control chunk, or the
+  corresponding fraction of ARC waypoints;
+* compare those control-frequency commands with the ground-truth commands;
+* advance to the observation at the resulting frame;
+* repeat until the episode ends.
+
+The next observation is the recorded observation at the next boundary.  This
+is an oracle-observation open-loop segment rollout: it measures compounding
+segment error while keeping the evaluation deterministic and comparable
+between baseline and ARC representations.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+from collections import defaultdict
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+import torch.distributed as dist
+
+from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
+from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    bimanual_arc_token_rows,
+    validate_bimanual_velocity_mode,
+)
+
+XYZ_COLS = (0, 1, 2, 7, 8, 9)
+YPR_COLS = (3, 4, 5, 10, 11, 12)
+GRIP_COLS = (6, 13)
+PAIRED_COLS = XYZ_COLS + GRIP_COLS
+
+
+def executed_control_steps(control_horizon: int, execute_fraction: float) -> int:
+    """Return the positive control-step prefix executed from each chunk."""
+
+    horizon = int(control_horizon)
+    fraction = float(execute_fraction)
+    if horizon < 1:
+        raise ValueError("control_horizon must be positive")
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError("execute_fraction must be in (0, 1]")
+    return max(1, min(horizon, int(math.ceil(horizon * fraction))))
+
+
+def truncate_arc_token(
+    token: np.ndarray, execute_fraction: float, velocity_mode: str
+) -> np.ndarray:
+    """Keep the first distance fraction of an ARC token.
+
+    The first ``M`` rows are waypoints.  ``mean`` has one timing row; the
+    granular ``per_waypoint`` and ``duration`` modes have one timing row per
+    waypoint.  Timing rows are truncated with their corresponding waypoints,
+    so detokenization happens at control frequency over only the executed
+    distance.
+    """
+
+    mode = validate_bimanual_velocity_mode(velocity_mode)
+    value = np.asarray(token, dtype=np.float64)
+    if value.ndim != 2 or value.shape[1] != 14:
+        raise ValueError(f"ARC token must have shape (rows, 14), got {value.shape}")
+    rows = int(value.shape[0])
+    granular = mode in ("per_waypoint", "duration")
+    M = rows // 2 if granular else rows - 1
+    if rows != bimanual_arc_token_rows(M, mode):
+        raise ValueError(
+            f"ARC token has {rows} rows, inconsistent with M={M} and mode={mode!r}"
+        )
+    fraction = float(execute_fraction)
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError("execute_fraction must be in (0, 1]")
+    K = max(2, min(M, int(math.ceil(M * fraction))))
+    if granular:
+        return np.concatenate((value[:K], value[M : M + K]), axis=0)
+    return np.concatenate((value[:K], value[M : M + 1]), axis=0)
+
+
+class OpenLoopSimEval(BimanualCartesianEval):
+    """Compare baseline and ARC policies over complete recorded episodes.
+
+    ``execute_fraction`` is applied in representation space and then decoded
+    to the same control-frequency prefix length for both policy families. A
+    baseline uses the first prefix of its time-indexed action chunk. An ARC
+    policy keeps the first fraction of its ``M`` waypoints, carries the
+    matching timing rows, and detokenizes that partial token to the same
+    number of control steps.
+
+    The evaluator expects validation to contain every frame of each episode,
+    with ``episode_hash`` and ``frame_index`` metadata. It accumulates model
+    predictions during the normal validation loop, so no images or full
+    episodes are retained in memory.
+    """
+
+    def __init__(
+        self,
+        *,
+        action_key: str = "actions_cartesian",
+        ground_truth_action_key: str = "actions_cartesian_untokenized",
+        execute_fraction: float = 0.25,
+        control_horizon: int = 100,
+        control_dt: float = 1.0 / 30.0,
+        action_mode: str = "auto",
+        min_distance_unit: float = 0.40,
+        resampled_vector_length: int = 100,
+        velocity_mode: str = "mean",
+        results_path: str | None = None,
+        require_episode_start: bool = True,
+        limit_val_episodes: int | None = None,
+        requires_ordered_validation: bool = True,
+        limit_val_batches: int | float | None = None,
+        deterministic_seed: int = 420042,
+        **kwargs,
+    ):
+        mode = str(action_mode)
+        if mode not in ("auto", "baseline", "arc"):
+            raise ValueError("action_mode must be auto, baseline, or arc")
+        if float(control_dt) <= 0:
+            raise ValueError("control_dt must be positive")
+        validate_bimanual_velocity_mode(velocity_mode)
+        self.execute_fraction = float(execute_fraction)
+        self.control_horizon = int(control_horizon)
+        self.control_dt = float(control_dt)
+        self.action_mode = mode
+        self.ground_truth_action_key = str(ground_truth_action_key)
+        self.min_distance_unit = float(min_distance_unit)
+        self.resampled_vector_length = int(resampled_vector_length)
+        self.velocity_mode = str(velocity_mode)
+        self.results_path = Path(results_path) if results_path else None
+        self.require_episode_start = bool(require_episode_start)
+        self.limit_val_episodes = (
+            None if limit_val_episodes is None else int(limit_val_episodes)
+        )
+        if self.limit_val_episodes is not None and self.limit_val_episodes < 1:
+            raise ValueError("limit_val_episodes must be positive")
+        self.requires_ordered_validation = bool(requires_ordered_validation)
+        if limit_val_batches is not None:
+            raise ValueError(
+                "open_loop_sim is episode-based; use limit_val_episodes instead "
+                "of limit_val_batches"
+            )
+        self._records: list[dict[str, Any]] = []
+        self.last_results = None
+        self._arc_tokenizer = None
+        self._metric_device = torch.device("cpu")
+
+        # Reuse the graph evaluator's normalizer binding, deterministic model
+        # forward, embodiment resolution, and metric-group namespacing. Video
+        # and chunk-level ARC metrics are deliberately disabled here.
+        # Existing ABC experiment blocks are merged into a selected evaluator
+        # config by Hydra. Consume their legacy ARC-only knobs so selecting
+        # this evaluator does not fail on an unrelated ``action_horizon`` (or
+        # accidentally enable chunk/video metrics).
+        for ignored_key in (
+            "viz_func",
+            "revert_transforms",
+            "arc_metrics",
+            "include_reconstruction_loss",
+            "arcmatch_distance",
+            "arcmatch_points",
+            "arc_chunk_rows",
+            "action_horizon",
+            "rot_lever_m",
+            "dtw_max_samples",
+        ):
+            kwargs.pop(ignored_key, None)
+        super().__init__(
+            action_key=action_key,
+            viz_func=None,
+            revert_transforms=None,
+            arc_metrics=False,
+            deterministic_seed=deterministic_seed,
+            limit_val_batches=None,
+            **kwargs,
+        )
+        self.execute_steps = executed_control_steps(
+            self.control_horizon, self.execute_fraction
+        )
+
+    def on_validation_start(self):
+        self._records = []
+        self.last_results = None
+        if self.model is not None:
+            try:
+                self._metric_device = next(self.model.parameters()).device
+            except StopIteration:
+                pass
+
+    @staticmethod
+    def _batch_values(value, batch_size: int, label: str) -> list:
+        if isinstance(value, torch.Tensor):
+            if value.ndim == 0:
+                return [value.item()] * batch_size
+            if int(value.shape[0]) != batch_size:
+                raise ValueError(
+                    f"{label} has batch dimension {tuple(value.shape)}, expected "
+                    f"{batch_size}"
+                )
+            return [item.item() if item.ndim == 0 else item for item in value]
+        if isinstance(value, np.ndarray):
+            if value.ndim == 0:
+                return [value.item()] * batch_size
+            if int(value.shape[0]) != batch_size:
+                raise ValueError(
+                    f"{label} has batch dimension {value.shape}, expected {batch_size}"
+                )
+            return [item.item() if np.ndim(item) == 0 else item for item in value]
+        if isinstance(value, (list, tuple)):
+            if len(value) != batch_size:
+                raise ValueError(
+                    f"{label} has {len(value)} entries, expected {batch_size}"
+                )
+            return list(value)
+        return [value] * batch_size
+
+    def _native_key(self, value: torch.Tensor, key: str, embodiment_id: int):
+        if self.normalizer is None:
+            raise RuntimeError("open_loop_sim evaluator data context was not bound")
+        return self.normalizer.unnormalize({key: value}, embodiment_id).get(key, value)
+
+    def _is_arc_prediction(self, prediction: np.ndarray) -> bool:
+        expected = bimanual_arc_token_rows(
+            self.resampled_vector_length, self.velocity_mode
+        )
+        return prediction.ndim == 2 and prediction.shape == (expected, 14)
+
+    def _decode_prediction(self, prediction: np.ndarray) -> np.ndarray:
+        is_arc = self._is_arc_prediction(prediction)
+        if self.action_mode == "arc" and not is_arc:
+            raise ValueError(
+                "open_loop_sim action_mode='arc' received a non-ARC prediction "
+                f"with shape {prediction.shape}"
+            )
+        if self.action_mode == "baseline" and is_arc:
+            raise ValueError(
+                "open_loop_sim action_mode='baseline' received an ARC prediction"
+            )
+        if not is_arc:
+            if prediction.ndim != 2 or prediction.shape[1] != 14:
+                raise ValueError(
+                    "baseline open_loop_sim predictions must have shape (T, 14), "
+                    f"got {prediction.shape}"
+                )
+            if prediction.shape[0] < self.execute_steps:
+                raise ValueError(
+                    f"baseline prediction has only {prediction.shape[0]} control "
+                    f"steps, needs {self.execute_steps}"
+                )
+            return prediction[: self.execute_steps].copy()
+
+        if self._arc_tokenizer is None:
+            from egomimic.rldb.zarr.arc_length_tokenizer import (
+                TokenizeBimanualArcLengthCartesian,
+            )
+
+            self._arc_tokenizer = TokenizeBimanualArcLengthCartesian(
+                min_distance_unit=self.min_distance_unit,
+                resampled_vector_length=self.resampled_vector_length,
+                dt=self.control_dt,
+                velocity_mode=self.velocity_mode,
+            )
+        partial = truncate_arc_token(
+            prediction, self.execute_fraction, self.velocity_mode
+        )
+        return self._arc_tokenizer.detokenize(
+            partial, action_horizon=self.execute_steps
+        ).astype(np.float64, copy=False)
+
+    def _append_source_records(self, source_id: str, source_batch, prediction):
+        if not isinstance(prediction, torch.Tensor) or prediction.ndim != 3:
+            raise ValueError(
+                f"open_loop_sim expects batched predictions, got {type(prediction)} "
+                f"with shape {getattr(prediction, 'shape', None)}"
+            )
+        batch_size = int(prediction.shape[0])
+        self._metric_device = prediction.device
+        if "episode_hash" not in source_batch or "frame_index" not in source_batch:
+            raise KeyError(
+                "open_loop_sim requires episode_hash and frame_index in every "
+                f"validation source ({source_id!r})"
+            )
+        embodiment_id, label = self._embodiment(source_batch)
+        episode_hashes = self._batch_values(
+            source_batch["episode_hash"], batch_size, "episode_hash"
+        )
+        frame_indices = self._batch_values(
+            source_batch["frame_index"], batch_size, "frame_index"
+        )
+        pred_native = self._native(prediction, embodiment_id).detach().cpu().numpy()
+        target_key = (
+            self.ground_truth_action_key
+            if self.ground_truth_action_key in source_batch
+            else self.action_key
+        )
+        target_value = self._native_key(
+            source_batch[target_key], target_key, embodiment_id
+        )
+        target_native = target_value.detach().cpu().numpy()
+        if target_native.ndim != 3 or target_native.shape[0] != batch_size:
+            raise ValueError(
+                f"open_loop_sim ground truth {target_key!r} must be batched, got "
+                f"{target_native.shape}"
+            )
+        for index in range(batch_size):
+            episode = str(episode_hashes[index])
+            frame = int(frame_indices[index])
+            if not episode or frame < 0:
+                raise ValueError(
+                    f"invalid open_loop_sim episode/frame: {episode!r}/{frame}"
+                )
+            prediction_value = pred_native[index]
+            if not self._is_arc_prediction(prediction_value):
+                prediction_value = prediction_value[: self.execute_steps]
+            self._records.append(
+                {
+                    "group": self._validation_group or DEFAULT_VALID_GROUP,
+                    "source": str(source_id),
+                    "label": label,
+                    "episode": episode,
+                    "frame": frame,
+                    # Only the executed baseline prefix is needed. ARC keeps
+                    # its complete token because waypoint/timing truncation
+                    # happens after episode boundaries are selected. Keeping
+                    # float32 and dropping the unused GT tail matters for long
+                    # episodes: validation should not require a second copy of
+                    # every full action window in host memory.
+                    "prediction": np.asarray(prediction_value, dtype=np.float32),
+                    "ground_truth": np.asarray(
+                        target_native[index][: self.execute_steps], dtype=np.float32
+                    ),
+                }
+            )
+
+    @torch.inference_mode()
+    def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
+        del batch_idx, dataloader_idx
+        result = self._forward_deterministic(batch)
+        for source_id, source_batch in batch.items():
+            self._append_source_records(
+                source_id, source_batch, result[source_id]["pred_action"]
+            )
+        return {}
+
+    @staticmethod
+    def _merge_records(states: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
+        unique: dict[tuple[str, str, str, int], dict[str, Any]] = {}
+        for state in states:
+            for record in state:
+                key = (
+                    record.get("group", DEFAULT_VALID_GROUP),
+                    record["source"],
+                    record["episode"],
+                    int(record["frame"]),
+                )
+                unique.setdefault(key, record)
+        return list(unique.values())
+
+    def _all_records(self) -> list[dict[str, Any]]:
+        local = self._records
+        if not dist.is_available() or not dist.is_initialized():
+            return self._merge_records([local])
+        states = [None] * dist.get_world_size()
+        dist.all_gather_object(states, local)
+        return self._merge_records(states)
+
+    def _score_episode(self, records: list[dict[str, Any]]) -> dict[str, Any]:
+        records = sorted(records, key=lambda record: int(record["frame"]))
+        frames = [int(record["frame"]) for record in records]
+        if len(set(frames)) != len(frames):
+            raise RuntimeError("open_loop_sim received duplicate episode frames")
+        if self.require_episode_start and frames[0] != 0:
+            raise RuntimeError(
+                f"open_loop_sim requires complete episodes from frame 0; "
+                f"episode {records[0]['episode']!r} starts at frame {frames[0]}"
+            )
+        expected = set(range(frames[0], frames[-1] + 1))
+        missing = sorted(expected.difference(frames))
+        if missing:
+            raise RuntimeError(
+                f"open_loop_sim requires every validation frame in episode "
+                f"{records[0]['episode']!r}; missing {len(missing)} frames, "
+                f"first missing={missing[0]}"
+            )
+        by_frame = {frame: record for frame, record in zip(frames, records)}
+        end_frame = frames[-1] + 1
+
+        sq = {
+            "mse": 0.0,
+            "xyz_mse": 0.0,
+            "ypr_mse": 0.0,
+            "grip_mse": 0.0,
+            "paired_mse": 0.0,
+        }
+        executed = 0
+        segments = 0
+        cursor = frames[0]
+        while cursor < end_frame:
+            record = by_frame.get(cursor)
+            if record is None:
+                raise RuntimeError(
+                    f"open_loop_sim has no observation at frame {cursor}"
+                )
+            remaining = end_frame - cursor
+            n = min(self.execute_steps, remaining)
+            prediction = self._decode_prediction(record["prediction"])
+            ground_truth = record["ground_truth"]
+            if ground_truth.ndim != 2 or ground_truth.shape[1] != 14:
+                raise ValueError(
+                    "open_loop_sim ground truth must be a control-frequency "
+                    f"(T, 14) trajectory, got {ground_truth.shape}"
+                )
+            if len(ground_truth) < n:
+                raise ValueError(
+                    f"ground-truth chunk at frame {cursor} has {len(ground_truth)} "
+                    f"control steps, needs {n}; configure a compatible "
+                    "ground_truth_action_key/horizon"
+                )
+            error = prediction[:n] - ground_truth[:n]
+            sq["mse"] += float(np.square(error).sum())
+            sq["xyz_mse"] += float(np.square(error[:, XYZ_COLS]).sum())
+            sq["ypr_mse"] += float(np.square(error[:, YPR_COLS]).sum())
+            sq["grip_mse"] += float(np.square(error[:, GRIP_COLS]).sum())
+            sq["paired_mse"] += float(np.square(error[:, PAIRED_COLS]).sum())
+            executed += n
+            segments += 1
+            cursor += n
+
+        episode_length = end_frame - frames[0]
+        denominators = {
+            "mse": executed * 14,
+            "xyz_mse": executed * len(XYZ_COLS),
+            "ypr_mse": executed * len(YPR_COLS),
+            "grip_mse": executed * len(GRIP_COLS),
+            "paired_mse": executed * len(PAIRED_COLS),
+        }
+        return {
+            "group": records[0].get("group", DEFAULT_VALID_GROUP),
+            "episode": records[0]["episode"],
+            "source": records[0]["source"],
+            "label": records[0]["label"],
+            "executed_steps": executed,
+            "segments": segments,
+            "coverage": executed / max(episode_length, 1),
+            "metrics": {key: sq[key] / max(denominators[key], 1) for key in sq},
+        }
+
+    @staticmethod
+    def _summarize_episodes(episodes: list[dict[str, Any]]) -> dict[str, Any]:
+        if not episodes:
+            raise RuntimeError("open_loop_sim received no validation episodes")
+
+        total_steps = sum(item["executed_steps"] for item in episodes)
+        total_segments = sum(item["segments"] for item in episodes)
+        micro = {}
+        dimensions = {
+            "mse": 14,
+            "xyz_mse": len(XYZ_COLS),
+            "ypr_mse": len(YPR_COLS),
+            "grip_mse": len(GRIP_COLS),
+            "paired_mse": len(PAIRED_COLS),
+        }
+        for key, dims in dimensions.items():
+            micro[key] = sum(
+                item["metrics"][key] * item["executed_steps"] * dims
+                for item in episodes
+            ) / max(total_steps * dims, 1)
+        labels = defaultdict(list)
+        for item in episodes:
+            labels[item["label"]].append(item)
+        return {
+            "episodes": len(episodes),
+            "executed_control_steps": total_steps,
+            "segments": total_segments,
+            "coverage": float(np.mean([item["coverage"] for item in episodes])),
+            "micro": micro,
+            "macro": {
+                key: float(np.mean([item["metrics"][key] for item in episodes]))
+                for key in micro
+            },
+            "per_label": {
+                label: {
+                    "episodes": len(items),
+                    "executed_control_steps": sum(
+                        item["executed_steps"] for item in items
+                    ),
+                    "coverage": float(np.mean([item["coverage"] for item in items])),
+                    "micro": {
+                        key: float(
+                            np.average(
+                                [item["metrics"][key] for item in items],
+                                weights=[item["executed_steps"] for item in items],
+                            )
+                        )
+                        for key in micro
+                    },
+                }
+                for label, items in labels.items()
+            },
+            "episode_results": episodes,
+        }
+
+    def _compute_results(self, records: list[dict[str, Any]]) -> dict[str, Any]:
+        grouped = defaultdict(list)
+        for record in records:
+            grouped[
+                (
+                    record.get("group", DEFAULT_VALID_GROUP),
+                    record["source"],
+                    record["episode"],
+                )
+            ].append(record)
+        if self.limit_val_episodes is not None:
+            grouped_by_source = defaultdict(list)
+            for key, group in grouped.items():
+                grouped_by_source[key[:2]].append((key[2], group))
+            grouped = defaultdict(list)
+            for (validation_group, source), episode_groups in grouped_by_source.items():
+                for episode, group in sorted(episode_groups)[: self.limit_val_episodes]:
+                    grouped[(validation_group, source, episode)] = group
+        episodes = [self._score_episode(group) for group in grouped.values()]
+        if not episodes:
+            raise RuntimeError("open_loop_sim received no validation episodes")
+        by_group = defaultdict(list)
+        for item in episodes:
+            by_group[item["group"]].append(item)
+        results = self._summarize_episodes(episodes)
+        results.update(
+            {
+                "execute_fraction": self.execute_fraction,
+                "execute_control_steps": self.execute_steps,
+                "control_horizon": self.control_horizon,
+                "control_dt": self.control_dt,
+                "limit_val_episodes": self.limit_val_episodes,
+                "groups": sorted(by_group),
+                "per_group": {
+                    group: self._summarize_episodes(items)
+                    for group, items in sorted(by_group.items())
+                },
+            }
+        )
+        return results
+
+    def _metric_tensors(self, results: dict[str, Any]) -> dict[str, torch.Tensor]:
+        metrics = {}
+        for group, summary in results["per_group"].items():
+            prefix = (
+                "Valid/open_loop_sim"
+                if group == DEFAULT_VALID_GROUP
+                else f"Valid_{group}/open_loop_sim"
+            )
+            metrics.update(
+                {
+                    f"{prefix}/MSE": summary["micro"]["mse"],
+                    f"{prefix}/Episode_MSE": summary["macro"]["mse"],
+                    f"{prefix}/XYZ_MSE": summary["micro"]["xyz_mse"],
+                    f"{prefix}/YPR_MSE": summary["micro"]["ypr_mse"],
+                    f"{prefix}/Grip_MSE": summary["micro"]["grip_mse"],
+                    f"{prefix}/Paired_MSE": summary["micro"]["paired_mse"],
+                    f"{prefix}/Coverage": summary["coverage"],
+                    f"{prefix}/Episodes": summary["episodes"],
+                    f"{prefix}/Executed_Control_Steps": summary[
+                        "executed_control_steps"
+                    ],
+                    f"{prefix}/Segments": summary["segments"],
+                }
+            )
+        return {
+            key: torch.tensor(float(value), dtype=torch.float32).to(self._metric_device)
+            for key, value in metrics.items()
+        }
+
+    def on_validation_end(self):
+        records = self._all_records()
+        results = self._compute_results(records)
+        self.last_results = results
+        if dist.is_available() and dist.is_initialized() and dist.get_rank() != 0:
+            return results
+        if self.trainer is not None and not getattr(
+            self.trainer, "is_global_zero", True
+        ):
+            return results
+        # This hook is called from LightningModule.on_validation_end(). Calling
+        # LightningModule.log_dict() here recursively enters Lightning's
+        # validation-hook guard and raises ``MisconfigurationException``.
+        # ``_all_records`` has already merged every rank, so direct logger
+        # logging on global zero is both sufficient and deterministic.  Keep
+        # values scalar so this works for W&B, TensorBoard, and LoggerCollection
+        # without asking Lightning to infer validation-step semantics.
+        if self.trainer is not None:
+            logger = getattr(self.trainer, "logger", None)
+            if logger is not None:
+                metrics = {
+                    key: float(value.detach().cpu().item())
+                    for key, value in self._metric_tensors(results).items()
+                }
+                step = getattr(self.trainer, "global_step", None)
+                if step is None:
+                    logger.log_metrics(metrics)
+                else:
+                    logger.log_metrics(metrics, step=step)
+        if self.results_path is not None:
+            self.results_path.parent.mkdir(parents=True, exist_ok=True)
+            self.results_path.write_text(json.dumps(results, indent=2) + "\n")
+        return results

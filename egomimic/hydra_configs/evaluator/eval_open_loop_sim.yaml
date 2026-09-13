@@ -1,0 +1,43 @@
+# Episode-level open-loop segment simulation for bimanual cartesian policies.
+#
+# The evaluator collects predictions for every validation frame, then walks
+# each complete episode from frame 0. It executes the first fraction of each
+# chunk at the control frequency, compares those commands with ground truth,
+# and resumes from the recorded observation at the next boundary.
+#
+# For baseline runs, actions_cartesian is already a time-indexed control chunk.
+# For ARC runs, actions_cartesian_untokenized is the preserved control-space
+# ground-truth chunk and the predicted token is truncated by waypoint fraction
+# and detokenized before scoring.
+
+_target_: egomimic.eval.open_loop_sim.OpenLoopSimEval
+
+action_key: actions_cartesian
+ground_truth_action_key: actions_cartesian_untokenized
+
+# Main sweep knob. 0.25 means execute the first 25 control steps of a 100-step
+# baseline chunk, or the first 25% of ARC waypoints detokenized to 25 control
+# steps, before requesting the next recorded observation.
+execute_fraction: 0.25
+control_horizon: 100
+control_dt: 0.03333333333333333
+
+# auto detects (M+1, 14) / (2M, 14) ARC predictions and otherwise treats the
+# prediction as a (T, 14) baseline control chunk. Set explicitly when a custom
+# token row count could collide with the baseline horizon.
+action_mode: auto
+min_distance_unit: ${oc.select:abc.arc_distance,0.40}
+resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
+# Reuse the data tokenizer's exact layout: mean, per_waypoint, and duration
+# have different row counts and timing semantics. The fallback keeps this
+# evaluator directly instantiable outside an ABC experiment.
+velocity_mode: ${oc.select:abc.arc_velocity_mode,mean}
+
+results_path: ${paths.output_dir}/open_loop_sim.json
+require_episode_start: true
+# Episode-level limit. The datamodule uses this to retain complete episodes,
+# not an arbitrary prefix of validation batches. null evaluates every episode.
+limit_val_episodes: null
+# The episode walk depends on dataset order and contiguous frame indices.
+requires_ordered_validation: true
+viz_func: null

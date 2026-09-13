@@ -57,6 +57,8 @@ from egomimic.pipeline.stages_action_flow import (  # noqa: E402
     ContentDecoderStage,
     ContentEncoderStage,
     LatentBridgeStage,
+    RoutedContentDecoderStage,
+    RoutedContentEncoderStage,
 )
 from egomimic.pipeline.stages_io import ActionTargetBuilder  # noqa: E402
 from egomimic.pipeline.stages_sampler import (  # noqa: E402
@@ -119,6 +121,9 @@ CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
     "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
@@ -146,6 +151,48 @@ UNITE_STAGE_TYPES = (
 UNITE_STAGE_TARGETS = tuple(
     f"{stage_type.__module__}.{stage_type.__name__}"
     for stage_type in UNITE_STAGE_TYPES
+)
+SCALED_H512_ROWS = {
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
+        "config_name": "action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
+        "parameter_count": 190_208_924,
+        "sources": {"pushshapes_sim_u_socket": 4},
+    },
+    "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
+        "config_name": "action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
+        "parameter_count": 190_210_206,
+        "sources": {"pushshapes_sim_chain_gripper": 6},
+    },
+    "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
+        "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
+        "parameter_count": 301_792_030,
+        "sources": {
+            "pushshapes_sim_u_socket": 4,
+            "pushshapes_sim_chain_gripper": 6,
+        },
+    },
+}
+SCALED_H512_STAGE_TYPES = (
+    KeyedFeatureProjection,
+    FusedObsEncoder,
+    ActionTargetBuilder,
+    GaussianLatentNoise,
+    ContentEncoderStage,
+    LatentBridgeStage,
+    ConditionalVelocityStage,
+    ContentDecoderStage,
+    ActionFlowObjectiveStage,
+)
+SCALED_H512_ROUTED_STAGE_TYPES = (
+    KeyedFeatureProjection,
+    FusedObsEncoder,
+    ActionTargetBuilder,
+    GaussianLatentNoise,
+    RoutedContentEncoderStage,
+    LatentBridgeStage,
+    ConditionalVelocityStage,
+    RoutedContentDecoderStage,
+    ActionFlowObjectiveStage,
 )
 
 
@@ -1558,6 +1605,542 @@ def _validate_data_and_launch(
     return data, launch
 
 
+def _scaled_manifest_contract(
+    path_value: Any,
+    sha_value: Any,
+    *,
+    repository_root: Path,
+    source: str,
+    counts: tuple[int, int, int],
+    train_names_sha256: str,
+    valid_names_sha256: str,
+) -> dict[str, Any]:
+    """Validate one runtime-bound episode split used by a scaled row."""
+
+    path = Path(str(path_value))
+    if not path.is_absolute():
+        path = repository_root / path
+    _require(path.is_file(), f"split manifest missing: {path}")
+    digest = _sha256(path)
+    _exact(digest, str(sha_value), f"{source} split manifest hash")
+    payload = json.loads(path.read_text())
+    _exact(payload.get("status"), "PASS", f"{source} split manifest status")
+    _exact(int(payload.get("split_seed")), 42, f"{source} split seed")
+    _float(payload.get("valid_ratio"), 0.01, f"{source} validation ratio")
+    domain = payload["domains"][source]
+    total, train_count, valid_count = counts
+    for key, expected in (
+        ("total_count", total),
+        ("train_count", train_count),
+        ("valid_count", valid_count),
+        ("union_count", total),
+        ("id_overlap_count", 0),
+        ("resolved_path_overlap_count", 0),
+    ):
+        _exact(int(domain[key]), expected, f"{source} split {key}")
+    _exact(
+        bool(domain["union_matches_inventory"]),
+        True,
+        f"{source} complete corpus coverage",
+    )
+    _exact(
+        str(domain["train_names_sha256"]),
+        train_names_sha256,
+        f"{source} train names hash",
+    )
+    _exact(
+        str(domain["valid_names_sha256"]),
+        valid_names_sha256,
+        f"{source} validation names hash",
+    )
+    return {
+        "path": str(path),
+        "sha256": digest,
+        "total": total,
+        "train": train_count,
+        "validation": valid_count,
+        "train_names_sha256": train_names_sha256,
+        "valid_names_sha256": valid_names_sha256,
+        "zero_id_overlap": True,
+        "zero_resolved_path_overlap": True,
+    }
+
+
+def _scaled_content_contract(
+    path_value: Any,
+    sha_value: Any,
+    aggregate_value: Any,
+    *,
+    repository_root: Path,
+    source: str,
+    expected_count: int,
+) -> dict[str, Any]:
+    """Validate one runtime-bound immutable dataset-content manifest."""
+
+    path = Path(str(path_value))
+    if not path.is_absolute():
+        path = repository_root / path
+    _require(path.is_file(), f"dataset-content manifest missing: {path}")
+    digest = _sha256(path)
+    _exact(digest, str(sha_value).lower(), f"{source} content manifest hash")
+    try:
+        identity = validate_content_manifest(json.loads(path.read_text()))
+    except RuntimeError as error:
+        raise PreflightError(str(error)) from error
+    _exact(
+        str(identity["aggregate_sha256"]).lower(),
+        str(aggregate_value).lower(),
+        f"{source} aggregate content hash",
+    )
+    _exact(
+        int(identity["episode_count"]),
+        expected_count,
+        f"{source} content episode count",
+    )
+    return {
+        "path": str(path),
+        "manifest_sha256": digest,
+        "aggregate_sha256": str(identity["aggregate_sha256"]).lower(),
+        "episode_count": expected_count,
+    }
+
+
+def _validate_scaled_h512_config(
+    config: DictConfig,
+    *,
+    experiment: str,
+    config_root: Path,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Fail closed on the scaled H512/D14/H16 single and routed contracts."""
+
+    row = SCALED_H512_ROWS[experiment]
+    sources = dict(row["sources"])
+    routed = len(sources) == 2
+    resolved, resolved_hash = resolved_config_payload(config)
+    _exact(str(config.name), row["config_name"], "scaled config name")
+    _exact(
+        str(config.model._target_),
+        "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper",
+        "scaled model wrapper",
+    )
+    expected_types = (
+        SCALED_H512_ROUTED_STAGE_TYPES if routed else SCALED_H512_STAGE_TYPES
+    )
+    expected_targets = tuple(
+        f"{stage_type.__module__}.{stage_type.__name__}"
+        for stage_type in expected_types
+    )
+    _exact(
+        tuple(str(stage._target_) for stage in config.model.pipeline.stages),
+        expected_targets,
+        "scaled stage topology",
+    )
+    for key, expected in (
+        ("action_horizon", 16),
+        ("num_latent_tokens", 8),
+        ("latent_dim", 16),
+        ("condition_dim", 128),
+        ("hidden_dim", 512),
+        ("flow_samples_per_content", 14),
+        ("flow_mini_batch", 14),
+        ("num_inference_steps", 50),
+    ):
+        _exact(int(config.model[key]), expected, f"scaled model {key}")
+    _float(config.model.condition_dropout_probability, 0.1, "condition dropout")
+    _float(config.model.cfg_scale, 4.0, "CFG scale")
+    _exact(tuple(config.model.cfg_interval), (0.0, 1.0), "CFG interval")
+    _exact(str(config.model.flow_loss_aggregation), "sum_samples", "FM reduction")
+    _float(config.model.flow_weight, 1.0, "FM weight")
+    _float(config.model.reconstruction_weight, 1.0, "reconstruction weight")
+    _exact(
+        str(config.model.action_flow_method),
+        STOPGRAD_UNITE_METHOD,
+        "scaled action-flow method",
+    )
+    _exact(bool(config.model.optimizer_named_parameters), True, "named optimizer")
+
+    pipeline_algo = instantiate(config.model.pipeline, device="cpu")
+    _require(isinstance(pipeline_algo, PipelineAlgo), "pipeline did not instantiate")
+    stages = tuple(pipeline_algo.pipeline.stages)
+    _exact(
+        tuple(type(stage) for stage in stages),
+        expected_types,
+        "instantiated scaled stage topology",
+    )
+    (
+        projection,
+        observation,
+        _,
+        noise,
+        encoder_stage,
+        bridge,
+        field_stage,
+        decoder_stage,
+        objective,
+    ) = stages
+    _exact(int(noise.num_tokens), 8, "Gaussian source tokens")
+    _exact(int(noise.latent_dim), 16, "Gaussian latent dimension")
+    _exact(int(observation.n_obs_steps), 1, "observation steps")
+    _exact(int(projection.output_dim), 64, "projected proprio width")
+    _exact(tuple(projection.projections), tuple(sources), "projection routes")
+    _exact(int(bridge.samples_per_content), 14, "bridge samples")
+    _float(bridge.condition_dropout_probability, 0.1, "bridge dropout")
+    _exact(str(bridge.time_sampling), "lognormal_shifted", "bridge time sampling")
+    _float(bridge.lognorm_mu, 0.0, "bridge log-normal mean")
+    _float(bridge.lognorm_sigma, 1.0, "bridge log-normal sigma")
+    _float(bridge.timestep_shift_alpha, 0.5, "bridge timestep shift")
+    _exact(bool(bridge.independent_noise_per_sample), True, "independent noise")
+    _exact(
+        bool(bridge.independent_condition_dropout_per_sample),
+        True,
+        "independent CFG dropout",
+    )
+    _exact(
+        str(field_stage.flow_clean_gradient_mode),
+        "all_stopgrad",
+        "FM clean endpoint detachment",
+    )
+    _exact(str(field_stage.inference_method), "dopri5", "inference method")
+    _exact(int(field_stage.num_inference_steps), 50, "Dopri5 output points")
+    _float(field_stage.dopri5_atol, 1.0e-6, "Dopri5 absolute tolerance")
+    _float(field_stage.dopri5_rtol, 1.0e-3, "Dopri5 relative tolerance")
+    _float(field_stage.cfg_scale, 4.0, "field CFG scale")
+    _exact(tuple(field_stage.cfg_interval), (0.0, 1.0), "field CFG interval")
+    _float(objective.flow_weight, 1.0, "objective FM weight")
+    _float(objective.reconstruction_weight, 1.0, "objective reconstruction weight")
+    _float(objective.action_velocity_weight, 1.0, "objective action-velocity weight")
+    _exact(str(objective.flow_aggregation), "sum_samples", "objective FM reduction")
+    _exact(int(objective.flow_samples_per_content), 14, "objective FM samples")
+
+    field = field_stage.field
+    _require(isinstance(field, UniteActionFlowVelocityField), "wrong shared field")
+    _require(isinstance(field.backbone, UniteDiTBackbone), "wrong field backbone")
+    if routed:
+        _require(
+            isinstance(encoder_stage, RoutedContentEncoderStage),
+            "co-training encoder is not routed",
+        )
+        _require(
+            isinstance(decoder_stage, RoutedContentDecoderStage),
+            "co-training decoder is not routed",
+        )
+        _exact(tuple(encoder_stage.encoder), tuple(sources), "private encoder routes")
+        _exact(tuple(decoder_stage.decoder), tuple(sources), "private decoder routes")
+        encoders = dict(encoder_stage.encoder.items())
+        decoders = dict(decoder_stage.decoder.items())
+        _require(
+            len({id(module) for module in encoders.values()}) == len(sources),
+            "private encoders share an instance",
+        )
+        _require(
+            len({id(module) for module in decoders.values()}) == len(sources),
+            "private decoders share an instance",
+        )
+    else:
+        only_source = next(iter(sources))
+        encoders = {only_source: encoder_stage.encoder}
+        decoders = {only_source: decoder_stage.decoder}
+    for source, action_dim in sources.items():
+        encoder = encoders[source]
+        decoder = decoders[source]
+        _require(
+            isinstance(encoder, UniteActionFlowContentEncoder),
+            f"{source} wrong private encoder",
+        )
+        _require(
+            isinstance(decoder, UniteActionDecoder),
+            f"{source} wrong private decoder",
+        )
+        _exact(int(encoder.input_dim), action_dim, f"{source} encoder action dimension")
+        _exact(int(decoder.action_dim), action_dim, f"{source} decoder action dimension")
+        _require(
+            encoder.backbone is not field.backbone,
+            f"{source} encoder shares field backbone",
+        )
+        for label, backbone in (
+            (f"{source} encoder", encoder.backbone),
+            ("shared field", field.backbone),
+        ):
+            for key, expected in (
+                ("input_dim", 16),
+                ("output_dim", 16),
+                ("horizon", 8),
+                ("condition_dim", 128),
+                ("hidden_dim", 512),
+                ("depth", 14),
+                ("num_heads", 16),
+                ("in_context_start", 4),
+                ("in_context_len", 32),
+            ):
+                _exact(getattr(backbone, key), expected, f"{label} {key}")
+            _exact(bool(backbone.gradient_checkpointing), True, f"{label} checkpointing")
+        for key, expected in (
+            ("latent_dim", 16),
+            ("num_latent_tokens", 8),
+            ("action_horizon", 16),
+            ("hidden_dim", 512),
+            ("depth", 14),
+            ("num_heads", 16),
+        ):
+            _exact(getattr(decoder, key), expected, f"{source} decoder {key}")
+        _exact(bool(decoder.gradient_checkpointing), True, f"{source} decoder checkpointing")
+
+    available_train = ("front_img_1", "state_agent_model", "embodiment", "actions")
+    available_inference = ("front_img_1", "state_agent_model", "embodiment")
+    train_plan, train_excluded = pipeline_algo.pipeline.plan(
+        available_train, mode="train"
+    )
+    inference_plan, inference_excluded = pipeline_algo.pipeline.plan(
+        available_inference, mode="inference"
+    )
+    _require(not train_excluded, f"scaled training graph exclusions: {train_excluded}")
+    _require(
+        all(missing == ["<train-only>"] for _, missing in inference_excluded),
+        f"scaled inference graph exclusions: {inference_excluded}",
+    )
+    _exact(tuple(train_plan), stages, "scaled train plan")
+    _exact(
+        tuple(inference_plan),
+        tuple(stages[index] for index in (0, 1, 3, 6, 7)),
+        "scaled inference plan",
+    )
+
+    optimizer = config.model.optimizer
+    scheduler = config.model.scheduler
+    _exact(
+        str(optimizer._target_),
+        "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer",
+        "optimizer target",
+    )
+    _exact(bool(optimizer._partial_), True, "optimizer partial")
+    _float(optimizer.lr, 1.0e-4, "optimizer learning rate")
+    _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
+    _float(optimizer.eps, 1.0e-6, "Adam epsilon")
+    _float(optimizer.adamw_weight_decay, 0.0, "AdamW weight decay")
+    _float(optimizer.muon_weight_decay, 0.0, "Muon weight decay")
+    _float(optimizer.muon_momentum, 0.95, "Muon momentum")
+    _exact(str(optimizer.muon_adjust_lr_fn), "match_rms_adamw", "Muon LR adjustment")
+    _exact(
+        str(scheduler._target_),
+        "egomimic.utils.unite_optim.released_unite_two_stage_scheduler",
+        "scheduler target",
+    )
+    for key, expected in (
+        ("warmup_steps", 8_000),
+        ("decay_start_1_steps", 12_000),
+        ("decay_end_1_steps", 20_000),
+        ("decay_start_2_steps", 1_200_000),
+        ("decay_end_2_steps", 1_200_000),
+    ):
+        _exact(int(scheduler[key]), expected, f"scheduler {key}")
+    _float(scheduler.base_lr_1, 1.0e-4, "scheduler base LR 1")
+    _float(scheduler.base_lr_2, 5.0e-5, "scheduler base LR 2")
+    _float(scheduler.final_lr, 5.0e-5, "scheduler final LR")
+    _exact(int(config.trainer.max_steps), 150_000, "maximum optimizer steps")
+    _exact(int(config.trainer.val_check_interval), 10_000, "validation cadence")
+    _exact(int(config.trainer.limit_val_batches), 8, "validation batch limit")
+    _require(str(config.trainer.precision) in {"bf16", "bf16-mixed"}, "BF16 precision")
+    _exact(
+        int(config.callbacks.model_checkpoint.every_n_train_steps),
+        30_000,
+        "checkpoint cadence",
+    )
+    _exact(int(config.callbacks.model_checkpoint.save_top_k), -1, "checkpoint retention")
+    _float(config.callbacks.ema.decay, 0.9978, "EMA decay")
+    _exact(bool(config.callbacks.ema.validate_with_ema), True, "EMA validation")
+
+    configured_sources = tuple(config.data.train_datasets)
+    _exact(configured_sources, tuple(sources), "training source order")
+    _exact(tuple(config.data.valid_datasets), tuple(sources), "validation sources")
+    counts_by_source = {
+        "pushshapes_sim_u_socket": (2_999, 2_970, 29),
+        "pushshapes_sim_chain_gripper": (4_920, 4_871, 49),
+    }
+    names_by_source = {
+        "pushshapes_sim_u_socket": (
+            "ceb588f2132f9ff9cdb2c2ebe754a4797228acb884eb18351589242866ee84a1",
+            "b34193949ac8d76ea27c6f5c307229798064d16367d7ce2efac00a48f63bfb93",
+        ),
+        "pushshapes_sim_chain_gripper": (
+            "d862d162202ce830840f19a78fbd18895e6e7c444732beab7b7f65c517560a56",
+            "d06278a1e59f458cff7e7623b3f69fae8edc13692e533424e8c9a57f162f4667",
+        ),
+    }
+    repository_root = Path(config_root).resolve().parents[1]
+    data_report: dict[str, Any] = {}
+    for source in sources:
+        train = config.data.train_datasets[source]
+        valid = config.data.valid_datasets[source]
+        total, train_count, valid_count = counts_by_source[source]
+        train_sha, valid_sha = names_by_source[source]
+        _exact(str(train.mode), "train", f"{source} train mode")
+        _exact(str(valid.mode), "valid", f"{source} validation mode")
+        _float(train.valid_ratio, 0.01, f"{source} train ratio")
+        _float(valid.valid_ratio, 0.01, f"{source} validation ratio")
+        _exact(int(train.split_seed), 42, f"{source} train seed")
+        _exact(int(valid.split_seed), 42, f"{source} validation seed")
+        _exact(int(train.expected_train_episode_count), train_count, f"{source} train count")
+        _exact(int(train.expected_valid_episode_count), valid_count, f"{source} valid count")
+        _exact(str(train.expected_train_episode_names_sha256), train_sha, f"{source} train hash")
+        _exact(str(train.expected_valid_episode_names_sha256), valid_sha, f"{source} valid hash")
+        _exact(int(config.data.train_dataloader_params[source].batch_size), 32, f"{source} train batch")
+        _exact(int(config.data.valid_dataloader_params[source].batch_size), 32, f"{source} valid batch")
+        if source == "pushshapes_sim_chain_gripper":
+            _exact(int(train.resolver.expected_episode_count), total, f"{source} inventory")
+        if routed and source == "pushshapes_sim_chain_gripper":
+            split_path = config.run_provenance.chain_split_manifest_path
+            split_sha = config.run_provenance.chain_split_manifest_sha256
+            content = config.run_provenance.content_manifests[source]
+        else:
+            split_path = config.run_provenance.split_manifest_path
+            split_sha = config.run_provenance.split_manifest_sha256
+            content = (
+                config.run_provenance.content_manifests[source]
+                if routed
+                else config.run_provenance
+            )
+        data_report[source] = {
+            "split": _scaled_manifest_contract(
+                split_path,
+                split_sha,
+                repository_root=repository_root,
+                source=source,
+                counts=(total, train_count, valid_count),
+                train_names_sha256=train_sha,
+                valid_names_sha256=valid_sha,
+            ),
+            "content": _scaled_content_contract(
+                content.path if routed else content.content_manifest_path,
+                content.manifest_sha256 if routed else content.content_manifest_sha256,
+                content.aggregate_sha256 if routed else content.dataset_content_aggregate_sha256,
+                repository_root=repository_root,
+                source=source,
+                expected_count=total,
+            ),
+        }
+
+    provenance = config.run_provenance
+    _exact(int(provenance.split_seed), 42, "provenance split seed")
+    _float(provenance.valid_ratio, 0.01, "provenance split ratio")
+    _exact(
+        str(provenance.objective.method),
+        STOPGRAD_UNITE_METHOD,
+        "provenance objective method",
+    )
+    _exact(
+        str(provenance.objective.flow_clean_gradient_mode),
+        "all_stopgrad",
+        "provenance FM detachment",
+    )
+    _float(provenance.objective.flow_weight, 1.0, "provenance FM weight")
+    _float(provenance.objective.reconstruction_weight, 1.0, "provenance reconstruction weight")
+    _float(provenance.objective.action_velocity_weight, 1.0, "provenance action-velocity weight")
+    _exact(int(provenance.objective.flow_samples_per_content), 14, "provenance FM samples")
+    _exact(int(provenance.objective.flow_mini_batch), 14, "provenance FM mini-batch")
+    _exact(
+        str(provenance.objective.flow_aggregation),
+        "sum_of_14_per_sample_means",
+        "provenance FM aggregation",
+    )
+    _exact(bool(provenance.inference.classifier_free_guidance), True, "provenance CFG")
+    _float(provenance.inference.cfg_scale, 4.0, "provenance CFG scale")
+    _exact(tuple(provenance.inference.cfg_interval), (0.0, 1.0), "provenance CFG interval")
+    for requirement in (
+        "r1_full_conditional_distribution",
+        "r2_common_stochastic_latent",
+        "r3_shared_conditional_generator",
+        "r4_joint_learning_from_start",
+        "r5_ordinary_pairs_and_context_free_decoder",
+        "r6_flexible_nonlinear_interfaces",
+        "r7_simple_objectives_with_disclosed_jvp_cost",
+        "r8_no_required_action_path",
+    ):
+        _require(str(provenance.requirements[requirement]).startswith("PASS"), requirement)
+    for requirement in (
+        "r9_collapse_and_decoder_sensitivity",
+        "r10_baseline_quality_and_compute",
+    ):
+        _require(str(provenance.requirements[requirement]).startswith("OPEN"), requirement)
+
+    parameters = {"pipeline_total": _parameter_manifest(pipeline_algo.nets)}
+    parameters["state_projection"] = _parameter_manifest(projection)
+    parameters["observation_encoder"] = _parameter_manifest(observation)
+    parameters["field_v"] = _parameter_manifest(field)
+    for source in sources:
+        parameters[f"encoder_e/{source}"] = _parameter_manifest(encoders[source])
+        parameters[f"decoder_g/{source}"] = _parameter_manifest(decoders[source])
+    accounted = sum(
+        item["total"]
+        for name, item in parameters.items()
+        if name != "pipeline_total"
+    )
+    _exact(accounted, parameters["pipeline_total"]["total"], "scaled parameter accounting")
+    _exact(
+        parameters["pipeline_total"]["total"],
+        int(row["parameter_count"]),
+        "scaled total parameter count",
+    )
+    adamw_named, muon_named = partition_released_unite_parameters(
+        pipeline_algo.nets.named_parameters(prefix="nets", remove_duplicate=True)
+    )
+    grouped = (*adamw_named, *muon_named)
+    _exact(len({id(parameter) for _, parameter in grouped}), len(grouped), "optimizer group disjointness")
+    _exact(
+        sum(parameter.numel() for _, parameter in grouped),
+        parameters["pipeline_total"]["trainable"],
+        "optimizer group coverage",
+    )
+    optimization = {
+        "max_steps": 150_000,
+        "validation_every_steps": 10_000,
+        "checkpoint_every_steps": 30_000,
+        "precision": str(config.trainer.precision),
+        "optimizer": {"target": str(optimizer._target_), "lr": 1.0e-4},
+        "scheduler": {"target": str(scheduler._target_)},
+        "parameter_groups": {
+            "adamw_parameters": sum(parameter.numel() for _, parameter in adamw_named),
+            "muon_parameters": sum(parameter.numel() for _, parameter in muon_named),
+            "complete": True,
+            "disjoint": True,
+        },
+    }
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "status": "PASS",
+        "experiment": experiment,
+        "config_name": str(config.name),
+        "action_flow_method": STOPGRAD_UNITE_METHOD,
+        "resolved_config_sha256": resolved_hash,
+        "dimensions": {
+            "actions": {source: [16, action_dim] for source, action_dim in sources.items()},
+            "condition": 128,
+            "image_feature": 64,
+            "latent": [8, 16],
+        },
+        "launch": {
+            "gpus_per_node": 1,
+            "nodes": 1,
+            "world_size": 1,
+            "per_domain_batch": {source: 32 for source in sources},
+            "effective_samples_per_step": sum(32 for _ in sources),
+        },
+        "objective": OmegaConf.to_container(provenance.objective, resolve=True),
+        "optimization": optimization,
+        "parameters": parameters,
+        "split": data_report,
+        "topology": {
+            "configured_targets": list(expected_targets),
+            "train_order": [type(stage).__name__ for stage in train_plan],
+            "inference_order": [type(stage).__name__ for stage in inference_plan],
+            "private_codec_routes": list(sources),
+            "shared_field_instance": True,
+        },
+    }
+    del stages, pipeline_algo
+    gc.collect()
+    return report, resolved
+
+
 def validate_config(
     config: DictConfig,
     *,
@@ -1565,6 +2148,13 @@ def validate_config(
     config_root: Path = DEFAULT_CONFIG_ROOT,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Validate one composed config and return report plus resolved payload."""
+
+    if experiment in SCALED_H512_ROWS:
+        return _validate_scaled_h512_config(
+            config,
+            experiment=experiment,
+            config_root=config_root,
+        )
 
     resolved, resolved_hash = resolved_config_payload(config)
     method = validate_method_contract(config, experiment)

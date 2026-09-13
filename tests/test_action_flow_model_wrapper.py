@@ -250,6 +250,66 @@ def test_reconstruction_only_warmup_is_loaded_from_training_config_tree(monkeypa
     }
 
 
+def test_flow_mini_batch_is_bound_to_full_parallel_flow_set(monkeypatch):
+    monkeypatch.setattr(
+        ActionFlowModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    wrapper = ActionFlowModelWrapper(
+        config_tree={
+            "model": {
+                "pipeline": {},
+                "flow_samples_per_content": 14,
+                "flow_mini_batch": 14,
+            }
+        },
+        gradient_telemetry_cadence=0,
+    )
+
+    assert wrapper.flow_samples_per_content == 14
+    assert wrapper.flow_mini_batch == 14
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, True])
+def test_flow_mini_batch_rejects_invalid_values(monkeypatch, value):
+    monkeypatch.setattr(
+        ActionFlowModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    with pytest.raises(ValueError, match="flow_mini_batch must be a positive integer"):
+        ActionFlowModelWrapper(
+            config_tree={
+                "model": {
+                    "pipeline": {},
+                    "flow_samples_per_content": 14,
+                    "flow_mini_batch": value,
+                }
+            },
+            gradient_telemetry_cadence=0,
+        )
+
+
+def test_flow_mini_batch_rejects_partial_flow_chunking(monkeypatch):
+    monkeypatch.setattr(
+        ActionFlowModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    with pytest.raises(ValueError, match="must equal flow_samples_per_content"):
+        ActionFlowModelWrapper(
+            config_tree={
+                "model": {
+                    "pipeline": {},
+                    "flow_samples_per_content": 14,
+                    "flow_mini_batch": 7,
+                }
+            },
+            gradient_telemetry_cadence=0,
+        )
+
+
 def test_joint_flow_weight_is_applied_and_logged(monkeypatch):
     wrapper = ActionFlowModelWrapper(
         pipeline=_ToyAlgo(reconstruction_weight=10.0, flow_weight=0.01),
@@ -299,6 +359,7 @@ def test_action_flow_wrapper_rejects_non_finite_components(monkeypatch):
 def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypatch):
     wrapper = ActionFlowModelWrapper(pipeline=_ToyAlgo(), gradient_telemetry_cadence=1)
     wrapper.flow_samples_per_content = 14
+    wrapper.flow_mini_batch = 14
     logged = _capture_logs(monkeypatch, wrapper)
     batch = OrderedDict(
         source={
@@ -341,6 +402,9 @@ def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypat
     ) == pytest.approx(1.0)
     assert float(
         logged["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"][0]
+    ) == pytest.approx(14.0)
+    assert float(
+        logged["Train/ActionFlow/Compute/FlowMiniBatchPerStep"][0]
     ) == pytest.approx(14.0)
     assert float(
         logged["Train/ActionFlow/Compute/DecoderJVPCallsPerStep"][0]

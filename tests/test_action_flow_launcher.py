@@ -77,6 +77,18 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
         "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
         in source
     )
+    assert (
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
+        in source
+    )
+    assert (
+        "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
+        in source
+    )
+    assert (
+        "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
+        in source
+    )
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42" in source
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42" in source
@@ -88,11 +100,9 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "AF_FULL_VALIDATE_EVERY=30000" in source
     assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
+    assert 'data.train_dataloader_params.$AF_SOURCE.batch_size=32' in source
     assert (
-        "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=32" in source
-    )
-    assert (
-        "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=$AF_VALID_BATCH_SIZE"
+        'data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE'
         in source
     )
     assert "AF_FULL_LIMIT_VAL_BATCHES=8" in source
@@ -117,9 +127,16 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "expected_count = 50_725_221" in source
     assert "50_801_685" in source
     assert "expected_count = 199_754_837" in source
-    assert "count == 97_956_100" in source
+    assert "AF_EXPECTED_PARAMETER_COUNT=97956100" in source
     assert "ReleasedUniteCompositeOptimizer" in source
     assert 'optimizer.muon_adjust_lr_fn == "match_rms_adamw"' in source
+    assert "AF_SECOND_DATASET_DIR" in source
+    assert "AF_SECOND_SPLIT_MANIFEST" in source
+    assert "AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" in source
+    assert "RoutedContentEncoderStage" in source
+    assert "RoutedContentDecoderStage" in source
+    assert "cfg.model.flow_mini_batch == 14" in source
+    assert "activation_layer_map.items()" in source
 
 
 def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():

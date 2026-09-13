@@ -134,6 +134,20 @@ def test_unite_h384_parity_config_pins_sum_cfg_and_validation_contract():
     ]
 
 
+def test_scaled_h512_usocket_config_passes_the_dedicated_contract():
+    report, _ = preflight.validate_experiment(
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
+        config_root=CONFIG_ROOT,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["dimensions"]["actions"] == {"pushshapes_sim_u_socket": [16, 4]}
+    assert report["parameters"]["pipeline_total"]["total"] == 190_208_924
+    assert report["optimization"]["validation_every_steps"] == 10_000
+    assert report["optimization"]["checkpoint_every_steps"] == 30_000
+    assert report["optimization"]["parameter_groups"]["complete"] is True
+
+
 def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",

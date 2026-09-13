@@ -45,6 +45,10 @@ workflow:
       # and the decoder must slice back to 3, not 4.
       THREE_DOF: "u_socket triangle scoop"
       HELD_OUT: "umi scoop"
+      # mode=eval still constructs the seven-domain training datamodule to bind
+      # norm stats, so those corpora must be on disk even when scoring only one
+      # embodiment. Staged as a union with EMBODIMENTS.
+      TRAIN_EMB: "u_socket gripper chain_gripper suction triangle flipper spring"
       PER_EMB_EPISODES: "3000"
       SAMPLER_STEPS: "100"
       TSIM_VERSION: sim_v2
@@ -103,8 +107,14 @@ workflow:
         # ---------------------------------------------- corpora + budgets
         ROOT=/workspace/articulated
         mkdir -p "$ROOT" /workspace/budgets
-        for EMB in $EMBODIMENTS; do
-          D="$ROOT/$EMB"; mkdir -p "$D/tars" "$D/raw" "$D/flat"
+        # ONE layout: cells/ideal/<emb>, which is what the data configs already
+        # interpolate to. Staging the evaluator's corpus somewhere else meant
+        # the datamodule found nothing and the job died after staging.
+        STAGE=$(printf '%s\n' $EMBODIMENTS $TRAIN_EMB | sort -u | tr '\n' ' ')
+        echo "staging (union of requested and training embodiments): $STAGE"
+        for EMB in $STAGE; do
+          D="$ROOT/work/$EMB"; FLAT="$ROOT/cells/ideal/$EMB"
+          mkdir -p "$D/tars" "$D/raw" "$FLAT"
           $S5 --numworkers 32 cp "$CORPUS/$EMB/ideal/$EMB/*.tar" "$D/tars/" \
             >>/tmp/stage.log 2>&1 || { echo "FATAL: staging $EMB"; tail -30 /tmp/stage.log; exit 1; }
           for T in "$D/tars"/*.tar; do
@@ -115,14 +125,14 @@ workflow:
           find "$D/raw" -mindepth 1 -type d -name 'episode_*.zarr' -print0 \
             | while IFS= read -r -d '' EP; do
                 SH=$(basename "$(dirname "$EP")")
-                ln -sfn "$EP" "$D/flat/ideal_${SH}_$(basename "$EP")"
+                ln -sfn "$EP" "$FLAT/ideal_${SH}_$(basename "$EP")"
               done
-          N=$(find "$D/flat" -maxdepth 1 -mindepth 1 | wc -l)
+          N=$(find "$FLAT" -maxdepth 1 -mindepth 1 | wc -l)
           echo "staged $EMB: $N episodes"
           [ "$N" -eq "$PER_EMB_EPISODES" ] || { echo "FATAL: $EMB has $N, want $PER_EMB_EPISODES"; exit 1; }
           rm -rf "$D/tars"
           python scripts/eval/usocket_arc_rollout/episode_budget.py \
-            "$D/flat" --out "/workspace/budgets/${EMB}.json"
+            "$FLAT" --out "/workspace/budgets/${EMB}.json"
           python -c "import json,sys; d=json.load(open(sys.argv[1])); print('  budget', sys.argv[2], d['by_level']['0']['budget'], 'frames from', d['episode_count'], 'episodes')" \
             "/workspace/budgets/${EMB}.json" "$EMB"
         done
@@ -168,7 +178,7 @@ workflow:
             evaluator=sim_rollout_planar_v2 \
             ~evaluator.native_decoders \
             'evaluator.native_decoder=${planar.eval_native_decoder}' \
-            evaluator.dataset_dir="/workspace/articulated/$EMB/flat" \
+            evaluator.dataset_dir="/workspace/articulated/cells/ideal/$EMB" \
             evaluator.budget_path="/workspace/budgets/${EMB}.json" \
             evaluator.embodiment_name="pushshapes_sim_${EMB}" \
             evaluator.n_episodes="$NEPS" \

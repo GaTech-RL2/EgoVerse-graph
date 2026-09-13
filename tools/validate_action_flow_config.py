@@ -1981,7 +1981,13 @@ def _validate_scaled_h512_config(
         _exact(int(scheduler[key]), expected, f"scheduler {key}")
     lr_schedule = _validate_unite_lr_schedule(config)
     _exact(int(config.trainer.max_steps), 150_000, "maximum optimizer steps")
-    _exact(int(config.trainer.val_check_interval), 10_000, "validation cadence")
+    validation_cadence = int(config.trainer.val_check_interval)
+    _require(validation_cadence in {10_000, 30_000}, "approved validation cadence")
+    _exact(
+        int(config.run_provenance.validation_every_n_steps),
+        validation_cadence,
+        "validation cadence provenance",
+    )
     _exact(int(config.trainer.limit_val_batches), 8, "validation batch limit")
     _require(str(config.trainer.precision) in {"bf16", "bf16-mixed"}, "BF16 precision")
     _exact(
@@ -1996,9 +2002,21 @@ def _validate_scaled_h512_config(
     configured_sources = tuple(config.data.train_datasets)
     _exact(configured_sources, tuple(sources), "training source order")
     _exact(tuple(config.data.valid_datasets), tuple(sources), "validation sources")
+    clean_chain_4918 = (
+        int(
+            OmegaConf.select(
+                config,
+                "run_provenance.clean_chain_episode_count",
+                default=4_920,
+            )
+        )
+        == 4_918
+    )
     counts_by_source = {
         "pushshapes_sim_u_socket": (2_999, 2_970, 29),
-        "pushshapes_sim_chain_gripper": (4_920, 4_871, 49),
+        "pushshapes_sim_chain_gripper": (
+            (4_918, 4_869, 49) if clean_chain_4918 else (4_920, 4_871, 49)
+        ),
     }
     names_by_source = {
         "pushshapes_sim_u_socket": (
@@ -2006,8 +2024,15 @@ def _validate_scaled_h512_config(
             "b34193949ac8d76ea27c6f5c307229798064d16367d7ce2efac00a48f63bfb93",
         ),
         "pushshapes_sim_chain_gripper": (
-            "d862d162202ce830840f19a78fbd18895e6e7c444732beab7b7f65c517560a56",
-            "d06278a1e59f458cff7e7623b3f69fae8edc13692e533424e8c9a57f162f4667",
+            (
+                "fdde9546fd621d0e8e9f53eebb6257e54baf9160fb9e0a2e7cea4dc8e3d60c94",
+                "e3f6625f932675c9352c969bc44b38009a4db9fba42d827e8633b9964bc05275",
+            )
+            if clean_chain_4918
+            else (
+                "d862d162202ce830840f19a78fbd18895e6e7c444732beab7b7f65c517560a56",
+                "d06278a1e59f458cff7e7623b3f69fae8edc13692e533424e8c9a57f162f4667",
+            )
         ),
     }
     repository_root = Path(config_root).resolve().parents[1]

@@ -230,6 +230,7 @@ def test_full_validation_cadence_has_a_typed_override():
     source = _source()
     assert 'AF_FULL_VALIDATE_EVERY_OVERRIDE must be a positive integer' in source
     assert 'AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE' in source
+    assert '++run_provenance.validation_every_n_steps=$AF_FULL_VALIDATE_EVERY' in source
 
 
 def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():

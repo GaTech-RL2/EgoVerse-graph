@@ -742,6 +742,7 @@ BASE_OVERRIDES=(
   "++run_provenance.content_manifest_path=$AF_CONTENT_MANIFEST"
   "++run_provenance.content_manifest_sha256=$AF_EXPECTED_CONTENT_MANIFEST_SHA256"
   "++run_provenance.dataset_content_aggregate_sha256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256"
+  "++run_provenance.validation_every_n_steps=$AF_FULL_VALIDATE_EVERY"
 )
 
 if test "$AF_METHOD" = latent_fm_stopgrad_unite; then
@@ -997,6 +998,8 @@ PY
           --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_count=49"
           --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
           --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
+          --override "++run_provenance.clean_chain_episode_count=4918"
+          --override "++run_provenance.clean_chain_inventory_names_sha256=$CLEAN_CHAIN_4918_EPISODE_NAMES_SHA256"
         )
       fi
     fi

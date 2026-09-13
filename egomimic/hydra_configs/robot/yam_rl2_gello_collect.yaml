@@ -1,0 +1,129 @@
+# RL2 YAM profile for two passive USB/Dynamixel GELLO leaders.
+# This implementation uses only the official Dynamixel SDK; it does not depend
+# on an external GELLO checkout. Fill the marked hardware calibration before use.
+robot:
+  kind: yam
+  arms:
+  - left
+  - right
+  channels:
+    left: can_follower_l
+    right: can_follower_r
+  gripper_type: linear_4310
+  zero_gravity_mode: true
+  enable_auto_recovery: true
+  frequency: 60
+  home_duration: 1.5
+  home:
+    left:
+    - -0.008
+    - 0.007
+    - 0.004
+    - -0.070
+    - 0.001
+    - -0.015
+    - 0.999
+    right:
+    - 0.007
+    - 0.006
+    - 0.005
+    - -0.073
+    - -0.013
+    - -0.022
+    - 0.999
+  kinematics:
+    joint_names:
+    - joint1
+    - joint2
+    - joint3
+    - joint4
+    - joint5
+    - joint6
+    site_name: tcp_site
+  cameras:
+    front_img_1:
+      type: realsense
+      enabled: true
+      serial_number: '230322272195'
+      height: 480
+      width: 640
+      fps: 30
+    left_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '218622270679'
+      height: 480
+      width: 640
+      fps: 30
+    right_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '230322270555'
+      height: 480
+      width: 640
+      fps: 30
+
+frequency: 60
+startup_timeout: 30.0
+station_calibration:
+  source_repository: GaTech-RL2/yam-pipeline
+  source_revision: 1b1f9b12d300a41872b8a8c6c04f0c9f5f892f88
+  agentview_extrinsics: egomimic/hydra_configs/robot/yam_rl2_agentview_extrinsics.yaml
+  workspace: egomimic/hydra_configs/robot/yam_rl2_workspace.yaml
+
+gello:
+  driver: ROBOTIS Dynamixel SDK
+  sdk_version: 4.0.5
+  # Normal launch refuses to run until the stable ports, signs, offsets, and
+  # measured gripper endpoints below are verified and this flag becomes true.
+  calibrated: false
+  bus:
+    baudrate: 57600
+    protocol_version: 2.0
+    torque_enable_address: 64
+    present_position_address: 132
+    present_position_length: 4
+    encoder_resolution: 4096
+  leaders:
+    left:
+      port: /dev/serial/by-id/SET_LEFT_GELLO
+      joint_ids: [1, 2, 3, 4, 5, 6]
+      gripper_id: 7
+      joint_signs: [1, 1, 1, 1, 1, 1]
+      joint_offsets_rad: [0, 0, 0, 0, 0, 0]
+      gripper_open_rad: null
+      gripper_closed_rad: null
+    right:
+      port: /dev/serial/by-id/SET_RIGHT_GELLO
+      joint_ids: [1, 2, 3, 4, 5, 6]
+      gripper_id: 7
+      joint_signs: [1, 1, 1, 1, 1, 1]
+      joint_offsets_rad: [0, 0, 0, 0, 0, 0]
+      gripper_open_rad: null
+      gripper_closed_rad: null
+  # Relative mode captures follower-leader offsets when an arm is activated,
+  # so activation itself cannot jump the follower. Absolute mode is available
+  # only for a separately verified zero calibration.
+  alignment: relative
+  max_input_age: 0.25
+  max_joint_velocity: 2.5
+  max_alignment_velocity: 0.5
+  max_gripper_velocity: 2.0
+
+keys:
+  activate_left: l
+  activate_right: r
+  activate_both: g
+  record: b
+  stop: x
+  home: y
+  quit: q
+recording:
+  enabled: true
+  directory: ./demos/yam_gello
+  rate_hz: 30
+  episode_start: 0
+  episode_length: 3000
+preview:
+  enabled: true
+  width: 640

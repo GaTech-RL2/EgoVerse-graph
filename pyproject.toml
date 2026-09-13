@@ -69,6 +69,7 @@ aria = ["projectaria-tools[all]==2.0.0"]
 yam = [
     "pure-python-adb",
     "pyrealsense2",
+    "dynamixel-sdk==4.0.5",
     "i2rt @ git+https://github.com/rohan-bansal/i2rt.git@2b851d7f4511b6bda442db85e98ec1122835221b",
 ]
 pi05 = [

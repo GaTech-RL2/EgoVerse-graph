@@ -17,10 +17,30 @@ The station profile also copies the control values from
 the byte hashes and these values. Update the pin, copies, hashes, and parity tests
 together; never hand-tune only one side of this import.
 
+## USB/Dynamixel GELLO
+
+GELLO input is implemented locally in `yam/gello.py` against the official
+`dynamixel-sdk==4.0.5` package. It does not import or copy a separate GELLO
+repository. The station YAML owns the stable `/dev/serial/by-id` paths, six arm
+IDs, gripper ID, joint signs/offsets, gripper endpoints, baudrate, and protocol
+2.0 control-table values. In particular, present position is read from address
+132 as a signed four-byte value; tests lock this independently of hardware.
+
+The low-level adapter exposes synchronized reads only. It disables torque on all
+leader servos at open and has no position-write method. The collector reads the
+two USB buses concurrently, uses no RPC or command queue, and rejects stale
+samples. Followers start disarmed and require an explicit keyboard activation.
+Relative alignment is the station default so the first command equals each
+follower's measured joints; absolute alignment remains available only after a
+verified zero calibration. Both arm targets and FK results are validated before
+either follower receives a command.
+
 ## Validation record
 
 The hardware-free robot tests cover the 180-degree XYZ and roll/pitch/yaw basis,
-command-seeded streaming IK, 60/30 Hz scheduling, and exact calibration parity.
+command-seeded streaming IK, USB/Dynamixel decoding and passive torque state,
+GELLO activation/staleness/rate limits, 60/30 Hz scheduling, and exact camera
+calibration parity.
 The calibration parity test compares every copied intrinsic, distortion, and
 per-arm extrinsic value; keep that test when updating calibration so a sign or
 arm-label transcription cannot silently pass.

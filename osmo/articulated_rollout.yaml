@@ -218,6 +218,28 @@ workflow:
             echo "FATAL: missing artifacts for $EXP (run dir $RN): ckpt='$C' norm='$NRM'"; exit 1
           fi
           CKPT_OF[$EXP]="$C"; NORM_OF[$EXP]="$NRM"
+
+          # A held-out embodiment has no norm stats, and normalize() returns
+          # the tensor UNCHANGED when it finds none -- raw pixels and raw pose
+          # into a network trained on normalized inputs, still producing a
+          # plausible number. Give it the pooled statistics of the training set.
+          NEED_POOL=no
+          for EMB in $EMBODIMENTS; do
+            case " $HELD_OUT " in *" $EMB "*) NEED_POOL=yes;; esac
+          done
+          if [ "$NEED_POOL" = yes ]; then
+            # One line: a newline inside python -c breaks out of the YAML
+            # block scalar, which is the fourth time that has bitten this file.
+            IDS="from egomimic.rldb.embodiment.embodiment import get_embodiment_id as g; import sys; print(' '.join(str(g('pushshapes_sim_'+e)) for e in sys.argv[1].split()))"
+            SRC_IDS=$(python -c "$IDS" "$TRAIN_EMB")
+            TGT_IDS=$(python -c "$IDS" "$HELD_OUT")
+            echo "pooling training norm stats ($SRC_IDS) onto held-out ids ($TGT_IDS)"
+            python tools/pool_norm_stats.py "$NRM" \
+              --out "$(dirname "$NRM")/norm_stats_pooled.json" \
+              --sources $SRC_IDS --targets $TGT_IDS \
+              || { echo "FATAL: pooling norm stats failed"; exit 1; }
+            NORM_OF[$EXP]="$(dirname "$NRM")/norm_stats_pooled.json"
+          fi
           STEP=$(python -c "import sys,torch; print(torch.load(sys.argv[1], map_location='cpu', weights_only=False).get('global_step','?'))" "$C" 2>/dev/null || echo "?")
           echo "  $EXP -> $C  (global_step $STEP)"
         done

@@ -1,0 +1,389 @@
+{
+  "dataset": "/storage/ice1/4/5/agao81/data/Tsim_v2/u_socket_3000_v2_clean",
+  "dataset_name": "u_socket_3000_v2_clean",
+  "statistic": "p99",
+  "multiplier": 1.1,
+  "action_space": "cursor",
+  "derivation": {
+    "source_dataset": "/storage/ice1/4/5/agao81/data/Tsim_v2/chain_gripper_3000_v2_plus_gen_1919",
+    "source_name": "chain_gripper_3000_v2_plus_gen_1919",
+    "ratio": 0.4624,
+    "ratio_formula": "p99(A|obs0)/p99(B|obs0)",
+    "A_obs0": 289,
+    "B_obs0": 625,
+    "ratio_p95_alternative": 0.4805
+  },
+  "formula_measured": "ceil(multiplier * p99(total_frames|level))",
+  "formula_derived": "ceil(multiplier * p99(source|level) * ratio)",
+  "by_level": {
+    "0": {
+      "budget": 318,
+      "derived": false,
+      "n": 2999,
+      "stat": 289,
+      "max": 379,
+      "p95": 244
+    },
+    "1": {
+      "budget": 345,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 677,
+      "ratio": 0.4624,
+      "scaled": 313.1,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "2": {
+      "budget": 307,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 601,
+      "ratio": 0.4624,
+      "scaled": 278.4,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "3": {
+      "budget": 378,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 742,
+      "ratio": 0.4624,
+      "scaled": 343.3,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "4": {
+      "budget": 333,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 653,
+      "ratio": 0.4624,
+      "scaled": 302.1,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "5": {
+      "budget": 328,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 644,
+      "ratio": 0.4624,
+      "scaled": 298.2,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "6": {
+      "budget": 367,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 719,
+      "ratio": 0.4624,
+      "scaled": 332.8,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "7": {
+      "budget": 443,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 869,
+      "ratio": 0.4624,
+      "scaled": 402.0,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "8": {
+      "budget": 420,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 824,
+      "ratio": 0.4624,
+      "scaled": 381.4,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "9": {
+      "budget": 432,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 847,
+      "ratio": 0.4624,
+      "scaled": 392.1,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "10": {
+      "budget": 368,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 721,
+      "ratio": 0.4624,
+      "scaled": 333.7,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "11": {
+      "budget": 323,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 634,
+      "ratio": 0.4624,
+      "scaled": 293.3,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "12": {
+      "budget": 338,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 663,
+      "ratio": 0.4624,
+      "scaled": 306.6,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "13": {
+      "budget": 380,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 745,
+      "ratio": 0.4624,
+      "scaled": 344.6,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "14": {
+      "budget": 348,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 682,
+      "ratio": 0.4624,
+      "scaled": 315.5,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "15": {
+      "budget": 399,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 782,
+      "ratio": 0.4624,
+      "scaled": 361.8,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "16": {
+      "budget": 463,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 909,
+      "ratio": 0.4624,
+      "scaled": 420.6,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "17": {
+      "budget": 476,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 934,
+      "ratio": 0.4624,
+      "scaled": 432.3,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "18": {
+      "budget": 501,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 983,
+      "ratio": 0.4624,
+      "scaled": 454.6,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "19": {
+      "budget": 519,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 1019,
+      "ratio": 0.4624,
+      "scaled": 471.6,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "20": {
+      "budget": 564,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 1106,
+      "ratio": 0.4624,
+      "scaled": 511.9,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "21": {
+      "budget": 451,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 885,
+      "ratio": 0.4624,
+      "scaled": 409.3,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "22": {
+      "budget": 389,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 763,
+      "ratio": 0.4624,
+      "scaled": 352.9,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "23": {
+      "budget": 319,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 625,
+      "ratio": 0.4624,
+      "scaled": 289.2,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "24": {
+      "budget": 291,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 571,
+      "ratio": 0.4624,
+      "scaled": 264.1,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "25": {
+      "budget": 330,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 647,
+      "ratio": 0.4624,
+      "scaled": 299.3,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "26": {
+      "budget": 362,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 711,
+      "ratio": 0.4624,
+      "scaled": 329.0,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "27": {
+      "budget": 472,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 926,
+      "ratio": 0.4624,
+      "scaled": 428.5,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "28": {
+      "budget": 548,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 1076,
+      "ratio": 0.4624,
+      "scaled": 497.6,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "29": {
+      "budget": 446,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 875,
+      "ratio": 0.4624,
+      "scaled": 404.8,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    },
+    "30": {
+      "budget": 399,
+      "derived": true,
+      "source_embodiment": "chain_gripper_3000_v2_plus_gen_1919",
+      "source_stat": 783,
+      "ratio": 0.4624,
+      "scaled": 362.1,
+      "ratio_basis": {
+        "A_obs0": 289,
+        "B_obs0": 625
+      }
+    }
+  },
+  "content_sha256": "f1c286d8427cf692"
+}

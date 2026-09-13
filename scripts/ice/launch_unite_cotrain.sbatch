@@ -11,7 +11,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=H100|H200
 #SBATCH --requeue
-#SBATCH --signal=B:USR1@600
+#SBATCH --signal=B:USR1@1200
 
 set -Eeuo pipefail
 umask 077
@@ -757,11 +757,20 @@ RUNNER_ARGS=(
   --checkpoint-validator "$ICE_CHECKPOINT_VALIDATOR"
   --checkpoint-signal USR2
   --checkpoint-forwarding slurm-steps
-  --checkpoint-grace-seconds 480
+  --checkpoint-grace-seconds 900
   --max-restarts "$ICE_MAX_RESTARTS"
   --requeue-owner runner
   --confirm-child-requeue-disabled
   --completion-sentinel "$ICE_OUTPUT_DIR/COMPLETE.json"
 )
+# Manual continuation of a run whose requeue chain broke: ICE_INITIAL_CHECKPOINT
+# stages an exact, validated checkpoint as the runner's initial checkpoint (the
+# runner's "migration state"); the child then resumes from it with
+# ckpt_path + logger.wandb.resume=must, so ICE_WANDB_RUN_ID must be the
+# original run's id. Requires a fresh ICE_OUTPUT_DIR (RESTART_COUNT 0).
+if test -n "${ICE_INITIAL_CHECKPOINT:-}"; then
+  test -f "$ICE_INITIAL_CHECKPOINT" || die "ICE_INITIAL_CHECKPOINT is not a file"
+  RUNNER_ARGS+=(--initial-checkpoint "$ICE_INITIAL_CHECKPOINT" --require-initial-checkpoint)
+fi
 exec "$ICE_PYTHON" "$ICE_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
   /usr/bin/env bash -c "$CHILD_CODE" "ice-$ICE_FAMILY-cotrain" "${BASE_OVERRIDES[@]}"

@@ -1,0 +1,50 @@
+== LEVEL 0 (seeds 0-39): per-replicate means | mean ± SE over 40 per-seed means | SR@0.80
+  ctA     120k chain    cfg1.0  reps=3 [0.655, 0.628, 0.668] -> 0.650 ± 0.029  SR80 0.23
+  ctA     120k chain    cfg1.5  reps=3 [0.547, 0.54, 0.606] -> 0.564 ± 0.035  SR80 0.23
+  ctA     120k chain    cfg2.0  reps=3 [0.571, 0.522, 0.483] -> 0.525 ± 0.040  SR80 0.18
+  ctA     120k chain    cfg3.0  reps=3 [0.499, 0.356, 0.493] -> 0.449 ± 0.042  SR80 0.17
+  ctA     120k chain    cfg4.0  reps=3 [0.329, 0.372, 0.358] -> 0.353 ± 0.047  SR80 0.15
+  ctA     120k chain    cfg6.0  reps=3 [0.223, 0.273, 0.27] -> 0.255 ± 0.042  SR80 0.07
+  ctA     120k usocket  cfg1.0  reps=3 [0.685, 0.631, 0.641] -> 0.652 ± 0.039  SR80 0.37
+  ctA     120k usocket  cfg1.5  reps=3 [0.607, 0.613, 0.685] -> 0.635 ± 0.042  SR80 0.32
+  ctA     120k usocket  cfg2.0  reps=3 [0.665, 0.596, 0.607] -> 0.623 ± 0.045  SR80 0.36
+  ctA     120k usocket  cfg3.0  reps=3 [0.61, 0.638, 0.63] -> 0.626 ± 0.040  SR80 0.33
+  ctA     120k usocket  cfg4.0  reps=3 [0.617, 0.657, 0.599] -> 0.624 ± 0.042  SR80 0.36
+  ctA     120k usocket  cfg6.0  reps=3 [0.474, 0.484, 0.478] -> 0.479 ± 0.050  SR80 0.21
+  dpct    240k chain    cfgemb  reps=3 [0.605, 0.647, 0.578] -> 0.610 ± 0.030  SR80 0.25
+  dpct    240k usocket  cfgemb  reps=3 [0.653, 0.696, 0.71] -> 0.686 ± 0.037  SR80 0.35
+  s3ctA   180k chain    cfg1.0  reps=3 [0.674, 0.7, 0.745] -> 0.706 ± 0.023  SR80 0.29
+  s3ctA   180k chain    cfg1.5  reps=3 [0.532, 0.557, 0.509] -> 0.533 ± 0.045  SR80 0.28
+  s3ctA   180k chain    cfg2.0  reps=3 [0.55, 0.531, 0.487] -> 0.523 ± 0.047  SR80 0.25
+  s3ctA   180k chain    cfg3.0  reps=3 [0.499, 0.433, 0.392] -> 0.441 ± 0.044  SR80 0.19
+  s3ctA   180k chain    cfg4.0  reps=3 [0.355, 0.432, 0.454] -> 0.414 ± 0.046  SR80 0.18
+  s3ctA   180k chain    cfg6.0  reps=3 [0.273, 0.271, 0.31] -> 0.285 ± 0.050  SR80 0.11
+  s3ctA   180k usocket  cfg1.0  reps=3 [0.647, 0.528, 0.604] -> 0.593 ± 0.046  SR80 0.28
+  s3ctA   180k usocket  cfg1.5  reps=3 [0.582, 0.638, 0.606] -> 0.609 ± 0.046  SR80 0.29
+  s3ctA   180k usocket  cfg2.0  reps=3 [0.659, 0.634, 0.605] -> 0.633 ± 0.043  SR80 0.33
+  s3ctA   180k usocket  cfg3.0  reps=3 [0.543, 0.578, 0.59] -> 0.570 ± 0.047  SR80 0.28
+  s3ctA   180k usocket  cfg4.0  reps=3 [0.521, 0.499, 0.518] -> 0.513 ± 0.046  SR80 0.22
+  s3ctA   180k usocket  cfg6.0  reps=3 [0.425, 0.501, 0.431] -> 0.452 ± 0.051  SR80 0.17
+  s3dpct  240k chain    cfgemb  reps=3 [0.609, 0.616, 0.641] -> 0.622 ± 0.027  SR80 0.28
+  s3dpct  240k usocket  cfgemb  reps=3 [0.637, 0.684, 0.7] -> 0.674 ± 0.030  SR80 0.33
+== OEC-56 (30 levels x 5 seeds): mean peak | levels scored | never-moved | SR@0.80
+  ctA     120k chain    cfg1.0  mean 0.006  levels 30/30  never-moved 147/150  SR80 0/150
+  ctA     120k chain    cfg2.0  mean 0.001  levels 30/30  never-moved 148/150  SR80 0/150
+  ctA     120k chain    cfg4.0  mean 0.000  levels 30/30  never-moved 150/150  SR80 0/150
+  ctA     120k chain    cfg6.0  mean 0.000  levels 30/30  never-moved 150/150  SR80 0/150
+  ctA     120k usocket  cfg1.0  mean 0.018  levels 30/30  never-moved 137/150  SR80 0/150
+  ctA     120k usocket  cfg2.0  mean 0.012  levels 30/30  never-moved 141/150  SR80 0/150
+  ctA     120k usocket  cfg4.0  mean 0.014  levels 30/30  never-moved 142/150  SR80 0/150
+  ctA     120k usocket  cfg6.0  mean 0.007  levels 30/30  never-moved 147/150  SR80 0/150
+  dpct    240k chain    cfgemb  mean 0.067  levels 30/30  never-moved 131/150  SR80 3/150
+  dpct    240k usocket  cfgemb  mean 0.072  levels 30/30  never-moved 119/150  SR80 0/150
+  s3ctA   180k chain    cfg1.0  mean 0.418  levels 30/30  never-moved 63/150  SR80 25/150
+  s3ctA   180k chain    cfg2.0  mean 0.229  levels 30/30  never-moved 102/150  SR80 15/150
+  s3ctA   180k chain    cfg4.0  mean 0.149  levels 30/30  never-moved 116/150  SR80 10/150
+  s3ctA   180k chain    cfg6.0  mean 0.053  levels 30/30  never-moved 137/150  SR80 5/150
+  s3ctA   180k usocket  cfg1.0  mean 0.027  levels 30/30  never-moved 143/150  SR80 2/150
+  s3ctA   180k usocket  cfg2.0  mean 0.027  levels 30/30  never-moved 143/150  SR80 0/150
+  s3ctA   180k usocket  cfg4.0  mean 0.026  levels 30/30  never-moved 141/150  SR80 0/150
+  s3ctA   180k usocket  cfg6.0  mean 0.007  levels 30/30  never-moved 147/150  SR80 0/150
+  s3dpct  240k chain    cfgemb  mean 0.423  levels 30/30  never-moved 63/150  SR80 33/150
+  s3dpct  240k usocket  cfgemb  mean 0.011  levels 30/30  never-moved 145/150  SR80 0/150

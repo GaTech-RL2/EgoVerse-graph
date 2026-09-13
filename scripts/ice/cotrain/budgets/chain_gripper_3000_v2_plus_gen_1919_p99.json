@@ -1,0 +1,322 @@
+{
+  "dataset": "/storage/ice1/4/5/agao81/data/Tsim_v2/chain_gripper_3000_v2_plus_gen_1919",
+  "dataset_name": "chain_gripper_3000_v2_plus_gen_1919",
+  "n_episodes": 4919,
+  "statistic": "p99",
+  "multiplier": 1.1,
+  "action_space": "cursor",
+  "formula": "ceil(multiplier * p99(total_frames | level))",
+  "by_level": {
+    "0": {
+      "n": 3000,
+      "min": 123,
+      "mean": 310.4,
+      "p95": 508,
+      "max": 1036,
+      "budget": 688,
+      "median": 287,
+      "max_over_p95": 2.039
+    },
+    "1": {
+      "n": 64,
+      "min": 156,
+      "mean": 388.9,
+      "p95": 617,
+      "max": 686,
+      "budget": 745,
+      "median": 374,
+      "max_over_p95": 1.111
+    },
+    "2": {
+      "n": 64,
+      "min": 197,
+      "mean": 385.1,
+      "p95": 539,
+      "max": 636,
+      "budget": 663,
+      "median": 361,
+      "max_over_p95": 1.18
+    },
+    "3": {
+      "n": 64,
+      "min": 223,
+      "mean": 398.5,
+      "p95": 631,
+      "max": 753,
+      "budget": 817,
+      "median": 371,
+      "max_over_p95": 1.193
+    },
+    "4": {
+      "n": 64,
+      "min": 207,
+      "mean": 368.1,
+      "p95": 550,
+      "max": 671,
+      "budget": 719,
+      "median": 334,
+      "max_over_p95": 1.218
+    },
+    "5": {
+      "n": 64,
+      "min": 166,
+      "mean": 345.3,
+      "p95": 589,
+      "max": 675,
+      "budget": 710,
+      "median": 319,
+      "max_over_p95": 1.145
+    },
+    "6": {
+      "n": 64,
+      "min": 167,
+      "mean": 358.0,
+      "p95": 601,
+      "max": 852,
+      "budget": 792,
+      "median": 333,
+      "max_over_p95": 1.416
+    },
+    "7": {
+      "n": 63,
+      "min": 188,
+      "mean": 395.8,
+      "p95": 708,
+      "max": 971,
+      "budget": 957,
+      "median": 374,
+      "max_over_p95": 1.37
+    },
+    "8": {
+      "n": 64,
+      "min": 172,
+      "mean": 394.9,
+      "p95": 584,
+      "max": 896,
+      "budget": 908,
+      "median": 376,
+      "max_over_p95": 1.533
+    },
+    "9": {
+      "n": 64,
+      "min": 165,
+      "mean": 397.1,
+      "p95": 614,
+      "max": 950,
+      "budget": 933,
+      "median": 375,
+      "max_over_p95": 1.546
+    },
+    "10": {
+      "n": 64,
+      "min": 141,
+      "mean": 378.2,
+      "p95": 621,
+      "max": 745,
+      "budget": 794,
+      "median": 369,
+      "max_over_p95": 1.198
+    },
+    "11": {
+      "n": 64,
+      "min": 126,
+      "mean": 339.2,
+      "p95": 495,
+      "max": 669,
+      "budget": 698,
+      "median": 344,
+      "max_over_p95": 1.349
+    },
+    "12": {
+      "n": 64,
+      "min": 116,
+      "mean": 350.8,
+      "p95": 598,
+      "max": 675,
+      "budget": 730,
+      "median": 330,
+      "max_over_p95": 1.128
+    },
+    "13": {
+      "n": 64,
+      "min": 161,
+      "mean": 370.0,
+      "p95": 579,
+      "max": 807,
+      "budget": 820,
+      "median": 364,
+      "max_over_p95": 1.391
+    },
+    "14": {
+      "n": 64,
+      "min": 118,
+      "mean": 354.5,
+      "p95": 613,
+      "max": 693,
+      "budget": 751,
+      "median": 330,
+      "max_over_p95": 1.129
+    },
+    "15": {
+      "n": 64,
+      "min": 163,
+      "mean": 422.8,
+      "p95": 671,
+      "max": 836,
+      "budget": 861,
+      "median": 402,
+      "max_over_p95": 1.245
+    },
+    "16": {
+      "n": 64,
+      "min": 153,
+      "mean": 438.5,
+      "p95": 693,
+      "max": 912,
+      "budget": 1001,
+      "median": 426,
+      "max_over_p95": 1.315
+    },
+    "17": {
+      "n": 64,
+      "min": 222,
+      "mean": 524.3,
+      "p95": 858,
+      "max": 940,
+      "budget": 1029,
+      "median": 480,
+      "max_over_p95": 1.095
+    },
+    "18": {
+      "n": 64,
+      "min": 188,
+      "mean": 486.4,
+      "p95": 813,
+      "max": 997,
+      "budget": 1082,
+      "median": 453,
+      "max_over_p95": 1.225
+    },
+    "19": {
+      "n": 64,
+      "min": 291,
+      "mean": 563.7,
+      "p95": 850,
+      "max": 1193,
+      "budget": 1122,
+      "median": 511,
+      "max_over_p95": 1.402
+    },
+    "20": {
+      "n": 64,
+      "min": 288,
+      "mean": 588.0,
+      "p95": 942,
+      "max": 1267,
+      "budget": 1218,
+      "median": 566,
+      "max_over_p95": 1.344
+    },
+    "21": {
+      "n": 64,
+      "min": 234,
+      "mean": 439.1,
+      "p95": 697,
+      "max": 916,
+      "budget": 974,
+      "median": 426,
+      "max_over_p95": 1.314
+    },
+    "22": {
+      "n": 64,
+      "min": 263,
+      "mean": 441.9,
+      "p95": 640,
+      "max": 779,
+      "budget": 840,
+      "median": 438,
+      "max_over_p95": 1.216
+    },
+    "23": {
+      "n": 64,
+      "min": 219,
+      "mean": 350.1,
+      "p95": 501,
+      "max": 679,
+      "budget": 688,
+      "median": 324,
+      "max_over_p95": 1.353
+    },
+    "24": {
+      "n": 64,
+      "min": 194,
+      "mean": 353.0,
+      "p95": 482,
+      "max": 580,
+      "budget": 629,
+      "median": 346,
+      "max_over_p95": 1.202
+    },
+    "25": {
+      "n": 64,
+      "min": 191,
+      "mean": 352.9,
+      "p95": 575,
+      "max": 685,
+      "budget": 712,
+      "median": 320,
+      "max_over_p95": 1.19
+    },
+    "26": {
+      "n": 64,
+      "min": 170,
+      "mean": 329.5,
+      "p95": 496,
+      "max": 741,
+      "budget": 783,
+      "median": 323,
+      "max_over_p95": 1.492
+    },
+    "27": {
+      "n": 64,
+      "min": 233,
+      "mean": 440.7,
+      "p95": 727,
+      "max": 1006,
+      "budget": 1020,
+      "median": 399,
+      "max_over_p95": 1.384
+    },
+    "28": {
+      "n": 64,
+      "min": 259,
+      "mean": 511.8,
+      "p95": 806,
+      "max": 1185,
+      "budget": 1184,
+      "median": 475,
+      "max_over_p95": 1.468
+    },
+    "29": {
+      "n": 64,
+      "min": 262,
+      "mean": 452.4,
+      "p95": 768,
+      "max": 939,
+      "budget": 963,
+      "median": 408,
+      "max_over_p95": 1.223
+    },
+    "30": {
+      "n": 64,
+      "min": 199,
+      "mean": 480.1,
+      "p95": 732,
+      "max": 807,
+      "budget": 862,
+      "median": 461,
+      "max_over_p95": 1.101
+    }
+  },
+  "content_sha256": "3df57a00c4075bdb"
+}

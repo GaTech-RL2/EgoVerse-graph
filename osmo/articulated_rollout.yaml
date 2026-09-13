@@ -49,7 +49,9 @@ workflow:
       # norm stats, so those corpora must be on disk even when scoring only one
       # embodiment. Staged as a union with EMBODIMENTS.
       TRAIN_EMB: "u_socket gripper chain_gripper suction triangle flipper spring"
-      PER_EMB_EPISODES: "3000"
+      # 24 shards x 125 = 3000 per cell. Lower it to iterate on the eval path
+      # without paying a 30-minute staging cycle for every attempt.
+      SHARDS_PER_CELL: "{{shards_per_cell}}"
       SAMPLER_STEPS: "100"
       TSIM_VERSION: sim_v2
       SDL_VIDEODRIVER: dummy
@@ -92,7 +94,20 @@ workflow:
 
         uv sync --frozen
         source .venv/bin/activate
-        export PYTHONPATH="/workspace/EgoVerse:${PYTHONPATH:-}"
+        # Expose ONLY Tsimulation from the sim repo. /workspace/EgoVerse also
+        # contains an egomimic/ package, and putting the whole repo on the path
+        # shadowed EgoVerse-graph's -- the smoke died on
+        # "No module named egomimic.eval.checkpoint_loading", a module that is
+        # present and committed here but absent from the sim repo's older copy.
+        mkdir -p /workspace/sim_import
+        ln -sfn /workspace/EgoVerse/Tsimulation /workspace/sim_import/Tsimulation
+        export PYTHONPATH="/workspace/sim_import:/workspace/EgoVerse-graph"
+
+        # Assert which repo each package resolves to, so the shadowing cannot
+        # come back silently.
+        python -c "import egomimic, Tsimulation, sys; e=egomimic.__file__; t=Tsimulation.__file__; print('egomimic   <-', e); print('Tsimulation <-', t); sys.exit(0 if ('EgoVerse-graph' in e and 'sim_import' in t or 'EgoVerse/Tsimulation' in t) else 1)" \
+          || { echo "FATAL: package resolution is wrong -- see the two paths above"; exit 1; }
+        python -c "import egomimic.eval.checkpoint_loading; import egomimic.eval.sim_rollout_planar_eval; print('eval modules import OK')"
 
         bash ./egomimic/utils/aws/setup_secret.sh
         test -s "$HOME/.egoverse_env"
@@ -115,8 +130,12 @@ workflow:
         for EMB in $STAGE; do
           D="$ROOT/work/$EMB"; FLAT="$ROOT/cells/ideal/$EMB"
           mkdir -p "$D/tars" "$D/raw" "$FLAT"
-          $S5 --numworkers 32 cp "$CORPUS/$EMB/ideal/$EMB/*.tar" "$D/tars/" \
-            >>/tmp/stage.log 2>&1 || { echo "FATAL: staging $EMB"; tail -30 /tmp/stage.log; exit 1; }
+          for I in $(seq 0 $((SHARDS_PER_CELL - 1))); do
+            SHN=$(printf "shard%03d" "$I")
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp \
+              "$CORPUS/$EMB/ideal/$EMB/${SHN}.tar" "$D/tars/" \
+              >>/tmp/stage.log 2>&1 || { echo "FATAL: staging $EMB $SHN"; tail -30 /tmp/stage.log; exit 1; }
+          done
           for T in "$D/tars"/*.tar; do
             SH=$(basename "$T" .tar); mkdir -p "$D/raw/$SH"; tar -xf "$T" -C "$D/raw/$SH"
           done
@@ -133,7 +152,8 @@ workflow:
               done
           N=$(find "$FLAT" -maxdepth 1 -mindepth 1 -name 'episode_*.zarr' | wc -l)
           echo "staged $EMB: $N episodes"
-          [ "$N" -eq "$PER_EMB_EPISODES" ] || { echo "FATAL: $EMB has $N, want $PER_EMB_EPISODES"; exit 1; }
+          WANT=$((SHARDS_PER_CELL * 125))
+          [ "$N" -eq "$WANT" ] || { echo "FATAL: $EMB has $N episodes, want $WANT"; exit 1; }
           rm -rf "$D/tars"
           python scripts/eval/usocket_arc_rollout/episode_budget.py \
             "$FLAT" --out "/workspace/budgets/${EMB}.json"

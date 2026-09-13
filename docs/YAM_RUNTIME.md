@@ -31,18 +31,26 @@ Paths in the examples are relative to the repository root.
 
 ### Quest app
 
-Build the modified bundled app using
-[the existing Android build instructions](../egomimic/robot/oculus_reader/app_source/README.md).
-Install that build on the Quest with `adb install -r /path/to/new/teleop-debug.apk`.
-The checked-in prebuilt APK predates this change and has **not** been rebuilt.
-Keep the prior APK when preparing the new build.
+The bundled `teleop-debug.apk` is the tested world-frame build imported from
+[`rohan-bansal/rohan-gello`](https://github.com/rohan-bansal/rohan-gello) commit
+`e23154aa625fea10d934ffcec6c72c31db95da29` (`fix apk to be world frame`). Its
+SHA-256 is recorded in
+[`APK/PROVENANCE.md`](../egomimic/robot/oculus_reader/oculus_reader/APK/PROVENANCE.md).
+The matching C++ source is checked in under `app_source/`.
 
-The modified source emits `wE9ryARXWorld` messages containing tracked controller
-poses in the VR tracking-origin frame. It also keeps the original `wE9ryARX`
-headset-relative stream for other reader clients. Collection explicitly selects
-the world stream, drops stale input after `quest.max_age`, and reports a startup
-timeout if only the old app is installed. This prevents interpreting a head
-frame as a world frame.
+That RAIL/Yam build emits tracked controller poses in the VR tracking-origin
+frame under the established `wE9ryARX` log tag. It does not provide a separate
+headset-relative stream. The bundled Python reader therefore defaults to and
+only accepts `pose_frame="world"`, drops stale input after `quest.max_age`, and
+matches the complete `wE9ryARX: ` marker so similarly named tags cannot be
+misread.
+
+`OculusReader` preserves an already installed package. To guarantee that the
+Quest has this exact build, install it explicitly with:
+
+```bash
+adb install -r egomimic/robot/oculus_reader/oculus_reader/APK/teleop-debug.apk
+```
 
 Quest +X/right, +Y/up, -Z/forward map to arm-base -Y, +Z, +X. A clutch captures
 the controller's world pose and the measured robot pose. Position changes and

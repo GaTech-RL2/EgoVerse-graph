@@ -22,10 +22,10 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
 - `replay_policy.py`: read-only Zarr joint replay, bounded by total_frames and EOF.
 - `arc_decoder.py`: decode native ARC predictions before frame conversion and IK.
   E1 timing channels follow all 14 pose channels; they are not interleaved.
-- `oculus_reader/`: existing reader/app sources. Collection selects the new world
-  pose tag; the original head-relative stream remains available to other clients.
-  Source changes require rebuilding the Android APK; do not silently consume the
-  old headset-relative stream as world poses.
+- `oculus_reader/`: the pinned RAIL/Yam APK, matching source, and Python reader.
+  The bundled app emits tracking-origin/world poses under the established
+  `wE9ryARX` tag; the reader is world-only and rejects a head-frame mode. Keep the
+  APK provenance hash and source guard current whenever the app changes.
 - `../scripts/data_upload/yam_uploader.py`: existing RLDB upload workflow for Yam
   HDF5 demos; `--list` lists files without network access or credentials.
 

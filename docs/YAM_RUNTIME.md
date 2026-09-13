@@ -158,6 +158,37 @@ python -m egomimic.robot.collect_gello \
   --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml
 ```
 
+#### Capturing GELLO calibration
+
+The leader-only calibration tool does not create or command a Yam follower,
+open CAN, or open cameras. It opens exactly one configured USB leader, disables
+its torque through the same passive adapter, and reads its seven raw encoder
+positions. Static validation remains device-free:
+
+```bash
+python -m egomimic.robot.calibrate_gello \
+  --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \
+  --check-config
+```
+
+After setting a stable path plus verified servo IDs and bus settings for one
+side, put that leader at the intended six-joint zero pose and run:
+
+```bash
+python -m egomimic.robot.calibrate_gello \
+  --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \
+  --arm left \
+  --output ./gello_left_calibration.yaml
+```
+
+The terminal shows seven raw radians. Press **z** to capture all six joint zero
+offsets, **o** at gripper-open, **c** at gripper-closed, and **1** through **6**
+to toggle a joint sign after a direction check. Press **p** to print a YAML
+snippet or **w** to write the requested new output file; it refuses to overwrite
+one. Press **q** to exit. Repeat for the other arm, paste both snippets into the
+station profile, verify directions in relative teleop one arm at a time, and
+only then set `gello.calibrated: true`.
+
 The leader adapter disables torque on every Dynamixel and never sends leader
 position targets. Its two serial reads run concurrently. Followers start
 disarmed: press **g** to toggle both, **l** or **r** to toggle one side, **b** to

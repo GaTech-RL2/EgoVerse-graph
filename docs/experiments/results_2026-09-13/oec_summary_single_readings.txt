@@ -1,0 +1,169 @@
+== OEC-56 (gen) results: mean peak over the levels landed so far
+ctA      usocket   120k levels=30 mean_peak=0.021 sr80=0/150 never_moved=142/150
+ctA      usocket   180k levels=30 mean_peak=0.016 sr80=0/150 never_moved=141/150
+ctA      usocket   240k levels=30 mean_peak=0.016 sr80=0/150 never_moved=144/150
+ctA768   usocket   120k levels=30 mean_peak=0.008 sr80=0/150 never_moved=146/150
+ctA768   usocket   180k levels=30 mean_peak=0.022 sr80=0/150 never_moved=143/150
+ctA768   usocket   240k levels=30 mean_peak=0.015 sr80=0/150 never_moved=146/150
+ctAcos120 usocket   180k levels=60 mean_peak=0.011 sr80=0/300 never_moved=289/300
+ctAcos120 usocket   240k levels=60 mean_peak=0.008 sr80=0/300 never_moved=291/300
+ctAcos90 usocket   120k levels=60 mean_peak=0.013 sr80=0/300 never_moved=288/300
+ctAcos90 usocket   180k levels=60 mean_peak=0.012 sr80=0/300 never_moved=286/300
+ctAcos90 usocket   240k levels=60 mean_peak=0.012 sr80=0/300 never_moved=288/300
+ctApin   usocket   120k levels=60 mean_peak=0.008 sr80=0/300 never_moved=294/300
+ctApin   usocket   180k levels=60 mean_peak=0.011 sr80=0/300 never_moved=287/300
+ctApin   usocket   240k levels=60 mean_peak=0.011 sr80=0/300 never_moved=289/300
+ctApinAnn usocket   120k levels=60 mean_peak=0.011 sr80=1/300 never_moved=290/300
+ctApinAnn usocket   180k levels=60 mean_peak=0.010 sr80=0/300 never_moved=290/300
+ctApinAnn usocket   240k levels=60 mean_peak=0.011 sr80=0/300 never_moved=290/300
+ctAwd    usocket   120k levels=60 mean_peak=0.015 sr80=0/300 never_moved=292/300
+ctAwd    usocket   180k levels=60 mean_peak=0.018 sr80=0/300 never_moved=289/300
+ctAwd    usocket   240k levels=60 mean_peak=0.021 sr80=0/300 never_moved=287/300
+dpct     usocket   120k levels=30 mean_peak=0.071 sr80=0/150 never_moved=124/150
+dpct     usocket   180k levels=30 mean_peak=0.067 sr80=1/150 never_moved=124/150
+dpct     usocket   240k levels=30 mean_peak=0.054 sr80=0/150 never_moved=131/150
+dpus     usocket   120k levels=30 mean_peak=0.063 sr80=0/150 never_moved=126/150
+dpus     usocket   180k levels=30 mean_peak=0.061 sr80=1/150 never_moved=129/150
+dpus     usocket   240k levels=30 mean_peak=0.047 sr80=0/150 never_moved=134/150
+s3ctA    chain     120k levels=20 mean_peak=0.413 sr80=20/100 never_moved=44/100
+s3ctA    chain     180k levels=30 mean_peak=0.388 sr80=29/150 never_moved=73/150
+s3ctA    chain     240k levels=30 mean_peak=0.350 sr80=20/150 never_moved=78/150
+s3ctA    usocket   120k levels=30 mean_peak=0.041 sr80=2/150 never_moved=139/150
+s3ctA    usocket   180k levels=30 mean_peak=0.040 sr80=4/150 never_moved=142/150
+s3ctA    usocket   240k levels=30 mean_peak=0.066 sr80=5/150 never_moved=136/150
+s3ctA768 chain     120k levels=20 mean_peak=0.300 sr80=10/100 never_moved=55/100
+s3ctA768 chain     180k levels=30 mean_peak=0.266 sr80=13/150 never_moved=89/150
+s3ctA768 chain     240k levels=30 mean_peak=0.285 sr80=15/150 never_moved=85/150
+s3ctA768 usocket   120k levels=25 mean_peak=0.044 sr80=1/125 never_moved=115/125
+s3ctA768 usocket   180k levels=30 mean_peak=0.028 sr80=0/150 never_moved=142/150
+s3ctA768 usocket   240k levels=30 mean_peak=0.048 sr80=3/150 never_moved=139/150
+s3ctApin chain     120k levels=60 mean_peak=0.210 sr80=22/300 never_moved=207/300
+s3ctApin chain     180k levels=60 mean_peak=0.197 sr80=14/300 never_moved=209/300
+s3ctApin chain     240k levels=60 mean_peak=0.233 sr80=23/300 never_moved=200/300
+s3ctApin usocket   120k levels=60 mean_peak=0.025 sr80=3/300 never_moved=287/300
+s3ctApin usocket   180k levels=60 mean_peak=0.029 sr80=2/300 never_moved=285/300
+s3ctApin usocket   240k levels=60 mean_peak=0.044 sr80=6/300 never_moved=279/300
+s3ctApinAnn chain     120k levels=60 mean_peak=0.210 sr80=22/300 never_moved=208/300
+s3ctApinAnn chain     180k levels=60 mean_peak=0.214 sr80=24/300 never_moved=208/300
+s3ctApinAnn chain     240k levels=60 mean_peak=0.182 sr80=18/300 never_moved=219/300
+s3ctApinAnn usocket   120k levels=60 mean_peak=0.026 sr80=1/300 never_moved=285/300
+s3ctApinAnn usocket   180k levels=60 mean_peak=0.022 sr80=3/300 never_moved=289/300
+s3ctApinAnn usocket   240k levels=60 mean_peak=0.025 sr80=4/300 never_moved=291/300
+s3dpch   chain     120k levels=30 mean_peak=0.254 sr80=15/150 never_moved=93/150
+s3dpch   chain     180k levels=30 mean_peak=0.334 sr80=22/150 never_moved=80/150
+s3dpch   chain     240k levels=30 mean_peak=0.336 sr80=18/150 never_moved=77/150
+s3dpct   chain     120k levels=30 mean_peak=0.335 sr80=20/150 never_moved=77/150
+s3dpct   chain     180k levels=30 mean_peak=0.388 sr80=25/150 never_moved=70/150
+s3dpct   chain     240k levels=30 mean_peak=0.448 sr80=37/150 never_moved=62/150
+s3dpct   usocket   120k levels=30 mean_peak=0.010 sr80=0/150 never_moved=145/150
+s3dpct   usocket   180k levels=30 mean_peak=0.006 sr80=0/150 never_moved=147/150
+s3dpct   usocket   240k levels=30 mean_peak=0.013 sr80=0/150 never_moved=145/150
+s3unitech chain     120k levels=30 mean_peak=0.303 sr80=12/150 never_moved=81/150
+s3unitech chain     180k levels=30 mean_peak=0.286 sr80=13/150 never_moved=86/150
+s3unitech chain     240k levels=30 mean_peak=0.237 sr80=9/150 never_moved=95/150
+uniteus  usocket   120k levels=30 mean_peak=0.012 sr80=0/150 never_moved=144/150
+uniteus  usocket   180k levels=30 mean_peak=0.003 sr80=0/150 never_moved=148/150
+uniteus  usocket   240k levels=30 mean_peak=0.016 sr80=0/150 never_moved=144/150
+
+== variants (level 0, cfg1)
+ctA768       30000 chain    pooled=0.533 (n=80) canon=0.571 sr95=2/80 nm=10
+ctA768       30000 usocket  pooled=0.464 (n=80) canon=0.477 sr95=3/80 nm=21
+ctA768       60000 chain    pooled=0.491 (n=80) canon=0.512 sr95=8/80 nm=22
+ctA768       60000 usocket  pooled=0.604 (n=80) canon=0.592 sr95=9/80 nm=13
+ctA768       90000 chain    pooled=0.502 (n=80) canon=0.532 sr95=8/80 nm=22
+ctA768       90000 usocket  pooled=0.596 (n=80) canon=0.563 sr95=14/80 nm=16
+ctA768      120000 chain    pooled=0.556 (n=80) canon=0.606 sr95=13/80 nm=18
+ctA768      120000 usocket  pooled=0.562 (n=80) canon=0.535 sr95=14/80 nm=16
+ctA768      150000 chain    pooled=0.561 (n=80) canon=0.571 sr95=11/80 nm=17
+ctA768      150000 usocket  pooled=0.611 (n=80) canon=0.630 sr95=13/80 nm=13
+ctA768      180000 chain    pooled=0.485 (n=80) canon=0.494 sr95=10/80 nm=24
+ctA768      180000 usocket  pooled=0.594 (n=80) canon=0.609 sr95=14/80 nm=15
+ctA768      210000 chain    pooled=0.489 (n=80) canon=0.468 sr95=13/80 nm=24
+ctA768      210000 usocket  pooled=0.548 (n=80) canon=0.594 sr95=13/80 nm=20
+ctA768      240000 chain    pooled=0.458 (n=80) canon=0.422 sr95=8/80 nm=29
+ctA768      240000 usocket  pooled=0.610 (n=80) canon=0.638 sr95=16/80 nm=13
+ctAann       30000 chain    pooled=0.485 (n=80) canon=0.497 sr95=1/80 nm=20
+ctAann       30000 usocket  pooled=0.512 (n=80) canon=0.503 sr95=7/80 nm=21
+ctAann       60000 chain    pooled=0.566 (n=80) canon=0.604 sr95=10/80 nm=16
+ctAann       60000 usocket  pooled=0.573 (n=80) canon=0.565 sr95=14/80 nm=18
+ctAann       90000 chain    pooled=0.527 (n=40) canon=nan sr95=4/40 nm=11
+ctAann       90000 usocket  pooled=0.611 (n=40) canon=0.611 sr95=6/40 nm=8
+ctAann      120000 usocket  pooled=0.577 (n=40) canon=0.577 sr95=6/40 nm=10
+ctAann      150000 chain    pooled=0.585 (n=80) canon=0.592 sr95=14/80 nm=17
+ctAann      150000 usocket  pooled=0.611 (n=80) canon=0.622 sr95=21/80 nm=16
+ctAann      180000 chain    pooled=0.553 (n=80) canon=0.555 sr95=12/80 nm=19
+ctAann      180000 usocket  pooled=0.657 (n=80) canon=0.646 sr95=16/80 nm=11
+ctAann      210000 chain    pooled=0.637 (n=80) canon=0.623 sr95=23/80 nm=14
+ctAann      210000 usocket  pooled=0.631 (n=80) canon=0.570 sr95=24/80 nm=16
+ctAann      240000 chain    pooled=0.603 (n=80) canon=0.613 sr95=17/80 nm=16
+ctAann      240000 usocket  pooled=0.624 (n=80) canon=0.631 sr95=19/80 nm=15
+ctAema       30000 chain    pooled=0.047 (n=80) canon=0.068 sr95=0/80 nm=70
+ctAema       30000 usocket  pooled=0.117 (n=80) canon=0.134 sr95=0/80 nm=60
+ctAema       60000 chain    pooled=0.500 (n=80) canon=0.510 sr95=4/80 nm=22
+ctAema       60000 usocket  pooled=0.548 (n=80) canon=0.492 sr95=6/80 nm=23
+ctAema       90000 chain    pooled=0.499 (n=40) canon=nan sr95=1/40 nm=11
+ctAema       90000 usocket  pooled=0.594 (n=80) canon=0.593 sr95=15/80 nm=16
+ctAema      120000 chain    pooled=0.672 (n=40) canon=0.672 sr95=8/40 nm=5
+ctAema      120000 usocket  pooled=0.636 (n=40) canon=nan sr95=13/40 nm=9
+ctAema      150000 chain    pooled=0.601 (n=80) canon=0.643 sr95=9/80 nm=13
+ctAema      150000 usocket  pooled=0.626 (n=80) canon=0.638 sr95=23/80 nm=18
+ctAema      180000 chain    pooled=0.551 (n=80) canon=0.544 sr95=12/80 nm=20
+ctAema      180000 usocket  pooled=0.657 (n=80) canon=0.664 sr95=26/80 nm=13
+ctAema      210000 chain    pooled=0.583 (n=80) canon=0.551 sr95=13/80 nm=15
+ctAema      210000 usocket  pooled=0.640 (n=80) canon=0.685 sr95=21/80 nm=14
+ctAema      240000 chain    pooled=0.602 (n=80) canon=0.626 sr95=20/80 nm=17
+ctAema      240000 usocket  pooled=0.693 (n=80) canon=0.708 sr95=32/80 nm=13
+s3ctA        30000 chain    pooled=0.486 (n=80) canon=0.497 sr95=2/80 nm=21
+s3ctA        30000 usocket  pooled=0.413 (n=80) canon=0.374 sr95=4/80 nm=33
+s3ctA        60000 chain    pooled=0.549 (n=80) canon=0.555 sr95=9/80 nm=18
+s3ctA        60000 usocket  pooled=0.501 (n=80) canon=0.501 sr95=5/80 nm=23
+s3ctA        90000 chain    pooled=0.574 (n=80) canon=0.603 sr95=8/80 nm=19
+s3ctA        90000 usocket  pooled=0.606 (n=80) canon=0.540 sr95=19/80 nm=15
+s3ctA       120000 chain    pooled=0.594 (n=40) canon=0.594 sr95=5/40 nm=6
+s3ctA       120000 usocket  pooled=0.633 (n=80) canon=0.608 sr95=20/80 nm=13
+s3ctA       150000 usocket  pooled=0.591 (n=80) canon=0.589 sr95=18/80 nm=18
+s3ctA       180000 chain    pooled=0.674 (n=80) canon=0.700 sr95=21/80 nm=10
+s3ctA       180000 usocket  pooled=0.588 (n=80) canon=0.585 sr95=21/80 nm=18
+s3ctA       210000 chain    pooled=0.649 (n=80) canon=0.714 sr95=20/80 nm=11
+s3ctA       210000 usocket  pooled=0.658 (n=80) canon=0.715 sr95=17/80 nm=11
+s3ctA       240000 chain    pooled=0.676 (n=80) canon=0.667 sr95=21/80 nm=9
+s3ctA       240000 usocket  pooled=0.630 (n=80) canon=0.636 sr95=20/80 nm=14
+s3ctA768     30000 chain    pooled=0.542 (n=80) canon=0.585 sr95=4/80 nm=12
+s3ctA768     30000 usocket  pooled=0.429 (n=80) canon=0.452 sr95=4/80 nm=31
+s3ctA768     60000 chain    pooled=0.574 (n=80) canon=0.507 sr95=5/80 nm=12
+s3ctA768     60000 usocket  pooled=0.523 (n=80) canon=0.478 sr95=8/80 nm=19
+s3ctA768     90000 chain    pooled=0.579 (n=80) canon=0.621 sr95=7/80 nm=12
+s3ctA768     90000 usocket  pooled=0.558 (n=80) canon=0.554 sr95=13/80 nm=20
+s3ctA768    120000 chain    pooled=0.583 (n=80) canon=0.651 sr95=13/80 nm=14
+s3ctA768    150000 chain    pooled=0.541 (n=80) canon=0.540 sr95=6/80 nm=16
+s3ctA768    150000 usocket  pooled=0.629 (n=80) canon=0.579 sr95=18/80 nm=14
+s3ctA768    180000 chain    pooled=0.508 (n=80) canon=0.530 sr95=6/80 nm=19
+s3ctA768    180000 usocket  pooled=0.555 (n=80) canon=0.542 sr95=12/80 nm=17
+s3ctA768    210000 chain    pooled=0.503 (n=80) canon=0.578 sr95=10/80 nm=25
+s3ctA768    210000 usocket  pooled=0.581 (n=80) canon=0.576 sr95=17/80 nm=19
+s3ctA768    240000 chain    pooled=0.527 (n=80) canon=0.531 sr95=9/80 nm=21
+s3ctA768    240000 usocket  pooled=0.472 (n=80) canon=0.414 sr95=12/80 nm=27
+s3unitech    30000 chain    pooled=0.383 (n=80) canon=0.395 sr95=3/80 nm=32
+s3unitech    60000 chain    pooled=0.485 (n=80) canon=0.463 sr95=5/80 nm=25
+s3unitech    90000 chain    pooled=0.459 (n=80) canon=0.486 sr95=1/80 nm=21
+s3unitech   120000 chain    pooled=0.507 (n=80) canon=0.533 sr95=4/80 nm=18
+s3unitech   150000 chain    pooled=0.491 (n=80) canon=0.459 sr95=3/80 nm=20
+s3unitech   180000 chain    pooled=0.498 (n=80) canon=0.605 sr95=3/80 nm=21
+s3unitech   210000 chain    pooled=0.439 (n=80) canon=0.415 sr95=4/80 nm=28
+s3unitech   240000 chain    pooled=0.492 (n=80) canon=0.551 sr95=4/80 nm=14
+uniteusann   30000 usocket  pooled=0.332 (n=80) canon=0.294 sr95=5/80 nm=41
+uniteusann   60000 usocket  pooled=0.446 (n=80) canon=0.432 sr95=10/80 nm=32
+uniteusann   90000 usocket  pooled=0.530 (n=80) canon=0.501 sr95=12/80 nm=20
+uniteusann  120000 usocket  pooled=0.597 (n=80) canon=0.567 sr95=17/80 nm=17
+uniteusann  150000 usocket  pooled=0.542 (n=80) canon=0.524 sr95=15/80 nm=24
+uniteusann  180000 usocket  pooled=0.575 (n=80) canon=0.572 sr95=20/80 nm=20
+uniteusann  210000 usocket  pooled=0.543 (n=40) canon=0.543 sr95=8/40 nm=11
+uniteusann  240000 usocket  pooled=0.485 (n=80) canon=0.433 sr95=12/80 nm=25
+uniteusema   30000 usocket  pooled=0.269 (n=80) canon=0.258 sr95=0/80 nm=44
+uniteusema   60000 usocket  pooled=0.494 (n=80) canon=0.398 sr95=7/80 nm=23
+uniteusema   90000 usocket  pooled=0.517 (n=80) canon=0.496 sr95=6/80 nm=20
+uniteusema  120000 usocket  pooled=0.543 (n=80) canon=0.524 sr95=15/80 nm=21
+uniteusema  150000 usocket  pooled=0.502 (n=80) canon=0.535 sr95=9/80 nm=22
+uniteusema  180000 usocket  pooled=0.580 (n=40) canon=0.580 sr95=4/40 nm=8
+uniteusema  210000 usocket  pooled=0.522 (n=80) canon=0.501 sr95=12/80 nm=26
+uniteusema  240000 usocket  pooled=0.571 (n=80) canon=0.561 sr95=19/80 nm=21

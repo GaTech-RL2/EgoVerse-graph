@@ -10,7 +10,8 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
 - `teleop.py`: world-frame clutch control, tracking-loss reanchoring and command
   velocity limits. The controller delta is measured in the fixed VR world basis.
 - `cameras.py`: shared camera setup, freshness checks and live front/wrist views;
-  drivers remain in `eva/eva_ws/src/eva/stream_{aria,d405}.py`.
+  Yam must validate configured RealSense serials before opening robot drivers.
+  Camera drivers remain in `eva/eva_ws/src/eva/stream_{aria,d405}.py`.
 - `eva/eva_ws/src/eva/robot_interface.py`: supported Eva ARX interface; retain its
   controller, gripper calibration and ROS workspace. `eva/eva_kinematics.py`
   implements its existing FK/IK solver.
@@ -19,7 +20,9 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
 - `rollout.py`: shared rollout loop. Inference uses only the local graph path.
 - `graph_policy.py`: strict PipelineAlgo checkpoint loading, full normalization
   state, camera/proprio mapping and explicit Cartesian action-frame conversion.
-- `replay_policy.py`: read-only Zarr joint replay, bounded by total_frames and EOF.
+- `replay_policy.py`: read-only Zarr joint replay, including split
+  `rl2_yam.episode.v1` actions; require completed stores and bound reads by
+  `committed_samples`/`total_frames` and EOF.
 - `arc_decoder.py`: decode native ARC predictions before frame conversion and IK.
   E1 timing channels follow all 14 pose channels; they are not interleaved.
 - `oculus_reader/`: the pinned RAIL/Yam APK, matching source, and Python reader.

@@ -22,12 +22,25 @@ ADB must be installed and the Quest authorized. i2rt's `ruckig` build requires
 `scikit-build-core<0.10`; supply that as a build constraint when installing from
 source, as in the pinned SDK's own `pyproject.toml`.
 
+Keep USB ADB when the station cannot reach the Quest's Wi-Fi address. Do not run
+`adb tcpip` merely to work around a flaky cable: restarting `adbd` can require a
+new headset authorization, and Wi-Fi ADB still fails on a segmented network.
+
 Copy the appropriate YAML from `egomimic/hydra_configs/robot/` and set the
 station's CAN channels, gripper variant, home poses and camera serials. Yam's
 examples read `YAM_FRONT_SERIAL`, `YAM_LEFT_WRIST_SERIAL` and
 `YAM_RIGHT_WRIST_SERIAL`. Eva's `robot.config_path` points to its existing camera,
 CAN and gripper calibration YAML; it can point to a station-specific copy.
 Paths in the examples are relative to the repository root.
+
+The RL2 station has checked-in `yam_rl2_collect.yaml` and
+`yam_rl2_replay.yaml` profiles derived from `yam-pipeline` commit
+`1b1f9b12d300a41872b8a8c6c04f0c9f5f892f88`. They select
+`can_follower_l`/`can_follower_r`, the measured rest poses and the D405 serials
+reported by librealsense. The top camera `230322272195` matches the supplied
+agentview calibration. The camera preflight verifies that every configured
+RealSense serial is present before any robot driver is initialized. Visually
+confirm the top/left/right views before the first physical session.
 
 ### Quest app
 
@@ -63,6 +76,7 @@ clutch; the next valid sample anchors at the measured arm pose.
 ## Collection and live views
 
 ```bash
+python -m egomimic.robot.collect_demo --config egomimic/hydra_configs/robot/yam_rl2_collect.yaml
 python -m egomimic.robot.collect_demo --config egomimic/hydra_configs/robot/yam_collect.yaml
 python -m egomimic.robot.collect_demo --config egomimic/hydra_configs/robot/eva_collect.yaml
 ```
@@ -163,18 +177,25 @@ the old plan. Quit with q/Escape or Ctrl-C.
 ## Zarr replay and upload
 
 ```bash
-python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/yam_replay.yaml
+YAM_REPLAY_PATH=/absolute/path/to/episode.zarr \
+  python -m egomimic.robot.rollout \
+  --config egomimic/hydra_configs/robot/yam_rl2_replay.yaml
 python -m egomimic.scripts.data_upload.yam_uploader --list ./demos/yam
 python -m egomimic.scripts.data_upload.yam_uploader
 ```
 
 The replay YAML selects an existing Zarr episode and its commanded joint and
-gripper keys. Replace its `robot` section with the Eva station config to replay
-Eva. Replay reads the store in mode `r`, honors `total_frames` instead of chunk
-padding, consumes every selected frame once, and stops at EOF. `start`/`stop`
-select a range. For a store with a single `(T,14)` joint array, replace `keys`
-with `action_key: data/action` (or that store's actual array name). Align the
-robot to the selected starting joints before replay; excessive steps are refused.
+gripper keys. The RL2 profile directly reads `rl2_yam.episode.v1` stores with
+`actions/joint_position` shaped `(T,2,6)`, `actions/gripper` shaped `(T,2)`, and
+the root `arm_order` attribute. It rejects `complete=False`, honors
+`committed_samples` (or `total_frames`) instead of chunk padding, consumes every
+selected frame once, and stops at EOF. `start`/`stop` select a range.
+
+The generic per-arm key mode remains available. For a store with a single
+`(T,14)` joint array, replace `keys` with `action_key: data/action` (or that
+store's actual array name). Replace the `robot` section with the Eva station
+config to replay Eva. Align the robot to the selected starting joints before
+replay; excessive steps are refused before either arm receives a command.
 
 The uploader uses the existing interactive `Uploader` metadata and S3 workflow
 under `raw_v2/yam/`. It uploads the same HDF5 files without re-encoding or deleting

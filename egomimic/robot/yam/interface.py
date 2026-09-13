@@ -5,7 +5,11 @@ import time
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from egomimic.robot.cameras import close_cameras, open_cameras
+from egomimic.robot.cameras import (
+    close_cameras,
+    open_cameras,
+    validate_camera_devices,
+)
 from egomimic.robot.interface import ARM_OFFSET, joint_vector, pose_matrix, pose_vector
 from egomimic.robot.yam.kinematics import MujocoArmKinematics
 
@@ -25,6 +29,7 @@ class YamInterface:
         frequency=30.0,
         driver_factory=None,
         solver_factory=None,
+        camera_validator=validate_camera_devices,
     ):
         self.arms = list(arms)
         if (
@@ -41,6 +46,7 @@ class YamInterface:
         self.home_duration, self.frequency = float(home_duration), float(frequency)
         if min(self.home_duration, self.frequency) <= 0:
             raise ValueError("Home duration and frequency must be positive")
+        camera_validator(cameras)
         self.controller, self.solvers, self.recorders, self.camera_res = {}, {}, {}, {}
         if driver_factory is None:
             from i2rt.robots.get_robot import get_yam_robot

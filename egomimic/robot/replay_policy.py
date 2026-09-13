@@ -9,35 +9,73 @@ class ZarrReplayPolicy:
     action_type = "joints"
 
     def __init__(
-        self, path, keys=None, action_key=None, chunk_size=1, start=0, stop=None
+        self,
+        path,
+        keys=None,
+        action_key=None,
+        joint_action_key=None,
+        gripper_action_key=None,
+        arm_order=None,
+        require_complete=True,
+        chunk_size=1,
+        start=0,
+        stop=None,
     ):
         import zarr
 
         self.store = zarr.open_group(str(path), mode="r")
+        if require_complete and not bool(self.store.attrs.get("complete", True)):
+            raise ValueError("Replay requires a completed Zarr episode")
         self.keys, self.action_key = dict(keys or {}), action_key
-        if bool(self.keys) == bool(action_key):
-            raise ValueError("Choose per-arm keys or one bimanual action_key")
+        if (joint_action_key is None) != (gripper_action_key is None):
+            raise ValueError("Split replay requires both joint and gripper action keys")
+        split_actions = joint_action_key is not None
+        if sum((bool(self.keys), action_key is not None, split_actions)) != 1:
+            raise ValueError(
+                "Choose per-arm keys, one bimanual action_key, or split Yam action keys"
+            )
+        self.joint_action_key = joint_action_key
+        self.gripper_action_key = gripper_action_key
         if self.keys and not set(self.keys) <= ARM_OFFSET.keys():
             raise ValueError("Replay arm keys must be left/right")
-        arrays = (
-            [self.store[action_key]]
-            if action_key
-            else [
+        if split_actions:
+            stored_order = self.store.attrs.get("arm_order")
+            self.arm_order = tuple(arm_order or stored_order or ())
+            if len(self.arm_order) != 2 or set(self.arm_order) != set(ARM_OFFSET):
+                raise ValueError(
+                    "Split Yam replay requires arm_order containing left and right"
+                )
+            arrays = [
+                self.store[joint_action_key],
+                self.store[gripper_action_key],
+            ]
+        elif action_key is not None:
+            self.arm_order = ()
+            arrays = [self.store[action_key]]
+        else:
+            self.arm_order = ()
+            arrays = [
                 self.store[key] for spec in self.keys.values() for key in spec.values()
             ]
-        )
         if not arrays:
             raise ValueError("Replay needs action arrays")
         # EgoVerse Zarr arrays may have chunk padding beyond total_frames.
+        length = self.store.attrs.get("total_frames")
+        if length is None:
+            length = self.store.attrs.get("committed_samples")
         length = int(
-            self.store.attrs.get(
-                "total_frames", min(array.shape[0] for array in arrays)
-            )
+            min(array.shape[0] for array in arrays) if length is None else length
         )
         if length <= 0 or any(array.shape[0] < length for array in arrays):
             raise ValueError("Invalid Zarr frame count")
         if action_key and arrays[0].shape[1:] != (14,):
             raise ValueError("Bimanual joint replay requires an (N, 14) array")
+        if split_actions and (
+            arrays[0].shape[1:] != (2, 6) or arrays[1].shape[1:] not in ((2,), (2, 1))
+        ):
+            raise ValueError(
+                "Split Yam replay requires (N, 2, 6) joints and (N, 2) grippers"
+            )
         for arm, spec in self.keys.items():
             if (
                 set(spec) != {"joints", "gripper"}
@@ -63,6 +101,18 @@ class ZarrReplayPolicy:
             rows = np.asarray(
                 self.store[self.action_key][self.cursor : end], dtype=float
             )
+        elif self.joint_action_key:
+            rows = np.tile(obs["joint_positions"], (end - self.cursor, 1)).astype(float)
+            joints = np.asarray(
+                self.store[self.joint_action_key][self.cursor : end], dtype=float
+            )
+            grippers = np.asarray(
+                self.store[self.gripper_action_key][self.cursor : end], dtype=float
+            ).reshape(-1, 2)
+            for index, arm in enumerate(self.arm_order):
+                offset = ARM_OFFSET[arm]
+                rows[:, offset : offset + 6] = joints[:, index]
+                rows[:, offset + 6] = grippers[:, index]
         else:
             # Hold arms missing from the replay at their measured positions.
             rows = np.tile(obs["joint_positions"], (end - self.cursor, 1)).astype(float)

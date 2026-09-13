@@ -301,6 +301,41 @@ def test_yam_failed_initialization_closes_already_opened_arm():
     assert first.closed
 
 
+def test_camera_serial_preflight_rejects_bad_station_mapping():
+    from egomimic.robot.cameras import validate_camera_devices
+
+    cameras = {
+        "front": {"enabled": True, "type": "realsense", "serial_number": "top"},
+        "left": {"enabled": True, "type": "d405", "serial_number": "left"},
+    }
+    assert validate_camera_devices(cameras, ["left", "top"]) == ("top", "left")
+    with pytest.raises(RuntimeError, match="front=top"):
+        validate_camera_devices(cameras, ["left"])
+    cameras["left"]["serial_number"] = "top"
+    with pytest.raises(ValueError, match="distinct serials"):
+        validate_camera_devices(cameras, ["top"])
+
+
+def test_yam_camera_preflight_runs_before_driver_initialization():
+    calls = []
+
+    def reject(_config):
+        raise RuntimeError("camera preflight failed")
+
+    with pytest.raises(RuntimeError, match="camera preflight failed"):
+        YamInterface(
+            ["left"],
+            {"left": "can0"},
+            {"front": {"type": "realsense", "serial_number": "missing"}},
+            {},
+            {"left": [0, 0, 0, 0, 0, 0, 1]},
+            driver_factory=lambda channel: calls.append(channel),
+            solver_factory=Solver,
+            camera_validator=reject,
+        )
+    assert not calls
+
+
 def replay_store(tmp_path, padded=5, total=3):
     import zarr
 
@@ -317,6 +352,25 @@ def replay_keys():
         arm: {"joints": f"{arm}.cmd_joints", "gripper": f"{arm}.cmd_gripper"}
         for arm in ARM_OFFSET
     }
+
+
+def yam_pipeline_replay_store(tmp_path, padded=5, total=3):
+    import zarr
+
+    store = zarr.open_group(str(tmp_path / "yam_episode.zarr"), mode="w")
+    store.attrs.update(
+        complete=True,
+        committed_samples=total,
+        arm_order=["left", "right"],
+        schema="rl2_yam.episode.v1",
+    )
+    joints = np.zeros((padded, 2, 6))
+    joints[:total, 0, 0] = np.arange(total) * 0.01
+    joints[:total, 1, 0] = np.arange(total) * -0.01
+    grippers = np.full((padded, 2), 0.5)
+    store.create_array("actions/joint_position", data=joints)
+    store.create_array("actions/gripper", data=grippers)
+    return store
 
 
 @pytest.mark.parametrize("robot_factory", [FakeRobot, yam_robot])
@@ -368,6 +422,30 @@ def test_replay_rejects_nan_and_ignores_chunk_padding(tmp_path):
     policy = ZarrReplayPolicy(tmp_path / "demo.zarr", keys=replay_keys(), chunk_size=8)
     with pytest.raises(ValueError, match="finite"):
         policy.predict(FakeRobot().get_obs())
+
+
+def test_replay_reads_completed_yam_pipeline_split_actions(tmp_path):
+    store = yam_pipeline_replay_store(tmp_path)
+    policy = ZarrReplayPolicy(
+        tmp_path / "yam_episode.zarr",
+        joint_action_key="actions/joint_position",
+        gripper_action_key="actions/gripper",
+        chunk_size=8,
+    )
+    rows = policy.predict(FakeRobot().get_obs())
+    assert rows.shape == (3, 14)
+    np.testing.assert_allclose(rows[:, :6], store["actions/joint_position"][:3, 0])
+    np.testing.assert_allclose(rows[:, 6], store["actions/gripper"][:3, 0])
+    np.testing.assert_allclose(rows[:, 7:13], store["actions/joint_position"][:3, 1])
+    np.testing.assert_allclose(rows[:, 13], store["actions/gripper"][:3, 1])
+
+    store.attrs["complete"] = False
+    with pytest.raises(ValueError, match="completed Zarr episode"):
+        ZarrReplayPolicy(
+            tmp_path / "yam_episode.zarr",
+            joint_action_key="actions/joint_position",
+            gripper_action_key="actions/gripper",
+        )
 
 
 def test_no_non_graph_inference_backend():

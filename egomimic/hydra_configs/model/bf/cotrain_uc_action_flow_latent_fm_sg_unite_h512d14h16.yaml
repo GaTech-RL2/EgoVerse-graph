@@ -6,6 +6,12 @@ num_latent_tokens: 8
 latent_dim: 16
 condition_dim: 128
 hidden_dim: 512
+codec_hidden_dim: ${model.hidden_dim}
+codec_depth: 14
+codec_num_heads: 16
+denoiser_hidden_dim: ${model.hidden_dim}
+denoiser_depth: 14
+denoiser_num_heads: 16
 flow_samples_per_content: 14
 flow_mini_batch: 14
 condition_dropout_probability: 0.1
@@ -90,9 +96,9 @@ pipeline:
             condition_dim: ${model.condition_dim}
             max_condition_tokens: 1
             max_content_tokens: ${model.action_horizon}
-            hidden_dim: ${model.hidden_dim}
-            depth: 14
-            num_heads: 16
+            hidden_dim: ${model.codec_hidden_dim}
+            depth: ${model.codec_depth}
+            num_heads: ${model.codec_num_heads}
             mlp_ratio: 4.0
             qk_norm: true
             use_rope: true
@@ -147,9 +153,9 @@ pipeline:
           condition_dim: ${model.condition_dim}
           max_condition_tokens: 1
           max_content_tokens: ${model.action_horizon}
-          hidden_dim: ${model.hidden_dim}
-          depth: 14
-          num_heads: 16
+          hidden_dim: ${model.denoiser_hidden_dim}
+          depth: ${model.denoiser_depth}
+          num_heads: ${model.denoiser_num_heads}
           mlp_ratio: 4.0
           qk_norm: true
           use_rope: true
@@ -178,9 +184,9 @@ pipeline:
           action_dim: 4
           num_latent_tokens: ${model.num_latent_tokens}
           action_horizon: ${model.action_horizon}
-          hidden_dim: ${model.hidden_dim}
-          depth: 14
-          num_heads: 16
+          hidden_dim: ${model.codec_hidden_dim}
+          depth: ${model.codec_depth}
+          num_heads: ${model.codec_num_heads}
           mlp_ratio: 4.0
           dropout: 0.0
           gradient_checkpointing: true

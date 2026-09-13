@@ -299,6 +299,33 @@ def test_history_gate_requires_components_gradients_and_scheduled_validation():
     assert result["train"]["Train/ActionFlow/FlowMatchingLoss"] == 1.25
 
 
+def test_history_gate_omits_native_diagnostics_when_disabled():
+    row = _history_row()
+    del row["Valid/ActionFlow/CleanReconstructionNativeMSE"]
+    del row[
+        f"Valid/ActionFlow/CleanReconstructionNativeMSE/{MODULE.SOURCE_LABEL}"
+    ]
+    del row["Valid/ActionFlow/DenoisingTrajectory/DecodedNativeMSE/t0000"]
+    del row[
+        "Valid/ActionFlow/DenoisingTrajectory/DecodedNativeMSE/t0000/"
+        f"{MODULE.SOURCE_LABEL}"
+    ]
+
+    result = MODULE._validate_history(
+        {2: row}, expect_native_diagnostics=False
+    )
+
+    assert result["valid_step"] == 2
+
+
+def test_chain_energy_distance_matches_serialized_generic_contract():
+    assert MODULE._expected_energy_distance({"energy_score_distance": None}) == {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+        "space": "normalized_action_chunk",
+    }
+
+
 def test_history_gate_accepts_float32_flow_weight_telemetry():
     row = _history_row()
     row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = float(
@@ -558,6 +585,21 @@ def test_artifact_gate_verifies_energy_and_diagnostic_immutability(tmp_path):
 
     assert result["energy_score"]["sha256"]
     assert result["action_flow_diagnostics"]["path"] == str(diagnostic_path)
+
+
+def test_json_equivalent_normalizes_semantic_block_container_types():
+    artifact_distance = {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+    }
+    expected_distance = {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": [[0, 2], [2, 4], [4, 6]],
+        "space": "normalized_action_chunk",
+    }
+
+    assert MODULE._json_equivalent(artifact_distance, expected_distance)
 
 
 def test_artifact_gate_selects_exact_slurm_attempt_and_checks_execution(tmp_path, monkeypatch):

@@ -39,6 +39,8 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "AF_EXPECTED_CONTENT_MANIFEST_SHA256" in source
     assert "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" in source
     assert "AF_EXPECTED_NORM_SHA256" in source
+    assert "AF_SCHEDULE_MAX_LR" in source
+    assert "AF_SCHEDULE_MIN_LR" in source
     assert "AF_PREFLIGHT_RESULT" in source
     assert "AF_EXPECTED_PREFLIGHT_SHA256" in source
     assert "validate_action_flow_config.py" in source
@@ -122,6 +124,15 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "++run_provenance.source_commit=$AF_EXPECTED_HEAD" in source
     assert "++run_provenance.content_manifest_sha256=" in source
     assert "++run_provenance.dataset_content_aggregate_sha256=" in source
+    assert "++run_provenance.optimizer_schedule.max_lr=$AF_SCHEDULE_MAX_LR" in source
+    assert "++run_provenance.optimizer_schedule.min_lr=$AF_SCHEDULE_MIN_LR" in source
+    verifier = (
+        ROOT / "scripts/train/verify_scaled_action_flow_training_smoke.py"
+    ).read_text()
+    assert '"optimization": {' in verifier
+    assert '"max_lr": args.expected_max_lr' in verifier
+    assert '"min_lr": args.expected_min_lr' in verifier
+    assert 'payload["optimization"] == {' in source
     assert "++run_provenance.normalization_sha256=$AF_EXPECTED_NORM_SHA256" in source
     assert (
         "++run_provenance.preflight_result_sha256=$AF_EXPECTED_PREFLIGHT_SHA256"
@@ -165,6 +176,8 @@ def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
     assert "--expected-content-manifest-sha256" in source
     assert "--expected-dataset-content-aggregate-sha256" in source
     assert "--expected-preflight-sha256" in source
+    assert "--expected-max-lr" in source
+    assert "--expected-min-lr" in source
     assert "callbacks.model_checkpoint.save_last=link" in source
     assert "single-gpu,$AF_RUN_KIND" in source
 
@@ -200,6 +213,34 @@ def test_second_preflight_can_reuse_the_first_train_only_normalization():
     assert 'if test -z "${AF_NORM_STATS_PATH:-}"; then' in source
     assert 'test -s "$EFFECTIVE_NORM_FILE"' in source
     assert 'normalization SHA-256 mismatch' in source
+
+
+def test_scaled_chain_rows_are_pinned_to_the_clean_4918_episode_corpus():
+    source = _source()
+    assert "CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256=80e88dc9" in source
+    assert "CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256=1b7dca2b" in source
+    assert "CLEAN_CHAIN_4918_SPLIT_MANIFEST_SHA256=aa7ea8e8" in source
+    assert "CLEAN_CHAIN_4918_SCHEMA_VALIDATION_SHA256=f1b8feaa" in source
+    # Two proportional H512 rows plus the two H384-codec/H512-denoiser rows
+    # (Chain-only and co-training) are bound to the clean4918 corpus.
+    assert source.count("AF_CLEAN_CHAIN_4918=true") == 4
+    assert "points6,clean4918,action-flow" in source
+    assert "points6,clean4918,cotrain" in source
+    assert 'assert payload["episode_count"] == 4918' in source
+    assert 'assert payload["validated_episode_count"] == 4918' in source
+    assert "expected_episode_count=4918" in source
+    assert "expected_train_episode_count=4869" in source
+    assert "expected_valid_episode_count=49" in source
+    assert "CONFIG_VALIDATOR_CLEAN_SOURCE" in source
+    assert '--override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.resolver.expected_episode_count=4918"' in source
+
+
+def test_full_validation_cadence_has_a_typed_override():
+    source = _source()
+    assert 'AF_FULL_VALIDATE_EVERY_OVERRIDE must be a positive integer' in source
+    assert 'AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE' in source
+    assert '++run_provenance.validation_every_n_steps=$AF_FULL_VALIDATE_EVERY' in source
+    assert source.index('*) die "AF_EXPERIMENT must select an explicitly approved Action Flow config"') < source.index('AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE')
 
 
 def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():

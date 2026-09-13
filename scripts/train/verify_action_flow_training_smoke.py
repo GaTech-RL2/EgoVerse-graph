@@ -913,6 +913,11 @@ def _canonical_json_sha256(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _json_equivalent(left: Any, right: Any) -> bool:
+    """Compare JSON-shaped metadata independent of tuple/list containers."""
+    return _canonical_json_sha256(left) == _canonical_json_sha256(right)
+
+
 def _validate_gradient_route_manifest(
     manifest: Any,
     named_parameters: Sequence[tuple[str, torch.nn.Parameter]],
@@ -1419,6 +1424,7 @@ def _validate_history(
     reconstruction_weight: float = 1.0,
     flow_weight: float = 1.0,
     expect_reconstruction_warmup: bool = False,
+    expect_native_diagnostics: bool = True,
     method: str = LEGACY_METHOD,
 ) -> dict[str, Any]:
     component_names = (
@@ -1626,6 +1632,8 @@ def _validate_history(
         diagnostics = ()
     elif method == GRAPH_METHOD:
         diagnostics = tuple(name for name in diagnostics if "/Alignment/CK" not in name)
+    if not expect_native_diagnostics:
+        diagnostics = tuple(name for name in diagnostics if "NativeMSE" not in name)
     diagnostics = (
         *diagnostics,
         *(
@@ -1741,6 +1749,22 @@ def _target_tensor_sha256(value: torch.Tensor) -> str:
     return digest.hexdigest()
 
 
+def _expected_energy_distance(identities: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the exact serialized distance contract for the active embodiment."""
+    if identities.get(
+        "energy_score_distance", USOCKET_ENERGY_DISTANCE_CONFIG
+    ) is not None:
+        return usocket_energy_distance_metadata(USOCKET_ENERGY_DISTANCE_CONFIG)
+    return {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        # PlanarActionEval canonicalizes configured blocks to tuples before
+        # saving the torch artifact.  Match that representation exactly so a
+        # genuine contract difference still fails closed.
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+        "space": "normalized_action_chunk",
+    }
+
+
 def _validate_artifacts(
     *,
     config: DictConfig,
@@ -1768,9 +1792,10 @@ def _validate_artifacts(
         energy.get("seed_bank_sha256") == seed_hash,
         "EnergyScore seed-bank hash mismatch",
     )
-    expected_distance = usocket_energy_distance_metadata(USOCKET_ENERGY_DISTANCE_CONFIG)
+    expected_distance = _expected_energy_distance(identities)
     _require(
-        energy.get("distance") == expected_distance, "EnergyScore distance differs"
+        _json_equivalent(energy.get("distance"), expected_distance),
+        "EnergyScore distance differs",
     )
     _require(
         set(energy.get("domains", {})) == {SOURCE_LABEL},
@@ -1898,7 +1923,7 @@ def _validate_artifacts(
         "typed EnergyScore dataset-content identity differs",
     )
     _require(
-        energy_identity.get("distance") == expected_distance,
+        _json_equivalent(energy_identity.get("distance"), expected_distance),
         "typed EnergyScore identity distance differs",
     )
     _require(
@@ -2274,6 +2299,14 @@ def verify_smoke(
         reconstruction_weight=APPROVED_EXPERIMENTS[experiment][1],
         flow_weight=APPROVED_EXPERIMENTS[experiment][2],
         expect_reconstruction_warmup=expect_reconstruction_warmup,
+        expect_native_diagnostics=(
+            OmegaConf.select(
+                config,
+                "evaluation.action_flow_diagnostics.native_error",
+                default=None,
+            )
+            is not None
+        ),
         method=method,
     )
     artifacts = _validate_artifacts(

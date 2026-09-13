@@ -157,11 +157,15 @@ SCALED_H512_ROWS = {
         "config_name": "action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_208_924,
         "sources": {"pushshapes_sim_u_socket": 4},
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_210_206,
         "sources": {"pushshapes_sim_chain_gripper": 6},
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
@@ -170,6 +174,32 @@ SCALED_H512_ROWS = {
             "pushshapes_sim_u_socket": 4,
             "pushshapes_sim_chain_gripper": 6,
         },
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 132_660_944,
+        "sources": {"pushshapes_sim_u_socket": 4},
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 132_661_970,
+        "sources": {"pushshapes_sim_chain_gripper": 6},
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 186_695_814,
+        "sources": {
+            "pushshapes_sim_u_socket": 4,
+            "pushshapes_sim_chain_gripper": 6,
+        },
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
     },
 }
 SCALED_H512_STAGE_TYPES = (
@@ -989,6 +1019,35 @@ def _validate_topology(
     }
 
 
+def _validate_unite_lr_schedule(config: DictConfig) -> dict[str, float]:
+    """Validate the released two-stage shape while allowing an explicit LR pair."""
+
+    optimizer = config.model.optimizer
+    scheduler = config.model.scheduler
+    max_lr = float(optimizer.lr)
+    min_lr = float(scheduler.final_lr)
+    _require(math.isfinite(max_lr) and max_lr > 0.0, "optimizer LR must be finite and positive")
+    _require(math.isfinite(min_lr) and min_lr > 0.0, "scheduler minimum LR must be finite and positive")
+    _require(min_lr <= max_lr, "scheduler minimum LR exceeds maximum LR")
+    _float(scheduler.base_lr_1, max_lr, "scheduler base LR 1")
+    _float(scheduler.base_lr_2, min_lr, "scheduler base LR 2")
+
+    declared_max = OmegaConf.select(
+        config, "run_provenance.optimizer_schedule.max_lr", default=None
+    )
+    declared_min = OmegaConf.select(
+        config, "run_provenance.optimizer_schedule.min_lr", default=None
+    )
+    _require(
+        (declared_max is None) == (declared_min is None),
+        "optimizer-schedule provenance must declare both max and min LR",
+    )
+    if declared_max is not None:
+        _float(declared_max, max_lr, "provenance maximum LR")
+        _float(declared_min, min_lr, "provenance minimum LR")
+    return {"max_lr": max_lr, "min_lr": min_lr}
+
+
 def _validate_optimization(config: DictConfig) -> dict[str, Any]:
     optimizer = config.model.optimizer
     if action_flow_method(config) == STOPGRAD_UNITE_METHOD:
@@ -998,7 +1057,6 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
             "optimizer target",
         )
         _exact(bool(optimizer._partial_), True, "optimizer partial construction")
-        _float(optimizer.lr, 1.0e-4, "learning rate")
         _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
         _float(optimizer.eps, 1.0e-6, "Adam epsilon")
         _float(optimizer.adamw_weight_decay, 0.0, "AdamW weight decay")
@@ -1020,9 +1078,7 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
             ("decay_end_2_steps", 1_200_000),
         ):
             _exact(int(scheduler[key]), expected, f"scheduler {key}")
-        _float(scheduler.base_lr_1, 1.0e-4, "scheduler base LR 1")
-        _float(scheduler.base_lr_2, 5.0e-5, "scheduler base LR 2")
-        _float(scheduler.final_lr, 5.0e-5, "scheduler final LR")
+        lr_schedule = _validate_unite_lr_schedule(config)
         trainer = config.trainer
         _exact(int(trainer.max_steps), 150_000, "trainer maximum steps")
         validation_every = (
@@ -1044,9 +1100,9 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
             "checkpoint_every_steps": 30_000,
             "gradient_clip_norm": 3.0,
             "max_steps": 150_000,
-            "optimizer": {"target": str(optimizer._target_), "lr": 1.0e-4},
+            "optimizer": {"target": str(optimizer._target_), "lr": lr_schedule["max_lr"]},
             "precision": str(trainer.precision),
-            "scheduler": {"target": str(scheduler._target_)},
+            "scheduler": {"target": str(scheduler._target_), **lr_schedule},
             "validation_every_steps": validation_every,
         }
     scaled_muon = str(config.name) == SCALED_MUON_CONFIG_NAME
@@ -1715,6 +1771,8 @@ def _validate_scaled_h512_config(
 
     row = SCALED_H512_ROWS[experiment]
     sources = dict(row["sources"])
+    codec_hidden_dim, codec_depth, codec_num_heads = row["codec"]
+    denoiser_hidden_dim, denoiser_depth, denoiser_num_heads = row["denoiser"]
     routed = len(sources) == 2
     resolved, resolved_hash = resolved_config_payload(config)
     _exact(str(config.name), row["config_name"], "scaled config name")
@@ -1762,6 +1820,12 @@ def _validate_scaled_h512_config(
         ("latent_dim", 16),
         ("condition_dim", 128),
         ("hidden_dim", 512),
+        ("codec_hidden_dim", codec_hidden_dim),
+        ("codec_depth", codec_depth),
+        ("codec_num_heads", codec_num_heads),
+        ("denoiser_hidden_dim", denoiser_hidden_dim),
+        ("denoiser_depth", denoiser_depth),
+        ("denoiser_num_heads", denoiser_num_heads),
         ("flow_samples_per_content", 14),
         ("flow_mini_batch", 14),
         ("num_inference_steps", 50),
@@ -1878,18 +1942,30 @@ def _validate_scaled_h512_config(
             encoder.backbone is not field.backbone,
             f"{source} encoder shares field backbone",
         )
-        for label, backbone in (
-            (f"{source} encoder", encoder.backbone),
-            ("shared field", field.backbone),
+        for label, backbone, width, depth, heads in (
+            (
+                f"{source} encoder",
+                encoder.backbone,
+                codec_hidden_dim,
+                codec_depth,
+                codec_num_heads,
+            ),
+            (
+                "shared field",
+                field.backbone,
+                denoiser_hidden_dim,
+                denoiser_depth,
+                denoiser_num_heads,
+            ),
         ):
             for key, expected in (
                 ("input_dim", 16),
                 ("output_dim", 16),
                 ("horizon", 8),
                 ("condition_dim", 128),
-                ("hidden_dim", 512),
-                ("depth", 14),
-                ("num_heads", 16),
+                ("hidden_dim", width),
+                ("depth", depth),
+                ("num_heads", heads),
                 ("in_context_start", 4),
                 ("in_context_len", 32),
             ):
@@ -1899,9 +1975,9 @@ def _validate_scaled_h512_config(
             ("latent_dim", 16),
             ("num_latent_tokens", 8),
             ("action_horizon", 16),
-            ("hidden_dim", 512),
-            ("depth", 14),
-            ("num_heads", 16),
+            ("hidden_dim", codec_hidden_dim),
+            ("depth", codec_depth),
+            ("num_heads", codec_num_heads),
         ):
             _exact(getattr(decoder, key), expected, f"{source} decoder {key}")
         _exact(bool(decoder.gradient_checkpointing), True, f"{source} decoder checkpointing")
@@ -1934,7 +2010,6 @@ def _validate_scaled_h512_config(
         "optimizer target",
     )
     _exact(bool(optimizer._partial_), True, "optimizer partial")
-    _float(optimizer.lr, 1.0e-4, "optimizer learning rate")
     _exact([float(value) for value in optimizer.betas], [0.9, 0.999], "Adam betas")
     _float(optimizer.eps, 1.0e-6, "Adam epsilon")
     _float(optimizer.adamw_weight_decay, 0.0, "AdamW weight decay")
@@ -1954,11 +2029,21 @@ def _validate_scaled_h512_config(
         ("decay_end_2_steps", 1_200_000),
     ):
         _exact(int(scheduler[key]), expected, f"scheduler {key}")
-    _float(scheduler.base_lr_1, 1.0e-4, "scheduler base LR 1")
-    _float(scheduler.base_lr_2, 5.0e-5, "scheduler base LR 2")
-    _float(scheduler.final_lr, 5.0e-5, "scheduler final LR")
+    lr_schedule = _validate_unite_lr_schedule(config)
     _exact(int(config.trainer.max_steps), 150_000, "maximum optimizer steps")
-    _exact(int(config.trainer.val_check_interval), 10_000, "validation cadence")
+    validation_cadence = int(config.trainer.val_check_interval)
+    _require(validation_cadence in {10_000, 30_000}, "approved validation cadence")
+    _exact(
+        int(
+            OmegaConf.select(
+                config,
+                "run_provenance.validation_every_n_steps",
+                default=validation_cadence,
+            )
+        ),
+        validation_cadence,
+        "validation cadence provenance",
+    )
     _exact(int(config.trainer.limit_val_batches), 8, "validation batch limit")
     _require(str(config.trainer.precision) in {"bf16", "bf16-mixed"}, "BF16 precision")
     _exact(
@@ -1973,9 +2058,21 @@ def _validate_scaled_h512_config(
     configured_sources = tuple(config.data.train_datasets)
     _exact(configured_sources, tuple(sources), "training source order")
     _exact(tuple(config.data.valid_datasets), tuple(sources), "validation sources")
+    clean_chain_4918 = (
+        int(
+            OmegaConf.select(
+                config,
+                "run_provenance.clean_chain_episode_count",
+                default=4_920,
+            )
+        )
+        == 4_918
+    )
     counts_by_source = {
         "pushshapes_sim_u_socket": (2_999, 2_970, 29),
-        "pushshapes_sim_chain_gripper": (4_920, 4_871, 49),
+        "pushshapes_sim_chain_gripper": (
+            (4_918, 4_869, 49) if clean_chain_4918 else (4_920, 4_871, 49)
+        ),
     }
     names_by_source = {
         "pushshapes_sim_u_socket": (
@@ -1983,8 +2080,15 @@ def _validate_scaled_h512_config(
             "b34193949ac8d76ea27c6f5c307229798064d16367d7ce2efac00a48f63bfb93",
         ),
         "pushshapes_sim_chain_gripper": (
-            "d862d162202ce830840f19a78fbd18895e6e7c444732beab7b7f65c517560a56",
-            "d06278a1e59f458cff7e7623b3f69fae8edc13692e533424e8c9a57f162f4667",
+            (
+                "fdde9546fd621d0e8e9f53eebb6257e54baf9160fb9e0a2e7cea4dc8e3d60c94",
+                "e3f6625f932675c9352c969bc44b38009a4db9fba42d827e8633b9964bc05275",
+            )
+            if clean_chain_4918
+            else (
+                "d862d162202ce830840f19a78fbd18895e6e7c444732beab7b7f65c517560a56",
+                "d06278a1e59f458cff7e7623b3f69fae8edc13692e533424e8c9a57f162f4667",
+            )
         ),
     }
     repository_root = Path(config_root).resolve().parents[1]
@@ -2113,11 +2217,11 @@ def _validate_scaled_h512_config(
     )
     optimization = {
         "max_steps": 150_000,
-        "validation_every_steps": 10_000,
+        "validation_every_steps": validation_cadence,
         "checkpoint_every_steps": 30_000,
         "precision": str(config.trainer.precision),
-        "optimizer": {"target": str(optimizer._target_), "lr": 1.0e-4},
-        "scheduler": {"target": str(scheduler._target_)},
+        "optimizer": {"target": str(optimizer._target_), "lr": lr_schedule["max_lr"]},
+        "scheduler": {"target": str(scheduler._target_), **lr_schedule},
         "parameter_groups": {
             "adamw_parameters": sum(parameter.numel() for _, parameter in adamw_named),
             "muon_parameters": sum(parameter.numel() for _, parameter in muon_named),

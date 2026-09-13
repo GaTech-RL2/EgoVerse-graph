@@ -84,6 +84,8 @@ AF_PRECISION=${AF_PRECISION:-bf16}
 AF_SEED=${AF_SEED:-42}
 AF_EXPECTED_GPU_CONSTRAINT=${AF_EXPECTED_GPU_CONSTRAINT:-H100|H200}
 AF_STORAGE_SAFETY_RESERVE_BYTES=${AF_STORAGE_SAFETY_RESERVE_BYTES:-2147483648}
+AF_SCHEDULE_MAX_LR=${AF_SCHEDULE_MAX_LR:-1e-4}
+AF_SCHEDULE_MIN_LR=${AF_SCHEDULE_MIN_LR:-5e-5}
 RESTART_COUNT=${SLURM_RESTART_COUNT:-0}
 LAUNCHER=${BASH_SOURCE[0]}
 CANONICAL_CONTENT_MANIFEST_SHA256=a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4a878afb20b39733761
@@ -92,11 +94,19 @@ CHAIN_CONTENT_MANIFEST_SHA256=65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726
 CHAIN_DATASET_CONTENT_AGGREGATE_SHA256=2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb
 CHAIN_4920_CONTENT_MANIFEST_SHA256=d47337ec051351c37def6078ce96a9d4187d44ca6d2d89867e716aea8b5573a9
 CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256=241ef7cab22303088c46ef1dca4379c4c4932409b494fc88db413fcb687e1afe
+CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256=80e88dc9d4daba6d3fce650cc47a327b9f4e8f48bc48ba61ef4c6f2751c146d2
+CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256=1b7dca2bc60a125095bd50a05bcf923735f5c4062e5373a7fa0f47e13ba99f99
+CLEAN_CHAIN_4918_SPLIT_MANIFEST_SHA256=aa7ea8e8731019479d82836c6d5ecac921d911c7ade66b665dcd65ee1f962456
+CLEAN_CHAIN_4918_SCHEMA_VALIDATION_SHA256=f1b8feaabc694fe48b04adaaffa539a158b80e1ff9d27edef79ca48a9c084998
+CLEAN_CHAIN_4918_EPISODE_NAMES_SHA256=6ef23e95d85c916ef302b27bfc16891f110afa29de506f9765ca2004c8746589
+CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256=fdde9546fd621d0e8e9f53eebb6257e54baf9160fb9e0a2e7cea4dc8e3d60c94
+CLEAN_CHAIN_4918_VALID_NAMES_SHA256=e3f6625f932675c9352c969bc44b38009a4db9fba42d827e8633b9964bc05275
 
 case "$AF_LAUNCH_MODE" in
   preflight|run) ;;
   *) die "AF_LAUNCH_MODE must be preflight or run" ;;
 esac
+
 # The portable launcher carries a ten-minute USR1 checkpoint warning for long
 # GPU runs.  A CPU preflight has no requeue runner yet, so inheriting that
 # warning would terminate a legitimate normalization pass before it can write
@@ -125,6 +135,7 @@ AF_EXPECTED_PARAMETER_COUNT=97956100
 AF_COTRAIN=false
 AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
+AF_CLEAN_CHAIN_4918=false
 case "$AF_EXPERIMENT" in
   pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -156,8 +167,8 @@ case "$AF_EXPERIMENT" in
     AF_ACTION_DIM=6
     AF_EXPECTED_PARAMETER_COUNT=190210206
     AF_SCALED_H512=true
-    AF_FROZEN_CHAIN_4920=true
-    AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,frozen4920,action-flow,unite-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    AF_CLEAN_CHAIN_4918=true
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,clean4918,action-flow,unite-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -173,9 +184,60 @@ case "$AF_EXPERIMENT" in
     AF_EXPECTED_PARAMETER_COUNT=301792030
     AF_COTRAIN=true
     AF_SCALED_H512=true
-    AF_FROZEN_CHAIN_4920=true
+    AF_CLEAN_CHAIN_4918=true
     AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
-    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,points6,frozen4920,cotrain,action-flow,private-codecs,shared-field,unite-h512d14h16,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,points6,clean4918,cotrain,action-flow,private-codecs,shared-field,unite-h512d14h16,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=30000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_EXPECTED_PARAMETER_COUNT=132660944
+    AF_SCALED_H512=true
+    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,codec-h384d12h12,denoiser-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=30000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_SOURCE=pushshapes_sim_chain_gripper
+    AF_ACTION_DIM=6
+    AF_EXPECTED_PARAMETER_COUNT=132661970
+    AF_SCALED_H512=true
+    AF_CLEAN_CHAIN_4918=true
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,clean4918,action-flow,codec-h384d12h12,denoiser-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=30000
+    AF_FULL_CHECKPOINT_EVERY=30000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_EXPECTED_PARAMETER_COUNT=186695814
+    AF_COTRAIN=true
+    AF_SCALED_H512=true
+    AF_CLEAN_CHAIN_4918=true
+    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,points6,clean4918,cotrain,action-flow,private-codecs-h384d12h12,shared-field-h512d14h16,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -367,6 +429,12 @@ case "$AF_EXPERIMENT" in
   *) die "AF_EXPERIMENT must select an explicitly approved Action Flow config" ;;
 esac
 
+if test -n "${AF_FULL_VALIDATE_EVERY_OVERRIDE:-}"; then
+  [[ "$AF_FULL_VALIDATE_EVERY_OVERRIDE" =~ ^[1-9][0-9]*$ ]] || \
+    die "AF_FULL_VALIDATE_EVERY_OVERRIDE must be a positive integer"
+  AF_FULL_VALIDATE_EVERY=$AF_FULL_VALIDATE_EVERY_OVERRIDE
+fi
+
 if test "$AF_SCALED_H512" = true; then
   AF_SMOKE_VERIFIER=$AF_REPO/scripts/train/verify_scaled_action_flow_training_smoke.py
 fi
@@ -381,9 +449,50 @@ if test "$AF_COTRAIN" = true; then
   done
 fi
 
-if test -z "$AF_SPLIT_MANIFEST" && test "$AF_FROZEN_CHAIN_4920" = true \
+if test "$AF_CLEAN_CHAIN_4918" = true; then
+  if test "$AF_COTRAIN" = true; then
+    required AF_SECOND_SCHEMA_VALIDATION
+    CLEAN_SCHEMA_VALIDATION=$AF_SECOND_SCHEMA_VALIDATION
+    CLEAN_DATASET_DIR=$AF_SECOND_DATASET_DIR
+    CLEAN_SPLIT_SHA256=$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256
+    CLEAN_CONTENT_SHA256=$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256
+    CLEAN_AGGREGATE_SHA256=$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256
+  else
+    required AF_SCHEMA_VALIDATION
+    CLEAN_SCHEMA_VALIDATION=$AF_SCHEMA_VALIDATION
+    CLEAN_DATASET_DIR=$AF_DATASET_DIR
+    CLEAN_SPLIT_SHA256=$AF_EXPECTED_SPLIT_MANIFEST_SHA256
+    CLEAN_CONTENT_SHA256=$AF_EXPECTED_CONTENT_MANIFEST_SHA256
+    CLEAN_AGGREGATE_SHA256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256
+  fi
+  absolute_path CLEAN_SCHEMA_VALIDATION "$CLEAN_SCHEMA_VALIDATION"
+  test -s "$CLEAN_SCHEMA_VALIDATION" || die "clean ChainGripper schema validation is unavailable"
+  test "$(sha256 "$CLEAN_SCHEMA_VALIDATION")" = "$CLEAN_CHAIN_4918_SCHEMA_VALIDATION_SHA256" || \
+    die "clean ChainGripper schema validation SHA-256 mismatch"
+  test "$CLEAN_SPLIT_SHA256" = "$CLEAN_CHAIN_4918_SPLIT_MANIFEST_SHA256" || \
+    die "split manifest is not the clean 4,918-episode ChainGripper split"
+  test "$CLEAN_CONTENT_SHA256" = "$CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256" || \
+    die "content manifest is not the clean 4,918-episode ChainGripper manifest"
+  test "$CLEAN_AGGREGATE_SHA256" = "$CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256" || \
+    die "dataset aggregate is not the clean 4,918-episode ChainGripper content"
+  "$AF_PYTHON" - "$CLEAN_SCHEMA_VALIDATION" "$CLEAN_DATASET_DIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text())
+assert payload["status"] == "PASS"
+assert payload["episode_count"] == 4918
+assert payload["validated_episode_count"] == 4918
+assert not payload["failures"]
+assert Path(payload["dataset_root"]).resolve() == Path(sys.argv[2]).resolve()
+PY
+fi
+
+if test -z "$AF_SPLIT_MANIFEST" \
+  && { test "$AF_FROZEN_CHAIN_4920" = true || test "$AF_CLEAN_CHAIN_4918" = true; } \
   && test "$AF_COTRAIN" = false; then
-  die "AF_SPLIT_MANIFEST is required for the frozen 4,920-episode ChainGripper row"
+  die "AF_SPLIT_MANIFEST is required for the selected expanded ChainGripper corpus"
 elif test -z "$AF_SPLIT_MANIFEST"; then
   if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
     AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
@@ -411,7 +520,12 @@ fi
 [[ "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
 if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
-  if test "$AF_FROZEN_CHAIN_4920" = true; then
+  if test "$AF_CLEAN_CHAIN_4918" = true; then
+    test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256" || \
+      die "content manifest is not the clean 4,918-episode ChainGripper manifest"
+    test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256" || \
+      die "dataset aggregate is not the clean 4,918-episode ChainGripper content"
+  elif test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "content manifest is not the frozen 4,920-episode ChainGripper manifest"
     test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -435,7 +549,12 @@ if test "$AF_COTRAIN" = true; then
     die "AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
   [[ "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
     die "AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-  if test "$AF_FROZEN_CHAIN_4920" = true; then
+  if test "$AF_CLEAN_CHAIN_4918" = true; then
+    test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CLEAN_CHAIN_4918_CONTENT_MANIFEST_SHA256" || \
+      die "second content manifest is not the clean 4,918-episode ChainGripper manifest"
+    test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256" || \
+      die "second dataset aggregate is not the clean 4,918-episode ChainGripper content"
+  elif test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "second content manifest is not the frozen 4,920-episode ChainGripper manifest"
     test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -559,6 +678,15 @@ export AF_EXTRA_PYTHONPATH
 export AF_REPO AF_PYTHON AF_EXPERIMENT AF_OUTPUT_DIR AF_DATASET_DIR
 export AF_WANDB_ENTITY AF_WANDB_PROJECT AF_WANDB_RUN_ID AF_WANDB_NAME
 export AF_WANDB_GROUP AF_WANDB_TAGS
+"$AF_PYTHON" - "$AF_SCHEDULE_MAX_LR" "$AF_SCHEDULE_MIN_LR" <<'PY'
+import math
+import sys
+
+max_lr, min_lr = map(float, sys.argv[1:])
+assert math.isfinite(max_lr) and max_lr > 0.0
+assert math.isfinite(min_lr) and min_lr > 0.0
+assert min_lr <= max_lr
+PY
 export ICE_REQUIRE_LR_SCHEDULERS=1
 export ICE_EXPECTED_SOURCE_COMMIT=$AF_EXPECTED_HEAD
 export ICE_EXPECTED_RUN_ID=$AF_WANDB_RUN_ID
@@ -666,7 +794,19 @@ BASE_OVERRIDES=(
   "++run_provenance.content_manifest_path=$AF_CONTENT_MANIFEST"
   "++run_provenance.content_manifest_sha256=$AF_EXPECTED_CONTENT_MANIFEST_SHA256"
   "++run_provenance.dataset_content_aggregate_sha256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256"
+  "++run_provenance.validation_every_n_steps=$AF_FULL_VALIDATE_EVERY"
 )
+
+if test "$AF_METHOD" = latent_fm_stopgrad_unite; then
+  BASE_OVERRIDES+=(
+    "model.optimizer.lr=$AF_SCHEDULE_MAX_LR"
+    "model.scheduler.base_lr_1=$AF_SCHEDULE_MAX_LR"
+    "model.scheduler.base_lr_2=$AF_SCHEDULE_MIN_LR"
+    "model.scheduler.final_lr=$AF_SCHEDULE_MIN_LR"
+    "++run_provenance.optimizer_schedule.max_lr=$AF_SCHEDULE_MAX_LR"
+    "++run_provenance.optimizer_schedule.min_lr=$AF_SCHEDULE_MIN_LR"
+  )
+fi
 
 if test "$AF_COTRAIN" = true; then
   BASE_OVERRIDES+=(
@@ -682,6 +822,27 @@ if test "$AF_COTRAIN" = true; then
     "++run_provenance.content_manifests.$AF_SECOND_SOURCE.path=$AF_SECOND_CONTENT_MANIFEST"
     "++run_provenance.content_manifests.$AF_SECOND_SOURCE.manifest_sha256=$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256"
     "++run_provenance.content_manifests.$AF_SECOND_SOURCE.aggregate_sha256=$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256"
+  )
+fi
+if test "$AF_CLEAN_CHAIN_4918" = true; then
+  if test "$AF_COTRAIN" = true; then
+    CLEAN_SOURCE=$AF_SECOND_SOURCE
+  else
+    CLEAN_SOURCE=$AF_SOURCE
+  fi
+  BASE_OVERRIDES+=(
+    "data.train_datasets.$CLEAN_SOURCE.resolver.expected_episode_count=4918"
+    "data.valid_datasets.$CLEAN_SOURCE.resolver.expected_episode_count=4918"
+    "data.train_datasets.$CLEAN_SOURCE.expected_train_episode_count=4869"
+    "data.valid_datasets.$CLEAN_SOURCE.expected_train_episode_count=4869"
+    "data.train_datasets.$CLEAN_SOURCE.expected_train_episode_names_sha256=$CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256"
+    "data.valid_datasets.$CLEAN_SOURCE.expected_train_episode_names_sha256=$CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256"
+    "data.train_datasets.$CLEAN_SOURCE.expected_valid_episode_count=49"
+    "data.valid_datasets.$CLEAN_SOURCE.expected_valid_episode_count=49"
+    "data.train_datasets.$CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
+    "data.valid_datasets.$CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
+    "++run_provenance.clean_chain_episode_count=4918"
+    "++run_provenance.clean_chain_inventory_names_sha256=$CLEAN_CHAIN_4918_EPISODE_NAMES_SHA256"
   )
 fi
 if test "$AF_SCALED_H512" = true; then
@@ -837,6 +998,16 @@ PY
       --config-root "$AF_REPO/egomimic/hydra_configs"
       --output "$AF_OUTPUT_DIR/action_flow_pair_preflight.json"
     )
+    if test "$AF_METHOD" = latent_fm_stopgrad_unite; then
+      CONFIG_VALIDATOR_ARGS+=(
+        --override "model.optimizer.lr=$AF_SCHEDULE_MAX_LR"
+        --override "model.scheduler.base_lr_1=$AF_SCHEDULE_MAX_LR"
+        --override "model.scheduler.base_lr_2=$AF_SCHEDULE_MIN_LR"
+        --override "model.scheduler.final_lr=$AF_SCHEDULE_MIN_LR"
+        --override "++run_provenance.optimizer_schedule.max_lr=$AF_SCHEDULE_MAX_LR"
+        --override "++run_provenance.optimizer_schedule.min_lr=$AF_SCHEDULE_MIN_LR"
+      )
+    fi
     if test "$AF_SCALED_H512" = true; then
       CONFIG_VALIDATOR_ARGS+=(
         --override "data.train_datasets.$AF_SOURCE.resolver.folder_path=$AF_DATASET_DIR"
@@ -860,6 +1031,27 @@ PY
           --override "++run_provenance.content_manifests.$AF_SECOND_SOURCE.path=$AF_SECOND_CONTENT_MANIFEST"
           --override "++run_provenance.content_manifests.$AF_SECOND_SOURCE.manifest_sha256=$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256"
           --override "++run_provenance.content_manifests.$AF_SECOND_SOURCE.aggregate_sha256=$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256"
+        )
+      fi
+      if test "$AF_CLEAN_CHAIN_4918" = true; then
+        if test "$AF_COTRAIN" = true; then
+          CONFIG_VALIDATOR_CLEAN_SOURCE=$AF_SECOND_SOURCE
+        else
+          CONFIG_VALIDATOR_CLEAN_SOURCE=$AF_SOURCE
+        fi
+        CONFIG_VALIDATOR_ARGS+=(
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.resolver.expected_episode_count=4918"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.resolver.expected_episode_count=4918"
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_count=4869"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_count=4869"
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_names_sha256=$CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_train_episode_names_sha256=$CLEAN_CHAIN_4918_TRAIN_NAMES_SHA256"
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_count=49"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_count=49"
+          --override "data.train_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
+          --override "data.valid_datasets.$CONFIG_VALIDATOR_CLEAN_SOURCE.expected_valid_episode_names_sha256=$CLEAN_CHAIN_4918_VALID_NAMES_SHA256"
+          --override "++run_provenance.clean_chain_episode_count=4918"
+          --override "++run_provenance.clean_chain_inventory_names_sha256=$CLEAN_CHAIN_4918_EPISODE_NAMES_SHA256"
         )
       fi
     fi
@@ -1187,7 +1379,8 @@ if test "$AF_RUN_KIND" = full; then
     "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" \
     "${AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256:-}" \
     "${AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256:-}" \
-    "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" <<'PY'
+    "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" \
+    "$AF_SCHEDULE_MAX_LR" "$AF_SCHEDULE_MIN_LR" <<'PY'
 import json
 import sys
 
@@ -1206,6 +1399,8 @@ import sys
     second_split_sha,
     second_content_sha,
     second_content_aggregate_sha,
+    schedule_max_lr,
+    schedule_min_lr,
 ) = sys.argv[1:]
 payload = json.load(open(path))
 assert payload["schema_version"] == 1 and payload["status"] == "PASS"
@@ -1222,6 +1417,10 @@ assert payload["checkpoint"]["file_size_bytes"] > 0
 assert payload["checkpoint"]["gradient_routes"]["manifest_sha256"]
 if scaled_h512 == "true":
     assert payload["checkpoint"]["parameter_count"] == int(expected_parameter_count)
+    assert payload["optimization"] == {
+        "max_lr": float(schedule_max_lr),
+        "min_lr": float(schedule_min_lr),
+    }
     assert payload["artifacts"]["energy_score"]["sha256"]
     assert payload["artifacts"]["action_flow_diagnostics"]["sha256"]
     if cotrain == "true":
@@ -1309,7 +1508,14 @@ assert current["installed_distributions"]["canonical_sha256"] == expected[
 assert current["core_distribution_versions"] == expected[
     "core_distribution_versions"
 ]
-assert current["dependency_inputs"] == expected["dependency_inputs"]
+def canonical_dependency_inputs(items):
+    return sorted(
+        (pathlib.Path(item["path"]).name, item["sha256"], int(item["size_bytes"]))
+        for item in items
+    )
+
+assert canonical_dependency_inputs(current["dependency_inputs"]) == \
+    canonical_dependency_inputs(expected["dependency_inputs"])
 assert current["source"]["head"] == preflight["source"]["head"]
 assert current["source"]["tree"] == expected["source_tree"]
 expected_torch = dict(expected["torch_runtime"])
@@ -1362,7 +1568,8 @@ export SRUN
   "$AF_FULL_VALIDATE_EVERY" "$AF_FULL_CHECKPOINT_EVERY" \
   "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" "$AF_SOURCE" \
   "$AF_ACTION_DIM" "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" "$AF_SCALED_H512" \
-  "${AF_SECOND_SOURCE:-}" "${AF_SECOND_DATASET_DIR:-}" <<'PY'
+  "${AF_SECOND_SOURCE:-}" "${AF_SECOND_DATASET_DIR:-}" \
+  "$AF_SCHEDULE_MAX_LR" "$AF_SCHEDULE_MIN_LR" <<'PY'
 import math
 import pathlib
 import sys
@@ -1402,6 +1609,8 @@ from omegaconf import OmegaConf
     scaled_h512,
     second_source,
     second_dataset,
+    schedule_max_lr,
+    schedule_min_lr,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 reconstruction = float(reconstruction)
@@ -1417,6 +1626,8 @@ action_dim = int(action_dim)
 expected_parameter_count = int(expected_parameter_count)
 cotrain = cotrain == "true"
 scaled_h512 = scaled_h512 == "true"
+schedule_max_lr = float(schedule_max_lr)
+schedule_min_lr = float(schedule_min_lr)
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -1503,7 +1714,7 @@ if unite_recipe:
     assert optimizer._target_ == (
         "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
     )
-    assert optimizer._partial_ is True and optimizer.lr == 1e-4
+    assert optimizer._partial_ is True and math.isclose(optimizer.lr, schedule_max_lr)
     assert list(optimizer.betas) == [0.9, 0.999] and optimizer.eps == 1e-6
     assert optimizer.adamw_weight_decay == optimizer.muon_weight_decay == 0.0
     assert optimizer.muon_momentum == 0.95
@@ -1516,8 +1727,11 @@ if unite_recipe:
     assert scheduler.decay_start_1_steps == 12000
     assert scheduler.decay_end_1_steps == 20000
     assert scheduler.decay_start_2_steps == scheduler.decay_end_2_steps == 1200000
-    assert scheduler.base_lr_1 == 1e-4
-    assert scheduler.base_lr_2 == scheduler.final_lr == 5e-5
+    assert math.isclose(scheduler.base_lr_1, schedule_max_lr)
+    assert math.isclose(scheduler.base_lr_2, schedule_min_lr)
+    assert math.isclose(scheduler.final_lr, schedule_min_lr)
+    assert math.isclose(cfg.run_provenance.optimizer_schedule.max_lr, schedule_max_lr)
+    assert math.isclose(cfg.run_provenance.optimizer_schedule.min_lr, schedule_min_lr)
 elif scaled_muon:
     assert optimizer._target_ == (
         "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
@@ -1616,12 +1830,16 @@ if scaled_h512:
         if cotrain
         else (encoder_stage.encoder, decoder_stage.decoder)
     ):
-        width = (
-            module.backbone.hidden_dim
-            if hasattr(module, "backbone")
-            else module.hidden_dim
+        architecture = module.backbone if hasattr(module, "backbone") else module
+        assert (
+            architecture.hidden_dim,
+            architecture.depth,
+            architecture.num_heads,
+        ) == (
+            cfg.model.codec_hidden_dim,
+            cfg.model.codec_depth,
+            cfg.model.codec_num_heads,
         )
-        assert width == 512
 elif cotrain:
     stages = tuple(pipeline.pipeline.stages)
     assert tuple(stages[3].encoder) == (source, second_source)
@@ -1771,7 +1989,11 @@ if test "$AF_RUN_KIND" = smoke; then
   fi
   SCALED_SMOKE_ARGS=()
   if test "$AF_SCALED_H512" = true; then
-    SCALED_SMOKE_ARGS+=(--expected-parameter-count "$AF_EXPECTED_PARAMETER_COUNT")
+    SCALED_SMOKE_ARGS+=(
+      --expected-parameter-count "$AF_EXPECTED_PARAMETER_COUNT"
+      --expected-max-lr "$AF_SCHEDULE_MAX_LR"
+      --expected-min-lr "$AF_SCHEDULE_MIN_LR"
+    )
     if test "$AF_COTRAIN" = true; then
       SCALED_SMOKE_ARGS+=(
         --expected-second-split-sha256 "$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256"

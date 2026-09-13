@@ -1,0 +1,27 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42
+  - _self_
+
+name: action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42
+description: "U-Socket Action Flow with H384/D12/H12 private codec and H512/D14/H16 denoiser"
+
+model:
+  codec_hidden_dim: 384
+  codec_depth: 12
+  codec_num_heads: 12
+  denoiser_hidden_dim: 512
+  denoiser_depth: 14
+  denoiser_num_heads: 16
+
+trainer:
+  val_check_interval: 30000
+
+run_provenance:
+  architecture:
+    family: action_flow_private_codec_h384d12h12_denoiser_h512d14h16
+    tokenizer: UniteDiTBackbone_h384_d12_h12
+    denoiser: UniteDiTBackbone_h512_d14_h16
+    decoder: UniteActionDecoder_h384_d12_h12
+  validation:
+    interval_optimizer_steps: 30000

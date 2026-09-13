@@ -75,7 +75,7 @@ def _evaluator(tmp_path, **kwargs):
     )
 
 
-def _typed_evaluator(tmp_path):
+def _typed_evaluator(tmp_path, *, typed_distance=True):
     path, digest = _write_seed_bank(tmp_path)
     run_dir = tmp_path / "typed-run"
     config_path = run_dir / ".hydra" / "config.yaml"
@@ -101,7 +101,9 @@ def _typed_evaluator(tmp_path):
             "project": "pushshapes-action-flow",
             "run_id": "typed-energy-test",
         },
-        "distance_contract": USOCKET_ENERGY_DISTANCE_CONFIG,
+        "distance_contract": (
+            USOCKET_ENERGY_DISTANCE_CONFIG if typed_distance else None
+        ),
         "dataset_content": {
             "manifest_path": str(content_manifest_path),
             "manifest_sha256": hashlib.sha256(
@@ -117,8 +119,10 @@ def _typed_evaluator(tmp_path):
         artifact_root=str(run_dir / "energy"),
         semantic_blocks=((0, 2), (2, 4)),
         deterministic_seed=0,
-        native_decoder=USocketRotVecNativeDecoder(),
-        energy_score_distance=USOCKET_ENERGY_DISTANCE_CONFIG,
+        native_decoder=(USocketRotVecNativeDecoder() if typed_distance else None),
+        energy_score_distance=(
+            USOCKET_ENERGY_DISTANCE_CONFIG if typed_distance else None
+        ),
         energy_score_validation_view={
             "definition": "first_deterministic_validation_batch_per_rank",
             "split_manifest_sha256": split_hash,
@@ -377,6 +381,48 @@ def test_typed_usocket_energy_artifact_binds_full_metric_identity(tmp_path):
     assert artifact["identity"]["validation_conditions"] == {
         "pushshapes_sim_u_socket": domain["condition_ids"]
     }
+
+
+def test_generic_energy_artifact_with_full_provenance_uses_v2_identity(tmp_path):
+    evaluator, run_dir, _, _ = _typed_evaluator(tmp_path, typed_distance=False)
+    target = torch.zeros(2, 16, 4)
+    samples = target.unsqueeze(0).repeat(32, 1, 1, 1)
+    batch = _batch(target)
+    batch["validation/usocket"]["episode_hash"] = ["episode-a", "episode-b"]
+    batch["validation/usocket"]["frame_index"] = torch.tensor([3, 9])
+    evaluator.model = SimpleNamespace()
+    evaluator.trainer = SimpleNamespace(
+        current_epoch=0,
+        global_step=2,
+        global_rank=0,
+        precision="bf16-mixed",
+        lightning_module=SimpleNamespace(log_dict=lambda *_args, **_kwargs: None),
+    )
+    evaluator._seeded_predictions = lambda _batch: (
+        {"validation/usocket": samples},
+        {"validation/usocket": {"pred_action": samples[0]}},
+    )
+
+    evaluator.on_validation_step(batch, batch_idx=0)
+
+    artifact = torch.load(
+        run_dir / "energy/epoch-0-step-2/rank-0-batch-0.pt",
+        map_location="cpu",
+        weights_only=False,
+    )
+    domain = artifact["domains"]["pushshapes_sim_u_socket"]
+    assert artifact["schema_version"] == 2
+    assert artifact["identity"]["distance"] == {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4)),
+    }
+    assert [item["episode_hash"] for item in domain["condition_ids"]] == [
+        "episode-a",
+        "episode-b",
+    ]
+    assert "native_predictions" not in domain
+    assert "native_targets" not in domain
 
 
 def test_typed_usocket_energy_identity_rejects_mutated_content_manifest(tmp_path):

@@ -21,11 +21,15 @@ EXPERIMENTS = {
         "config_name": "action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_208_924,
         "sources": {"pushshapes_sim_u_socket": 4},
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_210_206,
         "sources": {"pushshapes_sim_chain_gripper": 6},
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
     },
     "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
@@ -34,6 +38,32 @@ EXPERIMENTS = {
             "pushshapes_sim_u_socket": 4,
             "pushshapes_sim_chain_gripper": 6,
         },
+        "codec": (512, 14, 16),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_usocket_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 132_660_944,
+        "sources": {"pushshapes_sim_u_socket": 4},
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_chain_points6_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 132_661_970,
+        "sources": {"pushshapes_sim_chain_gripper": 6},
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
+    },
+    "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42": {
+        "config_name": "action_flow_cotrain_uc_latent_fm_sg_unite_codec384d12h12_den512d14h16_sum14_cfg4_val30k_s42",
+        "parameter_count": 186_695_814,
+        "sources": {
+            "pushshapes_sim_u_socket": 4,
+            "pushshapes_sim_chain_gripper": 6,
+        },
+        "codec": (384, 12, 12),
+        "denoiser": (512, 14, 16),
     },
 }
 
@@ -234,7 +264,69 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(config.trainer.limit_val_batches == 1, "smoke must run one real validation batch")
     require(config.model.flow_samples_per_content == 14, "FM sample count mismatch")
     require(config.model.flow_mini_batch == 14, "FM mini-batch mismatch")
-    require(config.model.hidden_dim == 512, "model width mismatch")
+    require(args.expected_max_lr > 0.0, "expected maximum LR must be positive")
+    require(args.expected_min_lr > 0.0, "expected minimum LR must be positive")
+    require(
+        args.expected_min_lr <= args.expected_max_lr,
+        "expected minimum LR exceeds maximum LR",
+    )
+    require(
+        math.isclose(
+            float(config.model.optimizer.lr),
+            args.expected_max_lr,
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "optimizer maximum LR mismatch",
+    )
+    require(
+        math.isclose(
+            float(config.model.scheduler.base_lr_1),
+            args.expected_max_lr,
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "scheduler maximum LR mismatch",
+    )
+    for field in ("base_lr_2", "final_lr"):
+        require(
+            math.isclose(
+                float(config.model.scheduler[field]),
+                args.expected_min_lr,
+                rel_tol=0.0,
+                abs_tol=1e-15,
+            ),
+            f"scheduler minimum LR mismatch: {field}",
+        )
+    require(
+        math.isclose(
+            float(config.run_provenance.optimizer_schedule.max_lr),
+            args.expected_max_lr,
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "provenance maximum LR mismatch",
+    )
+    require(
+        math.isclose(
+            float(config.run_provenance.optimizer_schedule.min_lr),
+            args.expected_min_lr,
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "provenance minimum LR mismatch",
+    )
+    require(config.model.hidden_dim == 512, "model compatibility width mismatch")
+    require(tuple(row["codec"]) == (
+        int(config.model.codec_hidden_dim),
+        int(config.model.codec_depth),
+        int(config.model.codec_num_heads),
+    ), "codec architecture mismatch")
+    require(tuple(row["denoiser"]) == (
+        int(config.model.denoiser_hidden_dim),
+        int(config.model.denoiser_depth),
+        int(config.model.denoiser_num_heads),
+    ), "denoiser architecture mismatch")
     require(config.model.cfg_scale == 4.0, "CFG scale mismatch")
     require(config.model.flow_loss_aggregation == "sum_samples", "FM aggregation mismatch")
     require(
@@ -506,6 +598,10 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
                 ),
             },
         },
+        "optimization": {
+            "max_lr": args.expected_max_lr,
+            "min_lr": args.expected_min_lr,
+        },
         "metrics": {"train_step": train_step, "valid_step": valid_step, "train": train, "valid": valid},
         "artifacts": {
             "energy_score": {
@@ -548,6 +644,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--expected-second-content-manifest-sha256")
     result.add_argument("--expected-second-dataset-content-aggregate-sha256")
     result.add_argument("--expected-parameter-count", type=int, required=True)
+    result.add_argument("--expected-max-lr", type=float, required=True)
+    result.add_argument("--expected-min-lr", type=float, required=True)
     result.add_argument("--expected-preflight-sha256", required=True)
     result.add_argument("--expected-reconstruction-weight", type=float)
     result.add_argument("--expected-flow-weight", type=float)

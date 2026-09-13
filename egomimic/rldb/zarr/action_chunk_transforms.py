@@ -17,7 +17,6 @@ from typing import Literal
 
 import numpy as np
 import torch
-from projectaria_tools.core.sophus import SE3
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.utils.pose_utils import (
@@ -207,18 +206,16 @@ class ActionChunkCoordinateFrameTransform(Transform):
         target_world_to_matrix_fn = (
             _xyzwxyz_to_matrix if target_world.shape[-1] == 7 else _xyzypr_to_matrix
         )
-        # Convert to SE3 for transformation
-        target_se3 = SE3.from_matrix(
-            target_world_to_matrix_fn(target_world[None, :])[0]
-        )  # (4, 4)
-        chunk_se3 = SE3.from_matrix(to_matrix_fn(chunk_world))  # (T, 4, 4)
-
-        # Compute relative transform and apply to chunk
+        # Compute the relative homogeneous transforms. This deliberately uses
+        # NumPy rather than Project Aria's Sophus bindings: these shared
+        # transforms are also needed by the Yam runtime, whose i2rt dependency
+        # requires an incompatible rerun-sdk version.
+        target_matrix = target_world_to_matrix_fn(target_world[None, :])[0]
+        chunk_mats = to_matrix_fn(chunk_world)
         if self.inverse:
-            chunk_in_target_frame = target_se3.inverse() @ chunk_se3
+            chunk_mats = np.linalg.inv(target_matrix) @ chunk_mats
         else:
-            chunk_in_target_frame = target_se3 @ chunk_se3
-        chunk_mats = chunk_in_target_frame.to_matrix()
+            chunk_mats = target_matrix @ chunk_mats
         if chunk_mats.ndim == 2:
             chunk_mats = chunk_mats[None, ...]
 
@@ -537,24 +534,18 @@ class CartesianWithGripperCoordinateTransform(Transform):
         left_pose_world = chunk_world[:, :6]
         right_pose_world = chunk_world[:, 7:13]
 
-        left_target_se3 = SE3.from_matrix(
+        left_target_inv = np.linalg.inv(
             _xyzypr_to_matrix(left_target_world[None, :])[0]
         )
-        right_target_se3 = SE3.from_matrix(
+        right_target_inv = np.linalg.inv(
             _xyzypr_to_matrix(right_target_world[None, :])[0]
         )
-        left_target_inv = left_target_se3.inverse()
-        right_target_inv = right_target_se3.inverse()
 
         left_pose_in_target = _matrix_to_xyzypr(
-            (
-                left_target_inv @ SE3.from_matrix(_xyzypr_to_matrix(left_pose_world))
-            ).to_matrix()
+            left_target_inv @ _xyzypr_to_matrix(left_pose_world)
         )
         right_pose_in_target = _matrix_to_xyzypr(
-            (
-                right_target_inv @ SE3.from_matrix(_xyzypr_to_matrix(right_pose_world))
-            ).to_matrix()
+            right_target_inv @ _xyzypr_to_matrix(right_pose_world)
         )
 
         chunk_in_target_frame = np.empty_like(chunk_world)

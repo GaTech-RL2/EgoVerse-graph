@@ -8,6 +8,7 @@ from egomimic.rldb.embodiment.human import (
 )
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
+    CartesianWithGripperCoordinateTransform,
     ConcatKeys,
     InterpolatePose,
     XYZWXYZ_to_XYZYPR,
@@ -115,6 +116,32 @@ def test_action_chunk_coordinate_frame_transform_accepts_quat_wxyz_input() -> No
         dtype=np.float64,
     )
     np.testing.assert_allclose(chunk_target, expected, atol=1e-6)
+
+
+def test_cartesian_bimanual_transform_applies_nonidentity_targets() -> None:
+    transform = CartesianWithGripperCoordinateTransform(
+        left_target_world="left_target",
+        right_target_world="right_target",
+        chunk_world="chunk_world",
+        transformed_key_name="chunk_target",
+    )
+    batch = {
+        "left_target": np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+        "right_target": np.array([0.0, 2.0, 0.0, 0.0, 0.0, 0.0]),
+        "chunk_world": np.array(
+            [
+                [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.2],
+            ],
+            dtype=np.float64,
+        ),
+    }
+
+    out = transform.transform(batch)
+    expected = np.array(
+        [[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.2]],
+        dtype=np.float64,
+    )
+    np.testing.assert_allclose(out["chunk_target"], expected, atol=1e-6)
 
 
 def test_action_chunk_coordinate_frame_transform_ypr_mode_invalid_chunk_shape_raises() -> (

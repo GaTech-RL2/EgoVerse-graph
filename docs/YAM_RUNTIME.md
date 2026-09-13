@@ -15,10 +15,12 @@ The i2rt extra pins the SDK revision used by that upstream snapshot:
 ## Station setup
 
 Activate the project environment before Python commands. On a Linux Yam
-station, install `.[yam]`; Eva uses `.[robot]` alongside its existing ARX/Aria/
-RealSense installation. ADB must be installed and the Quest authorized. i2rt's
-`ruckig` build requires `scikit-build-core<0.10`; supply that as a build constraint
-when installing from source, as in the pinned SDK's own `pyproject.toml`.
+station, install `.[yam]`. Aria capture and processing use `.[robot,aria]`.
+Those extras deliberately cannot be installed together: Project Aria 2.0.0 pins
+`rerun-sdk==0.22.1`, whereas the pinned i2rt SDK requires `rerun-sdk>=0.32.2`.
+ADB must be installed and the Quest authorized. i2rt's `ruckig` build requires
+`scikit-build-core<0.10`; supply that as a build constraint when installing from
+source, as in the pinned SDK's own `pyproject.toml`.
 
 Copy the appropriate YAML from `egomimic/hydra_configs/robot/` and set the
 station's CAN channels, gripper variant, home poses and camera serials. Yam's

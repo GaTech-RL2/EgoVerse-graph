@@ -126,6 +126,13 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "++run_provenance.dataset_content_aggregate_sha256=" in source
     assert "++run_provenance.optimizer_schedule.max_lr=$AF_SCHEDULE_MAX_LR" in source
     assert "++run_provenance.optimizer_schedule.min_lr=$AF_SCHEDULE_MIN_LR" in source
+    verifier = (
+        ROOT / "scripts/train/verify_scaled_action_flow_training_smoke.py"
+    ).read_text()
+    assert '"optimization": {' in verifier
+    assert '"max_lr": args.expected_max_lr' in verifier
+    assert '"min_lr": args.expected_min_lr' in verifier
+    assert 'payload["optimization"] == {' in source
     assert "++run_provenance.normalization_sha256=$AF_EXPECTED_NORM_SHA256" in source
     assert (
         "++run_provenance.preflight_result_sha256=$AF_EXPECTED_PREFLIGHT_SHA256"

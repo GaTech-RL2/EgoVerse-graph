@@ -575,10 +575,6 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "gpu_probes": probes,
         "identities": {
             "repo_head": args.expected_head,
-            "optimizer_schedule": {
-                "max_lr": args.expected_max_lr,
-                "min_lr": args.expected_min_lr,
-            },
             "split_manifest_sha256": args.expected_split_sha256,
             "normalization_sha256": args.expected_normalization_sha256,
             "content_manifest_sha256": args.expected_content_manifest_sha256,
@@ -601,6 +597,10 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
                     else {}
                 ),
             },
+        },
+        "optimization": {
+            "max_lr": args.expected_max_lr,
+            "min_lr": args.expected_min_lr,
         },
         "metrics": {"train_step": train_step, "valid_step": valid_step, "train": train, "valid": valid},
         "artifacts": {

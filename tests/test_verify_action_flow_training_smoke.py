@@ -634,6 +634,21 @@ def test_artifact_gate_verifies_energy_and_diagnostic_immutability(tmp_path):
     assert result["action_flow_diagnostics"]["path"] == str(diagnostic_path)
 
 
+def test_json_equivalent_normalizes_semantic_block_container_types():
+    artifact_distance = {
+        "space": "normalized_action_chunk",
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+    }
+    expected_distance = {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": [[0, 2], [2, 4], [4, 6]],
+        "space": "normalized_action_chunk",
+    }
+
+    assert MODULE._json_equivalent(artifact_distance, expected_distance)
+
+
 def test_artifact_gate_selects_exact_slurm_attempt_and_checks_execution(tmp_path, monkeypatch):
     root = tmp_path / "artifacts"
     for restart in (0, 1):

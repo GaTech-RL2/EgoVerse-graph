@@ -953,6 +953,11 @@ def _canonical_json_sha256(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _json_equivalent(left: Any, right: Any) -> bool:
+    """Compare JSON-shaped metadata independent of tuple/list containers."""
+    return _canonical_json_sha256(left) == _canonical_json_sha256(right)
+
+
 def _validate_gradient_route_manifest(
     manifest: Any,
     named_parameters: Sequence[tuple[str, torch.nn.Parameter]],
@@ -1856,7 +1861,8 @@ def _validate_artifacts(
     )
     expected_distance = _expected_energy_distance(identities)
     _require(
-        energy.get("distance") == expected_distance, "EnergyScore distance differs"
+        _json_equivalent(energy.get("distance"), expected_distance),
+        "EnergyScore distance differs",
     )
     _require(
         set(energy.get("domains", {})) == {source_label},
@@ -1990,7 +1996,7 @@ def _validate_artifacts(
         "typed EnergyScore dataset-content identity differs",
     )
     _require(
-        energy_identity.get("distance") == expected_distance,
+        _json_equivalent(energy_identity.get("distance"), expected_distance),
         "typed EnergyScore identity distance differs",
     )
     _require(

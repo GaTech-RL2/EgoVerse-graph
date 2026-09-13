@@ -17,6 +17,10 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   no device. A normal run must reject incomplete calibration, preflight cameras,
   serial paths, and follower CAN before opening a motor, and start disarmed. Its
   stop key must also disarm; camera-free mode must retain interactive key input.
+- `calibrate_gello.py`: leader-only GELLO calibration. It may open one stable
+  USB leader only through the passive torque-off reader; it must never construct
+  a Yam robot, touch CAN/cameras, overwrite the station profile, or mark a
+  profile calibrated. Export a separate YAML snippet only after all captures.
 - `cameras.py`: shared camera setup, freshness checks and live front/wrist views;
   Yam must validate configured RealSense serials before opening robot drivers.
   Camera drivers remain in `eva/eva_ws/src/eva/stream_{aria,d405}.py`.

@@ -102,9 +102,6 @@ class _ToyAlgo:
                 "log/action_flow_reconstruction": reconstruction,
                 "log/action_flow_reconstruction_l1": reconstruction_l1,
                 "log/action_flow_action_velocity": action_velocity,
-                "log/action_flow_decoded_noise_moments": anchor.new_zeros(()),
-                "log/action_flow_decoded_noise_mean_penalty": anchor.new_zeros(()),
-                "log/action_flow_decoded_noise_covariance_penalty": anchor.new_zeros(()),
                 "log/latent_rms": anchor.detach(),
             }
         return results
@@ -127,9 +124,6 @@ class _ActionFlowHead(Stage):
         "log/action_flow_reconstruction",
         "log/action_flow_reconstruction_l1",
         "log/action_flow_action_velocity",
-        "log/action_flow_decoded_noise_moments",
-        "log/action_flow_decoded_noise_mean_penalty",
-        "log/action_flow_decoded_noise_covariance_penalty",
     )
     reads_by_mode = {"inference": ("condition",)}
     writes_by_mode = {"inference": ("prediction",)}
@@ -157,9 +151,6 @@ class _ActionFlowHead(Stage):
                 "log/action_flow_reconstruction": reconstruction,
                 "log/action_flow_reconstruction_l1": reconstruction_l1,
                 "log/action_flow_action_velocity": action_velocity,
-                "log/action_flow_decoded_noise_moments": self.anchor.new_zeros(()),
-                "log/action_flow_decoded_noise_mean_penalty": self.anchor.new_zeros(()),
-                "log/action_flow_decoded_noise_covariance_penalty": self.anchor.new_zeros(()),
             }
         )
         return batch
@@ -186,6 +177,16 @@ def _batch():
             "reconstruction_l1": 8.0,
             "action_velocity": 7.0,
         },
+    )
+
+
+def test_training_metrics_match_action_flow_objective_stage_outputs():
+    assert ActionFlowTrainingBehavior._metric_specs == (
+        ("TotalLoss", "log/action_flow_total"),
+        ("FlowMatchingLoss", "log/action_flow_fm"),
+        ("ReconstructionLoss", "log/action_flow_reconstruction"),
+        ("ReconstructionL1", "log/action_flow_reconstruction_l1"),
+        ("ActionVelocityLoss", "log/action_flow_action_velocity"),
     )
 
 

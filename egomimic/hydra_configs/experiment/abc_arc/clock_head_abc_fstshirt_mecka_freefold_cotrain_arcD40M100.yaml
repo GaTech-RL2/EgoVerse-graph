@@ -10,7 +10,6 @@ defaults:
   - override /model: abc_arc/clock_head_abc_cotrain_300M_qwen_pooled_arc_D40_M100
   - override /data: abc_arc/abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100
   - override /evaluator: eval_arc_bimanual_cartesian_D40_M100
-  - override /hydra/launcher: submitit_ice
   - _self_
 
 name: clock_head_abc_fstshirt_mecka_freefold_cotrain_arcD40M100
@@ -21,7 +20,7 @@ description: dual shape/clock flow heads, per-waypoint velocity
 # ID unless a launch explicitly supplies logger.wandb.id.
 
 paths:
-  dataset_dir: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/cedar/cedar0/cedarp-dxu345-0/egoverse-graph-data/abc_arc}
+  dataset_dir: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
 
 launch_params:
   gpus_per_node: 1

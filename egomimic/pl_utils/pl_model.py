@@ -52,6 +52,7 @@ class ModelWrapper(LightningModule):
         scheduler_frequency: int = 1,
         evaluator=None,
         enable_grad_norm: bool = True,
+        train_log_on_step: bool = False,
         training_behavior: TrainingBehavior | None = None,
         diagnostic_provider: DiagnosticProvider | None = None,
     ):
@@ -75,6 +76,7 @@ class ModelWrapper(LightningModule):
             self.model.nets
         )  # to ensure the lightning module has access to the model's parameters
         self.enable_grad_norm = enable_grad_norm
+        self.train_log_on_step = bool(train_log_on_step)
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
 
         self.evaluator = evaluator
@@ -205,24 +207,29 @@ class ModelWrapper(LightningModule):
                 metrics.setdefault(metric, []).append((source, scalar))
         return metrics
 
+    def _log_train_metric(self, name: str, value: Any) -> None:
+        """Log default-training metrics with the configured temporal reduction."""
+
+        self.log(
+            name,
+            value,
+            sync_dist=True,
+            on_step=self.train_log_on_step,
+            on_epoch=not self.train_log_on_step,
+        )
+
     def _log_prediction_metrics(self, predictions, reference: torch.Tensor) -> None:
         for metric, source_values in self._prediction_log_metrics(
             predictions, reference
         ).items():
             for source, value in source_values:
-                self.log(
+                self._log_train_metric(
                     f"Train/{metric}/{source}",
                     value,
-                    sync_dist=True,
-                    on_step=False,
-                    on_epoch=True,
                 )
-            self.log(
+            self._log_train_metric(
                 f"Train/{metric}",
                 torch.stack([value for _, value in source_values]).mean(),
-                sync_dist=True,
-                on_step=False,
-                on_epoch=True,
             )
 
     def training_step(self, batch, batch_idx):
@@ -239,26 +246,17 @@ class ModelWrapper(LightningModule):
         losses = self.model.compute_losses(predictions, batch)
         t3 = time.time()
 
-        self.log(
+        self._log_train_metric(
             "Timing/Process_Batch_Sec",
             t1 - t0,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
         )
-        self.log(
+        self._log_train_metric(
             "Timing/Forward_Pass_Sec",
             t2 - t1,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
         )
-        self.log(
+        self._log_train_metric(
             "Timing/Compute_Losses_Sec",
             t3 - t2,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
         )
 
         info = {
@@ -269,7 +267,7 @@ class ModelWrapper(LightningModule):
         }
         self._log_prediction_metrics(predictions, losses["loss"])
         for k, v in self.model.log_info(info).items():
-            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
+            self._log_train_metric("Train/" + k, v)
 
         return losses["loss"]
 
@@ -311,7 +309,7 @@ class ModelWrapper(LightningModule):
         if not grad_norm_flagged:
             self.grad_norm_history.append(grad_norm_val)
         for k, v in info.items():
-            self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
+            self._log_train_metric("Train/" + k, v)
 
     def on_before_optimizer_step(self, optimizer):
         return self.training_behavior.on_before_optimizer_step(optimizer)
@@ -322,12 +320,9 @@ class ModelWrapper(LightningModule):
         grad_norm = torch.nn.utils.clip_grad_norm_(
             self.parameters(), max_norm=float("inf")
         )
-        self.log(
+        self._log_train_metric(
             "Train/pipeline_grad_norms_clipped",
             float(grad_norm),
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
         )
 
     def on_validation_start(self):

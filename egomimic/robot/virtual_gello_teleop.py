@@ -12,9 +12,14 @@ from pathlib import Path
 
 import mujoco
 import numpy as np
+import yaml
 
 from egomimic.robot.interface import ARM_OFFSET, joint_vector, pose_vector
-from egomimic.robot.yam.gello import GelloSample, GelloTeleopControl
+from egomimic.robot.yam.gello import (
+    BimanualGelloReader,
+    GelloSample,
+    GelloTeleopControl,
+)
 
 
 def default_model_path() -> Path:
@@ -137,6 +142,19 @@ def synthetic_sample(t: float) -> GelloSample:
     return GelloSample(joints=joints, timestamps={"left": t, "right": t})
 
 
+def real_leader_specs(config_path: Path, left_path: Path, right_path: Path) -> dict:
+    """Load passive leader settings plus the two separately exported calibrations."""
+    with config_path.open() as stream:
+        config = yaml.safe_load(stream)
+    leaders = dict(config["gello"]["leaders"])
+    for arm, path in (("left", left_path), ("right", right_path)):
+        with path.open() as stream:
+            exported = yaml.safe_load(stream)
+        leaders[arm] = {**leaders[arm], **exported["gello"]["leaders"][arm]}
+    bus = dict(config["gello"]["bus"])
+    return {arm: {**bus, **dict(leaders[arm])} for arm in ("left", "right")}
+
+
 def run_demo(robot: VirtualYamFollower, frequency: float, steps: int) -> np.ndarray:
     """Run the real relative GELLO controller against synthetic inputs."""
     if frequency <= 0 or steps <= 0:
@@ -161,6 +179,23 @@ def main(argv=None) -> int:
     parser.add_argument("--model", type=Path, default=None)
     parser.add_argument("--frequency", type=float, default=60.0)
     parser.add_argument("--duration", type=float, default=30.0)
+    parser.add_argument("--initial-left", type=float, nargs=6, metavar="Q")
+    parser.add_argument("--initial-right", type=float, nargs=6, metavar="Q")
+    parser.add_argument(
+        "--input",
+        choices=("synthetic", "gello"),
+        default="synthetic",
+        help="Use generated samples, or read two passive real GELLO leaders.",
+    )
+    parser.add_argument(
+        "--config", type=Path, help="Station GELLO profile for --input gello."
+    )
+    parser.add_argument(
+        "--left-calibration", type=Path, help="Left export for --input gello."
+    )
+    parser.add_argument(
+        "--right-calibration", type=Path, help="Right export for --input gello."
+    )
     parser.add_argument(
         "--headless",
         action="store_true",
@@ -170,8 +205,22 @@ def main(argv=None) -> int:
     if args.frequency <= 0 or args.duration <= 0:
         parser.error("--frequency and --duration must be positive")
     robot = VirtualYamFollower(args.model or default_model_path())
+    for arm, values in (("left", args.initial_left), ("right", args.initial_right)):
+        if values is not None:
+            robot.q[ARM_OFFSET[arm] : ARM_OFFSET[arm] + 6] = np.asarray(
+                values, dtype=float
+            )
+    robot._sync_model()
     steps = max(1, round(args.duration * args.frequency))
+    if args.input == "gello" and not all(
+        (args.config, args.left_calibration, args.right_calibration)
+    ):
+        parser.error(
+            "--input gello requires --config, --left-calibration, and --right-calibration"
+        )
     if args.headless:
+        if args.input != "synthetic":
+            parser.error("--headless is only supported with --input synthetic")
         command = run_demo(robot, args.frequency, steps)
         print(
             f"Virtual GELLO smoke passed: {steps} steps; max |q|={np.max(np.abs(command[:6])):.3f} rad"
@@ -180,26 +229,43 @@ def main(argv=None) -> int:
 
     import mujoco.viewer
 
+    reader = None
+    if args.input == "gello":
+        reader = BimanualGelloReader(
+            ("left", "right"),
+            real_leader_specs(
+                args.config, args.left_calibration, args.right_calibration
+            ),
+        )
     print(
-        "Virtual GELLO teleop: synthetic leaders active. Close the MuJoCo viewer to exit."
+        f"Virtual GELLO teleop: {args.input} input active. Close the MuJoCo viewer to exit."
     )
     control = GelloTeleopControl(robot, frequency=args.frequency, alignment="relative")
-    with mujoco.viewer.launch_passive(robot.model, robot.data) as viewer:
-        started = time.monotonic()
-        step = 0
-        while viewer.is_running() and step < steps:
-            tick = time.monotonic()
-            t = step / args.frequency
-            control.step(
-                synthetic_sample(t),
-                robot.get_obs(),
-                ("left", "right") if step == 0 else (),
-                now=t,
+    try:
+        with mujoco.viewer.launch_passive(robot.model, robot.data) as viewer:
+            started = time.monotonic()
+            step = 0
+            while viewer.is_running() and step < steps:
+                tick = time.monotonic()
+                sample = reader.read() if reader is not None else synthetic_sample(tick)
+                # USB reads complete after ``tick``; validate freshness against
+                # the current clock so a freshly read sample is never negative-age.
+                now = time.monotonic()
+                control.step(
+                    sample,
+                    robot.get_obs(),
+                    ("left", "right") if step == 0 else (),
+                    now=now,
+                )
+                viewer.sync()
+                step += 1
+                time.sleep(max(0.0, 1.0 / args.frequency - (time.monotonic() - tick)))
+            print(
+                f"Virtual GELLO teleop finished after {time.monotonic() - started:.1f}s."
             )
-            viewer.sync()
-            step += 1
-            time.sleep(max(0.0, 1.0 / args.frequency - (time.monotonic() - tick)))
-        print(f"Virtual GELLO teleop finished after {time.monotonic() - started:.1f}s.")
+    finally:
+        if reader is not None:
+            reader.close()
     return 0
 
 

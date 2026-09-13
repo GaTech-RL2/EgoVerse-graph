@@ -7,6 +7,10 @@ defaults:
 
 name: planar_v2_cotrain_obstacle_paper_dp_h16
 description: paper_dp_baseline_usocket3k_chain3k_obstacle1920
+model:
+  train_log_on_step: true
+trainer:
+  log_every_n_steps: 1
 planar:
   action_dims: {pushshapes_sim_u_socket: 5, pushshapes_sim_chain_gripper: 5}
   observation_horizon: 2

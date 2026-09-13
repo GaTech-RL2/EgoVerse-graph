@@ -16,6 +16,7 @@ MODE=${MODE:-smoke}
 EXPECTED_HEAD=${EXPECTED_HEAD:?set exact source commit}
 EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?set the launcher sha256}
 EXPERIMENT=${EXPERIMENT:?set a Hydra experiment, e.g. pusht/planar_v2_cotrain_obstacle_paper_dp}
+PRECOMPUTED_NORM_DIR=${PRECOMPUTED_NORM_DIR:-}
 RUN_SLUG=${RUN_SLUG:?set a unique run slug}
 ROOT=${ICE_ARC_ROOT:-/storage/ice1/2/9/tlertuss3/egoverse/paper-dp-arc-main-20260912}
 REPO=${ICE_ARC_REPO:-$ROOT/source/${EXPECTED_HEAD:0:8}}
@@ -101,10 +102,21 @@ grep -q 'save_last: false' "$RUN_DIR/provenance/resolved_config.yaml"
 grep -q 'save_top_k: -1' "$RUN_DIR/provenance/resolved_config.yaml"
 
 if test "$MODE" = smoke; then
-  "$PY" -m egomimic.trainHydra "${COMMON[@]}" norm_stats_only=true \
-    trainer.accelerator=cpu trainer.devices=1 "norm_stats.save_cache_dir=$RUN_DIR" \
-    "hydra.run.dir=$RUN_DIR/norm_materialize"
-  test -s "$RUN_DIR/norm_stats/norm_stats.json"
+  if test -n "$PRECOMPUTED_NORM_DIR"; then
+    test -s "$PRECOMPUTED_NORM_DIR/norm_stats.json"
+    COMMON+=("norm_stats.precomputed_norm_path=$PRECOMPUTED_NORM_DIR")
+    printf '%s\n' "$PRECOMPUTED_NORM_DIR" > "$RUN_DIR/provenance/precomputed_norm_dir.txt"
+  else
+    "$PY" -m egomimic.trainHydra "${COMMON[@]}" norm_stats_only=true \
+      trainer.accelerator=cpu trainer.devices=1 "norm_stats.save_cache_dir=$RUN_DIR" \
+      "hydra.run.dir=$RUN_DIR/norm_materialize"
+    test -s "$RUN_DIR/norm_stats/norm_stats.json"
+    COMMON+=("norm_stats.precomputed_norm_path=$RUN_DIR/norm_stats")
+  fi
+  "$PY" -m egomimic.trainHydra "${COMMON[@]}" --cfg job --resolve \
+    > "$RUN_DIR/provenance/train_resolved_config.yaml"
+  grep -q 'train_log_on_step: true' "$RUN_DIR/provenance/train_resolved_config.yaml"
+  grep -q 'log_every_n_steps: 1' "$RUN_DIR/provenance/train_resolved_config.yaml"
 fi
 
 srun --ntasks=1 --gpus-per-task=1 --kill-on-bad-exit=1 --unbuffered \
@@ -113,7 +125,7 @@ srun --ntasks=1 --gpus-per-task=1 --kill-on-bad-exit=1 --unbuffered \
 
 if test "$MODE" = smoke; then
   sha256sum "$RUN_DIR/provenance/resolved_config.yaml" \
-    "$RUN_DIR/provenance/split.json" "$RUN_DIR/norm_stats/norm_stats.json" \
+    "$RUN_DIR/provenance/split.json" "${PRECOMPUTED_NORM_DIR:-$RUN_DIR/norm_stats}/norm_stats.json" \
     > "$RUN_DIR/provenance/SHA256SUMS"
   touch "$RUN_DIR/SMOKE_PASS"
   printf '[smoke] PASS run=%s wandb=%s\n' "$RUN_DIR" \

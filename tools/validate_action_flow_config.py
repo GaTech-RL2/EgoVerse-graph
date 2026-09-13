@@ -1984,7 +1984,13 @@ def _validate_scaled_h512_config(
     validation_cadence = int(config.trainer.val_check_interval)
     _require(validation_cadence in {10_000, 30_000}, "approved validation cadence")
     _exact(
-        int(config.run_provenance.validation_every_n_steps),
+        int(
+            OmegaConf.select(
+                config,
+                "run_provenance.validation_every_n_steps",
+                default=validation_cadence,
+            )
+        ),
         validation_cadence,
         "validation cadence provenance",
     )

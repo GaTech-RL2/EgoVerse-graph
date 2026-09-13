@@ -214,7 +214,9 @@ def test_scaled_chain_rows_are_pinned_to_the_clean_4918_episode_corpus():
     assert "CLEAN_CHAIN_4918_DATASET_CONTENT_AGGREGATE_SHA256=1b7dca2b" in source
     assert "CLEAN_CHAIN_4918_SPLIT_MANIFEST_SHA256=aa7ea8e8" in source
     assert "CLEAN_CHAIN_4918_SCHEMA_VALIDATION_SHA256=f1b8feaa" in source
-    assert source.count("AF_CLEAN_CHAIN_4918=true") == 2
+    # Two proportional H512 rows plus the two H384-codec/H512-denoiser rows
+    # (Chain-only and co-training) are bound to the clean4918 corpus.
+    assert source.count("AF_CLEAN_CHAIN_4918=true") == 4
     assert "points6,clean4918,action-flow" in source
     assert "points6,clean4918,cotrain" in source
     assert 'assert payload["episode_count"] == 4918' in source

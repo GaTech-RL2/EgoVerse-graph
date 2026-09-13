@@ -1419,6 +1419,7 @@ def _validate_history(
     reconstruction_weight: float = 1.0,
     flow_weight: float = 1.0,
     expect_reconstruction_warmup: bool = False,
+    expect_native_diagnostics: bool = True,
     method: str = LEGACY_METHOD,
 ) -> dict[str, Any]:
     component_names = (
@@ -1626,6 +1627,8 @@ def _validate_history(
         diagnostics = ()
     elif method == GRAPH_METHOD:
         diagnostics = tuple(name for name in diagnostics if "/Alignment/CK" not in name)
+    if not expect_native_diagnostics:
+        diagnostics = tuple(name for name in diagnostics if "NativeMSE" not in name)
     diagnostics = (
         *diagnostics,
         *(
@@ -2274,6 +2277,14 @@ def verify_smoke(
         reconstruction_weight=APPROVED_EXPERIMENTS[experiment][1],
         flow_weight=APPROVED_EXPERIMENTS[experiment][2],
         expect_reconstruction_warmup=expect_reconstruction_warmup,
+        expect_native_diagnostics=(
+            OmegaConf.select(
+                config,
+                "evaluation.action_flow_diagnostics.native_error",
+                default=None,
+            )
+            is not None
+        ),
         method=method,
     )
     artifacts = _validate_artifacts(

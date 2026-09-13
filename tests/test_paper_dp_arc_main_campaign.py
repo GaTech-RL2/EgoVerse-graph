@@ -23,6 +23,11 @@ def test_arc_campaign_encodes_validation_targets_with_training_codec():
     encoder = OmegaConf.to_container(cfg.evaluator.target_encoder, resolve=True)
     stage = OmegaConf.to_container(cfg.model.pipeline.stages[1], resolve=True)
     assert encoder == stage
+    assert cfg.planar.arc_metric_action_horizon == 81
+    assert cfg.planar.action_horizon == 16
+    assert {
+        decoder.action_horizon for decoder in cfg.evaluator.native_decoders.values()
+    } == {81}
 
 
 def test_campaign_smoke_verifier_and_launcher_preserve_gate_artifacts():

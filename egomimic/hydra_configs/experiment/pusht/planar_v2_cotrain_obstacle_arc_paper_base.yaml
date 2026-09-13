@@ -15,6 +15,10 @@ planar:
   action_target_offset: 1
   raw_action_horizon: 80
   action_horizon: 16
+  # Loader chunks include the initial control-state row, so normalized action
+  # statistics and native validation use 80 + 1 rows.  Keep this separate from
+  # the 16-step execution horizon used by the inference graph.
+  arc_metric_action_horizon: 81
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
   arc_distance: 80.0
   arc_waypoints: 16
@@ -47,7 +51,7 @@ evaluator:
     pushshapes_sim_u_socket:
       _target_: egomimic.pipeline.pushshapes.PlanarArcTokenNativeDecoder
       resampled_vector_length: ${planar.arc_waypoints}
-      action_horizon: ${planar.action_horizon}
+      action_horizon: ${planar.arc_metric_action_horizon}
       native_action_dim: 3
       dt: ${planar.arc_dt}
       rotation_radius: ${planar.arc_rotation_radius}
@@ -55,7 +59,7 @@ evaluator:
     pushshapes_sim_chain_gripper:
       _target_: egomimic.pipeline.pushshapes.PlanarArcTokenNativeDecoder
       resampled_vector_length: ${planar.arc_waypoints}
-      action_horizon: ${planar.action_horizon}
+      action_horizon: ${planar.arc_metric_action_horizon}
       native_action_dim: 4
       dt: ${planar.arc_dt}
       rotation_radius: ${planar.arc_rotation_radius}

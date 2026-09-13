@@ -466,6 +466,62 @@ def test_planar_evaluator_encodes_graph_owned_validation_target():
     assert logged["Valid/Native_MSE"] == 0
 
 
+def test_planar_evaluator_decodes_arc_tokens_before_unnormalizing():
+    from egomimic.pipeline.pushshapes import PlanarArcTokenNativeDecoder
+
+    # M=2 in duration mode has four token rows.  A zero token is degenerate but
+    # valid, and makes the expected native error exactly zero.
+    token = torch.zeros(1, 4, 5)
+
+    class TokenEncoder:
+        @staticmethod
+        def forward(_batch):
+            return {"target": token.clone()}
+
+    # The loader has 80 action intervals plus its initial control-state row.
+    # This must match the normalizer's 81-row statistics, not the model's
+    # 16-step execution horizon.
+    decoder = PlanarArcTokenNativeDecoder(
+        resampled_vector_length=2,
+        action_horizon=81,
+        native_action_dim=3,
+        velocity_mode="duration",
+    )
+    evaluator = PlanarActionEval(
+        energy_score_enabled=False,
+        target_encoder=TokenEncoder(),
+        native_decoders={"pushshapes_sim_u_socket": decoder},
+    )
+    class HorizonCheckedNormalizer:
+        @staticmethod
+        def unnormalize(values, _embodiment_id):
+            assert values["actions"].shape == (1, 81, 5)
+            return values
+
+    evaluator.bind_data_context(normalizer=HorizonCheckedNormalizer())
+    evaluator.model = SimpleNamespace(
+        forward_eval=lambda _batch: {"opaque-stream": {"pred_action": token.clone()}}
+    )
+    logged = {}
+    evaluator.trainer = SimpleNamespace(
+        lightning_module=SimpleNamespace(
+            log_dict=lambda metrics, **_kwargs: logged.update(metrics)
+        )
+    )
+    evaluator.on_validation_step(
+        {
+            "opaque-stream": {
+                "actions": torch.zeros(1, 81, 5),
+                "embodiment": torch.tensor([19]),
+            }
+        },
+        batch_idx=0,
+    )
+
+    assert logged["Valid/MSE"] == 0
+    assert logged["Valid/Native_MSE"] == 0
+
+
 def test_strict_checkpoint_loader_overlays_ema_and_retains_online_buffers():
     class BufferedPolicy(nn.Module):
         def __init__(self):

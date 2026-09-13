@@ -139,6 +139,7 @@ class PlanarArcTokenNativeDecoder:
     """Decode a timed Planar arc token with the graph's exact timing rule."""
 
     preserves_decoded_timing = True
+    requires_common5_unnormalization = True
 
     def __init__(
         self,
@@ -165,8 +166,8 @@ class PlanarArcTokenNativeDecoder:
             velocity_mode=self.velocity_mode,
         )
 
-    def decode(self, actions, context: dict | None = None):
-        del context
+    def decode_common(self, actions):
+        """Invert an ARC token to its normalized dense common-five chunk."""
         is_tensor = torch.is_tensor(actions)
         value = actions if is_tensor else torch.as_tensor(np.asarray(actions))
         expected = (self._rows, PLANAR_ACTION_DIM)
@@ -176,10 +177,18 @@ class PlanarArcTokenNativeDecoder:
             )
         leading = tuple(value.shape[:-2])
         flat = value.reshape(-1, *expected)
-        native = self._detokenizer.forward({"pred_action": flat})[
-            "pred_action_native"
-        ].reshape(*leading, self.action_horizon, self.native_action_dim)
-        return native if is_tensor else native.cpu().numpy()
+        common = self._detokenizer.forward({"pred_action": flat})[
+            "pred_action_common"
+        ].reshape(*leading, self.action_horizon, PLANAR_ACTION_DIM)
+        return common if is_tensor else common.cpu().numpy()
+
+    def decode_common_to_native(self, common):
+        return _common5_to_native(common, self.native_action_dim)
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        common = self.decode_common(actions)
+        return self.decode_common_to_native(common)
 
     __call__ = decode
 

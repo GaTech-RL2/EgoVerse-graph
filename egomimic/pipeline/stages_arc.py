@@ -143,7 +143,7 @@ class ArcDetokenizeStage(Stage):
     # mode restriction has to be declared, not inferred.
     inference_only = True
     reads = ("pred_action",)
-    writes = ("pred_action_native", "log/*")
+    writes = ("pred_action_common", "pred_action_native", "log/*")
 
     def __init__(
         self,
@@ -335,6 +335,11 @@ class ArcDetokenizeStage(Stage):
         theta = torch.atan2(heading[..., 1], heading[..., 0]).unsqueeze(-1)
         native = torch.cat((decoded[..., :2], theta, decoded[..., 4:5]), dim=-1)
 
+        # Keep the dense common-five representation as well as its native
+        # projection.  Evaluation has to unnormalize common-five coordinates
+        # before converting them to embodiment-native actions; unnormalizing an
+        # ARC token itself is invalid because token rows are not time rows.
+        batch["pred_action_common"] = decoded
         batch["pred_action_native"] = native[..., : self.native_action_dim]
         if self.velocity_mode == "mean":
             batch["log/ArcSpeed"] = (

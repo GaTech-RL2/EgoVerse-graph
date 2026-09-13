@@ -685,6 +685,14 @@ class PlanarActionEval(Eval):
     def _native(self, normalized, embodiment_id, decoder):
         if self.normalizer is None:
             raise RuntimeError("Planar evaluator data context was not bound")
+        if decoder is not None and getattr(
+            decoder, "requires_common5_unnormalization", False
+        ):
+            common = decoder.decode_common(normalized)
+            unnormalized_common = self.normalizer.unnormalize(
+                {self.action_key: common}, embodiment_id
+            )[self.action_key]
+            return decoder.decode_common_to_native(unnormalized_common)
         unnormalized = self.normalizer.unnormalize(
             {self.action_key: normalized}, embodiment_id
         )[self.action_key]

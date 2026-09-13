@@ -111,6 +111,18 @@ def test_child_owned_job_keeps_lightning_auto_requeue(monkeypatch):
     assert plugin.auto_requeue is True
 
 
+def test_non_requeue_job_disables_lightning_without_signal_callback(monkeypatch):
+    _clear_ownership(monkeypatch)
+    monkeypatch.setenv("SLURM_JOB_ID", "123")
+    cfg = _cfg("none")
+
+    plugin = train_hydra._slurm_environment(cfg)
+
+    assert isinstance(plugin, SLURMEnvironment)
+    assert plugin.auto_requeue is False
+    assert train_hydra._instantiate_slurm_callbacks(cfg) == []
+
+
 @pytest.mark.parametrize(
     ("configured_owner", "owner", "disabled"),
     [
@@ -121,6 +133,9 @@ def test_child_owned_job_keeps_lightning_auto_requeue(monkeypatch):
         ("lightning", "child", None),
         ("lightning", "child", "1"),
         ("lightning", None, "1"),
+        ("none", "runner", "1"),
+        ("none", "child", "0"),
+        ("none", None, "1"),
         ("unknown", "runner", "1"),
     ],
 )
@@ -207,6 +222,17 @@ def test_runner_restart_refuses_last_checkpoint_fallback(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match="has no ICE_RESUME_CHECKPOINT"):
         train_hydra._resolve_training_checkpoint(
             _cfg("runner"),
+            SimpleNamespace(default_root_dir=str(tmp_path)),
+        )
+
+
+def test_non_requeue_job_rejects_a_slurm_restart(monkeypatch, tmp_path):
+    _clear_ownership(monkeypatch)
+    monkeypatch.setenv("SLURM_RESTART_COUNT", "1")
+
+    with pytest.raises(RuntimeError, match="non-requeue job cannot resume"):
+        train_hydra._resolve_training_checkpoint(
+            _cfg("none"),
             SimpleNamespace(default_root_dir=str(tmp_path)),
         )
 

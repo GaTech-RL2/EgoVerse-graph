@@ -5,6 +5,7 @@ from hydra import compose, initialize_config_dir
 
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.trainHydra import _resolve_model_wrapper_class
+from tools.validate_action_flow_config import STOPGRAD_UNITE_METHOD, action_flow_method
 
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
@@ -70,3 +71,8 @@ def test_h384_points6_uses_strict_routed_preflight_instead_of_legacy_name_gate()
     launcher = LAUNCHER.read_text()
     assert 'test "$AF_CLEAN_CHAIN_4918" = true' in launcher
     assert "cotrain or native-points6 experiment names/topologies" in launcher
+
+
+def test_h384_points6_is_registered_as_stopgrad_unite(monkeypatch):
+    cfg = _compose(monkeypatch)
+    assert action_flow_method(cfg, f"pusht/{ROW}") == STOPGRAD_UNITE_METHOD

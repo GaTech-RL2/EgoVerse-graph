@@ -1,0 +1,24 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_bc_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42
+  - _self_
+
+name: action_flow_bc_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_adamw_lr1e5_batch64_s42
+description: "Standard Action Flow with separate UNITE modules and a batch-64 train loader"
+
+# This is deliberately the only scientific change from the standard batch-32
+# row. Validation stays batch 16 so the fixed smoke/evaluation panel is stable.
+planar:
+  batch_size: 64
+
+data:
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 64
+
+run_provenance:
+  training:
+    per_rank_train_batch_size: 64
+    world_size: 1
+    gradient_accumulation: 1
+    effective_global_batch_size: 64

@@ -79,7 +79,10 @@ def main() -> None:
     config_path = run_dir / ".hydra/config.yaml"
     cfg = OmegaConf.load(config_path)
     assert cfg.mode == "train" and cfg.ckpt_path is None
-    assert cfg.name.startswith("planar_v2_cotrain_obstacle_")
+    # Hydra experiment files provide the semantic run name (for example
+    # ``cotrain_obstacle_arc_duration_...``), not their full config path.
+    # Gate the resolved contract rather than an unreachable filename prefix.
+    assert cfg.name.startswith("cotrain_obstacle_")
     assert bool(cfg.run_provenance.obstacle_data)
     assert int(cfg.run_provenance.dataset_count) == 7920
     assert float(cfg.run_provenance.valid_ratio) == 0.01

@@ -39,3 +39,4 @@ def test_campaign_smoke_verifier_and_launcher_preserve_gate_artifacts():
     assert 'mkdir -p "$RUN_DIR/norm_stats"' in launcher
     assert 'cp --reflink=auto "$PRECOMPUTED_NORM_DIR/norm_stats.json"' in launcher
     assert 'sha256sum "$RUN_DIR/norm_stats/norm_stats.json"' in launcher
+    assert 'cfg.name.startswith("cotrain_obstacle_")' in verifier

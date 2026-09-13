@@ -161,6 +161,27 @@ workflow:
             "/workspace/budgets/${EMB}.json" "$EMB"
         done
 
+        # A partial stage trips the episode-count guards in the data configs,
+        # which are correct: 3000 per cell is what a real run must see. Disable
+        # them ONLY for a partial stage, and say loudly that the resulting
+        # numbers are not publishable.
+        GUARD_OV=""
+        if [ "$SHARDS_PER_CELL" -lt 24 ]; then
+          for E in $TRAIN_EMB; do
+            for SPLIT in train valid; do
+              GUARD_OV="$GUARD_OV data.${SPLIT}_datasets.pushshapes_sim_${E}.resolver.expected_episode_count=null"
+              GUARD_OV="$GUARD_OV data.${SPLIT}_datasets.pushshapes_sim_${E}.expected_train_episode_count=null"
+              GUARD_OV="$GUARD_OV data.${SPLIT}_datasets.pushshapes_sim_${E}.expected_valid_episode_count=null"
+            done
+          done
+          echo "############################################################"
+          echo "# PARTIAL STAGE: $SHARDS_PER_CELL/24 shards per cell."
+          echo "# Episode-count guards are DISABLED and the corpus is a"
+          echo "# subset. This run is a PLUMBING CHECK -- its coverage"
+          echo "# numbers are NOT comparable to anything."
+          echo "############################################################"
+        fi
+
         # ---------------------------------------------- checkpoints
         CK=/workspace/ckpts; mkdir -p "$CK"
         $S5 --numworkers 32 cp "s3://rldb/staged/articulated_cotrain/$CKPT_JOB/*" "$CK/" \
@@ -197,6 +218,7 @@ workflow:
             +experiment="$EXP_GROUP/$EXP" mode=eval \
             ckpt_path="${CKPT_OF[$EXP]}" \
             planar.articulated_root=/workspace/articulated \
+            $GUARD_OV \
             planar.eval_native_decoder.native_action_dim=$ND \
             norm_stats.precomputed_norm_path="${NORM_OF[$EXP]}" \
             evaluator=sim_rollout_planar_v2 \

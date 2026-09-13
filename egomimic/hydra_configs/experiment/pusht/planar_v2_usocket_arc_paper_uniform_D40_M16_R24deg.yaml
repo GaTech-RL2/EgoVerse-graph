@@ -35,6 +35,7 @@ eval_checkpoint:
 
 run_provenance:
   action_contract:
+    representation: planar_arc_supports_xytheta_plus_per_waypoint_duration
     observation_alignment: pre_step
     observation_horizon: 2
     training_action_target_offset: 1

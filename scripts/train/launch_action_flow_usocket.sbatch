@@ -930,6 +930,46 @@ PY
       "${BASE_OVERRIDES[@]}" "${FINAL_NORM_ARGS[@]}" \
       --cfg job --resolve > "$AF_OUTPUT_DIR/resolved_config.yaml"
   )
+  srun --nodes=1 --ntasks=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
+    "$AF_PYTHON" - "$AF_OUTPUT_DIR/resolved_config.yaml" \
+    "$AF_OUTPUT_DIR/dataset_loader_probe.json" <<'PY'
+import json
+import pathlib
+import sys
+
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
+
+config_path, output_path = map(pathlib.Path, sys.argv[1:])
+cfg = OmegaConf.load(config_path)
+rows = []
+for split_name, expected_field in (
+    ("train_datasets", "expected_train_episode_count"),
+    ("valid_datasets", "expected_valid_episode_count"),
+):
+    for source, dataset_cfg in cfg.data[split_name].items():
+        dataset = instantiate(dataset_cfg)
+        observed = len(dataset.datasets)
+        expected = int(dataset_cfg[expected_field])
+        if observed != expected:
+            raise SystemExit(
+                f"{split_name}.{source}: expected {expected} loaded episodes, "
+                f"found {observed}"
+            )
+        rows.append(
+            {
+                "split": split_name,
+                "source": str(source),
+                "expected_episode_count": expected,
+                "loaded_episode_count": observed,
+                "sample_count": len(dataset),
+            }
+        )
+payload = {"schema_version": 1, "status": "PASS", "datasets": rows}
+temporary = output_path.with_suffix(output_path.suffix + ".tmp")
+temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+temporary.replace(output_path)
+PY
   "$AF_PYTHON" - "$AF_OUTPUT_DIR" "$AF_REPO" "$AF_EXPECTED_HEAD" \
     "$AF_EXPERIMENT" "$AF_DATASET_DIR" "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
     "$LAUNCHER" "$AF_PYTHON" "$EFFECTIVE_NORM_FILE" "$AF_CLUSTER_LABEL" \
@@ -978,6 +1018,7 @@ def digest(path):
 
 dataset_report = json.loads((root / "dataset_validation.json").read_text())
 pair_report = json.loads((root / "action_flow_pair_preflight.json").read_text())
+loader_report = json.loads((root / "dataset_loader_probe.json").read_text())
 runtime_lock = json.loads(runtime_lock_path.read_text())
 assert dataset_report["status"] == "DATASET_VALIDATED"
 assert dataset_report["content_identity"]["manifest_sha256"] == (
@@ -987,6 +1028,7 @@ assert dataset_report["content_identity"]["aggregate_sha256"] == (
     content_aggregate_sha256
 )
 assert pair_report["status"] == "PASS"
+assert loader_report["status"] == "PASS"
 assert runtime_lock["status"] == "RUNTIME_LOCKED"
 datasets = {
     "primary": {
@@ -1034,6 +1076,7 @@ payload = {
     "normalization_path": str(norm),
     "normalization_sha256": digest(norm),
     "dataset_validation_sha256": digest(root / "dataset_validation.json"),
+    "dataset_loader_probe_sha256": digest(root / "dataset_loader_probe.json"),
     "datasets": datasets,
     "pair_preflight_sha256": digest(root / "action_flow_pair_preflight.json"),
     "resolved_config_sha256": digest(root / "resolved_config.yaml"),

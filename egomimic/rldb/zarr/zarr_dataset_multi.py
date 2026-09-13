@@ -321,6 +321,10 @@ class EpisodeResolver:
         # these datasets do (640x480 / 640x360 / 1280x720 / 848x480).
         self.image_hw = tuple(image_hw) if image_hw else None
 
+    def _dataset_init_kwargs(self) -> dict[str, Any]:
+        """Extra leaf-constructor arguments supplied by specialized resolvers."""
+        return {}
+
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
@@ -353,6 +357,7 @@ class EpisodeResolver:
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                     image_hw=self.image_hw,
+                    **self._dataset_init_kwargs(),
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -858,6 +863,9 @@ class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
     def __init__(self, *args, embodiment_override: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.embodiment_override = embodiment_override
+
+    def _dataset_init_kwargs(self) -> dict[str, Any]:
+        return {"embodiment_override": self.embodiment_override}
 
     def resolve(self, *args, **kwargs):
         datasets = super().resolve(*args, **kwargs)
@@ -1901,6 +1909,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         key_map: dict,
         transform_list: list | None = None,
         image_hw: tuple[int, int] | None = None,
+        embodiment_override: str | None = None,
     ):
         """
         Args:
@@ -1913,6 +1922,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
+        self.embodiment_override = embodiment_override
         self.init_episode()
 
         self.key_map = key_map
@@ -1930,9 +1940,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_reader = ZarrEpisode(self.episode_path)
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
-        self.embodiment = get_embodiment(
-            get_embodiment_id(self.metadata["embodiment"])
-        ).lower()
+        embodiment = self.embodiment_override or self.metadata["embodiment"]
+        self.embodiment = get_embodiment(get_embodiment_id(embodiment)).lower()
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()

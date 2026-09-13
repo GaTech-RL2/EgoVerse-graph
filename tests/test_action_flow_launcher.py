@@ -43,6 +43,8 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "AF_EXPECTED_PREFLIGHT_SHA256" in source
     assert "validate_action_flow_config.py" in source
     assert "capture_runtime_lock.py" in source
+    assert "dataset_loader_probe.json" in source
+    assert 'dataset = instantiate(dataset_cfg)' in source
     assert "validate_slurm_job_contract.py" in source
     assert "check_checkpoint_storage.py" in source
     assert "--gres=gpu:1 --constraint='H100|H200'" in source

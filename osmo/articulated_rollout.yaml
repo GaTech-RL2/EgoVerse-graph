@@ -94,6 +94,13 @@ workflow:
 
         uv sync --frozen
         source .venv/bin/activate
+        # Tsimulation imports these at module scope and they are in neither
+        # lock. Without them Tsimulation/__init__.py cannot import
+        # sim_v2.pushshapes, and because its aliasing loop swallows
+        # ModuleNotFoundError the failure presents fifteen minutes later as
+        # "No module named 'Tsimulation.pushshapes'" -- which is true, and
+        # says nothing about the actual cause.
+        uv pip install "pymunk==7.3.0" gymnasium pygame shapely
         # Expose ONLY Tsimulation from the sim repo. /workspace/EgoVerse also
         # contains an egomimic/ package, and putting the whole repo on the path
         # shadowed EgoVerse-graph's -- the smoke died on
@@ -105,9 +112,22 @@ workflow:
 
         # Assert which repo each package resolves to, so the shadowing cannot
         # come back silently.
-        python -c "import egomimic, Tsimulation, sys; e=egomimic.__file__; t=Tsimulation.__file__; print('egomimic   <-', e); print('Tsimulation <-', t); sys.exit(0 if ('EgoVerse-graph' in e and 'sim_import' in t or 'EgoVerse/Tsimulation' in t) else 1)" \
-          || { echo "FATAL: package resolution is wrong -- see the two paths above"; exit 1; }
-        python -c "import egomimic.eval.checkpoint_loading; import egomimic.eval.sim_rollout_planar_eval; print('eval modules import OK')"
+        # Import what the harness actually imports, not just the top-level
+        # packages. The previous check did `import Tsimulation` and passed while
+        # Tsimulation.pushshapes was silently unavailable.
+        python - <<'PYCHK'
+        import sys
+        import egomimic
+        import egomimic.eval.checkpoint_loading
+        import egomimic.eval.sim_rollout_planar_eval
+        from Tsimulation.pushshapes import env, get_env
+        print("egomimic    <-", egomimic.__file__)
+        print("Tsimulation <-", env.__file__)
+        assert "EgoVerse-graph" in egomimic.__file__, "egomimic resolved to the sim repo"
+        assert getattr(env, "SIM_VERSION", None) == 2, f"expected sim_v2, got {getattr(env,'SIM_VERSION',None)}"
+        get_env("v2")
+        print("imports OK: egomimic from EgoVerse-graph, Tsimulation sim_v2, get_env callable")
+        PYCHK
 
         bash ./egomimic/utils/aws/setup_secret.sh
         test -s "$HOME/.egoverse_env"

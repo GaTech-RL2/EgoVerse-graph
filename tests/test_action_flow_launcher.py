@@ -59,6 +59,10 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "/storage/project" not in source
     assert 'absolute_path AF_EXTRA_PYTHONPATH "$AF_EXTRA_PYTHONPATH"' in source
     assert (
+        'AF_EXTRA_PYTHONPATH=${AF_EXTRA_PYTHONPATH:-$(dirname "$AF_CONFIG_VALIDATOR")}'
+        in source
+    )
+    assert (
         'PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"'
         in source
     )

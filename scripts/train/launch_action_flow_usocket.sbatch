@@ -75,6 +75,7 @@ AF_DATASET_VALIDATOR=${AF_DATASET_VALIDATOR:-$AF_TOOL_DIR/validate_planar_datase
 AF_CHECKPOINT_VALIDATOR=${AF_CHECKPOINT_VALIDATOR:-$AF_TOOL_DIR/validate_lightning_checkpoint.py}
 AF_RUNTIME_LOCK_CAPTURE=${AF_RUNTIME_LOCK_CAPTURE:-$AF_TOOL_DIR/capture_runtime_lock.py}
 AF_CONFIG_VALIDATOR=${AF_CONFIG_VALIDATOR:-$AF_REPO/tools/validate_action_flow_config.py}
+AF_EXTRA_PYTHONPATH=${AF_EXTRA_PYTHONPATH:-$(dirname "$AF_CONFIG_VALIDATOR")}
 AF_SMOKE_VERIFIER=${AF_SMOKE_VERIFIER:-$AF_REPO/scripts/train/verify_action_flow_training_smoke.py}
 AF_SLURM_CONTRACT_VALIDATOR=${AF_SLURM_CONTRACT_VALIDATOR:-$AF_REPO/scripts/train/validate_slurm_job_contract.py}
 AF_STORAGE_VALIDATOR=${AF_STORAGE_VALIDATOR:-$AF_REPO/scripts/train/check_checkpoint_storage.py}

@@ -5,7 +5,11 @@ import time
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from egomimic.robot.cameras import close_cameras, open_cameras
+from egomimic.robot.cameras import (
+    close_cameras,
+    open_cameras,
+    validate_camera_devices,
+)
 from egomimic.robot.interface import ARM_OFFSET, joint_vector, pose_matrix, pose_vector
 from egomimic.robot.yam.kinematics import MujocoArmKinematics
 
@@ -23,8 +27,11 @@ class YamInterface:
         enable_auto_recovery=False,
         home_duration=3.0,
         frequency=30.0,
+        teleop_kinematics=None,
         driver_factory=None,
         solver_factory=None,
+        streaming_solver_factory=None,
+        camera_validator=validate_camera_devices,
     ):
         self.arms = list(arms)
         if (
@@ -41,7 +48,20 @@ class YamInterface:
         self.home_duration, self.frequency = float(home_duration), float(frequency)
         if min(self.home_duration, self.frequency) <= 0:
             raise ValueError("Home duration and frequency must be positive")
-        self.controller, self.solvers, self.recorders, self.camera_res = {}, {}, {}, {}
+        camera_validator(cameras)
+        streaming_spec = dict(teleop_kinematics or {})
+        if streaming_spec and streaming_solver_factory is None:
+            import mink
+
+            if not hasattr(mink, "DofFreezingTask"):
+                raise RuntimeError(
+                    "Yam streaming IK requires mink==1.1.0; refusing to open robot drivers"
+                )
+            from egomimic.robot.yam.streaming_ik import ArmIK
+
+            streaming_solver_factory = ArmIK
+        self.controller, self.solvers, self.teleop_solvers = {}, {}, {}
+        self.recorders, self.camera_res = {}, {}
         if driver_factory is None:
             from i2rt.robots.get_robot import get_yam_robot
             from i2rt.robots.utils import ArmType, GripperType
@@ -62,6 +82,15 @@ class YamInterface:
                 spec = dict(kinematics)
                 spec.setdefault("xml_path", driver.xml_path)
                 self.solvers[arm] = solver_factory(**spec)
+                if streaming_spec:
+                    teleop_spec = dict(streaming_spec)
+                    teleop_spec.setdefault(
+                        "ee_site", kinematics.get("site_name", "tcp_site")
+                    )
+                    teleop_spec.setdefault("n_arm", 6)
+                    self.teleop_solvers[arm] = streaming_solver_factory(
+                        driver.xml_path, **teleop_spec
+                    )
                 joint_vector(driver.get_joint_pos())
             self.recorders, self.camera_res = open_cameras(cameras)
         except BaseException:
@@ -96,6 +125,29 @@ class YamInterface:
     def solve_ik(self, ee_pose, arm):
         return self.solvers[arm].ik(pose_matrix(ee_pose), self.get_joints(arm)[:6])
 
+    def validate_teleop_config(self, frequency, max_joint_velocity):
+        if not self.teleop_solvers:
+            raise RuntimeError(
+                "Yam teleop requires the pinned streaming IK configuration"
+            )
+        for solver in self.teleop_solvers.values():
+            if not np.isclose(solver.dt, 1.0 / float(frequency)):
+                raise ValueError(
+                    "Teleop frequency must match yam-pipeline streaming IK dt"
+                )
+            if not np.isclose(solver.max_joint_vel, float(max_joint_velocity)):
+                raise ValueError(
+                    "Teleop joint velocity must match yam-pipeline streaming IK"
+                )
+
+    def teleop_fk(self, joints, arm):
+        return self.teleop_solvers[arm].fk(joint_vector(joints))
+
+    def solve_teleop_ik(self, target_pose, seed, arm):
+        return self.teleop_solvers[arm].ik(
+            np.asarray(target_pose, dtype=float), joint_vector(seed)
+        )
+
     def set_joints(self, desired_position, arm):
         self.controller[arm].command_joint_pos(joint_vector(desired_position))
 
@@ -127,6 +179,6 @@ class YamInterface:
                 driver.close()
             except Exception as error:
                 errors.append(error)
-        self.recorders, self.controller = {}, {}
+        self.recorders, self.controller, self.teleop_solvers = {}, {}, {}
         if errors:
             raise ExceptionGroup("Yam cleanup failed", errors)

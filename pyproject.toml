@@ -11,7 +11,6 @@ dependencies = [
     "torch==2.7.1",
     "torchvision==0.22.1",
     "torchdiffeq==0.2.5",
-    "projectaria-tools[all]==2.0.0",
     "pyyaml",
     "matplotlib",
     "packaging",
@@ -66,6 +65,7 @@ dependencies = [
 
 [project.optional-dependencies]
 robot = ["pure-python-adb"]
+aria = ["projectaria-tools[all]==2.0.0"]
 yam = [
     "pure-python-adb",
     "pyrealsense2",
@@ -74,6 +74,21 @@ yam = [
 pi05 = [
     "openpi @ git+https://github.com/GaTech-RL2/openpi.git@981483dca0fd9acba698fea00aa6e52d56a66c58",
     "safetensors",
+]
+
+# Project Aria 2.0.0 pins rerun-sdk==0.22.1, while i2rt (the Yam SDK)
+# requires rerun-sdk>=0.32.2. i2rt also pins numpy==2.2.6, while Pi05's
+# OpenPI requires numpy<2. Keep these environments separate.
+[tool.uv]
+conflicts = [
+    [
+        { extra = "aria" },
+        { extra = "yam" },
+    ],
+    [
+        { extra = "pi05" },
+        { extra = "yam" },
+    ],
 ]
 
 [tool.setuptools.packages.find]

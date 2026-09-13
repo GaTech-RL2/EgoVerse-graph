@@ -346,6 +346,25 @@ def test_history_gate_requires_components_gradients_and_scheduled_validation():
     assert result["train"]["Train/ActionFlow/FlowMatchingLoss"] == 1.25
 
 
+def test_history_gate_omits_native_diagnostics_when_disabled():
+    row = _history_row()
+    del row["Valid/ActionFlow/CleanReconstructionNativeMSE"]
+    del row[
+        f"Valid/ActionFlow/CleanReconstructionNativeMSE/{MODULE.SOURCE_LABEL}"
+    ]
+    del row["Valid/ActionFlow/DenoisingTrajectory/DecodedNativeMSE/t0000"]
+    del row[
+        "Valid/ActionFlow/DenoisingTrajectory/DecodedNativeMSE/t0000/"
+        f"{MODULE.SOURCE_LABEL}"
+    ]
+
+    result = MODULE._validate_history(
+        {2: row}, expect_native_diagnostics=False
+    )
+
+    assert result["valid_step"] == 2
+
+
 def test_history_gate_accepts_float32_flow_weight_telemetry():
     row = _history_row()
     row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = float(

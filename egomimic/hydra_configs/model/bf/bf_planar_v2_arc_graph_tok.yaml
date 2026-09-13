@@ -30,6 +30,9 @@ pipeline:
       rotation_radius: ${planar.arc_rotation_radius}
       hybrid_rotation_unit: ${planar.hybrid_rotation_unit}
       dt: ${planar.arc_dt}
+      waypoint_sampling: ${planar.arc_waypoint_sampling}
+      curvature_dense_samples: ${planar.arc_curvature_dense_samples}
+      curvature_floor: ${planar.arc_curvature_floor}
       # One knob for the whole codec -- see planar.arc_velocity_mode.
       velocity_mode: ${planar.arc_velocity_mode}
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage

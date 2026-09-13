@@ -264,6 +264,106 @@ transfers better to a tool it never saw.
 
 ---
 
+## 3g. Articulated co-train: how to actually run it
+
+**Training** — `osmo/articulated_cotrain_sweep.yaml`
+
+```bash
+osmo workflow submit osmo/articulated_cotrain_sweep.yaml --pool groot-l40s-03 \
+  --set gpus_per_run=2 num_gpu=8 cpu=64 max_steps=240000 ckpt_every=20000 \
+        batch_size=32 val_batches=8 val_interval=20000 \
+  --set-string job_name=<name> branch=codec-replay-rotfix \
+    resume_job=<previous job or omit> memory=512Gi storage=1Ti \
+    wandb_entity=rl2-group "experiments=<space separated>"
+```
+
+**Rollout** — `osmo/articulated_rollout.yaml`
+
+```bash
+osmo workflow submit osmo/articulated_rollout.yaml --pool groot-l40s-03 \
+  --set n_episodes=40 replan_every=8 chunk_start=0 num_gpu=1 cpu=12 \
+        shards_per_cell=24 \
+  --set-string job_name=<name> branch=codec-replay-rotfix sim_commit=f952ca0d \
+    memory=96Gi storage=300Gi ckpt_job=<training job> \
+    experiments=<...> "embodiments=<...>"
+```
+
+`shards_per_cell=1` stages 125 episodes instead of 3000 and turns a 40-minute
+debug cycle into about 20 minutes. It disables the episode-count guards and
+prints a banner saying the numbers are a plumbing check only. Use 24 for
+anything real.
+
+**`sim_commit` must be `f952ca0d`.** That is the simulator the corpus was
+collected under; the collection report states every frozen source capsule
+matches it. Note the repo contains TWO simulator lineages -- a `v1/v2/v3`
+package layout and the `sim_v1/sim_v2` layout -- and only the latter has the
+nine articulated agents. Replaying against the wrong one silently produces
+wrong coverage.
+
+### Landmines specific to this pipeline
+
+Seven separate bugs stood between "launcher written" and "first rollout scored".
+Every one of them was a component disagreeing with another component, not a
+component being wrong on its own:
+
+1. **`$S5` used but never defined.** Copied from the rollout launcher, which
+   defines it. Under `set -u` the expansion aborts before the command runs, so
+   the `|| true` on the line does nothing. `tools/lint_osmo_launcher.py` now
+   checks every launcher for this.
+2. **Staging path vs datamodule path.** `mode=eval` still builds the
+   seven-domain TRAINING datamodule to bind norm stats, and that reads
+   `${planar.articulated_root}/cells/ideal/<emb>`. Staging the evaluator's
+   corpus anywhere else fails after staging completes.
+3. **Link name vs consumer glob.** `LocalEpisodeResolver` walks `iterdir()` and
+   takes any directory; `episode_budget.py` globs `episode_*.zarr`. Links must
+   start with `episode_`. The staging guard counted `find -mindepth 1` -- i.e.
+   anything -- so it cheerfully confirmed 3000 while the consumer saw none. A
+   guard that does not use the consumer's predicate is not a guard.
+4. **PYTHONPATH shadowing.** `/workspace/EgoVerse` also contains an `egomimic/`
+   package. Putting the whole sim repo on the path shadows EgoVerse-graph's.
+   Symlink ONLY `Tsimulation` into its own directory.
+5. **Missing sim deps.** `sim_v2.pushshapes` imports pymunk, gymnasium, pygame
+   and shapely at module scope and they are in neither lock. Worse,
+   `Tsimulation/__init__.py` catches `ModuleNotFoundError` while aliasing, so a
+   missing dep presents as "No module named Tsimulation.pushshapes" -- true, and
+   silent about the cause.
+6. **Partial staging vs episode-count guards.** `shards_per_cell < 24` trips the
+   config's `expected_episode_count`. The launcher nulls those guards only for a
+   partial stage and says loudly that the run is not comparable.
+7. **Held-out embodiments have no norm stats.** `normalize()` returns the tensor
+   UNCHANGED when it finds none, so umi and scoop would have been fed raw pixels
+   and raw pose and still produced plausible numbers. See below.
+
+### The held-out normalization decision
+
+`tools/pool_norm_stats.py` gives each held-out id the element-wise mean of the
+seven training embodiments' stats, records the donors under `pooled_from`, and
+reports donor disagreement measured against the `q99 - q1` span (the thing
+normalization maps to [-1, 1]) rather than against the mean, because a channel
+centred near zero makes a mean-relative percentage meaningless.
+
+This is a real methodological knob, not an implementation detail. The
+alternative -- borrowing one training embodiment's stats -- makes the held-out
+number depend on which donor is picked.
+
+**What makes the experiment well-posed:** these models do NOT condition on
+embodiment id. The graph is `FusedObsEncoder -> ActionTargetBuilder -> Noising
+-> Denoiser -> Loss` and no stage reads `embodiment`, so a held-out tool is not
+hitting an untrained embedding. Verify this before adding any architecture that
+does embed the domain -- it would invalidate the transfer claim.
+
+### Preemption and resume
+
+l40s-03 and h100-02 have both preempted this sweep -- four times total,
+signature `Killing: Stopping container train` with an otherwise clean log.
+`RESUME_JOB=<previous job>` pulls `last.ckpt` and `norm_stats.json` from R2 and
+passes `ckpt_path` to `trainer.fit`, so optimizer state and step count come back
+too. A missing checkpoint under a non-empty `RESUME_JOB` is fatal rather than a
+silent fresh start. Confirmed working: arms resumed at step 60,579 rather than 0.
+
+Watch out for `osmo pool list` showing free QUOTA on a shared pool whose
+physical nodes are full -- `groot-h100-ci-02` read 64/1776 and was unschedulable.
+
 ## 4. Infrastructure runbook
 
 ### 4.1 Launching an eval

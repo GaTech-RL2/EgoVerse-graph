@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+from scipy.interpolate import CubicSpline
 
 PLANAR_ACTION_DIM = 5  # [x, y, cos(theta), sin(theta), grip]
 
@@ -104,6 +105,88 @@ def _interpolate(values: np.ndarray, cumulative: np.ndarray, target: float):
     return (1.0 - alpha) * values[index] + alpha * values[index + 1]
 
 
+def _curve_support(
+    xy: np.ndarray, cumulative: np.ndarray, end: float, epsilon: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return strictly increasing arc-clock support through ``end``."""
+    inside = cumulative < end - epsilon
+    clock = np.concatenate((cumulative[inside], np.array([end])))
+    points = np.concatenate(
+        (xy[inside], _interpolate(xy, cumulative, end)[None]), axis=0
+    )
+    keep = np.concatenate((np.ones(1, dtype=bool), np.diff(clock) > epsilon))
+    return clock[keep], points[keep]
+
+
+def curvature_adaptive_curve_samples(
+    xy: np.ndarray,
+    cumulative: np.ndarray,
+    end: float,
+    num_waypoints: int,
+    *,
+    dense_samples: int = 257,
+    curvature_floor: float | None = None,
+    epsilon: float = 1e-9,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Place knots on a smooth curve with L2 chord-error density.
+
+    The natural cubic spline is parameterized by the existing SE(2) arc
+    clock. Knot density is ``(floor**2 + curvature**2)**(1/5)`` integrated
+    over Cartesian curve length, which concentrates support in bends while
+    reducing exactly to uniform spacing on a straight trajectory.
+    """
+    xy = np.asarray(xy, dtype=np.float64)
+    cumulative = np.asarray(cumulative, dtype=np.float64)
+    if xy.ndim != 2 or xy.shape[1] != 2 or cumulative.shape != (len(xy),):
+        raise ValueError("xy and cumulative must have matching (T, 2)/(T,) shapes")
+    if num_waypoints < 2:
+        raise ValueError("num_waypoints must be at least two")
+    if dense_samples < max(17, num_waypoints):
+        raise ValueError("dense_samples must be at least max(17, num_waypoints)")
+    if curvature_floor is not None and (
+        not math.isfinite(curvature_floor) or curvature_floor <= 0
+    ):
+        raise ValueError("curvature_floor must be null or finite and positive")
+    if end <= epsilon:
+        return np.repeat(xy[:1], num_waypoints, axis=0), np.zeros(num_waypoints)
+
+    support_clock, support_xy = _curve_support(xy, cumulative, end, epsilon)
+    uniform = np.linspace(0.0, end, num_waypoints)
+    if len(support_clock) < 3:
+        return (
+            np.stack([_interpolate(xy, cumulative, target) for target in uniform]),
+            uniform,
+        )
+
+    spline = CubicSpline(support_clock, support_xy, axis=0, bc_type="natural")
+    dense_clock = np.linspace(0.0, end, dense_samples)
+    first = spline(dense_clock, 1)
+    second = spline(dense_clock, 2)
+    speed = np.linalg.norm(first, axis=-1)
+    numerator = np.abs(first[:, 0] * second[:, 1] - first[:, 1] * second[:, 0])
+    speed_floor = max(float(speed.max()), epsilon) * 1e-6
+    curvature = numerator / np.maximum(speed, speed_floor) ** 3
+    curvature = np.nan_to_num(curvature, nan=0.0, posinf=0.0, neginf=0.0)
+    floor = 1.0 / end if curvature_floor is None else curvature_floor
+    density = (floor * floor + curvature * curvature) ** 0.2
+    integrand = density * speed
+    importance = np.concatenate(
+        (
+            np.zeros(1),
+            np.cumsum(0.5 * (integrand[:-1] + integrand[1:]) * np.diff(dense_clock)),
+        )
+    )
+    targets = (
+        uniform
+        if importance[-1] <= epsilon
+        else np.interp(
+            np.linspace(0.0, importance[-1], num_waypoints), importance, dense_clock
+        )
+    )
+    targets[0], targets[-1] = 0.0, end
+    return spline(targets), targets
+
+
 class PadPlanarAction:
     """Widen native ``[x,y[,theta[,grip]]]`` actions to a common five-vector."""
 
@@ -152,6 +235,9 @@ class TokenizePlanarArcLength:
         dt: float = 1.0 / 30.0,
         rotation_radius: float = 0.0,
         hybrid_rotation_unit: float | None = None,
+        waypoint_sampling: str = "uniform",
+        curvature_dense_samples: int = 257,
+        curvature_floor: float | None = None,
         velocity_mode: str = "mean",
         zero_dist_epsilon: float = 1e-9,
     ):
@@ -165,6 +251,16 @@ class TokenizePlanarArcLength:
             not math.isfinite(hybrid_rotation_unit) or hybrid_rotation_unit <= 0
         ):
             raise ValueError("hybrid_rotation_unit must be finite and positive")
+        if waypoint_sampling not in {"uniform", "curvature"}:
+            raise ValueError("waypoint_sampling must be 'uniform' or 'curvature'")
+        if curvature_dense_samples < max(17, resampled_vector_length):
+            raise ValueError(
+                "curvature_dense_samples must be at least max(17, resampled_vector_length)"
+            )
+        if curvature_floor is not None and (
+            not math.isfinite(curvature_floor) or curvature_floor <= 0
+        ):
+            raise ValueError("curvature_floor must be null or finite and positive")
         self.action_key = str(action_key)
         self.output_action_key = str(output_action_key)
         self.distance = float(min_distance_unit)
@@ -174,6 +270,11 @@ class TokenizePlanarArcLength:
         self.velocity_mode = validate_velocity_mode(velocity_mode)
         self.hybrid_rotation_unit = (
             None if hybrid_rotation_unit is None else float(hybrid_rotation_unit)
+        )
+        self.waypoint_sampling = str(waypoint_sampling)
+        self.curvature_dense_samples = int(curvature_dense_samples)
+        self.curvature_floor = (
+            None if curvature_floor is None else float(curvature_floor)
         )
         self.zero_dist_epsilon = float(zero_dist_epsilon)
 
@@ -279,10 +380,21 @@ class TokenizePlanarArcLength:
             rates = np.zeros(self.num_waypoints, dtype=np.float64)
             durations = np.zeros(self.num_waypoints, dtype=np.float64)
         else:
-            targets = np.linspace(0.0, end, self.num_waypoints)
-            xy_waypoints = np.stack(
-                [_interpolate(xy, cumulative, point) for point in targets]
-            )
+            if self.waypoint_sampling == "curvature":
+                xy_waypoints, targets = curvature_adaptive_curve_samples(
+                    xy,
+                    cumulative,
+                    end,
+                    self.num_waypoints,
+                    dense_samples=self.curvature_dense_samples,
+                    curvature_floor=self.curvature_floor,
+                    epsilon=self.zero_dist_epsilon,
+                )
+            else:
+                targets = np.linspace(0.0, end, self.num_waypoints)
+                xy_waypoints = np.stack(
+                    [_interpolate(xy, cumulative, point) for point in targets]
+                )
             theta_waypoints = np.array(
                 [
                     _interpolate(theta[:, None], cumulative, point)[0]

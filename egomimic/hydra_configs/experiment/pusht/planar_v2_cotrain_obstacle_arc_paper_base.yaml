@@ -1,0 +1,94 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_base
+  - override /data: pusht/planar_v2_cotrain_obstacle_7920
+  - override /model: bf/bf_planar_v2_arc_graph_tok_paper
+  - _self_
+
+model:
+  train_log_on_step: true
+trainer:
+  log_every_n_steps: 1
+planar:
+  action_dims: {pushshapes_sim_u_socket: 5, pushshapes_sim_chain_gripper: 5}
+  observation_horizon: 2
+  action_target_offset: 1
+  raw_action_horizon: 80
+  action_horizon: 16
+  # Loader chunks include the initial control-state row, so normalized action
+  # statistics and native validation use 80 + 1 rows.  Keep this separate from
+  # the 16-step execution horizon used by the inference graph.
+  arc_metric_action_horizon: 81
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
+  arc_distance: 80.0
+  arc_waypoints: 16
+  arc_token_rows: 32
+  arc_dt: 0.0333333333333333
+  # R26deg translated into main's scaled-chordal angular clock.
+  hybrid_rotation_unit: 0.16009352021479437
+  arc_rotation_radius: 30.0
+  arc_velocity_mode: duration
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
+  batch_size: 64
+  eval_native_decoder: null
+evaluator:
+  target_encoder:
+    _target_: egomimic.pipeline.stages_arc.ArcTokenizeStage
+    action_key: actions
+    min_distance_unit: ${planar.arc_distance}
+    resampled_vector_length: ${planar.arc_waypoints}
+    rotation_radius: ${planar.arc_rotation_radius}
+    hybrid_rotation_unit: ${planar.hybrid_rotation_unit}
+    dt: ${planar.arc_dt}
+    waypoint_sampling: ${planar.arc_waypoint_sampling}
+    curvature_dense_samples: ${planar.arc_curvature_dense_samples}
+    curvature_floor: ${planar.arc_curvature_floor}
+    velocity_mode: ${planar.arc_velocity_mode}
+  native_decoder: null
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTokenNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.arc_metric_action_horizon}
+      native_action_dim: 3
+      dt: ${planar.arc_dt}
+      rotation_radius: ${planar.arc_rotation_radius}
+      velocity_mode: ${planar.arc_velocity_mode}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTokenNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.arc_metric_action_horizon}
+      native_action_dim: 4
+      dt: ${planar.arc_dt}
+      rotation_radius: ${planar.arc_rotation_radius}
+      velocity_mode: ${planar.arc_velocity_mode}
+callbacks:
+  model_checkpoint:
+    filename: "epoch_{epoch}-step_{step}"
+    monitor: null
+    save_top_k: -1
+    save_last: false
+    every_n_epochs: null
+    every_n_train_steps: 60000
+    train_time_interval: null
+    save_on_train_epoch_end: false
+    save_weights_only: true
+run_provenance:
+  obstacle_data: true
+  dataset_count: 7920
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: ${planar.action_horizon}
+    waypoint_count: ${planar.arc_waypoints}
+    replan_every: 8
+    execution_slice: "[0,8)"
+  checkpoint_contract:
+    steps: [60000, 120000, 180000, 240000]
+    save_weights_only: true
+    optimizer_state_saved: false

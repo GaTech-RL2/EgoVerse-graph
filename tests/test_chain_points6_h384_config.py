@@ -8,6 +8,7 @@ from egomimic.trainHydra import _resolve_model_wrapper_class
 
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
+LAUNCHER = Path(__file__).parents[1] / "scripts" / "train" / "launch_action_flow_usocket.sbatch"
 ROW = "action_flow_chain_points6_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42"
 
 
@@ -63,3 +64,9 @@ def test_h384_points6_row_preserves_requested_contract(monkeypatch):
     assert cfg.trainer.max_steps == 150_000
     assert cfg.trainer.val_check_interval == 10_000
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 30_000
+
+
+def test_h384_points6_uses_strict_routed_preflight_instead_of_legacy_name_gate():
+    launcher = LAUNCHER.read_text()
+    assert 'test "$AF_CLEAN_CHAIN_4918" = true' in launcher
+    assert "cotrain or native-points6 experiment names/topologies" in launcher

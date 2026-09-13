@@ -892,7 +892,8 @@ PY
     if test -n "$AF_COMPARISON_EXPERIMENT"; then
       CONFIG_VALIDATOR_ARGS+=(--compare-experiment "$AF_COMPARISON_EXPERIMENT")
     fi
-    if test "$AF_COTRAIN" = true && test "$AF_SCALED_H512" = false; then
+    if { test "$AF_COTRAIN" = true || test "$AF_CLEAN_CHAIN_4918" = true; } \
+      && test "$AF_SCALED_H512" = false; then
       # The live single-domain validator only recognizes its historical fixed
       # cotrain experiment and topology.  The current routed H384 cotrain graph
       # is composed, instantiated, and audited by the strict resolved-config
@@ -912,7 +913,7 @@ payload = {
     "validation_mode": "launcher_strict_routed_cotrain",
     "note": (
         "The historical external validator does not accept arbitrary routed "
-        "cotrain experiment names/topologies; the launcher composes, "
+        "cotrain or native-points6 experiment names/topologies; the launcher composes, "
         "instantiates, and fail-closed audits the exact resolved config."
     ),
     "external_validator_path": str(validator),

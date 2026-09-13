@@ -164,7 +164,9 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                 ready = cameras_ready and all(arm[0] in poses for arm in robot.arms)
                 if not ready and tick - started > float(config["startup_timeout"]):
                     raise TimeoutError(
-                        "Waiting for cameras and Quest WORLD poses. Install the rebuilt bundled APK (wE9ryARXWorld tag); check camera configuration."
+                        "Waiting for cameras and Quest WORLD poses. Install the "
+                        "bundled RAIL world-frame APK (wE9ryARX tag); check "
+                        "camera configuration."
                     )
             if events.get("stop") or key == "x" or events.get("home") or key == "y":
                 if writer is not None:

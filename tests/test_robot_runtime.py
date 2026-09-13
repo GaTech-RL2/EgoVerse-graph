@@ -1,5 +1,6 @@
 """Offline behavior checks for the shared collection and rollout paths."""
 
+import hashlib
 import sys
 import threading
 import time
@@ -383,7 +384,7 @@ def test_yam_uploader_lists_hdf5_without_touching_source_files(tmp_path):
     assert (tmp_path / "demo_1.hdf5").read_bytes() == b"data"
 
 
-def test_world_reader_drops_stale_input_and_keeps_default_head_stream(monkeypatch):
+def test_world_reader_drops_stale_input_and_uses_rail_world_stream(monkeypatch):
     # Import the bundled reader, with only adb itself stubbed if unavailable.
     monkeypatch.syspath_prepend(str(Path("egomimic/robot/oculus_reader").resolve()))
     monkeypatch.setitem(sys.modules, "ppadb", SimpleNamespace())
@@ -393,14 +394,45 @@ def test_world_reader_drops_stale_input_and_keeps_default_head_stream(monkeypatc
     reader = OculusReader.__new__(OculusReader)
     reader.running = False
     reader._lock = threading.Lock()
+    reader.tag = "wE9ryARX"
     reader.max_age, reader.last_update = 0.1, time.monotonic() - 1
     reader.last_transforms, reader.last_buttons = {"r": np.eye(4)}, {"RG": 1}
     assert reader.get_transformations_and_buttons() == ({}, {})
     reader.last_update = time.monotonic()
     assert "r" in reader.get_transformations_and_buttons()[0]
-    reader.tag = "wE9ryARXWorld"
-    assert reader.extract_data("wE9ryARX: old head frame") == ""
-    assert reader.extract_data("wE9ryARXWorld: new world frame") == "new world frame"
+    assert reader.extract_data("wE9ryARXWorld: alternate tag") == ""
+    assert reader.extract_data("wE9ryARX: RAIL world frame") == "RAIL world frame"
+
+    monkeypatch.setattr(OculusReader, "get_device", lambda self: object())
+    monkeypatch.setattr(OculusReader, "install", lambda self, **kwargs: None)
+    configured = OculusReader(run=False)
+    assert configured.pose_frame == "world"
+    assert configured.tag == "wE9ryARX"
+    with pytest.raises(ValueError, match="emits world poses only"):
+        OculusReader(run=False, pose_frame="head")
+
+
+def test_bundled_rail_world_apk_and_source_match_pinned_provenance():
+    root = Path("egomimic/robot/oculus_reader")
+    source = (root / "app_source/Src/OculusTeleop.cpp").read_text()
+    assert "handPoseMatrixHeadCoord" not in source
+    assert (
+        "handPoseTransformations.push_back(std::make_pair(side, handPoseMatrix));"
+        in source
+    )
+    assert '"wE9ryARX"' in source
+
+    apk = (root / "oculus_reader/APK/teleop-debug.apk").read_bytes()
+    expected = "cc990542fb539d541b0927a7dcce7ede4c3e6c3cb53990ad42c305bb42a05876"
+    provenance = (root / "oculus_reader/APK/PROVENANCE.md").read_text()
+    assert expected in provenance
+    assert "`7496215` bytes" in provenance
+    if apk.startswith(b"version https://git-lfs.github.com/spec/v1"):
+        assert f"oid sha256:{expected}".encode() in apk
+        assert b"size 7496215" in apk
+    else:
+        assert len(apk) == 7496215
+        assert hashlib.sha256(apk).hexdigest() == expected
 
 
 def test_camera_stream_pauses_disconnected_frames_and_resumes():
@@ -505,7 +537,7 @@ def test_quest_stop_unblocks_a_pending_socket_read(monkeypatch):
     reader = OculusReader.__new__(OculusReader)
     reader.running, reader._lock = True, threading.Lock()
     reader.print_FPS = False
-    reader.tag = "wE9ryARXWorld"
+    reader.tag = "wE9ryARX"
     ready = threading.Event()
 
     def makefile():

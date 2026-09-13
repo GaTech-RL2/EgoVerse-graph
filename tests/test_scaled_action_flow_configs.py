@@ -3,6 +3,9 @@ from pathlib import Path
 import pytest
 from hydra import compose, initialize_config_dir
 
+from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.trainHydra import _resolve_model_wrapper_class
+
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 
@@ -34,7 +37,11 @@ def test_scaled_rows_preserve_linked_action_flow_recipe(row, monkeypatch):
         stage for stage in stages if stage._target_.endswith("ConditionalVelocityStage")
     )
 
-    assert cfg.model._target_.endswith("ActionFlowModelWrapper")
+    assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
+    assert cfg.model.training_behavior._target_.endswith(
+        "ActionFlowTrainingBehavior"
+    )
+    assert _resolve_model_wrapper_class(cfg) is ModelWrapper
     assert cfg.model.flow_mini_batch == 14
     assert cfg.model.flow_samples_per_content == 14
     assert cfg.model.condition_dim == 128

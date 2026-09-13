@@ -1,5 +1,5 @@
 # Action Flow objective with scaled private H512/D14/H16 codec modules.
-_target_: egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
 
 action_horizon: 16
 action_dim: 4
@@ -18,6 +18,9 @@ reconstruction_weight: 1.0
 flow_weight: 1.0
 action_flow_method: latent_fm_stopgrad_unite
 optimizer_named_parameters: true
+
+training_behavior:
+  _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo

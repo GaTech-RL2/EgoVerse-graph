@@ -1720,8 +1720,13 @@ def _validate_scaled_h512_config(
     _exact(str(config.name), row["config_name"], "scaled config name")
     _exact(
         str(config.model._target_),
-        "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper",
+        "egomimic.pl_utils.pl_model.ModelWrapper",
         "scaled model wrapper",
+    )
+    _exact(
+        str(config.model.training_behavior._target_),
+        "egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior",
+        "scaled Action Flow training behavior",
     )
     expected_types = (
         SCALED_H512_ROUTED_STAGE_TYPES if routed else SCALED_H512_STAGE_TYPES

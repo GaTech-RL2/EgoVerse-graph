@@ -300,6 +300,66 @@ def test_reconstruction_only_warmup_is_loaded_from_training_config_tree(monkeypa
     }
 
 
+def test_flow_mini_batch_is_bound_to_full_parallel_flow_set(monkeypatch):
+    monkeypatch.setattr(
+        ModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    wrapper = _action_flow_wrapper(
+        config_tree={
+            "model": {
+                "pipeline": {},
+                "flow_samples_per_content": 14,
+                "flow_mini_batch": 14,
+            }
+        },
+        gradient_telemetry_cadence=0,
+    )
+
+    assert wrapper.training_behavior.flow_samples_per_content == 14
+    assert wrapper.training_behavior.flow_mini_batch == 14
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, True])
+def test_flow_mini_batch_rejects_invalid_values(monkeypatch, value):
+    monkeypatch.setattr(
+        ModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    with pytest.raises(ValueError, match="flow_mini_batch must be a positive integer"):
+        _action_flow_wrapper(
+            config_tree={
+                "model": {
+                    "pipeline": {},
+                    "flow_samples_per_content": 14,
+                    "flow_mini_batch": value,
+                }
+            },
+            gradient_telemetry_cadence=0,
+        )
+
+
+def test_flow_mini_batch_rejects_partial_flow_chunking(monkeypatch):
+    monkeypatch.setattr(
+        ModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    with pytest.raises(ValueError, match="must equal flow_samples_per_content"):
+        _action_flow_wrapper(
+            config_tree={
+                "model": {
+                    "pipeline": {},
+                    "flow_samples_per_content": 14,
+                    "flow_mini_batch": 7,
+                }
+            },
+            gradient_telemetry_cadence=0,
+        )
+
+
 def test_joint_flow_weight_is_applied_and_logged(monkeypatch):
     wrapper = _action_flow_wrapper(
         pipeline=_ToyAlgo(reconstruction_weight=10.0, flow_weight=0.01),

@@ -1442,8 +1442,9 @@ from validate_action_flow_config import (
 )
 if scaled_h512:
     method = STOPGRAD_UNITE_METHOD
-    assert cfg.model._target_ == (
-        "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper"
+    assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
+    assert cfg.model.training_behavior._target_.endswith(
+        "ActionFlowTrainingBehavior"
     )
     targets = [str(stage._target_) for stage in cfg.model.pipeline.stages]
     assert targets[4].endswith(

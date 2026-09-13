@@ -360,14 +360,30 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "gradient route manifest hash mismatch",
     )
 
-    from egomimic.pl_utils.pl_model_action_flow import ActionFlowModelWrapper
+    from egomimic.pl_utils.pl_model import ModelWrapper
+    from egomimic.pl_utils.training_behavior_action_flow import (
+        ActionFlowTrainingBehavior,
+    )
 
     try:
-        restored = ActionFlowModelWrapper.load_from_checkpoint(
+        restored = ModelWrapper.load_from_checkpoint(
             last, map_location="cpu", strict=True, weights_only=False
         )
     except Exception as error:
-        raise VerificationError("strict ActionFlowModelWrapper reload failed") from error
+        raise VerificationError("strict ModelWrapper reload failed") from error
+    require(type(restored) is ModelWrapper, "restored wrapper is not generic ModelWrapper")
+    require(
+        isinstance(restored.training_behavior, ActionFlowTrainingBehavior),
+        "restored training behavior is not ActionFlowTrainingBehavior",
+    )
+    require(
+        restored.training_behavior.flow_samples_per_content == 14,
+        "restored flow sample count mismatch",
+    )
+    require(
+        restored.training_behavior.flow_mini_batch == 14,
+        "restored full-parallel flow mini-batch mismatch",
+    )
     stages = tuple(restored.model.pipeline.stages)
     if routed:
         require(tuple(stages[4].encoder) == sources, "restored encoder routes mismatch")

@@ -139,6 +139,17 @@ workflow:
         S5="s5cmd --endpoint-url $R2_ENDPOINT_URL"
         ulimit -n 65536 || true
 
+        # Flush logs and budgets on ANY exit. Every failure so far aborted
+        # before the upload at the bottom of the script, so the artifacts died
+        # with the container and the only way to see anything was to stream the
+        # osmo log, which truncates.
+        DEST="s3://rldb/staged/articulated_rollout/$JOB_NAME"
+        flush () {
+          $S5 cp "/tmp/*.log" "$DEST/logs/" >/dev/null 2>&1 || true
+          $S5 cp "/workspace/budgets/*.json" "$DEST/budgets/" >/dev/null 2>&1 || true
+        }
+        trap flush EXIT
+
         # ---------------------------------------------- corpora + budgets
         ROOT=/workspace/articulated
         mkdir -p "$ROOT" /workspace/budgets
@@ -281,10 +292,31 @@ workflow:
           grep -E '\[sim\] SUMMARY' "/tmp/${TAG}_${EXP}_${EMB}.log" || true
         }
 
-        # One-episode smoke over every pair first. Three separate config bugs in
-        # this family only surfaced at model-construction time, hours in.
+        # One-episode smoke over every pair first. Bugs in this family surface
+        # only at model-construction or rollout time, deep into a run.
+        #
+        # The loop must NOT abort on the first failure. Under set -e it used to,
+        # which meant each 45-minute cycle revealed exactly one broken
+        # embodiment and hid the state of the other eight. Collect everything,
+        # then report once.
         FIRST_EXP=$(echo $EXPERIMENTS | awk '{print $1}')
-        for EMB in $EMBODIMENTS; do run_one "$FIRST_EXP" "$EMB" 1 smoke; done
+        SMOKE_OK=""; SMOKE_BAD=""
+        for EMB in $EMBODIMENTS; do
+          if run_one "$FIRST_EXP" "$EMB" 1 smoke; then
+            SMOKE_OK="$SMOKE_OK $EMB"
+          else
+            SMOKE_BAD="$SMOKE_BAD $EMB"
+          fi
+        done
+        echo "================ SMOKE ================"
+        echo "  passed:$SMOKE_OK"
+        echo "  FAILED:$SMOKE_BAD"
+        for EMB in $SMOKE_BAD; do
+          echo "--- first error for $EMB"
+          grep -m3 -E "Error|Exception|Traceback|assert" \
+            "/tmp/smoke_${FIRST_EXP}_${EMB}.log" 2>/dev/null | tail -3 || true
+        done
+        [ -z "$SMOKE_BAD" ] || { echo "FATAL: smoke failed for:$SMOKE_BAD"; exit 1; }
         echo "smoke complete over all embodiments"
 
         RC=0
@@ -297,10 +329,7 @@ workflow:
         echo "================ RESULTS ================"
         grep -h -E '\[sim\] SUMMARY' /tmp/rollout_*.log 2>/dev/null || echo "no summaries"
 
-        DEST="s3://rldb/staged/articulated_rollout/$JOB_NAME"
-        $S5 cp "/tmp/*.log" "$DEST/logs/" || true
-        $S5 cp "/workspace/budgets/*.json" "$DEST/budgets/" || true
-        echo "artifacts flushed to $DEST"
+        echo "artifacts flushed to $DEST by the exit trap"
         exit $RC
 
   resources:

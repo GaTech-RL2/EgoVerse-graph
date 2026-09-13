@@ -74,3 +74,8 @@ Use an isolated worktree for consolidation or substantial review follow-ups.
 The consolidated PR/source map is in [docs/ARC_STACK.md](docs/ARC_STACK.md) and
 [docs/arc_consolidation.json](docs/arc_consolidation.json). PI environment and
 graph behavior are documented in [docs/PI05_GRAPH.md](docs/PI05_GRAPH.md).
+
+## W&B resume rule
+Any Slurm training resume must continue writing to the exact same W&B run/log
+as the previous job. Never create a new W&B run when requeueing or resuming;
+restore and verify the prior run identity before launching the replacement.

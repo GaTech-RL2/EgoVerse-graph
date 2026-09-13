@@ -18,10 +18,12 @@ norm_stats_only: false
 
 hydra:
   run:
-    # Dir should be experiment_name/description_{timestamp}
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    # Keep Hydra/Submitit logs on CedarP, which is mounted on the ICE nodes.
+    # This avoids a separate CPU log-copy/offload job and keeps launch metadata
+    # beside the corresponding experiment artifacts.
+    dir: /storage/cedar/cedar0/cedarp-dxu345-0/egoverse-graph-runs/_hydra_logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
   sweep:
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    dir: /storage/cedar/cedar0/cedarp-dxu345-0/egoverse-graph-runs/_hydra_logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
 launch_params:
   gpus_per_node: 1

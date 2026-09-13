@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-09-12T16:30:52-04:00",
+  "cluster": "ice",
+  "repository": "GaTech-RL2/EgoVerse-graph",
+  "checkout": {
+    "path": "/home/hice1/acheluva3/ice/EgoVerse-graph",
+    "branch": "graph-ice",
+    "head": "686298d181eabd2286c27ea6631839e393b687ed",
+    "dirty": true
+  },
+  "policy": {
+    "non_base_experiment_count": 12,
+    "resume_wandb_identity": "exact",
+    "preferred_accelerators": ["h200", "h100"],
+    "preferred_per_embodiment_batch_size": 64,
+    "monitor_interval_seconds": 240
+  },
+  "runs": [
+    {
+      "experiment": "abc_fstshirt_arc_bc",
+      "job_id": "5764800",
+      "state": "TIMEOUT",
+      "elapsed": "16:00:08",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_fstshirt_arc_bc_arcD40M100_2026-09-10_19-44-39",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_fstshirt_arc_bc_arcD40M100_2026-09-10_19-44-39",
+      "resume_verified_in_log": true
+    },
+    {
+      "experiment": "abc_fstshirt_bc",
+      "job_id": "5764798",
+      "state": "TIMEOUT",
+      "elapsed": "16:00:29",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_fstshirt_bc_baseline_2026-09-10_19-26-50",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_fstshirt_bc_baseline_2026-09-10_19-26-50",
+      "resume_verified_in_log": true
+    },
+    {
+      "experiment": "abc_fstshirt_mecka_freefold_cotrain_arcD40M100",
+      "job_id": "5764801",
+      "state": "TIMEOUT",
+      "elapsed": "16:00:29",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_fstshirt_mecka_freefold_cotrain_arcD40M100_arcD40M100_2026-09-10_19-41-06",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_fstshirt_mecka_freefold_cotrain_arcD40M100_arcD40M100_2026-09-10_19-41-06",
+      "resume_verified_in_log": true,
+      "warning": "No checkpoint was written in the replacement output directory before timeout."
+    },
+    {
+      "experiment": "abc_fstshirt_mecka_freefold_cotrain_baseline",
+      "job_id": "5764799",
+      "state": "TIMEOUT",
+      "elapsed": "16:00:14",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_fstshirt_mecka_freefold_cotrain_baseline_baseline_2026-09-10_19-35-22",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_fstshirt_mecka_freefold_cotrain_baseline_baseline_2026-09-10_19-35-22",
+      "resume_verified_in_log": true
+    },
+    {
+      "experiment": "abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100",
+      "job_id": "5768073",
+      "state": "PENDING",
+      "reason": "Priority",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100_qwen_pooled_arcD40M100_2026-09-10_22-44-06",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100_qwen_pooled_arcD40M100_2026-09-10_22-44-06",
+      "resume_mode": "must"
+    },
+    {
+      "experiment": "abc_lang_fstshirt_mecka_freefold_cotrain_baseline",
+      "job_id": "5768072",
+      "state": "PENDING",
+      "reason": "Priority",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_lang_fstshirt_mecka_freefold_cotrain_baseline_qwen_pooled_baseline_2026-09-10_22-30-33",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_lang_fstshirt_mecka_freefold_cotrain_baseline_qwen_pooled_baseline_2026-09-10_22-30-33",
+      "resume_mode": "must"
+    },
+    {
+      "experiment": "abc_lang_mecka_fold_multitask_cotrain_arcD40M100",
+      "job_id": "5766757",
+      "state": "RUNNING",
+      "elapsed": "02:44:14",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_lang_mecka_fold_multitask_cotrain_arcD40M100_qwen_pooled_arcD40M100_clean_20260912",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_lang_mecka_fold_multitask_cotrain_arcD40M100_qwen_pooled_arcD40M100_clean_20260912"
+    },
+    {
+      "experiment": "abc_lang_mecka_fold_multitask_cotrain_baseline",
+      "job_id": "5768074",
+      "state": "PENDING",
+      "reason": "Priority",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_lang_mecka_fold_multitask_cotrain_baseline_qwen_pooled_baseline_2026-09-10_22-50-23",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_lang_mecka_fold_multitask_cotrain_baseline_qwen_pooled_baseline_2026-09-10_22-50-23",
+      "resume_mode": "must"
+    },
+    {
+      "experiment": "abc_mecka_fold_multitask_cotrain_arcD40M100",
+      "job_id": "5768141",
+      "state": "PENDING",
+      "reason": "Priority",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_mecka_fold_multitask_cotrain_arcD40M100_h100_bs64_fix1_20260912",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_mecka_fold_multitask_cotrain_arcD40M100_h100_bs64_fix1_20260912"
+    },
+    {
+      "experiment": "abc_mecka_fold_multitask_cotrain_baseline",
+      "job_id": "5766688",
+      "state": "RUNNING",
+      "elapsed": "06:01:30",
+      "accelerator": "h100:1",
+      "wandb_run_id": "abc_mecka_fold_multitask_cotrain_baseline_h100_bs64_fix1_20260912",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/abc_mecka_fold_multitask_cotrain_baseline_h100_bs64_fix1_20260912"
+    },
+    {
+      "experiment": "clock_head_abc_fstshirt_mecka_freefold_cotrain_arcD40M100",
+      "job_id": "5759323",
+      "state": "RUNNING",
+      "elapsed": "02:23:13",
+      "accelerator": "h200:1",
+      "wandb_run_id": "clock_head_abc_fstshirt_mecka_freefold_arcD40M100_h200_retry6",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/clock_head_abc_fstshirt_mecka_freefold_arcD40M100_h200_retry6",
+      "resume_verified_in_log": true
+    },
+    {
+      "experiment": "mixture_hpt_abc_fstshirt_mecka_freefold_cotrain_arcD40M100",
+      "job_id": "5765059",
+      "state": "RUNNING",
+      "elapsed": "15:54:12",
+      "accelerator": "h200:1",
+      "wandb_run_id": "mixture_hpt_abc_fstshirt_mecka_freefold_arcD40M100_h200_bs64_annotationsfix_20260911",
+      "wandb_url": "https://wandb.ai/rl2-group/abc-yam/runs/mixture_hpt_abc_fstshirt_mecka_freefold_arcD40M100_h200_bs64_annotationsfix_20260911"
+    }
+  ],
+  "monitor": {
+    "job_id": "5768146",
+    "state": "RUNNING",
+    "interval_seconds": 240,
+    "target_count": 12
+  },
+  "retired_jobs": [
+    {
+      "job_id": "5754952",
+      "experiment": "abc_mecka_fold_multitask_cotrain_arcD40M100",
+      "state": "CANCELLED",
+      "reason": "Repeated V100 OOM; no checkpoint or W&B run was created. Replaced by 5768141."
+    }
+  ]
+}

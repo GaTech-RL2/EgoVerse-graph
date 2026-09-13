@@ -264,6 +264,58 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(config.trainer.limit_val_batches == 1, "smoke must run one real validation batch")
     require(config.model.flow_samples_per_content == 14, "FM sample count mismatch")
     require(config.model.flow_mini_batch == 14, "FM mini-batch mismatch")
+    require(args.expected_max_lr > 0.0, "expected maximum LR must be positive")
+    require(args.expected_min_lr > 0.0, "expected minimum LR must be positive")
+    require(
+        args.expected_min_lr <= args.expected_max_lr,
+        "expected minimum LR exceeds maximum LR",
+    )
+    require(
+        math.isclose(
+            float(config.model.optimizer.lr),
+            args.expected_max_lr,
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "optimizer maximum LR mismatch",
+    )
+    require(
+        math.isclose(
+            float(config.model.scheduler.base_lr_1),
+            args.expected_max_lr,
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "scheduler maximum LR mismatch",
+    )
+    for field in ("base_lr_2", "final_lr"):
+        require(
+            math.isclose(
+                float(config.model.scheduler[field]),
+                args.expected_min_lr,
+                rel_tol=0.0,
+                abs_tol=1e-15,
+            ),
+            f"scheduler minimum LR mismatch: {field}",
+        )
+    require(
+        math.isclose(
+            float(config.run_provenance.optimizer_schedule.max_lr),
+            args.expected_max_lr,
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "provenance maximum LR mismatch",
+    )
+    require(
+        math.isclose(
+            float(config.run_provenance.optimizer_schedule.min_lr),
+            args.expected_min_lr,
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "provenance minimum LR mismatch",
+    )
     require(config.model.hidden_dim == 512, "model compatibility width mismatch")
     require(tuple(row["codec"]) == (
         int(config.model.codec_hidden_dim),
@@ -523,6 +575,10 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "gpu_probes": probes,
         "identities": {
             "repo_head": args.expected_head,
+            "optimizer_schedule": {
+                "max_lr": args.expected_max_lr,
+                "min_lr": args.expected_min_lr,
+            },
             "split_manifest_sha256": args.expected_split_sha256,
             "normalization_sha256": args.expected_normalization_sha256,
             "content_manifest_sha256": args.expected_content_manifest_sha256,
@@ -588,6 +644,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--expected-second-content-manifest-sha256")
     result.add_argument("--expected-second-dataset-content-aggregate-sha256")
     result.add_argument("--expected-parameter-count", type=int, required=True)
+    result.add_argument("--expected-max-lr", type=float, required=True)
+    result.add_argument("--expected-min-lr", type=float, required=True)
     result.add_argument("--expected-preflight-sha256", required=True)
     result.add_argument("--expected-reconstruction-weight", type=float)
     result.add_argument("--expected-flow-weight", type=float)

@@ -365,6 +365,14 @@ def test_history_gate_omits_native_diagnostics_when_disabled():
     assert result["valid_step"] == 2
 
 
+def test_chain_energy_distance_matches_serialized_generic_contract():
+    assert MODULE._expected_energy_distance({"energy_score_distance": None}) == {
+        "formula": "mean_equal_weight_semantic_block_rms",
+        "semantic_blocks": ((0, 2), (2, 4), (4, 6)),
+        "space": "normalized_action_chunk",
+    }
+
+
 def test_history_gate_accepts_float32_flow_weight_telemetry():
     row = _history_row()
     row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = float(

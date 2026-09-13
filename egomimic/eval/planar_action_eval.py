@@ -1004,7 +1004,7 @@ class PlanarActionEval(Eval):
             "dataset_content",
         }
         has_identity_contract = identity_fields.issubset(
-            self.energy_score_provenance
+            self.energy_score_provenance or {}
         )
         if self.energy_score_distance is not None and not has_identity_contract:
             raise ValueError(

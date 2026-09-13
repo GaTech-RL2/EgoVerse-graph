@@ -80,7 +80,7 @@ if test "$MODE" = smoke; then
   COMMON+=(trainer.limit_val_batches=1 trainer.num_sanity_val_steps=0 trainer.log_every_n_steps=1)
 else
   SMOKE_DIR=${PASSED_SMOKE_DIR:?full mode requires a passing same-experiment smoke directory}
-  test -f "$SMOKE_DIR/SMOKE_PASS"
+  grep -q '"status": "passed"' "$SMOKE_DIR/SMOKE_RESULT.json"
   test "$(cat "$SMOKE_DIR/provenance/source_head.txt")" = "$EXPECTED_HEAD"
   test "$(cat "$SMOKE_DIR/provenance/experiment.txt")" = "$EXPERIMENT"
   test -s "$SMOKE_DIR/norm_stats/norm_stats.json"
@@ -113,10 +113,12 @@ if test "$MODE" = smoke; then
     test -s "$RUN_DIR/norm_stats/norm_stats.json"
     COMMON+=("norm_stats.precomputed_norm_path=$RUN_DIR/norm_stats")
   fi
+  COMMON+=(callbacks.model_checkpoint.every_n_train_steps=2)
   "$PY" -m egomimic.trainHydra "${COMMON[@]}" --cfg job --resolve \
     > "$RUN_DIR/provenance/train_resolved_config.yaml"
   grep -q 'train_log_on_step: true' "$RUN_DIR/provenance/train_resolved_config.yaml"
   grep -q 'log_every_n_steps: 1' "$RUN_DIR/provenance/train_resolved_config.yaml"
+  grep -q 'every_n_train_steps: 2' "$RUN_DIR/provenance/train_resolved_config.yaml"
 fi
 
 srun --ntasks=1 --gpus-per-task=1 --kill-on-bad-exit=1 --unbuffered \
@@ -124,15 +126,17 @@ srun --ntasks=1 --gpus-per-task=1 --kill-on-bad-exit=1 --unbuffered \
   2>&1 | tee "$RUN_DIR/training.log"
 
 if test "$MODE" = smoke; then
+  "$PY" scripts/train/verify_planar_paper_dp_smoke.py "$RUN_DIR" \
+    --expected-head "$EXPECTED_HEAD" --expected-experiment "$EXPERIMENT"
   sha256sum "$RUN_DIR/provenance/resolved_config.yaml" \
     "$RUN_DIR/provenance/split.json" "${PRECOMPUTED_NORM_DIR:-$RUN_DIR/norm_stats}/norm_stats.json" \
     > "$RUN_DIR/provenance/SHA256SUMS"
   touch "$RUN_DIR/SMOKE_PASS"
-  printf '[smoke] PASS run=%s wandb=%s\n' "$RUN_DIR" \
+  printf '[smoke] ALL_PASS run=%s wandb=%s\n' "$RUN_DIR" \
     "https://wandb.ai/rl2-group/pushshapes-planar-v2/runs/${RUN_SLUG}-${MODE}-${SLURM_JOB_ID}"
 else
   CHECKPOINT_COUNT=$(find "$RUN_DIR" -maxdepth 3 -type f -name '*.ckpt' | wc -l)
-  test "$CHECKPOINT_COUNT" -le 4
+  test "$CHECKPOINT_COUNT" -eq 4
   printf '[full] PASS run=%s checkpoints=%s wandb=%s\n' "$RUN_DIR" "$CHECKPOINT_COUNT" \
     "https://wandb.ai/rl2-group/pushshapes-planar-v2/runs/${RUN_SLUG}-${MODE}-${SLURM_JOB_ID}"
 fi

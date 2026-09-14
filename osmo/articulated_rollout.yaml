@@ -198,7 +198,7 @@ workflow:
         # numbers are not publishable.
         GUARD_OV=""
         if [ "$SHARDS_PER_CELL" -lt 24 ]; then
-          for E in $TRAIN_EMB; do
+          for E in $(printf '%s\n' $TRAIN_EMB $HELD_OUT | sort -u); do
             for SPLIT in train valid; do
               GUARD_OV="$GUARD_OV data.${SPLIT}_datasets.pushshapes_sim_${E}.resolver.expected_episode_count=null"
               GUARD_OV="$GUARD_OV data.${SPLIT}_datasets.pushshapes_sim_${E}.expected_train_episode_count=null"
@@ -267,8 +267,13 @@ workflow:
           # training evaluator. SimRolloutPlanarEval scores ONE embodiment and
           # takes a single decoder, so passing the seven-domain map is a
           # TypeError rather than a no-op.
+          # EVAL ONLY: load all nine embodiments so normalize() has a key map
+          # for the held-out pair. Training never uses this data config.
+          local DKIND=dp
+          case "$EXP" in *_arc_*) DKIND=arc;; esac
           python egomimic/trainHydra.py \
             +experiment="$EXP_GROUP/$EXP" mode=eval \
+            data=pusht/artic_all9_$DKIND \
             ckpt_path="${CKPT_OF[$EXP]}" \
             planar.articulated_root=/workspace/articulated \
             $GUARD_OV \

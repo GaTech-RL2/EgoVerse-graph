@@ -1,0 +1,21 @@
+# EVAL ONLY. All nine embodiments, including the two held out of training.
+#
+# normalize() iterates key_types[embodiment_id], which is populated from the
+# DATASETS in the datamodule -- not from the norm-stats file. With umi and scoop
+# absent the loop body never runs, nothing is normalized, and a held-out
+# rollout silently feeds raw pixels and raw pose to the policy.
+#
+# Listing them here tells the data plumbing their key map. It does NOT train on
+# them: training uses artic_cotrain7_arc / artic_cotrain7_dp, which have seven.
+# Never point a training run at this file.
+defaults:
+  - /data/pusht/artic_ideal_arc_u_socket@_here_
+  - /data/pusht/artic_ideal_arc_gripper@_here_
+  - /data/pusht/artic_ideal_arc_chain_gripper@_here_
+  - /data/pusht/artic_ideal_arc_suction@_here_
+  - /data/pusht/artic_ideal_arc_triangle@_here_
+  - /data/pusht/artic_ideal_arc_flipper@_here_
+  - /data/pusht/artic_ideal_arc_spring@_here_
+  - /data/pusht/artic_ideal_arc_umi@_here_
+  - /data/pusht/artic_ideal_arc_scoop@_here_
+  - _self_

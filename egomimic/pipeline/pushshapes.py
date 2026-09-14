@@ -135,6 +135,64 @@ class PlanarArcWaypointZeroNativeDecoder:
     __call__ = decode
 
 
+class PlanarArcTokenNativeDecoder:
+    """Decode a timed Planar arc token with the graph's exact timing rule."""
+
+    preserves_decoded_timing = True
+    requires_common5_unnormalization = True
+
+    def __init__(
+        self,
+        resampled_vector_length: int,
+        action_horizon: int,
+        native_action_dim: int,
+        dt: float = 1.0 / 30.0,
+        rotation_radius: float = 0.0,
+        velocity_mode: str = "duration",
+    ):
+        from egomimic.pipeline.stages_arc import ArcDetokenizeStage
+
+        self.num_waypoints = int(resampled_vector_length)
+        self.action_horizon = int(action_horizon)
+        self.native_action_dim = int(native_action_dim)
+        self.velocity_mode = validate_velocity_mode(velocity_mode)
+        self._rows = arc_token_rows(self.num_waypoints, self.velocity_mode)
+        self._detokenizer = ArcDetokenizeStage(
+            resampled_vector_length=self.num_waypoints,
+            action_horizon=self.action_horizon,
+            native_action_dim=self.native_action_dim,
+            dt=dt,
+            rotation_radius=rotation_radius,
+            velocity_mode=self.velocity_mode,
+        )
+
+    def decode_common(self, actions):
+        """Invert an ARC token to its normalized dense common-five chunk."""
+        is_tensor = torch.is_tensor(actions)
+        value = actions if is_tensor else torch.as_tensor(np.asarray(actions))
+        expected = (self._rows, PLANAR_ACTION_DIM)
+        if value.ndim < 2 or tuple(value.shape[-2:]) != expected:
+            raise ValueError(
+                f"expected (..., {expected[0]}, {expected[1]}), got {value.shape}"
+            )
+        leading = tuple(value.shape[:-2])
+        flat = value.reshape(-1, *expected)
+        common = self._detokenizer.forward({"pred_action": flat})[
+            "pred_action_common"
+        ].reshape(*leading, self.action_horizon, PLANAR_ACTION_DIM)
+        return common if is_tensor else common.cpu().numpy()
+
+    def decode_common_to_native(self, common):
+        return _common5_to_native(common, self.native_action_dim)
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        common = self.decode_common(actions)
+        return self.decode_common_to_native(common)
+
+    __call__ = decode
+
+
 class USocketModelStateObservationAdapter:
     """Add rotvec4 model proprio while retaining native simulator context."""
 

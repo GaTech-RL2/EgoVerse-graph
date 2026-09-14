@@ -368,7 +368,12 @@ def main(argv=None):
     episode_path = (dataset_root / f"{args.episode_id}.zarr").resolve(strict=True)
     key_map = instantiate(valid_cfg.resolver.key_map)
     transforms = instantiate(valid_cfg.resolver.transform_list)
-    dataset = ZarrDataset(episode_path, key_map, transforms)
+    dataset = ZarrDataset(
+        episode_path,
+        key_map,
+        transforms,
+        embodiment_override=args.embodiment_name,
+    )
     configured_override = str(valid_cfg.resolver.embodiment_override)
     if configured_override != args.embodiment_name:
         raise RuntimeError(

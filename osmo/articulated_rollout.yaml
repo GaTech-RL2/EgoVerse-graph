@@ -40,6 +40,11 @@ workflow:
       REPLAN_EVERY: "{{replan_every}}"
       CHUNK_START: "{{chunk_start}}"
       EXP_GROUP: pusht
+      # GPUs available to this job. Embodiments are scored concurrently, one
+      # per GPU: staging costs ~30 min regardless, so running the nine cells
+      # sequentially wastes the other seven GPUs and stretches the job past the
+      # interval between preemptions.
+      NUM_GPU: "{{num_gpu}}"
       CORPUS: s3://rldb/staged/pushshapes_articulated/articulated-20260909
       # Tools with no grip channel; PadPlanarAction pads them with a constant 0
       # and the decoder must slice back to 3, not 4.
@@ -342,9 +347,15 @@ workflow:
 
         RC=0
         for EXP in $EXPERIMENTS; do
+          PIDS=""; SLOT=0
           for EMB in $EMBODIMENTS; do
-            run_one "$EXP" "$EMB" "$N_EPISODES" rollout || RC=1
+            # One cell per GPU. Wait for a free slot once all GPUs are busy.
+            while [ "$(jobs -rp | wc -l)" -ge "$NUM_GPU" ]; do sleep 20; done
+            ( CUDA_VISIBLE_DEVICES=$SLOT run_one "$EXP" "$EMB" "$N_EPISODES" rollout ) &
+            PIDS="$PIDS $!"
+            SLOT=$(( (SLOT + 1) % NUM_GPU ))
           done
+          for P in $PIDS; do wait "$P" || RC=1; done
         done
 
         echo "================ RESULTS ================"

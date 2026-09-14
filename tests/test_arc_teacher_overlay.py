@@ -12,6 +12,7 @@ def test_arc_overlay_uses_current_pipeline_inference():
     assert "strict_load_pipeline_checkpoint" in overlay
     assert "normalizer.normalize" in overlay
     assert 'graph.forward_eval({"overlay": model_batch})' in overlay
+    assert "def strict_pipeline_preflight" in overlay
 
 
 def test_arc_overlay_keeps_timing_row_out_of_xy_geometry():

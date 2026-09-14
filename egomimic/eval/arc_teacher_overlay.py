@@ -82,6 +82,89 @@ def _model_batch(
     }
 
 
+def _expected_token_shape(config) -> tuple[int, int]:
+    waypoints = int(config.planar.arc_waypoints)
+    velocity_mode = str(config.planar.arc_velocity_mode)
+    rows = 2 * waypoints if velocity_mode in {"duration", "per_waypoint"} else waypoints + 1
+    return rows, 5
+
+
+def strict_pipeline_preflight(
+    ckpt_path: str,
+    config_path: str,
+    selected_embodiment_name: str,
+    selected_embodiment_id: int,
+    expected_native_action_dim: int = 3,
+    use_ema: bool = False,
+    action_chunk_start_index: int = 0,
+    replan_every: int | None = None,
+):
+    """Audit the current main Pipeline API before teacher-forced inference."""
+    del action_chunk_start_index, replan_every
+    from omegaconf import OmegaConf
+
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+    expected_id = get_embodiment_id(selected_embodiment_name)
+    if int(expected_id) != int(selected_embodiment_id):
+        raise RuntimeError(
+            f"selected embodiment id {selected_embodiment_id} != {expected_id}"
+        )
+    config = OmegaConf.load(config_path)
+    graph, checkpoint, normalizer, normalization_path = _load_graph(
+        config, Path(ckpt_path).resolve(strict=True)
+    )
+    seed_keys = ("front_img_1", "state_agent_obj", "embodiment")
+    runnable, excluded = graph.pipeline.plan(seed_keys, mode="inference")
+    blocked = [
+        (type(stage).__name__, missing)
+        for stage, missing in excluded
+        if missing not in (["<train-only>"], ["<inference-only>"])
+    ]
+    if blocked:
+        raise RuntimeError(f"Pipeline inference graph has blocked stages: {blocked}")
+    stage_names = [type(stage).__name__ for stage in runnable]
+    if "FusedObsEncoder" not in stage_names or not any(
+        "pred_action" in stage.contract("inference")[1] for stage in runnable
+    ):
+        raise RuntimeError(f"Pipeline inference graph cannot produce pred_action: {stage_names}")
+    token_shape = _expected_token_shape(config)
+    normalizer_shape = tuple(normalizer.key_shape("actions", int(selected_embodiment_id)))
+    if normalizer_shape != token_shape:
+        raise RuntimeError(
+            f"normalizer action shape {normalizer_shape} != configured token shape {token_shape}"
+        )
+    native_dim = int(config.planar.eval_native_decoder.native_action_dim)
+    if native_dim != int(expected_native_action_dim):
+        raise RuntimeError(
+            f"configured native action dim {native_dim} != {expected_native_action_dim}"
+        )
+    sampler_steps = [
+        int(stage.num_inference_steps)
+        for stage in runnable
+        if hasattr(stage, "num_inference_steps")
+    ]
+    if len(sampler_steps) != 1 or sampler_steps[0] <= 0:
+        raise RuntimeError(f"expected one positive sampler step count, got {sampler_steps}")
+    report = {
+        "status": "audited_strict_pipeline_overlay_ok",
+        "embodiment_id": int(selected_embodiment_id),
+        "embodiment_name": str(selected_embodiment_name),
+        "model_token_horizon": int(token_shape[0]),
+        "model_token_dim": int(token_shape[1]),
+        "timing_rows": int(token_shape[0] - int(config.planar.arc_waypoints)),
+        "state_tensor_count": len(graph.nets.state_dict()),
+        "weights": "ema" if use_ema else "raw",
+        "inference_graph": stage_names,
+        "sampler_inference_steps": sampler_steps[0],
+        "normalization_path": str(normalization_path),
+        "checkpoint_epoch": int(checkpoint["epoch"]),
+        "checkpoint_global_step": int(checkpoint["global_step"]),
+    }
+    print("[strict-preflight] " + json.dumps(report, sort_keys=True))
+    return report
+
+
 def _draw_path(frame: np.ndarray, xy: np.ndarray, color, alpha: float) -> np.ndarray:
     canvas = frame.copy()
     height, width = canvas.shape[:2]
@@ -291,10 +374,8 @@ def main(argv=None):
     graph, checkpoint, normalizer, normalization_path = _load_graph(
         config, ckpt
     )
-    expected_rows = 2 * int(config.planar.arc_waypoints)
-    if str(config.planar.arc_velocity_mode) not in {"duration", "per_waypoint"}:
-        expected_rows = int(config.planar.arc_waypoints) + 1
-    expected_token_shape = (expected_rows, 5)
+    expected_token_shape = _expected_token_shape(config)
+    expected_rows = expected_token_shape[0]
     indices = list(range(0, len(dataset), args.frame_stride))[: args.max_frames]
     if not indices:
         raise RuntimeError("selected validation episode has no frames")

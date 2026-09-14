@@ -324,6 +324,7 @@ def _validate_split(config, split_path: Path, episode_id: str):
 
 
 def main(argv=None):
+    from hydra.utils import instantiate
     from omegaconf import OmegaConf
 
     from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset

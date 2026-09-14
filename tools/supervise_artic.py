@@ -122,7 +122,12 @@ def main() -> int:
 
         if st == "COMPLETED":
             say(f"{current}: COMPLETED -- training finished")
-            ck = " ".join([current] + candidates)
+            # R2 prefixes use the JOB NAME, not the workflow id: osmo appends
+            # "-1" to make the id, and s3://.../articotrain-arc-18-1/ does not
+            # exist. Strip it, and include the DP baseline's job explicitly --
+            # it was trained separately and lives under its own prefix.
+            names = [re.sub(r"-\d+$", "", j) for j in [current] + candidates]
+            ck = " ".join(dict.fromkeys(names + ["articotrain-dp-8"]))
             stamp = datetime.datetime.now().strftime("%m%d%H%M")
             submit_eval(f"articroll-all5-{stamp}", ck, a.eval_pool)
             say("supervisor done: eval submitted for all five arms")

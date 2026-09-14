@@ -215,8 +215,14 @@ workflow:
 
         # ---------------------------------------------- checkpoints
         CK=/workspace/ckpts; mkdir -p "$CK"
-        $S5 --numworkers 32 cp "s3://rldb/staged/articulated_cotrain/$CKPT_JOB/*" "$CK/" \
-          >>/tmp/ckpt_pull.log 2>&1 || true
+        # CKPT_JOB may name SEVERAL jobs: the ARC arms and the DP baseline were
+        # trained separately, and a preempted sweep spreads its arms over
+        # several resumed jobs. Pull each prefix in turn.
+        for J in $CKPT_JOB; do
+          echo "pulling checkpoints from $J"
+          $S5 --numworkers 32 cp "s3://rldb/staged/articulated_cotrain/$J/*" "$CK/" \
+            >>/tmp/ckpt_pull.log 2>&1 || true
+        done
         find "$CK" -name '*.ckpt' > /tmp/ckpts.txt || true
         echo "checkpoints pulled: $(wc -l < /tmp/ckpts.txt)"
 

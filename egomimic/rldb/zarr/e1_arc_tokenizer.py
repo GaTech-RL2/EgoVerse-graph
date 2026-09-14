@@ -268,7 +268,18 @@ class CopyKeyRows(Transform):
 
     def transform(self, batch: dict) -> dict:
         x = np.asarray(batch[self.src], dtype=np.float64)
-        batch[self.dst] = x[: self.n_rows].copy()
+        if x.ndim == 0 or len(x) == 0:
+            raise ValueError(f"{self.src!r} must contain at least one time row")
+        out = x[: self.n_rows].copy()
+        if len(out) < self.n_rows:
+            # Keep the evaluator's control horizon rectangular at episode
+            # tails. This is the same repeat-last convention used by the Zarr
+            # loader and avoids variable-length ``actions_time`` tensors when
+            # ARC's source window is shorter than the requested 100 steps.
+            out = np.concatenate(
+                [out, np.repeat(out[-1:], self.n_rows - len(out), axis=0)], axis=0
+            )
+        batch[self.dst] = out
         return batch
 
 

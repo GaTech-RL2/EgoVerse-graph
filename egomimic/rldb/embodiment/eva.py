@@ -546,12 +546,16 @@ def _append_arc_tokenizer(
     dt: float | None = None,
     action_key: str = "actions_cartesian",
     preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
+    preserve_action_rows: int | None = None,
     velocity_mode: str = "mean",
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
 
     The tokenizer works on numpy arrays, so it has to run before the cast;
-    NumpyToTensor then converts the (M+1, 14) result to a torch tensor.
+    NumpyToTensor then converts the token result to a torch tensor.  A
+    ``preserve_action_rows`` value may be supplied when the source chunk is
+    variable-length (for example YAM ARC): the preserved GT copy is truncated
+    or repeat-last padded to that fixed control horizon.
 
     ``rotation_mode`` must be ``euler``: the tokenizer's chunk layout is a
     hard-coded 14D ``[xyz(3), ypr(3), grip(1)] x 2``, and it SLERPs through
@@ -574,6 +578,7 @@ def _append_arc_tokenizer(
         min_distance_unit=float(min_distance_unit),
         resampled_vector_length=int(resampled_vector_length),
         preserve_action_key=preserve_action_key,
+        preserve_action_rows=preserve_action_rows,
         velocity_mode=velocity_mode,
         **kwargs,
     )

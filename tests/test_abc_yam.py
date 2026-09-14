@@ -16,6 +16,8 @@ from egomimic.rldb.embodiment.embodiment import (
 from egomimic.rldb.embodiment.yam import Yam
 from egomimic.rldb.zarr.action_chunk_transforms import (
     BatchQuaternionPoseTo6D,
+    InterpolateLinear,
+    InterpolatePose,
     QuaternionPoseTo6D,
     XYZWXYZ_to_XYZRot6D,
     XYZWXYZ_to_XYZYPR,
@@ -227,3 +229,39 @@ def test_abc_inference_graph_drops_the_training_only_stages():
         "DiffusionEpsilonLossStage",
     }
     assert "pred_action" in {key for node in graph["nodes"] for key in node["out"]}
+
+
+def test_yam_baseline_uses_native_100_frame_source_window():
+    keymap = Yam.get_keymap(keymap_mode="cartesian")
+    action_horizons = {
+        spec["horizon"]
+        for spec in keymap.values()
+        if spec.get("key_type") == "action_keys"
+    }
+    assert action_horizons == {100}
+
+    source = np.arange(100 * 7, dtype=np.float64).reshape(100, 7)
+    out = InterpolatePose(None, "pose", "pose", stride=3, mode="xyzwxyz").transform(
+        {"pose": source}
+    )
+    np.testing.assert_array_equal(out["pose"], source)
+
+
+def test_yam_arc_uses_distance_buffer_not_fixed_action_horizon():
+    keymap = Yam.get_keymap(keymap_mode="arc_tokenizer_cartesian")
+    specs = [
+        spec["horizon"]
+        for spec in keymap.values()
+        if spec.get("key_type") == "action_keys"
+    ]
+    assert specs
+    assert all(spec["type"] == "arc_distance" for spec in specs)
+    assert {spec["distance"] for spec in specs} == {0.40}
+    assert {spec["source_buffer_frames"] for spec in specs} == {600}
+    assert {spec["require_all_arms"] for spec in specs} == {True}
+
+    source = np.arange(37 * 7, dtype=np.float64).reshape(37, 7)
+    out = InterpolateLinear(None, "grip", "grip", stride=5).transform(
+        {"grip": source}
+    )
+    np.testing.assert_array_equal(out["grip"], source)

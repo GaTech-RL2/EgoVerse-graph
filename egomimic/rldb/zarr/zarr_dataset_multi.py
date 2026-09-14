@@ -2015,6 +2015,94 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         return min(start_idx + horizon, self.total_frames)
 
+    def _resolve_dynamic_horizon(self, start_idx: int, spec: dict) -> int:
+        """Resolve a declarative distance-based source window.
+
+        ARC YAM cannot use a fixed action horizon: the number of native source
+        frames needed to travel ``distance`` metres depends on the episode's
+        speed.  This helper reads a bounded prefix of the command poses,
+        accumulates translational distance independently for each arm, and
+        returns the smallest prefix that satisfies the requested arm policy.
+        The returned value is a *count* (including ``start_idx``), suitable for
+        the normal half-open ``(start, start + horizon)`` reads below.
+
+        ``source_buffer_frames`` is deliberately a read bound rather than a
+        target horizon. If an arm is stationary or the episode ends before
+        reaching the distance, the available prefix is returned and the
+        regular repeat-last padding rule handles short tails. ``max_frames``
+        is accepted as a legacy spelling.
+        """
+        if not isinstance(spec, dict) or spec.get("type") != "arc_distance":
+            raise TypeError(
+                "dynamic horizon must be an 'arc_distance' spec, got "
+                f"{spec!r}"
+            )
+        distance = float(spec.get("distance", 0.0))
+        if not np.isfinite(distance) or distance <= 0.0:
+            raise ValueError(
+                f"arc_distance horizon requires a positive finite distance, got {distance!r}"
+            )
+        max_frames_value = spec.get(
+            "source_buffer_frames", spec.get("max_frames", self.total_frames)
+        )
+        if max_frames_value in (None, 0):
+            max_frames_value = self.total_frames
+        if int(max_frames_value) < 2:
+            raise ValueError(
+                f"arc_distance horizon max_frames must be >= 2, got {max_frames_value}"
+            )
+        max_frames = int(max_frames_value)
+        pose_keys = tuple(spec.get("pose_zarr_keys", ()))
+        if not pose_keys:
+            raise ValueError("arc_distance horizon requires pose_zarr_keys")
+
+        available = max(0, min(max_frames, self.total_frames - int(start_idx)))
+        if available <= 1:
+            # Return two so the normal read + repeat-last padding path gives
+            # the tokenizer its minimum two source rows at an episode tail.
+            return 2 if available == 1 else 0
+        # Read the bounded source buffer once. ARC's normal operating regime
+        # reaches D well before 600 frames, while this fixed read keeps the
+        # resolver simple and gives slow episodes a deterministic fallback.
+        end_idx = int(start_idx) + available
+        poses = self.episode_reader.read(
+            {str(key): (int(start_idx), end_idx) for key in pose_keys}
+        )
+        crossing_indices: list[int | None] = []
+        for key in pose_keys:
+            pose = np.asarray(poses[str(key)], dtype=np.float64)
+            if pose.ndim != 2 or pose.shape[1] < 3:
+                raise ValueError(
+                    f"arc_distance pose key {key!r} must be (T, >=3), got {pose.shape}"
+                )
+            xyz = pose[:, :3]
+            # Invalid pose rows should not manufacture distance. Truncate at
+            # the first non-finite sample; a later row cannot make that arm
+            # valid again.
+            finite = np.isfinite(xyz).all(axis=1)
+            first_bad = np.flatnonzero(~finite)
+            usable = int(first_bad[0]) if len(first_bad) else len(xyz)
+            xyz = xyz[:usable]
+            if len(xyz) < 2:
+                crossing_indices.append(None)
+                continue
+            cumulative = np.concatenate(
+                ([0.0], np.cumsum(np.linalg.norm(np.diff(xyz, axis=0), axis=1)))
+            )
+            reached = np.flatnonzero(cumulative >= distance)
+            crossing_indices.append(int(reached[0]) if len(reached) else None)
+
+        reached = [i for i in crossing_indices if i is not None]
+        require_all = bool(spec.get("require_all_arms", True))
+        if (require_all and len(reached) == len(crossing_indices)) or (
+            not require_all and reached
+        ):
+            required = max(reached) if require_all else min(reached)
+            return max(2, min(available, required + 1))
+        # One or more arms did not reach D before the episode/bound; expose all
+        # available source rows and let repeat-last padding handle a true tail.
+        return max(2, available)
+
     def _pad_sequences(self, data, horizon: int | None) -> dict:
         if horizon is None:
             return data
@@ -2067,10 +2155,33 @@ class ZarrDataset(torch.utils.data.Dataset):
         while True:
             data = {}
             retry = False
+            # Resolve a shared action window once per sample.  All YAM action
+            # keys (both poses and grippers) must have identical lengths so
+            # the downstream transforms and collate function stay aligned.
+            dynamic_horizon: int | None = None
+            for horizon_spec in (
+                spec.get("horizon")
+                for spec in self.key_map.values()
+                if isinstance(spec, dict)
+            ):
+                if isinstance(horizon_spec, dict):
+                    resolved = self._resolve_dynamic_horizon(idx, horizon_spec)
+                    if dynamic_horizon is None:
+                        dynamic_horizon = resolved
+                    elif dynamic_horizon != resolved:
+                        raise ValueError(
+                            "multiple dynamic horizon specs resolved to different "
+                            f"lengths ({dynamic_horizon} vs {resolved})"
+                        )
             for k in self.key_map:
                 zarr_key = self.key_map[k]["zarr_key"]
                 key_type = self.key_map[k].get("key_type", None)
-                horizon = self.key_map[k].get("horizon", None)
+                horizon_spec = self.key_map[k].get("horizon", None)
+                horizon = (
+                    dynamic_horizon
+                    if isinstance(horizon_spec, dict)
+                    else horizon_spec
+                )
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)

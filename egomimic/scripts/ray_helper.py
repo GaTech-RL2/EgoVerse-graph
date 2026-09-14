@@ -232,7 +232,9 @@ class AriaRay(EmbodimentRay):
             if filename not in has_slam:
                 missing.append("slam")
             if missing:
-                print(f"[MISSING] {filename}: has VRS but MISSING {missing}", flush=True)
+                print(
+                    f"[MISSING] {filename}: has VRS but MISSING {missing}", flush=True
+                )
                 continue
             if True:
                 vrs = vrs_by_name[filename]
@@ -481,6 +483,7 @@ class EvaRay(EmbodimentRay):
         self.bucket = os.environ.get("BUCKET", "rldb")
         self.resources_small = {"eva_small": 1}
         self.resources_big = {"eva_big": 1}
+        self.source_embodiment = "eva"
 
     def iter_bundles(self) -> Iterator[Tuple[S3Path, str]]:
         """Walk R2 for *.hdf5 files."""
@@ -507,6 +510,7 @@ class EvaRay(EmbodimentRay):
                 "fps": 30,
                 "chunk_timesteps": 100,
                 "save_mp4": True,
+                "source_embodiment": self.source_embodiment,
             }
             name = hdf5.stem
             yield name, args
@@ -526,6 +530,7 @@ class EvaRay(EmbodimentRay):
         task_description: str,
         chunk_timesteps: int,
         save_mp4: bool,
+        source_embodiment: str = "eva",
     ) -> tuple[str, str, int]:
         s3_client = get_boto3_s3_client()
         processed_local_root = Path(processed_local_root)
@@ -539,7 +544,11 @@ class EvaRay(EmbodimentRay):
         log_root.mkdir(parents=True, exist_ok=True)
         log_path = log_root / f"{stem}-{uuid.uuid4().hex[:8]}.log"
 
-        tmp_dir = Path.home() / "temp_eva_processing" / f"{stem}-{uuid.uuid4().hex[:6]}"
+        tmp_dir = (
+            Path.home()
+            / f"temp_{source_embodiment}_processing"
+            / f"{stem}-{uuid.uuid4().hex[:6]}"
+        )
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         with log_path.open("a", encoding="utf-8") as log_fh:
@@ -586,6 +595,7 @@ class EvaRay(EmbodimentRay):
                         task_description=task_description,
                         chunk_timesteps=chunk_timesteps,
                         save_mp4=save_mp4,
+                        source_embodiment=source_embodiment,
                     )
                     zarr_path, mp4_path = EvaRay.zarr_job(**job_kwargs)
                     frames = -1
@@ -671,6 +681,7 @@ class EvaRay(EmbodimentRay):
         task_name: str = "",
         task_description: str = "",
         chunk_timesteps: int = 100,
+        source_embodiment: str = "eva",
     ) -> tuple[Path, Path] | None:
         """
         Convert one <vrs, vrs.json, mps_*> trio to a Zarr dataset.
@@ -687,6 +698,33 @@ class EvaRay(EmbodimentRay):
             task_name=task_name,
             task_description=task_description,
             chunk_timesteps=chunk_timesteps,
+            source_embodiment=source_embodiment,
         )
 
         return eva_main(args)
+
+
+class YamRay(EvaRay):
+    """Run RL2 YAM HDF5 through the shared EVA HDF5/Ray pipeline."""
+
+    def __init__(
+        self,
+        processed_local_root: Path,
+        log_root: Path,
+    ):
+        EmbodimentRay.__init__(self, processed_local_root, log_root)
+        self.raw_remote_prefix = os.environ.get(
+            "RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/yam"
+        ).rstrip("/")
+        self.processed_remote_prefix = os.environ.get(
+            "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v3/yam"
+        ).rstrip("/")
+        self.bucket = os.environ.get("BUCKET", "rldb")
+        # YAM has the same HDF5/image workload as EVA, so it intentionally uses
+        # the existing worker resource classes rather than requiring a new Ray
+        # cluster deployment just for a schema adapter.
+        small_resource = os.environ.get("YAM_RAY_RESOURCE_SMALL", "eva_small")
+        big_resource = os.environ.get("YAM_RAY_RESOURCE_BIG", "eva_big")
+        self.resources_small = {small_resource: 1}
+        self.resources_big = {big_resource: 1}
+        self.source_embodiment = "yam"

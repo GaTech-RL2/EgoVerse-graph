@@ -16,12 +16,16 @@ def collect_files(local_dir):
 def yam_uploader():
     from egomimic.scripts.data_upload.abstract_upload import Uploader
 
-    return Uploader(
-        embodiment="yam",
+    uploader = Uploader(
+        embodiment="yam_bimanual",
         datatype=".hdf5",
         collect_files=collect_files,
         defaults={"rig_name": "yam"},
     )
+    # Keep the established raw object prefix while using the canonical
+    # downstream embodiment name in uploader-generated metadata.
+    uploader.s3_base_prefix = "raw_v2/yam/"
+    return uploader
 
 
 def main():

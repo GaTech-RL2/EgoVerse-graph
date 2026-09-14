@@ -15,7 +15,8 @@
 # `hpt.embed_dim` is the SHARED BUS WIDTH. Every stem's output_dim, every
 # cross_attn modality_embed_dim, the trunk's embed_dim and the head's cond_dim
 # must move together -- the stem stage rejects a mismatch rather than letting a
-# silent broadcast through.
+# silent broadcast through. Optional `hpt.head_*` knobs let large experiments
+# scale the flow head independently while preserving this graph contract.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
 pipeline:
@@ -89,15 +90,15 @@ pipeline:
       condition_as_tokens: true
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
-        nblocks: 6
+        nblocks: ${oc.select:hpt.head_num_blocks,6}
         cond_dim: ${hpt.embed_dim}
-        hidden_dim: 128
+        hidden_dim: ${oc.select:hpt.head_hidden_dim,128}
         act_dim: ${hpt.action_dim}
         act_seq: ${hpt.action_horizon}
-        n_heads: 4
+        n_heads: ${oc.select:hpt.head_num_heads,4}
         dropout: 0.1
-        mlp_layers: 4
-        mlp_ratio: 4
+        mlp_layers: ${oc.select:hpt.head_mlp_layers,4}
+        mlp_ratio: ${oc.select:hpt.head_mlp_ratio,4}
         time_conditioning: additive
     - _target_: egomimic.pipeline.stages_flow.FlowVelocityLossStage
 

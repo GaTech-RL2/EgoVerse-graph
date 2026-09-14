@@ -220,6 +220,17 @@ no-window validation, use:
 python -m egomimic.robot.virtual_gello_teleop --headless --duration 3
 ```
 
+To mirror the physical leaders while keeping followers virtual, use their
+separate calibration exports. This opens only the passive USB leaders and
+explicitly disables their torque; it does not open YAM, CAN, cameras, or Quest:
+
+```bash
+python -m egomimic.robot.virtual_gello_teleop --input gello \
+  --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \
+  --left-calibration /home/rohan/gello_left_calibration.yaml \
+  --right-calibration /home/rohan/gello_right_calibration.yaml
+```
+
 ### Preserved HDF5 format
 
 Files remain `demo_<id>.hdf5`, with `sim=False`. Each row uses left arm then

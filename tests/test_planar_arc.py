@@ -11,6 +11,7 @@ from egomimic.pipeline.pushshapes import (
 from egomimic.rldb.zarr.planar_arc import (
     PadPlanarAction,
     TokenizePlanarArcLength,
+    curvature_adaptive_curve_samples,
     lambda_for_radius,
     planar_step_distance,
 )
@@ -104,6 +105,27 @@ def test_zero_motion_holds_pose_and_grip():
     np.testing.assert_allclose(token[:3, :2], [[4, 7]] * 3)
     np.testing.assert_allclose(token[:3, 4], 0.75)
     assert token[-1, 0] == 0
+
+
+def test_curvature_sampler_is_uniform_on_straights_and_dense_on_bends():
+    straight_x = np.linspace(0.0, 10.0, 61)
+    straight = np.column_stack((straight_x, np.zeros_like(straight_x)))
+    angle = np.linspace(-math.pi / 2, 0.0, 41)[1:]
+    bend = np.column_stack((10.0 + 2.0 * np.cos(angle), 2.0 + 2.0 * np.sin(angle)))
+    xy = np.concatenate((straight, bend), axis=0)
+    cumulative = np.concatenate((np.zeros(1), np.cumsum(planar_step_distance(xy))))
+    _, targets = curvature_adaptive_curve_samples(
+        xy, cumulative, float(cumulative[-1]), 16, dense_samples=513
+    )
+    join = cumulative[len(straight) - 1]
+    bend_gaps = np.diff(targets[targets >= join])
+    straight_gaps = np.diff(targets[targets <= join])
+    assert np.median(bend_gaps) < np.median(straight_gaps)
+
+    line = np.column_stack((np.linspace(0.0, 12.0, 31), np.zeros(31)))
+    line_clock = np.concatenate((np.zeros(1), np.cumsum(planar_step_distance(line))))
+    _, line_targets = curvature_adaptive_curve_samples(line, line_clock, 12.0, 7)
+    np.testing.assert_allclose(line_targets, np.linspace(0.0, 12.0, 7), atol=1e-8)
 
 
 @pytest.mark.parametrize("native_dim", [2, 3, 4])

@@ -148,6 +148,10 @@ workflow:
           $S5 cp "/tmp/*.log" "$DEST/logs/" >/dev/null 2>&1 || true
           $S5 cp "/workspace/budgets/*.json" "$DEST/budgets/" >/dev/null 2>&1 || true
         }
+        # TERM and INT as well as EXIT: preemption sends SIGTERM, which kills
+        # the shell WITHOUT running an EXIT-only trap, so every preempted job so
+        # far took its finished embodiments' results down with it.
+        trap 'flush; exit 143' TERM INT
         trap flush EXIT
 
         # ---------------------------------------------- corpora + budgets
@@ -301,6 +305,12 @@ workflow:
             > "/tmp/${TAG}_${EXP}_${EMB}.log" 2>&1 \
             || { echo "FAILED: $EXP x $EMB"; grep -E '\[sim\]|Error|Traceback' "/tmp/${TAG}_${EXP}_${EMB}.log" | tail -25; return 1; }
           grep -E '\[sim\] SUMMARY' "/tmp/${TAG}_${EXP}_${EMB}.log" || true
+          # Push this cell's result immediately. A job that is preempted after
+          # six of nine embodiments should still have those six banked.
+          if [ "$TAG" = rollout ]; then
+            $S5 cp "/tmp/${TAG}_${EXP}_${EMB}.log" \
+              "$DEST/cells/${EXP}__${EMB}.log" >/dev/null 2>&1 || true
+          fi
         }
 
         # One-episode smoke over every pair first. Bugs in this family surface

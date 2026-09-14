@@ -11,6 +11,8 @@ def test_arc_overlay_uses_current_pipeline_inference():
     overlay = (ROOT / "egomimic/eval/arc_teacher_overlay.py").read_text()
     assert "strict_load_pipeline_checkpoint" in overlay
     assert "normalizer.normalize" in overlay
+    assert 'normalizer.unnormalize(' in overlay
+    assert '{"actions": pred}' in overlay
     assert 'graph.forward_eval({"overlay": model_batch})' in overlay
     assert "def strict_pipeline_preflight" in overlay
     assert "embodiment_override=args.embodiment_name" in overlay

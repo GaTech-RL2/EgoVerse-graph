@@ -406,7 +406,10 @@ def main(argv=None):
                 torch.cuda.manual_seed_all(frame_seed)
             model_batch = _model_batch(sample, normalizer, args.embodiment_id, device)
             result = graph.forward_eval({"overlay": model_batch})
-            pred = result["overlay"]["pred_action"][0]
+            pred = result["overlay"]["pred_action"]
+            pred = normalizer.unnormalize(
+                {"actions": pred}, args.embodiment_id
+            )["actions"][0]
         pred = pred.detach().float().cpu().numpy()
         if pred.shape != expected_token_shape or not np.isfinite(pred).all():
             raise RuntimeError(
@@ -461,6 +464,8 @@ def main(argv=None):
         "episode_total_frames": len(dataset), "frame_indices": indices,
         "frame_stride": args.frame_stride, "rng_seed_base": args.seed,
         "weights": "raw", "precision": "float32",
+        "target_space": "native_physical",
+        "prediction_space": "native_physical_after_unnormalize",
         "inference_graph": [type(stage).__name__ for stage in graph.pipeline.stages],
         "token_shape": list(expected_token_shape),
         "drawn_waypoints": int(config.planar.arc_waypoints),

@@ -11,11 +11,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-from hydra.utils import instantiate
-from omegaconf import OmegaConf
-
-from egomimic.eval.core.ckpt_loading import _load_rollout_graph
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
 
 
 def _sha256(path: Path) -> str:
@@ -41,18 +36,49 @@ def _image_uint8(value: torch.Tensor) -> np.ndarray:
     return np.clip(image, 0, 255).astype(np.uint8)
 
 
-def _model_batch(sample: dict, device: torch.device) -> dict:
-    image = sample["front_img_1"].float()
-    if image.ndim == 3 and image.shape[-1] == 3:
-        image = image.permute(2, 0, 1)
-    if image.max().item() > 1.5:
-        image = image / 255.0
-    state = sample["state_agent_obj"].float()
-    if state.ndim == 2 and state.shape[0] == 1:
-        state = state[0]
+def _load_graph(config, checkpoint_path: Path):
+    from hydra.utils import instantiate
+
+    from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
+    from egomimic.robot.graph_policy import load_normalizer
+
+    normalization_path = Path(
+        str(config.norm_stats.precomputed_norm_path)
+    ).resolve(strict=True)
+    normalizer = load_normalizer(normalization_path)
+    graph = instantiate(config.model.pipeline, device="cuda")
+    graph.bind_data_context(normalizer=normalizer)
+    checkpoint = torch.load(
+        checkpoint_path, map_location="cpu", weights_only=False
+    )
+    strict_load_pipeline_checkpoint(graph, checkpoint, use_ema=False)
+    graph.nets.eval()
+    return graph, checkpoint, normalizer, normalization_path
+
+
+def _model_batch(
+    sample: dict, normalizer, embodiment_id: int, device: torch.device
+) -> dict:
+    values = normalizer.normalize(dict(sample), embodiment_id)
+    image = values["front_img_1"].float()
+    if image.ndim == 3:
+        image = image.unsqueeze(0)
+    if image.ndim != 4:
+        raise RuntimeError(
+            f"front observation must be (N,C,H,W), got {tuple(image.shape)}"
+        )
+    state = values["state_agent_obj"].float()
+    if state.ndim == 1:
+        state = state.unsqueeze(0)
+    if state.ndim != 2 or state.shape[0] != image.shape[0]:
+        raise RuntimeError(
+            "state and image observation horizons differ: "
+            f"state={tuple(state.shape)}, image={tuple(image.shape)}"
+        )
     return {
         "front_img_1": image.unsqueeze(0).to(device),
         "state_agent_obj": state.unsqueeze(0).to(device),
+        "embodiment": torch.tensor([embodiment_id], device=device),
     }
 
 
@@ -147,7 +173,11 @@ def render_prediction_artifact(
     targets = data["target_tokens"]
     predictions = data["predicted_tokens"]
     indices = data["frame_indices"]
-    if images.shape[0] == 0 or targets.shape != predictions.shape or targets.shape[1:] != (17, 5):
+    if (
+        images.shape[0] == 0
+        or targets.shape != predictions.shape
+        or targets.shape[1:] != (32, 5)
+    ):
         raise RuntimeError(
             f"invalid arc prediction artifact: images={images.shape}, "
             f"target={targets.shape}, prediction={predictions.shape}"
@@ -208,6 +238,10 @@ def _validate_split(config, split_path: Path, episode_id: str):
 
 
 def main(argv=None):
+    from omegaconf import OmegaConf
+
+    from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--ckpt", required=True)
     parser.add_argument("--config-path", required=True)
@@ -254,10 +288,13 @@ def main(argv=None):
             f"resolver embodiment override {configured_override!r} != {args.embodiment_name!r}"
         )
 
-    graph, checkpoint = _load_rollout_graph(
-        str(ckpt), str(config_path), args.embodiment_name, args.embodiment_id, False
+    graph, checkpoint, normalizer, normalization_path = _load_graph(
+        config, ckpt
     )
-    graph.algo.nets.eval()
+    expected_rows = 2 * int(config.planar.arc_waypoints)
+    if str(config.planar.arc_velocity_mode) not in {"duration", "per_waypoint"}:
+        expected_rows = int(config.planar.arc_waypoints) + 1
+    expected_token_shape = (expected_rows, 5)
     indices = list(range(0, len(dataset), args.frame_stride))[: args.max_frames]
     if not indices:
         raise RuntimeError("selected validation episode has no frames")
@@ -266,19 +303,29 @@ def main(argv=None):
     for ordinal, index in enumerate(indices):
         sample = dataset[index]
         target = sample["actions"].detach().float().cpu().numpy()
-        if target.shape != (17, 5):
-            raise RuntimeError(f"arc target must be 17x5, got {target.shape}")
-        devices = [graph.device.index or 0] if graph.device.type == "cuda" else []
+        if target.shape != expected_token_shape:
+            raise RuntimeError(
+                f"arc target must be {expected_token_shape}, got {target.shape}"
+            )
+        device = graph.device
+        devices = [device.index or 0] if device.type == "cuda" else []
         with torch.random.fork_rng(devices=devices):
             frame_seed = int(args.seed) + ordinal
             torch.manual_seed(frame_seed)
-            if graph.device.type == "cuda":
+            if device.type == "cuda":
                 torch.cuda.manual_seed_all(frame_seed)
-            pred = graph.predict_tokens(_model_batch(sample, graph.device))[0]
+            model_batch = _model_batch(sample, normalizer, args.embodiment_id, device)
+            result = graph.forward_eval({"overlay": model_batch})
+            pred = result["overlay"]["pred_action"][0]
         pred = pred.detach().float().cpu().numpy()
-        if pred.shape != (17, 5) or not np.isfinite(pred).all():
-            raise RuntimeError(f"prediction is not finite 17x5: {pred.shape}")
-        images.append(_image_uint8(sample["front_img_1"]))
+        if pred.shape != expected_token_shape or not np.isfinite(pred).all():
+            raise RuntimeError(
+                f"prediction is not finite {expected_token_shape}: {pred.shape}"
+            )
+        frame_image = sample["front_img_1"]
+        if frame_image.ndim == 4:
+            frame_image = frame_image[0]
+        images.append(_image_uint8(frame_image))
         targets.append(target)
         predictions.append(pred)
 
@@ -324,12 +371,15 @@ def main(argv=None):
         "episode_total_frames": len(dataset), "frame_indices": indices,
         "frame_stride": args.frame_stride, "rng_seed_base": args.seed,
         "weights": "raw", "precision": "float32",
-        "inference_graph": graph.stage_names,
-        "token_shape": [17, 5], "drawn_waypoints": 16,
+        "inference_graph": [type(stage).__name__ for stage in graph.pipeline.stages],
+        "token_shape": list(expected_token_shape),
+        "drawn_waypoints": int(config.planar.arc_waypoints),
+        "timing_rows": int(expected_rows - int(config.planar.arc_waypoints)),
         "timing_row_drawn": False, "native_workspace_size": [512, 512],
         "render_view": args.view,
         "silhouette_stride": args.silhouette_stride if args.view == "silhouette" else None,
-        "normalization_path": str(graph.norm_path), "normalization_mode": graph.norm_mode,
+        "normalization_path": str(normalization_path),
+        "normalization_mode": normalizer.norm_mode,
         "prediction_artifact": str(artifact_path),
         "prediction_artifact_sha256": _sha256(artifact_path),
         "video": str(video_path), "video_sha256": _sha256(video_path),

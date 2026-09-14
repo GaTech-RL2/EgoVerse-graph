@@ -13,6 +13,11 @@ from scipy.spatial.transform import Rotation as R
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.scripts.eva_process.eva_utils import EvaHD5Extractor
+from egomimic.scripts.yam_process.yam_utils import (
+    YAM_EMBODIMENT,
+    YamHD5Extractor,
+    load_rl2_calibration,
+)
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
 from egomimic.utils.pose_utils import xyzw_to_wxyz
 from egomimic.utils.type_utils import str2bool
@@ -98,7 +103,9 @@ def _separate_numeric_and_image(episode_feats: dict):
     return numeric_data, image_data
 
 
-def _split_per_arm(numeric_data: dict, arm: str) -> dict:
+def _split_per_arm(
+    numeric_data: dict, arm: str, *, rotate_to_eva_frame: bool = True
+) -> dict:
     """Split combined arm arrays into per-arm keys with gripper separated.
 
     Bimanual layout (T, 14):
@@ -131,11 +138,11 @@ def _split_per_arm(numeric_data: dict, arm: str) -> dict:
                     raise ValueError(f"Unknown gripper key: {base_key}")
             else:
                 translation = arr[:, offset : offset + 3]
-                quat = rot_orientation(
-                    R.from_euler(
-                        "ZYX", arr[:, offset + 3 : offset + 6], degrees=False
-                    ).as_quat()
-                )
+                quat = R.from_euler(
+                    "ZYX", arr[:, offset + 3 : offset + 6], degrees=False
+                ).as_quat()
+                if rotate_to_eva_frame:
+                    quat = rot_orientation(quat)
                 quat = xyzw_to_wxyz(quat)
                 out[f"{side}.{base_key}"] = np.concatenate([translation, quat], axis=-1)
     return out
@@ -162,16 +169,41 @@ def convert_episode(
     task_description: str = "",
     save_mp4: bool = False,
     chunk_timesteps: int = 100,
+    source_embodiment: str = "eva",
 ) -> tuple[Path, Path]:
     """Process one HDF5 file and write a .zarr episode.
 
     Returns the zarr episode path on success.
     """
 
-    episode_feats = EvaHD5Extractor.process_episode(
-        episode_path=raw_path,
-        arm=arm,
-    )
+    if source_embodiment == "eva":
+        extractor = EvaHD5Extractor
+        embodiment = _arm_to_embodiment(arm)
+        intrinsics = {"front_1": Eva.INTRINSICS}
+        extrinsics = Eva.EXTRINSICS
+        rotate_to_eva_frame = True
+        metadata_override = None
+    elif source_embodiment == "yam":
+        if arm != "both":
+            raise ValueError("RL2 YAM recordings are bimanual; arm must be 'both'")
+        extractor = YamHD5Extractor
+        calibration = load_rl2_calibration()
+        embodiment = YAM_EMBODIMENT
+        intrinsics = calibration["intrinsics"]
+        extrinsics = calibration["extrinsics"]
+        rotate_to_eva_frame = False
+        metadata_override = {
+            "pose_world_frame": "left_base",
+            "source_pose_frames": {"left": "left_base", "right": "right_base"},
+            "left_base_T_right_base": calibration["left_base_T_right_base"].tolist(),
+            "calibration_source_repository": calibration["source_repository"],
+            "calibration_source_revision": calibration["source_revision"],
+            "front_camera_serial": calibration["camera_serial"],
+        }
+    else:
+        raise ValueError(f"Unsupported HDF5 source embodiment: {source_embodiment!r}")
+
+    episode_feats = extractor.process_episode(episode_path=raw_path, arm=arm)
 
     front_key = "images.front_img_1"
     images_tchw = None
@@ -179,9 +211,9 @@ def convert_episode(
         images_tchw = np.asarray(episode_feats[front_key])
 
     numeric_data, image_data = _separate_numeric_and_image(episode_feats)
-    numeric_data = _split_per_arm(numeric_data, arm)
-
-    embodiment = _arm_to_embodiment(arm)
+    numeric_data = _split_per_arm(
+        numeric_data, arm, rotate_to_eva_frame=rotate_to_eva_frame
+    )
 
     zarr_path = ZarrWriter.create_and_write(
         episode_path=output_dir / f"{dataset_name}.zarr",
@@ -192,8 +224,9 @@ def convert_episode(
         task_name=task_name,
         task_description=task_description,
         chunk_timesteps=chunk_timesteps,
-        intrinsics={"front_1": Eva.INTRINSICS},
-        extrinsics=Eva.EXTRINSICS,
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
+        metadata_override=metadata_override,
     )
 
     logger.info("Wrote zarr episode: %s", zarr_path)
@@ -237,6 +270,7 @@ def main(args) -> None:
             task_description=args.task_description,
             save_mp4=args.save_mp4,
             chunk_timesteps=args.chunk_timesteps,
+            source_embodiment=getattr(args, "source_embodiment", "eva"),
         )
         return zarr_path, mp4_path
     except Exception:
@@ -271,6 +305,12 @@ def argument_parse():
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--task-name", type=str, default="")
     parser.add_argument("--task-description", type=str, default="")
+    parser.add_argument(
+        "--source-embodiment",
+        choices=["eva", "yam"],
+        default="eva",
+        help="HDF5 source schema/frame convention.",
+    )
 
     return parser.parse_args()
 

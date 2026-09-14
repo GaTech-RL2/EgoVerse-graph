@@ -13,7 +13,7 @@ import ray
 from cloudpathlib import S3Path
 from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
 
-from egomimic.scripts.ray_helper import AriaRay, EmbodimentRay, EvaRay
+from egomimic.scripts.ray_helper import AriaRay, EmbodimentRay, EvaRay, YamRay
 from egomimic.utils.aws.aws_data_utils import (
     get_cloudpathlib_s3_client,
     load_env,
@@ -169,6 +169,11 @@ def launch(
         )
     elif embodiment == "eva":
         embodiment_ray = EvaRay(
+            PROCESSED_LOCAL_ROOT,
+            LOG_ROOT,
+        )
+    elif embodiment == "yam":
+        embodiment_ray = YamRay(
             PROCESSED_LOCAL_ROOT,
             LOG_ROOT,
         )
@@ -401,7 +406,9 @@ def launch(
 # --- CLI ---------------------------------------------------------------------
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--embodiment", type=str, required=True, choices=["aria", "eva"])
+    p.add_argument(
+        "--embodiment", type=str, required=True, choices=["aria", "eva", "yam"]
+    )
     p.add_argument("--dry-run", action="store_true")
     p.add_argument(
         "--skip-if-done",
@@ -420,7 +427,7 @@ def main():
     p.add_argument("--debug", action="store_true")
     p.add_argument(
         "--working-dir",
-        default="/home/ubuntu/EgoVerse",
+        default="/home/ubuntu/EgoVerse-graph",
         help="Repo checkout shipped to ray workers as runtime_env working_dir "
         "(only used with --debug). Lets a non-default checkout (e.g. a worktree "
         "on a feature branch) drive the conversion fleet.",

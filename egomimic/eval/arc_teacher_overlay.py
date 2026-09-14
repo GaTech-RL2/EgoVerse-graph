@@ -139,11 +139,14 @@ def strict_pipeline_preflight(
         raise RuntimeError(
             f"configured native action dim {native_dim} != {expected_native_action_dim}"
         )
-    sampler_steps = [
-        int(stage.num_inference_steps)
-        for stage in runnable
-        if hasattr(stage, "num_inference_steps")
-    ]
+    sampler_steps = []
+    for stage in runnable:
+        steps = getattr(stage, "num_inference_steps", None)
+        if steps is None:
+            policy = getattr(stage, "policy", None)
+            steps = getattr(policy, "num_inference_steps", None)
+        if steps is not None:
+            sampler_steps.append(int(steps))
     if len(sampler_steps) != 1 or sampler_steps[0] <= 0:
         raise RuntimeError(f"expected one positive sampler step count, got {sampler_steps}")
     report = {

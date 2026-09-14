@@ -1,0 +1,489 @@
+"""Immutable teacher-forced action overlay for Pipeline planar arc checkpoints."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+from pathlib import Path
+
+import cv2
+import numpy as np
+import torch
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _image_uint8(value: torch.Tensor) -> np.ndarray:
+    image = value.detach().cpu().numpy()
+    while image.ndim > 3 and image.shape[0] == 1:
+        image = image[0]
+    if image.ndim != 3:
+        raise RuntimeError(f"front image must have 3 dimensions, got {image.shape}")
+    if image.shape[0] in (1, 3, 4):
+        image = np.moveaxis(image, 0, -1)
+    if image.shape[-1] != 3:
+        raise RuntimeError(f"front image must have three channels, got {image.shape}")
+    if image.max(initial=0) <= 1.5:
+        image = image * 255.0
+    return np.clip(image, 0, 255).astype(np.uint8)
+
+
+def _load_graph(config, checkpoint_path: Path):
+    from hydra.utils import instantiate
+
+    from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
+    from egomimic.robot.graph_policy import load_normalizer
+
+    normalization_path = Path(
+        str(config.norm_stats.precomputed_norm_path)
+    ).resolve(strict=True)
+    normalizer = load_normalizer(normalization_path)
+    graph = instantiate(config.model.pipeline, device="cuda")
+    graph.bind_data_context(normalizer=normalizer)
+    checkpoint = torch.load(
+        checkpoint_path, map_location="cpu", weights_only=False
+    )
+    strict_load_pipeline_checkpoint(graph, checkpoint, use_ema=False)
+    graph.nets.eval()
+    return graph, checkpoint, normalizer, normalization_path
+
+
+def _model_batch(
+    sample: dict, normalizer, embodiment_id: int, device: torch.device
+) -> dict:
+    values = normalizer.normalize(dict(sample), embodiment_id)
+    image = values["front_img_1"].float()
+    if image.ndim == 3:
+        image = image.unsqueeze(0)
+    if image.ndim != 4:
+        raise RuntimeError(
+            f"front observation must be (N,C,H,W), got {tuple(image.shape)}"
+        )
+    state = values["state_agent_obj"].float()
+    if state.ndim == 1:
+        state = state.unsqueeze(0)
+    if state.ndim != 2 or state.shape[0] != image.shape[0]:
+        raise RuntimeError(
+            "state and image observation horizons differ: "
+            f"state={tuple(state.shape)}, image={tuple(image.shape)}"
+        )
+    return {
+        "front_img_1": image.unsqueeze(0).to(device),
+        "state_agent_obj": state.unsqueeze(0).to(device),
+        "embodiment": torch.tensor([embodiment_id], device=device),
+    }
+
+
+def _expected_token_shape(config) -> tuple[int, int]:
+    waypoints = int(config.planar.arc_waypoints)
+    velocity_mode = str(config.planar.arc_velocity_mode)
+    rows = 2 * waypoints if velocity_mode in {"duration", "per_waypoint"} else waypoints + 1
+    return rows, 5
+
+
+def strict_pipeline_preflight(
+    ckpt_path: str,
+    config_path: str,
+    selected_embodiment_name: str,
+    selected_embodiment_id: int,
+    expected_native_action_dim: int = 3,
+    use_ema: bool = False,
+    action_chunk_start_index: int = 0,
+    replan_every: int | None = None,
+):
+    """Audit the current main Pipeline API before teacher-forced inference."""
+    del action_chunk_start_index, replan_every
+    from omegaconf import OmegaConf
+
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+    expected_id = get_embodiment_id(selected_embodiment_name)
+    if int(expected_id) != int(selected_embodiment_id):
+        raise RuntimeError(
+            f"selected embodiment id {selected_embodiment_id} != {expected_id}"
+        )
+    config = OmegaConf.load(config_path)
+    graph, checkpoint, normalizer, normalization_path = _load_graph(
+        config, Path(ckpt_path).resolve(strict=True)
+    )
+    seed_keys = ("front_img_1", "state_agent_obj", "embodiment")
+    runnable, excluded = graph.pipeline.plan(seed_keys, mode="inference")
+    blocked = [
+        (type(stage).__name__, missing)
+        for stage, missing in excluded
+        if missing not in (["<train-only>"], ["<inference-only>"])
+    ]
+    if blocked:
+        raise RuntimeError(f"Pipeline inference graph has blocked stages: {blocked}")
+    stage_names = [type(stage).__name__ for stage in runnable]
+    if "FusedObsEncoder" not in stage_names or not any(
+        "pred_action" in stage.contract("inference")[1] for stage in runnable
+    ):
+        raise RuntimeError(f"Pipeline inference graph cannot produce pred_action: {stage_names}")
+    token_shape = _expected_token_shape(config)
+    normalizer_shape = tuple(normalizer.key_shape("actions", int(selected_embodiment_id)))
+    if normalizer_shape != token_shape:
+        raise RuntimeError(
+            f"normalizer action shape {normalizer_shape} != configured token shape {token_shape}"
+        )
+    native_dim = int(config.planar.eval_native_decoder.native_action_dim)
+    if native_dim != int(expected_native_action_dim):
+        raise RuntimeError(
+            f"configured native action dim {native_dim} != {expected_native_action_dim}"
+        )
+    sampler_steps = []
+    for stage in runnable:
+        steps = getattr(stage, "num_inference_steps", None)
+        if steps is None:
+            policy = getattr(stage, "policy", None)
+            steps = getattr(policy, "num_inference_steps", None)
+        if steps is not None:
+            sampler_steps.append(int(steps))
+    if len(sampler_steps) != 1 or sampler_steps[0] <= 0:
+        raise RuntimeError(f"expected one positive sampler step count, got {sampler_steps}")
+    report = {
+        "status": "audited_strict_pipeline_overlay_ok",
+        "embodiment_id": int(selected_embodiment_id),
+        "embodiment_name": str(selected_embodiment_name),
+        "model_token_horizon": int(token_shape[0]),
+        "model_token_dim": int(token_shape[1]),
+        "timing_rows": int(token_shape[0] - int(config.planar.arc_waypoints)),
+        "state_tensor_count": len(graph.nets.state_dict()),
+        "weights": "ema" if use_ema else "raw",
+        "inference_graph": stage_names,
+        "sampler_inference_steps": sampler_steps[0],
+        "normalization_path": str(normalization_path),
+        "checkpoint_epoch": int(checkpoint["epoch"]),
+        "checkpoint_global_step": int(checkpoint["global_step"]),
+    }
+    print("[strict-preflight] " + json.dumps(report, sort_keys=True))
+    return report
+
+
+def _draw_path(frame: np.ndarray, xy: np.ndarray, color, alpha: float) -> np.ndarray:
+    canvas = frame.copy()
+    height, width = canvas.shape[:2]
+    # PushShapes cursor coordinates live in the native 512 x 512 workspace.
+    points = np.rint(xy * np.array([width / 512.0, height / 512.0])).astype(int)
+    points[:, 0] = np.clip(points[:, 0], 0, width - 1)
+    points[:, 1] = np.clip(points[:, 1], 0, height - 1)
+    if len(points) > 1:
+        cv2.polylines(canvas, [points.reshape(-1, 1, 2)], False, color, 1, cv2.LINE_AA)
+    # At 96x96, the former 4 px start radius obscured the pusher and target.
+    # Mark only the first waypoint with a one-pixel-radius dot; the polyline
+    # communicates the remaining ordered waypoints without a chain of blobs.
+    if len(points):
+        cv2.circle(canvas, tuple(points[0]), 1, color, -1, cv2.LINE_AA)
+    return cv2.addWeighted(canvas, float(alpha), frame, 1.0 - float(alpha), 0)
+
+
+def _usocket_polygons(token: np.ndarray, width: int, height: int) -> list[np.ndarray]:
+    """Return exact Sim V2 U-socket rectangles projected into image pixels."""
+    import Tsimulation
+    from Tsimulation.pushshapes.shapes import U_SOCKET_RECTS
+
+    if Tsimulation.ACTIVE != "sim_v2":
+        raise RuntimeError(f"silhouette overlay requires TSIM_VERSION=sim_v2, got {Tsimulation.ACTIVE}")
+    token = np.asarray(token, dtype=np.float64)
+    if token.shape != (5,) or not np.isfinite(token).all():
+        raise RuntimeError(f"U-socket pose token must be finite shape (5,), got {token.shape}")
+    x, y = token[:2]
+    theta = math.atan2(float(token[3]), float(token[2]))
+    c, s = math.cos(theta), math.sin(theta)
+    scale = np.array([width / 512.0, height / 512.0], dtype=np.float64)
+    polygons = []
+    for cx, cy, rect_w, rect_h in U_SOCKET_RECTS:
+        hw, hh = rect_w / 2.0, rect_h / 2.0
+        local = np.asarray(
+            [[cx - hw, cy - hh], [cx + hw, cy - hh],
+             [cx + hw, cy + hh], [cx - hw, cy + hh]], dtype=np.float64
+        )
+        rotation = np.asarray([[c, -s], [s, c]], dtype=np.float64)
+        world = local @ rotation.T + np.asarray([x, y])
+        polygons.append(np.rint(world * scale).astype(np.int32).reshape(-1, 1, 2))
+    return polygons
+
+
+def _draw_usocket_silhouettes(
+    frame: np.ndarray,
+    tokens: np.ndarray,
+    color,
+    alpha: float,
+    stride: int,
+) -> np.ndarray:
+    if stride <= 0:
+        raise RuntimeError("silhouette stride must be positive")
+    canvas = frame.copy()
+    height, width = canvas.shape[:2]
+    indices = list(range(0, 16, stride))
+    if 15 not in indices:
+        indices.append(15)
+    # Retain a thin center path, then place exact three-rectangle outlines at
+    # sparse token indices so the 96x96 observation remains readable.
+    points = np.rint(tokens[:16, :2] * np.array([width / 512.0, height / 512.0])).astype(np.int32)
+    cv2.polylines(canvas, [points.reshape(-1, 1, 2)], False, color, 1, cv2.LINE_AA)
+    for index in indices:
+        for polygon in _usocket_polygons(tokens[index], width, height):
+            cv2.polylines(canvas, [polygon], True, color, 1, cv2.LINE_AA)
+    return cv2.addWeighted(canvas, float(alpha), frame, 1.0 - float(alpha), 0)
+
+
+def render_prediction_artifact(
+    artifact_path: Path,
+    video_path: Path,
+    first_frame_path: Path,
+    *,
+    fps: float = 10.0,
+    gt_alpha: float = 0.6,
+    pred_alpha: float = 1.0,
+    view: str = "xy",
+    silhouette_stride: int = 4,
+) -> int:
+    """Render paired GT/prediction paths without running stochastic inference."""
+    artifact_path = Path(artifact_path).resolve(strict=True)
+    video_path = Path(video_path).resolve()
+    first_frame_path = Path(first_frame_path).resolve()
+    for path in (video_path, first_frame_path):
+        if path.exists():
+            raise RuntimeError(f"refusing to overwrite immutable render {path}")
+    data = np.load(artifact_path)
+    images = data["images"]
+    targets = data["target_tokens"]
+    predictions = data["predicted_tokens"]
+    indices = data["frame_indices"]
+    if (
+        images.shape[0] == 0
+        or targets.shape != predictions.shape
+        or targets.shape[1:] != (32, 5)
+    ):
+        raise RuntimeError(
+            f"invalid arc prediction artifact: images={images.shape}, "
+            f"target={targets.shape}, prediction={predictions.shape}"
+        )
+    if len(images) != len(targets) or len(indices) != len(targets):
+        raise RuntimeError("artifact image, token, and frame counts differ")
+    if view not in {"xy", "silhouette"}:
+        raise RuntimeError(f"view must be 'xy' or 'silhouette', got {view!r}")
+    rendered = []
+    for image, target, pred, index in zip(images, targets, predictions, indices):
+        frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        if view == "silhouette":
+            frame = _draw_usocket_silhouettes(frame, target, (0, 220, 0), gt_alpha, silhouette_stride)
+            frame = _draw_usocket_silhouettes(frame, pred, (0, 0, 255), pred_alpha, silhouette_stride)
+            label = f"U-socket command: GT green | Pred red | f{int(index)}"
+        else:
+            frame = _draw_path(frame, target[:16, :2], (0, 220, 0), gt_alpha)
+            frame = _draw_path(frame, pred[:16, :2], (0, 0, 255), pred_alpha)
+            label = f"GT green | Pred red | frame {int(index)}"
+        cv2.putText(frame, label, (4, 13),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.32, (255, 255, 255), 1, cv2.LINE_AA)
+        rendered.append(frame)
+    height, width = rendered[0].shape[:2]
+    writer = cv2.VideoWriter(str(video_path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    if not writer.isOpened():
+        raise RuntimeError("OpenCV could not open MP4 writer")
+    for frame in rendered:
+        writer.write(frame)
+    writer.release()
+    if not video_path.is_file() or video_path.stat().st_size == 0:
+        raise RuntimeError("overlay video was not written")
+    cv2.imwrite(str(first_frame_path), rendered[0])
+    return len(rendered)
+
+
+def _validate_split(config, split_path: Path, episode_id: str):
+    payload = json.loads(split_path.read_text())
+    domain = "pushshapes_sim_u_socket"
+    split = payload["domains"][domain]
+    valid_ids = list(split["valid_ids"])
+    if payload.get("status") != "PASS" or int(payload.get("split_seed")) != 42:
+        raise RuntimeError("validation split manifest is not the approved seed-42 PASS split")
+    if len(valid_ids) != int(split["valid_count"]):
+        raise RuntimeError("validation split count mismatch")
+    names_hash = hashlib.sha256("\n".join(sorted(valid_ids)).encode()).hexdigest()
+    # The training split hash uses newline-terminated canonical names.
+    names_hash_nl = hashlib.sha256(("\n".join(sorted(valid_ids)) + "\n").encode()).hexdigest()
+    if split["valid_names_sha256"] not in {names_hash, names_hash_nl}:
+        raise RuntimeError("validation split names SHA mismatch")
+    if episode_id not in valid_ids:
+        raise RuntimeError(f"episode {episode_id!r} is not in the frozen validation split")
+    cfg_valid = config.data.valid_datasets[domain]
+    if int(cfg_valid.split_seed) != 42 or int(cfg_valid.expected_valid_episode_count) != len(valid_ids):
+        raise RuntimeError("resolved config does not bind the frozen validation split")
+    if str(cfg_valid.expected_valid_episode_names_sha256) != str(split["valid_names_sha256"]):
+        raise RuntimeError("resolved config validation hash differs from split manifest")
+    return split, cfg_valid
+
+
+def main(argv=None):
+    from hydra.utils import instantiate
+    from omegaconf import OmegaConf
+
+    from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ckpt", required=True)
+    parser.add_argument("--config-path", required=True)
+    parser.add_argument("--split-manifest", required=True)
+    parser.add_argument("--episode-id", required=True)
+    parser.add_argument("--out-dir", required=True)
+    parser.add_argument("--frame-stride", type=int, default=1)
+    parser.add_argument("--max-frames", type=int, default=320)
+    parser.add_argument("--fps", type=float, default=10.0)
+    parser.add_argument("--seed", type=int, default=420042)
+    parser.add_argument("--embodiment-name", default="pushshapes_sim_u_socket")
+    parser.add_argument("--embodiment-id", type=int, required=True)
+    parser.add_argument("--gt-alpha", type=float, default=0.6)
+    parser.add_argument("--pred-alpha", type=float, default=1.0)
+    parser.add_argument("--view", choices=("xy", "silhouette"), default="xy")
+    parser.add_argument("--silhouette-stride", type=int, default=4)
+    args = parser.parse_args(argv)
+    if args.frame_stride <= 0 or args.max_frames <= 0 or args.fps <= 0:
+        raise RuntimeError("frame stride, max frames, and FPS must be positive")
+
+    ckpt = Path(args.ckpt).resolve(strict=True)
+    config_path = Path(args.config_path).resolve(strict=True)
+    split_path = Path(args.split_manifest).resolve(strict=True)
+    output = Path(args.out_dir).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    artifact_path = output / "predictions_arc17x5.npz"
+    video_path = output / "teacher_forced_arc_overlay.mp4"
+    first_frame_path = output / "first_frame.png"
+    manifest_path = output / "overlay_manifest.json"
+    for path in (artifact_path, video_path, first_frame_path, manifest_path):
+        if path.exists():
+            raise RuntimeError(f"refusing to overwrite immutable output {path}")
+
+    config = OmegaConf.load(config_path)
+    split, valid_cfg = _validate_split(config, split_path, args.episode_id)
+    dataset_root = Path(str(valid_cfg.resolver.folder_path)).resolve(strict=True)
+    episode_path = (dataset_root / f"{args.episode_id}.zarr").resolve(strict=True)
+    key_map = instantiate(valid_cfg.resolver.key_map)
+    transforms = instantiate(valid_cfg.resolver.transform_list)
+    dataset = ZarrDataset(
+        episode_path,
+        key_map,
+        transforms,
+        embodiment_override=args.embodiment_name,
+    )
+    configured_override = str(valid_cfg.resolver.embodiment_override)
+    if configured_override != args.embodiment_name:
+        raise RuntimeError(
+            f"resolver embodiment override {configured_override!r} != {args.embodiment_name!r}"
+        )
+
+    graph, checkpoint, normalizer, normalization_path = _load_graph(
+        config, ckpt
+    )
+    expected_token_shape = _expected_token_shape(config)
+    expected_rows = expected_token_shape[0]
+    indices = list(range(0, len(dataset), args.frame_stride))[: args.max_frames]
+    if not indices:
+        raise RuntimeError("selected validation episode has no frames")
+
+    images, targets, predictions = [], [], []
+    for ordinal, index in enumerate(indices):
+        sample = dataset[index]
+        target = sample["actions"].detach().float().cpu().numpy()
+        if target.shape != expected_token_shape:
+            raise RuntimeError(
+                f"arc target must be {expected_token_shape}, got {target.shape}"
+            )
+        device = graph.device
+        devices = [device.index or 0] if device.type == "cuda" else []
+        with torch.random.fork_rng(devices=devices):
+            frame_seed = int(args.seed) + ordinal
+            torch.manual_seed(frame_seed)
+            if device.type == "cuda":
+                torch.cuda.manual_seed_all(frame_seed)
+            model_batch = _model_batch(sample, normalizer, args.embodiment_id, device)
+            result = graph.forward_eval({"overlay": model_batch})
+            pred = result["overlay"]["pred_action"]
+            pred = normalizer.unnormalize(
+                {"actions": pred}, args.embodiment_id
+            )["actions"][0]
+        pred = pred.detach().float().cpu().numpy()
+        if pred.shape != expected_token_shape or not np.isfinite(pred).all():
+            raise RuntimeError(
+                f"prediction is not finite {expected_token_shape}: {pred.shape}"
+            )
+        frame_image = sample["front_img_1"]
+        if frame_image.ndim == 4:
+            frame_image = frame_image[0]
+        images.append(_image_uint8(frame_image))
+        targets.append(target)
+        predictions.append(pred)
+
+    images = np.stack(images)
+    targets = np.stack(targets)
+    predictions = np.stack(predictions)
+    np.savez_compressed(
+        artifact_path,
+        images=images,
+        target_tokens=targets,
+        predicted_tokens=predictions,
+        frame_indices=np.asarray(indices, dtype=np.int64),
+        episode_id=np.asarray(args.episode_id),
+        rng_seed=np.asarray(args.seed, dtype=np.int64),
+    )
+
+    render_prediction_artifact(
+        artifact_path, video_path, first_frame_path,
+        fps=args.fps, gt_alpha=args.gt_alpha, pred_alpha=args.pred_alpha,
+        view=args.view, silhouette_stride=args.silhouette_stride,
+    )
+
+    token_mse = float(np.mean(np.square(predictions - targets)))
+    xy_rmse = float(np.sqrt(np.mean(np.square(predictions[:, :16, :2] - targets[:, :16, :2]))))
+    first_xy_rmse = float(np.sqrt(np.mean(np.square(predictions[:, 0, :2] - targets[:, 0, :2]))))
+    metrics = {"token_mse_physical": token_mse, "waypoint_xy_rmse_px": xy_rmse,
+               "first_waypoint_xy_rmse_px": first_xy_rmse}
+    if not all(math.isfinite(value) for value in metrics.values()):
+        raise RuntimeError(f"non-finite overlay metrics: {metrics}")
+    manifest = {
+        "status": "PASS",
+        "kind": "teacher_forced_gt_vs_prediction_arc_token_overlay",
+        "not_a_policy_score": True,
+        "checkpoint": str(ckpt), "checkpoint_sha256": _sha256(ckpt),
+        "checkpoint_epoch": int(checkpoint["epoch"]),
+        "checkpoint_global_step": int(checkpoint["global_step"]),
+        "config": str(config_path), "config_sha256": _sha256(config_path),
+        "split_manifest": str(split_path), "split_manifest_sha256": _sha256(split_path),
+        "split_seed": 42, "valid_count": int(split["valid_count"]),
+        "episode_id": args.episode_id, "episode_path": str(episode_path),
+        "episode_stored_embodiment": str(dataset.embodiment),
+        "configured_embodiment_override": configured_override,
+        "episode_total_frames": len(dataset), "frame_indices": indices,
+        "frame_stride": args.frame_stride, "rng_seed_base": args.seed,
+        "weights": "raw", "precision": "float32",
+        "target_space": "native_physical",
+        "prediction_space": "native_physical_after_unnormalize",
+        "inference_graph": [type(stage).__name__ for stage in graph.pipeline.stages],
+        "token_shape": list(expected_token_shape),
+        "drawn_waypoints": int(config.planar.arc_waypoints),
+        "timing_rows": int(expected_rows - int(config.planar.arc_waypoints)),
+        "timing_row_drawn": False, "native_workspace_size": [512, 512],
+        "render_view": args.view,
+        "silhouette_stride": args.silhouette_stride if args.view == "silhouette" else None,
+        "normalization_path": str(normalization_path),
+        "normalization_mode": normalizer.norm_mode,
+        "prediction_artifact": str(artifact_path),
+        "prediction_artifact_sha256": _sha256(artifact_path),
+        "video": str(video_path), "video_sha256": _sha256(video_path),
+        "first_frame": str(first_frame_path), "metrics": metrics,
+        "simulator": "not_used_teacher_forced", "rollout_count": 0,
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    print(json.dumps(manifest, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

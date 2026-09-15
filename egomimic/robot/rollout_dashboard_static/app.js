@@ -4,32 +4,47 @@ let socket;
 let overlayCamera;
 
 function send(message) {
-  if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+  if (socket?.readyState !== WebSocket.OPEN) return false;
+  socket.send(JSON.stringify(message));
+  return true;
+}
+
+function reportDisconnected() {
+  $('status').textContent = 'Dashboard is not connected yet; wait for Ready, then press c.';
+  $('status').className = 'starting';
 }
 
 function stopRollout() {
   if (confirm('Stop this rollout? The robot will follow the existing rollout shutdown path.')) {
-    send({stop: true});
+    if (!send({stop: true})) {
+      reportDisconnected();
+      return;
+    }
     $('stop').disabled = true;
     $('stop').textContent = 'Stopping rollout…';
   }
 }
 
 function startRollout() {
-  send({start: true});
+  if (!send({start: true})) {
+    reportDisconnected();
+    return;
+  }
   $('start').disabled = true;
   $('start').textContent = 'Starting…';
 }
 
 function restartRollout() {
-  send({restart: true});
+  if (!send({restart: true})) {
+    reportDisconnected();
+    return;
+  }
   $('start').disabled = false;
   $('start').textContent = 'Start rollout (c)';
 }
 
 function chooseVelocityAction(action) {
-  send({velocity_action: action});
-  $('velocity-decision').hidden = true;
+  if (send({velocity_action: action})) $('velocity-decision').hidden = true;
 }
 
 function configure(message) {
@@ -130,6 +145,9 @@ function connect() {
   socket.onclose = () => {
     $('status').textContent = 'Dashboard disconnected; retrying…';
     $('status').className = 'starting';
+    $('start').disabled = true;
+    $('restart').disabled = true;
+    $('overlay').disabled = true;
     setTimeout(connect, 1000);
   };
 }

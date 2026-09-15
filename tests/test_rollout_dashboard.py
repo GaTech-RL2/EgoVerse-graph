@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import socket
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,6 +15,7 @@ import yaml
 from egomimic.robot.interface import ARM_OFFSET
 from egomimic.robot.rollout import run_rollout
 from egomimic.robot.rollout_dashboard import (
+    RolloutDashboard,
     load_action_overlay,
     validate_rollout_preview,
 )
@@ -44,6 +48,46 @@ def overlay_config(path):
         "calibration_path": str(path),
         "arm_channels": {"left": "can_l", "right": "can_r"},
     }
+
+
+def available_loopback_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        return listener.getsockname()[1]
+
+
+def test_dashboard_start_command_reaches_rollout_start_gate(tmp_path):
+    """A browser c/Start event becomes the rollout loop's c control."""
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+
+    async def request_start():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                config = await ws.receive_json()
+                assert config["type"] == "config"
+                assert config["wait_for_start"] is True
+                await ws.send_json({"start": True})
+
+    try:
+        asyncio.run(request_start())
+        deadline = time.monotonic() + 1.0
+        while time.monotonic() < deadline:
+            if dashboard.update({}) == "c":
+                break
+            time.sleep(0.01)
+        else:
+            pytest.fail("browser start command did not reach the rollout gate")
+    finally:
+        dashboard.close()
 
 
 def test_overlay_uses_base_to_camera_calibration_without_mutating_frame(tmp_path):

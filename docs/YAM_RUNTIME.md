@@ -278,11 +278,13 @@ the old plan. Quit with q/Escape or Ctrl-C.
 `yam_rl2_hptflow_rollout.yaml` targets the station's immutable HPT-Flow bundle.
 It validates its D405 calibration and loopback-only dashboard before any robot,
 CAN, or camera is opened; use `--check-config` for that no-device preflight.
-The dashboard shows the top and both wrist RGB feeds. Its sole control is the
-existing stop key. The optional front-camera action overlay draws the current
-Cartesian graph plan with the pinned `base_T_camera` matrices and D405 K/dist;
-the wrist feeds remain raw and the overlay never changes IK, the action queue,
-or a motor command.
+The dashboard shows the top and both wrist RGB feeds. Its controls are handled
+by the focused dashboard browser tab—not the shell that launched rollout. Wait
+until the page reports **Ready** before using `c` / **Start rollout**, `r` /
+**Restart**, or `q` / **Stop rollout**. The optional front-camera action overlay
+draws the current Cartesian graph plan with the pinned `base_T_camera` matrices
+and D405 K/dist; the wrist feeds remain raw and the overlay never changes IK,
+the action queue, or a motor command.
 
 The HPT-Flow profile clips routine gripper overshoot in `[-0.05, 1.05]` to the
 physical `[0, 1]` range, without changing any arm pose target. Larger gripper
@@ -291,9 +293,12 @@ to eight fresh samples. If all samples fail, rollout aborts before sending a
 command.
 
 The HPT-Flow dashboard opens in a ready state: cameras stream but policy
-inference and motor commands wait for `c` or **Start rollout**. `r` / **Restart**
-discards the queued and displayed plan, returns to ready state, and still sends
-no command until `c` is pressed again. `q`, Escape, or **Stop rollout** exits.
+inference and motor commands wait for browser-tab `c` or **Start rollout**.
+Pressing a control before the dashboard WebSocket connects no longer silently
+disables Start; it instead tells the operator to wait for Ready. `r` /
+**Restart** discards the queued and displayed plan, returns to ready state, and
+still sends no command until `c` is pressed again. `q`, Escape, or **Stop
+rollout** exits.
 
 When a proposed plan exceeds the joint velocity limit, neither arm is commanded.
 The dashboard asks the operator to **Execute once**, **Resample**, or

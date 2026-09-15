@@ -1,4 +1,5 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
+train_log_on_step: true
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo

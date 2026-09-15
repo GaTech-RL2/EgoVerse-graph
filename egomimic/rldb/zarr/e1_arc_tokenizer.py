@@ -79,7 +79,10 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
 )
 
 try:  # the parent fills chunks with out-of-range poses; mirror that rule
-    from egomimic.rldb.zarr.arc_length_tokenizer import INVALID_POSE_FILL, INVALID_POSE_THRESHOLD
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        INVALID_POSE_FILL,
+        INVALID_POSE_THRESHOLD,
+    )
 except ImportError:  # pragma: no cover
     INVALID_POSE_THRESHOLD, INVALID_POSE_FILL = np.inf, 0.0
 
@@ -99,7 +102,9 @@ def _bracket_vec(cum: np.ndarray, targets: np.ndarray):
     i = np.clip(i, 0, max(n - 2, 0))
     s0, s1 = cum[i], cum[np.minimum(i + 1, n - 1)]
     span = s1 - s0
-    alpha = np.where(span > 1e-12, (targets - s0) / np.where(span > 1e-12, span, 1.0), 0.0)
+    alpha = np.where(
+        span > 1e-12, (targets - s0) / np.where(span > 1e-12, span, 1.0), 0.0
+    )
     lo, hi = targets <= cum[0], targets >= cum[-1]
     i = np.where(lo, 0, np.where(hi, max(n - 2, 0), i))
     alpha = np.where(lo, 0.0, np.where(hi, 1.0, alpha))
@@ -175,10 +180,12 @@ def lowpass_positions(pos: np.ndarray, fc_hz: float, fs_hz: float) -> np.ndarray
 
 
 LOGDUR_CLIP = np.log(20.0)  # |log(segment duration / mean segment duration)| cap
-LOGDUR_MIN_DT = 1e-4        # s, floor on a segment duration at tokenize time
+LOGDUR_MIN_DT = 1e-4  # s, floor on a segment duration at tokenize time
 
 
-def durations_to_clock(col: np.ndarray, span, min_speed: float = 0.01, max_speed: float = 5.0) -> np.ndarray:
+def durations_to_clock(
+    col: np.ndarray, span, min_speed: float = 0.01, max_speed: float = 5.0
+) -> np.ndarray:
     """logdur column (M,) + polyline span (m) -> time-of-progress at the M waypoints (s).
 
     The decoded mean speed is bounded to [min_speed, max_speed] — the same
@@ -190,9 +197,14 @@ def durations_to_clock(col: np.ndarray, span, min_speed: float = 0.01, max_speed
     col = np.asarray(col, dtype=np.float64)
     M = len(col)
     cum = None
-    if np.ndim(span) > 0:  # a cumulative-arc-length array: zero-length (padded) segments carry no time
-        cum = np.asarray(span, dtype=np.float64); span = float(cum[-1])
-    t_span = max(float(span), 1e-9) * np.exp(np.clip(col[0], -np.log(max_speed), -np.log(min_speed)))
+    if (
+        np.ndim(span) > 0
+    ):  # a cumulative-arc-length array: zero-length (padded) segments carry no time
+        cum = np.asarray(span, dtype=np.float64)
+        span = float(cum[-1])
+    t_span = max(float(span), 1e-9) * np.exp(
+        np.clip(col[0], -np.log(max_speed), -np.log(min_speed))
+    )
     # rows 1.. are log(segment duration / mean segment duration): at tokenization their
     # exponentials sum to M-1 exactly, so normalising here is exact for true tokens and
     # keeps a predicted profile from rescaling the total time that row 0 owns.
@@ -203,7 +215,9 @@ def durations_to_clock(col: np.ndarray, span, min_speed: float = 0.01, max_speed
     return np.concatenate(([0.0], np.cumsum(seg)))
 
 
-def durations_to_clock_abs(col: np.ndarray, span, min_speed: float = 0.01, max_speed: float = 5.0) -> np.ndarray:
+def durations_to_clock_abs(
+    col: np.ndarray, span, min_speed: float = 0.01, max_speed: float = 5.0
+) -> np.ndarray:
     """``dur`` column (M,) + polyline span (m) -> time-of-progress at the M waypoints (s).
 
     Ryan's duration codec, ported (EgoVerse-graph ``6d1b5f93``). The channel is
@@ -245,8 +259,11 @@ def durations_to_clock_abs(col: np.ndarray, span, min_speed: float = 0.01, max_s
     col = np.asarray(col, dtype=np.float64)
     M = len(col)
     cum = None
-    if np.ndim(span) > 0:  # a cumulative-arc-length array: zero-length (padded) segments carry no time
-        cum = np.asarray(span, dtype=np.float64); span = float(cum[-1])
+    if (
+        np.ndim(span) > 0
+    ):  # a cumulative-arc-length array: zero-length (padded) segments carry no time
+        cum = np.asarray(span, dtype=np.float64)
+        span = float(cum[-1])
     seg = np.maximum(col[: M - 1], 0.0)
     if cum is not None:
         seg = seg * (np.diff(cum) > 1e-9)
@@ -298,14 +315,20 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         super().__init__(**kwargs)
         self.fixed_spacing = bool(fixed_spacing)
         if velocity_norm not in ("chord", "path"):
-            raise ValueError(f"velocity_norm must be 'chord' or 'path', got {velocity_norm!r}")
+            raise ValueError(
+                f"velocity_norm must be 'chord' or 'path', got {velocity_norm!r}"
+            )
         if velocity_mode not in ("mean", "profile", "logdur", "dur"):
-            raise ValueError(f"velocity_mode must be 'mean', 'profile', 'logdur' or 'dur', got {velocity_mode!r}")
+            raise ValueError(
+                f"velocity_mode must be 'mean', 'profile', 'logdur' or 'dur', got {velocity_mode!r}"
+            )
         self.velocity_norm = velocity_norm
         self.velocity_mode = velocity_mode
         self.speed_smooth_frames = int(speed_smooth_frames)
         self.min_speed = float(min_speed)
-        self.progress_smooth_hz = None if progress_smooth_hz in (None, 0, 0.0) else float(progress_smooth_hz)
+        self.progress_smooth_hz = (
+            None if progress_smooth_hz in (None, 0, 0.0) else float(progress_smooth_hz)
+        )
 
     @property
     def wide(self) -> bool:
@@ -316,7 +339,9 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         """Positions used for arc length / resampling / timing (#4 when smoothing is on)."""
         if self.progress_smooth_hz is None:
             return np.asarray(pos, dtype=np.float64)
-        return lowpass_positions(pos, self.progress_smooth_hz, 1.0 / self.tokenizer.config.dt)
+        return lowpass_positions(
+            pos, self.progress_smooth_hz, 1.0 / self.tokenizer.config.dt
+        )
 
     # -- one arm, parent semantics of ArcLengthTokenizer.tokenize_at(t=0) -----
     def _tokenize_arm(self, arm: np.ndarray):
@@ -336,22 +361,39 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             # zero token: hold the pose, slerp rotation to the end frame, ramp the gripper
             end = min(end_idx, n - 1)
             rot = R.from_euler("ZYX", np.stack([ypr[0], ypr[end]]))
-            ypr_rs = _slerp_vec(rot, np.zeros(M, dtype=int), alphas).as_euler("ZYX", degrees=False)
+            ypr_rs = _slerp_vec(rot, np.zeros(M, dtype=int), alphas).as_euler(
+                "ZYX", degrees=False
+            )
             ypr_rs[0] = ypr[0]
             ypr_rs[-1] = ypr[end]
-            wp = np.concatenate([np.repeat(pos_raw[:1], M, 0), ypr_rs, (1 - alphas[:, None]) * grip[0] + alphas[:, None] * grip[end]], axis=1)
+            wp = np.concatenate(
+                [
+                    np.repeat(pos_raw[:1], M, 0),
+                    ypr_rs,
+                    (1 - alphas[:, None]) * grip[0] + alphas[:, None] * grip[end],
+                ],
+                axis=1,
+            )
             return wp, np.zeros(3), num_steps, end_s
         if self.fixed_spacing:
             h = D / max(M - 1, 1)
             n_valid = int(min(M, np.floor(end_s / h + 1e-9) + 1))
             end_s = (n_valid - 1) * h
-            end_idx = max(0, min(int(np.searchsorted(cum, end_s, side="right") - 1), n - 1))
+            end_idx = max(
+                0, min(int(np.searchsorted(cum, end_s, side="right") - 1), n - 1)
+            )
             num_steps = max(1, end_idx)
-            targets = np.concatenate([np.arange(n_valid) * h, np.full(M - n_valid, end_s)])  # plateau past the valid length
+            targets = np.concatenate(
+                [np.arange(n_valid) * h, np.full(M - n_valid, end_s)]
+            )  # plateau past the valid length
         else:
             targets = np.linspace(0.0, end_s, M)
         pos_rs, ypr_rs, grip_rs = resample_at_s(pos, ypr, grip, cum, targets)
-        pos_rs[0], ypr_rs[0], grip_rs[0] = pos_raw[0], ypr[0], grip[0]  # start_idx=0 anchoring (raw)
+        pos_rs[0], ypr_rs[0], grip_rs[0] = (
+            pos_raw[0],
+            ypr[0],
+            grip[0],
+        )  # start_idx=0 anchoring (raw)
         vel = (pos_rs[-1] - pos_rs[0]) / max(num_steps * dt, 1e-8)  # MEAN_PER_DIM
         return np.concatenate([pos_rs, ypr_rs, grip_rs], axis=1), vel, num_steps, end_s
 
@@ -364,7 +406,9 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             raise ValueError(f"expected (T, 14) chunk, got {chunk.shape}")
         if np.any(np.abs(chunk) >= INVALID_POSE_THRESHOLD):
             rows, cols = (M, E1_ARCVEL_DIM) if self.wide else (M + 1, 14)
-            batch[self.output_action_key] = np.full((rows, cols), INVALID_POSE_FILL, dtype=np.float64)
+            batch[self.output_action_key] = np.full(
+                (rows, cols), INVALID_POSE_FILL, dtype=np.float64
+            )
             return batch
 
         wps, vels, spans = [], [], []
@@ -383,12 +427,19 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 span = spans[k]
                 if span <= 1e-8 or len(pos) < 2:
                     if self.velocity_mode == "logdur":
-                        prof[0, k] = -np.log(self.min_speed)  # stationary arm: slowness at the floor speed
+                        prof[0, k] = -np.log(
+                            self.min_speed
+                        )  # stationary arm: slowness at the floor speed
                     continue
                 if self.fixed_spacing:
                     h = self.tokenizer.config.min_distance_unit / max(M - 1, 1)
                     n_valid = int(min(M, np.floor(span / h + 1e-9) + 1))
-                    u = np.concatenate([np.arange(n_valid) * h, np.full(M - n_valid, (n_valid - 1) * h)])
+                    u = np.concatenate(
+                        [
+                            np.arange(n_valid) * h,
+                            np.full(M - n_valid, (n_valid - 1) * h),
+                        ]
+                    )
                 else:
                     u = np.linspace(0.0, span, M)
                 fidx = np.interp(u, cum, np.arange(len(cum)))
@@ -408,13 +459,17 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                     prof[: M - 1, k] = seg
                     prof[M - 1, k] = seg[-1]
                 else:  # logdur: row 0 = log mean slowness, rows 1.. = log relative segment durations
-                    valid = np.diff(u) > 1e-9  # padded (plateau) segments carry no time and get 0
+                    valid = (
+                        np.diff(u) > 1e-9
+                    )  # padded (plateau) segments carry no time and get 0
                     seg = np.maximum(np.diff(fidx) * dt, LOGDUR_MIN_DT) * valid
                     n_seg = max(int(valid.sum()), 1)
                     t_span = float(seg.sum())
                     prof[0, k] = np.log(t_span / max(float(u[-1]), 1e-9))
                     ratio = np.zeros(M - 1)
-                    ratio[valid] = np.clip(np.log(seg[valid] / (t_span / n_seg)), -LOGDUR_CLIP, LOGDUR_CLIP)
+                    ratio[valid] = np.clip(
+                        np.log(seg[valid] / (t_span / n_seg)), -LOGDUR_CLIP, LOGDUR_CLIP
+                    )
                     prof[1:, k] = ratio
             batch[self.output_action_key] = np.concatenate([waypoints, prof], axis=1)
             return batch
@@ -433,9 +488,13 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 if span_wp > 1e-8:
                     vel = vel * ((span_wp / dur) / speed)
             vel_token[vsl] = vel
-            vel_token[ypr_off : ypr_off + 3] = (wp[-1, 3:6] - wp[0, 3:6]) / max(dur, 1e-8)
+            vel_token[ypr_off : ypr_off + 3] = (wp[-1, 3:6] - wp[0, 3:6]) / max(
+                dur, 1e-8
+            )
             vel_token[grip_off] = float(wp[-1, 6] - wp[0, 6]) / max(dur, 1e-8)
-        batch[self.output_action_key] = np.concatenate([waypoints, vel_token[None]], axis=0)
+        batch[self.output_action_key] = np.concatenate(
+            [waypoints, vel_token[None]], axis=0
+        )
         return batch
 
     # -- detokenize --------------------------------------------------------
@@ -447,7 +506,9 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         profile = self.wide
         if profile:
             if arc.ndim != 2 or arc.shape[1] != E1_ARCVEL_DIM:
-                raise ValueError(f"{self.velocity_mode} detokenize expects (M, {E1_ARCVEL_DIM}), got {arc.shape}")
+                raise ValueError(
+                    f"{self.velocity_mode} detokenize expects (M, {E1_ARCVEL_DIM}), got {arc.shape}"
+                )
             M = arc.shape[0]
         else:
             if arc.ndim != 2 or arc.shape[1] != 14:
@@ -462,7 +523,11 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             total = float(cum[-1])
             if profile:
                 degenerate = total < 1e-9
-                s = None if degenerate else np.interp(t, self._wide_clock(arc[:, 14 + k], cum), cum)
+                s = (
+                    None
+                    if degenerate
+                    else np.interp(t, self._wide_clock(arc[:, 14 + k], cum), cum)
+                )
             else:
                 speed = float(np.linalg.norm(arc[M, vsl]))
                 if self.velocity_norm == "chord":
@@ -474,7 +539,16 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 degenerate = total < 1e-9 or speed < 1e-8
                 s = None if degenerate else np.minimum(speed * t, total)
             if degenerate:
-                arms.append(np.concatenate([np.repeat(xyz_wp[:1], h, 0), np.repeat(ypr_wp[:1], h, 0), np.repeat(grip_wp[:1], h, 0)], axis=-1))
+                arms.append(
+                    np.concatenate(
+                        [
+                            np.repeat(xyz_wp[:1], h, 0),
+                            np.repeat(ypr_wp[:1], h, 0),
+                            np.repeat(grip_wp[:1], h, 0),
+                        ],
+                        axis=-1,
+                    )
+                )
                 continue
             pos_t, ypr_t, grip_t = resample_at_s(xyz_wp, ypr_wp, grip_wp, cum, s)
             arms.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
@@ -500,7 +574,12 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             else:
                 speed = float(np.linalg.norm(arc[M, vsl]))
                 if self.velocity_norm == "chord":
-                    chord = float(np.linalg.norm(arc[0, xyz_off : xyz_off + 3] - arc[M - 1, xyz_off : xyz_off + 3]))
+                    chord = float(
+                        np.linalg.norm(
+                            arc[0, xyz_off : xyz_off + 3]
+                            - arc[M - 1, xyz_off : xyz_off + 3]
+                        )
+                    )
                     if chord > 1e-6:
                         speed = speed * (float(cum[-1]) / chord)
                 out.append(cum / max(speed, self.min_speed))

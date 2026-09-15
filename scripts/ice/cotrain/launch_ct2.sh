@@ -15,6 +15,9 @@
 #     runs/af-ladder-20260913/; norm stats pinned to each original row's own file (s3ctA: the sweep-3
 #     minmax file; s3dpct: the quantile file its run computed); 2 GPUs of any H100|H200 (the
 #     launcher's constraint) instead of h200 only.
+#     refctA sets model.pipeline.stages.4.cfg_scale=1.0 (labelled deviation, 2026-09-15 CFG-1.0-only rule):
+#     cfg_scale is read only by the inference-mode sampler (Valid/MSE, EnergyScore, rollouts); training
+#     losses, condition dropout 0.1 and the optimizer are unchanged. s3ctA validated at the embedded 4.0.
 #   identity env (defaults unchanged): RUN_NAME (run dir, default <tag>-<stamp>), WANDB_RUN_ID
 #     (default aidan-ct2-<tag>-<stamp>), WANDB_GROUP (default the sweep), GRES (default gpu:h200:WORLD),
 #     TEST_ONLY=1 (sbatch --test-only)
@@ -60,7 +63,7 @@ case "$ROW" in
   s3unitech) EXP=pusht/unite_chaingen_points_val01_h16;             MODEL=bf/ch_unite_register_separate_nt8_h384_s42; DATA="$DATA_CHG";          FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=unite-cotrain-3 ;;
   s3dpct)    EXP=pusht/planar_v2_cotrain_dp_paper_points6_chaingen; MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_US,$DATA_CHG"; FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=unite-cotrain-3 ;;
   s3dpch)    EXP=pusht/planar_v2_chaingen_points_dp_paper;          MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_CHG";          FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=unite-cotrain-3 ;;
-  refctA)    EXP=pusht/unite_cotrain_usocket_chaingen_val01_h16;    MODEL=bf/ct_unite_register_separate_nt8_h384_s42; DATA="$DATA_US,$DATA_CHG"; FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=af-ladder-20260913; GRES=${GRES:-gpu:$WORLD}; NORM_STATS=${NORM_STATS:-$CEDAR/unite-cotrain-3/norm_stats_chaingen_minmax} ;;
+  refctA)    EXP=pusht/unite_cotrain_usocket_chaingen_val01_h16;    MODEL=bf/ct_unite_register_separate_nt8_h384_s42; DATA="$DATA_US,$DATA_CHG"; FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=af-ladder-20260913; GRES=${GRES:-gpu:$WORLD}; NORM_STATS=${NORM_STATS:-$CEDAR/unite-cotrain-3/norm_stats_chaingen_minmax}; EXTRA="model.pipeline.stages.4.cfg_scale=1.0${EXTRA:+ $EXTRA}" ;;
   refdpct)   EXP=pusht/planar_v2_cotrain_dp_paper_points6_chaingen; MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_US,$DATA_CHG"; FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=af-ladder-20260913; GRES=${GRES:-gpu:$WORLD}; NORM_STATS=${NORM_STATS:-$CEDAR/unite-cotrain-3/s3-dp_paper-cotrain-chaingen-240k-09100200/norm_stats} ;;
   dpch) EXP=pusht/planar_v2_chain_points_dp_paper;       MODEL=bf/bf_planar_v2_dp_paper_points6;             DATA="$DATA_CH";          FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2 ;;
   *) echo "row must be ctA|ctAc|ctA768|ctB|dpct|dpus|dpch|uniteus|unitech|s3ctA|s3ctB|s3ctA768|s3unitech|s3dpct|s3dpch|refctA|refdpct"; exit 64 ;;

@@ -28,6 +28,8 @@ abc:
   action_horizon: 100
 hpt:
   action_horizon: ${abc.arc_token_rows}
+norm_stats:
+  sample_frac: 0.20
 evaluator:
   action_mode: arc
   control_horizon: 100

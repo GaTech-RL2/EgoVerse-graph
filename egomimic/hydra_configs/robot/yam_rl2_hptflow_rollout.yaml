@@ -107,3 +107,6 @@ policy:
     action_key: actions_cartesian
     prompt: sorting markers and pens
     decoder: null
+    # Clip routine stochastic overshoot only. Larger values reject the complete
+    # plan and use policy.max_valid_samples before any robot command is issued.
+    gripper_clip_tolerance: 0.05

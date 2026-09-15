@@ -120,6 +120,18 @@ def test_graph_policy_resamples_whole_invalid_plan_without_clamping_grippers():
     np.testing.assert_allclose(result[:, [6, 13]], 0.5, atol=1e-6)
 
 
+def test_graph_adapter_clips_only_small_gripper_overshoots():
+    native = np.zeros((1, 1, 14))
+    native[0, 0, [6, 13]] = [-0.04, 1.04]
+
+    result = adapter(gripper_clip_tolerance=0.05).actions(native, FakeRobot().get_obs())
+
+    np.testing.assert_allclose(result[:, [6, 13]], [[0, 1]])
+    native[0, 0, 6] = -0.06
+    with pytest.raises(ValueError, match="gripper opening"):
+        adapter(gripper_clip_tolerance=0.05).actions(native, FakeRobot().get_obs())
+
+
 def test_graph_policy_never_commands_when_all_stochastic_samples_are_invalid():
     stage = RetryStage(valid_after=3)
     policy = GraphRobotPolicy(

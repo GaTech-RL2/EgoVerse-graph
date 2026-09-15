@@ -100,6 +100,7 @@ class CartesianGraphAdapter:
         action_key="actions_cartesian",
         prompt="",
         decoder=None,
+        gripper_clip_tolerance=0.0,
     ):
         if rotation_mode not in ("euler", "6D") or action_frame not in (
             "eef_frame",
@@ -119,6 +120,13 @@ class CartesianGraphAdapter:
         self.image_hw = tuple(int(x) for x in image_hw)
         if len(self.image_hw) != 2 or min(self.image_hw) <= 0:
             raise ValueError("image_hw must be two positive dimensions")
+        if not isinstance(gripper_clip_tolerance, (float, int)) or not np.isfinite(
+            gripper_clip_tolerance
+        ):
+            raise ValueError("gripper_clip_tolerance must be a finite number")
+        self.gripper_clip_tolerance = float(gripper_clip_tolerance)
+        if not 0 <= self.gripper_clip_tolerance <= 0.5:
+            raise ValueError("gripper_clip_tolerance must be in [0, 0.5]")
         self.prompt, self.decoder = prompt, decoder
 
     def observation(self, obs):
@@ -183,10 +191,15 @@ class CartesianGraphAdapter:
             for index, arm in enumerate(ARM_OFFSET):
                 half = width // 2
                 values = row[index * half : (index + 1) * half]
-                if not 0 <= values[-1] <= 1:
+                if (
+                    not -self.gripper_clip_tolerance
+                    <= values[-1]
+                    <= 1 + self.gripper_clip_tolerance
+                ):
                     raise InvalidGraphActionSample(
                         "Predicted gripper opening is outside [0, 1]"
                     )
+                gripper = float(np.clip(values[-1], 0, 1))
                 if width == 14:
                     target = pose_matrix(values[:6])
                 else:
@@ -206,7 +219,7 @@ class CartesianGraphAdapter:
                     if self.action_frame == "eef_frame"
                     else self.base_T_model[arm]
                 )
-                command.extend(np.r_[pose_vector(base @ target), values[-1]])
+                command.extend(np.r_[pose_vector(base @ target), gripper])
             actions.append(command)
         return np.asarray(actions, dtype=np.float64)
 

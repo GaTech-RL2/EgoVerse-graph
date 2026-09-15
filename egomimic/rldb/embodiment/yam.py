@@ -109,10 +109,10 @@ class Yam(Embodiment):
     # this only when the episode's metadata reports a D405 top camera.
     TOP_CAMERA_D405 = np.array(
         [
-            [-0.000003673, -0.866026618,  0.499997896, -0.166494880],
-            [-1.000000000,  0.000003181, -0.000001837, -0.263749126],
-            [ 0.000000000, -0.499997896, -0.866026618,  0.967579819],
-            [ 0.000000000,  0.000000000,  0.000000000,  1.000000000]
+            [-0.000003673, -0.866026618, 0.499997896, -0.166494880],
+            [-1.000000000, 0.000003181, -0.000001837, -0.263749126],
+            [0.000000000, -0.499997896, -0.866026618, 0.967579819],
+            [0.000000000, 0.000000000, 0.000000000, 1.000000000],
         ]
     )
     EXTRINSICS = {"front_1": TOP_CAMERA_D405}
@@ -267,7 +267,9 @@ class Yam(Embodiment):
             ),
             **kwargs,
         )
-        texts = _flatten_annotations(batch.get(annotation_key) if annotation_key else None)
+        texts = _flatten_annotations(
+            batch.get(annotation_key) if annotation_key else None
+        )
         if texts:
             vis = _viz_annotations(image=vis, annotations=texts)
         return vis

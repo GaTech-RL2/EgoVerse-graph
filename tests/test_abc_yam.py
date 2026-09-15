@@ -261,7 +261,5 @@ def test_yam_arc_uses_distance_buffer_not_fixed_action_horizon():
     assert {spec["require_all_arms"] for spec in specs} == {True}
 
     source = np.arange(37 * 7, dtype=np.float64).reshape(37, 7)
-    out = InterpolateLinear(None, "grip", "grip", stride=5).transform(
-        {"grip": source}
-    )
+    out = InterpolateLinear(None, "grip", "grip", stride=5).transform({"grip": source})
     np.testing.assert_array_equal(out["grip"], source)

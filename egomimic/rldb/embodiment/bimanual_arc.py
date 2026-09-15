@@ -126,7 +126,11 @@ def get_transform_list(
                 output_action_key="actions_cartesian",
                 min_distance_unit=float(min_distance_unit),
                 resampled_vector_length=int(resampled_vector_length),
-                dt=(1.0 / source_fps if embodiment == "yam" else float(stride) / source_fps),
+                dt=(
+                    1.0 / source_fps
+                    if embodiment == "yam"
+                    else float(stride) / source_fps
+                ),
                 velocity_norm=velocity_norm,
                 velocity_mode=VELOCITY_MODES[variant],
                 speed_smooth_frames=int(speed_smooth_frames),

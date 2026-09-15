@@ -528,6 +528,31 @@ contents at the config root instead of under `data`, and `cfg.data` then does no
 exist. Compare `data/pusht/planar_v2_usocket.yaml` (no header) with any
 `experiment/pusht/*.yaml` (header). Caught by `tools/preflight_experiment_configs.py`.
 
+### 5.10c The rollout datamodule needs ALL NINE corpora on disk, held-out included
+
+`mode=eval` still builds the training datamodule so `normalize()` has a key map,
+and the eval data config `artic_all9_{arc,dp}.yaml` lists all nine embodiments.
+Any listed embodiment whose folder is missing under
+`${planar.articulated_root}/cells/ideal/<emb>` kills the whole job with
+
+    ValueError: No valid collection names from local filtering:
+    filters matched no episodes in the local directory.
+
+Two traps make this hard to read:
+
+1. Relaxing `resolver.expected_episode_count=null` does NOT help. Zero episodes
+   is a hard error, not a count assertion, so the guard-relaxation that rescues
+   a thin-staged embodiment does nothing for an unstaged one.
+2. `STAGE` used to be `EMBODIMENTS + TRAIN_EMB`. `umi` is held out and in
+   neither, so any job scoring only the heavy embodiments skipped it -- while
+   the guard loop, which iterates `TRAIN_EMB + HELD_OUT`, still printed
+   `guards relaxed for thin-staged embodiments: ... umi`. The log therefore
+   *claimed* umi was staged when no folder had been created.
+
+The error also surfaces once per scored cell, so it reads like a per-embodiment
+data problem when it is one global datamodule failure. `STAGE` must be
+`EMBODIMENTS + TRAIN_EMB + HELD_OUT`. Fixed in fb2668b.
+
 ### 5.11 Checkpoint discovery is a fuzzy glob
 The launcher resolves `find "$CK" -path "*${EXP}*" -name last.ckpt | head -1`. Note that
 `planar_v2_usocket_dp_paper` matched the directory `planar_v2_usocket_dp_paper_h16`. That

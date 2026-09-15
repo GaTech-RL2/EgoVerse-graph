@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,11 @@ import numpy as np
 import torch
 import torch.distributed as dist
 
-from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
+from egomimic.eval.bimanual_cartesian_eval import (
+    BimanualCartesianEval,
+    overlay_annotation_fields,
+)
+from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     bimanual_arc_token_rows,
@@ -98,8 +103,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
 
     The evaluator expects validation to contain every frame of each episode,
     with ``episode_hash`` and ``frame_index`` metadata. It accumulates model
-    predictions during the normal validation loop, so no images or full
-    episodes are retained in memory.
+    predictions during the normal validation loop and, when visualization is
+    configured, buffers rendered frames until each complete episode closes.
+    Video output therefore follows the metric unit: one MP4 per episode. All
+    episode MP4s are kept on disk, while only the first MP4 for each
+    validation-group/embodiment pair is uploaded to W&B per validation loop.
     """
 
     def __init__(
@@ -120,6 +128,15 @@ class OpenLoopSimEval(BimanualCartesianEval):
         requires_ordered_validation: bool = True,
         limit_val_batches: int | float | None = None,
         deterministic_seed: int = 420042,
+        obs_pose_key: str = "observations.state.ee_pose",
+        image_key: str = "observations.images.front_img_1",
+        viz_func: Mapping | None = None,
+        revert_transforms: Mapping | None = None,
+        video_output_dir: str | None = None,
+        video_chunk_frames: int = 1000,
+        max_episode_frames: int = 6000,
+        viz_every_n_epochs: int = 1,
+        viz_max_batches: int | None = None,
         **kwargs,
     ):
         mode = str(action_mode)
@@ -154,16 +171,15 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self._arc_tokenizer = None
         self._metric_device = torch.device("cpu")
 
-        # Reuse the graph evaluator's normalizer binding, deterministic model
-        # forward, embodiment resolution, and metric-group namespacing. Video
-        # and chunk-level ARC metrics are deliberately disabled here.
+        # Reuse the graph evaluator's normalizer binding, deterministic model,
+        # embodiment resolution, metric-group namespacing, and episode-aware
+        # video buffering. Chunk-level ARC metrics remain deliberately disabled
+        # here because this evaluator scores the executed control prefix.
         # Existing ABC experiment blocks are merged into a selected evaluator
         # config by Hydra. Consume their legacy ARC-only knobs so selecting
         # this evaluator does not fail on an unrelated ``action_horizon`` (or
         # accidentally enable chunk/video metrics).
         for ignored_key in (
-            "viz_func",
-            "revert_transforms",
             "arc_metrics",
             "include_reconstruction_loss",
             "arcmatch_distance",
@@ -176,18 +192,28 @@ class OpenLoopSimEval(BimanualCartesianEval):
             kwargs.pop(ignored_key, None)
         super().__init__(
             action_key=action_key,
-            viz_func=None,
-            revert_transforms=None,
+            obs_pose_key=obs_pose_key,
+            image_key=image_key,
+            viz_func=viz_func,
+            revert_transforms=revert_transforms,
             arc_metrics=False,
             deterministic_seed=deterministic_seed,
             limit_val_batches=None,
+            video_output_dir=video_output_dir,
+            video_chunk_frames=video_chunk_frames,
+            max_episode_frames=max_episode_frames,
+            viz_every_n_epochs=viz_every_n_epochs,
+            viz_max_batches=viz_max_batches,
             **kwargs,
         )
+        self._video_enabled = bool(self.viz_func)
         self.execute_steps = executed_control_steps(
             self.control_horizon, self.execute_fraction
         )
 
     def on_validation_start(self):
+        if self._video_enabled:
+            EvalVideo.on_validation_start(self)
         self._records = []
         self.last_results = None
         if self.model is not None:
@@ -195,6 +221,142 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 self._metric_device = next(self.model.parameters()).device
             except StopIteration:
                 pass
+
+    def _decoded_video_predictions(
+        self, prediction: torch.Tensor, embodiment_id: int
+    ) -> torch.Tensor:
+        """Decode each predicted token/chunk to executed control-frequency rows."""
+
+        native = self._native(prediction, embodiment_id).detach().cpu().numpy()
+        decoded = np.stack(
+            [self._decode_prediction(sample) for sample in native], axis=0
+        )
+        return torch.from_numpy(decoded.astype(np.float32, copy=False))
+
+    def _maybe_log_open_loop_video(
+        self,
+        *,
+        source_id: str,
+        source_batch: Mapping,
+        prediction: torch.Tensor,
+        embodiment_id: int,
+        embodiment_name: str,
+    ) -> None:
+        """Render one frame per validation sample and buffer by episode hash.
+
+        The metric path stores only the executed prefix. The video path uses
+        exactly that same decoded prefix for both baseline and ARC predictions,
+        and the preserved control-frequency ground truth, so the visualization
+        cannot silently show a different trajectory from the reported score.
+        """
+
+        if not getattr(self, "_video_enabled", False) or not getattr(
+            self.trainer, "is_global_zero", True
+        ):
+            return
+        viz_partial = self.viz_func.get(embodiment_name)
+        if viz_partial is None or self.obs_pose_key not in source_batch:
+            return
+        target_key = (
+            self.ground_truth_action_key
+            if self.ground_truth_action_key in source_batch
+            else self.action_key
+        )
+        pred_native = self._decoded_video_predictions(prediction, embodiment_id)
+        gt_native = self._native_key(
+            source_batch[target_key], target_key, embodiment_id
+        ).detach().cpu()
+        if gt_native.ndim != 3 or gt_native.shape[0] != pred_native.shape[0]:
+            raise ValueError(
+                "open_loop_sim video ground truth must be batched as (B, T, 14), "
+                f"got {tuple(gt_native.shape)}"
+            )
+        gt_native = gt_native[:, : self.execute_steps].to(dtype=pred_native.dtype)
+
+        obs_pose_native = self._native_pose(
+            source_batch[self.obs_pose_key], embodiment_id
+        ).detach().cpu()
+        if obs_pose_native.ndim == 3 and obs_pose_native.shape[1] == 1:
+            obs_pose_native = obs_pose_native.squeeze(1)
+        pred_camframe = self._revert_to_camframe(
+            actions=pred_native,
+            obs_pose=obs_pose_native,
+            embodiment_name=embodiment_name,
+        )
+        gt_camframe = self._revert_to_camframe(
+            actions=gt_native,
+            obs_pose=obs_pose_native,
+            embodiment_name=embodiment_name,
+        )
+        if pred_camframe is None or gt_camframe is None:
+            return
+
+        images = source_batch[self.image_key]
+        if images.ndim == 5:
+            images = images[:, 0]
+        images = images.detach().cpu()
+        if images.ndim == 4 and images.shape[1] in (1, 3):
+            images = images.permute(0, 2, 3, 1)
+        flat_predictions = {
+            f"{embodiment_name}_{self.action_key}": pred_camframe,
+        }
+        flat_batch = {
+            self.image_key: images,
+            self.action_key: gt_camframe,
+            "embodiment": source_batch["embodiment"].detach().cpu(),
+        }
+        if "intrinsics" in source_batch:
+            flat_batch["intrinsics"] = source_batch["intrinsics"].detach().cpu()
+        flat_batch.update(
+            overlay_annotation_fields(viz_partial, {**source_batch, "source": source_id})
+        )
+        try:
+            frames = viz_partial(predictions=flat_predictions, batch=flat_batch)
+        except Exception as exc:  # noqa: BLE001 -- overlays are best effort
+            print(
+                f"[OpenLoopSimEval] skipped {embodiment_name} overlay: {exc}",
+                flush=True,
+            )
+            return
+        frames = np.asarray(frames)
+        if frames.dtype != np.uint8:
+            frames = np.clip(frames, 0, 255).astype(np.uint8)
+        if frames.ndim == 3:
+            frames = frames[None]
+        frame_tensor = torch.from_numpy(frames)
+        hashes = [
+            str(value)
+            for value in self._batch_values(
+                source_batch["episode_hash"], int(frame_tensor.shape[0]), "episode_hash"
+            )
+        ]
+        group = self._validation_group or DEFAULT_VALID_GROUP
+        buf_key = (group, embodiment_name)
+        out_dir = self._group_video_dir(group, embodiment_name)
+        self._buffer_per_episode(buf_key, out_dir, list(frame_tensor), hashes)
+
+    def _log_wandb_videos(self) -> None:
+        """Upload only the first episode MP4 for each val loop/panel."""
+
+        if not self._written_paths:
+            return
+        experiment = self._wandb_logger()
+        if experiment is None:
+            return
+        import wandb  # type: ignore
+
+        first: dict[tuple[str, str], str] = {}
+        for group, embodiment_name, path in self._written_paths:
+            first.setdefault((group, embodiment_name), path)
+        payload = {}
+        for (group, embodiment_name), path in first.items():
+            prefix = (
+                "Val_video" if group == DEFAULT_VALID_GROUP else f"Val_video_{group}"
+            )
+            payload[f"{prefix}/{embodiment_name}"] = wandb.Video(
+                path, fps=self._video_fps(), format="mp4"
+            )
+        experiment.log(payload, step=int(getattr(self.trainer, "global_step", 0)))
 
     @staticmethod
     def _batch_values(value, batch_size: int, label: str) -> list:
@@ -343,12 +505,20 @@ class OpenLoopSimEval(BimanualCartesianEval):
 
     @torch.inference_mode()
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
-        del batch_idx, dataloader_idx
+        del dataloader_idx
         result = self._forward_deterministic(batch)
         for source_id, source_batch in batch.items():
-            self._append_source_records(
-                source_id, source_batch, result[source_id]["pred_action"]
-            )
+            prediction = result[source_id]["pred_action"]
+            self._append_source_records(source_id, source_batch, prediction)
+            if getattr(self, "_video_enabled", False) and self._should_viz(batch_idx):
+                embodiment_id, embodiment_name = self._embodiment(source_batch)
+                self._maybe_log_open_loop_video(
+                    source_id=source_id,
+                    source_batch=source_batch,
+                    prediction=prediction,
+                    embodiment_id=embodiment_id,
+                    embodiment_name=embodiment_name,
+                )
         return {}
 
     @staticmethod
@@ -589,6 +759,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self.trainer, "is_global_zero", True
         ):
             return results
+        # Flush episode buffers and upload the first MP4 per panel after all
+        # validation frames have arrived.  This must happen before returning
+        # on the rank-zero path; otherwise the last episode never gets a file.
+        if getattr(self, "_video_enabled", False):
+            EvalVideo.on_validation_end(self)
         # This hook is called from LightningModule.on_validation_end(). Calling
         # LightningModule.log_dict() here recursively enters Lightning's
         # validation-hook guard and raises ``MisconfigurationException``.

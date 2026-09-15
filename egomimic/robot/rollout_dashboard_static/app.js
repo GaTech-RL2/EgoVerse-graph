@@ -49,7 +49,7 @@ function restartRollout() {
 
 function updatePauseButton() {
   $('pause').disabled = !started;
-  $('pause').textContent = paused ? 'Resume rollout (p)' : 'Pause rollout (p)';
+  $('pause').textContent = paused ? 'Resume rollout (Space)' : 'Pause rollout (Space)';
 }
 
 function togglePause() {
@@ -167,7 +167,17 @@ for (const button of document.querySelectorAll('[data-velocity-action]')) {
 $('overlay').onchange = event => send({overlay: event.target.checked});
 document.onkeydown = event => {
   if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
-  if (event.target instanceof HTMLInputElement) return;
+  if (
+    event.target instanceof HTMLInputElement
+    || event.target instanceof HTMLButtonElement
+    || event.target instanceof HTMLSelectElement
+    || event.target instanceof HTMLTextAreaElement
+  ) return;
+  if (event.code === 'Space') {
+    event.preventDefault();
+    togglePause();
+    return;
+  }
   if (event.key === 'q' || event.key === 'Q' || event.key === 'Escape') {
     event.preventDefault();
     stopRollout();
@@ -179,10 +189,6 @@ document.onkeydown = event => {
   if (event.key === 'r' || event.key === 'R') {
     event.preventDefault();
     restartRollout();
-  }
-  if (event.key === 'p' || event.key === 'P') {
-    event.preventDefault();
-    togglePause();
   }
   if (event.key === 'e' || event.key === 'E') {
     event.preventDefault();

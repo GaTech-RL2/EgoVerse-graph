@@ -307,6 +307,7 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
     )
     assert profile["max_joint_velocity"] / profile["frequency"] == 0.4
     assert profile["execute_steps"] == 30
+    assert profile["policy"]["num_inference_steps"] == 10
     assert profile["reset_on_start"] is True
     assert profile["reset_home_on_restart"] is True
     assert set(adapter["camera_keys"]) == {
@@ -314,6 +315,17 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
         "left_wrist_img",
         "right_wrist_img",
     }
+
+
+def test_dashboard_uses_space_for_pause_and_places_resample_below_cameras():
+    static = ROOT / "egomimic/robot/rollout_dashboard_static"
+    html = (static / "index.html").read_text()
+    javascript = (static / "app.js").read_text()
+
+    assert "Pause rollout <kbd>Space</kbd>" in html
+    assert html.index('id="cameras"') < html.index('id="execute-steps"')
+    assert "event.code === 'Space'" in javascript
+    assert "event.key === 'p'" not in javascript
 
 
 class FakeRobot:

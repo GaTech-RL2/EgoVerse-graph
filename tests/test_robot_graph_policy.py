@@ -15,6 +15,7 @@ from egomimic.robot.arc_decoder import BimanualArcDecoder
 from egomimic.robot.graph_policy import (
     CartesianGraphAdapter,
     GraphRobotPolicy,
+    configure_flow_inference_steps,
     load_graph_policy,
     load_normalizer,
     validate_graph_device,
@@ -90,6 +91,95 @@ class RetryStage(Stage):
             prediction[..., [6, 13]] = 0.5
         batch["pred_action"] = prediction
         return batch
+
+
+def test_flow_rollout_can_override_only_its_euler_solver_budget():
+    from egomimic.pipeline.stages_flow import FlowDenoiserStage
+
+    flow = FlowDenoiserStage(
+        torch.nn.Linear(1, 1),
+        action_horizon=2,
+        action_dim=14,
+        condition_input_dim=8,
+        num_inference_steps=50,
+    )
+    graph = PipelineAlgo([flow], device="cpu")
+
+    configure_flow_inference_steps(graph, 10)
+
+    assert flow.num_inference_steps == 10
+    with pytest.raises(ValueError, match="positive integer"):
+        configure_flow_inference_steps(graph, 0)
+    with pytest.raises(ValueError, match="exactly one"):
+        configure_flow_inference_steps(PipelineAlgo([EchoStage()], device="cpu"), 10)
+
+
+def test_checkpoint_load_applies_flow_euler_override(tmp_path):
+    from egomimic.pipeline.stages_flow import FlowDenoiserStage
+
+    normalizer().cache_stats(str(tmp_path))
+    # The strict loader rejects an empty checkpoint, so use a stateful model
+    # even though this regression needs only construction, never a forward.
+    flow = FlowDenoiserStage(
+        torch.nn.Linear(1, 1),
+        action_horizon=2,
+        action_dim=14,
+        condition_input_dim=8,
+        num_inference_steps=50,
+    )
+    graph = PipelineAlgo([flow], device="cpu")
+    ckpt = tmp_path / "flow.ckpt"
+    state = {f"nets.{key}": value for key, value in graph.nets.state_dict().items()}
+    torch.save({"state_dict": state}, ckpt)
+    training = tmp_path / "flow.yaml"
+    OmegaConf.save(
+        OmegaConf.create(
+            {
+                "model": {
+                    "pipeline": {
+                        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+                        "stages": [
+                            {
+                                "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                                "model": {
+                                    "_target_": "torch.nn.Linear",
+                                    "in_features": 1,
+                                    "out_features": 1,
+                                },
+                                "action_horizon": 2,
+                                "action_dim": 14,
+                                "condition_input_dim": 8,
+                                "num_inference_steps": 50,
+                            }
+                        ],
+                    }
+                }
+            }
+        ),
+        training,
+    )
+    boundary = dict(
+        _target_="egomimic.robot.graph_policy.CartesianGraphAdapter",
+        base_T_model={a: np.eye(4).tolist() for a in ("left", "right")},
+        camera_keys={"front_img_1": "front"},
+        embodiment_id=7,
+        rotation_mode="euler",
+        action_frame="eef_frame",
+        image_hw=[2, 3],
+    )
+
+    policy = load_graph_policy(
+        dict(
+            normalizer_path=str(tmp_path / "norm_stats/norm_stats.json"),
+            training_config=str(training),
+            checkpoint=str(ckpt),
+            device="cpu",
+            adapter=boundary,
+            num_inference_steps=10,
+        )
+    )
+
+    assert policy.graph.pipeline.stages[0].num_inference_steps == 10
 
 
 def test_graph_normalizes_proprio_and_unnormalizes_actions_once():

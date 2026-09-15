@@ -21,6 +21,7 @@ p { margin: 0; color: #9aa8b8; }
 .resample-control { display: flex; gap: 6px; align-items: center; padding: 6px 9px; border: 1px solid #3a4655; border-radius: 6px; background: #191e25; color: #dce3ed; }
 .resample-control input { width: 48px; border: 1px solid #667587; border-radius: 4px; background: #0d1116; color: #dce3ed; padding: 3px 5px; }
 .resample-control input:disabled { opacity: .55; }
+.rollout-controls { display: flex; justify-content: end; margin: 12px 0; }
 button { border: 1px solid #3a4655; background: #242e39; color: #dce3ed; border-radius: 5px; padding: 7px 10px; cursor: pointer; }
 button:hover, button:focus-visible { border-color: #8cb5ca; }
 button:disabled { cursor: not-allowed; opacity: .55; }
@@ -50,5 +51,6 @@ button.warning { border-color: #edb769; background: #7b4510; color: #fff0d1; }
 @media (max-width: 1000px) {
   header { flex-direction: column; }
   .actions { justify-content: start; }
+  .rollout-controls { justify-content: start; }
   .cameras { grid-template-columns: 1fr; }
 }

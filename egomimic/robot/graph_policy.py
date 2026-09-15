@@ -11,6 +11,7 @@ from scipy.spatial.transform import Rotation
 
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pipeline.algo import PipelineAlgo
+from egomimic.pipeline.stages_flow import FlowDenoiserStage
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.robot.interface import ARM_OFFSET, pose_matrix, pose_vector
 from egomimic.robot.teleop import rigid_transform
@@ -75,6 +76,23 @@ def validate_graph_device(device: str) -> torch.device:
             f"{supported_text}. Install a compatible PyTorch build before opening a robot."
         )
     return target
+
+
+def configure_flow_inference_steps(
+    graph: PipelineAlgo, num_inference_steps: int
+) -> None:
+    """Override the rollout-only Euler solver budget for one FlowDenoiser."""
+    if type(num_inference_steps) is not int or num_inference_steps <= 0:
+        raise ValueError("num_inference_steps must be a positive integer")
+    stages = [
+        stage for stage in graph.pipeline.stages if isinstance(stage, FlowDenoiserStage)
+    ]
+    if len(stages) != 1:
+        raise ValueError(
+            "A rollout num_inference_steps override requires exactly one "
+            f"FlowDenoiserStage, found {len(stages)}"
+        )
+    stages[0].num_inference_steps = num_inference_steps
 
 
 class InvalidGraphActionSample(ValueError):
@@ -294,6 +312,8 @@ def load_graph_policy(config):
     strict_load_pipeline_checkpoint(
         graph, checkpoint, use_ema=bool(config.get("use_ema", False))
     )
+    if "num_inference_steps" in config:
+        configure_flow_inference_steps(graph, config["num_inference_steps"])
     graph.nets.eval()
     return GraphRobotPolicy(
         graph,

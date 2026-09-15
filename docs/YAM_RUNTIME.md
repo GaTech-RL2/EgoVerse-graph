@@ -304,9 +304,9 @@ or transient client socket reset removes only that client and leaves the
 dashboard server running; a real server-wide dashboard failure instead stops
 rollout safely rather than continuing without operator visibility.
 
-**Pause rollout** / `p` is available only after rollout has started. It sends a
+**Pause rollout** / Space is available only after rollout has started. It sends a
 single paired hold command at the measured joint positions, clears the queued
-policy plan, and keeps the cameras/dashboard live. **Resume rollout** / `p`
+policy plan, and keeps the cameras/dashboard live. **Resume rollout** / Space
 then infers a fresh plan from the current measured pose; it never resumes a
 pre-pause action chunk.
 
@@ -324,10 +324,12 @@ already being executed. Its per-command joint-step guard is 0.4 rad (`12 rad/s`
 at the 30 Hz rollout cadence); the i2rt follower driver remains at its
 independent 60 Hz setting.
 
-The checkpoint's action decoder is flow matching, not diffusion: it performs
-50 Euler velocity-field evaluations to integrate a plan. It does not use DDIM,
-which is a diffusion-specific sampler. The dashboard reports last and rolling
-mean plan-inference latency plus plans/s; the measurement covers the full
+The checkpoint's action decoder is flow matching, not diffusion: its resolved
+training config uses 50 Euler velocity-field evaluations to integrate a plan.
+The RL2 rollout profile overrides that solver budget to 10 evaluations per plan
+without modifying the checkpoint weights. It does not use DDIM, which is a
+diffusion-specific sampler. The dashboard reports last and rolling mean
+plan-inference latency plus plans/s; the measurement covers the full
 `policy.predict` path through conversion into a command-ready plan.
 
 Before the graph model is constructed, rollout also checks that the selected

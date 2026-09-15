@@ -170,7 +170,15 @@ workflow:
         for EMB in $STAGE; do
           D="$ROOT/work/$EMB"; FLAT="$ROOT/cells/ideal/$EMB"
           mkdir -p "$D/tars" "$D/raw" "$FLAT"
-          for I in $(seq 0 $((SHARDS_PER_CELL - 1))); do
+          # Only the embodiments being SCORED need their full corpus: the
+          # budget is p99 over it, and 125 episodes give a different p99 than
+          # 3000. The others are staged only so the datamodule can build a key
+          # map for normalize(), which one shard satisfies. That cuts staging
+          # from nine full corpora to one, and staging was eating the whole
+          # window between preemptions.
+          N_SHARDS=1
+          case " $EMBODIMENTS " in *" $EMB "*) N_SHARDS=$SHARDS_PER_CELL;; esac
+          for I in $(seq 0 $((N_SHARDS - 1))); do
             SHN=$(printf "shard%03d" "$I")
             s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp \
               "$CORPUS/$EMB/ideal/$EMB/${SHN}.tar" "$D/tars/" \
@@ -192,11 +200,14 @@ workflow:
               done
           N=$(find "$FLAT" -maxdepth 1 -mindepth 1 -name 'episode_*.zarr' | wc -l)
           echo "staged $EMB: $N episodes"
-          WANT=$((SHARDS_PER_CELL * 125))
+          WANT=$((N_SHARDS * 125))
           [ "$N" -eq "$WANT" ] || { echo "FATAL: $EMB has $N episodes, want $WANT"; exit 1; }
+          [ "$N_SHARDS" -eq "$SHARDS_PER_CELL" ] || echo "  ($EMB staged thin: key map only, not scored)"
           rm -rf "$D/tars"
-          python scripts/eval/usocket_arc_rollout/episode_budget.py \
-            "$FLAT" --out "/workspace/budgets/${EMB}.json"
+          case " $EMBODIMENTS " in *" $EMB "*)
+            python scripts/eval/usocket_arc_rollout/episode_budget.py \
+              "$FLAT" --out "/workspace/budgets/${EMB}.json";;
+          esac
           python -c "import json,sys; d=json.load(open(sys.argv[1])); print('  budget', sys.argv[2], d['by_level']['0']['budget'], 'frames from', d['episode_count'], 'episodes')" \
             "/workspace/budgets/${EMB}.json" "$EMB"
         done

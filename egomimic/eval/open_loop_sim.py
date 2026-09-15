@@ -483,6 +483,36 @@ def arc_prefix_control_steps(
     return max(1, steps)
 
 
+# E1 wide (M, 16) layouts: each row is one waypoint's 14 pose columns followed by
+# one timing column per arm. Names and velocity modes match
+# robot/arc_decoder.E1_VELOCITY_MODE, the decoder the robot runs.
+E1_WIDE_TOKEN_DIM = 16
+E1_WIDE_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
+TOKEN_LAYOUTS = ("lab", *E1_WIDE_VELOCITY_MODE)
+
+
+def truncate_e1_wide_token(token: np.ndarray, execute_fraction: float) -> np.ndarray:
+    """Keep the first distance fraction of an E1 wide ``(M, 16)`` ARC token.
+
+    Every row carries one waypoint together with that waypoint's timing entry
+    for each arm, so truncating rows keeps each executed waypoint with its own
+    timing -- the ``(M, 16)`` counterpart of :func:`truncate_arc_token`.
+    """
+
+    value = np.asarray(token, dtype=np.float64)
+    if value.ndim != 2 or value.shape[1] != E1_WIDE_TOKEN_DIM:
+        raise ValueError(
+            f"E1 wide ARC token must have shape (M, {E1_WIDE_TOKEN_DIM}), "
+            f"got {value.shape}"
+        )
+    fraction = float(execute_fraction)
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError("execute_fraction must be in (0, 1]")
+    M = int(value.shape[0])
+    K = max(2, min(M, int(math.ceil(M * fraction))))
+    return value[:K].copy()
+
+
 class OpenLoopSimEval(BimanualCartesianEval):
     """Compare baseline and ARC policies over complete recorded episodes.
 
@@ -492,6 +522,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
     rows; ``distance`` interpolates its terminal waypoint at
     ``execute_fraction * D`` cumulative left-plus-right EEF translation. Token
     timing recovers the corresponding variable control-frame stride.
+
+    ``token_layout`` selects the ARC codec: ``lab`` for the ``(M+1, 14)`` /
+    ``(2M, 14)`` layouts chosen by ``velocity_mode``, or ``e1_dur`` /
+    ``e1_logdur`` / ``e1_profile`` for the E1 wide ``(M, 16)`` layouts.
 
     The evaluator expects validation to contain every frame of each episode,
     with ``episode_hash`` and ``frame_index`` metadata. It accumulates model
@@ -518,6 +552,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         resampled_vector_length: int = 100,
         velocity_mode: str = "per_waypoint",
         log_step: int | None = None,
+        token_layout: str = "lab",
         results_path: str | None = None,
         trajectory_snapshot_path: str | None = None,
         video_only: bool = False,
@@ -553,6 +588,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
         ):
             raise ValueError("rotation_distance_unit must be positive and finite")
         validate_bimanual_velocity_mode(velocity_mode)
+        if str(token_layout) not in TOKEN_LAYOUTS:
+            raise ValueError(
+                f"token_layout must be one of {TOKEN_LAYOUTS}, got {token_layout!r}"
+            )
         self.execute_fraction = float(execute_fraction)
         self.control_horizon = int(control_horizon)
         self.control_dt = float(control_dt)
@@ -586,6 +625,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.log_step = None if log_step is None else int(log_step)
         if self.log_step is not None and self.log_step < 0:
             raise ValueError("log_step must be nonnegative")
+        self.token_layout = str(token_layout)
         self.results_path = Path(results_path) if results_path else None
         self.trajectory_snapshot_path = (
             Path(trajectory_snapshot_path) if trajectory_snapshot_path else None
@@ -1132,6 +1172,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
         return self.normalizer.unnormalize({key: value}, embodiment_id).get(key, value)
 
     def _is_arc_prediction(self, prediction: np.ndarray) -> bool:
+        if getattr(self, "token_layout", "lab") in E1_WIDE_VELOCITY_MODE:
+            return prediction.ndim == 2 and prediction.shape == (
+                self.resampled_vector_length,
+                E1_WIDE_TOKEN_DIM,
+            )
         expected = bimanual_arc_token_rows(
             self.resampled_vector_length, self.velocity_mode
         )
@@ -1165,6 +1210,31 @@ class OpenLoopSimEval(BimanualCartesianEval):
             if max_steps is not None:
                 steps = min(steps, int(max_steps))
             return prediction[:steps].copy(), steps
+
+        layout = getattr(self, "token_layout", "lab")
+        if layout in E1_WIDE_VELOCITY_MODE:
+            if self._arc_tokenizer is None:
+                from egomimic.rldb.zarr.e1_arc_tokenizer import (
+                    TokenizeBimanualArcLengthE1,
+                )
+
+                # Built exactly as robot/arc_decoder.BimanualArcDecoder builds
+                # the same layout, so the scored decode is the deployed decode.
+                self._arc_tokenizer = TokenizeBimanualArcLengthE1(
+                    min_distance_unit=self.min_distance_unit,
+                    resampled_vector_length=self.resampled_vector_length,
+                    dt=self.control_dt,
+                    velocity_norm="path",
+                    velocity_mode=E1_WIDE_VELOCITY_MODE[layout],
+                )
+            partial = truncate_e1_wide_token(prediction, self.execute_fraction)
+            steps = self.execute_steps
+            if max_steps is not None:
+                steps = min(steps, int(max_steps))
+            decoded = self._arc_tokenizer.detokenize(
+                partial, action_horizon=steps
+            ).astype(np.float64, copy=False)
+            return decoded, steps
 
         if self._arc_tokenizer is None:
             from egomimic.rldb.zarr.arc_length_tokenizer import (

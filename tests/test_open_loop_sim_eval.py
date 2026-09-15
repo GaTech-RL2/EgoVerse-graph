@@ -546,3 +546,52 @@ def test_video_only_flushes_videos_without_computing_metrics(monkeypatch):
     assert evaluator.on_validation_end() is None
     assert evaluator.last_results is None
     assert flushed == [True]
+
+
+def test_truncate_e1_wide_token_keeps_each_waypoint_with_its_timing():
+    from egomimic.eval.open_loop_sim import truncate_e1_wide_token
+
+    token = np.arange(100 * 16, dtype=np.float64).reshape(100, 16)
+    truncated = truncate_e1_wide_token(token, 0.25)
+    assert truncated.shape == (25, 16)
+    np.testing.assert_array_equal(truncated, token[:25])
+    with pytest.raises(ValueError, match="E1 wide"):
+        truncate_e1_wide_token(np.zeros((101, 14)), 0.25)
+
+
+def _e1_duration_token(M=100, step_m=0.004, seconds_per_interval=0.04):
+    token = np.zeros((M, 16), dtype=np.float64)
+    progress = step_m * np.arange(M)
+    token[:, 0] = progress  # left arm x
+    token[:, 7] = 0.5 * progress  # right arm x, half the travel
+    token[:, 6] = 1.0
+    token[:, 13] = 1.0
+    token[:, 14] = seconds_per_interval
+    token[:, 15] = seconds_per_interval
+    return token
+
+
+def test_open_loop_sim_e1_duration_prefix_matches_the_robot_decoder():
+    from egomimic.robot.arc_decoder import BimanualArcDecoder
+
+    evaluator = OpenLoopSimEval.__new__(OpenLoopSimEval)
+    evaluator.execute_fraction = 0.25
+    evaluator.execute_steps = 25
+    evaluator.action_mode = "arc"
+    evaluator.token_layout = "e1_dur"
+    evaluator.resampled_vector_length = 100
+    evaluator.velocity_mode = "mean"
+    evaluator.min_distance_unit = 0.4
+    evaluator.control_dt = 1.0 / 30.0
+    evaluator._arc_tokenizer = None
+
+    token = _e1_duration_token()
+    assert evaluator._is_arc_prediction(token)
+    assert not evaluator._is_arc_prediction(np.zeros((100, 14)))
+    decoded = evaluator._decode_prediction(token)
+    assert decoded.shape == (25, 14)
+    # 25 waypoints span 24 intervals x 0.04 s = 0.96 s, longer than 25 control
+    # steps (0.83 s), so the executed prefix never runs past the truncated clock
+    # and must equal the deployed decoder's first 25 steps.
+    deployed = BimanualArcDecoder("e1_dur", 0.4, 100, 1.0 / 30.0, 100)(token)[0]
+    np.testing.assert_allclose(decoded, deployed[:25], atol=1e-6)

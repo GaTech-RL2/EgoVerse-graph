@@ -1,0 +1,69 @@
+# @package _global_
+# Stationery MID-TEMPO HOLDOUT, arcdur row (2026-09-15, Aidan).
+#
+# Same pool, splits and model as stationery_midtempo_time; only the action target differs.
+# Recipe = Ryan's port of shorts_extreme_arcdur: bimanual_arc keymap/transforms, the E1
+# duration-timed arc token (M = 100 waypoints over D = 0.40 m per arm + one absolute
+# interval-seconds column per arm, (100, 16)), tokenized from the distance-resolved YAM
+# source window. actions_time (the un-tokenized 100-frame chunk) rides along as the
+# open-loop ground truth.
+#
+# Why arcdur: best robot arc row on the middle tempo tertile in the E2 read (gt-span
+# arc-matched 0.02300 vs Arc+Vel 0.02315 / Arc-mean 0.02328), and the lab-format arc row
+# of the 09-10 shorts-extreme runs. Deploy decode: robot/arc_decoder.py token_layout=e1_dur,
+# D 0.40, M 100 -- the evaluator builds the identical codec (token_layout below).
+defaults:
+- /experiment/e1/fold_base
+- override /model: e1/hpt_flow_wrists
+- override /data: abc_arc/stationery_midtempo_arcdur
+- override /evaluator: eval_open_loop_sim
+- override /trainer: ddp
+- override /logger: wandb
+- override /hydra/launcher: submitit_pace
+- _self_
+name: stationery_midtempo_arcdur
+description: arcdur_D40_M100_s${seed}
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 0
+  max_steps: 30000
+  max_epochs: 300
+  min_epochs: 0
+  limit_train_batches: 100
+  check_val_every_n_epoch: 50
+norm_stats:
+  sample_frac: 0.2
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+logger:
+  wandb:
+    project: arc
+    tags:
+    - abc
+    - rl2
+    - stationery
+    - midtempo
+    - arc
+    - arcdur
+e1:
+  variant: arcdur
+  action_dim: 16
+  action_horizon: 100
+  spread: midtempo
+  train_root: unused-s3-resolver
+  valid_root: unused-s3-resolver
+  limit_val_batches: 1.0
+evaluator:
+  limit_val_episodes: 10
+  action_mode: arc
+  token_layout: e1_dur
+  ground_truth_action_key: actions_time
+  min_distance_unit: 0.40
+  resampled_vector_length: 100
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 50
+    save_top_k: -1

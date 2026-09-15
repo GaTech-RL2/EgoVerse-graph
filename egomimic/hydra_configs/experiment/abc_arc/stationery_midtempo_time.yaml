@@ -1,0 +1,69 @@
+# @package _global_
+# Stationery MID-TEMPO HOLDOUT, time row (2026-09-15, Aidan).
+#
+# Pool: ABC 'sort the stationery into containers' + rl2 'organize_stationary' (the YAM
+# station uploads of 2026-09-14/15), one Step 0 tempo per episode. The middle tau_ep
+# tertile is held out of training entirely; train = slow + fast tertiles minus val and
+# test_in. Splits: /storage/project/r-dxu345-0/agao81/stationery_midtempo/splits_v2.
+#
+# Recipe = Ryan's port of shorts_extreme_bc (the lab time-indexed baseline: Yam lab
+# keymap, raw 100-frame 30 Hz eef_frame chunk, front + both wrist cameras, 14-D EE
+# state), with only the episode selection and the evaluator changed. Its arc twin is
+# stationery_midtempo_arcdur.
+#
+# Evaluator = Aniketh's open-loop segment evaluator (open_loop_sim, 4481e3d9): every
+# validation episode walked from frame 0, first 25 % of each chunk executed and scored
+# against the recorded commands. In training it scores the first 10 val episodes every
+# 5k steps; selection and the report come from eval-only runs over whole sets.
+defaults:
+- /experiment/e1/fold_base
+- override /model: e1/hpt_flow_wrists
+- override /data: abc_arc/stationery_midtempo_time
+- override /evaluator: eval_open_loop_sim
+- override /trainer: ddp
+- override /logger: wandb
+- override /hydra/launcher: submitit_pace
+- _self_
+name: stationery_midtempo_time
+description: time_s${seed}
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 0
+  max_steps: 30000
+  max_epochs: 300
+  min_epochs: 0
+  limit_train_batches: 100
+  check_val_every_n_epoch: 50
+norm_stats:
+  sample_frac: 0.2
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+logger:
+  wandb:
+    project: arc
+    tags:
+    - abc
+    - rl2
+    - stationery
+    - midtempo
+    - time
+e1:
+  variant: time
+  action_dim: 14
+  action_horizon: 100
+  spread: midtempo
+  train_root: unused-s3-resolver
+  valid_root: unused-s3-resolver
+  # open_loop_sim needs whole, ordered episodes; a batch-limited val loop would cut them.
+  limit_val_batches: 1.0
+evaluator:
+  limit_val_episodes: 10
+  action_mode: baseline
+  token_layout: lab
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 50
+    save_top_k: -1

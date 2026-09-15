@@ -47,6 +47,8 @@ robot:
 # the 60 Hz i2rt follower driver frequency above.
 frequency: 30
 max_joint_velocity: 1.0
+# A rejected Cartesian plan sends neither arm and asks HPT-Flow for a fresh one.
+max_velocity_replans: 8
 execute_steps: 10
 max_steps: 3000
 camera_timeout: 30.0

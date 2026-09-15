@@ -225,3 +225,33 @@ def test_rollout_waits_for_c_and_restart_discards_the_existing_plan(monkeypatch)
     assert view.closed
     assert any("Ready" in status for status in view.statuses)
     assert any("Restarted" in status for status in view.statuses)
+
+
+def test_rollout_resamples_a_velocity_unsafe_plan_before_commanding(monkeypatch):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot = FakeRobot()
+    view = GatedView([None, None, "q"])
+    unsafe = np.zeros((1, 14), dtype=float)
+    unsafe[:, [0, 7]] = 0.2
+    unsafe[:, [6, 13]] = 0.5
+    safe = np.zeros((1, 14), dtype=float)
+    safe[:, [6, 13]] = 0.5
+    plans = iter((unsafe, safe))
+
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(action_type="joints", predict=lambda _obs: next(plans)),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "execute_steps": 1,
+            "max_joint_velocity": 1.0,
+            "max_velocity_replans": 1,
+            "preview": {"enabled": False},
+        },
+        view=view,
+    )
+
+    assert steps == 1
+    assert len(robot.commands) == 2  # Only the second, paired safe plan ran.
+    assert any("Rejected velocity-unsafe" in status for status in view.statuses)

@@ -63,12 +63,15 @@ def run_rollout(robot, policy, config, view=None):
     frequency, max_steps = float(config["frequency"]), int(config["max_steps"])
     execute_steps = int(config["execute_steps"])
     limit = float(config["max_joint_velocity"]) / frequency
+    max_velocity_replans = config.get("max_velocity_replans", 0)
     if min(frequency, max_steps, execute_steps, limit) <= 0 or not np.isfinite(limit):
         raise ValueError("Rollout frequency, step counts and velocity must be positive")
+    if type(max_velocity_replans) is not int or not 0 <= max_velocity_replans <= 32:
+        raise ValueError("max_velocity_replans must be an integer in [0, 32]")
     if policy.action_type not in ("joints", "cartesian"):
         raise ValueError("Unknown policy action representation")
     queue, last, step = deque(), None, 0
-    waiting_since = None
+    waiting_since, velocity_replans = None, 0
     view = view or create_preview_view(robot.camera_res, config["preview"])
     wait_for_start = bool(config.get("preview", {}).get("wait_for_start", False))
     started = not wait_for_start
@@ -85,7 +88,13 @@ def run_rollout(robot, policy, config, view=None):
                 # Restart never reuses a queued target. It returns to the
                 # explicit ready gate and sends no command until c is pressed.
                 queue.clear()
-                last, step, waiting_since, started = None, 0, None, False
+                last, step, waiting_since, velocity_replans, started = (
+                    None,
+                    0,
+                    None,
+                    0,
+                    False,
+                )
                 clear_plan = getattr(view, "clear_action_plan", None)
                 if callable(clear_plan):
                     clear_plan()
@@ -138,6 +147,7 @@ def run_rollout(robot, policy, config, view=None):
                 queue.extend(prediction[:count])
             row = queue.popleft()
             commands = {}
+            violation = None
             for arm in robot.arms:
                 offset = ARM_OFFSET[arm]
                 target = row[offset : offset + 7]
@@ -148,15 +158,35 @@ def run_rollout(robot, policy, config, view=None):
                     np.max(np.abs(command[:6] - last[offset : offset + 6]))
                     > limit + 1e-8
                 ):
-                    raise ValueError(
-                        f"{arm} target exceeds the configured joint velocity. Align replay start / check graph calibration before rollout."
-                    )
+                    violation = arm
+                    break
                 commands[arm] = command
+            if violation is not None:
+                # The entire sampled chunk is unsafe from the current pose.
+                # Do not send either arm; re-observe and ask a stochastic policy
+                # for a fresh plan instead of terminating on its first outlier.
+                queue.clear()
+                last = np.asarray(obs["joint_positions"], dtype=float).copy()
+                velocity_replans += 1
+                if velocity_replans > max_velocity_replans:
+                    raise ValueError(
+                        f"{violation} target exceeds the configured joint velocity "
+                        f"after {max_velocity_replans} safe replan attempt(s). "
+                        "No unsafe command was sent."
+                    )
+                _set_view_status(
+                    view,
+                    f"Rejected velocity-unsafe plan; resampling "
+                    f"{velocity_replans}/{max_velocity_replans}",
+                )
+                time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                continue
             # Validate both arms before sending either command.
             for arm, command in commands.items():
                 robot.set_joints(command, arm)
                 offset = ARM_OFFSET[arm]
                 last[offset : offset + 7] = command
+            velocity_replans = 0
             step += 1
             time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
     finally:

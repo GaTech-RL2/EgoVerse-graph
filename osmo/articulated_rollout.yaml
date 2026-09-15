@@ -172,7 +172,12 @@ workflow:
         # ONE layout: cells/ideal/<emb>, which is what the data configs already
         # interpolate to. Staging the evaluator's corpus somewhere else meant
         # the datamodule found nothing and the job died after staging.
-        STAGE=$(printf '%s\n' $EMBODIMENTS $TRAIN_EMB | sort -u | tr '\n' ' ')
+        # Must include HELD_OUT as well. The eval data config lists all nine
+        # embodiments so normalize() has a key map for the held-out pair, and
+        # the resolver fails with 'filters matched no episodes' if a listed
+        # folder is missing. A job scoring only the heavy embodiments has umi in
+        # neither EMBODIMENTS nor TRAIN_EMB, so it silently went unstaged.
+        STAGE=$(printf '%s\n' $EMBODIMENTS $TRAIN_EMB $HELD_OUT | sort -u | tr '\n' ' ')
         echo "staging (union of requested and training embodiments): $STAGE"
         for EMB in $STAGE; do
           D="$ROOT/work/$EMB"; FLAT="$ROOT/cells/ideal/$EMB"

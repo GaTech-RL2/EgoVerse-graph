@@ -218,6 +218,18 @@ def test_diffusion_mse_is_visible_during_long_training_epochs():
     assert "on_step=True" in model_wrapper[per_source : per_source + 220]
 
 
+def test_trainer_default_does_not_cap_train_batches():
+    trainer_path = (
+        Path(__file__).parents[1]
+        / "egomimic"
+        / "hydra_configs"
+        / "trainer"
+        / "default.yaml"
+    )
+
+    assert "limit_train_batches" not in OmegaConf.load(trainer_path)
+
+
 def test_ddp_device_count_is_per_node_without_eval_resolver():
     config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):

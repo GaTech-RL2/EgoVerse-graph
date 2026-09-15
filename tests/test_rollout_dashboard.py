@@ -16,6 +16,7 @@ from egomimic.robot.interface import ARM_OFFSET
 from egomimic.robot.rollout import run_rollout
 from egomimic.robot.rollout_dashboard import (
     RolloutDashboard,
+    _broadcast_dashboard_message,
     load_action_overlay,
     validate_rollout_preview,
 )
@@ -54,6 +55,31 @@ def available_loopback_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(("127.0.0.1", 0))
         return listener.getsockname()[1]
+
+
+class DashboardSocket:
+    def __init__(self, error=None, closed=False):
+        self.error = error
+        self.closed = closed
+        self.messages = []
+
+    async def send_json(self, message):
+        if self.error is not None:
+            raise self.error
+        self.messages.append(message)
+
+
+def test_dashboard_broadcast_discards_only_a_disconnected_browser():
+    healthy = DashboardSocket()
+    reset = DashboardSocket(error=ConnectionResetError())
+    closed = DashboardSocket(closed=True)
+
+    disconnected = asyncio.run(
+        _broadcast_dashboard_message({healthy, reset, closed}, {"type": "frame"})
+    )
+
+    assert disconnected == {reset, closed}
+    assert healthy.messages == [{"type": "frame"}]
 
 
 def test_dashboard_start_command_reaches_rollout_start_gate(tmp_path):

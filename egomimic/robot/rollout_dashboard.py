@@ -1,8 +1,8 @@
 """Loopback-only browser view for YAM rollout cameras and action overlays.
 
-This module deliberately exposes two controls only: stop the already-running
-rollout and toggle its visual overlay.  It cannot arm, home, or otherwise send
-robot commands; :mod:`egomimic.robot.rollout` remains the sole command path.
+This module exposes display and high-level rollout requests only. It cannot arm,
+home, or otherwise send robot commands; :mod:`egomimic.robot.rollout` remains
+the sole command path.
 """
 
 from __future__ import annotations
@@ -269,6 +269,22 @@ def _jpeg_data_url(frame: np.ndarray, width: int, quality: int) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(encoded).decode("ascii")
 
 
+async def _broadcast_dashboard_message(clients, message) -> set:
+    """Send one frame without letting one stale browser kill the dashboard."""
+    disconnected = set()
+    for client in tuple(clients):
+        if client.closed:
+            disconnected.add(client)
+            continue
+        try:
+            await client.send_json(message)
+        except (ConnectionError, RuntimeError):
+            # A tab may reload or a Wi-Fi/X11 bridge may reset during a frame.
+            # That client reconnects independently; the local server stays alive.
+            disconnected.add(client)
+    return disconnected
+
+
 class RolloutDashboard:
     """Three-camera rollout view with a display-only Cartesian action overlay."""
 
@@ -395,6 +411,11 @@ class RolloutDashboard:
 
     def update(self, obs) -> str | None:
         """Publish observations and return the existing quit key, if requested."""
+        if self._error is not None:
+            # A server-wide failure would otherwise leave the robot running with
+            # no operator view or stop control. A single browser failure is
+            # handled inside _broadcast_dashboard_message instead.
+            return "q"
         with self._lock:
             self._status = (
                 "Running"
@@ -466,16 +487,16 @@ class RolloutDashboard:
             with self._lock:
                 self._clients = len(clients)
                 overlay_enabled = self._overlay_enabled
-            await ws.send_json(
-                {
-                    "type": "config",
-                    "cameras": self.cameras,
-                    "overlay_camera": self.overlay.camera,
-                    "overlay_enabled": overlay_enabled,
-                    "wait_for_start": self._wait_for_start,
-                }
-            )
             try:
+                await ws.send_json(
+                    {
+                        "type": "config",
+                        "cameras": self.cameras,
+                        "overlay_camera": self.overlay.camera,
+                        "overlay_enabled": overlay_enabled,
+                        "wait_for_start": self._wait_for_start,
+                    }
+                )
                 async for message in ws:
                     if message.type.name != "TEXT":
                         continue
@@ -551,9 +572,11 @@ class RolloutDashboard:
                         "age_ms": round(max(0.0, now - snapshot["updated_at"]) * 1000),
                         "velocity_prompt": snapshot["velocity_prompt"],
                     }
-                    for client in tuple(clients):
-                        if not client.closed:
-                            await client.send_json(message)
+                    disconnected = await _broadcast_dashboard_message(clients, message)
+                    if disconnected:
+                        clients.difference_update(disconnected)
+                        with self._lock:
+                            self._clients = len(clients)
                     next_frame = now + 1 / self.config["camera_hz"]
                 await asyncio.sleep(0.01)
         finally:

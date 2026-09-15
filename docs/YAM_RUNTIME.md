@@ -298,7 +298,10 @@ Pressing a control before the dashboard WebSocket connects no longer silently
 disables Start; it instead tells the operator to wait for Ready. `r` /
 **Restart** discards the queued and displayed plan, returns to ready state, and
 still sends no command until `c` is pressed again. `q`, Escape, or **Stop
-rollout** exits.
+rollout** exits. A browser reconnect or transient client socket reset removes
+only that client and leaves the dashboard server running; a real server-wide
+dashboard failure instead stops rollout safely rather than continuing without
+operator visibility.
 
 When a proposed plan exceeds the joint velocity limit, neither arm is commanded.
 The dashboard asks the operator to **Execute once**, **Resample**, or

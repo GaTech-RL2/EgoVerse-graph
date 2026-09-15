@@ -1,11 +1,16 @@
 """Local i2rt Yam driver with the same interface used by Eva collection/rollout."""
 
+import inspect
 import time
 
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from egomimic.robot.cameras import close_cameras, open_cameras
+from egomimic.robot.cameras import (
+    close_cameras,
+    open_cameras,
+    validate_camera_devices,
+)
 from egomimic.robot.interface import ARM_OFFSET, joint_vector, pose_matrix, pose_vector
 from egomimic.robot.yam.kinematics import MujocoArmKinematics
 
@@ -19,12 +24,18 @@ class YamInterface:
         kinematics,
         home,
         gripper_type="linear_4310",
+        gripper_kp=20.0,
+        gripper_kd=0.5,
+        gripper_force_limit=50.0,
         zero_gravity_mode=True,
         enable_auto_recovery=False,
         home_duration=3.0,
         frequency=30.0,
+        teleop_kinematics=None,
         driver_factory=None,
         solver_factory=None,
+        streaming_solver_factory=None,
+        camera_validator=validate_camera_devices,
     ):
         self.arms = list(arms)
         if (
@@ -39,34 +50,112 @@ class YamInterface:
             raise ValueError("Each selected Yam arm needs a distinct CAN channel")
         self.home = {a: joint_vector(home[a]) for a in self.arms}
         self.home_duration, self.frequency = float(home_duration), float(frequency)
-        if min(self.home_duration, self.frequency) <= 0:
-            raise ValueError("Home duration and frequency must be positive")
-        self.controller, self.solvers, self.recorders, self.camera_res = {}, {}, {}, {}
+        self.gripper_kp = float(gripper_kp)
+        self.gripper_kd = float(gripper_kd)
+        self.gripper_force_limit = float(gripper_force_limit)
+        positive = np.array(
+            [
+                self.home_duration,
+                self.frequency,
+                self.gripper_kp,
+                self.gripper_kd,
+                self.gripper_force_limit,
+            ]
+        )
+        if not np.isfinite(positive).all() or np.any(positive <= 0):
+            raise ValueError(
+                "Home, frequency, and gripper control values must be positive"
+            )
+        camera_validator(cameras)
+        streaming_spec = dict(teleop_kinematics or {})
+        if streaming_spec and streaming_solver_factory is None:
+            import mink
+
+            if not hasattr(mink, "DofFreezingTask"):
+                raise RuntimeError(
+                    "Yam streaming IK requires mink==1.1.0; refusing to open robot drivers"
+                )
+            from egomimic.robot.yam.streaming_ik import ArmIK
+
+            streaming_solver_factory = ArmIK
+        self.controller, self.solvers, self.teleop_solvers = {}, {}, {}
+        self.recorders, self.camera_res = {}, {}
         if driver_factory is None:
             from i2rt.robots.get_robot import get_yam_robot
             from i2rt.robots.utils import ArmType, GripperType
 
             def driver_factory(channel):
-                return get_yam_robot(
+                kwargs = dict(
                     channel=channel,
                     arm_type=ArmType.YAM,
                     gripper_type=GripperType.from_string_name(gripper_type),
+                    gripper_kp=self.gripper_kp,
+                    gripper_kd=self.gripper_kd,
                     zero_gravity_mode=zero_gravity_mode,
                     enable_auto_recovery=enable_auto_recovery,
                 )
+                # Current i2rt pins the 50 N limiter in get_yam_robot. Pass the
+                # setting when upstream exposes it; otherwise verify the active
+                # value after construction instead of mutating private state.
+                if "limit_gripper_force" in inspect.signature(get_yam_robot).parameters:
+                    kwargs["limit_gripper_force"] = self.gripper_force_limit
+                return get_yam_robot(**kwargs)
 
         solver_factory = solver_factory or MujocoArmKinematics
         try:
             for arm in self.arms:
+                print(f"YAM startup: opening {arm} follower")
                 driver = self.controller[arm] = driver_factory(channels[arm])
+                print(f"YAM startup: building {arm} kinematics")
                 spec = dict(kinematics)
                 spec.setdefault("xml_path", driver.xml_path)
                 self.solvers[arm] = solver_factory(**spec)
+                if streaming_spec:
+                    teleop_spec = dict(streaming_spec)
+                    teleop_spec.setdefault(
+                        "ee_site", kinematics.get("site_name", "tcp_site")
+                    )
+                    teleop_spec.setdefault("n_arm", 6)
+                    self.teleop_solvers[arm] = streaming_solver_factory(
+                        driver.xml_path, **teleop_spec
+                    )
+                print(f"YAM startup: reading {arm} follower state")
                 joint_vector(driver.get_joint_pos())
+                self._validate_gripper_control(driver, arm)
+                print(f"YAM startup: {arm} follower state is ready")
+            print("YAM startup: opening configured RGB cameras")
             self.recorders, self.camera_res = open_cameras(cameras)
+            print("YAM startup: RGB cameras are ready")
         except BaseException:
             self.close()
             raise
+
+    def _validate_gripper_control(self, driver, arm):
+        get_info = getattr(driver, "get_robot_info", None)
+        if not callable(get_info):
+            return
+        info = dict(get_info())
+        gripper_index = info.get("gripper_index")
+        if gripper_index is None:
+            raise RuntimeError(f"YAM {arm} driver did not report a gripper")
+        kp = float(np.asarray(info["kp"])[gripper_index])
+        kd = float(np.asarray(info["kd"])[gripper_index])
+        force_limit = float(info.get("limit_gripper_effort", np.nan))
+        actual = np.array([kp, kd, force_limit])
+        expected = np.array(
+            [self.gripper_kp, self.gripper_kd, self.gripper_force_limit]
+        )
+        if not np.isfinite(actual).all() or not np.allclose(actual, expected):
+            raise RuntimeError(
+                f"YAM {arm} gripper control mismatch: active Kp={kp:g}, "
+                f"Kd={kd:g}, force_limit={force_limit:g} N; expected "
+                f"Kp={self.gripper_kp:g}, Kd={self.gripper_kd:g}, "
+                f"force_limit={self.gripper_force_limit:g} N"
+            )
+        print(
+            f"YAM startup: {arm} gripper Kp={kp:g}, Kd={kd:g}, "
+            f"force limit={force_limit:g} N"
+        )
 
     def get_joints(self, arm):
         return joint_vector(self.controller[arm].get_joint_pos())
@@ -95,6 +184,29 @@ class YamInterface:
 
     def solve_ik(self, ee_pose, arm):
         return self.solvers[arm].ik(pose_matrix(ee_pose), self.get_joints(arm)[:6])
+
+    def validate_teleop_config(self, frequency, max_joint_velocity):
+        if not self.teleop_solvers:
+            raise RuntimeError(
+                "Yam teleop requires the pinned streaming IK configuration"
+            )
+        for solver in self.teleop_solvers.values():
+            if not np.isclose(solver.dt, 1.0 / float(frequency)):
+                raise ValueError(
+                    "Teleop frequency must match yam-pipeline streaming IK dt"
+                )
+            if not np.isclose(solver.max_joint_vel, float(max_joint_velocity)):
+                raise ValueError(
+                    "Teleop joint velocity must match yam-pipeline streaming IK"
+                )
+
+    def teleop_fk(self, joints, arm):
+        return self.teleop_solvers[arm].fk(joint_vector(joints))
+
+    def solve_teleop_ik(self, target_pose, seed, arm):
+        return self.teleop_solvers[arm].ik(
+            np.asarray(target_pose, dtype=float), joint_vector(seed)
+        )
 
     def set_joints(self, desired_position, arm):
         self.controller[arm].command_joint_pos(joint_vector(desired_position))
@@ -127,6 +239,6 @@ class YamInterface:
                 driver.close()
             except Exception as error:
                 errors.append(error)
-        self.recorders, self.controller = {}, {}
+        self.recorders, self.controller, self.teleop_solvers = {}, {}, {}
         if errors:
             raise ExceptionGroup("Yam cleanup failed", errors)

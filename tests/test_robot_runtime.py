@@ -1,5 +1,6 @@
 """Offline behavior checks for the shared collection and rollout paths."""
 
+import hashlib
 import sys
 import threading
 import time
@@ -90,7 +91,7 @@ def no_sleep(monkeypatch):
 
 
 def test_world_translation_does_not_follow_initial_controller_or_head_rotation():
-    control = mapper()
+    control = mapper(("right",))
     initial = np.eye(4)
     initial[:3, :3] = Rotation.from_euler("z", 90, degrees=True).as_matrix()
     robot_pose = np.eye(4)
@@ -109,6 +110,48 @@ def test_world_translation_does_not_follow_initial_controller_or_head_rotation()
         pose_matrix(target[:6])[:3, :3], robot_pose[:3, :3], atol=1e-10
     )
     assert target[6] == 0.75
+
+
+@pytest.mark.parametrize(
+    ("controller_delta", "robot_delta"),
+    [
+        ([0.01, 0.0, 0.0], [0.0, 0.01, 0.0]),
+        ([0.0, 0.01, 0.0], [0.0, 0.0, 0.01]),
+        ([0.0, 0.0, -0.01], [-0.01, 0.0, 0.0]),
+    ],
+)
+def test_rl2_yaw_180_pins_xyz_basis(controller_delta, robot_delta):
+    control = mapper(("right",), headset_yaw_degrees=180.0)
+    initial = np.eye(4)
+    buttons = {"RG": 1}
+    control.update({"r": initial}, buttons, {"right": np.eye(4)})
+    moved = initial.copy()
+    moved[:3, 3] += controller_delta
+    target = control.update({"r": moved}, buttons, {"right": np.eye(4)})["right"]
+    np.testing.assert_allclose(target[:3], robot_delta, atol=1e-10)
+
+
+@pytest.mark.parametrize(
+    ("controller_axis", "robot_axis"),
+    [
+        ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0]),
+        ([0.0, 1.0, 0.0], [0.0, 0.0, 1.0]),
+        ([0.0, 0.0, 1.0], [1.0, 0.0, 0.0]),
+    ],
+)
+def test_rl2_yaw_180_pins_roll_pitch_yaw_basis(controller_axis, robot_axis):
+    control = mapper(("right",), headset_yaw_degrees=180.0)
+    initial = np.eye(4)
+    buttons = {"RG": 1}
+    control.update({"r": initial}, buttons, {"right": np.eye(4)})
+    angle = np.deg2rad(5.0)
+    moved = initial.copy()
+    moved[:3, :3] = Rotation.from_rotvec(
+        np.asarray(controller_axis) * angle
+    ).as_matrix()
+    target = control.update({"r": moved}, buttons, {"right": np.eye(4)})["right"]
+    expected = Rotation.from_rotvec(np.asarray(robot_axis) * angle).as_matrix()
+    np.testing.assert_allclose(pose_matrix(target[:6])[:3, :3], expected, atol=1e-10)
 
 
 def test_world_rotation_uses_left_multiplication():
@@ -227,6 +270,28 @@ def test_collection_button_edges_and_interrupted_data_are_preserved(tmp_path):
     assert len(view.frames) == 6
 
 
+def test_collection_can_record_30hz_while_teleop_runs_at_60hz(tmp_path):
+    config = OmegaConf.to_container(
+        OmegaConf.load("egomimic/hydra_configs/robot/eva_collect.yaml")
+    )
+    config["frequency"] = 60
+    config["recording"].update(directory=str(tmp_path), rate_hz=30)
+    robot, view = FakeRobot(), View()
+    buttons = iter([{"B": 1}, {}, {}, {}, {}, {"A": 1}])
+    reader = SimpleNamespace(
+        get_transformations_and_buttons=lambda: (
+            {"l": np.eye(4), "r": np.eye(4)},
+            next(buttons),
+        )
+    )
+    run_collection(robot, reader, config, view=view, max_steps=10)
+    paths = list(tmp_path.glob("*.hdf5"))
+    assert len(paths) == 1
+    with h5py.File(paths[0]) as episode:
+        assert episode["action"].shape[0] == 3
+        assert not episode.attrs["complete"]
+
+
 class Driver:
     xml_path = "test-model.xml"
 
@@ -247,6 +312,16 @@ class Driver:
         self.closed = True
 
 
+class ReportingDriver(Driver):
+    def get_robot_info(self):
+        return {
+            "kp": np.r_[np.zeros(6), 10.0],
+            "kd": np.r_[np.zeros(6), 0.5],
+            "gripper_index": 6,
+            "limit_gripper_effort": 50.0,
+        }
+
+
 class Solver:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -260,15 +335,52 @@ class Solver:
         return pose_vector(pose)
 
 
-def yam_robot(arms=("left", "right"), driver_factory=Driver):
+class StreamingSolver:
+    instances = []
+
+    def __init__(self, xml_path, **kwargs):
+        self.xml_path = xml_path
+        self.dt = float(kwargs["dt"])
+        self.max_joint_vel = float(kwargs["max_joint_vel"])
+        self.n_arm = int(kwargs["n_arm"])
+        self.calls = []
+        self.instances.append(self)
+
+    def fk(self, joints):
+        return pose_matrix(np.asarray(joints)[:6])
+
+    def ik(self, target, seed):
+        from egomimic.robot.interface import pose_vector
+
+        self.calls.append((np.asarray(target).copy(), np.asarray(seed).copy()))
+        return True, pose_vector(target)
+
+
+def yam_robot(arms=("left", "right"), driver_factory=Driver, streaming=False):
+    teleop_kinematics = None
+    streaming_solver_factory = None
+    if streaming:
+        teleop_kinematics = {
+            "ee_site": "tcp_site",
+            "n_arm": 6,
+            "dt": 1 / 60,
+            "steps": 4,
+            "gain": 0.5,
+            "damping": 0.01,
+            "posture_cost": 0.08,
+            "max_joint_vel": 2.5,
+        }
+        streaming_solver_factory = StreamingSolver
     return YamInterface(
         arms,
         {"left": "can0", "right": "can1"},
         {},
         {},
         {arm: [0, 0, 0, 0, 0, 0, 1] for arm in arms},
+        teleop_kinematics=teleop_kinematics,
         driver_factory=driver_factory,
         solver_factory=Solver,
+        streaming_solver_factory=streaming_solver_factory,
     )
 
 
@@ -287,6 +399,66 @@ def test_yam_interface_matches_shared_observation_order_and_cleanup():
     assert all(driver.closed for driver in drivers)
 
 
+def test_yam_interface_verifies_reported_gripper_control(capsys):
+    robot = YamInterface(
+        ["left"],
+        {"left": "can0"},
+        {},
+        {},
+        {"left": [0, 0, 0, 0, 0, 0, 1]},
+        gripper_kp=10,
+        gripper_kd=0.5,
+        gripper_force_limit=50,
+        driver_factory=ReportingDriver,
+        solver_factory=Solver,
+    )
+    assert "gripper Kp=10, Kd=0.5, force limit=50 N" in capsys.readouterr().out
+    robot.close()
+
+
+def test_yam_interface_rejects_driver_gripper_control_mismatch():
+    with pytest.raises(RuntimeError, match="gripper control mismatch"):
+        YamInterface(
+            ["left"],
+            {"left": "can0"},
+            {},
+            {},
+            {"left": [0, 0, 0, 0, 0, 0, 1]},
+            gripper_kp=8,
+            gripper_kd=0.5,
+            gripper_force_limit=50,
+            driver_factory=ReportingDriver,
+            solver_factory=Solver,
+        )
+
+
+def test_yam_teleop_uses_reference_streaming_ik_with_command_seed():
+    StreamingSolver.instances.clear()
+    robot = yam_robot(("right",), streaming=True)
+    control = TeleopControl(robot, mapper(("right",)), 60, 2.5)
+    initial = np.eye(4)
+    buttons = {"RG": 1, "rightTrig": (0.25,)}
+    control.step({"r": initial}, buttons, robot.get_obs())
+    moved = initial.copy()
+    moved[2, 3] -= 0.01
+    commands, _ = control.step({"r": moved}, buttons, robot.get_obs())
+    solver = StreamingSolver.instances[0]
+    assert len(solver.calls) == 2
+    np.testing.assert_allclose(solver.calls[-1][1], np.r_[np.zeros(6), 0.75])
+    assert commands[7] == pytest.approx(0.01)
+    assert commands[13] == pytest.approx(0.75)
+    robot.close()
+
+
+def test_yam_teleop_rejects_rate_drift_from_reference_solver():
+    robot = yam_robot(("right",), streaming=True)
+    with pytest.raises(ValueError, match="frequency"):
+        TeleopControl(robot, mapper(("right",)), 30, 2.5)
+    with pytest.raises(ValueError, match="joint velocity"):
+        TeleopControl(robot, mapper(("right",)), 60, 1.0)
+    robot.close()
+
+
 def test_yam_failed_initialization_closes_already_opened_arm():
     first = Driver("can0")
 
@@ -298,6 +470,41 @@ def test_yam_failed_initialization_closes_already_opened_arm():
     with pytest.raises(RuntimeError, match="CAN unavailable"):
         yam_robot(driver_factory=factory)
     assert first.closed
+
+
+def test_camera_serial_preflight_rejects_bad_station_mapping():
+    from egomimic.robot.cameras import validate_camera_devices
+
+    cameras = {
+        "front": {"enabled": True, "type": "realsense", "serial_number": "top"},
+        "left": {"enabled": True, "type": "d405", "serial_number": "left"},
+    }
+    assert validate_camera_devices(cameras, ["left", "top"]) == ("top", "left")
+    with pytest.raises(RuntimeError, match="front=top"):
+        validate_camera_devices(cameras, ["left"])
+    cameras["left"]["serial_number"] = "top"
+    with pytest.raises(ValueError, match="distinct serials"):
+        validate_camera_devices(cameras, ["top"])
+
+
+def test_yam_camera_preflight_runs_before_driver_initialization():
+    calls = []
+
+    def reject(_config):
+        raise RuntimeError("camera preflight failed")
+
+    with pytest.raises(RuntimeError, match="camera preflight failed"):
+        YamInterface(
+            ["left"],
+            {"left": "can0"},
+            {"front": {"type": "realsense", "serial_number": "missing"}},
+            {},
+            {"left": [0, 0, 0, 0, 0, 0, 1]},
+            driver_factory=lambda channel: calls.append(channel),
+            solver_factory=Solver,
+            camera_validator=reject,
+        )
+    assert not calls
 
 
 def replay_store(tmp_path, padded=5, total=3):
@@ -383,7 +590,7 @@ def test_yam_uploader_lists_hdf5_without_touching_source_files(tmp_path):
     assert (tmp_path / "demo_1.hdf5").read_bytes() == b"data"
 
 
-def test_world_reader_drops_stale_input_and_keeps_default_head_stream(monkeypatch):
+def test_world_reader_drops_stale_input_and_uses_rail_world_stream(monkeypatch):
     # Import the bundled reader, with only adb itself stubbed if unavailable.
     monkeypatch.syspath_prepend(str(Path("egomimic/robot/oculus_reader").resolve()))
     monkeypatch.setitem(sys.modules, "ppadb", SimpleNamespace())
@@ -393,14 +600,45 @@ def test_world_reader_drops_stale_input_and_keeps_default_head_stream(monkeypatc
     reader = OculusReader.__new__(OculusReader)
     reader.running = False
     reader._lock = threading.Lock()
+    reader.tag = "wE9ryARX"
     reader.max_age, reader.last_update = 0.1, time.monotonic() - 1
     reader.last_transforms, reader.last_buttons = {"r": np.eye(4)}, {"RG": 1}
     assert reader.get_transformations_and_buttons() == ({}, {})
     reader.last_update = time.monotonic()
     assert "r" in reader.get_transformations_and_buttons()[0]
-    reader.tag = "wE9ryARXWorld"
-    assert reader.extract_data("wE9ryARX: old head frame") == ""
-    assert reader.extract_data("wE9ryARXWorld: new world frame") == "new world frame"
+    assert reader.extract_data("wE9ryARXWorld: alternate tag") == ""
+    assert reader.extract_data("wE9ryARX: RAIL world frame") == "RAIL world frame"
+
+    monkeypatch.setattr(OculusReader, "get_device", lambda self: object())
+    monkeypatch.setattr(OculusReader, "install", lambda self, **kwargs: None)
+    configured = OculusReader(run=False)
+    assert configured.pose_frame == "world"
+    assert configured.tag == "wE9ryARX"
+    with pytest.raises(ValueError, match="emits world poses only"):
+        OculusReader(run=False, pose_frame="head")
+
+
+def test_bundled_rail_world_apk_and_source_match_pinned_provenance():
+    root = Path("egomimic/robot/oculus_reader")
+    source = (root / "app_source/Src/OculusTeleop.cpp").read_text()
+    assert "handPoseMatrixHeadCoord" not in source
+    assert (
+        "handPoseTransformations.push_back(std::make_pair(side, handPoseMatrix));"
+        in source
+    )
+    assert '"wE9ryARX"' in source
+
+    apk = (root / "oculus_reader/APK/teleop-debug.apk").read_bytes()
+    expected = "cc990542fb539d541b0927a7dcce7ede4c3e6c3cb53990ad42c305bb42a05876"
+    provenance = (root / "oculus_reader/APK/PROVENANCE.md").read_text()
+    assert expected in provenance
+    assert "`7496215` bytes" in provenance
+    if apk.startswith(b"version https://git-lfs.github.com/spec/v1"):
+        assert f"oid sha256:{expected}".encode() in apk
+        assert b"size 7496215" in apk
+    else:
+        assert len(apk) == 7496215
+        assert hashlib.sha256(apk).hexdigest() == expected
 
 
 def test_camera_stream_pauses_disconnected_frames_and_resumes():
@@ -505,7 +743,7 @@ def test_quest_stop_unblocks_a_pending_socket_read(monkeypatch):
     reader = OculusReader.__new__(OculusReader)
     reader.running, reader._lock = True, threading.Lock()
     reader.print_FPS = False
-    reader.tag = "wE9ryARXWorld"
+    reader.tag = "wE9ryARX"
     ready = threading.Event()
 
     def makefile():

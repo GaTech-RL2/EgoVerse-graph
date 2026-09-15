@@ -29,16 +29,20 @@ class OculusReader:
         APK_name="com.rail.oculus.teleop",
         print_FPS=False,
         run=True,
-        pose_frame="head",
+        pose_frame="world",
         max_age=None,
     ):
         self.running = False
         self.last_transforms = {}
         self.last_buttons = {}
         self._lock = threading.Lock()
-        if pose_frame not in ("head", "world"):
-            raise ValueError("pose_frame must be head or world")
-        self.tag = "wE9ryARXWorld" if pose_frame == "world" else "wE9ryARX"
+        if pose_frame != "world":
+            raise ValueError(
+                "The bundled RAIL Quest APK emits world poses only; "
+                "pose_frame must be world"
+            )
+        self.pose_frame = pose_frame
+        self.tag = "wE9ryARX"
         self.max_age = max_age
         self.last_update = None
         self._connection = None
@@ -305,13 +309,9 @@ class OculusReader:
         return transforms, buttons
 
     def extract_data(self, line):
-        output = ""
-        if self.tag in line:
-            try:
-                output += line.split(self.tag + ": ")[1]
-            except (ValueError, IndexError):
-                pass
-        return output
+        marker = self.tag + ": "
+        _, found, output = line.partition(marker)
+        return output if found else ""
 
     def get_transformations_and_buttons(self):
         with self._lock:

@@ -1,3 +1,15 @@
+buildscript {
+    repositories {
+        google() // For Gradle 4.0+
+        mavenCentral()
+        maven { url 'https://maven.google.com' } // For Gradle < 4.0
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:4.0.0'
+    }
+}
+
 apply plugin: 'com.android.application'
 apply from: "${rootProject.projectDir}/VrApp.gradle"
 

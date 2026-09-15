@@ -31,7 +31,7 @@ dependencies = [
     "av==12.0.0",
     "opencv-python",
     "dm-control==1.0.8",
-    "mink==0.0.13",
+    "mink==1.1.0",
     "mujoco==3.4.0",
     "submitit",
     "arm_pytorch_utilities",
@@ -69,6 +69,8 @@ aria = ["projectaria-tools[all]==2.0.0"]
 yam = [
     "pure-python-adb",
     "pyrealsense2",
+    "dynamixel-sdk==4.0.5",
+    "aiohttp",
     "i2rt @ git+https://github.com/rohan-bansal/i2rt.git@2b851d7f4511b6bda442db85e98ec1122835221b",
 ]
 pi05 = [
@@ -96,7 +98,13 @@ where = ["."]
 include = ["egomimic*"]
 
 [tool.setuptools.package-data]
-egomimic = ["hydra_configs/**/*.yaml", "hydra_configs/**/*.json"]
+egomimic = [
+    "hydra_configs/**/*.yaml",
+    "hydra_configs/**/*.json",
+    "robot/teleop_dashboard_static/*.html",
+    "robot/teleop_dashboard_static/*.js",
+    "robot/teleop_dashboard_static/*.css",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

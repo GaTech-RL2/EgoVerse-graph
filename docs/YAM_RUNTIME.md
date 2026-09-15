@@ -292,16 +292,17 @@ errors or an invalid rotation reject the whole stochastic plan and trigger up
 to eight fresh samples. If all samples fail, rollout aborts before sending a
 command.
 
-The HPT-Flow dashboard opens in a ready state: cameras stream but policy
-inference and motor commands wait for browser-tab `c` or **Start rollout**.
-Pressing a control before the dashboard WebSocket connects no longer silently
-disables Start; it instead tells the operator to wait for Ready. `r` /
-**Restart** discards the queued and displayed plan, returns to ready state, and
-reenables **Start rollout**, and still sends no command until `c` is pressed
-again. `q`, Escape, or **Stop rollout** exits. A browser reconnect or transient
-client socket reset removes only that client and leaves the dashboard server
-running; a real server-wide dashboard failure instead stops rollout safely
-rather than continuing without operator visibility.
+The HPT-Flow profile first sends both followers through the configured smooth
+home motion, then opens in a ready state: cameras stream but policy inference
+and motor commands wait for browser-tab `c` or **Start rollout**. Pressing a
+control before the dashboard WebSocket connects no longer silently disables
+Start; it instead tells the operator to wait for Ready. `r` / **Reset YAM home**
+also homes both followers, discards the queued and displayed plan, returns to
+ready state, reenables **Start rollout**, and sends no policy command until `c`
+is pressed again. `q`, Escape, or **Stop rollout** exits. A browser reconnect
+or transient client socket reset removes only that client and leaves the
+dashboard server running; a real server-wide dashboard failure instead stops
+rollout safely rather than continuing without operator visibility.
 
 When a proposed plan exceeds the joint velocity limit, neither arm is commanded.
 The dashboard asks the operator to **Execute once**, **Resample**, or

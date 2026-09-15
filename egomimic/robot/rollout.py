@@ -29,6 +29,10 @@ def load_policy(config):
 
 def validate_rollout_config(config):
     """Validate browser-only rollout settings before creating robot hardware."""
+    for name in ("reset_on_start", "reset_home_on_restart"):
+        value = config.get(name, False)
+        if type(value) is not bool:
+            raise ValueError(f"{name} must be a boolean")
     preview = dict(config.get("preview", {}))
     if preview.get("mode") != "dashboard":
         return
@@ -84,11 +88,35 @@ def run_rollout(robot, policy, config, view=None):
     queue, last, step = deque(), None, 0
     waiting_since, velocity_replans = None, 0
     view = view or create_preview_view(robot.camera_res, config["preview"])
+    reset_on_start = config.get("reset_on_start", False)
+    reset_home_on_restart = config.get("reset_home_on_restart", False)
     wait_for_start = bool(config.get("preview", {}).get("wait_for_start", False))
     started = not wait_for_start
-    if wait_for_start:
+
+    def reset_to_ready():
+        nonlocal last, step, waiting_since, velocity_replans, started
+        queue.clear()
+        last, step, waiting_since, velocity_replans, started = (
+            None,
+            0,
+            None,
+            0,
+            False,
+        )
+        clear_plan = getattr(view, "clear_action_plan", None)
+        if callable(clear_plan):
+            clear_plan()
+        if reset_home_on_restart:
+            _set_view_status(view, "Resetting YAM to configured home")
+            robot.set_home()
         _set_view_status(view, "Ready — press c to start")
+
     try:
+        if reset_on_start:
+            _set_view_status(view, "Resetting YAM to configured home")
+            robot.set_home()
+        if wait_for_start:
+            _set_view_status(view, "Ready — press c to start")
         while step < max_steps:
             tick = time.monotonic()
             obs = robot.get_obs()
@@ -96,20 +124,10 @@ def run_rollout(robot, policy, config, view=None):
             if control in ("q", "\x1b"):
                 break
             if control in ("r", "R"):
-                # Restart never reuses a queued target. It returns to the
-                # explicit ready gate and sends no command until c is pressed.
-                queue.clear()
-                last, step, waiting_since, velocity_replans, started = (
-                    None,
-                    0,
-                    None,
-                    0,
-                    False,
-                )
-                clear_plan = getattr(view, "clear_action_plan", None)
-                if callable(clear_plan):
-                    clear_plan()
-                _set_view_status(view, "Restarted — press c to start")
+                # Restart never reuses a queued target. The HPT profile also
+                # returns both followers to their configured home before c can
+                # begin the next policy rollout.
+                reset_to_ready()
                 time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                 continue
             if not started:
@@ -181,18 +199,7 @@ def run_rollout(robot, policy, config, view=None):
                 if decision == "stop":
                     break
                 if decision == "restart":
-                    queue.clear()
-                    last, step, waiting_since, velocity_replans, started = (
-                        None,
-                        0,
-                        None,
-                        0,
-                        False,
-                    )
-                    clear_plan = getattr(view, "clear_action_plan", None)
-                    if callable(clear_plan):
-                        clear_plan()
-                    _set_view_status(view, "Restarted — press c to start")
+                    reset_to_ready()
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
                 if decision == "execute":

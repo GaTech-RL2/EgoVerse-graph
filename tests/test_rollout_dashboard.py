@@ -218,6 +218,8 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
     )
     assert profile["max_joint_velocity"] / profile["frequency"] == 0.4
     assert profile["execute_steps"] == 40
+    assert profile["reset_on_start"] is True
+    assert profile["reset_home_on_restart"] is True
     assert set(adapter["camera_keys"]) == {
         "front_img_1",
         "left_wrist_img",
@@ -232,6 +234,7 @@ class FakeRobot:
         self.q = np.zeros(14)
         self.q[[6, 13]] = 0.5
         self.commands = []
+        self.home_calls = 0
 
     def get_obs(self):
         return {
@@ -248,6 +251,9 @@ class FakeRobot:
         self.commands.append((arm, command))
         offset = ARM_OFFSET[arm]
         self.q[offset : offset + 7] = command
+
+    def set_home(self):
+        self.home_calls += 1
 
 
 class View:
@@ -355,7 +361,36 @@ def test_rollout_waits_for_c_and_restart_discards_the_existing_plan(monkeypatch)
     assert len(robot.commands) == 4  # Two safe paired-arm commands total.
     assert view.closed
     assert any("Ready" in status for status in view.statuses)
-    assert any("Restarted" in status for status in view.statuses)
+
+
+def test_rollout_homes_on_startup_and_restart_when_enabled(monkeypatch):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot = FakeRobot()
+    view = GatedView(["r", "q"])
+    policy = SimpleNamespace(
+        action_type="joints",
+        predict=lambda _obs: pytest.fail("policy should wait for c"),
+    )
+
+    steps = run_rollout(
+        robot,
+        policy,
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "execute_steps": 1,
+            "max_joint_velocity": 1.0,
+            "reset_on_start": True,
+            "reset_home_on_restart": True,
+            "preview": {"enabled": False, "wait_for_start": True},
+        },
+        view=view,
+    )
+
+    assert steps == 0
+    assert robot.home_calls == 2
+    assert not robot.commands
+    assert sum("Resetting YAM" in status for status in view.statuses) == 2
 
 
 def test_rollout_resamples_a_velocity_unsafe_plan_before_commanding(monkeypatch):

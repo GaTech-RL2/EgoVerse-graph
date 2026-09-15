@@ -55,6 +55,10 @@ max_velocity_replans: 8
 execute_steps: 40
 max_steps: 3000
 camera_timeout: 30.0
+# Reset both physical followers to the configured home before the browser
+# starts accepting policy commands, and again for dashboard Restart / r.
+reset_on_start: true
+reset_home_on_restart: true
 preview:
   enabled: true
   mode: dashboard

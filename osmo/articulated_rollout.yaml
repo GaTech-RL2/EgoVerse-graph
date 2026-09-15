@@ -89,6 +89,13 @@ workflow:
 
         # Both repos: EgoVerse-graph owns the ARC modules and the policy,
         # EgoVerse owns Tsimulation.
+        # A caller that passes an empty EXPERIMENTS or EMBODIMENTS used to get
+        # thirty minutes of staging and then "CKPT_OF: bad array subscript".
+        [ -n "$EXPERIMENTS" ] || { echo "FATAL: EXPERIMENTS is empty"; exit 1; }
+        [ -n "$EMBODIMENTS" ] || { echo "FATAL: EMBODIMENTS is empty"; exit 1; }
+        echo "experiments: $EXPERIMENTS"
+        echo "embodiments: $EMBODIMENTS"
+
         mkdir -p /workspace && cd /workspace
         git clone --depth 1 --branch "$BRANCH" --single-branch \
           "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse-graph.git" EgoVerse-graph

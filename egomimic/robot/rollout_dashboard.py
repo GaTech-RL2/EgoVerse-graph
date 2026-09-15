@@ -32,6 +32,7 @@ DEFAULTS = {
     "open_browser": True,
     "camera_hz": 12,
     "jpeg_quality": 80,
+    "wait_for_start": False,
     "action_overlay": {
         "initial_enabled": False,
         "camera": "front_img_1",
@@ -224,7 +225,7 @@ def validate_rollout_preview(
     if unknown:
         raise ValueError(f"Unknown preview option(s): {', '.join(sorted(unknown))}")
     result = {**deepcopy(DEFAULTS), **config}
-    for name in ("enabled", "open_browser"):
+    for name in ("enabled", "open_browser", "wait_for_start"):
         _require_bool(result[name], f"preview.{name}")
     if result["mode"] != "dashboard":
         raise ValueError("preview.mode must be `dashboard`")
@@ -284,11 +285,18 @@ class RolloutDashboard:
         self._plan: np.ndarray | None = None
         self._overlay_status = "Waiting for a Cartesian graph plan"
         self._overlay_enabled = self.config["action_overlay"]["initial_enabled"]
-        self._status = "Starting"
+        self._wait_for_start = self.config["wait_for_start"]
+        self._status = (
+            "Ready — press c to start" if self._wait_for_start else "Starting"
+        )
         self._updated_at = 0.0
         self._clients = 0
         self._lock = threading.Lock()
         self._quit_requested = threading.Event()
+        self._start_requested = threading.Event()
+        self._restart_requested = threading.Event()
+        if not self._wait_for_start:
+            self._start_requested.set()
         self._shutdown = threading.Event()
         self._ready = threading.Event()
         self._error: Exception | None = None
@@ -317,6 +325,21 @@ class RolloutDashboard:
         with self._lock:
             self._status = str(status)
 
+    def request_start(self) -> None:
+        """Begin policy control on the rollout loop's next safe tick."""
+        self._start_requested.set()
+
+    def request_restart(self) -> None:
+        """Return to ready state and discard any displayed action plan."""
+        self._start_requested.clear()
+        self._restart_requested.set()
+
+    def clear_action_plan(self) -> None:
+        """Remove the display-only overlay after a restart."""
+        with self._lock:
+            self._plan = None
+            self._overlay_status = "Waiting for a Cartesian graph plan"
+
     def set_action_plan(self, actions: np.ndarray, action_type: str) -> None:
         """Publish a plan for drawing only; it never changes the command queue."""
         with self._lock:
@@ -342,7 +365,11 @@ class RolloutDashboard:
     def update(self, obs) -> str | None:
         """Publish observations and return the existing quit key, if requested."""
         with self._lock:
-            self._status = "Running"
+            self._status = (
+                "Running"
+                if self._start_requested.is_set()
+                else "Ready — press c to start"
+            )
             if self._clients:
                 self._frames = {
                     name: np.ascontiguousarray(frame).copy()
@@ -350,7 +377,12 @@ class RolloutDashboard:
                     if (frame := obs.get(name)) is not None
                 }
                 self._updated_at = time.monotonic()
-        return "q" if self._quit_requested.is_set() else None
+        if self._quit_requested.is_set():
+            return "q"
+        if self._restart_requested.is_set():
+            self._restart_requested.clear()
+            return "r"
+        return "c" if self._start_requested.is_set() else None
 
     def close(self) -> None:
         self._shutdown.set()
@@ -404,6 +436,7 @@ class RolloutDashboard:
                     "cameras": self.cameras,
                     "overlay_camera": self.overlay.camera,
                     "overlay_enabled": overlay_enabled,
+                    "wait_for_start": self._wait_for_start,
                 }
             )
             try:
@@ -418,6 +451,10 @@ class RolloutDashboard:
                         continue
                     if command.get("stop") is True:
                         self._quit_requested.set()
+                    if command.get("start") is True:
+                        self.request_start()
+                    if command.get("restart") is True:
+                        self.request_restart()
                     if type(command.get("overlay")) is bool:
                         with self._lock:
                             self._overlay_enabled = command["overlay"]

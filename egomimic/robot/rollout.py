@@ -53,6 +53,12 @@ def create_preview_view(camera_res, preview):
     return CameraView(camera_res, **preview)
 
 
+def _set_view_status(view, status):
+    set_status = getattr(view, "set_status", None)
+    if callable(set_status):
+        set_status(status)
+
+
 def run_rollout(robot, policy, config, view=None):
     frequency, max_steps = float(config["frequency"]), int(config["max_steps"])
     execute_steps = int(config["execute_steps"])
@@ -64,12 +70,35 @@ def run_rollout(robot, policy, config, view=None):
     queue, last, step = deque(), None, 0
     waiting_since = None
     view = view or create_preview_view(robot.camera_res, config["preview"])
+    wait_for_start = bool(config.get("preview", {}).get("wait_for_start", False))
+    started = not wait_for_start
+    if wait_for_start:
+        _set_view_status(view, "Ready — press c to start")
     try:
         while step < max_steps:
             tick = time.monotonic()
             obs = robot.get_obs()
-            if view.update(obs) in ("q", "\x1b"):
+            control = view.update(obs)
+            if control in ("q", "\x1b"):
                 break
+            if control in ("r", "R"):
+                # Restart never reuses a queued target. It returns to the
+                # explicit ready gate and sends no command until c is pressed.
+                queue.clear()
+                last, step, waiting_since, started = None, 0, None, False
+                clear_plan = getattr(view, "clear_action_plan", None)
+                if callable(clear_plan):
+                    clear_plan()
+                _set_view_status(view, "Restarted — press c to start")
+                time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                continue
+            if not started:
+                if control in ("c", "C"):
+                    started = True
+                    _set_view_status(view, "Running")
+                else:
+                    time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                    continue
             if not all(obs.get(name) is not None for name in robot.camera_res):
                 waiting_since = tick if waiting_since is None else waiting_since
                 if tick - waiting_since > float(config.get("camera_timeout", 30.0)):

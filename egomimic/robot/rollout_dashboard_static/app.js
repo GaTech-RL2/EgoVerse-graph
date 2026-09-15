@@ -15,6 +15,18 @@ function stopRollout() {
   }
 }
 
+function startRollout() {
+  send({start: true});
+  $('start').disabled = true;
+  $('start').textContent = 'Starting…';
+}
+
+function restartRollout() {
+  send({restart: true});
+  $('start').disabled = false;
+  $('start').textContent = 'Start rollout (c)';
+}
+
 function configure(message) {
   overlayCamera = message.overlay_camera;
   cameras.clear();
@@ -38,6 +50,8 @@ function configure(message) {
   }
   $('overlay').checked = Boolean(message.overlay_enabled);
   $('overlay').disabled = false;
+  $('start').disabled = !message.wait_for_start;
+  $('restart').disabled = false;
 }
 
 function frame(message) {
@@ -64,6 +78,8 @@ function frame(message) {
 }
 
 $('stop').onclick = stopRollout;
+$('start').onclick = startRollout;
+$('restart').onclick = restartRollout;
 $('overlay').onchange = event => send({overlay: event.target.checked});
 document.onkeydown = event => {
   if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -71,6 +87,14 @@ document.onkeydown = event => {
   if (event.key === 'q' || event.key === 'Q' || event.key === 'Escape') {
     event.preventDefault();
     stopRollout();
+  }
+  if (event.key === 'c' || event.key === 'C') {
+    event.preventDefault();
+    startRollout();
+  }
+  if (event.key === 'r' || event.key === 'R') {
+    event.preventDefault();
+    restartRollout();
   }
 };
 

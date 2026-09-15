@@ -59,6 +59,8 @@ preview:
   width: 640
   camera_hz: 12
   jpeg_quality: 80
+  # Do not generate or send a policy action until c / Start is requested.
+  wait_for_start: true
   action_overlay:
     initial_enabled: false
     camera: front_img_1

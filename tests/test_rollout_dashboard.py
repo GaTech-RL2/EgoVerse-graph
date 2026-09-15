@@ -147,6 +147,23 @@ class View:
         self.closed = True
 
 
+class GatedView(View):
+    def __init__(self, controls):
+        super().__init__()
+        self.controls = iter(controls)
+        self.statuses = []
+
+    def update(self, _obs):
+        self.updates += 1
+        return next(self.controls)
+
+    def set_status(self, status):
+        self.statuses.append(status)
+
+    def clear_action_plan(self):
+        self.plans.clear()
+
+
 def test_rollout_publishes_graph_plan_to_view_without_changing_command_path(
     monkeypatch,
 ):
@@ -174,3 +191,37 @@ def test_rollout_publishes_graph_plan_to_view_without_changing_command_path(
     np.testing.assert_allclose(view.plans[0][0], target)
     assert view.plans[0][1] == "cartesian"
     assert {arm for arm, _ in robot.commands} == {"left", "right"}
+
+
+def test_rollout_waits_for_c_and_restart_discards_the_existing_plan(monkeypatch):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot = FakeRobot()
+    view = GatedView([None, "c", "r", "c", "q"])
+    target = np.zeros((1, 14), dtype=float)
+    target[:, [6, 13]] = 0.5
+    calls = 0
+
+    def predict(_obs):
+        nonlocal calls
+        calls += 1
+        return target
+
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(action_type="cartesian", predict=predict),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "execute_steps": 1,
+            "max_joint_velocity": 1.0,
+            "preview": {"enabled": False, "wait_for_start": True},
+        },
+        view=view,
+    )
+
+    assert calls == 2
+    assert steps == 1  # The restart begins a new rollout step counter.
+    assert len(robot.commands) == 4  # Two safe paired-arm commands total.
+    assert view.closed
+    assert any("Ready" in status for status in view.statuses)
+    assert any("Restarted" in status for status in view.statuses)

@@ -290,6 +290,11 @@ errors or an invalid rotation reject the whole stochastic plan and trigger up
 to eight fresh samples. If all samples fail, rollout aborts before sending a
 command.
 
+The HPT-Flow dashboard opens in a ready state: cameras stream but policy
+inference and motor commands wait for `c` or **Start rollout**. `r` / **Restart**
+discards the queued and displayed plan, returns to ready state, and still sends
+no command until `c` is pressed again. `q`, Escape, or **Stop rollout** exits.
+
 Before the graph model is constructed, rollout also checks that the selected
 PyTorch CUDA build can execute the station GPU's compute capability. A mismatch
 fails before the robot factory runs; install a compatible PyTorch build before

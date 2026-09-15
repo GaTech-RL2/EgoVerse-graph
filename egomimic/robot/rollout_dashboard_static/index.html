@@ -17,6 +17,12 @@
         <div class="actions">
           <span id="status" class="starting">Connecting…</span>
           <button id="start" disabled>Start rollout <kbd>c</kbd></button>
+          <button id="pause" disabled>Pause rollout <kbd>p</kbd></button>
+          <label class="resample-control" for="execute-steps">
+            Resample every
+            <input id="execute-steps" type="number" min="1" max="100" step="1" disabled>
+            actions
+          </label>
           <button id="restart" disabled>Reset YAM home <kbd>r</kbd></button>
           <label class="overlay-toggle" for="overlay">
             <input id="overlay" type="checkbox">
@@ -26,6 +32,7 @@
         </div>
       </header>
       <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
+      <p id="inference-status" class="overlay-status">Inference: waiting for first plan</p>
       <section id="velocity-decision" class="velocity-decision" hidden aria-live="assertive">
         <strong>Joint velocity limit reached</strong>
         <p id="velocity-detail"></p>
@@ -36,7 +43,7 @@
         </div>
       </section>
       <section id="cameras" class="cameras" aria-label="Live rollout cameras"></section>
-      <p class="notice">This dashboard binds to the station loopback interface only. It offers no arm, home, or teleoperation control.</p>
+      <p class="notice">This dashboard binds to the station loopback interface only. Start, pause, and home requests are executed by the rollout loop; it has no direct arm or teleoperation control.</p>
     </main>
     <script type="module" src="/app.js"></script>
   </body>

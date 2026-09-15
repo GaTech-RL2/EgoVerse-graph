@@ -51,8 +51,9 @@ frequency: 30
 max_joint_velocity: 12.0
 # A rejected Cartesian plan sends neither arm and asks HPT-Flow for a fresh one.
 max_velocity_replans: 8
-# HPT-Flow predicts 100 actions; execute its first 40 before replanning.
-execute_steps: 40
+# HPT-Flow predicts 100 actions; execute 30 before replanning. The dashboard
+# can change this interval for the next resample without editing a live chunk.
+execute_steps: 30
 max_steps: 3000
 camera_timeout: 30.0
 # Reset both physical followers to the configured home before the browser

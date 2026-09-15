@@ -2,6 +2,9 @@ const $ = id => document.getElementById(id);
 const cameras = new Map();
 let socket;
 let overlayCamera;
+let paused = false;
+let started = false;
+let waitForStart = false;
 
 function send(message) {
   if (socket?.readyState !== WebSocket.OPEN) return false;
@@ -44,6 +47,36 @@ function restartRollout() {
   return true;
 }
 
+function updatePauseButton() {
+  $('pause').disabled = !started;
+  $('pause').textContent = paused ? 'Resume rollout (p)' : 'Pause rollout (p)';
+}
+
+function togglePause() {
+  if (!send({paused: !paused})) {
+    reportDisconnected();
+  }
+}
+
+function setExecuteSteps(value) {
+  const executeSteps = Number(value);
+  if (!Number.isInteger(executeSteps) || executeSteps < 1 || executeSteps > 100) {
+    $('execute-steps').value = String($('execute-steps').defaultValue);
+    return;
+  }
+  if (!send({execute_steps: executeSteps})) {
+    reportDisconnected();
+  }
+}
+
+function updateInference(inference) {
+  if (!inference || !inference.samples) {
+    $('inference-status').textContent = 'Inference: waiting for first plan';
+    return;
+  }
+  $('inference-status').textContent = `Inference: last ${inference.last_ms.toFixed(0)} ms · rolling average ${inference.mean_ms.toFixed(0)} ms · ${inference.plans_per_second.toFixed(2)} plans/s`;
+}
+
 function chooseVelocityAction(action) {
   if (action === 'restart') {
     if (restartRollout()) $('velocity-decision').hidden = true;
@@ -53,6 +86,11 @@ function chooseVelocityAction(action) {
 }
 
 function configure(message) {
+  waitForStart = Boolean(message.wait_for_start);
+  paused = Boolean(message.paused);
+  started = Boolean(message.started);
+  $('execute-steps').value = String(message.execute_steps);
+  $('execute-steps').defaultValue = String(message.execute_steps);
   overlayCamera = message.overlay_camera;
   cameras.clear();
   $('cameras').replaceChildren();
@@ -75,16 +113,27 @@ function configure(message) {
   }
   $('overlay').checked = Boolean(message.overlay_enabled);
   $('overlay').disabled = false;
-  $('start').disabled = !message.wait_for_start;
+  $('execute-steps').disabled = false;
+  $('start').disabled = !waitForStart || started;
+  updatePauseButton();
   $('restart').disabled = false;
 }
 
 function frame(message) {
+  paused = Boolean(message.paused);
+  started = Boolean(message.started);
+  if (document.activeElement !== $('execute-steps')) {
+    $('execute-steps').value = String(message.execute_steps);
+    $('execute-steps').defaultValue = String(message.execute_steps);
+  }
+  $('start').disabled = !waitForStart || started;
+  updatePauseButton();
   $('status').textContent = `${message.status} · camera update ${message.age_ms} ms ago`;
   $('status').className = message.status === 'Running' ? 'running' : 'starting';
   $('overlay-status').textContent = message.overlay_enabled
     ? `${message.overlay_status} · showing on ${overlayCamera}`
     : `${message.overlay_status} · overlay hidden`;
+  updateInference(message.inference);
   if ($('overlay').checked !== Boolean(message.overlay_enabled)) {
     $('overlay').checked = Boolean(message.overlay_enabled);
   }
@@ -109,6 +158,8 @@ function frame(message) {
 
 $('stop').onclick = stopRollout;
 $('start').onclick = startRollout;
+$('pause').onclick = togglePause;
+$('execute-steps').onchange = event => setExecuteSteps(event.target.value);
 $('restart').onclick = restartRollout;
 for (const button of document.querySelectorAll('[data-velocity-action]')) {
   button.onclick = () => chooseVelocityAction(button.dataset.velocityAction);
@@ -128,6 +179,10 @@ document.onkeydown = event => {
   if (event.key === 'r' || event.key === 'R') {
     event.preventDefault();
     restartRollout();
+  }
+  if (event.key === 'p' || event.key === 'P') {
+    event.preventDefault();
+    togglePause();
   }
   if (event.key === 'e' || event.key === 'E') {
     event.preventDefault();
@@ -151,6 +206,8 @@ function connect() {
     $('status').textContent = 'Dashboard disconnected; retrying…';
     $('status').className = 'starting';
     $('start').disabled = true;
+    $('pause').disabled = true;
+    $('execute-steps').disabled = true;
     $('restart').disabled = true;
     $('overlay').disabled = true;
     setTimeout(connect, 1000);

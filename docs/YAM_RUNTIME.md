@@ -304,6 +304,12 @@ or transient client socket reset removes only that client and leaves the
 dashboard server running; a real server-wide dashboard failure instead stops
 rollout safely rather than continuing without operator visibility.
 
+**Pause rollout** / `p` is available only after rollout has started. It sends a
+single paired hold command at the measured joint positions, clears the queued
+policy plan, and keeps the cameras/dashboard live. **Resume rollout** / `p`
+then infers a fresh plan from the current measured pose; it never resumes a
+pre-pause action chunk.
+
 When a proposed plan exceeds the joint velocity limit, neither arm is commanded.
 The dashboard asks the operator to **Execute once**, **Resample**, or
 **Restart**. Execute is an explicit one-plan velocity-limit override; Resample
@@ -311,10 +317,18 @@ clears the plan, refreshes measured joints, and tries up to
 `max_velocity_replans` (eight) times; Restart returns to the `c` gate. Without
 a dashboard decision, no velocity-unsafe command is sent.
 
-The current RL2 HPT-Flow default executes 40 of the predicted 100 actions at a
-time, then replans. Its per-command joint-step guard is 0.4 rad (`12 rad/s` at
-the 30 Hz rollout cadence); the i2rt follower driver remains at its independent
-60 Hz setting.
+The current RL2 HPT-Flow default executes 30 of the predicted 100 actions at a
+time, then replans. The dashboard's **Resample every** field accepts 1–100
+actions and takes effect at the next plan boundary; it never changes a chunk
+already being executed. Its per-command joint-step guard is 0.4 rad (`12 rad/s`
+at the 30 Hz rollout cadence); the i2rt follower driver remains at its
+independent 60 Hz setting.
+
+The checkpoint's action decoder is flow matching, not diffusion: it performs
+50 Euler velocity-field evaluations to integrate a plan. It does not use DDIM,
+which is a diffusion-specific sampler. The dashboard reports last and rolling
+mean plan-inference latency plus plans/s; the measurement covers the full
+`policy.predict` path through conversion into a command-ready plan.
 
 Before the graph model is constructed, rollout also checks that the selected
 PyTorch CUDA build can execute the station GPU's compute capability. A mismatch

@@ -33,6 +33,9 @@ def validate_rollout_config(config):
         value = config.get(name, False)
         if type(value) is not bool:
             raise ValueError(f"{name} must be a boolean")
+    execute_steps = config.get("execute_steps")
+    if type(execute_steps) is not int or not 1 <= execute_steps <= 100:
+        raise ValueError("execute_steps must be an integer in [1, 100]")
     preview = dict(config.get("preview", {}))
     if preview.get("mode") != "dashboard":
         return
@@ -47,13 +50,13 @@ def validate_rollout_config(config):
     validate_rollout_preview(preview, cameras=set(cameras))
 
 
-def create_preview_view(camera_res, preview):
+def create_preview_view(camera_res, preview, execute_steps=None):
     """Select the legacy OpenCV preview or the local browser dashboard."""
     preview = dict(preview)
     if preview.get("mode") == "dashboard":
         from egomimic.robot.rollout_dashboard import RolloutDashboard
 
-        return RolloutDashboard(camera_res, **preview)
+        return RolloutDashboard(camera_res, execute_steps=execute_steps, **preview)
     return CameraView(camera_res, **preview)
 
 
@@ -76,7 +79,7 @@ def _velocity_decision(view, details):
 
 def run_rollout(robot, policy, config, view=None):
     frequency, max_steps = float(config["frequency"]), int(config["max_steps"])
-    execute_steps = int(config["execute_steps"])
+    execute_steps = config["execute_steps"]
     limit = float(config["max_joint_velocity"]) / frequency
     max_velocity_replans = config.get("max_velocity_replans", 0)
     if min(frequency, max_steps, execute_steps, limit) <= 0 or not np.isfinite(limit):
@@ -87,14 +90,17 @@ def run_rollout(robot, policy, config, view=None):
         raise ValueError("Unknown policy action representation")
     queue, last, step = deque(), None, 0
     waiting_since, velocity_replans = None, 0
-    view = view or create_preview_view(robot.camera_res, config["preview"])
+    paused = False
+    view = view or create_preview_view(
+        robot.camera_res, config["preview"], execute_steps=execute_steps
+    )
     reset_on_start = config.get("reset_on_start", False)
     reset_home_on_restart = config.get("reset_home_on_restart", False)
     wait_for_start = bool(config.get("preview", {}).get("wait_for_start", False))
     started = not wait_for_start
 
     def reset_to_ready():
-        nonlocal last, step, waiting_since, velocity_replans, started
+        nonlocal last, step, waiting_since, velocity_replans, started, paused
         queue.clear()
         last, step, waiting_since, velocity_replans, started = (
             None,
@@ -103,6 +109,7 @@ def run_rollout(robot, policy, config, view=None):
             0,
             False,
         )
+        paused = False
         clear_plan = getattr(view, "clear_action_plan", None)
         if callable(clear_plan):
             clear_plan()
@@ -130,6 +137,30 @@ def run_rollout(robot, policy, config, view=None):
                 reset_to_ready()
                 time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                 continue
+            is_paused = getattr(view, "is_paused", None)
+            requested_pause = bool(is_paused()) if callable(is_paused) else False
+            if requested_pause != paused:
+                queue.clear()
+                clear_plan = getattr(view, "clear_action_plan", None)
+                if callable(clear_plan):
+                    clear_plan()
+                if requested_pause:
+                    # Replace any previously commanded target with the measured
+                    # pose once. This holds both followers without advancing the
+                    # policy queue or retaining an unsafe stale plan.
+                    last = np.asarray(obs["joint_positions"], dtype=float).copy()
+                    for arm in robot.arms:
+                        offset = ARM_OFFSET[arm]
+                        robot.set_joints(last[offset : offset + 7], arm)
+                    _set_view_status(view, "Paused — holding current joint positions")
+                else:
+                    # A resumed rollout always infers from a fresh observation.
+                    last = None
+                    _set_view_status(view, "Running")
+                paused = requested_pause
+            if paused:
+                time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                continue
             if not started:
                 if control in ("c", "C"):
                     started = True
@@ -150,9 +181,14 @@ def run_rollout(robot, policy, config, view=None):
                 last = np.asarray(obs["joint_positions"], dtype=float).copy()
             if not queue:
                 try:
+                    inference_started = time.perf_counter()
                     prediction = np.asarray(policy.predict(obs), dtype=float)
+                    inference_seconds = time.perf_counter() - inference_started
                 except StopIteration:
                     break
+                record_inference = getattr(view, "record_inference", None)
+                if callable(record_inference):
+                    record_inference(inference_seconds)
                 if (
                     prediction.ndim != 2
                     or prediction.shape[1] != 14
@@ -167,11 +203,22 @@ def run_rollout(robot, policy, config, view=None):
                     # Browser overlays are display-only. The unchanged command queue
                     # below remains the sole source of robot actuation.
                     set_plan(prediction, policy.action_type)
-                # Replay consumes its entire chunk; graph plans replan at execute_steps.
+                # Replay consumes its entire chunk; graph plans replan at the
+                # dashboard-selected interval (or config default).
+                get_execute_steps = getattr(view, "get_execute_steps", None)
+                plan_steps = (
+                    get_execute_steps()
+                    if callable(get_execute_steps)
+                    else execute_steps
+                )
+                if type(plan_steps) is not int or not 1 <= plan_steps <= 100:
+                    raise ValueError(
+                        "Dashboard execute steps must be an integer in [1, 100]"
+                    )
                 count = (
                     len(prediction)
                     if policy.action_type == "joints"
-                    else min(execute_steps, len(prediction))
+                    else min(plan_steps, len(prediction))
                 )
                 queue.extend(prediction[:count])
             row = queue.popleft()

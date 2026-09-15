@@ -13,6 +13,7 @@ import json
 import threading
 import time
 import webbrowser
+from collections import deque
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -288,7 +289,7 @@ async def _broadcast_dashboard_message(clients, message) -> set:
 class RolloutDashboard:
     """Three-camera rollout view with a display-only Cartesian action overlay."""
 
-    def __init__(self, cameras, **config) -> None:
+    def __init__(self, cameras, execute_steps=10, **config) -> None:
         self.cameras = tuple(cameras)
         if not self.cameras:
             raise ValueError("The rollout dashboard needs at least one camera")
@@ -297,10 +298,14 @@ class RolloutDashboard:
             raise ValueError(
                 "preview.enabled must be true when preview.mode is dashboard"
             )
+        if type(execute_steps) is not int or not 1 <= execute_steps <= 100:
+            raise ValueError("Dashboard execute_steps must be an integer in [1, 100]")
         self._frames: dict[str, np.ndarray] = {}
         self._plan: np.ndarray | None = None
         self._overlay_status = "Waiting for a Cartesian graph plan"
         self._overlay_enabled = self.config["action_overlay"]["initial_enabled"]
+        self._execute_steps = execute_steps
+        self._inference_ms = deque(maxlen=20)
         self._wait_for_start = self.config["wait_for_start"]
         self._status = (
             "Ready — press c to start" if self._wait_for_start else "Starting"
@@ -311,6 +316,7 @@ class RolloutDashboard:
         self._quit_requested = threading.Event()
         self._start_requested = threading.Event()
         self._restart_requested = threading.Event()
+        self._paused = threading.Event()
         self._velocity_decision_ready = threading.Event()
         self._velocity_prompt: dict | None = None
         self._velocity_decision: str | None = None
@@ -351,6 +357,7 @@ class RolloutDashboard:
     def request_restart(self) -> None:
         """Return to ready state and discard any displayed action plan."""
         self._start_requested.clear()
+        self._paused.clear()
         with self._lock:
             # A top-level Restart may arrive while the rollout thread is blocked
             # on a velocity decision. Remove that stale warning before it returns
@@ -359,6 +366,42 @@ class RolloutDashboard:
             self._velocity_decision = None
             self._velocity_decision_ready.clear()
         self._restart_requested.set()
+
+    def request_pause(self, paused: bool) -> None:
+        """Pause only an active rollout; the loop owns the physical hold."""
+        with self._lock:
+            if self._velocity_prompt is not None:
+                return
+            if paused and not self._start_requested.is_set():
+                return
+            if paused:
+                self._paused.set()
+            else:
+                self._paused.clear()
+
+    def is_paused(self) -> bool:
+        """Return the browser's requested policy-control pause state."""
+        return self._paused.is_set()
+
+    def request_execute_steps(self, execute_steps: int) -> None:
+        """Set the next graph-plan resample interval from a trusted UI message."""
+        if type(execute_steps) is not int or not 1 <= execute_steps <= 100:
+            return
+        with self._lock:
+            self._execute_steps = execute_steps
+
+    def get_execute_steps(self) -> int:
+        """Return the resample interval for the next graph-plan chunk."""
+        with self._lock:
+            return self._execute_steps
+
+    def record_inference(self, seconds: float) -> None:
+        """Record end-to-end wall time for one plan becoming command-ready."""
+        milliseconds = float(seconds) * 1000
+        if not np.isfinite(milliseconds) or milliseconds < 0:
+            return
+        with self._lock:
+            self._inference_ms.append(milliseconds)
 
     def clear_action_plan(self) -> None:
         """Remove the display-only overlay after a restart."""
@@ -424,11 +467,14 @@ class RolloutDashboard:
             # handled inside _broadcast_dashboard_message instead.
             return "q"
         with self._lock:
-            self._status = (
-                "Running"
-                if self._start_requested.is_set()
-                else "Ready — press c to start"
-            )
+            if self._paused.is_set():
+                self._status = "Paused — holding current joint positions"
+            else:
+                self._status = (
+                    "Running"
+                    if self._start_requested.is_set()
+                    else "Ready — press c to start"
+                )
             if self._clients:
                 self._frames = {
                     name: np.ascontiguousarray(frame).copy()
@@ -450,6 +496,10 @@ class RolloutDashboard:
 
     def _snapshot(self) -> dict:
         with self._lock:
+            inference_ms = tuple(self._inference_ms)
+            mean_inference_ms = (
+                sum(inference_ms) / len(inference_ms) if inference_ms else None
+            )
             return {
                 "frames": self._frames.copy(),
                 "plan": None if self._plan is None else self._plan.copy(),
@@ -457,6 +507,17 @@ class RolloutDashboard:
                 "overlay_status": self._overlay_status,
                 "status": self._status,
                 "updated_at": self._updated_at,
+                "paused": self._paused.is_set(),
+                "started": self._start_requested.is_set(),
+                "execute_steps": self._execute_steps,
+                "inference": {
+                    "samples": len(inference_ms),
+                    "last_ms": None if not inference_ms else inference_ms[-1],
+                    "mean_ms": mean_inference_ms,
+                    "plans_per_second": (
+                        None if not mean_inference_ms else 1000.0 / mean_inference_ms
+                    ),
+                },
                 "velocity_prompt": (
                     None
                     if self._velocity_prompt is None
@@ -494,6 +555,9 @@ class RolloutDashboard:
             with self._lock:
                 self._clients = len(clients)
                 overlay_enabled = self._overlay_enabled
+                paused = self._paused.is_set()
+                started = self._start_requested.is_set()
+                execute_steps = self._execute_steps
             try:
                 await ws.send_json(
                     {
@@ -502,6 +566,9 @@ class RolloutDashboard:
                         "overlay_camera": self.overlay.camera,
                         "overlay_enabled": overlay_enabled,
                         "wait_for_start": self._wait_for_start,
+                        "paused": paused,
+                        "started": started,
+                        "execute_steps": execute_steps,
                     }
                 )
                 async for message in ws:
@@ -519,6 +586,10 @@ class RolloutDashboard:
                         self.request_start()
                     if command.get("restart") is True:
                         self.request_restart()
+                    if type(command.get("paused")) is bool:
+                        self.request_pause(command["paused"])
+                    if type(command.get("execute_steps")) is int:
+                        self.request_execute_steps(command["execute_steps"])
                     decision = command.get("velocity_action")
                     if decision in {"execute", "resample", "restart"}:
                         with self._lock:
@@ -577,6 +648,10 @@ class RolloutDashboard:
                         "overlay_enabled": snapshot["overlay_enabled"],
                         "overlay_status": snapshot["overlay_status"],
                         "age_ms": round(max(0.0, now - snapshot["updated_at"]) * 1000),
+                        "paused": snapshot["paused"],
+                        "started": snapshot["started"],
+                        "execute_steps": snapshot["execute_steps"],
+                        "inference": snapshot["inference"],
                         "velocity_prompt": snapshot["velocity_prompt"],
                     }
                     disconnected = await _broadcast_dashboard_message(clients, message)

@@ -117,6 +117,95 @@ def test_dashboard_start_command_reaches_rollout_start_gate(tmp_path):
         dashboard.close()
 
 
+def test_dashboard_pause_command_toggles_only_after_start(tmp_path):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+
+    async def toggle_pause():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                await ws.receive_json()
+                await ws.send_json({"paused": True})
+                await asyncio.sleep(0.02)
+                assert not dashboard.is_paused()
+                await ws.send_json({"start": True})
+                await ws.send_json({"paused": True})
+                deadline = time.monotonic() + 1.0
+                while not dashboard.is_paused():
+                    if time.monotonic() >= deadline:
+                        pytest.fail("pause command did not reach the dashboard")
+                    await asyncio.sleep(0.01)
+                await ws.send_json({"paused": False})
+                while dashboard.is_paused():
+                    if time.monotonic() >= deadline:
+                        pytest.fail("resume command did not reach the dashboard")
+                    await asyncio.sleep(0.01)
+
+    try:
+        asyncio.run(toggle_pause())
+    finally:
+        dashboard.close()
+
+
+def test_dashboard_resample_interval_updates_from_browser(tmp_path):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        execute_steps=30,
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+
+    async def set_interval():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                config = await ws.receive_json()
+                assert config["execute_steps"] == 30
+                await ws.send_json({"execute_steps": 17})
+                deadline = time.monotonic() + 1.0
+                while dashboard.get_execute_steps() != 17:
+                    if time.monotonic() >= deadline:
+                        pytest.fail("resample interval did not reach dashboard")
+                    await asyncio.sleep(0.01)
+
+    try:
+        asyncio.run(set_interval())
+    finally:
+        dashboard.close()
+
+
+def test_dashboard_reports_rolling_inference_latency(tmp_path):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+    try:
+        dashboard.record_inference(0.1)
+        dashboard.record_inference(0.2)
+        inference = dashboard._snapshot()["inference"]
+        assert inference["samples"] == 2
+        assert inference["last_ms"] == pytest.approx(200.0)
+        assert inference["mean_ms"] == pytest.approx(150.0)
+        assert inference["plans_per_second"] == pytest.approx(1000.0 / 150.0)
+    finally:
+        dashboard.close()
+
+
 def test_dashboard_restart_dismisses_velocity_prompt_and_returns_to_ready_gate(
     tmp_path,
 ):
@@ -217,7 +306,7 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
         adapter["base_T_model"]["right"], expected_right_T_left, atol=1e-12
     )
     assert profile["max_joint_velocity"] / profile["frequency"] == 0.4
-    assert profile["execute_steps"] == 40
+    assert profile["execute_steps"] == 30
     assert profile["reset_on_start"] is True
     assert profile["reset_home_on_restart"] is True
     assert set(adapter["camera_keys"]) == {
@@ -299,6 +388,38 @@ class VelocityChoiceView(GatedView):
     def choose_velocity_action(self, details):
         self.velocity_details.append(details)
         return self.decision
+
+
+class PauseView(GatedView):
+    def __init__(self, controls, pauses):
+        super().__init__(controls)
+        self.pauses = iter(pauses)
+        self.paused = False
+
+    def update(self, obs):
+        self.paused = next(self.pauses)
+        return super().update(obs)
+
+    def is_paused(self):
+        return self.paused
+
+
+class ResampleIntervalView(GatedView):
+    def __init__(self, controls, execute_steps):
+        super().__init__(controls)
+        self.execute_steps = execute_steps
+
+    def get_execute_steps(self):
+        return self.execute_steps
+
+
+class InferenceView(View):
+    def __init__(self):
+        super().__init__()
+        self.inference_seconds = []
+
+    def record_inference(self, seconds):
+        self.inference_seconds.append(seconds)
 
 
 def test_rollout_publishes_graph_plan_to_view_without_changing_command_path(
@@ -391,6 +512,92 @@ def test_rollout_homes_on_startup_and_restart_when_enabled(monkeypatch):
     assert robot.home_calls == 2
     assert not robot.commands
     assert sum("Resetting YAM" in status for status in view.statuses) == 2
+
+
+def test_rollout_pause_holds_measured_joints_and_discards_policy_queue(monkeypatch):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot = FakeRobot()
+    view = PauseView(controls=[None, None, None, "q"], pauses=[False, True, True, True])
+    target = np.zeros((1, 14), dtype=float)
+    target[:, [6, 13]] = 0.5
+    calls = 0
+
+    def predict(_obs):
+        nonlocal calls
+        calls += 1
+        return target
+
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(action_type="joints", predict=predict),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "execute_steps": 1,
+            "max_joint_velocity": 1.0,
+            "preview": {"enabled": False},
+        },
+        view=view,
+    )
+
+    assert steps == 1
+    assert calls == 1
+    assert len(robot.commands) == 4  # First paired policy target, then paired hold.
+    assert any("Paused" in status for status in view.statuses)
+
+
+def test_rollout_uses_dashboard_resample_interval_on_next_plan(monkeypatch):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot = FakeRobot()
+    view = ResampleIntervalView([None, None, "q"], execute_steps=1)
+    target = np.zeros((3, 14), dtype=float)
+    target[:, [6, 13]] = 0.5
+    calls = 0
+
+    def predict(_obs):
+        nonlocal calls
+        calls += 1
+        return target
+
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(action_type="cartesian", predict=predict),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "execute_steps": 3,
+            "max_joint_velocity": 1.0,
+            "preview": {"enabled": False},
+        },
+        view=view,
+    )
+
+    assert steps == 2
+    assert calls == 2
+
+
+def test_rollout_records_command_ready_inference_latency(monkeypatch):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot, view = FakeRobot(), InferenceView()
+    target = np.zeros((1, 14), dtype=float)
+    target[:, [6, 13]] = 0.5
+
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(action_type="cartesian", predict=lambda _obs: target),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "execute_steps": 1,
+            "max_joint_velocity": 1.0,
+            "preview": {"enabled": False},
+        },
+        view=view,
+    )
+
+    assert steps == 1
+    assert len(view.inference_seconds) == 1
+    assert view.inference_seconds[0] >= 0
 
 
 def test_rollout_resamples_a_velocity_unsafe_plan_before_commanding(monkeypatch):

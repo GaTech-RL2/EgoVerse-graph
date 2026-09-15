@@ -10,6 +10,10 @@
 # ground-truth chunk and the predicted token is truncated by waypoint fraction
 # and detokenized before scoring.
 
+defaults:
+  - viz@viz_func: cartesian/base
+  - _self_
+
 _target_: egomimic.eval.open_loop_sim.OpenLoopSimEval
 
 action_key: actions_cartesian
@@ -40,4 +44,23 @@ require_episode_start: true
 limit_val_episodes: null
 # The episode walk depends on dataset order and contiguous frame indices.
 requires_ordered_validation: true
-viz_func: null
+
+# Match the normal evaluator's episode-aware overlay path. Every validation
+# sample contributes one rendered frame; EvalVideo cuts the stream on
+# episode_hash and writes one full-episode MP4 under this directory.
+obs_pose_key: observations.state.ee_pose
+image_key: observations.images.front_img_1
+revert_transforms:
+  yam_bimanual:
+    _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+    to_camera_frame: true
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    is_quat: false
+    gripper_padded: true
+video_output_dir: ${paths.output_dir}/val_videos
+video_chunk_frames: 1000
+max_episode_frames: 6000
+viz_every_n_epochs: 1
+viz_max_batches: null

@@ -174,9 +174,11 @@ def _sampler_steps(algo) -> int:
 
 
 def _native_decoder(config: DictConfig, embodiment_name: str):
-    decoder_cfg = OmegaConf.select(config, f"model.native_decoders.{embodiment_name}")
+    decoder_cfg = OmegaConf.select(config, f"evaluator.native_decoders.{embodiment_name}")
     if decoder_cfg is None:
         decoder_cfg = OmegaConf.select(config, f"native_decoders.{embodiment_name}")
+    if decoder_cfg is None:
+        decoder_cfg = OmegaConf.select(config, f"model.native_decoders.{embodiment_name}")
     if decoder_cfg is None:
         # Older configs used this location.  It is accepted only as a fallback;
         # current Paper-DP/ARC configs keep one decoder per embodiment.

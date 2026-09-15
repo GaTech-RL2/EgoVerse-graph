@@ -37,13 +37,18 @@ function startRollout() {
 function restartRollout() {
   if (!send({restart: true})) {
     reportDisconnected();
-    return;
+    return false;
   }
   $('start').disabled = false;
   $('start').textContent = 'Start rollout (c)';
+  return true;
 }
 
 function chooseVelocityAction(action) {
+  if (action === 'restart') {
+    if (restartRollout()) $('velocity-decision').hidden = true;
+    return;
+  }
   if (send({velocity_action: action})) $('velocity-decision').hidden = true;
 }
 

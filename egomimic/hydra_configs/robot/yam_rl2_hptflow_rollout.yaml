@@ -46,10 +46,13 @@ robot:
 # HPT actions were trained at 30 Hz. Keep this command cadence separate from
 # the 60 Hz i2rt follower driver frequency above.
 frequency: 30
-max_joint_velocity: 1.0
+# The guard is applied to each commanded joint target: 12 rad/s at 30 Hz is a
+# maximum 0.4-rad step. It does not change the i2rt follower's 60 Hz driver.
+max_joint_velocity: 12.0
 # A rejected Cartesian plan sends neither arm and asks HPT-Flow for a fresh one.
 max_velocity_replans: 8
-execute_steps: 10
+# HPT-Flow predicts 100 actions; execute its first 40 before replanning.
+execute_steps: 40
 max_steps: 3000
 camera_timeout: 30.0
 preview:

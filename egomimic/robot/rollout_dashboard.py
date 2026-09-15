@@ -351,6 +351,13 @@ class RolloutDashboard:
     def request_restart(self) -> None:
         """Return to ready state and discard any displayed action plan."""
         self._start_requested.clear()
+        with self._lock:
+            # A top-level Restart may arrive while the rollout thread is blocked
+            # on a velocity decision. Remove that stale warning before it returns
+            # to the ready gate.
+            self._velocity_prompt = None
+            self._velocity_decision = None
+            self._velocity_decision_ready.clear()
         self._restart_requested.set()
 
     def clear_action_plan(self) -> None:

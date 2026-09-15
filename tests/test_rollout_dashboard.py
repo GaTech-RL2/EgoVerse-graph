@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
+import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -116,6 +117,53 @@ def test_dashboard_start_command_reaches_rollout_start_gate(tmp_path):
         dashboard.close()
 
 
+def test_dashboard_restart_dismisses_velocity_prompt_and_returns_to_ready_gate(
+    tmp_path,
+):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+    decision = []
+    finished = threading.Event()
+
+    def wait_for_velocity_choice():
+        decision.append(
+            dashboard.choose_velocity_action(
+                {"arms": ["left"], "max_joint_step": 0.5, "limit": 0.4}
+            )
+        )
+        finished.set()
+
+    async def request_restart():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                await ws.receive_json()
+                deadline = time.monotonic() + 1.0
+                while dashboard._snapshot()["velocity_prompt"] is None:
+                    if time.monotonic() >= deadline:
+                        pytest.fail("velocity prompt was not published")
+                    await asyncio.sleep(0.01)
+                await ws.send_json({"restart": True})
+
+    try:
+        thread = threading.Thread(target=wait_for_velocity_choice)
+        thread.start()
+        asyncio.run(request_restart())
+        assert finished.wait(timeout=1.0)
+        thread.join(timeout=1.0)
+        assert decision == ["restart"]
+        assert dashboard._snapshot()["velocity_prompt"] is None
+    finally:
+        dashboard.close()
+
+
 def test_overlay_uses_base_to_camera_calibration_without_mutating_frame(tmp_path):
     overlay = load_action_overlay(overlay_config(calibration_file(tmp_path)))
     frame = np.zeros((48, 64, 3), dtype=np.uint8)
@@ -168,6 +216,8 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
     np.testing.assert_allclose(
         adapter["base_T_model"]["right"], expected_right_T_left, atol=1e-12
     )
+    assert profile["max_joint_velocity"] / profile["frequency"] == 0.4
+    assert profile["execute_steps"] == 40
     assert set(adapter["camera_keys"]) == {
         "front_img_1",
         "left_wrist_img",

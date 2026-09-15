@@ -297,11 +297,11 @@ inference and motor commands wait for browser-tab `c` or **Start rollout**.
 Pressing a control before the dashboard WebSocket connects no longer silently
 disables Start; it instead tells the operator to wait for Ready. `r` /
 **Restart** discards the queued and displayed plan, returns to ready state, and
-still sends no command until `c` is pressed again. `q`, Escape, or **Stop
-rollout** exits. A browser reconnect or transient client socket reset removes
-only that client and leaves the dashboard server running; a real server-wide
-dashboard failure instead stops rollout safely rather than continuing without
-operator visibility.
+reenables **Start rollout**, and still sends no command until `c` is pressed
+again. `q`, Escape, or **Stop rollout** exits. A browser reconnect or transient
+client socket reset removes only that client and leaves the dashboard server
+running; a real server-wide dashboard failure instead stops rollout safely
+rather than continuing without operator visibility.
 
 When a proposed plan exceeds the joint velocity limit, neither arm is commanded.
 The dashboard asks the operator to **Execute once**, **Resample**, or
@@ -309,6 +309,11 @@ The dashboard asks the operator to **Execute once**, **Resample**, or
 clears the plan, refreshes measured joints, and tries up to
 `max_velocity_replans` (eight) times; Restart returns to the `c` gate. Without
 a dashboard decision, no velocity-unsafe command is sent.
+
+The current RL2 HPT-Flow default executes 40 of the predicted 100 actions at a
+time, then replans. Its per-command joint-step guard is 0.4 rad (`12 rad/s` at
+the 30 Hz rollout cadence); the i2rt follower driver remains at its independent
+60 Hz setting.
 
 Before the graph model is constructed, rollout also checks that the selected
 PyTorch CUDA build can execute the station GPU's compute capability. A mismatch

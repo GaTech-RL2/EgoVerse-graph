@@ -10,6 +10,14 @@
 #   dpus = Paper-DP BC U-Socket        dpch = Paper-DP BC chain points6
 #   uniteus / unitech = single-embodiment UNITE (cotrain row restricted to one domain)
 #   ctAc = topology A with ICE_UNITE_COMPILE=true (torch.compile replica; needs REPO on aidan/unite-cotrain-2)
+#   refctA / refdpct = Action Flow ladder references (2026-09-15): the sweep-3 s3ctA / s3dpct recipes
+#     retrained on the ladder data (same experiment, model, data, LR env); checkpoints under
+#     runs/af-ladder-20260913/; norm stats pinned to each original row's own file (s3ctA: the sweep-3
+#     minmax file; s3dpct: the quantile file its run computed); 2 GPUs of any H100|H200 (the
+#     launcher's constraint) instead of h200 only.
+#   identity env (defaults unchanged): RUN_NAME (run dir, default <tag>-<stamp>), WANDB_RUN_ID
+#     (default aidan-ct2-<tag>-<stamp>), WANDB_GROUP (default the sweep), GRES (default gpu:h200:WORLD),
+#     TEST_ONLY=1 (sbatch --test-only)
 set -euo pipefail
 ROW=${1:?}; TAG=${2:?}; STEPS=${3:-240000}
 REPO=${REPO:-/home/hice1/agao81/scratch/EgoVerse-graph-ct}
@@ -52,17 +60,19 @@ case "$ROW" in
   s3unitech) EXP=pusht/unite_chaingen_points_val01_h16;             MODEL=bf/ch_unite_register_separate_nt8_h384_s42; DATA="$DATA_CHG";          FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=unite-cotrain-3 ;;
   s3dpct)    EXP=pusht/planar_v2_cotrain_dp_paper_points6_chaingen; MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_US,$DATA_CHG"; FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=unite-cotrain-3 ;;
   s3dpch)    EXP=pusht/planar_v2_chaingen_points_dp_paper;          MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_CHG";          FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=unite-cotrain-3 ;;
+  refctA)    EXP=pusht/unite_cotrain_usocket_chaingen_val01_h16;    MODEL=bf/ct_unite_register_separate_nt8_h384_s42; DATA="$DATA_US,$DATA_CHG"; FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=af-ladder-20260913; GRES=${GRES:-gpu:$WORLD}; NORM_STATS=${NORM_STATS:-$CEDAR/unite-cotrain-3/norm_stats_chaingen_minmax} ;;
+  refdpct)   EXP=pusht/planar_v2_cotrain_dp_paper_points6_chaingen; MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_US,$DATA_CHG"; FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=af-ladder-20260913; GRES=${GRES:-gpu:$WORLD}; NORM_STATS=${NORM_STATS:-$CEDAR/unite-cotrain-3/s3-dp_paper-cotrain-chaingen-240k-09100200/norm_stats} ;;
   dpch) EXP=pusht/planar_v2_chain_points_dp_paper;       MODEL=bf/bf_planar_v2_dp_paper_points6;             DATA="$DATA_CH";          FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2 ;;
-  *) echo "row must be ctA|ctAc|ctA768|ctB|dpct|dpus|dpch|uniteus|unitech|s3ctA|s3ctB|s3ctA768|s3unitech|s3dpct|s3dpch"; exit 64 ;;
+  *) echo "row must be ctA|ctAc|ctA768|ctB|dpct|dpus|dpch|uniteus|unitech|s3ctA|s3ctB|s3ctA768|s3unitech|s3dpct|s3dpch|refctA|refdpct"; exit 64 ;;
 esac
 [ "${SMOKE:-0}" = 1 ] && SWEEP=${SWEEP}-smoke
-OUT=$CEDAR/$SWEEP/${TAG}-${STAMP}
+OUT=$CEDAR/$SWEEP/${RUN_NAME:-${TAG}-${STAMP}}
 mkdir -p "$CEDAR/$SWEEP" /home/hice1/agao81/scratch/logs
 NS=""; [ -n "${NORM_STATS:-}" ] && NS=",ICE_NORM_STATS_PATH=$NORM_STATS"
 EO=""; [ -n "${EXTRA:-}" ] && EO=",ICE_EXTRA_OVERRIDES=$EXTRA"
-COMMON="ICE_LAUNCH_MODE=run,ICE_REPO=$REPO,ICE_EXPECTED_HEAD=$HEAD,ICE_PYTHON=$PY,ICE_WANDB_ENTITY=rl2-group,ICE_WANDB_PROJECT=$PROJ,ICE_WANDB_GROUP=$SWEEP,ICE_EXPECTED_ACCOUNT=ece,ICE_EXPECTED_PARTITION=coe-gpu,ICE_EXPECTED_QOS=coe-ice,ICE_OUTPUT_DIR=$OUT,ICE_WANDB_RUN_ID=aidan-ct2-${TAG}-${STAMP},ICE_LIMIT_TRAIN_BATCHES=1.0,ICE_LIMIT_VAL_BATCHES=8,ICE_TRAIN_BATCH_SIZE=32,ICE_VALID_BATCH_SIZE=32"
-JOB=$(sbatch --parsable --account=ece --partition=coe-gpu --qos=coe-ice --exclude="$EXCL" --time=$TIME \
-  --gres=gpu:h200:$WORLD --ntasks-per-node=$WORLD --cpus-per-task=8 --mem=128G \
+COMMON="ICE_LAUNCH_MODE=run,ICE_REPO=$REPO,ICE_EXPECTED_HEAD=$HEAD,ICE_PYTHON=$PY,ICE_WANDB_ENTITY=rl2-group,ICE_WANDB_PROJECT=$PROJ,ICE_WANDB_GROUP=${WANDB_GROUP:-$SWEEP},ICE_EXPECTED_ACCOUNT=ece,ICE_EXPECTED_PARTITION=coe-gpu,ICE_EXPECTED_QOS=coe-ice,ICE_OUTPUT_DIR=$OUT,ICE_WANDB_RUN_ID=${WANDB_RUN_ID:-aidan-ct2-${TAG}-${STAMP}},ICE_LIMIT_TRAIN_BATCHES=1.0,ICE_LIMIT_VAL_BATCHES=8,ICE_TRAIN_BATCH_SIZE=32,ICE_VALID_BATCH_SIZE=32"
+JOB=$(sbatch --parsable ${TEST_ONLY:+--test-only} --account=ece --partition=coe-gpu --qos=coe-ice --exclude="$EXCL" --time=$TIME \
+  --gres=${GRES:-gpu:h200:$WORLD} --ntasks-per-node=$WORLD --cpus-per-task=8 --mem=128G \
   --job-name="ct2-$TAG" --output="$LOG" \
   --export="ALL,$COMMON,$DATA,ICE_EXPERIMENT=$EXP,ICE_MODEL=$MODEL,ICE_WORLD_SIZE=$WORLD,ICE_MAX_STEPS=$STEPS,ICE_VAL_CHECK_INTERVAL=${VAL_EVERY:-30000},ICE_CHECKPOINT_EVERY_N_STEPS=${CKPT_EVERY:-30000},$FAM$NS$EO" \
   "$REPO/scripts/ice/launch_unite_cotrain.sbatch")

@@ -244,6 +244,7 @@ def _load_policy(
         raise RuntimeError(f"inference graph has no DiffusionDenoiserStage: {runnable_names}")
 
     token_horizon, token_dim, representation = _token_shape(config, stage_names)
+    decoder = _native_decoder(config, selected_embodiment_name)
     stats = _normalizer_from_config(config, selected_embodiment_id)
     action_stats = stats.norm_stats[selected_embodiment_id]["actions"]
     action_mean = action_stats["mean"] if isinstance(action_stats, Mapping) else None
@@ -261,7 +262,6 @@ def _load_policy(
             f"{expected_stats_shape} for the configured decoder"
         )
 
-    decoder = _native_decoder(config, selected_embodiment_name)
     token_probe = torch.zeros(1, token_horizon, token_dim)
     decoded = decoder.decode(token_probe)
     if not torch.is_tensor(decoded):

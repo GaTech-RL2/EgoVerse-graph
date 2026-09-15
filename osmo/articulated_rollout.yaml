@@ -226,21 +226,33 @@ workflow:
         # which are correct: 3000 per cell is what a real run must see. Disable
         # them ONLY for a partial stage, and say loudly that the resulting
         # numbers are not publishable.
+        # Null the episode-count guards for embodiments staged THIN. They hold
+        # 125 episodes on purpose -- enough for the key map, not a corpus -- so
+        # the config's expected 3000 is correctly violated. Scored embodiments
+        # keep every guard armed, which is the case that protects the numbers.
         GUARD_OV=""
+        THIN=""
+        for E in $(printf '%s\n' $TRAIN_EMB $HELD_OUT | sort -u); do
+          case " $EMBODIMENTS " in
+            *" $E "*) ;;                       # scored: guards stay on
+            *) THIN="$THIN $E";;
+          esac
+        done
         if [ "$SHARDS_PER_CELL" -lt 24 ]; then
-          for E in $(printf '%s\n' $TRAIN_EMB $HELD_OUT | sort -u); do
+          THIN=$(printf '%s\n' $TRAIN_EMB $HELD_OUT | sort -u | tr '\n' ' ')
+          echo "############################################################"
+          echo "# PARTIAL STAGE: $SHARDS_PER_CELL/24 shards. PLUMBING ONLY."
+          echo "############################################################"
+        fi
+        echo "guards relaxed for thin-staged embodiments:$THIN"
+        if [ -n "$THIN" ]; then
+          for E in $THIN; do
             for SPLIT in train valid; do
               GUARD_OV="$GUARD_OV data.${SPLIT}_datasets.pushshapes_sim_${E}.resolver.expected_episode_count=null"
               GUARD_OV="$GUARD_OV data.${SPLIT}_datasets.pushshapes_sim_${E}.expected_train_episode_count=null"
               GUARD_OV="$GUARD_OV data.${SPLIT}_datasets.pushshapes_sim_${E}.expected_valid_episode_count=null"
             done
           done
-          echo "############################################################"
-          echo "# PARTIAL STAGE: $SHARDS_PER_CELL/24 shards per cell."
-          echo "# Episode-count guards are DISABLED and the corpus is a"
-          echo "# subset. This run is a PLUMBING CHECK -- its coverage"
-          echo "# numbers are NOT comparable to anything."
-          echo "############################################################"
         fi
 
         # ---------------------------------------------- checkpoints

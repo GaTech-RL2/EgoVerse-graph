@@ -47,6 +47,36 @@ def load_normalizer(path):
     return normalizer
 
 
+def validate_graph_device(device: str) -> torch.device:
+    """Fail before robot construction when PyTorch cannot execute on a GPU."""
+    try:
+        target = torch.device(device)
+    except (RuntimeError, TypeError) as error:
+        raise ValueError(f"Invalid graph policy device: {device!r}") from error
+    if target.type != "cuda":
+        return target
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "Requested a CUDA graph policy device, but PyTorch reports no CUDA device"
+        )
+    index = 0 if target.index is None else target.index
+    if not 0 <= index < torch.cuda.device_count():
+        raise RuntimeError(f"Requested CUDA device {index}, but it is unavailable")
+    capability = torch.cuda.get_device_capability(index)
+    architecture = f"sm_{capability[0]}{capability[1]}"
+    supported = tuple(torch.cuda.get_arch_list())
+    if (
+        architecture not in supported
+        and f"compute_{capability[0]}{capability[1]}" not in supported
+    ):
+        supported_text = ", ".join(supported) or "none"
+        raise RuntimeError(
+            f"PyTorch cannot execute CUDA capability {architecture}; this build supports "
+            f"{supported_text}. Install a compatible PyTorch build before opening a robot."
+        )
+    return target
+
+
 class CartesianGraphAdapter:
     """Explicit camera keys, calibration and rotation layout from deployment YAML.
 
@@ -219,7 +249,8 @@ class GraphRobotPolicy:
 def load_graph_policy(config):
     normalizer = load_normalizer(config["normalizer_path"])
     training = OmegaConf.load(config["training_config"])
-    graph = instantiate(training.model.pipeline, device=str(config["device"]))
+    device = validate_graph_device(str(config["device"]))
+    graph = instantiate(training.model.pipeline, device=str(device))
     if not isinstance(graph, PipelineAlgo):
         raise TypeError("Robot inference requires a graph PipelineAlgo")
     graph.bind_data_context(normalizer=normalizer)

@@ -230,6 +230,7 @@ X, home, quit and exceptions. These files remain available for inspection.
 ```bash
 python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/yam_rollout.yaml
 python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/eva_rollout.yaml
+python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/yam_rl2_hptflow_rollout.yaml --check-config
 ```
 
 Copy and fill the deployment YAML first. Supply the saved **fully composed**
@@ -273,6 +274,20 @@ Use the codec and numbers from training. Supported layouts are `lab`, `e1_dur`,
 `execute_steps` before replanning. Both arms' commands must pass the joint step
 limit before either command is sent. Camera loss pauses commands and discards
 the old plan. Quit with q/Escape or Ctrl-C.
+
+`yam_rl2_hptflow_rollout.yaml` targets the station's immutable HPT-Flow bundle.
+It validates its D405 calibration and loopback-only dashboard before any robot,
+CAN, or camera is opened; use `--check-config` for that no-device preflight.
+The dashboard shows the top and both wrist RGB feeds. Its sole control is the
+existing stop key. The optional front-camera action overlay draws the current
+Cartesian graph plan with the pinned `base_T_camera` matrices and D405 K/dist;
+the wrist feeds remain raw and the overlay never changes IK, the action queue,
+or a motor command.
+
+Before the graph model is constructed, rollout also checks that the selected
+PyTorch CUDA build can execute the station GPU's compute capability. A mismatch
+fails before the robot factory runs; install a compatible PyTorch build before
+attempting a live rollout rather than changing the policy device to CPU.
 
 ## Zarr replay and upload
 

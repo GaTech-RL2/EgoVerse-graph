@@ -1,0 +1,106 @@
+# RL2 YAM HPT-Flow rollout profile. This file resolves only the immutable
+# checkpoint bundle staged on the station; --check-config opens no robot devices.
+robot:
+  kind: yam
+  arms: [left, right]
+  channels:
+    left: can_follower_l
+    right: can_follower_r
+  gripper_type: linear_4310
+  gripper_kp: 20.0
+  gripper_kd: 0.5
+  gripper_force_limit: 50.0
+  zero_gravity_mode: true
+  enable_auto_recovery: true
+  frequency: 60
+  home_duration: 1.5
+  home:
+    left: [-0.008, 0.007, 0.004, -0.07, 0.001, -0.015, 0.999]
+    right: [0.007, 0.006, 0.005, -0.073, -0.013, -0.022, 0.999]
+  kinematics:
+    joint_names: [joint1, joint2, joint3, joint4, joint5, joint6]
+    site_name: tcp_site
+  cameras:
+    front_img_1:
+      type: realsense
+      enabled: true
+      serial_number: '230322272195'
+      height: 480
+      width: 640
+      fps: 30
+    left_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '218622270679'
+      height: 480
+      width: 640
+      fps: 30
+    right_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '230322270555'
+      height: 480
+      width: 640
+      fps: 30
+
+# HPT actions were trained at 30 Hz. Keep this command cadence separate from
+# the 60 Hz i2rt follower driver frequency above.
+frequency: 30
+max_joint_velocity: 1.0
+execute_steps: 10
+max_steps: 3000
+camera_timeout: 30.0
+preview:
+  enabled: true
+  mode: dashboard
+  host: 127.0.0.1
+  port: 8081
+  open_browser: true
+  width: 640
+  camera_hz: 12
+  jpeg_quality: 80
+  action_overlay:
+    initial_enabled: false
+    camera: front_img_1
+    calibration_path: egomimic/hydra_configs/robot/yam_rl2_agentview_extrinsics.yaml
+    arm_channels:
+      left: can_follower_l
+      right: can_follower_r
+
+policy:
+  kind: graph
+  # The environment variables let an operator intentionally select a later
+  # immutable bundle. The defaults name the validated current latest checkpoint.
+  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915/resolved-config.yaml}
+  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915__step-90000__epoch-899__sha256-f87f630a751f6014.ckpt}
+  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915/norm_stats.json}
+  device: cuda:0
+  use_ema: false
+  adapter:
+    _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+    embodiment_id: 7
+    # Training uses station-world (left-base) proprio and EEF-relative actions.
+    # The right matrix is right_base_T_left_base, composed from the pinned D405
+    # calibration; inv(base_T_model) maps local follower FK into left-base model space.
+    base_T_model:
+      left:
+      - [1.0, 0.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0, 0.0]
+      - [0.0, 0.0, 1.0, 0.0]
+      - [0.0, 0.0, 0.0, 1.0]
+      right:
+      - [0.9999280428658718, -0.0087524013509891, 0.0082039357030244, 0.0076888715736482]
+      - [0.0090029492300254, 0.9994782921642691, -0.0310175820714231, 0.636483094945911]
+      - [-0.0079281773182583, 0.0310892097517301, 0.9994851699957452, 0.0069772851823239]
+      - [0.0, 0.0, 0.0, 1.0]
+    camera_keys:
+      front_img_1: observations.images.front_img_1
+      left_wrist_img: observations.images.left_wrist_img
+      right_wrist_img: observations.images.right_wrist_img
+    rotation_mode: euler
+    action_frame: eef_frame
+    image_hw: [480, 640]
+    proprio_key: observations.state.ee_pose
+    action_key: actions_cartesian
+    prompt: sorting markers and pens
+    decoder: null

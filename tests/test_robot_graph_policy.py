@@ -17,6 +17,7 @@ from egomimic.robot.graph_policy import (
     GraphRobotPolicy,
     load_graph_policy,
     load_normalizer,
+    validate_graph_device,
 )
 from egomimic.robot.interface import pose_matrix
 from egomimic.robot.yam.kinematics import MujocoArmKinematics
@@ -158,6 +159,18 @@ def test_normalizer_export_roundtrip_and_incomplete_cache_rejection(tmp_path):
     old.write_text(json.dumps({"stats": {}}))
     with pytest.raises(ValueError, match="normalizer_state"):
         load_normalizer(old)
+
+
+def test_graph_policy_rejects_unsupported_cuda_before_model_or_robot_loading(
+    monkeypatch,
+):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda _index: (12, 0))
+    monkeypatch.setattr(torch.cuda, "get_arch_list", lambda: ["sm_90"])
+
+    with pytest.raises(RuntimeError, match="sm_120"):
+        validate_graph_device("cuda:0")
 
 
 def test_checkpoint_loading_is_strict_and_never_opens_training_datasets(tmp_path):

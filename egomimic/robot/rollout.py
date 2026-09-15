@@ -27,6 +27,32 @@ def load_policy(config):
     )
 
 
+def validate_rollout_config(config):
+    """Validate browser-only rollout settings before creating robot hardware."""
+    preview = dict(config.get("preview", {}))
+    if preview.get("mode") != "dashboard":
+        return
+    robot = config.get("robot")
+    if not isinstance(robot, dict):
+        raise ValueError("Dashboard rollout configuration needs a robot mapping")
+    cameras = robot.get("cameras")
+    if not isinstance(cameras, dict) or not cameras:
+        raise ValueError("Dashboard rollout configuration needs configured cameras")
+    from egomimic.robot.rollout_dashboard import validate_rollout_preview
+
+    validate_rollout_preview(preview, cameras=set(cameras))
+
+
+def create_preview_view(camera_res, preview):
+    """Select the legacy OpenCV preview or the local browser dashboard."""
+    preview = dict(preview)
+    if preview.get("mode") == "dashboard":
+        from egomimic.robot.rollout_dashboard import RolloutDashboard
+
+        return RolloutDashboard(camera_res, **preview)
+    return CameraView(camera_res, **preview)
+
+
 def run_rollout(robot, policy, config, view=None):
     frequency, max_steps = float(config["frequency"]), int(config["max_steps"])
     execute_steps = int(config["execute_steps"])
@@ -37,7 +63,7 @@ def run_rollout(robot, policy, config, view=None):
         raise ValueError("Unknown policy action representation")
     queue, last, step = deque(), None, 0
     waiting_since = None
-    view = view or CameraView(robot.camera_res, **config["preview"])
+    view = view or create_preview_view(robot.camera_res, config["preview"])
     try:
         while step < max_steps:
             tick = time.monotonic()
@@ -69,6 +95,11 @@ def run_rollout(robot, policy, config, view=None):
                     raise ValueError(
                         "Policy must return a nonempty finite (H, 14) action chunk"
                     )
+                set_plan = getattr(view, "set_action_plan", None)
+                if callable(set_plan):
+                    # Browser overlays are display-only. The unchanged command queue
+                    # below remains the sole source of robot actuation.
+                    set_plan(prediction, policy.action_type)
                 # Replay consumes its entire chunk; graph plans replan at execute_steps.
                 count = (
                     len(prediction)
@@ -108,8 +139,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True)
     parser.add_argument("--inference-mode", choices=("graph",), default="graph")
+    parser.add_argument(
+        "--check-config",
+        action="store_true",
+        help="validate dashboard/calibration configuration only; open no devices",
+    )
     args = parser.parse_args()
     config = OmegaConf.to_container(OmegaConf.load(args.config), resolve=True)
+    validate_rollout_config(config)
+    if args.check_config:
+        print(
+            "Rollout configuration is valid; no robot, CAN, or camera device was opened."
+        )
+        return
     # Load/validate policy artifacts before opening hardware.
     policy = load_policy(config["policy"])
     robot = create_robot(config["robot"])

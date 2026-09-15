@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>YAM rollout</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">RL2 YAM · LOCAL POLICY ROLLOUT</p>
+          <h1>Rollout monitor</h1>
+          <p>Three live cameras. The overlay is visual only; stopping the rollout keeps the existing <kbd>q</kbd> / <kbd>Esc</kbd> behavior.</p>
+        </div>
+        <div class="actions">
+          <span id="status" class="starting">Connecting…</span>
+          <label class="overlay-toggle" for="overlay">
+            <input id="overlay" type="checkbox">
+            Show front action overlay
+          </label>
+          <button id="stop" class="stop">Stop rollout <kbd>q</kbd></button>
+        </div>
+      </header>
+      <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
+      <section id="cameras" class="cameras" aria-label="Live rollout cameras"></section>
+      <p class="notice">This dashboard binds to the station loopback interface only. It offers no arm, home, or teleoperation control.</p>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -174,7 +174,9 @@ def _sampler_steps(algo) -> int:
 
 
 def _native_decoder(config: DictConfig, embodiment_name: str):
-    decoder_cfg = OmegaConf.select(config, f"native_decoders.{embodiment_name}")
+    decoder_cfg = OmegaConf.select(config, f"model.native_decoders.{embodiment_name}")
+    if decoder_cfg is None:
+        decoder_cfg = OmegaConf.select(config, f"native_decoders.{embodiment_name}")
     if decoder_cfg is None:
         # Older configs used this location.  It is accepted only as a fallback;
         # current Paper-DP/ARC configs keep one decoder per embodiment.
@@ -248,10 +250,15 @@ def _load_policy(
     if action_mean is None:
         raise RuntimeError("normalizer action stats have no mean")
     stats_shape = tuple(np.asarray(action_mean).shape)
-    if stats_shape != (token_horizon, token_dim):
+    expected_stats_shape = (
+        (int(getattr(decoder, "action_horizon", 0)), token_dim)
+        if getattr(decoder, "requires_common5_unnormalization", False)
+        else (token_horizon, token_dim)
+    )
+    if stats_shape != expected_stats_shape:
         raise RuntimeError(
             f"action stats shape {stats_shape} does not match model tokens "
-            f"{(token_horizon, token_dim)}"
+            f"{expected_stats_shape} for the configured decoder"
         )
 
     decoder = _native_decoder(config, selected_embodiment_name)
@@ -413,6 +420,9 @@ class _Policy:
         self.start = start
         self.cadence = cadence
         self.token_shape = (int(loaded["token_horizon"]), int(loaded["token_dim"]))
+        self.requires_common5_unnormalization = bool(
+            getattr(self.decoder, "requires_common5_unnormalization", False)
+        )
         self._history: list[dict[str, torch.Tensor]] = []
 
     def reset(self) -> None:
@@ -446,8 +456,17 @@ class _Policy:
             raise RuntimeError(
                 f"PipelineAlgo returned unexpected token shape {getattr(tokens, 'shape', None)}; expected {self.token_shape}"
             )
-        actions = self.normalizer.unnormalize({"actions": tokens}, self.embodiment_id)["actions"]
-        native = self.decoder.decode(actions)
+        if self.requires_common5_unnormalization:
+            common = self.decoder.decode_common(tokens)
+            common = self.normalizer.unnormalize(
+                {"actions": common}, self.embodiment_id
+            )["actions"]
+            native = self.decoder.decode_common_to_native(common)
+        else:
+            actions = self.normalizer.unnormalize(
+                {"actions": tokens}, self.embodiment_id
+            )["actions"]
+            native = self.decoder.decode(actions)
         if not torch.is_tensor(native):
             native = torch.as_tensor(native, device=self.device)
         if native.ndim == 2:

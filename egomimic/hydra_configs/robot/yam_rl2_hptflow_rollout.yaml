@@ -76,6 +76,9 @@ policy:
   normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915/norm_stats.json}
   device: cuda:0
   use_ema: false
+  # HPT-Flow is stochastic. Reject an invalid whole plan and resample rather
+  # than clamping an individual gripper; abort before robot commands if all fail.
+  max_valid_samples: 8
   adapter:
     _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
     embodiment_id: 7

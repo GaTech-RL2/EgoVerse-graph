@@ -284,6 +284,10 @@ Cartesian graph plan with the pinned `base_T_camera` matrices and D405 K/dist;
 the wrist feeds remain raw and the overlay never changes IK, the action queue,
 or a motor command.
 
+The HPT-Flow profile samples up to eight whole Cartesian plans when a stochastic
+sample has an invalid gripper or rotation representation. It never clamps one
+actuator: if all eight samples fail, rollout aborts before sending a command.
+
 Before the graph model is constructed, rollout also checks that the selected
 PyTorch CUDA build can execute the station GPU's compute capability. A mismatch
 fails before the robot factory runs; install a compatible PyTorch build before

@@ -74,6 +74,24 @@ class EchoStage(Stage):
         return batch
 
 
+class RetryStage(Stage):
+    reads = (PROPRIO,)
+    writes = ("pred_action",)
+
+    def __init__(self, valid_after):
+        super().__init__()
+        self.valid_after, self.calls = valid_after, 0
+
+    def forward(self, batch):
+        self.calls += 1
+        prediction = torch.zeros(1, 2, 14)
+        if self.calls < self.valid_after:
+            # The test normalizer maps 0.5 to a raw opening of 1.5.
+            prediction[..., [6, 13]] = 0.5
+        batch["pred_action"] = prediction
+        return batch
+
+
 def test_graph_normalizes_proprio_and_unnormalizes_actions_once():
     stage = EchoStage()
     policy = GraphRobotPolicy(
@@ -85,6 +103,35 @@ def test_graph_normalizes_proprio_and_unnormalizes_actions_once():
     torch.testing.assert_close(stage.seen[0].double(), expected, atol=1e-6, rtol=1e-6)
     np.testing.assert_allclose(result[:, [0, 7]], 0.1, atol=1e-6)
     np.testing.assert_allclose(result[:, [6, 13]], 0.5, atol=1e-6)
+
+
+def test_graph_policy_resamples_whole_invalid_plan_without_clamping_grippers():
+    stage = RetryStage(valid_after=2)
+    policy = GraphRobotPolicy(
+        PipelineAlgo([stage], device="cpu"),
+        normalizer(),
+        adapter(),
+        max_valid_samples=2,
+    )
+
+    result = policy.predict(FakeRobot().get_obs())
+
+    assert stage.calls == 2
+    np.testing.assert_allclose(result[:, [6, 13]], 0.5, atol=1e-6)
+
+
+def test_graph_policy_never_commands_when_all_stochastic_samples_are_invalid():
+    stage = RetryStage(valid_after=3)
+    policy = GraphRobotPolicy(
+        PipelineAlgo([stage], device="cpu"),
+        normalizer(),
+        adapter(),
+        max_valid_samples=2,
+    )
+
+    with pytest.raises(ValueError, match="rejected all 2 sampled"):
+        policy.predict(FakeRobot().get_obs())
+    assert stage.calls == 2
 
 
 def test_observation_color_and_camera_keys_follow_training_contract():

@@ -77,6 +77,10 @@ def validate_graph_device(device: str) -> torch.device:
     return target
 
 
+class InvalidGraphActionSample(ValueError):
+    """A stochastic graph sample cannot be converted to a safe robot action."""
+
+
 class CartesianGraphAdapter:
     """Explicit camera keys, calibration and rotation layout from deployment YAML.
 
@@ -180,17 +184,19 @@ class CartesianGraphAdapter:
                 half = width // 2
                 values = row[index * half : (index + 1) * half]
                 if not 0 <= values[-1] <= 1:
-                    raise ValueError("Predicted gripper opening is outside [0, 1]")
+                    raise InvalidGraphActionSample(
+                        "Predicted gripper opening is outside [0, 1]"
+                    )
                 if width == 14:
                     target = pose_matrix(values[:6])
                 else:
                     a, b = values[3:6].astype(float), values[6:9].astype(float)
                     if np.linalg.norm(a) < 1e-8:
-                        raise ValueError("Degenerate 6D rotation")
+                        raise InvalidGraphActionSample("Degenerate 6D rotation")
                     a /= np.linalg.norm(a)
                     b -= a * np.dot(a, b)
                     if np.linalg.norm(b) < 1e-8:
-                        raise ValueError("Degenerate 6D rotation")
+                        raise InvalidGraphActionSample("Degenerate 6D rotation")
                     b /= np.linalg.norm(b)
                     target = np.eye(4)
                     target[:3, 3] = values[:3]
@@ -208,10 +214,13 @@ class CartesianGraphAdapter:
 class GraphRobotPolicy:
     action_type = "cartesian"
 
-    def __init__(self, graph, normalizer, adapter):
+    def __init__(self, graph, normalizer, adapter, max_valid_samples=1):
         if not isinstance(graph, PipelineAlgo):
             raise TypeError("Robot inference requires PipelineAlgo")
+        if type(max_valid_samples) is not int or not 1 <= max_valid_samples <= 16:
+            raise ValueError("max_valid_samples must be an integer in [1, 16]")
         self.graph, self.normalizer, self.adapter = graph, normalizer, adapter
+        self.max_valid_samples = max_valid_samples
         embodiment = adapter.embodiment_id
         if embodiment not in normalizer.embodiments:
             raise ValueError("Embodiment is absent from the training normalizer")
@@ -239,11 +248,23 @@ class GraphRobotPolicy:
             adapter.observation(obs), adapter.embodiment_id
         )
         batch = self.graph.process_batch_for_training({"robot": values})
-        prediction = self.graph.forward_eval(batch)["robot"]["pred_action"]
-        native = self.normalizer.unnormalize(
-            {adapter.action_key: prediction}, adapter.embodiment_id
-        )[adapter.action_key]
-        return adapter.actions(native, obs)
+        error = None
+        for _ in range(self.max_valid_samples):
+            prediction = self.graph.forward_eval(batch)["robot"]["pred_action"]
+            native = self.normalizer.unnormalize(
+                {adapter.action_key: prediction}, adapter.embodiment_id
+            )[adapter.action_key]
+            try:
+                return adapter.actions(native, obs)
+            except InvalidGraphActionSample as caught:
+                # HPT-Flow is stochastic. Reject the entire sampled plan rather
+                # than clamping one actuator, then ask the graph for a new plan.
+                error = caught
+        raise ValueError(
+            "Graph policy rejected all "
+            f"{self.max_valid_samples} sampled plan(s): {error}. "
+            "No robot command was issued."
+        )
 
 
 def load_graph_policy(config):
@@ -261,4 +282,9 @@ def load_graph_policy(config):
         graph, checkpoint, use_ema=bool(config.get("use_ema", False))
     )
     graph.nets.eval()
-    return GraphRobotPolicy(graph, normalizer, instantiate(config["adapter"]))
+    return GraphRobotPolicy(
+        graph,
+        normalizer,
+        instantiate(config["adapter"]),
+        max_valid_samples=config.get("max_valid_samples", 1),
+    )

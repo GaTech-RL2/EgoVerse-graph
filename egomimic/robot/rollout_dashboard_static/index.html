@@ -26,6 +26,15 @@
         </div>
       </header>
       <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
+      <section id="velocity-decision" class="velocity-decision" hidden aria-live="assertive">
+        <strong>Joint velocity limit reached</strong>
+        <p id="velocity-detail"></p>
+        <div class="actions">
+          <button data-velocity-action="execute" class="warning">Execute once <kbd>e</kbd></button>
+          <button data-velocity-action="resample">Resample <kbd>s</kbd></button>
+          <button data-velocity-action="restart">Restart <kbd>r</kbd></button>
+        </div>
+      </section>
       <section id="cameras" class="cameras" aria-label="Live rollout cameras"></section>
       <p class="notice">This dashboard binds to the station loopback interface only. It offers no arm, home, or teleoperation control.</p>
     </main>

@@ -164,6 +164,17 @@ class GatedView(View):
         self.plans.clear()
 
 
+class VelocityChoiceView(GatedView):
+    def __init__(self, controls, decision):
+        super().__init__(controls)
+        self.decision = decision
+        self.velocity_details = []
+
+    def choose_velocity_action(self, details):
+        self.velocity_details.append(details)
+        return self.decision
+
+
 def test_rollout_publishes_graph_plan_to_view_without_changing_command_path(
     monkeypatch,
 ):
@@ -255,3 +266,33 @@ def test_rollout_resamples_a_velocity_unsafe_plan_before_commanding(monkeypatch)
     assert steps == 1
     assert len(robot.commands) == 2  # Only the second, paired safe plan ran.
     assert any("Rejected velocity-unsafe" in status for status in view.statuses)
+
+
+def test_rollout_executes_velocity_unsafe_pair_only_after_explicit_choice(monkeypatch):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot = FakeRobot()
+    view = VelocityChoiceView([None, "q"], "execute")
+    unsafe = np.zeros((1, 14), dtype=float)
+    unsafe[:, [0, 7]] = 0.2
+    unsafe[:, [6, 13]] = 0.5
+
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(action_type="joints", predict=lambda _obs: unsafe),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "execute_steps": 1,
+            "max_joint_velocity": 1.0,
+            "max_velocity_replans": 1,
+            "preview": {"enabled": False},
+        },
+        view=view,
+    )
+
+    assert steps == 1
+    assert len(robot.commands) == 2
+    assert view.velocity_details == [
+        {"arms": ["left", "right"], "max_joint_step": 0.2, "limit": 1 / 30}
+    ]
+    assert any("operator-approved" in status for status in view.statuses)

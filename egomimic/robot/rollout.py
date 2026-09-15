@@ -59,6 +59,17 @@ def _set_view_status(view, status):
         set_status(status)
 
 
+def _velocity_decision(view, details):
+    """Resolve an explicit response to a whole-plan velocity-limit rejection."""
+    choose = getattr(view, "choose_velocity_action", None)
+    if not callable(choose):
+        return "resample"
+    decision = choose(details)
+    if decision not in {"execute", "resample", "restart", "stop"}:
+        raise ValueError(f"Unknown velocity-limit decision: {decision!r}")
+    return decision
+
+
 def run_rollout(robot, policy, config, view=None):
     frequency, max_steps = float(config["frequency"]), int(config["max_steps"])
     execute_steps = int(config["execute_steps"])
@@ -147,40 +158,66 @@ def run_rollout(robot, policy, config, view=None):
                 queue.extend(prediction[:count])
             row = queue.popleft()
             commands = {}
-            violation = None
+            violations = []
             for arm in robot.arms:
                 offset = ARM_OFFSET[arm]
                 target = row[offset : offset + 7]
                 if policy.action_type == "cartesian":
                     target = np.r_[robot.solve_ik(target[:6], arm), target[6]]
                 command = joint_vector(target)
-                if (
+                joint_step = float(
                     np.max(np.abs(command[:6] - last[offset : offset + 6]))
-                    > limit + 1e-8
-                ):
-                    violation = arm
-                    break
-                commands[arm] = command
-            if violation is not None:
-                # The entire sampled chunk is unsafe from the current pose.
-                # Do not send either arm; re-observe and ask a stochastic policy
-                # for a fresh plan instead of terminating on its first outlier.
-                queue.clear()
-                last = np.asarray(obs["joint_positions"], dtype=float).copy()
-                velocity_replans += 1
-                if velocity_replans > max_velocity_replans:
-                    raise ValueError(
-                        f"{violation} target exceeds the configured joint velocity "
-                        f"after {max_velocity_replans} safe replan attempt(s). "
-                        "No unsafe command was sent."
-                    )
-                _set_view_status(
-                    view,
-                    f"Rejected velocity-unsafe plan; resampling "
-                    f"{velocity_replans}/{max_velocity_replans}",
                 )
-                time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
-                continue
+                if joint_step > limit + 1e-8:
+                    violations.append((arm, joint_step))
+                commands[arm] = command
+            if violations:
+                details = {
+                    "arms": [arm for arm, _ in violations],
+                    "max_joint_step": max(step_size for _, step_size in violations),
+                    "limit": limit,
+                }
+                decision = _velocity_decision(view, details)
+                if decision == "stop":
+                    break
+                if decision == "restart":
+                    queue.clear()
+                    last, step, waiting_since, velocity_replans, started = (
+                        None,
+                        0,
+                        None,
+                        0,
+                        False,
+                    )
+                    clear_plan = getattr(view, "clear_action_plan", None)
+                    if callable(clear_plan):
+                        clear_plan()
+                    _set_view_status(view, "Restarted — press c to start")
+                    time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                    continue
+                if decision == "execute":
+                    # An operator explicitly accepted this one complete paired
+                    # target. It is never selected automatically.
+                    _set_view_status(view, "Executing operator-approved plan")
+                else:
+                    assert decision == "resample"
+                    # Do not send either arm; re-observe and request a fresh plan.
+                    queue.clear()
+                    last = np.asarray(obs["joint_positions"], dtype=float).copy()
+                    velocity_replans += 1
+                    if velocity_replans > max_velocity_replans:
+                        raise ValueError(
+                            f"{details['arms']} target exceeds the configured joint "
+                            f"velocity after {max_velocity_replans} safe replan "
+                            "attempt(s). No unsafe command was sent."
+                        )
+                    _set_view_status(
+                        view,
+                        f"Rejected velocity-unsafe plan; resampling "
+                        f"{velocity_replans}/{max_velocity_replans}",
+                    )
+                    time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                    continue
             # Validate both arms before sending either command.
             for arm, command in commands.items():
                 robot.set_joints(command, arm)

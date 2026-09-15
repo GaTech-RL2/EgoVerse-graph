@@ -296,9 +296,11 @@ discards the queued and displayed plan, returns to ready state, and still sends
 no command until `c` is pressed again. `q`, Escape, or **Stop rollout** exits.
 
 When a proposed plan exceeds the joint velocity limit, neither arm is commanded.
-The HPT-Flow profile clears that plan, refreshes from measured joints, and
-resamples up to `max_velocity_replans` (eight) times. Exhausting the bounded
-budget exits safely with no velocity-unsafe command sent.
+The dashboard asks the operator to **Execute once**, **Resample**, or
+**Restart**. Execute is an explicit one-plan velocity-limit override; Resample
+clears the plan, refreshes measured joints, and tries up to
+`max_velocity_replans` (eight) times; Restart returns to the `c` gate. Without
+a dashboard decision, no velocity-unsafe command is sent.
 
 Before the graph model is constructed, rollout also checks that the selected
 PyTorch CUDA build can execute the station GPU's compute capability. A mismatch

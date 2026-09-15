@@ -27,6 +27,11 @@ function restartRollout() {
   $('start').textContent = 'Start rollout (c)';
 }
 
+function chooseVelocityAction(action) {
+  send({velocity_action: action});
+  $('velocity-decision').hidden = true;
+}
+
 function configure(message) {
   overlayCamera = message.overlay_camera;
   cameras.clear();
@@ -75,11 +80,19 @@ function frame(message) {
       tile.detail.textContent = 'Waiting for camera';
     }
   }
+  const prompt = message.velocity_prompt;
+  $('velocity-decision').hidden = !prompt;
+  if (prompt) {
+    $('velocity-detail').textContent = `${prompt.arms.join(' and ')} target step ${prompt.max_joint_step.toFixed(3)} rad exceeds ${prompt.limit.toFixed(3)} rad.`;
+  }
 }
 
 $('stop').onclick = stopRollout;
 $('start').onclick = startRollout;
 $('restart').onclick = restartRollout;
+for (const button of document.querySelectorAll('[data-velocity-action]')) {
+  button.onclick = () => chooseVelocityAction(button.dataset.velocityAction);
+}
 $('overlay').onchange = event => send({overlay: event.target.checked});
 document.onkeydown = event => {
   if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -95,6 +108,14 @@ document.onkeydown = event => {
   if (event.key === 'r' || event.key === 'R') {
     event.preventDefault();
     restartRollout();
+  }
+  if (event.key === 'e' || event.key === 'E') {
+    event.preventDefault();
+    chooseVelocityAction('execute');
+  }
+  if (event.key === 's' || event.key === 'S') {
+    event.preventDefault();
+    chooseVelocityAction('resample');
   }
 };
 

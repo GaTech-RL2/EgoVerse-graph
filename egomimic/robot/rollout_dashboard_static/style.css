@@ -32,6 +32,18 @@ kbd { font: inherit; font-size: 12px; padding: 1px 4px; border: 1px solid #66758
 .camera img { width: 100%; flex: 1; min-height: 0; object-fit: contain; background: #090c10; }
 .notice { margin-top: 14px; font-size: 12px; }
 
+.velocity-decision {
+  margin: 12px 0;
+  border: 1px solid #edb769;
+  border-radius: 8px;
+  background: #3c2a15;
+  color: #ffe2b4;
+  padding: 12px;
+}
+
+.velocity-decision p { margin: 5px 0 10px; color: #ffe2b4; }
+button.warning { border-color: #edb769; background: #7b4510; color: #fff0d1; }
+
 @media (max-width: 1000px) {
   header { flex-direction: column; }
   .actions { justify-content: start; }

@@ -295,6 +295,9 @@ class RolloutDashboard:
         self._quit_requested = threading.Event()
         self._start_requested = threading.Event()
         self._restart_requested = threading.Event()
+        self._velocity_decision_ready = threading.Event()
+        self._velocity_prompt: dict | None = None
+        self._velocity_decision: str | None = None
         if not self._wait_for_start:
             self._start_requested.set()
         self._shutdown = threading.Event()
@@ -339,6 +342,34 @@ class RolloutDashboard:
         with self._lock:
             self._plan = None
             self._overlay_status = "Waiting for a Cartesian graph plan"
+
+    def choose_velocity_action(self, details) -> str:
+        """Wait for an explicit dashboard decision before an unsafe plan runs."""
+        prompt = {
+            "arms": list(details["arms"]),
+            "max_joint_step": float(details["max_joint_step"]),
+            "limit": float(details["limit"]),
+        }
+        with self._lock:
+            self._velocity_prompt = prompt
+            self._velocity_decision = None
+            self._status = "Velocity limit reached — choose an action"
+            self._velocity_decision_ready.clear()
+        while not self._shutdown.is_set():
+            if self._quit_requested.is_set():
+                return "stop"
+            if self._restart_requested.is_set():
+                self._restart_requested.clear()
+                return "restart"
+            if self._velocity_decision_ready.wait(timeout=0.1):
+                with self._lock:
+                    decision = self._velocity_decision
+                    self._velocity_prompt = None
+                    self._velocity_decision = None
+                    self._velocity_decision_ready.clear()
+                if decision is not None:
+                    return decision
+        return "stop"
 
     def set_action_plan(self, actions: np.ndarray, action_type: str) -> None:
         """Publish a plan for drawing only; it never changes the command queue."""
@@ -398,6 +429,11 @@ class RolloutDashboard:
                 "overlay_status": self._overlay_status,
                 "status": self._status,
                 "updated_at": self._updated_at,
+                "velocity_prompt": (
+                    None
+                    if self._velocity_prompt is None
+                    else self._velocity_prompt.copy()
+                ),
             }
 
     def _run(self) -> None:
@@ -455,6 +491,12 @@ class RolloutDashboard:
                         self.request_start()
                     if command.get("restart") is True:
                         self.request_restart()
+                    decision = command.get("velocity_action")
+                    if decision in {"execute", "resample", "restart"}:
+                        with self._lock:
+                            if self._velocity_prompt is not None:
+                                self._velocity_decision = decision
+                                self._velocity_decision_ready.set()
                     if type(command.get("overlay")) is bool:
                         with self._lock:
                             self._overlay_enabled = command["overlay"]
@@ -507,6 +549,7 @@ class RolloutDashboard:
                         "overlay_enabled": snapshot["overlay_enabled"],
                         "overlay_status": snapshot["overlay_status"],
                         "age_ms": round(max(0.0, now - snapshot["updated_at"]) * 1000),
+                        "velocity_prompt": snapshot["velocity_prompt"],
                     }
                     for client in tuple(clients):
                         if not client.closed:

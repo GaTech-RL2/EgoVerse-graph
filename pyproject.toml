@@ -104,6 +104,9 @@ egomimic = [
     "robot/teleop_dashboard_static/*.html",
     "robot/teleop_dashboard_static/*.js",
     "robot/teleop_dashboard_static/*.css",
+    "robot/rollout_dashboard_static/*.html",
+    "robot/rollout_dashboard_static/*.js",
+    "robot/rollout_dashboard_static/*.css",
 ]
 
 [tool.pytest.ini_options]

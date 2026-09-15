@@ -230,6 +230,7 @@ X, home, quit and exceptions. These files remain available for inspection.
 ```bash
 python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/yam_rollout.yaml
 python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/eva_rollout.yaml
+python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/yam_rl2_hptflow_rollout.yaml --check-config
 ```
 
 Copy and fill the deployment YAML first. Supply the saved **fully composed**
@@ -273,6 +274,68 @@ Use the codec and numbers from training. Supported layouts are `lab`, `e1_dur`,
 `execute_steps` before replanning. Both arms' commands must pass the joint step
 limit before either command is sent. Camera loss pauses commands and discards
 the old plan. Quit with q/Escape or Ctrl-C.
+
+`yam_rl2_hptflow_rollout.yaml` targets the station's immutable HPT-Flow bundle.
+It validates its D405 calibration and loopback-only dashboard before any robot,
+CAN, or camera is opened; use `--check-config` for that no-device preflight.
+The dashboard shows the top and both wrist RGB feeds. Its controls are handled
+by the focused dashboard browser tab—not the shell that launched rollout. Wait
+until the page reports **Ready** before using `c` / **Start rollout**, `r` /
+**Restart**, or `q` / **Stop rollout**. The optional front-camera action overlay
+draws the current Cartesian graph plan with the pinned `base_T_camera` matrices
+and D405 K/dist; the wrist feeds remain raw and the overlay never changes IK,
+the action queue, or a motor command.
+
+The HPT-Flow profile clips routine gripper overshoot in `[-0.05, 1.05]` to the
+physical `[0, 1]` range, without changing any arm pose target. Larger gripper
+errors or an invalid rotation reject the whole stochastic plan and trigger up
+to eight fresh samples. If all samples fail, rollout aborts before sending a
+command.
+
+The HPT-Flow profile first sends both followers through the configured smooth
+home motion, then opens in a ready state: cameras stream but policy inference
+and motor commands wait for browser-tab `c` or **Start rollout**. Pressing a
+control before the dashboard WebSocket connects no longer silently disables
+Start; it instead tells the operator to wait for Ready. `r` / **Reset YAM home**
+also homes both followers, discards the queued and displayed plan, returns to
+ready state, reenables **Start rollout**, and sends no policy command until `c`
+is pressed again. `q`, Escape, or **Stop rollout** exits. A browser reconnect
+or transient client socket reset removes only that client and leaves the
+dashboard server running; a real server-wide dashboard failure instead stops
+rollout safely rather than continuing without operator visibility.
+
+**Pause rollout** / Space is available only after rollout has started. It sends a
+single paired hold command at the measured joint positions, clears the queued
+policy plan, and keeps the cameras/dashboard live. **Resume rollout** / Space
+then infers a fresh plan from the current measured pose; it never resumes a
+pre-pause action chunk.
+
+When a proposed plan exceeds the joint velocity limit, neither arm is commanded.
+The dashboard asks the operator to **Execute once**, **Resample**, or
+**Restart**. Execute is an explicit one-plan velocity-limit override; Resample
+clears the plan, refreshes measured joints, and tries up to
+`max_velocity_replans` (eight) times; Restart returns to the `c` gate. Without
+a dashboard decision, no velocity-unsafe command is sent.
+
+The current RL2 HPT-Flow default executes 30 of the predicted 100 actions at a
+time, then replans. The dashboard's **Resample every** field accepts 1–100
+actions and takes effect at the next plan boundary; it never changes a chunk
+already being executed. Its per-command joint-step guard is 0.4 rad (`12 rad/s`
+at the 30 Hz rollout cadence); the i2rt follower driver remains at its
+independent 60 Hz setting.
+
+The checkpoint's action decoder is flow matching, not diffusion: its resolved
+training config uses 50 Euler velocity-field evaluations to integrate a plan.
+The RL2 rollout profile overrides that solver budget to 10 evaluations per plan
+without modifying the checkpoint weights. It does not use DDIM, which is a
+diffusion-specific sampler. The dashboard reports last and rolling mean
+plan-inference latency plus plans/s; the measurement covers the full
+`policy.predict` path through conversion into a command-ready plan.
+
+Before the graph model is constructed, rollout also checks that the selected
+PyTorch CUDA build can execute the station GPU's compute capability. A mismatch
+fails before the robot factory runs; install a compatible PyTorch build before
+attempting a live rollout rather than changing the policy device to CPU.
 
 ## Zarr replay and upload
 

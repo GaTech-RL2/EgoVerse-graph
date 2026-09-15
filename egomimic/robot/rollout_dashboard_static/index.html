@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>YAM rollout</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">RL2 YAM · LOCAL POLICY ROLLOUT</p>
+          <h1>Rollout monitor</h1>
+          <p>Three live cameras. With this browser tab focused, press <kbd>c</kbd> to start, <kbd>Space</kbd> to pause or resume, and <kbd>r</kbd> to return YAM to home and then to the ready state. The overlay is visual only.</p>
+        </div>
+        <div class="actions">
+          <span id="status" class="starting">Connecting…</span>
+          <button id="start" disabled>Start rollout <kbd>c</kbd></button>
+          <button id="pause" disabled>Pause rollout <kbd>Space</kbd></button>
+          <button id="restart" disabled>Reset YAM home <kbd>r</kbd></button>
+          <label class="overlay-toggle" for="overlay">
+            <input id="overlay" type="checkbox">
+            Show front action overlay
+          </label>
+          <button id="stop" class="stop">Stop rollout <kbd>q</kbd></button>
+        </div>
+      </header>
+      <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
+      <p id="inference-status" class="overlay-status">Inference: waiting for first plan</p>
+      <section id="velocity-decision" class="velocity-decision" hidden aria-live="assertive">
+        <strong>Joint velocity limit reached</strong>
+        <p id="velocity-detail"></p>
+        <div class="actions">
+          <button data-velocity-action="execute" class="warning">Execute once <kbd>e</kbd></button>
+          <button data-velocity-action="resample">Resample <kbd>s</kbd></button>
+          <button data-velocity-action="restart">Restart <kbd>r</kbd></button>
+        </div>
+      </section>
+      <section id="cameras" class="cameras" aria-label="Live rollout cameras"></section>
+      <div class="rollout-controls">
+        <label class="resample-control" for="execute-steps">
+          Resample every
+          <input id="execute-steps" type="number" min="1" max="100" step="1" disabled>
+          actions
+        </label>
+      </div>
+      <p class="notice">This dashboard binds to the station loopback interface only. Start, pause, and home requests are executed by the rollout loop; it has no direct arm or teleoperation control.</p>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

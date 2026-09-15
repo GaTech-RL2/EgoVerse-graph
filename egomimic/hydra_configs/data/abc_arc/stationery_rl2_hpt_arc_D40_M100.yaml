@@ -29,7 +29,7 @@ train_datasets:
           row['zarr_processed_path'] != '' and row['is_deleted'] == False and
           ((row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
             int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 721) or
-           (row['lab'] == 'rl2' and row['task'] == 'organize stationary'))
+           (row['lab'] == 'rl2' and row['task'] == 'organize_stationary'))
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -59,7 +59,7 @@ valid_datasets:
       filter_lambdas:
         - >-
           lambda row: row['embodiment'] == 'yam_bimanual' and
-          row['lab'] == 'rl2' and row['task'] == 'organize stationary' and
+          row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and
           row['zarr_processed_path'] != '' and row['is_deleted'] == False
     mode: valid
     valid_ratio: 0.2

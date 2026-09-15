@@ -17,6 +17,7 @@ from egomimic.robot.graph_policy import (
     GraphRobotPolicy,
     load_graph_policy,
     load_normalizer,
+    validate_graph_device,
 )
 from egomimic.robot.interface import pose_matrix
 from egomimic.robot.yam.kinematics import MujocoArmKinematics
@@ -73,6 +74,24 @@ class EchoStage(Stage):
         return batch
 
 
+class RetryStage(Stage):
+    reads = (PROPRIO,)
+    writes = ("pred_action",)
+
+    def __init__(self, valid_after):
+        super().__init__()
+        self.valid_after, self.calls = valid_after, 0
+
+    def forward(self, batch):
+        self.calls += 1
+        prediction = torch.zeros(1, 2, 14)
+        if self.calls < self.valid_after:
+            # The test normalizer maps 0.5 to a raw opening of 1.5.
+            prediction[..., [6, 13]] = 0.5
+        batch["pred_action"] = prediction
+        return batch
+
+
 def test_graph_normalizes_proprio_and_unnormalizes_actions_once():
     stage = EchoStage()
     policy = GraphRobotPolicy(
@@ -84,6 +103,47 @@ def test_graph_normalizes_proprio_and_unnormalizes_actions_once():
     torch.testing.assert_close(stage.seen[0].double(), expected, atol=1e-6, rtol=1e-6)
     np.testing.assert_allclose(result[:, [0, 7]], 0.1, atol=1e-6)
     np.testing.assert_allclose(result[:, [6, 13]], 0.5, atol=1e-6)
+
+
+def test_graph_policy_resamples_whole_invalid_plan_without_clamping_grippers():
+    stage = RetryStage(valid_after=2)
+    policy = GraphRobotPolicy(
+        PipelineAlgo([stage], device="cpu"),
+        normalizer(),
+        adapter(),
+        max_valid_samples=2,
+    )
+
+    result = policy.predict(FakeRobot().get_obs())
+
+    assert stage.calls == 2
+    np.testing.assert_allclose(result[:, [6, 13]], 0.5, atol=1e-6)
+
+
+def test_graph_adapter_clips_only_small_gripper_overshoots():
+    native = np.zeros((1, 1, 14))
+    native[0, 0, [6, 13]] = [-0.04, 1.04]
+
+    result = adapter(gripper_clip_tolerance=0.05).actions(native, FakeRobot().get_obs())
+
+    np.testing.assert_allclose(result[:, [6, 13]], [[0, 1]])
+    native[0, 0, 6] = -0.06
+    with pytest.raises(ValueError, match="gripper opening"):
+        adapter(gripper_clip_tolerance=0.05).actions(native, FakeRobot().get_obs())
+
+
+def test_graph_policy_never_commands_when_all_stochastic_samples_are_invalid():
+    stage = RetryStage(valid_after=3)
+    policy = GraphRobotPolicy(
+        PipelineAlgo([stage], device="cpu"),
+        normalizer(),
+        adapter(),
+        max_valid_samples=2,
+    )
+
+    with pytest.raises(ValueError, match="rejected all 2 sampled"):
+        policy.predict(FakeRobot().get_obs())
+    assert stage.calls == 2
 
 
 def test_observation_color_and_camera_keys_follow_training_contract():
@@ -158,6 +218,18 @@ def test_normalizer_export_roundtrip_and_incomplete_cache_rejection(tmp_path):
     old.write_text(json.dumps({"stats": {}}))
     with pytest.raises(ValueError, match="normalizer_state"):
         load_normalizer(old)
+
+
+def test_graph_policy_rejects_unsupported_cuda_before_model_or_robot_loading(
+    monkeypatch,
+):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda _index: (12, 0))
+    monkeypatch.setattr(torch.cuda, "get_arch_list", lambda: ["sm_90"])
+
+    with pytest.raises(RuntimeError, match="sm_120"):
+        validate_graph_device("cuda:0")
 
 
 def test_checkpoint_loading_is_strict_and_never_opens_training_datasets(tmp_path):

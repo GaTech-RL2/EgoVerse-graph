@@ -47,6 +47,40 @@ def load_normalizer(path):
     return normalizer
 
 
+def validate_graph_device(device: str) -> torch.device:
+    """Fail before robot construction when PyTorch cannot execute on a GPU."""
+    try:
+        target = torch.device(device)
+    except (RuntimeError, TypeError) as error:
+        raise ValueError(f"Invalid graph policy device: {device!r}") from error
+    if target.type != "cuda":
+        return target
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "Requested a CUDA graph policy device, but PyTorch reports no CUDA device"
+        )
+    index = 0 if target.index is None else target.index
+    if not 0 <= index < torch.cuda.device_count():
+        raise RuntimeError(f"Requested CUDA device {index}, but it is unavailable")
+    capability = torch.cuda.get_device_capability(index)
+    architecture = f"sm_{capability[0]}{capability[1]}"
+    supported = tuple(torch.cuda.get_arch_list())
+    if (
+        architecture not in supported
+        and f"compute_{capability[0]}{capability[1]}" not in supported
+    ):
+        supported_text = ", ".join(supported) or "none"
+        raise RuntimeError(
+            f"PyTorch cannot execute CUDA capability {architecture}; this build supports "
+            f"{supported_text}. Install a compatible PyTorch build before opening a robot."
+        )
+    return target
+
+
+class InvalidGraphActionSample(ValueError):
+    """A stochastic graph sample cannot be converted to a safe robot action."""
+
+
 class CartesianGraphAdapter:
     """Explicit camera keys, calibration and rotation layout from deployment YAML.
 
@@ -66,6 +100,7 @@ class CartesianGraphAdapter:
         action_key="actions_cartesian",
         prompt="",
         decoder=None,
+        gripper_clip_tolerance=0.0,
     ):
         if rotation_mode not in ("euler", "6D") or action_frame not in (
             "eef_frame",
@@ -85,6 +120,13 @@ class CartesianGraphAdapter:
         self.image_hw = tuple(int(x) for x in image_hw)
         if len(self.image_hw) != 2 or min(self.image_hw) <= 0:
             raise ValueError("image_hw must be two positive dimensions")
+        if not isinstance(gripper_clip_tolerance, (float, int)) or not np.isfinite(
+            gripper_clip_tolerance
+        ):
+            raise ValueError("gripper_clip_tolerance must be a finite number")
+        self.gripper_clip_tolerance = float(gripper_clip_tolerance)
+        if not 0 <= self.gripper_clip_tolerance <= 0.5:
+            raise ValueError("gripper_clip_tolerance must be in [0, 0.5]")
         self.prompt, self.decoder = prompt, decoder
 
     def observation(self, obs):
@@ -149,18 +191,25 @@ class CartesianGraphAdapter:
             for index, arm in enumerate(ARM_OFFSET):
                 half = width // 2
                 values = row[index * half : (index + 1) * half]
-                if not 0 <= values[-1] <= 1:
-                    raise ValueError("Predicted gripper opening is outside [0, 1]")
+                if (
+                    not -self.gripper_clip_tolerance
+                    <= values[-1]
+                    <= 1 + self.gripper_clip_tolerance
+                ):
+                    raise InvalidGraphActionSample(
+                        "Predicted gripper opening is outside [0, 1]"
+                    )
+                gripper = float(np.clip(values[-1], 0, 1))
                 if width == 14:
                     target = pose_matrix(values[:6])
                 else:
                     a, b = values[3:6].astype(float), values[6:9].astype(float)
                     if np.linalg.norm(a) < 1e-8:
-                        raise ValueError("Degenerate 6D rotation")
+                        raise InvalidGraphActionSample("Degenerate 6D rotation")
                     a /= np.linalg.norm(a)
                     b -= a * np.dot(a, b)
                     if np.linalg.norm(b) < 1e-8:
-                        raise ValueError("Degenerate 6D rotation")
+                        raise InvalidGraphActionSample("Degenerate 6D rotation")
                     b /= np.linalg.norm(b)
                     target = np.eye(4)
                     target[:3, 3] = values[:3]
@@ -170,7 +219,7 @@ class CartesianGraphAdapter:
                     if self.action_frame == "eef_frame"
                     else self.base_T_model[arm]
                 )
-                command.extend(np.r_[pose_vector(base @ target), values[-1]])
+                command.extend(np.r_[pose_vector(base @ target), gripper])
             actions.append(command)
         return np.asarray(actions, dtype=np.float64)
 
@@ -178,10 +227,13 @@ class CartesianGraphAdapter:
 class GraphRobotPolicy:
     action_type = "cartesian"
 
-    def __init__(self, graph, normalizer, adapter):
+    def __init__(self, graph, normalizer, adapter, max_valid_samples=1):
         if not isinstance(graph, PipelineAlgo):
             raise TypeError("Robot inference requires PipelineAlgo")
+        if type(max_valid_samples) is not int or not 1 <= max_valid_samples <= 16:
+            raise ValueError("max_valid_samples must be an integer in [1, 16]")
         self.graph, self.normalizer, self.adapter = graph, normalizer, adapter
+        self.max_valid_samples = max_valid_samples
         embodiment = adapter.embodiment_id
         if embodiment not in normalizer.embodiments:
             raise ValueError("Embodiment is absent from the training normalizer")
@@ -209,17 +261,30 @@ class GraphRobotPolicy:
             adapter.observation(obs), adapter.embodiment_id
         )
         batch = self.graph.process_batch_for_training({"robot": values})
-        prediction = self.graph.forward_eval(batch)["robot"]["pred_action"]
-        native = self.normalizer.unnormalize(
-            {adapter.action_key: prediction}, adapter.embodiment_id
-        )[adapter.action_key]
-        return adapter.actions(native, obs)
+        error = None
+        for _ in range(self.max_valid_samples):
+            prediction = self.graph.forward_eval(batch)["robot"]["pred_action"]
+            native = self.normalizer.unnormalize(
+                {adapter.action_key: prediction}, adapter.embodiment_id
+            )[adapter.action_key]
+            try:
+                return adapter.actions(native, obs)
+            except InvalidGraphActionSample as caught:
+                # HPT-Flow is stochastic. Reject the entire sampled plan rather
+                # than clamping one actuator, then ask the graph for a new plan.
+                error = caught
+        raise ValueError(
+            "Graph policy rejected all "
+            f"{self.max_valid_samples} sampled plan(s): {error}. "
+            "No robot command was issued."
+        )
 
 
 def load_graph_policy(config):
     normalizer = load_normalizer(config["normalizer_path"])
     training = OmegaConf.load(config["training_config"])
-    graph = instantiate(training.model.pipeline, device=str(config["device"]))
+    device = validate_graph_device(str(config["device"]))
+    graph = instantiate(training.model.pipeline, device=str(device))
     if not isinstance(graph, PipelineAlgo):
         raise TypeError("Robot inference requires a graph PipelineAlgo")
     graph.bind_data_context(normalizer=normalizer)
@@ -230,4 +295,9 @@ def load_graph_policy(config):
         graph, checkpoint, use_ema=bool(config.get("use_ema", False))
     )
     graph.nets.eval()
-    return GraphRobotPolicy(graph, normalizer, instantiate(config["adapter"]))
+    return GraphRobotPolicy(
+        graph,
+        normalizer,
+        instantiate(config["adapter"]),
+        max_valid_samples=config.get("max_valid_samples", 1),
+    )

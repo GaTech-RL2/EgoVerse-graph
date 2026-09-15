@@ -1,0 +1,51 @@
+:root {
+  color-scheme: dark;
+  font: 14px/1.45 system-ui, sans-serif;
+  background: #101317;
+  color: #dce3ed;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1920px; margin: auto; padding: 18px; }
+header { display: flex; justify-content: space-between; align-items: start; gap: 24px; margin-bottom: 12px; }
+h1 { margin: 4px 0; font-size: 27px; font-weight: 550; }
+p { margin: 0; color: #9aa8b8; }
+.eyebrow { font-size: 11px; letter-spacing: 2px; color: #8793a4; }
+.actions { display: flex; flex-wrap: wrap; justify-content: end; align-items: center; gap: 8px; max-width: 620px; }
+#status { display: inline-block; padding: 6px 10px; border: 1px solid #3a4655; border-radius: 6px; }
+.starting { background: #3c2630; border-color: #ec7977 !important; }
+.running { background: #1e513b; border-color: #80c9a0 !important; }
+.overlay-toggle { display: flex; gap: 7px; align-items: center; padding: 7px 10px; border: 1px solid #3a4655; border-radius: 6px; background: #191e25; color: #dce3ed; }
+.overlay-toggle input { accent-color: #80c9a0; }
+button { border: 1px solid #3a4655; background: #242e39; color: #dce3ed; border-radius: 5px; padding: 7px 10px; cursor: pointer; }
+button:hover, button:focus-visible { border-color: #8cb5ca; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+.stop { border-color: #ec7977; color: #ffe2e1; background: #5c2023; }
+kbd { font: inherit; font-size: 12px; padding: 1px 4px; border: 1px solid #667587; border-radius: 3px; background: #0d1116; }
+.overlay-status { margin: 12px 0; padding: 8px 10px; border-left: 3px solid #80c9a0; background: #171d24; }
+.cameras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-height: 60vh; }
+.camera { min-width: 0; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #2a323d; border-radius: 10px; background: #191e25; }
+.camera-head { display: flex; justify-content: space-between; gap: 8px; padding: 9px 12px; text-transform: capitalize; }
+.camera-head small { color: #80c9a0; }
+.camera.waiting small { color: #edb769; }
+.camera img { width: 100%; flex: 1; min-height: 0; object-fit: contain; background: #090c10; }
+.notice { margin-top: 14px; font-size: 12px; }
+
+.velocity-decision {
+  margin: 12px 0;
+  border: 1px solid #edb769;
+  border-radius: 8px;
+  background: #3c2a15;
+  color: #ffe2b4;
+  padding: 12px;
+}
+
+.velocity-decision p { margin: 5px 0 10px; color: #ffe2b4; }
+button.warning { border-color: #edb769; background: #7b4510; color: #fff0d1; }
+
+@media (max-width: 1000px) {
+  header { flex-direction: column; }
+  .actions { justify-content: start; }
+  .cameras { grid-template-columns: 1fr; }
+}

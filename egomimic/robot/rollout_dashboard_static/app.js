@@ -1,0 +1,137 @@
+const $ = id => document.getElementById(id);
+const cameras = new Map();
+let socket;
+let overlayCamera;
+
+function send(message) {
+  if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+}
+
+function stopRollout() {
+  if (confirm('Stop this rollout? The robot will follow the existing rollout shutdown path.')) {
+    send({stop: true});
+    $('stop').disabled = true;
+    $('stop').textContent = 'Stopping rollout…';
+  }
+}
+
+function startRollout() {
+  send({start: true});
+  $('start').disabled = true;
+  $('start').textContent = 'Starting…';
+}
+
+function restartRollout() {
+  send({restart: true});
+  $('start').disabled = false;
+  $('start').textContent = 'Start rollout (c)';
+}
+
+function chooseVelocityAction(action) {
+  send({velocity_action: action});
+  $('velocity-decision').hidden = true;
+}
+
+function configure(message) {
+  overlayCamera = message.overlay_camera;
+  cameras.clear();
+  $('cameras').replaceChildren();
+  for (const name of message.cameras) {
+    const card = document.createElement('article');
+    card.className = 'camera waiting';
+    const head = document.createElement('div');
+    head.className = 'camera-head';
+    const title = document.createElement('strong');
+    title.textContent = name.replaceAll('_', ' ');
+    const detail = document.createElement('small');
+    detail.textContent = name === overlayCamera ? 'Overlay-capable front view' : 'Live RGB';
+    const image = document.createElement('img');
+    image.alt = `${name} live RGB`;
+    image.draggable = false;
+    head.append(title, detail);
+    card.append(head, image);
+    $('cameras').append(card);
+    cameras.set(name, {card, detail, image});
+  }
+  $('overlay').checked = Boolean(message.overlay_enabled);
+  $('overlay').disabled = false;
+  $('start').disabled = !message.wait_for_start;
+  $('restart').disabled = false;
+}
+
+function frame(message) {
+  $('status').textContent = `${message.status} · camera update ${message.age_ms} ms ago`;
+  $('status').className = message.status === 'Running' ? 'running' : 'starting';
+  $('overlay-status').textContent = message.overlay_enabled
+    ? `${message.overlay_status} · showing on ${overlayCamera}`
+    : `${message.overlay_status} · overlay hidden`;
+  if ($('overlay').checked !== Boolean(message.overlay_enabled)) {
+    $('overlay').checked = Boolean(message.overlay_enabled);
+  }
+  for (const [name, tile] of cameras) {
+    const image = message.images[name];
+    if (image) {
+      tile.image.src = image;
+      tile.card.classList.remove('waiting');
+      tile.detail.textContent = name === overlayCamera && message.overlay_enabled
+        ? 'Cartesian action overlay' : 'Live RGB';
+    } else {
+      tile.card.classList.add('waiting');
+      tile.detail.textContent = 'Waiting for camera';
+    }
+  }
+  const prompt = message.velocity_prompt;
+  $('velocity-decision').hidden = !prompt;
+  if (prompt) {
+    $('velocity-detail').textContent = `${prompt.arms.join(' and ')} target step ${prompt.max_joint_step.toFixed(3)} rad exceeds ${prompt.limit.toFixed(3)} rad.`;
+  }
+}
+
+$('stop').onclick = stopRollout;
+$('start').onclick = startRollout;
+$('restart').onclick = restartRollout;
+for (const button of document.querySelectorAll('[data-velocity-action]')) {
+  button.onclick = () => chooseVelocityAction(button.dataset.velocityAction);
+}
+$('overlay').onchange = event => send({overlay: event.target.checked});
+document.onkeydown = event => {
+  if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.target instanceof HTMLInputElement) return;
+  if (event.key === 'q' || event.key === 'Q' || event.key === 'Escape') {
+    event.preventDefault();
+    stopRollout();
+  }
+  if (event.key === 'c' || event.key === 'C') {
+    event.preventDefault();
+    startRollout();
+  }
+  if (event.key === 'r' || event.key === 'R') {
+    event.preventDefault();
+    restartRollout();
+  }
+  if (event.key === 'e' || event.key === 'E') {
+    event.preventDefault();
+    chooseVelocityAction('execute');
+  }
+  if (event.key === 's' || event.key === 'S') {
+    event.preventDefault();
+    chooseVelocityAction('resample');
+  }
+};
+
+function connect() {
+  socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  socket.onopen = () => { $('status').textContent = 'Connected; waiting for rollout frames'; };
+  socket.onmessage = event => {
+    const message = JSON.parse(event.data);
+    if (message.type === 'config') configure(message);
+    if (message.type === 'frame') frame(message);
+  };
+  socket.onclose = () => {
+    $('status').textContent = 'Dashboard disconnected; retrying…';
+    $('status').className = 'starting';
+    setTimeout(connect, 1000);
+  };
+}
+
+connect();

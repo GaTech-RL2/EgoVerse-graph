@@ -1,0 +1,562 @@
+"""Loopback-only browser view for YAM rollout cameras and action overlays.
+
+This module deliberately exposes two controls only: stop the already-running
+rollout and toggle its visual overlay.  It cannot arm, home, or otherwise send
+robot commands; :mod:`egomimic.robot.rollout` remains the sole command path.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import threading
+import time
+import webbrowser
+from copy import deepcopy
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Mapping
+
+import numpy as np
+import yaml
+
+from egomimic.robot.interface import ARM_OFFSET
+
+DEFAULTS = {
+    "enabled": True,
+    "mode": "dashboard",
+    "width": 640,
+    "host": "127.0.0.1",
+    "port": 8081,
+    "open_browser": True,
+    "camera_hz": 12,
+    "jpeg_quality": 80,
+    "wait_for_start": False,
+    "action_overlay": {
+        "initial_enabled": False,
+        "camera": "front_img_1",
+        "calibration_path": None,
+        "arm_channels": None,
+    },
+}
+STATIC = Path(__file__).with_name("rollout_dashboard_static")
+
+
+def _require_bool(value: object, name: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(f"{name} must be a boolean")
+    return bool(value)
+
+
+def _matrix(value: object, name: str) -> np.ndarray:
+    matrix = np.asarray(value, dtype=float)
+    if matrix.shape != (4, 4) or not np.isfinite(matrix).all():
+        raise ValueError(f"{name} must be a finite 4x4 matrix")
+    if not np.allclose(matrix[3], [0, 0, 0, 1], atol=1e-8):
+        raise ValueError(f"{name} must be a homogeneous rigid transform")
+    return matrix
+
+
+@dataclass(frozen=True)
+class ActionOverlay:
+    """Projection parameters for physical Cartesian YAM action plans."""
+
+    camera: str
+    intrinsics: np.ndarray
+    distortion: np.ndarray
+    camera_T_base: dict[str, np.ndarray]
+
+    def _project(
+        self, points_base: np.ndarray, arm: str
+    ) -> tuple[np.ndarray, np.ndarray]:
+        import cv2
+
+        points_base = np.asarray(points_base, dtype=float)
+        if points_base.ndim != 2 or points_base.shape[1] != 3:
+            raise ValueError("Action-overlay points must have shape (N, 3)")
+        points_h = np.c_[points_base, np.ones(len(points_base))]
+        points_camera = (self.camera_T_base[arm] @ points_h.T).T[:, :3]
+        visible = np.isfinite(points_camera).all(axis=1) & (points_camera[:, 2] > 0.02)
+        pixels = np.full((len(points_base), 2), np.nan, dtype=float)
+        if np.any(visible):
+            projected, _ = cv2.projectPoints(
+                points_camera[visible].reshape(-1, 1, 3),
+                np.zeros(3),
+                np.zeros(3),
+                self.intrinsics,
+                self.distortion,
+            )
+            pixels[visible] = projected.reshape(-1, 2)
+        return pixels, visible
+
+    @staticmethod
+    def _draw_path(
+        image: np.ndarray, pixels: np.ndarray, visible: np.ndarray, color, label: str
+    ) -> None:
+        import cv2
+
+        height, width = image.shape[:2]
+        start = 0
+        for index in range(len(pixels) + 1):
+            if index < len(pixels) and visible[index]:
+                continue
+            segment = pixels[start:index]
+            if len(segment):
+                points = np.round(segment).astype(np.int32)
+                if len(points) > 1:
+                    cv2.polylines(image, [points], False, color, 2, cv2.LINE_AA)
+                x, y = points[0]
+                if 0 <= x < width and 0 <= y < height:
+                    cv2.circle(image, (x, y), 5, color, -1, cv2.LINE_AA)
+                    cv2.putText(
+                        image,
+                        label,
+                        (x + 7, max(14, y - 7)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.48,
+                        color,
+                        1,
+                        cv2.LINE_AA,
+                    )
+            start = index + 1
+
+    def draw(self, image: np.ndarray, actions: np.ndarray) -> np.ndarray:
+        """Draw a Cartesian plan on a BGR top-camera frame without changing it."""
+        image = np.asarray(image)
+        actions = np.asarray(actions, dtype=float)
+        if image.ndim != 3 or image.shape[-1] != 3 or image.dtype != np.uint8:
+            raise ValueError("Action-overlay image must be a uint8 HxWx3 BGR frame")
+        if (
+            actions.ndim != 2
+            or actions.shape[1] != 14
+            or not len(actions)
+            or not np.isfinite(actions).all()
+        ):
+            raise ValueError(
+                "Action-overlay plan must be a nonempty finite (H, 14) array"
+            )
+        output = image.copy()
+        for arm, color, label in (
+            ("left", (0, 190, 255), "left"),
+            ("right", (255, 185, 80), "right"),
+        ):
+            offset = ARM_OFFSET[arm]
+            pixels, visible = self._project(actions[:, offset : offset + 3], arm)
+            self._draw_path(output, pixels, visible, color, label)
+        return output
+
+
+def load_action_overlay(
+    config: Mapping[str, object], cameras: set[str] | None = None
+) -> ActionOverlay:
+    """Load the pinned overhead-camera calibration without opening a device."""
+    options = dict(config)
+    expected = {"initial_enabled", "camera", "calibration_path", "arm_channels"}
+    unknown = options.keys() - expected
+    if unknown:
+        raise ValueError(
+            f"Unknown preview.action_overlay option(s): {', '.join(sorted(unknown))}"
+        )
+    if not _require_bool(
+        options.get("initial_enabled"), "preview.action_overlay.initial_enabled"
+    ):
+        # The calibration is still required: the browser can turn the overlay on later.
+        pass
+    camera = options.get("camera")
+    if not isinstance(camera, str) or not camera:
+        raise ValueError("preview.action_overlay.camera must be a nonempty camera name")
+    if cameras is not None and camera not in cameras:
+        raise ValueError(
+            "preview.action_overlay.camera is not a configured rollout camera"
+        )
+    path = options.get("calibration_path")
+    if not isinstance(path, str) or not path:
+        raise ValueError("preview.action_overlay.calibration_path is required")
+    arm_channels = options.get("arm_channels")
+    if not isinstance(arm_channels, Mapping) or set(arm_channels) != set(ARM_OFFSET):
+        raise ValueError(
+            "preview.action_overlay.arm_channels must map exactly left/right"
+        )
+    if not all(
+        isinstance(channel, str) and channel for channel in arm_channels.values()
+    ):
+        raise ValueError("preview.action_overlay.arm_channels values must be nonempty")
+
+    try:
+        payload = yaml.safe_load(Path(path).read_text())
+    except OSError as error:
+        raise ValueError(
+            f"Could not read action-overlay calibration: {path}"
+        ) from error
+    if not isinstance(payload, Mapping):
+        raise ValueError("Action-overlay calibration must be a YAML mapping")
+    if payload.get("convention") != "point_base = base_T_camera @ point_camera":
+        raise ValueError("Action-overlay calibration convention is unsupported")
+    intrinsics = np.asarray(payload.get("K"), dtype=float)
+    distortion = np.asarray(payload.get("dist"), dtype=float).reshape(-1)
+    if intrinsics.shape != (3, 3) or not np.isfinite(intrinsics).all():
+        raise ValueError("Action-overlay calibration K must be a finite 3x3 matrix")
+    if distortion.shape not in ((4,), (5,), (8,)) or not np.isfinite(distortion).all():
+        raise ValueError(
+            "Action-overlay calibration dist must have 4, 5, or 8 finite values"
+        )
+    channels = payload.get("channels")
+    if not isinstance(channels, Mapping):
+        raise ValueError("Action-overlay calibration has no channel transforms")
+    camera_T_base = {}
+    for arm, channel in arm_channels.items():
+        entry = channels.get(channel)
+        if not isinstance(entry, Mapping):
+            raise ValueError(
+                f"Action-overlay calibration has no transform for {arm}/{channel}"
+            )
+        base_T_camera = _matrix(entry.get("base_T_camera"), f"{arm}.base_T_camera")
+        camera_T_base[arm] = np.linalg.inv(base_T_camera)
+    return ActionOverlay(camera, intrinsics, distortion, camera_T_base)
+
+
+def validate_rollout_preview(
+    config: Mapping[str, object] | None, cameras: set[str] | None = None
+) -> tuple[dict, ActionOverlay]:
+    """Validate browser/overlay settings before the robot factory is called."""
+    config = {} if config is None else dict(config)
+    unknown = config.keys() - DEFAULTS.keys()
+    if unknown:
+        raise ValueError(f"Unknown preview option(s): {', '.join(sorted(unknown))}")
+    result = {**deepcopy(DEFAULTS), **config}
+    for name in ("enabled", "open_browser", "wait_for_start"):
+        _require_bool(result[name], f"preview.{name}")
+    if result["mode"] != "dashboard":
+        raise ValueError("preview.mode must be `dashboard`")
+    if result["host"] not in ("127.0.0.1", "localhost", "::1"):
+        raise ValueError("The rollout dashboard must bind only to loopback")
+    for name, lower, upper in (
+        ("width", 160, 1280),
+        ("port", 1024, 65535),
+        ("camera_hz", 1, 30),
+        ("jpeg_quality", 1, 100),
+    ):
+        value = result[name]
+        if type(value) is not int or not lower <= value <= upper:
+            raise ValueError(f"preview.{name} must be an integer in [{lower}, {upper}]")
+    action_overlay = result["action_overlay"]
+    if not isinstance(action_overlay, Mapping):
+        raise ValueError("preview.action_overlay must be a mapping")
+    overlay = load_action_overlay(action_overlay, cameras=cameras)
+    result["action_overlay"] = dict(action_overlay)
+    return result, overlay
+
+
+def _jpeg_data_url(frame: np.ndarray, width: int, quality: int) -> str:
+    import cv2
+
+    if frame.ndim != 3 or frame.shape[2] != 3 or frame.dtype != np.uint8:
+        raise ValueError("Camera frame must be a uint8 HxWx3 BGR image")
+    height, original_width = frame.shape[:2]
+    if not height or not original_width:
+        raise ValueError("Camera frame must be nonempty")
+    scale = min(1.0, width / original_width)
+    if scale < 1.0:
+        frame = cv2.resize(
+            frame,
+            (round(original_width * scale), round(height * scale)),
+            interpolation=cv2.INTER_AREA,
+        )
+    ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    if not ok:
+        raise RuntimeError("Could not JPEG-encode camera frame")
+    return "data:image/jpeg;base64," + base64.b64encode(encoded).decode("ascii")
+
+
+class RolloutDashboard:
+    """Three-camera rollout view with a display-only Cartesian action overlay."""
+
+    def __init__(self, cameras, **config) -> None:
+        self.cameras = tuple(cameras)
+        if not self.cameras:
+            raise ValueError("The rollout dashboard needs at least one camera")
+        self.config, self.overlay = validate_rollout_preview(config, set(self.cameras))
+        if not self.config["enabled"]:
+            raise ValueError(
+                "preview.enabled must be true when preview.mode is dashboard"
+            )
+        self._frames: dict[str, np.ndarray] = {}
+        self._plan: np.ndarray | None = None
+        self._overlay_status = "Waiting for a Cartesian graph plan"
+        self._overlay_enabled = self.config["action_overlay"]["initial_enabled"]
+        self._wait_for_start = self.config["wait_for_start"]
+        self._status = (
+            "Ready — press c to start" if self._wait_for_start else "Starting"
+        )
+        self._updated_at = 0.0
+        self._clients = 0
+        self._lock = threading.Lock()
+        self._quit_requested = threading.Event()
+        self._start_requested = threading.Event()
+        self._restart_requested = threading.Event()
+        self._velocity_decision_ready = threading.Event()
+        self._velocity_prompt: dict | None = None
+        self._velocity_decision: str | None = None
+        if not self._wait_for_start:
+            self._start_requested.set()
+        self._shutdown = threading.Event()
+        self._ready = threading.Event()
+        self._error: Exception | None = None
+        self._thread = threading.Thread(
+            target=self._run, name="yam_rollout_dashboard", daemon=True
+        )
+        self._thread.start()
+        if not self._ready.wait(timeout=5):
+            self.close()
+            raise RuntimeError("Timed out starting local rollout dashboard")
+        if self._error is not None:
+            self.close()
+            raise RuntimeError(
+                f"Could not start local rollout dashboard: {self._error}"
+            )
+        host = self.config["host"]
+        url_host = f"[{host}]" if ":" in host else host
+        self.url = f"http://{url_host}:{self.config['port']}"
+        print(f"Rollout dashboard: {self.url}")
+        if self.config["open_browser"]:
+            threading.Thread(
+                target=webbrowser.open, args=(self.url,), daemon=True
+            ).start()
+
+    def set_status(self, status: str) -> None:
+        with self._lock:
+            self._status = str(status)
+
+    def request_start(self) -> None:
+        """Begin policy control on the rollout loop's next safe tick."""
+        self._start_requested.set()
+
+    def request_restart(self) -> None:
+        """Return to ready state and discard any displayed action plan."""
+        self._start_requested.clear()
+        self._restart_requested.set()
+
+    def clear_action_plan(self) -> None:
+        """Remove the display-only overlay after a restart."""
+        with self._lock:
+            self._plan = None
+            self._overlay_status = "Waiting for a Cartesian graph plan"
+
+    def choose_velocity_action(self, details) -> str:
+        """Wait for an explicit dashboard decision before an unsafe plan runs."""
+        prompt = {
+            "arms": list(details["arms"]),
+            "max_joint_step": float(details["max_joint_step"]),
+            "limit": float(details["limit"]),
+        }
+        with self._lock:
+            self._velocity_prompt = prompt
+            self._velocity_decision = None
+            self._status = "Velocity limit reached — choose an action"
+            self._velocity_decision_ready.clear()
+        while not self._shutdown.is_set():
+            if self._quit_requested.is_set():
+                return "stop"
+            if self._restart_requested.is_set():
+                self._restart_requested.clear()
+                return "restart"
+            if self._velocity_decision_ready.wait(timeout=0.1):
+                with self._lock:
+                    decision = self._velocity_decision
+                    self._velocity_prompt = None
+                    self._velocity_decision = None
+                    self._velocity_decision_ready.clear()
+                if decision is not None:
+                    return decision
+        return "stop"
+
+    def set_action_plan(self, actions: np.ndarray, action_type: str) -> None:
+        """Publish a plan for drawing only; it never changes the command queue."""
+        with self._lock:
+            if action_type != "cartesian":
+                self._plan = None
+                self._overlay_status = (
+                    "Action overlay is available for Cartesian graph policies"
+                )
+                return
+            actions = np.asarray(actions, dtype=float)
+            if (
+                actions.ndim != 2
+                or actions.shape[1] != 14
+                or not len(actions)
+                or not np.isfinite(actions).all()
+            ):
+                self._plan = None
+                self._overlay_status = "No finite Cartesian action plan is available"
+                return
+            self._plan = actions.copy()
+            self._overlay_status = "Cartesian action plan"
+
+    def update(self, obs) -> str | None:
+        """Publish observations and return the existing quit key, if requested."""
+        with self._lock:
+            self._status = (
+                "Running"
+                if self._start_requested.is_set()
+                else "Ready — press c to start"
+            )
+            if self._clients:
+                self._frames = {
+                    name: np.ascontiguousarray(frame).copy()
+                    for name in self.cameras
+                    if (frame := obs.get(name)) is not None
+                }
+                self._updated_at = time.monotonic()
+        if self._quit_requested.is_set():
+            return "q"
+        if self._restart_requested.is_set():
+            self._restart_requested.clear()
+            return "r"
+        return "c" if self._start_requested.is_set() else None
+
+    def close(self) -> None:
+        self._shutdown.set()
+        if self._thread.is_alive():
+            self._thread.join(timeout=3)
+
+    def _snapshot(self) -> dict:
+        with self._lock:
+            return {
+                "frames": self._frames.copy(),
+                "plan": None if self._plan is None else self._plan.copy(),
+                "overlay_enabled": self._overlay_enabled,
+                "overlay_status": self._overlay_status,
+                "status": self._status,
+                "updated_at": self._updated_at,
+                "velocity_prompt": (
+                    None
+                    if self._velocity_prompt is None
+                    else self._velocity_prompt.copy()
+                ),
+            }
+
+    def _run(self) -> None:
+        try:
+            asyncio.run(self._serve())
+        except Exception as error:
+            self._error = error
+            self._ready.set()
+
+    async def _serve(self) -> None:
+        from aiohttp import web
+
+        clients: set[web.WebSocketResponse] = set()
+
+        async def index(_request):
+            return web.FileResponse(
+                STATIC / "index.html", headers={"Cache-Control": "no-cache"}
+            )
+
+        async def asset(request):
+            path = STATIC / request.match_info["name"]
+            if not path.is_file() or path.parent != STATIC:
+                raise web.HTTPNotFound()
+            return web.FileResponse(path, headers={"Cache-Control": "no-cache"})
+
+        async def websocket(request):
+            ws = web.WebSocketResponse(heartbeat=10, max_msg_size=1024)
+            await ws.prepare(request)
+            clients.add(ws)
+            with self._lock:
+                self._clients = len(clients)
+                overlay_enabled = self._overlay_enabled
+            await ws.send_json(
+                {
+                    "type": "config",
+                    "cameras": self.cameras,
+                    "overlay_camera": self.overlay.camera,
+                    "overlay_enabled": overlay_enabled,
+                    "wait_for_start": self._wait_for_start,
+                }
+            )
+            try:
+                async for message in ws:
+                    if message.type.name != "TEXT":
+                        continue
+                    try:
+                        command = json.loads(message.data)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(command, Mapping):
+                        continue
+                    if command.get("stop") is True:
+                        self._quit_requested.set()
+                    if command.get("start") is True:
+                        self.request_start()
+                    if command.get("restart") is True:
+                        self.request_restart()
+                    decision = command.get("velocity_action")
+                    if decision in {"execute", "resample", "restart"}:
+                        with self._lock:
+                            if self._velocity_prompt is not None:
+                                self._velocity_decision = decision
+                                self._velocity_decision_ready.set()
+                    if type(command.get("overlay")) is bool:
+                        with self._lock:
+                            self._overlay_enabled = command["overlay"]
+            finally:
+                clients.discard(ws)
+                with self._lock:
+                    self._clients = len(clients)
+            return ws
+
+        @web.middleware
+        async def loopback_only(request, handler):
+            if request.remote not in {"127.0.0.1", "::1"}:
+                raise web.HTTPForbidden()
+            return await handler(request)
+
+        app = web.Application(middlewares=[loopback_only])
+        app.router.add_get("/", index)
+        app.router.add_get("/{name:app.js|style.css}", asset)
+        app.router.add_get("/ws", websocket)
+        runner = web.AppRunner(app, access_log=None)
+        await runner.setup()
+        await web.TCPSite(runner, self.config["host"], self.config["port"]).start()
+        self._ready.set()
+        next_frame = 0.0
+        try:
+            while not self._shutdown.is_set():
+                now = time.monotonic()
+                if clients and now >= next_frame:
+                    snapshot = self._snapshot()
+                    images = {}
+                    for name, frame in snapshot["frames"].items():
+                        try:
+                            if (
+                                name == self.overlay.camera
+                                and snapshot["overlay_enabled"]
+                                and snapshot["plan"] is not None
+                            ):
+                                frame = self.overlay.draw(frame, snapshot["plan"])
+                            images[name] = _jpeg_data_url(
+                                frame,
+                                self.config["width"],
+                                self.config["jpeg_quality"],
+                            )
+                        except (RuntimeError, ValueError):
+                            continue
+                    message = {
+                        "type": "frame",
+                        "images": images,
+                        "status": snapshot["status"],
+                        "overlay_enabled": snapshot["overlay_enabled"],
+                        "overlay_status": snapshot["overlay_status"],
+                        "age_ms": round(max(0.0, now - snapshot["updated_at"]) * 1000),
+                        "velocity_prompt": snapshot["velocity_prompt"],
+                    }
+                    for client in tuple(clients):
+                        if not client.closed:
+                            await client.send_json(message)
+                    next_frame = now + 1 / self.config["camera_hz"]
+                await asyncio.sleep(0.01)
+        finally:
+            for client in tuple(clients):
+                await client.close()
+            await runner.cleanup()

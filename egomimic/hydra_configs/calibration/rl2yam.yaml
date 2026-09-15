@@ -1,3 +1,10 @@
+# Exact RL2 station calibration from yam-pipeline 1b1f9b12, captured
+# 2026-09-02 with top D405 230322272195. The 3x3 source K is padded to the
+# 3x4 projection-matrix schema used by EgoVerse.
+source_repository: GaTech-RL2/yam-pipeline
+source_revision: 1b1f9b12d300a41872b8a8c6c04f0c9f5f892f88
+camera_serial: '230322272195'
+convention: point_base = base_T_camera @ point_camera
 extrinsics:
   left:
   - - 0.008031593763524247
@@ -34,15 +41,21 @@ extrinsics:
     - 0.0
     - 1.0
 intrinsics:
-- - 436.26
+- - 391.49578857421875
   - 0.0
-  - 310.1
+  - 317.7837829589844
   - 0.0
 - - 0.0
-  - 435.13
-  - 241.93
+  - 391.04693603515625
+  - 238.3794708251953
   - 0.0
 - - 0.0
   - 0.0
   - 1.0
   - 0.0
+distortion:
+- -0.05479202792048454
+- 0.0614810511469841
+- 0.0002200552698923275
+- 0.0005347164697013795
+- -0.02069753222167492

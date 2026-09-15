@@ -1,8 +1,16 @@
 # oculus_reader
 
-This repository provides the tool to read the position and pressed button from the Oculus Quest device.
+This vendored reader provides controller poses and button state from an Oculus
+Quest. EgoVerse uses the world-frame RAIL/Yam APK from
+`rohan-bansal/rohan-gello` commit
+`e23154aa625fea10d934ffcec6c72c31db95da29`; see
+[`oculus_reader/APK/PROVENANCE.md`](oculus_reader/APK/PROVENANCE.md) for the
+artifact hash and source path.
 
-Oculus reader consits of two elements: python script which receives the readings from the APK and the APK itself. Currently the pose of the controllers and pressed buttons are transfered from the APK. This behavior can be extended using provided APK [source code](app_source).
+The reader has two elements: the Python receiver and the APK. The bundled build
+publishes controller poses in the Quest tracking-origin/world frame under the
+`wE9ryARX` tag. The matching [APK source](app_source) is included for auditing
+and future changes.
 
 ## Clone the repository
 

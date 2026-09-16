@@ -23,9 +23,7 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - >-
-          lambda row: row['embodiment'] == 'yam_bimanual' and
-            row['zarr_processed_path'] != '' and row['is_deleted'] == False and
-            (row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers')
+          lambda row: row["embodiment"] == "yam_bimanual" and row["zarr_processed_path"] != "" and row["is_deleted"] == False and row["lab"] == "abc" and row["task"] == "sort the stationery into containers"
     bounds_check: false
 
 valid_datasets:
@@ -51,9 +49,7 @@ valid_datasets:
         - >-
           lambda row: row['embodiment'] == 'yam_bimanual' and
           row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
-          row['zarr_processed_path'] != '' and row['is_deleted'] == False
-    mode: valid
-    valid_ratio: 0.2
+          lambda row: row["embodiment"] == "yam_bimanual" and row["zarr_processed_path"] != "" and row["is_deleted"] == False and row["lab"] == "abc" and row["task"] == "sort the stationery into containers"
     bounds_check: false
 
 train_dataloader_params:

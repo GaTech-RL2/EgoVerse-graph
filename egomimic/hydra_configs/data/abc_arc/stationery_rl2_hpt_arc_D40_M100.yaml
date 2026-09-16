@@ -25,9 +25,7 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - >-
-          lambda row: row['embodiment'] == 'yam_bimanual' and
-            row['zarr_processed_path'] != '' and row['is_deleted'] == False and
-            (row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers')
+          lambda row: row["embodiment"] == "yam_bimanual" and row["zarr_processed_path"] != "" and row["is_deleted"] == False and row["lab"] == "abc" and row["task"] == "sort the stationery into containers"
     bounds_check: false
 
 valid_datasets:
@@ -56,10 +54,7 @@ valid_datasets:
         - >-
           lambda row: row['embodiment'] == 'yam_bimanual' and
           row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
-          row['zarr_processed_path'] != '' and row['is_deleted'] == False
-          row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
-          row['zarr_processed_path'] != '' and row['is_deleted'] == False
-    bounds_check: false
+          lambda row: row["embodiment"] == "yam_bimanual" and row["zarr_processed_path"] != "" and row["is_deleted"] == False and row["lab"] == "abc" and row["task"] == "sort the stationery into containers"
 
 train_dataloader_params:
   yam_bimanual: {batch_size: 32, num_workers: 6}

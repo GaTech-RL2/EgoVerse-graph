@@ -67,13 +67,31 @@ def pull(jobs: list[str], dest: str, env: dict) -> None:
             env=env, capture_output=True, text=True, timeout=600)
 
 
-def load(dest: str) -> dict:
-    rows: dict = collections.defaultdict(dict)
+EXPECTED_EPISODES = 40
+
+
+def load(dest: str, expected: int = EXPECTED_EPISODES) -> dict:
+    """Merge seed-window chunks back into one row per arm x embodiment.
+
+    A heavy embodiment cannot finish 40 episodes inside the window this pool
+    leaves between preemptions, so the launcher scores it in chunks of
+    CHUNK_EPISODES with a shifted evaluator.seed_base. Every episode is
+    independent -- the evaluator does env.reset(seed=seed_base+i) and nothing
+    carries across -- so seeds 0..39 scored in four chunks are the SAME forty
+    episodes as one pass, and merging is exact rather than an approximation.
+
+    Keyed on the seed_base inside each SUMMARY, not on the filename, so a
+    renamed or hand-copied log still lands in the right window.
+    """
+    # (arm, emb) -> seed -> coverage, plus one representative summary
+    seeds: dict = collections.defaultdict(dict)
+    meta: dict = {}
     for path in glob.glob(os.path.join(dest, "*", "*.log")):
         name = os.path.basename(path)[:-4]
         if "__" not in name:
             continue
         arm, emb = name.split("__", 1)
+        emb = emb.split("__s")[0]          # drop the __s<base>n<count> suffix
         arm = arm.replace("artic_cotrain7_", "").replace("_R26deg", "")
         text = open(path, errors="ignore").read()
         for m in re.finditer(r"SUMMARY (\{.*\})", text):
@@ -81,9 +99,30 @@ def load(dest: str) -> dict:
                 d = json.loads(m.group(1))
             except json.JSONDecodeError:
                 continue
-            # Skip the one-episode smoke rows; only the real pass counts.
-            if d.get("episodes", 0) >= 2:
-                rows[arm][emb] = d
+            cov = d.get("ep_coverages")
+            if not cov:
+                continue
+            base = int(d.get("seed_base", 0))
+            # A 1-episode run at seed_base 0 is the smoke probe, not a chunk.
+            if len(cov) == 1 and base == 0 and expected > 1:
+                continue
+            for i, v in enumerate(cov):
+                seeds[(arm, emb)][base + i] = float(v)
+            meta[(arm, emb)] = d
+
+    rows: dict = collections.defaultdict(dict)
+    for (arm, emb), by_seed in seeds.items():
+        got = sorted(by_seed)
+        arr = [by_seed[k] for k in got]
+        n = len(arr)
+        d = dict(meta[(arm, emb)])
+        d["episodes"] = n
+        d["seeds_present"] = got
+        d["complete"] = (got == list(range(expected)))
+        d["peak_coverage_mean"] = sum(arr) / n
+        d["SR@0.80"] = sum(1 for v in arr if v >= 0.80) / n
+        d["SR@0.95"] = sum(1 for v in arr if v >= 0.95) / n
+        rows[arm][emb] = d
     return rows
 
 
@@ -97,16 +136,30 @@ def table(rows: dict, csv_path: str | None) -> None:
         print(title)
         print(f"{'embodiment':16s}" + "".join(f"{LABEL.get(a, a):>9s}" for a in arms)
               + "   role")
+        def one(a, e):
+            if e not in rows[a]:
+                return f"{'--':>9s}"
+            d = rows[a][e]
+            # A partial cell is still only part of the 40 seeds; marking it
+            # keeps a 10-seed row from being read as a finished result.
+            txt = format(d[field], fmt.replace("9", "8"))
+            return txt + (" " if d.get("complete", True) else "*")
+
         for e in embs:
-            cells = "".join(
-                format(rows[a][e][field], fmt) if e in rows[a] else f"{'--':>9s}"
-                for a in arms)
+            cells = "".join(one(a, e) for a in arms)
             print(f"{e:16s}{cells}   "
                   f"{'HELD-OUT' if e in HELD_OUT else 'in-domain'}")
         print()
 
     grid("PEAK COVERAGE", "peak_coverage_mean", "9.3f")
     grid("SR@0.80", "SR@0.80", "9.3f")
+    partial = [(LABEL.get(a, a), e, len(rows[a][e].get("seeds_present", [])))
+               for a in arms for e in rows[a] if not rows[a][e].get("complete", True)]
+    if partial:
+        print("* PARTIAL, fewer than "
+              f"{EXPECTED_EPISODES} seeds: "
+              + ", ".join(f"{a}/{e} ({n})" for a, e, n in sorted(partial)))
+        print()
 
     # Aggregate only over embodiments every arm has, so a mean is never
     # inflated by an arm that happens to hold an easy cell nobody else has.

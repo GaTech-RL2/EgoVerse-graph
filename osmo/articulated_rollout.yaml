@@ -57,6 +57,13 @@ workflow:
       # 24 shards x 125 = 3000 per cell. Lower it to iterate on the eval path
       # without paying a 30-minute staging cycle for every attempt.
       SHARDS_PER_CELL: "{{shards_per_cell}}"
+      # Episodes per invocation. A heavy embodiment has a ~4800-frame
+      # budget against ~640 for a light one, so a 40-episode cell runs
+      # ~3.5 h -- far past the ~90 min this pool leaves between
+      # preemptions. Each episode is independent (env.reset(seed=N)),
+      # so seeds 0..39 split into chunks give bit-identical episodes;
+      # only the grouping changes.
+      CHUNK_EPISODES: "10"
       SAMPLER_STEPS: "100"
       TSIM_VERSION: sim_v2
       SDL_VIDEODRIVER: dummy
@@ -347,7 +354,13 @@ workflow:
 
         # ---------------------------------------------- score every pair
         run_one () {
-          local EXP=$1 EMB=$2 NEPS=$3 TAG=$4
+          local EXP=$1 EMB=$2 NEPS=$3 TAG=$4 SB=${5:-0}
+          # Rollout artefacts carry the seed window so chunks never collide;
+          # smoke keeps the bare name the error readout greps for.
+          local SFX=""
+          if [ "$TAG" = rollout ]; then SFX="__s${SB}n${NEPS}"; fi
+          local LOG="/tmp/${TAG}_${EXP}_${EMB}${SFX}.log"
+          local KEY="${EXP}__${EMB}${SFX}.log"
           local ND=4
           case " $THREE_DOF " in *" $EMB "*) ND=3;; esac
           local HELD=in-domain
@@ -355,15 +368,15 @@ workflow:
           # A single GET, not a list: listing an empty R2 prefix takes minutes
           # of retries, while a miss on one key fails immediately.
           if [ "$TAG" = rollout ]; then
-            if $S5 cp "$POOL/${EXP}__${EMB}.log" "/tmp/pooled_${EXP}_${EMB}.log" >/dev/null 2>&1; then
-              if grep -q '\[sim\] SUMMARY' "/tmp/pooled_${EXP}_${EMB}.log"; then
-                echo "=== SKIP $EXP x $EMB (already in pool)"
-                $S5 cp "/tmp/pooled_${EXP}_${EMB}.log" "$DEST/cells/${EXP}__${EMB}.log" >/dev/null 2>&1 || true
+            if $S5 cp "$POOL/$KEY" "/tmp/pooled_$KEY" >/dev/null 2>&1; then
+              if grep -q '\[sim\] SUMMARY' "/tmp/pooled_$KEY"; then
+                echo "=== SKIP $EXP x $EMB seeds $SB..$((SB+NEPS-1)) (already in pool)"
+                $S5 cp "/tmp/pooled_$KEY" "$DEST/cells/$KEY" >/dev/null 2>&1 || true
                 return 0
               fi
             fi
           fi
-          echo "=== $TAG  $EXP  x  $EMB  ($HELD, native_action_dim=$ND)"
+          echo "=== $TAG  $EXP  x  $EMB  seeds $SB..$((SB+NEPS-1))  ($HELD, native_action_dim=$ND)"
           # ~evaluator.native_decoders and ~semantic_blocks: those belong to the
           # training evaluator. SimRolloutPlanarEval scores ONE embodiment and
           # takes a single decoder, so passing the seven-domain map is a
@@ -387,25 +400,24 @@ workflow:
             evaluator.budget_path="/workspace/budgets/${EMB}.json" \
             evaluator.embodiment_name="pushshapes_sim_${EMB}" \
             evaluator.n_episodes="$NEPS" \
+            evaluator.seed_base="$SB" \
             evaluator.replan_every="$REPLAN_EVERY" \
             evaluator.chunk_start="$CHUNK_START" \
             evaluator.expected_sampler_steps="$SAMPLER_STEPS" \
             launch_params.gpus_per_node=1 \
             trainer.limit_val_batches=1 trainer.num_sanity_val_steps=0 \
-            '~logger' name="${TAG}_${EXP}_${EMB}" \
-            > "/tmp/${TAG}_${EXP}_${EMB}.log" 2>&1 \
-            || { echo "FAILED: $EXP x $EMB"; grep -E '\[sim\]|Error|Traceback' "/tmp/${TAG}_${EXP}_${EMB}.log" | tail -25; return 1; }
-          grep -E '\[sim\] SUMMARY' "/tmp/${TAG}_${EXP}_${EMB}.log" || true
+            '~logger' name="${TAG}_${EXP}_${EMB}${SFX}" \
+            > "$LOG" 2>&1 \
+            || { echo "FAILED: $EXP x $EMB seeds $SB..$((SB+NEPS-1))"; grep -E '\[sim\]|Error|Traceback' "$LOG" | tail -25; return 1; }
+          grep -E '\[sim\] SUMMARY' "$LOG" || true
           # Push this cell's result immediately. A job that is preempted after
           # six of nine embodiments should still have those six banked.
           if [ "$TAG" = rollout ]; then
-            $S5 cp "/tmp/${TAG}_${EXP}_${EMB}.log" \
-              "$DEST/cells/${EXP}__${EMB}.log" >/dev/null 2>&1 || true
+            $S5 cp "$LOG" "$DEST/cells/$KEY" >/dev/null 2>&1 || true
             # Only a cell that actually produced a summary goes in the pool; a
             # truncated log banked here would be skipped forever.
-            if grep -q '\[sim\] SUMMARY' "/tmp/${TAG}_${EXP}_${EMB}.log"; then
-              $S5 cp "/tmp/${TAG}_${EXP}_${EMB}.log" \
-                "$POOL/${EXP}__${EMB}.log" >/dev/null 2>&1 || true
+            if grep -q '\[sim\] SUMMARY' "$LOG"; then
+              $S5 cp "$LOG" "$POOL/$KEY" >/dev/null 2>&1 || true
             fi
           fi
         }
@@ -441,11 +453,17 @@ workflow:
         for EXP in $EXPERIMENTS; do
           PIDS=""; SLOT=0
           for EMB in $EMBODIMENTS; do
-            # One cell per GPU. Wait for a free slot once all GPUs are busy.
-            while [ "$(jobs -rp | wc -l)" -ge "$NUM_GPU" ]; do sleep 20; done
-            ( CUDA_VISIBLE_DEVICES=$SLOT run_one "$EXP" "$EMB" "$N_EPISODES" rollout ) &
-            PIDS="$PIDS $!"
-            SLOT=$(( (SLOT + 1) % NUM_GPU ))
+            SB=0
+            while [ "$SB" -lt "$N_EPISODES" ]; do
+              NEPS=$CHUNK_EPISODES
+              if [ $((SB + NEPS)) -gt "$N_EPISODES" ]; then NEPS=$((N_EPISODES - SB)); fi
+              # One chunk per GPU. Wait for a free slot once all GPUs are busy.
+              while [ "$(jobs -rp | wc -l)" -ge "$NUM_GPU" ]; do sleep 20; done
+              ( CUDA_VISIBLE_DEVICES=$SLOT run_one "$EXP" "$EMB" "$NEPS" rollout "$SB" ) &
+              PIDS="$PIDS $!"
+              SLOT=$(( (SLOT + 1) % NUM_GPU ))
+              SB=$((SB + CHUNK_EPISODES))
+            done
           done
           for P in $PIDS; do wait "$P" || RC=1; done
         done

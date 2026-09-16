@@ -1,4 +1,4 @@
-# 30-hour deterministic ABC stationery slice plus all matching RL2 YAM data.
+# Full ABC stationery YAM data only.
 # Validation is restricted to RL2; the evaluator retains four complete episodes.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
@@ -25,11 +25,7 @@ train_datasets:
         - >-
           lambda row: row['embodiment'] == 'yam_bimanual' and
           row['zarr_processed_path'] != '' and row['is_deleted'] == False and
-          ((row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
-            int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 721) or
-           (row['lab'] == 'rl2' and row['task'] == 'organize_stationary'))
-    mode: train
-    valid_ratio: 0.2
+            (row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers')
     bounds_check: false
 
 valid_datasets:
@@ -54,7 +50,7 @@ valid_datasets:
       filter_lambdas:
         - >-
           lambda row: row['embodiment'] == 'yam_bimanual' and
-          row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and
+          row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
           row['zarr_processed_path'] != '' and row['is_deleted'] == False
     mode: valid
     valid_ratio: 0.2

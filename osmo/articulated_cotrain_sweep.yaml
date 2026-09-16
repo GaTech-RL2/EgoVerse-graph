@@ -325,15 +325,21 @@ workflow:
         kill $NTAIL 2>/dev/null || true
 
         # cache_stats writes after each embodiment, so an interrupted pass
-        # leaves a file that covers three domains out of seven and would train
-        # the rest unnormalized. Require all seven.
+        # leaves a file covering some domains and not others, and the missing
+        # ones would train unnormalized -- normalize() returns the tensor
+        # UNCHANGED when it finds no entry, silently and plausibly.
+        #
+        # The expected domain count comes from the experiment's own
+        # data.train_datasets, not a literal 7: the co-train arms have seven
+        # domains but a single-embodiment BC baseline has one, and a hardcoded
+        # `== 7` rejected every baseline as though its stats were truncated.
         for EXP in $EXPERIMENTS; do
           NJ="$NORM_ROOT/$EXP/norm_stats/norm_stats.json"
           if [ ! -s "$NJ" ]; then
             echo "FATAL: no norm stats for $EXP"; tail -40 "/tmp/norm_${EXP}.log"; exit 1
           fi
-          if ! python -c "import json,sys; d=json.load(open(sys.argv[1])); st=d['stats']; c={e:len(k) for e,k in st.items()}; ok=len(st)==7 and all(len(k)>0 for k in st.values()); print('  norm stats',sys.argv[2],c,'COMPLETE' if ok else 'PARTIAL'); sys.exit(0 if ok else 1)" "$NJ" "$EXP"; then
-            echo "FATAL: norm stats for $EXP do not cover all seven domains"; exit 1
+          if ! python tools/check_norm_stats.py --experiment "$EXP_GROUP/$EXP" --json "$NJ"; then
+            echo "FATAL: norm stats for $EXP do not cover its train domains"; exit 1
           fi
         done
         echo "phase 1 complete: all caches verified over seven domains"

@@ -1,5 +1,3 @@
-# Full ABC stationery YAM data only.
-# Validation is restricted to RL2; the evaluator retains four complete episodes.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -22,8 +20,9 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - >-
-          lambda row: row["embodiment"] == "yam_bimanual" and row["zarr_processed_path"] != "" and row["is_deleted"] == False and row["lab"] == "abc" and row["task"] == "sort the stationery into containers"
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers'"
+    mode: train
+    valid_ratio: 0.2
     bounds_check: false
 
 valid_datasets:
@@ -46,13 +45,12 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - >-
-          lambda row: row['embodiment'] == 'yam_bimanual' and
-          row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
-          lambda row: row["embodiment"] == "yam_bimanual" and row["zarr_processed_path"] != "" and row["is_deleted"] == False and row["lab"] == "abc" and row["task"] == "sort the stationery into containers"
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers'"
+    mode: valid
+    valid_ratio: 0.2
     bounds_check: false
 
 train_dataloader_params:
-  yam_bimanual: {batch_size: 32, num_workers: 6}
+  yam_bimanual: {batch_size: 128, num_workers: 6}
 valid_dataloader_params:
-  yam_bimanual: {batch_size: 32, num_workers: 6}
+  yam_bimanual: {batch_size: 128, num_workers: 6}

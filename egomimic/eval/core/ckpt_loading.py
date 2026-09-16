@@ -523,6 +523,46 @@ def _write_video(path: Path, frames: Sequence[np.ndarray]) -> None:
     write_video(str(path), video, fps=30, video_codec="h264")
 
 
+def _chunk_seam_event(
+    previous_chunk: np.ndarray | None,
+    *,
+    consumed: int,
+    new_chunk: np.ndarray,
+    timestep: int,
+    embodiment_id: int,
+    episode_index: int,
+) -> dict[str, Any] | None:
+    """Capture aligned old-tail/new-head commands at a replan boundary.
+
+    The old chunk's first ``consumed`` commands have already been executed.
+    Its remaining tail and the fresh chunk's head therefore represent the same
+    future offsets.  Store both in raw native action space without modifying
+    the command sent to the simulator.
+    """
+
+    if previous_chunk is None:
+        return None
+    old = np.asarray(previous_chunk, dtype=np.float32)
+    fresh = np.asarray(new_chunk, dtype=np.float32)
+    if old.ndim != 2 or fresh.ndim != 2 or old.shape[1] != fresh.shape[1]:
+        raise RuntimeError("duration ARC seam chunks must be rank-2 and width-aligned")
+    if not 0 <= consumed <= len(old):
+        raise RuntimeError(f"invalid duration ARC seam offset {consumed}")
+    count = min(len(old) - consumed, len(fresh))
+    if count <= 0:
+        return None
+    previous_tail = old[consumed : consumed + count].copy()
+    new_head = fresh[:count].copy()
+    return {
+        "t": int(timestep),
+        "embodiment_id": int(embodiment_id),
+        "episode_index": int(episode_index),
+        "previous_tail": previous_tail,
+        "new_head": new_head,
+        "executed_head": new_head.copy(),
+    }
+
+
 def _rollout_one(args, policy: _LegacyArcPolicy, seed: int, ep_idx: int):
     from Tsimulation.pushshapes import PushShapesEnv
 
@@ -535,6 +575,7 @@ def _rollout_one(args, policy: _LegacyArcPolicy, seed: int, ep_idx: int):
     frames: list[np.ndarray] = []
     actions: list[np.ndarray] = []
     chunk_lengths: list[int] = []
+    seam_events: list[dict[str, Any]] = []
     coverage = 0.0
     max_coverage = 0.0
     previous_handler = None
@@ -549,7 +590,19 @@ def _rollout_one(args, policy: _LegacyArcPolicy, seed: int, ep_idx: int):
         chunk_execution_horizon = 0
         for _step in range(args.max_steps):
             if action_chunk is None or chunk_offset >= chunk_execution_horizon:
-                action_chunk = policy.predict_native_actions(env._get_obs())
+                next_chunk = policy.predict_native_actions(env._get_obs())
+                if args.chunk_seam_artifact is not None:
+                    seam_event = _chunk_seam_event(
+                        action_chunk,
+                        consumed=chunk_offset,
+                        new_chunk=next_chunk,
+                        timestep=len(actions),
+                        embodiment_id=policy.embodiment_id,
+                        episode_index=ep_idx,
+                    )
+                    if seam_event is not None:
+                        seam_events.append(seam_event)
+                action_chunk = next_chunk
                 chunk_offset = 0
                 chunk_execution_horizon = min(
                     len(action_chunk),
@@ -588,6 +641,7 @@ def _rollout_one(args, policy: _LegacyArcPolicy, seed: int, ep_idx: int):
         actions,
         frames,
         chunk_lengths,
+        seam_events,
     )
 
 
@@ -606,6 +660,8 @@ def _validate_runtime_args(args) -> None:
             "replan-every must be within the decoded 40-step duration horizon; "
             f"got {args.replan_every}"
         )
+    if args.chunk_seam_artifact is not None and args.replan_every is None:
+        raise ValueError("chunk-seam-artifact requires replan-every")
     if args.action_chunk_start_index != 0:
         raise ValueError("the legacy arc bridge only permits action-chunk-start-index=0")
     if args.sampler_inference_steps is not None and args.sampler_inference_steps != 100:
@@ -644,6 +700,7 @@ def run(args) -> None:
     )
     coverages: list[float] = []
     episode_rows: list[dict[str, Any]] = []
+    seam_events: list[dict[str, Any]] = []
     videos_dir = out_dir / "videos"
     if args.per_episode_videos:
         videos_dir.mkdir()
@@ -655,7 +712,7 @@ def run(args) -> None:
                 torch.manual_seed(20000 + 97 * ep_idx)
                 if device.type == "cuda":
                     torch.cuda.manual_seed_all(20000 + 97 * ep_idx)
-            coverage, actions, frames, chunk_lengths = _rollout_one(
+            coverage, actions, frames, chunk_lengths, episode_seams = _rollout_one(
                 args, policy, seed, ep_idx
             )
         coverages.append(float(coverage))
@@ -677,6 +734,25 @@ def run(args) -> None:
                 "video": str(video_path) if video_path else None,
             }
         )
+        seam_events.extend(episode_seams)
+    if args.chunk_seam_artifact is not None:
+        from egomimic.eval.diagnostics.trajectory import write_chunk_seam_artifact
+
+        if not seam_events:
+            raise RuntimeError("chunk-seam export requested but no replan seam was captured")
+        seam_path = write_chunk_seam_artifact(
+            seam_events,
+            args.chunk_seam_artifact,
+            metadata={
+                "checkpoint": str(Path(args.ckpt).resolve()),
+                "replan_every": int(args.replan_every),
+                "sampler_inference_steps": int(args.sampler_inference_steps or 100),
+                "init_mode": args.init_mode,
+                "obstacle_level": int(args.obstacle_level),
+                "protocol_status": "NON-PROTOCOL_CHUNK_SEAM_DIAGNOSTIC_NOT_COMPARABLE",
+            },
+        )
+        print(f"  wrote {seam_path}")
     print(
         f"[sim] emb{args.only_emb} ep_coverages: "
         + ",".join(f"{value:.4f}" for value in coverages)
@@ -699,6 +775,7 @@ def run(args) -> None:
         "timing_semantics": getattr(policy.decoder, "timing_semantics", None),
         "sampler_inference_steps": 100,
         "episodes": episode_rows,
+        "chunk_seam_event_count": len(seam_events),
     }
     (out_dir / "rollout_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 

@@ -181,9 +181,7 @@ def curvature_adaptive_curve_samples(
     importance = np.concatenate(
         (
             np.zeros(1),
-            np.cumsum(
-                0.5 * (weighted_arc[:-1] + weighted_arc[1:]) * delta_s
-            ),
+            np.cumsum(0.5 * (weighted_arc[:-1] + weighted_arc[1:]) * delta_s),
         )
     )
     if importance[-1] <= epsilon:
@@ -390,6 +388,16 @@ class TokenizePlanarArcLength:
             speed = 0.0
             rates = np.zeros(self.num_waypoints, dtype=np.float64)
             durations = np.zeros(self.num_waypoints, dtype=np.float64)
+            if self.velocity_mode == _DURATION:
+                # No geometric distance does not imply no native action:
+                # gripper opening and radius-zero rotation still evolve.
+                # Both allocation arms use the same temporal fallback.
+                frames = np.arange(len(actions), dtype=np.float64)
+                support_frames = np.linspace(0.0, frames[-1], self.num_waypoints)
+                theta_waypoints = np.interp(support_frames, frames, theta)
+                grip_waypoints = np.interp(support_frames, frames, grip)
+                durations[:-1] = np.diff(support_frames) * self.dt
+                durations[-1] = durations[-2]
         else:
             if self.waypoint_sampling == "curvature":
                 xy_waypoints, targets = curvature_adaptive_curve_samples(

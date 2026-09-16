@@ -66,9 +66,7 @@ def test_rotation_radius_adds_metric_distance():
 
 def test_hybrid_rotation_budget_caps_a_shared_cartesian_window():
     """A small angular budget shortens the common arc window, not a stream."""
-    action = np.array(
-        [[0.0, 0.0, 0.0], [10.0, 0.0, math.pi], [20.0, 0.0, math.pi]]
-    )
+    action = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, math.pi], [20.0, 0.0, math.pi]])
     token = TokenizePlanarArcLength(
         min_distance_unit=20,
         resampled_vector_length=3,
@@ -107,7 +105,24 @@ def test_zero_motion_holds_pose_and_grip():
     )["actions"]
     np.testing.assert_allclose(token[:3, :2], [[4, 7]] * 3)
     np.testing.assert_allclose(token[:3, 4], 0.75)
-    assert token[-1, 0] == 0
+    np.testing.assert_allclose(token[3:, 0], 2.0 / 30.0)
+
+
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+@pytest.mark.parametrize("channel", [2, 3])
+def test_duration_preserves_stationary_rotation_and_grip(allocation, channel):
+    raw = np.repeat(np.array([[100.0, 100.0, 0.0, 0.0]]), 40, axis=0)
+    raw[:, channel] = np.linspace(0.0, 0.4 if channel == 2 else 1.0, 40)
+    token = TokenizePlanarArcLength(
+        min_distance_unit=40.0,
+        resampled_vector_length=16,
+        rotation_radius=0.0,
+        hybrid_rotation_unit=0.14776,
+        waypoint_sampling=allocation,
+    ).tokenize(raw)
+    decoded = PlanarArcTrajectoryNativeDecoder(16, 4, 40).decode(token)[0]
+    np.testing.assert_allclose(decoded, raw, atol=5e-7)
+    assert np.sum(token[16:-1, 0]) == pytest.approx(39.0 / 30.0)
 
 
 def test_curvature_sampling_allocates_denser_support_on_a_bend():
@@ -129,9 +144,7 @@ def test_curvature_sampling_allocates_denser_support_on_a_bend():
 
 
 def test_duration_decoder_restores_the_full_control_rate_trajectory():
-    raw = np.column_stack(
-        (np.arange(40, dtype=np.float32), np.zeros(40), np.zeros(40))
-    )
+    raw = np.column_stack((np.arange(40, dtype=np.float32), np.zeros(40), np.zeros(40)))
     token = TokenizePlanarArcLength(
         min_distance_unit=40.0,
         resampled_vector_length=16,

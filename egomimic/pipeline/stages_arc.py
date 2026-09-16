@@ -252,26 +252,28 @@ class ArcDetokenizeStage(Stage):
         s_hi = torch.gather(cumulative, 1, upper)
         return s_lo + alpha * (s_hi - s_lo)
 
-    def _targets_from_duration(
-        self, tokens: torch.Tensor, cumulative: torch.Tensor
-    ) -> torch.Tensor:
-        """Arc positions recovered from stored per-interval durations.
+    def _brackets_from_duration(
+        self, tokens: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Bracket control times directly in the stored duration clock.
 
-        Timing rows already carry Δt in seconds, so there is no rate divide.
-        A predicted nonzero arc interval with zero duration must hold, not
-        teleport -- same stall policy as the rate path.
+        Zero-distance supports can carry a hold, grip motion, or rotation at
+        radius zero. Converting time to arc and searching arc again loses the
+        identity of these supports. Keep their time interval and interpolate
+        the native channels in that interval instead.
         """
         durations = tokens[:, self.num_waypoints :, 0].clamp_min(0.0)
-        interval_arc = cumulative[:, 1:] - cumulative[:, :-1]
+        waypoints = tokens[:, : self.num_waypoints]
         interval_duration = durations[:, :-1]
-        moving = interval_arc > self.zero_dist_epsilon
+        moving = (waypoints[:, 1:] - waypoints[:, :-1]).abs().amax(
+            dim=-1
+        ) > self.zero_dist_epsilon
         usable = interval_duration > self.zero_dist_epsilon
-        duration = torch.where(
-            moving & usable, interval_duration, torch.zeros_like(interval_arc)
-        )
         stalled = self.dt * (self.action_horizon + 1)
         duration = torch.where(
-            moving & ~usable, torch.full_like(duration, stalled), duration
+            moving & ~usable,
+            torch.full_like(interval_duration, stalled),
+            interval_duration,
         )
         elapsed = torch.cat(
             (torch.zeros_like(duration[:, :1]), torch.cumsum(duration, dim=1)), dim=1
@@ -288,9 +290,7 @@ class ArcDetokenizeStage(Stage):
         t_hi = torch.gather(elapsed, 1, upper)
         alpha = (time_targets - t_lo) / (t_hi - t_lo).clamp_min(self.zero_dist_epsilon)
         alpha = alpha.clamp(0.0, 1.0)
-        s_lo = torch.gather(cumulative, 1, lower)
-        s_hi = torch.gather(cumulative, 1, upper)
-        return s_lo + alpha * (s_hi - s_lo)
+        return lower, upper, alpha.unsqueeze(-1)
 
     def _smooth_xy(
         self,
@@ -306,7 +306,8 @@ class ArcDetokenizeStage(Stage):
         segment_delta = xy[:, 1:] - xy[:, :-1]
         secant = torch.where(
             (segment_span > self.zero_dist_epsilon).unsqueeze(-1),
-            segment_delta / segment_span.clamp_min(self.zero_dist_epsilon).unsqueeze(-1),
+            segment_delta
+            / segment_span.clamp_min(self.zero_dist_epsilon).unsqueeze(-1),
             torch.zeros_like(segment_delta),
         )
         tangent = torch.zeros_like(xy)
@@ -329,17 +330,23 @@ class ArcDetokenizeStage(Stage):
         m0 = torch.gather(tangent, 1, xy_index_lo)
         m1 = torch.gather(tangent, 1, xy_index_hi)
         ds = (
-            torch.gather(cumulative, 1, upper)
-            - torch.gather(cumulative, 1, lower)
+            torch.gather(cumulative, 1, upper) - torch.gather(cumulative, 1, lower)
         ).unsqueeze(-1)
         u = alpha
         u2, u3 = u * u, u * u * u
-        return (
+        smooth = (
             (2 * u3 - 3 * u2 + 1) * p0
             + (u3 - 2 * u2 + u) * ds * m0
             + (-2 * u3 + 3 * u2) * p1
             + (u3 - u2) * ds * m1
         )
+        # Neighbouring curve tangents must not introduce translation into a
+        # stationary interval, including one with rotation at nonzero radius.
+        stationary = (
+            torch.linalg.vector_norm(p1 - p0, dim=-1, keepdim=True)
+            <= self.zero_dist_epsilon
+        )
+        return torch.where(stationary, p0, smooth)
 
     def forward(self, batch: dict) -> dict:
         tokens = _as_batched(batch["pred_action"], "ArcDetokenizeStage input")
@@ -353,22 +360,20 @@ class ArcDetokenizeStage(Stage):
 
         waypoints = tokens[:, : self.num_waypoints]
         cumulative = self._arc_positions(waypoints)
-        if self.velocity_mode == "mean":
-            targets = self._targets_from_mean(tokens, cumulative)
-        elif self.velocity_mode == "duration":
-            targets = self._targets_from_duration(tokens, cumulative)
+        if self.velocity_mode == "duration":
+            lower, upper, alpha = self._brackets_from_duration(tokens)
         else:
-            targets = self._targets_from_per_waypoint(tokens, cumulative)
-
-        # Bracket each target between the two waypoints it falls between and
-        # interpolate. searchsorted needs a contiguous, increasing key.
-        upper = torch.searchsorted(cumulative.contiguous(), targets.contiguous())
-        upper = upper.clamp(1, self.num_waypoints - 1)
-        lower = upper - 1
-        s_lo = torch.gather(cumulative, 1, lower)
-        s_hi = torch.gather(cumulative, 1, upper)
-        span = (s_hi - s_lo).clamp_min(self.zero_dist_epsilon)
-        alpha = ((targets - s_lo) / span).clamp(0.0, 1.0).unsqueeze(-1)
+            if self.velocity_mode == "mean":
+                targets = self._targets_from_mean(tokens, cumulative)
+            else:
+                targets = self._targets_from_per_waypoint(tokens, cumulative)
+            upper = torch.searchsorted(cumulative.contiguous(), targets.contiguous())
+            upper = upper.clamp(1, self.num_waypoints - 1)
+            lower = upper - 1
+            s_lo = torch.gather(cumulative, 1, lower)
+            s_hi = torch.gather(cumulative, 1, upper)
+            span = (s_hi - s_lo).clamp_min(self.zero_dist_epsilon)
+            alpha = ((targets - s_lo) / span).clamp(0.0, 1.0).unsqueeze(-1)
 
         index_lo = lower.unsqueeze(-1).expand(-1, -1, PLANAR_ACTION_DIM)
         index_hi = upper.unsqueeze(-1).expand(-1, -1, PLANAR_ACTION_DIM)

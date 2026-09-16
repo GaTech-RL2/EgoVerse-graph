@@ -155,18 +155,42 @@ def get_planar_paper_padded_transform_list(
 
 def get_planar_arc_length_transform_list(
     keys: list[str] | None = None,
+    action_horizon: int | None = None,
+    raw_action_horizon: int | None = None,
+    action_target_offset: int = 0,
     min_distance_unit: float = 200.0,
     resampled_vector_length: int = 100,
     dt: float = 1.0 / 30.0,
     rotation_radius: float = 0.0,
     hybrid_rotation_unit: float | None = None,
+    velocity_mode: str = "duration",
+    waypoint_sampling: str = "uniform",
+    curvature_dense_samples: int = 257,
+    curvature_floor: float | None = None,
     **_kwargs,
 ):
-    """Create the active Planar SE(2) arc transform."""
+    """Align and tokenize a Planar SE(2) native action window.
+
+    ARC targets are encoded from native controls, whereas the model predicts a
+    shorter token sequence.  ``raw_action_horizon`` therefore describes the
+    post-alignment native window, not the token count.  Keeping the two
+    horizons explicit prevents a multi-observation loader from accidentally
+    encoding its extra pre-alignment action row.
+    """
     keys = keys or ["actions"]
     if len(keys) != 1:
         raise ValueError("Planar arc tokenization requires exactly one action key")
+    if raw_action_horizon is None and action_horizon is None:
+        raise ValueError("raw_action_horizon or action_horizon is required")
+    target_horizon = int(action_horizon if raw_action_horizon is None else raw_action_horizon)
+    if target_horizon <= 0:
+        raise ValueError("raw_action_horizon must be positive")
     return [
+        SliceActionTarget(
+            keys,
+            start=action_target_offset,
+            horizon=target_horizon,
+        ),
         TokenizePlanarArcLength(
             action_key=keys[0],
             output_action_key=keys[0],
@@ -175,6 +199,10 @@ def get_planar_arc_length_transform_list(
             dt=dt,
             rotation_radius=rotation_radius,
             hybrid_rotation_unit=hybrid_rotation_unit,
+            velocity_mode=velocity_mode,
+            waypoint_sampling=waypoint_sampling,
+            curvature_dense_samples=curvature_dense_samples,
+            curvature_floor=curvature_floor,
         )
     ]
 

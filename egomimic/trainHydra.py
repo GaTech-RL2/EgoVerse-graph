@@ -51,6 +51,12 @@ def _slurm_auto_requeue(cfg: DictConfig) -> bool:
     )
     runner_owner = os.environ.get("ICE_REQUEUE_OWNER")
     child_requeue_disabled = os.environ.get("ICE_CHILD_REQUEUE_DISABLED")
+    if (
+        configured_owner == "none"
+        and runner_owner is None
+        and child_requeue_disabled is None
+    ):
+        return False
     if configured_owner == "lightning" and (
         (runner_owner is None and child_requeue_disabled is None)
         or (runner_owner == "child" and child_requeue_disabled == "0")
@@ -67,8 +73,8 @@ def _slurm_auto_requeue(cfg: DictConfig) -> bool:
         f"runtime.slurm_requeue_owner={configured_owner!r}, "
         f"ICE_REQUEUE_OWNER={runner_owner!r}, "
         f"ICE_CHILD_REQUEUE_DISABLED={child_requeue_disabled!r}; "
-        "use lightning with no runner variables (or child/0), or runner "
-        "with runner/1"
+        "use none with no runner variables, lightning with no runner variables "
+        "(or child/0), or runner with runner/1"
     )
 
 
@@ -84,7 +90,14 @@ def _slurm_environment(cfg: DictConfig) -> SLURMEnvironment:
 def _instantiate_slurm_callbacks(cfg: DictConfig) -> List[Callback]:
     """Add the save-only signal callback when an external runner owns requeue."""
 
-    if not os.environ.get("SLURM_JOB_ID") or _slurm_auto_requeue(cfg):
+    owner = str(
+        OmegaConf.select(cfg, "runtime.slurm_requeue_owner", default="lightning")
+    )
+    if (
+        not os.environ.get("SLURM_JOB_ID")
+        or _slurm_auto_requeue(cfg)
+        or owner == "none"
+    ):
         return []
     save_signal = str(
         OmegaConf.select(cfg, "runtime.slurm_save_signal", default="SIGUSR2")
@@ -387,6 +400,9 @@ def _resolve_training_checkpoint(cfg: DictConfig, trainer: Trainer) -> str | Non
         OmegaConf.select(cfg, "runtime.slurm_requeue_owner", default="lightning")
     )
     _slurm_auto_requeue(cfg)
+
+    if owner == "none" and os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
+        raise RuntimeError("non-requeue job cannot resume after a Slurm restart")
 
     if owner == "runner":
         selected_path, selected_step = _validate_runner_resume_checkpoint()

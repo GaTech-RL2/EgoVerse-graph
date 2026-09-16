@@ -53,6 +53,22 @@ if not math.isfinite(value) or value <= 0:
 PY
 }
 
+nonnegative_number() {
+  local label=$1 value=$2
+  "$ICE_PYTHON" - "$label" "$value" <<'PY'
+import math
+import sys
+
+label, raw = sys.argv[1:]
+try:
+    value = float(raw)
+except ValueError as exc:
+    raise SystemExit(f"{label} must be numeric") from exc
+if not math.isfinite(value) or value < 0:
+    raise SystemExit(f"{label} must be finite and nonnegative")
+PY
+}
+
 for variable in \
   ICE_REPO ICE_EXPECTED_HEAD ICE_PYTHON ICE_DATASET_DIR ICE_OUTPUT_DIR \
   ICE_EXPERIMENT ICE_WANDB_ENTITY ICE_WANDB_PROJECT ICE_WANDB_RUN_ID \
@@ -78,6 +94,7 @@ ICE_DATASET_VALIDATOR=${ICE_DATASET_VALIDATOR:-$ICE_TOOL_DIR/validate_planar_dat
 ICE_SPLIT_MANIFEST=${ICE_SPLIT_MANIFEST:-$ICE_REPO/egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json}
 ICE_PRECISION=${ICE_PRECISION:-bf16-mixed}
 ICE_SEED=${ICE_SEED:-42}
+ICE_VALIDATION_DEFERRED=${ICE_VALIDATION_DEFERRED:-false}
 RESTART_COUNT=${SLURM_RESTART_COUNT:-0}
 export PATH="$(dirname "$ICE_PYTHON"):$PATH"
 export ICE_REQUIRE_LR_SCHEDULERS=1
@@ -88,8 +105,13 @@ case "$ICE_LAUNCH_MODE" in
 esac
 case "$ICE_EXPERIMENT" in
   pusht/planar_v2_usocket_direct_bc|pusht/planar_v2_usocket_arc_bc|\
-  pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc) ;;
+  pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc|\
+  pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg) ;;
   *) die "ICE_EXPERIMENT must select a supported U-Socket BC config" ;;
+esac
+case "$ICE_VALIDATION_DEFERRED" in
+  true|false) ;;
+  *) die "ICE_VALIDATION_DEFERRED must be true or false" ;;
 esac
 test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 [[ "$ICE_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || die "ICE_EXPECTED_HEAD must be a full commit"
@@ -99,7 +121,18 @@ test "$ICE_PRECISION" = bf16-mixed || die "ICE_PRECISION must be bf16-mixed"
 positive_integer ICE_MAX_STEPS "$ICE_MAX_STEPS"
 positive_integer ICE_VAL_CHECK_INTERVAL "$ICE_VAL_CHECK_INTERVAL"
 positive_number ICE_LIMIT_TRAIN_BATCHES "$ICE_LIMIT_TRAIN_BATCHES"
-positive_number ICE_LIMIT_VAL_BATCHES "$ICE_LIMIT_VAL_BATCHES"
+if test "$ICE_VALIDATION_DEFERRED" = true; then
+  nonnegative_number ICE_LIMIT_VAL_BATCHES "$ICE_LIMIT_VAL_BATCHES"
+  "$ICE_PYTHON" - "$ICE_LIMIT_VAL_BATCHES" <<'PY'
+import math
+import sys
+
+if not math.isclose(float(sys.argv[1]), 0.0, abs_tol=0.0):
+    raise SystemExit("ICE_LIMIT_VAL_BATCHES must be zero when validation is deferred")
+PY
+else
+  positive_number ICE_LIMIT_VAL_BATCHES "$ICE_LIMIT_VAL_BATCHES"
+fi
 positive_integer ICE_CHECKPOINT_EVERY_N_STEPS "$ICE_CHECKPOINT_EVERY_N_STEPS"
 positive_integer ICE_TRAIN_BATCH_SIZE "$ICE_TRAIN_BATCH_SIZE"
 positive_integer ICE_VALID_BATCH_SIZE "$ICE_VALID_BATCH_SIZE"
@@ -187,6 +220,7 @@ BASE_OVERRIDES=(
   "logger.wandb.id=$ICE_WANDB_RUN_ID"
   "+logger.wandb.name=$ICE_WANDB_NAME"
   "logger.wandb.tags=$ICE_WANDB_TAGS"
+  "++run_provenance.validation_deferred=$ICE_VALIDATION_DEFERRED"
   "seed=$ICE_SEED"
 )
 if test -n "${ICE_NORM_STATS_PATH:-}"; then
@@ -233,7 +267,7 @@ test -s "$PREFLIGHT_CONFIG" || die "Hydra preflight produced no resolved config"
 "$ICE_PYTHON" - "$PREFLIGHT_CONFIG" "$ICE_EXPERIMENT" \
   "$ICE_MAX_STEPS" "$ICE_VAL_CHECK_INTERVAL" "$ICE_LIMIT_TRAIN_BATCHES" \
   "$ICE_LIMIT_VAL_BATCHES" "$ICE_CHECKPOINT_EVERY_N_STEPS" \
-  "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" <<'PY'
+  "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_VALIDATION_DEFERRED" <<'PY'
 import math
 import pathlib
 import sys
@@ -249,6 +283,7 @@ from omegaconf import OmegaConf
     val_limit,
     checkpoint_interval,
     split_manifest_sha256,
+    validation_deferred,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(pathlib.Path(path))
 assert cfg.mode == "train"
@@ -276,11 +311,17 @@ else:
 assert cfg.run_provenance.split_seed == 42
 assert cfg.run_provenance.valid_ratio == 0.01
 assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+assert bool(cfg.run_provenance.validation_deferred) == (validation_deferred == "true")
+if validation_deferred == "true":
+    assert math.isclose(float(cfg.trainer.limit_val_batches), 0.0)
+else:
+    assert float(cfg.trainer.limit_val_batches) > 0
 assert cfg.name.startswith("planar_v2_usocket_")
 assert experiment in {
     "pusht/planar_v2_usocket_direct_bc",
     "pusht/planar_v2_usocket_arc_bc",
     "pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc",
+    "pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
 }
 PY
 
@@ -300,11 +341,11 @@ if test "$ICE_LAUNCH_MODE" != run; then
   "$ICE_PYTHON" - "$ICE_REPO" "$ICE_EXPECTED_HEAD" "$ICE_EXPERIMENT" \
     "$ICE_DATASET_DIR" "$ICE_OUTPUT_DIR" "$ICE_WANDB_ENTITY" \
     "$ICE_WANDB_PROJECT" "$ICE_WANDB_RUN_ID" \
-    "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" <<'PY'
+    "$ICE_EXPECTED_SPLIT_MANIFEST_SHA256" "$ICE_VALIDATION_DEFERRED" <<'PY'
 import json
 import sys
 
-repo, head, experiment, dataset, output, entity, project, run_id, split_sha = sys.argv[1:]
+repo, head, experiment, dataset, output, entity, project, run_id, split_sha, validation_deferred = sys.argv[1:]
 print(json.dumps({
     "status": "PREFLIGHT_READY",
     "source": {"repo": repo, "head": head},
@@ -317,6 +358,7 @@ print(json.dumps({
     "strategy": "auto",
     "precision": "bf16-mixed",
     "requeue_owner": "runner",
+    "validation_deferred": validation_deferred == "true",
 }, sort_keys=True))
 PY
   exit 0

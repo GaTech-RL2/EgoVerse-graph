@@ -13,6 +13,12 @@ defaults:
 name: test
 description: test
 ckpt_path: null
+# Initial model parameters without Lightning resume state.  This is mutually
+# exclusive with ``ckpt_path`` so an initialization checkpoint cannot restore
+# optimizer, scheduler, global-step, callback, RNG, or W&B state.
+weights_only_init:
+  path: null
+  use_ema: false
 mode: train
 norm_stats_only: false
 

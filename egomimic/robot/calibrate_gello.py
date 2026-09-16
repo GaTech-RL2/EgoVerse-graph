@@ -1,10 +1,12 @@
 """Interactively capture both passive USB/Dynamixel GELLO calibrations.
 
-    python -m egomimic.robot.calibrate_gello --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml --output /home/rohan/gello_calibration.yaml
+Example:
+    python -m egomimic.robot.calibrate_gello \\
+        --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \\
+        --output /home/rohan/gello_calibration.yaml
 
-This utility never creates or commands a Yam follower. It only opens the
-selected GELLO leader through the read-only adapter, which disables leader
-torque before reading encoder positions.
+This utility never creates or commands a YAM follower. It opens both passive
+GELLO leaders, disables leader torque, and reads their encoder positions.
 """
 
 from __future__ import annotations
@@ -222,15 +224,45 @@ def run_calibration(
     return steps
 
 
-def run_bimanual_calibration(buses, calibrations, view, rate_hz, output=None):
-    """One selected-arm terminal session over two torque-off leader buses."""
-    selected, edge = "left", KeyEdge()
-    print("l/r=select arm; z=zero o=open c=closed 1-6=sign p=print w=write q=quit")
-    while True:
-        tick = time.monotonic()
+def _bimanual_mapping(calibrations, *, complete_only: bool) -> dict:
+    """Return the combined leader mapping, optionally omitting incomplete arms."""
+    return {
+        "gello": {
+            "leaders": {
+                arm: calibrations[arm].calibration_mapping()["gello"]["leaders"][arm]
+                for arm in ("left", "right")
+                if not complete_only or calibrations[arm].complete
+            }
+        }
+    }
+
+
+def run_bimanual_calibration(
+    buses,
+    calibrations,
+    view,
+    rate_hz,
+    output=None,
+    *,
+    max_steps: int | None = None,
+    sleep_fn: Callable[[float], None] = time.sleep,
+    time_fn: Callable[[], float] = time.monotonic,
+    emit: Callable[..., None] = print,
+) -> int:
+    """Calibrate two torque-off leaders from one selected-arm terminal session."""
+    rate_hz = float(rate_hz)
+    if not np.isfinite(rate_hz) or rate_hz <= 0:
+        raise ValueError("Calibration rate_hz must be positive")
+    if set(buses) != {"left", "right"} or set(calibrations) != {"left", "right"}:
+        raise ValueError("Bimanual calibration needs left and right leader buses")
+
+    selected, edge, steps = "left", KeyEdge(), 0
+    emit("Keys: l/r=select arm; z=zero o=open c=closed 1-6=sign p=print w=write q=quit")
+    while max_steps is None or steps < max_steps:
+        tick = time_fn()
         for arm in ("left", "right"):
             calibrations[arm].update(buses[arm].read_radians())
-        print(
+        emit(
             "\rSELECTED " + selected + " | " + _status(calibrations[selected]),
             end="",
             flush=True,
@@ -241,50 +273,37 @@ def run_bimanual_calibration(buses, calibrations, view, rate_hz, output=None):
         elif key in ("q", "\x1b"):
             break
         elif key == "p":
-            print(
+            emit(
                 "\n"
                 + yaml.safe_dump(
-                    {
-                        "gello": {
-                            "leaders": {
-                                a: calibrations[a].calibration_mapping()["gello"][
-                                    "leaders"
-                                ][a]
-                                for a in ("left", "right")
-                                if calibrations[a].complete
-                            }
-                        }
-                    },
+                    _bimanual_mapping(calibrations, complete_only=True),
                     sort_keys=False,
                 )
             )
         elif key == "w":
-            if not all(c.complete for c in calibrations.values()):
-                print("\nBoth arms must be complete before writing.")
+            if not all(calibration.complete for calibration in calibrations.values()):
+                emit("\nBoth arms must be complete before writing.")
             elif output is None:
-                print("\nPass --output PATH.")
-            elif Path(output).exists():
-                print("\nRefusing to overwrite existing calibration.")
+                emit("\nPass --output PATH.")
             else:
-                Path(output).write_text(
-                    yaml.safe_dump(
-                        {
-                            "gello": {
-                                "leaders": {
-                                    a: calibrations[a].calibration_mapping()["gello"][
-                                        "leaders"
-                                    ][a]
-                                    for a in ("left", "right")
-                                }
-                            }
-                        },
-                        sort_keys=False,
+                path = Path(output)
+                if path.exists():
+                    emit("\nRefusing to overwrite existing calibration.")
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(
+                        yaml.safe_dump(
+                            _bimanual_mapping(calibrations, complete_only=False),
+                            sort_keys=False,
+                        )
                     )
-                )
-                print("\nWrote " + str(output))
+                    emit(f"\nWrote {path}")
         elif key:
-            _handle_key(key, calibrations[selected], None, print)
-        time.sleep(max(0, 1 / rate_hz - (time.monotonic() - tick)))
+            _handle_key(key, calibrations[selected], None, emit)
+        steps += 1
+        sleep_fn(max(0.0, 1 / rate_hz - (time_fn() - tick)))
+    emit("")
+    return steps
 
 
 def main(argv=None) -> int:

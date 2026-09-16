@@ -128,3 +128,61 @@ def test_run_calibration_captures_and_writes_without_a_yam_robot(tmp_path):
     )
     assert output.exists()
     assert "Wrote" in "\n".join(messages)
+
+
+def test_bimanual_session_writes_one_combined_calibration(tmp_path):
+    class Bus:
+        def __init__(self, offset):
+            self.offset = float(offset)
+            self.reads = 0
+
+        def read_radians(self):
+            value = self.reads
+            self.reads += 1
+            return np.r_[np.arange(6, dtype=float) + self.offset + value, value]
+
+    class View:
+        def __init__(self):
+            self.keys = iter(
+                (
+                    "z",
+                    None,
+                    "o",
+                    None,
+                    "c",
+                    None,
+                    "r",
+                    None,
+                    "z",
+                    None,
+                    "o",
+                    None,
+                    "c",
+                    None,
+                    "w",
+                )
+            )
+
+        def update(self, obs, recording=False):
+            return next(self.keys)
+
+    calibrations = {arm: session(arm) for arm in ("left", "right")}
+    output = tmp_path / "combined" / "gello.yaml"
+    steps = calibrate_gello.run_bimanual_calibration(
+        {"left": Bus(0), "right": Bus(10)},
+        calibrations,
+        View(),
+        rate_hz=100,
+        output=output,
+        max_steps=15,
+        sleep_fn=lambda delay: None,
+        time_fn=lambda: 1.0,
+        emit=lambda *args, **kwargs: None,
+    )
+
+    assert steps == 15
+    assert output.exists()
+    assert set(yaml.safe_load(output.read_text())["gello"]["leaders"]) == {
+        "left",
+        "right",
+    }

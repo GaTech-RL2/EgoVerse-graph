@@ -24,7 +24,7 @@ train_datasets:
       filter_lambdas:
         - >-
           lambda row: row['embodiment'] == 'yam_bimanual' and
-          row['zarr_processed_path'] != '' and row['is_deleted'] == False and
+            row['zarr_processed_path'] != '' and row['is_deleted'] == False and
             (row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers')
     bounds_check: false
 

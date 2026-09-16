@@ -26,7 +26,7 @@ train_datasets:
       filter_lambdas:
         - >-
           lambda row: row['embodiment'] == 'yam_bimanual' and
-          row['zarr_processed_path'] != '' and row['is_deleted'] == False and
+            row['zarr_processed_path'] != '' and row['is_deleted'] == False and
             (row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers')
     bounds_check: false
 
@@ -57,8 +57,8 @@ valid_datasets:
           lambda row: row['embodiment'] == 'yam_bimanual' and
           row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
           row['zarr_processed_path'] != '' and row['is_deleted'] == False
-    mode: valid
-    valid_ratio: 0.2
+          row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
+          row['zarr_processed_path'] != '' and row['is_deleted'] == False
     bounds_check: false
 
 train_dataloader_params:

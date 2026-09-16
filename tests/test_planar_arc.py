@@ -125,6 +125,45 @@ def test_duration_preserves_stationary_rotation_and_grip(allocation, channel):
     assert np.sum(token[16:-1, 0]) == pytest.approx(39.0 / 30.0)
 
 
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+@pytest.mark.parametrize("hold", ["initial", "middle", "trailing", "multiple"])
+def test_duration_roundtrip_preserves_hold_boundaries_and_grip(allocation, hold):
+    raw = np.zeros((40, 4))
+    if hold == "initial":
+        raw[:, 0] = np.r_[np.zeros(10), np.arange(30)]
+        start, end = 0, 10
+    elif hold == "middle":
+        raw[:, 0] = np.r_[np.arange(11), np.full(9, 10), np.arange(11, 31)]
+        start, end = 10, 19
+    elif hold == "trailing":
+        raw[:, 0] = np.r_[np.arange(30), np.full(10, 29)]
+        start, end = 29, 39
+    else:
+        raw[:, 0] = np.r_[
+            np.zeros(4), np.arange(1, 11), np.full(6, 10), np.arange(11, 31)
+        ]
+        start, end = 13, 19
+    raw[:, 3] = np.clip((np.arange(40) - start) / (end - start), 0.0, 1.0)
+    token = TokenizePlanarArcLength(
+        min_distance_unit=40.0,
+        resampled_vector_length=16,
+        rotation_radius=0.0,
+        hybrid_rotation_unit=0.14776,
+        waypoint_sampling=allocation,
+    ).tokenize(raw)
+    decoded = PlanarArcTrajectoryNativeDecoder(16, 4, 40).decode(token)[0]
+    np.testing.assert_allclose(decoded, raw, atol=1e-5)
+    assert token.shape == (32, 5)
+    assert np.sum(token[16:-1, 0]) == pytest.approx(39.0 / 30.0)
+
+
+def test_duration_fails_if_support_budget_cannot_preserve_holds():
+    raw = np.column_stack((np.repeat(np.arange(4.0), 2), np.zeros((8, 3))))
+    tokenizer = TokenizePlanarArcLength(resampled_vector_length=4)
+    with pytest.raises(ValueError, match="preserve stationary intervals"):
+        tokenizer.tokenize(raw)
+
+
 def test_curvature_sampling_allocates_denser_support_on_a_bend():
     straight_x = np.linspace(0.0, 10.0, 61)
     straight = np.column_stack((straight_x, np.zeros_like(straight_x)))
@@ -141,6 +180,20 @@ def test_curvature_sampling_allocates_denser_support_on_a_bend():
     straight_gaps = np.diff(targets[targets <= straight_end])
     assert len(bend_gaps) >= 2
     assert np.median(bend_gaps) < np.median(straight_gaps)
+
+
+def test_curvature_allocation_samples_the_same_geometry_as_uniform():
+    # This axis-aligned path has an analytic location at every arc coordinate.
+    # A spline fitted through the corners overshoots the path; it may estimate
+    # curvature for allocation, but must not replace the uniform arm's geometry.
+    xy = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 3.0], [5.0, 3.0]])
+    cumulative = np.array([0.0, 2.0, 5.0, 8.0])
+    sampled, targets = curvature_adaptive_curve_samples(xy, cumulative, 8.0, 16)
+    expected_x = np.where(
+        targets < 2.0, targets, np.where(targets <= 5.0, 2.0, targets - 3.0)
+    )
+    expected_y = np.clip(targets - 2.0, 0.0, 3.0)
+    np.testing.assert_allclose(sampled, np.column_stack((expected_x, expected_y)))
 
 
 def test_duration_decoder_restores_the_full_control_rate_trajectory():

@@ -174,6 +174,28 @@ workflow:
         # ---------------------------------------------- corpora + budgets
         ROOT=/workspace/articulated
         mkdir -p "$ROOT" /workspace/budgets
+        # The rollout never reads the corpus past episodes[0] (it takes
+        # env_args from there); initial states come from env.reset(seed=N).
+        # The ONLY thing the other 2999 episodes feed is the p99 frame budget.
+        # So once that budget is cached, one shard is worth the same as 24 and
+        # the numbers are unchanged -- which matters because staging four full
+        # corpora took ~30 min of a ~90 min window before preemption, and a
+        # cell takes ~74 min, so nothing was ever banked.
+        BPOOL="s3://rldb/staged/articulated_rollout/_pool/budgets"
+        FULL=""
+        for EMB in $EMBODIMENTS; do
+          OK=no
+          if $S5 cp "$BPOOL/${EMB}.json" "/workspace/budgets/${EMB}.json" >/dev/null 2>&1; then
+            OK=$(python -c "import json,sys; d=json.load(open(sys.argv[1])); print('yes' if d.get('episode_count')==3000 else 'no')" "/workspace/budgets/${EMB}.json" 2>/dev/null || echo no)
+          fi
+          if [ "$OK" = yes ]; then
+            echo "budget $EMB: cached over 3000 episodes, staging thin"
+          else
+            rm -f "/workspace/budgets/${EMB}.json"
+            FULL="$FULL $EMB"
+            echo "budget $EMB: not cached, staging the full corpus"
+          fi
+        done
         # ONE layout: cells/ideal/<emb>, which is what the data configs already
         # interpolate to. Staging the evaluator's corpus somewhere else meant
         # the datamodule found nothing and the job died after staging.
@@ -194,7 +216,7 @@ workflow:
           # from nine full corpora to one, and staging was eating the whole
           # window between preemptions.
           N_SHARDS=1
-          case " $EMBODIMENTS " in *" $EMB "*) N_SHARDS=$SHARDS_PER_CELL;; esac
+          case " $FULL " in *" $EMB "*) N_SHARDS=$SHARDS_PER_CELL;; esac
           for I in $(seq 0 $((N_SHARDS - 1))); do
             SHN=$(printf "shard%03d" "$I")
             s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp \
@@ -225,8 +247,11 @@ workflow:
           # thin-staged embodiment has no budget file, and printing one that
           # was never written is what killed the first run of this change.
           case " $EMBODIMENTS " in *" $EMB "*)
-            python scripts/eval/usocket_arc_rollout/episode_budget.py \
-              "$FLAT" --out "/workspace/budgets/${EMB}.json"
+            if [ ! -s "/workspace/budgets/${EMB}.json" ]; then
+              python scripts/eval/usocket_arc_rollout/episode_budget.py \
+                "$FLAT" --out "/workspace/budgets/${EMB}.json"
+              $S5 cp "/workspace/budgets/${EMB}.json" "$BPOOL/${EMB}.json" >/dev/null 2>&1 || true
+            fi
             python -c "import json,sys; d=json.load(open(sys.argv[1])); print('  budget', sys.argv[2], d['by_level']['0']['budget'], 'frames from', d['episode_count'], 'episodes')" \
               "/workspace/budgets/${EMB}.json" "$EMB";;
           esac
@@ -242,9 +267,12 @@ workflow:
         # keep every guard armed, which is the case that protects the numbers.
         GUARD_OV=""
         THIN=""
+        # Keyed on FULL, not EMBODIMENTS: a scored embodiment whose budget was
+        # cached is now staged thin too, and leaving its 3000-episode guard
+        # armed would abort on the 125 episodes actually present.
         for E in $(printf '%s\n' $TRAIN_EMB $HELD_OUT | sort -u); do
-          case " $EMBODIMENTS " in
-            *" $E "*) ;;                       # scored: guards stay on
+          case " $FULL " in
+            *" $E "*) ;;                       # full corpus: guards stay on
             *) THIN="$THIN $E";;
           esac
         done

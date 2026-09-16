@@ -156,6 +156,11 @@ workflow:
         # with the container and the only way to see anything was to stream the
         # osmo log, which truncates.
         DEST="s3://rldb/staged/articulated_rollout/$JOB_NAME"
+        # Cells are also banked in one shared pool keyed by
+        # experiment x embodiment, NOT by job. Every job on this pool
+        # is preempted sooner or later, and without this a restart
+        # re-scores the cells the previous attempt already finished.
+        POOL="s3://rldb/staged/articulated_rollout/_pool/cells"
         flush () {
           $S5 cp "/tmp/*.log" "$DEST/logs/" >/dev/null 2>&1 || true
           $S5 cp "/workspace/budgets/*.json" "$DEST/budgets/" >/dev/null 2>&1 || true
@@ -319,6 +324,17 @@ workflow:
           case " $THREE_DOF " in *" $EMB "*) ND=3;; esac
           local HELD=in-domain
           case " $HELD_OUT " in *" $EMB "*) HELD=HELD-OUT;; esac
+          # A single GET, not a list: listing an empty R2 prefix takes minutes
+          # of retries, while a miss on one key fails immediately.
+          if [ "$TAG" = rollout ]; then
+            if $S5 cp "$POOL/${EXP}__${EMB}.log" "/tmp/pooled_${EXP}_${EMB}.log" >/dev/null 2>&1; then
+              if grep -q '\[sim\] SUMMARY' "/tmp/pooled_${EXP}_${EMB}.log"; then
+                echo "=== SKIP $EXP x $EMB (already in pool)"
+                $S5 cp "/tmp/pooled_${EXP}_${EMB}.log" "$DEST/cells/${EXP}__${EMB}.log" >/dev/null 2>&1 || true
+                return 0
+              fi
+            fi
+          fi
           echo "=== $TAG  $EXP  x  $EMB  ($HELD, native_action_dim=$ND)"
           # ~evaluator.native_decoders and ~semantic_blocks: those belong to the
           # training evaluator. SimRolloutPlanarEval scores ONE embodiment and
@@ -357,6 +373,12 @@ workflow:
           if [ "$TAG" = rollout ]; then
             $S5 cp "/tmp/${TAG}_${EXP}_${EMB}.log" \
               "$DEST/cells/${EXP}__${EMB}.log" >/dev/null 2>&1 || true
+            # Only a cell that actually produced a summary goes in the pool; a
+            # truncated log banked here would be skipped forever.
+            if grep -q '\[sim\] SUMMARY' "/tmp/${TAG}_${EXP}_${EMB}.log"; then
+              $S5 cp "/tmp/${TAG}_${EXP}_${EMB}.log" \
+                "$POOL/${EXP}__${EMB}.log" >/dev/null 2>&1 || true
+            fi
           fi
         }
 

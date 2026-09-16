@@ -1,3 +1,4 @@
+import sys
 from types import SimpleNamespace
 
 import numpy as np
@@ -9,6 +10,7 @@ from egomimic.eval.open_loop_sim import (
     executed_control_steps,
     truncate_arc_token,
 )
+from egomimic.eval.video import EvalVideo
 
 
 def _baseline_evaluator(execute_steps=2):
@@ -191,3 +193,78 @@ def test_open_loop_sim_logs_directly_through_trainer_logger():
     assert kwargs == {"step": 17}
     assert metrics["Valid/open_loop_sim/MSE"] == pytest.approx(1.0)
     assert not any("dataloader_idx" in key for key in metrics)
+
+
+def test_open_loop_video_writes_one_full_episode_mp4(tmp_path, monkeypatch):
+    evaluator = _baseline_evaluator()
+    evaluator.video_output_dir = tmp_path
+    evaluator.video_chunk_frames = 1000
+    evaluator.max_episode_frames = 100
+    evaluator.viz_every_n_epochs = 1
+    evaluator.viz_max_batches = None
+    evaluator.trainer = SimpleNamespace(
+        is_global_zero=True,
+        current_epoch=0,
+        world_size=1,
+        default_root_dir=str(tmp_path),
+        logger=None,
+    )
+    written = []
+
+    def fake_write_video(path, frames, **kwargs):
+        written.append((path, tuple(frames.shape), kwargs))
+
+    monkeypatch.setattr("egomimic.eval.video.tvio.write_video", fake_write_video)
+    EvalVideo.on_validation_start(evaluator)
+    buf_key = ("valid", "yam_bimanual")
+    out_dir = evaluator._group_video_dir(*buf_key)
+    frame = torch.zeros((4, 4, 3), dtype=torch.uint8)
+    evaluator._buffer_per_episode(
+        buf_key, out_dir, [frame, frame, frame], ["episode-a"] * 3
+    )
+    assert written == []
+    evaluator._buffer_per_episode(buf_key, out_dir, [frame], ["episode-b"])
+    EvalVideo.on_validation_end(evaluator)
+
+    assert [item[0].rsplit("/", 1)[-1] for item in written] == [
+        "episode-a.mp4",
+        "episode-b.mp4",
+    ]
+    assert [item[1][0] for item in written] == [3, 1]
+
+
+def test_open_loop_video_uploads_only_first_episode_per_panel(monkeypatch):
+    evaluator = _baseline_evaluator()
+    logged = []
+    experiment = SimpleNamespace(
+        id="run-id",
+        log=lambda payload, **kwargs: logged.append((payload, kwargs)),
+    )
+    evaluator.trainer = SimpleNamespace(
+        is_global_zero=True,
+        world_size=1,
+        global_step=23,
+        logger=SimpleNamespace(experiment=experiment),
+    )
+    evaluator._written_paths = [
+        ("valid", "yam_bimanual", "/tmp/episode-a.mp4"),
+        ("valid", "yam_bimanual", "/tmp/episode-b.mp4"),
+        ("valid", "human_bimanual", "/tmp/episode-c.mp4"),
+        ("nested", "yam_bimanual", "/tmp/episode-d.mp4"),
+    ]
+    fake_wandb = SimpleNamespace(
+        Video=lambda path, **kwargs: {"path": path, **kwargs}
+    )
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+
+    OpenLoopSimEval._log_wandb_videos(evaluator)
+
+    assert len(logged) == 1
+    payload, kwargs = logged[0]
+    assert kwargs == {"step": 23}
+    assert sorted(payload) == [
+        "Val_video/human_bimanual",
+        "Val_video/yam_bimanual",
+        "Val_video_nested/yam_bimanual",
+    ]
+    assert payload["Val_video/yam_bimanual"]["path"] == "/tmp/episode-a.mp4"

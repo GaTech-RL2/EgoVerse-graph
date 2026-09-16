@@ -63,6 +63,13 @@ workflow:
       # preemptions. Each episode is independent (env.reset(seed=N)),
       # so seeds 0..39 split into chunks give bit-identical episodes;
       # only the grouping changes.
+      # all9 = the co-train models, which carry seven domain heads and need
+      # a key map spanning every embodiment normalize() will be asked about.
+      # per_emb = the single-embodiment BC baselines: their model has ONE
+      # head and their norm_stats.json has ONE domain, so handing them the
+      # nine-domain config reproduces the "no entry for embodiment id" death
+      # the suction-only job hit.
+      EVAL_DATA_MODE: "all9"
       CHUNK_EPISODES: "10"
       SAMPLER_STEPS: "100"
       TSIM_VERSION: sim_v2
@@ -398,9 +405,13 @@ workflow:
           # for the held-out pair. Training never uses this data config.
           local DKIND=dp
           case "$EXP" in *_arc_*) DKIND=arc;; esac
+          local EVAL_DATA="pusht/artic_all9_$DKIND"
+          if [ "$EVAL_DATA_MODE" = per_emb ]; then
+            EVAL_DATA="pusht/artic_ideal_${DKIND}_${EMB}"
+          fi
           python egomimic/trainHydra.py \
             +experiment="$EXP_GROUP/$EXP" mode=eval \
-            data=pusht/artic_all9_$DKIND \
+            data="$EVAL_DATA" \
             ckpt_path="${CKPT_OF[$EXP]}" \
             planar.articulated_root=/workspace/articulated \
             $GUARD_OV \

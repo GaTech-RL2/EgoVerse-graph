@@ -553,6 +553,36 @@ The error also surfaces once per scored cell, so it reads like a per-embodiment
 data problem when it is one global datamodule failure. `STAGE` must be
 `EMBODIMENTS + TRAIN_EMB + HELD_OUT`. Fixed in fb2668b.
 
+### 5.10d FAILED_EVICTED is usually ephemeral storage, NOT preemption
+
+`osmo workflow list` shows `FAILED_EVICTED` for a container that overran its
+disk, which is visually identical to being preempted. The reason only appears
+in `osmo workflow events <id>`:
+
+    Evicted: Container rollout exceeded its local ephemeral storage limit "100Gi"
+
+**Run `osmo workflow events` before theorising about cluster contention.** I lost
+hours to this: I read the status column, concluded the pool was preempting me,
+and successively shrank the rollout chunk size, migrated across four GPU pools,
+and cut `storage` from 400Gi to 200Gi to 100Gi -- the last of which made the
+failures strictly more frequent, because storage WAS the binding constraint.
+
+The underlying cause was the checkpoint pull. `s3://rldb/staged/articulated_cotrain/<job>/`
+holds every periodic checkpoint of every arm at 3.92 GB apiece:
+
+| prefix | objects | size |
+|---|---|---|
+| `articotrain-arc-18` | 45 | 141.0 GB |
+| `articotrain-dp-8` | 16 | 50.9 GB |
+
+Copying both wholesale is 192 GB, of which a rollout reads one `last.ckpt` and
+one `norm_stats.json` -- about 4 GB. It also made "staging" look slow when most
+of that time was copying checkpoints nobody opens. Fixed in 61bf2bf by pulling
+`$J/$RN/checkpoints/last.ckpt` and `$J/$RN/norm_stats/*` only.
+
+Corollary for `ckpt_every`: a denser checkpoint schedule silently inflates this
+prefix, so anything that copies it wholesale degrades as training goes on.
+
 ### 5.11 Checkpoint discovery is a fuzzy glob
 The launcher resolves `find "$CK" -path "*${EXP}*" -name last.ckpt | head -1`. Note that
 `planar_v2_usocket_dp_paper` matched the directory `planar_v2_usocket_dp_paper_h16`. That

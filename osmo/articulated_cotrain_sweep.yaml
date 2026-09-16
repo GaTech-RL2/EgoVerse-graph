@@ -244,9 +244,17 @@ workflow:
         (setsid nohup /tmp/ckpt_sync.sh "$JOB_NAME" >/dev/null 2>&1 &)
 
         drain_pids () {
+          # set +x for the wait itself. Under the script-wide set -x this loop
+          # emits two trace lines every 30s per run for the whole of training,
+          # which is most of the log: `osmo workflow logs` on a multi-hour job
+          # then takes over ten minutes and usually times out, which is why
+          # progress has to be read from R2 instead. The trace says nothing --
+          # it is the same `kill -0` over and over.
+          set +x
           for dp in $1; do
             while kill -0 "$dp" 2>/dev/null; do sleep 30; done
           done
+          set -x
         }
 
         # ------------------------------------------- resume (optional)

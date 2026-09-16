@@ -369,11 +369,18 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                 record_pending = False
                 arm_record_on_next_sample = False
                 if writer is not None:
+                    writer_path = writer.path
                     writer.close(complete=False)
-                    print(f"Preserved interrupted episode: {writer.path}")
                     writer = None
                     record_phase = 0.0
-                    advance_episode()
+                    if event == keys["stop"]:
+                        # X explicitly discards the current take.  Remove the
+                        # incomplete file so the same episode ID remains usable.
+                        writer_path.unlink()
+                        print(f"Discarded {writer_path}; episode ID unchanged.")
+                    else:
+                        print(f"Preserved interrupted episode: {writer_path}")
+                        advance_episode()
                 if event == keys["home"]:
                     control.reset()
                     robot.set_home()

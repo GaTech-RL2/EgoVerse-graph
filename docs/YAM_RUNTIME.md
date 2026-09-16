@@ -160,9 +160,9 @@ python -m egomimic.robot.collect_gello \
 
 #### Capturing GELLO calibration
 
-The leader-only calibration tool does not create or command a Yam follower,
-open CAN, or open cameras. It opens exactly one configured USB leader, disables
-its torque through the same passive adapter, and reads its seven raw encoder
+The leader-only calibration tool does not create or command a YAM follower,
+open CAN, or open cameras. It opens both configured USB leaders, disables their
+torque through the same passive adapter, and reads their seven raw encoder
 positions. Static validation remains device-free:
 
 ```bash
@@ -171,28 +171,29 @@ python -m egomimic.robot.calibrate_gello \
   --check-config
 ```
 
-After setting a stable path plus verified servo IDs and bus settings for one
-side, put that leader at the intended six-joint zero pose and run:
+After setting stable paths plus verified servo IDs and bus settings for both
+leaders, put each leader at its intended six-joint zero pose and run:
 
 ```bash
 python -m egomimic.robot.calibrate_gello \
   --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \
-  --arm left \
-  --output ./gello_left_calibration.yaml
+  --output ./gello_calibration.yaml
 ```
 
-The terminal shows seven raw radians. Press **z** to capture all six joint zero
-offsets, **o** at gripper-open, **c** at gripper-closed, and **1** through **6**
-to toggle a joint sign after a direction check. Press **p** to print a YAML
-snippet or **w** to write the requested new output file; it refuses to overwrite
-one. Press **q** to exit. Repeat for the other arm, paste both snippets into the
-station profile, verify directions in teleop one arm at a time, and
-only then set `gello.calibrated: true`.
+The terminal shows both raw encoder streams. Press **l** or **r** to select the
+leader being calibrated, then press **z** to capture its six joint zero offsets,
+**o** at gripper-open, **c** at gripper-closed, and **1** through **6** to toggle
+a joint sign after a direction check. Press **p** to print the completed-leader
+YAML snippet. **w** writes one combined `gello.leaders` YAML file only after both
+leaders are complete and refuses to overwrite an existing file. Press **q** to
+exit. Paste the combined snippet into the station profile, verify directions in
+teleop, and only then set `gello.calibrated: true`.
 
 The leader adapter disables torque on every Dynamixel and never sends leader
 position targets. Its two serial reads run concurrently. Followers start
 disarmed: press **g** or **b** to arm both, **b** also queues an episode,
-**x** to disarm and preserve an interrupted episode, **y** to home, and **q**
+**x** to discard the active take and disarm without advancing its episode ID,
+**y** to home (preserving an interrupted take and advancing its ID), and **q**
 to quit. Absolute alignment is the station default: GELLO calibrated zeros map
 onto each follower's configured home. Arming only enables the open-then-squeeze
 trigger gate; that gate starts follower motion to home plus the current GELLO

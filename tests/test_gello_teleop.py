@@ -751,6 +751,20 @@ def test_completed_recording_advances_dashboard_episode_id(tmp_path, monkeypatch
         assert episode.attrs["complete"]
 
 
+def test_stop_discards_active_take_without_advancing_episode_id(tmp_path, monkeypatch):
+    profile = yaml.safe_load(PROFILE.read_text())
+    profile["robot"]["cameras"] = {}
+    profile["recording"].update(directory=str(tmp_path), episode_length=10)
+    profile["preview"]["enabled"] = False
+    monkeypatch.setattr(time, "sleep", lambda delay: None)
+    view = SequenceView(["b", None, None, "x", "q"])
+    collect_gello.run_collection(
+        FakeFollower(), TriggerReader(), profile, view=view, max_steps=5
+    )
+    assert view.episodes[-1] == (0, "next")
+    assert not list(tmp_path.glob("*.hdf5"))
+
+
 def test_episode_override_rejects_an_existing_demo(tmp_path, monkeypatch):
     with h5py.File(tmp_path / "demo_7.hdf5", "w") as episode:
         episode.attrs["complete"] = True

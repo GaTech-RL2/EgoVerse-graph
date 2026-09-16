@@ -9,6 +9,7 @@ from egomimic.pipeline.pushshapes import (
     PlanarArcWaypointZeroNativeDecoder,
     PlanarCommon5NativeDecoder,
 )
+from egomimic.rldb.embodiment.pushshapes import get_planar_arc_length_transform_list
 from egomimic.rldb.zarr.planar_arc import (
     PadPlanarAction,
     TokenizePlanarArcLength,
@@ -146,6 +147,33 @@ def test_duration_decoder_restores_the_full_control_rate_trajectory():
     np.testing.assert_allclose(trajectory[0], raw, atol=1e-5)
     with pytest.raises(ValueError, match="requires per-point timing"):
         PlanarArcTrajectoryNativeDecoder(16, 3, 40, velocity_mode="mean")
+
+
+def test_arc_transform_aligns_the_native_target_before_tokenization():
+    """Hobs=2 must encode a_(t+1)..a_(t+40), never the 41-row loader window."""
+    loader_window = np.column_stack(
+        (np.arange(41, dtype=np.float32), np.zeros(41), np.zeros(41))
+    )
+    transforms = get_planar_arc_length_transform_list(
+        action_horizon=32,
+        raw_action_horizon=40,
+        action_target_offset=1,
+        min_distance_unit=40.0,
+        resampled_vector_length=16,
+        dt=1.0 / 30.0,
+        velocity_mode="duration",
+    )
+    batch = {"actions": loader_window.copy()}
+    for transform in transforms:
+        batch = transform.transform(batch)
+
+    assert batch["actions"].shape == (32, 5)
+    decoded = PlanarArcTrajectoryNativeDecoder(
+        resampled_vector_length=16,
+        native_action_dim=3,
+        raw_action_horizon=40,
+    ).decode(batch["actions"])
+    np.testing.assert_allclose(decoded[0], loader_window[1:], atol=1e-5)
 
 
 @pytest.mark.parametrize("native_dim", [2, 3, 4])

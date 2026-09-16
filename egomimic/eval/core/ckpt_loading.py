@@ -246,10 +246,10 @@ def _strict_contract(
             )
     if action_chunk_start_index != 0:
         raise ValueError("duration ARC bridge requires action_chunk_start_index=0")
-    if replan_every is not None:
+    if replan_every is not None and not 0 < int(replan_every) <= _LEGACY_RAW_ACTION_HORIZON:
         raise ValueError(
-            "duration ARC timing is carried inside the predicted chunk; "
-            "explicit replan_every is invalid"
+            "duration ARC replan_every must be within the decoded 40-step horizon; "
+            f"got {replan_every}"
         )
     decoder_cfg = OmegaConf.select(cfg, "planar.eval_native_decoder")
     if decoder_cfg is None:
@@ -374,6 +374,7 @@ def strict_no_rollout_preflight(
     action_horizon = int(OmegaConf.select(cfg, "planar.action_horizon"))
     decoded_horizon = int(getattr(decoder, "action_horizon", 0))
     parameter_keys = len(algo.nets.state_dict())
+    execution_horizon = decoded_horizon if replan_every is None else int(replan_every)
     return {
         "status": "audited_strict_no_rollout_ok",
         "checkpoint_epoch": int(checkpoint.get("epoch", -1)),
@@ -384,11 +385,11 @@ def strict_no_rollout_preflight(
         "native_action_dim": expected_native_action_dim,
         "state_tensor_count": parameter_keys,
         "action_chunk_start_index": int(action_chunk_start_index),
-        "execution_stop_index_exclusive": decoded_horizon,
-        "execution_horizon": decoded_horizon,
-        "execution_horizon_semantics": "fixed_40_step_duration_decoded_chunk",
-        "replan_every": decoded_horizon,
-        "replan_semantics": "decoded_fixed_duration_chunk_horizon",
+        "execution_stop_index_exclusive": execution_horizon,
+        "execution_horizon": execution_horizon,
+        "execution_horizon_semantics": "decoded_duration_chunk_prefix_before_replan",
+        "replan_every": execution_horizon,
+        "replan_semantics": "decoded_duration_chunk_prefix_before_next_inference",
         "timing_semantics": getattr(decoder, "timing_semantics", None),
         "timing_rows": _LEGACY_WAYPOINT_HORIZON,
         "timing_representation": "per_waypoint_interval_duration_seconds",
@@ -545,11 +546,18 @@ def _rollout_one(args, policy: _LegacyArcPolicy, seed: int, ep_idx: int):
         policy.reset()
         action_chunk = None
         chunk_offset = 0
+        chunk_execution_horizon = 0
         for _step in range(args.max_steps):
-            if action_chunk is None or chunk_offset >= len(action_chunk):
+            if action_chunk is None or chunk_offset >= chunk_execution_horizon:
                 action_chunk = policy.predict_native_actions(env._get_obs())
                 chunk_offset = 0
-                chunk_lengths.append(len(action_chunk))
+                chunk_execution_horizon = min(
+                    len(action_chunk),
+                    len(action_chunk) if args.replan_every is None else args.replan_every,
+                )
+                if chunk_execution_horizon <= 0:
+                    raise RuntimeError("duration ARC replan horizon must be positive")
+                chunk_lengths.append(chunk_execution_horizon)
             action = action_chunk[chunk_offset]
             chunk_offset += 1
             actions.append(action.copy())
@@ -593,10 +601,10 @@ def _validate_runtime_args(args) -> None:
         raise ValueError(f"only-emb must be {expected_id}")
     if args.n_episodes <= 0 or args.max_steps <= 0:
         raise ValueError("n-episodes and max-steps must be positive")
-    if args.replan_every is not None:
+    if args.replan_every is not None and not 0 < args.replan_every <= _LEGACY_RAW_ACTION_HORIZON:
         raise ValueError(
-            "arc spline timing chooses replan length from terminal speed; "
-            "do not pass --replan-every"
+            "replan-every must be within the decoded 40-step duration horizon; "
+            f"got {args.replan_every}"
         )
     if args.action_chunk_start_index != 0:
         raise ValueError("the legacy arc bridge only permits action-chunk-start-index=0")
@@ -673,6 +681,7 @@ def run(args) -> None:
         f"[sim] emb{args.only_emb} ep_coverages: "
         + ",".join(f"{value:.4f}" for value in coverages)
     )
+    execution_horizon = policy.decoded_horizon if args.replan_every is None else args.replan_every
     summary = {
         "bridge": "pipeline_arc_duration_rollout_v1",
         "comparability": "noncanonical_historical_evaluator_bridge",
@@ -683,9 +692,10 @@ def run(args) -> None:
         "decoded_action_horizon": int(getattr(policy.decoder, "action_horizon", 0)),
         "action_chunk_start_index": int(args.action_chunk_start_index),
         "waypoint_count": _LEGACY_WAYPOINT_HORIZON,
-        "execution_slice": "[0,40)",
-        "execution_horizon": 40,
-        "replan_every": "decoded_fixed_duration_chunk_horizon",
+        "execution_slice": f"[0,{execution_horizon})",
+        "execution_horizon": execution_horizon,
+        "replan_every": execution_horizon,
+        "replan_semantics": "decoded_duration_chunk_prefix_before_next_inference",
         "timing_semantics": getattr(policy.decoder, "timing_semantics", None),
         "sampler_inference_steps": 100,
         "episodes": episode_rows,

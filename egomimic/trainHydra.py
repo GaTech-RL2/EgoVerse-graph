@@ -154,6 +154,49 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     return OmegaConf.create(config_tree)
 
 
+def _weights_only_initialization_spec(
+    cfg: DictConfig,
+) -> tuple[Path, bool] | None:
+    """Resolve the optional *model-only* initialization checkpoint.
+
+    ``ckpt_path`` is Lightning's full-state resume mechanism.  Keep the two
+    paths deliberately separate: a configured weights-only initialization must
+    never become the ``ckpt_path`` passed to ``Trainer.fit``.
+    """
+
+    settings = OmegaConf.select(cfg, "weights_only_init", default=None)
+    if settings is None:
+        return None
+    checkpoint_text = settings.get("path", None)
+    if checkpoint_text is None:
+        return None
+    if not isinstance(checkpoint_text, str) or not checkpoint_text.strip():
+        raise ValueError("weights_only_init.path must be a non-empty string or null")
+    if cfg.get("ckpt_path") is not None:
+        raise ValueError(
+            "weights_only_init.path and ckpt_path are mutually exclusive; "
+            "ckpt_path restores full Lightning state"
+        )
+    use_ema = settings.get("use_ema", False)
+    if not isinstance(use_ema, bool):
+        raise TypeError("weights_only_init.use_ema must be a boolean")
+
+    checkpoint_path = Path(checkpoint_text).expanduser()
+    if not checkpoint_path.is_absolute():
+        raise ValueError("weights_only_init.path must be an absolute path")
+    try:
+        checkpoint_path = checkpoint_path.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            f"weights_only_init.path does not exist: {checkpoint_text}"
+        ) from exc
+    if not checkpoint_path.is_file():
+        raise ValueError(
+            f"weights_only_init.path must be a checkpoint file: {checkpoint_path}"
+        )
+    return checkpoint_path, use_ema
+
+
 def _validate_run_config(cfg: DictConfig) -> str:
     if cfg.get("model") is None:
         raise ValueError("Select a complete Pipeline model config")
@@ -166,6 +209,9 @@ def _validate_run_config(cfg: DictConfig) -> str:
         raise ValueError("Config mode must be 'train' or 'eval'")
     if mode == "eval" and cfg.get("evaluator") is None:
         raise ValueError("Evaluation mode requires an evaluator config")
+    weights_only_init = _weights_only_initialization_spec(cfg)
+    if mode != "train" and weights_only_init is not None:
+        raise ValueError("weights_only_init is supported only in train mode")
     return mode
 
 
@@ -184,6 +230,41 @@ def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
         use_ema=use_ema,
     )
     return model
+
+
+def _apply_weights_only_initialization(
+    model: LightningModule,
+    cfg: DictConfig,
+) -> str | None:
+    """Load only compatible Pipeline parameters before a fresh ``Trainer.fit``.
+
+    This intentionally calls the strict Pipeline ``nets.*`` loader directly
+    instead of supplying the source checkpoint to Lightning.  Consequently,
+    source optimizer, scheduler, global-step, RNG, callbacks, logger/W&B, and
+    trainer-loop state are never restored.
+    """
+
+    resolved = _weights_only_initialization_spec(cfg)
+    if resolved is None:
+        return None
+    checkpoint_path, use_ema = resolved
+
+    algo = getattr(model, "model", None)
+    if not isinstance(algo, PipelineAlgo):
+        raise TypeError("weights_only_init requires a ModelWrapper around PipelineAlgo")
+    checkpoint = MmapCheckpointIO().load_checkpoint(
+        str(checkpoint_path), map_location="cpu", weights_only=False
+    )
+    if not isinstance(checkpoint, dict):
+        raise TypeError("weights_only_init checkpoint must contain a mapping")
+    strict_load_pipeline_checkpoint(algo, checkpoint, use_ema=use_ema)
+    log.info(
+        "Initialized compatible Pipeline weights only from %s (use_ema=%s); "
+        "the source checkpoint was not used as a Lightning resume state.",
+        checkpoint_path,
+        use_ema,
+    )
+    return str(checkpoint_path)
 
 
 def _callbacks_for_mode(callbacks: List[Callback], mode: str) -> List[Callback]:
@@ -587,6 +668,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = _instantiate_model_wrapper(cfg)
     model.model.bind_data_context(normalizer=norm_stats)
+    if mode == "train":
+        _apply_weights_only_initialization(model, cfg)
 
     _log_dataset_frame_counts(
         datamodule.train_datasets, datamodule.iter_valid_datasets()
@@ -621,8 +704,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
 
+    training_checkpoint = None
     if mode == "train":
-        _resolve_training_checkpoint(cfg, trainer)
+        training_checkpoint = _resolve_training_checkpoint(cfg, trainer)
 
     object_dict = {
         "cfg": cfg,
@@ -647,14 +731,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Starting training!")
         if (
             cfg.get("val_at_start", False)
-            and not cfg.get("ckpt_path")
+            and not training_checkpoint
             and os.environ.get("SLURM_RESTART_COUNT", "0") == "0"
         ):
             trainer.validate(model=model, datamodule=datamodule)
         trainer.fit(
             model=model,
             datamodule=datamodule,
-            ckpt_path=cfg.get("ckpt_path"),
+            ckpt_path=training_checkpoint,
             weights_only=False,
         )
     elif mode == "eval":

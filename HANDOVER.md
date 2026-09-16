@@ -125,7 +125,32 @@ summary line `NON-PROTOCOL_REPO_LOCAL_ROLLOUT_NOT_COMPARABLE` on purpose.
 
 Identical training contract (obs horizon 2, `action_target_offset 1`, DDPM-100, EMA
 0.9999, batch 32, `PaperConditionalUnet1D` down_dims `[512,1024,2048]` kernel 5,
-247.8M denoiser params ≈ **251.6M total**), 240k steps. **Only the action representation differs.**
+247.8M denoiser params ≈ **251.6M total**), 240k steps.
+
+> **CONFOUNDED — the numbers below were produced with an action-target off-by-one.**
+> The claim that only the action representation differed is FALSE for these runs.
+> `get_planar_keymap` fetches `action_horizon + action_target_offset` steps and
+> relies on `SliceActionTarget` to drop `a_t`. The Paper-DP factory did that; the
+> two ARC factories took neither argument, so `action_target_offset: 1` vanished
+> into `**_kwargs`. Measured at the time of the fix:
+>
+> | run | target window |
+> |---|---|
+> | `planar_v2_usocket_dp_paper` | `a_t+1 .. a_t+16` (16 frames) |
+> | `planar_v2_usocket_arc_dur_paper_D80_M56_R26deg` | `a_t+0 .. a_t+80` (**81** frames) |
+> | `planar_v2_usocket_arc_stk_paper_D80_M56_R26deg` | `a_t+0 .. a_t+80` (**81** frames) |
+>
+> Both ARC arms trained on a window one frame earlier and one frame longer than
+> the baseline, which slightly favours ARC (it sees the action contemporaneous
+> with the last observation). Token-level effect at D=80/M=56: mean 0.99 px,
+> max 3.5 px, ~1.2% of the arc budget — small but systematic, and the reported
+> ARC-vs-DP gaps were already insignificant (duration − stacked p=0.78), so it
+> is not negligible relative to the effect claimed.
+>
+> The configs are fixed (the ARC factories now honour the offset; `off=0`
+> configs are unchanged), but **these three runs were trained before the fix and
+> would have to be retrained to clear the comparison.** Do not quote this table
+> as an ARC-vs-DP result until then.
 
 | Run | mean cov | median cov | SR@0.80 | SR@0.95 | total-failure seeds |
 |---|---|---|---|---|---|

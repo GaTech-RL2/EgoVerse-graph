@@ -113,13 +113,23 @@ def get_planar_arc_length_transform_list(
     dt: float = 1.0 / 30.0,
     rotation_radius: float = 0.0,
     hybrid_rotation_unit: float | None = None,
+    action_target_offset: int = 0,
+    raw_action_horizon: int = 80,
     **_kwargs,
 ):
     """Create the active Planar SE(2) arc transform."""
     keys = keys or ["actions"]
     if len(keys) != 1:
         raise ValueError("Planar arc tokenization requires exactly one action key")
-    return [
+    # The keymap fetches action_horizon + offset steps; drop a_t if so.
+    prefix = []
+    if action_target_offset:
+        prefix = [
+            SliceActionTarget(
+                keys, start=int(action_target_offset), horizon=int(raw_action_horizon)
+            )
+        ]
+    return prefix + [
         TokenizePlanarArcLength(
             action_key=keys[0],
             output_action_key=keys[0],

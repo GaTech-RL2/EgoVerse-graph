@@ -23,18 +23,41 @@ from egomimic.rldb.zarr.planar_arc import (
 )
 
 
+def _arc_prefix(keys, action_target_offset, raw_action_horizon):
+    """Drop a_t when the keymap was told to fetch it.
+
+    get_planar_keymap requests action_horizon + action_target_offset steps so
+    that the target can be aligned to the LAST observation in the window. The
+    ARC factories used to take neither argument, so an offset of 1 vanished
+    into **_kwargs: the loader fetched 81 steps and the tokenizer consumed all
+    81 beginning at a_t, one frame earlier and one frame longer than the Paper
+    DP baseline it was being compared against.
+    """
+    from egomimic.rldb.embodiment.pushshapes import SliceActionTarget
+
+    if not action_target_offset:
+        return []
+    return [
+        SliceActionTarget(
+            keys, start=int(action_target_offset), horizon=int(raw_action_horizon)
+        )
+    ]
+
+
 def get_usocket_arc_velocity_transform_list(
     keys: list[str] | None = None,
     min_distance_unit: float = 80.0,
     resampled_vector_length: int = 56,
     dt: float = 1.0 / 30.0,
     rotation_distance_unit: float | None = None,
+    action_target_offset: int = 0,
+    raw_action_horizon: int = 80,
     **_kwargs,
 ):
     keys = keys or ["actions"]
     if len(keys) != 1:
         raise ValueError("U-Socket ARC tokenization requires exactly one action key")
-    return [
+    return _arc_prefix(keys, action_target_offset, raw_action_horizon) + [
         TokenizeUSocketArcVelocity(
             action_key=keys[0],
             output_action_key=keys[0],
@@ -87,13 +110,15 @@ def get_usocket_arc_velocity_stacked_transform_list(
     resampled_vector_length: int = 56,
     dt: float = 1.0 / 30.0,
     rotation_distance_unit: float | None = None,
+    action_target_offset: int = 0,
+    raw_action_horizon: int = 80,
     **_kwargs,
 ):
     """Loader transform emitting the stacked ``[M, 6]`` ARC token."""
     keys = keys or ["actions"]
     if len(keys) != 1:
         raise ValueError("U-Socket ARC tokenization requires exactly one action key")
-    return [
+    return _arc_prefix(keys, action_target_offset, raw_action_horizon) + [
         TokenizeUSocketArcVelocityStacked(
             action_key=keys[0],
             output_action_key=keys[0],
@@ -130,6 +155,8 @@ def get_usocket_arc_velocity_carry_transform_list(
     resampled_vector_length: int = 56,
     dt: float = 1.0 / 30.0,
     rotation_distance_unit: float | None = None,
+    action_target_offset: int = 0,
+    raw_action_horizon: int = 80,
     **_kwargs,
 ):
     """Loader transform for the shared-clock (no angular budget) ablation."""
@@ -141,7 +168,7 @@ def get_usocket_arc_velocity_carry_transform_list(
             "the carry variant has no angular budget; set "
             "planar.arc_rotation_distance to null for this experiment"
         )
-    return [
+    return _arc_prefix(keys, action_target_offset, raw_action_horizon) + [
         TokenizeUSocketArcVelocityCarry(
             action_key=keys[0],
             output_action_key=keys[0],
@@ -158,13 +185,15 @@ def get_usocket_arc_duration_transform_list(
     resampled_vector_length: int = 56,
     dt: float = 1.0 / 30.0,
     rotation_distance_unit: float | None = None,
+    action_target_offset: int = 0,
+    raw_action_horizon: int = 80,
     **_kwargs,
 ):
     """Loader transform emitting the duration-timed stacked token."""
     keys = keys or ["actions"]
     if len(keys) != 1:
         raise ValueError("U-Socket ARC tokenization requires exactly one action key")
-    return [
+    return _arc_prefix(keys, action_target_offset, raw_action_horizon) + [
         TokenizeUSocketArcDuration(
             action_key=keys[0],
             output_action_key=keys[0],

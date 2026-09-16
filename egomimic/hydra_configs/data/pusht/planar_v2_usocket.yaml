@@ -20,6 +20,10 @@ train_datasets:
         _target_: ${planar.transform_target}
         action_horizon: ${planar.action_horizon}
         action_target_offset: ${planar.action_target_offset}
+        # The slice horizon is the RAW window the keymap fetched, not the
+        # 16-step model horizon: without this the ARC factories cannot honour
+        # action_target_offset and silently tokenize a_t..a_t+80.
+        raw_action_horizon: ${planar.raw_action_horizon}
         min_distance_unit: ${planar.arc_distance}
         resampled_vector_length: ${planar.arc_waypoints}
         rotation_radius: ${planar.arc_rotation_radius}

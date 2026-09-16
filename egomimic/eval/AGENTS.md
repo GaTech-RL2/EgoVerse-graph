@@ -16,6 +16,10 @@ The root AGENTS.md applies here. Configure evaluators in
 - `bimanual_tempo_eval.py`, `e1_metrics.py`: tempo/duration scoring.
 - `planar_action_eval.py`, `synthetic_trajectory_eval.py`: nonrobot evaluation.
 - `checkpoint_loading.py`: strict graph checkpoint restoration and EMA selection.
+- `normalization.py`: restore complete exported normalizer state for graph inference.
+- `planar_rollout.py`: shared planar graph adapter and native action queue;
+  observe every control step to preserve adjacent observation history. The
+  calling evaluator supplies its verified simulator and scoring protocol.
 
 PI-specific backend calls do not belong in the evaluator. Its graph stage emits
 the same normalized `pred_action` as HPT. Validation groups use `Valid/` for

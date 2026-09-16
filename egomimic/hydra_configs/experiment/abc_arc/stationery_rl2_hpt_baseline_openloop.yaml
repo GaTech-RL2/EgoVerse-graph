@@ -28,7 +28,7 @@ evaluator:
   ground_truth_action_key: actions_cartesian
   control_horizon: 100
   execute_fraction: 0.30
-  limit_val_episodes: 4
+  limit_val_episodes: 5
   requires_ordered_validation: true
 logger:
   wandb:

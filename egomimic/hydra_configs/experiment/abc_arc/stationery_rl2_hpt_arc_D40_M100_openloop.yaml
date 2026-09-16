@@ -37,7 +37,7 @@ evaluator:
   min_distance_unit: ${abc.arc_distance}
   resampled_vector_length: ${abc.arc_waypoints}
   velocity_mode: ${abc.arc_velocity_mode}
-  limit_val_episodes: 4
+  limit_val_episodes: 5
   requires_ordered_validation: true
 logger:
   wandb:

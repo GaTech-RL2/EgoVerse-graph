@@ -157,11 +157,36 @@ def test_duration_roundtrip_preserves_hold_boundaries_and_grip(allocation, hold)
     assert np.sum(token[16:-1, 0]) == pytest.approx(39.0 / 30.0)
 
 
-def test_duration_fails_if_support_budget_cannot_preserve_holds():
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+def test_duration_short_pauses_fit_budget_without_deleting_elapsed_time(allocation):
     raw = np.column_stack((np.repeat(np.arange(4.0), 2), np.zeros((8, 3))))
-    tokenizer = TokenizePlanarArcLength(resampled_vector_length=4)
-    with pytest.raises(ValueError, match="preserve stationary intervals"):
-        tokenizer.tokenize(raw)
+    tokenizer = TokenizePlanarArcLength(
+        resampled_vector_length=4, waypoint_sampling=allocation
+    )
+    token = tokenizer.tokenize(raw)
+    decoded = PlanarArcTrajectoryNativeDecoder(4, 4, 8).decode(token)[0]
+    assert token.shape == (8, 5)
+    assert np.sum(token[4:-1, 0]) == pytest.approx(7.0 / 30.0)
+    assert np.all(token[4:, 0] >= 0)
+    np.testing.assert_allclose(decoded[[0, -1]], raw[[0, -1]], atol=1e-6)
+    assert np.max(np.abs(decoded - raw)) < 1.0
+
+
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+def test_duration_keeps_long_hold_when_quantized_pauses_exceed_budget(allocation):
+    raw = np.zeros((40, 4))
+    raw[:, 0] = np.r_[np.zeros(10), np.repeat(np.arange(1.0, 16.0), 2)]
+    raw[:, 3] = np.clip(np.arange(40) / 9.0, 0, 1)
+    token = TokenizePlanarArcLength(
+        min_distance_unit=40, resampled_vector_length=16,
+        waypoint_sampling=allocation,
+    ).tokenize(raw)
+    decoded = PlanarArcTrajectoryNativeDecoder(16, 4, 40).decode(token)[0]
+    assert token.shape == (32, 5)
+    assert np.sum(token[16:-1, 0]) == pytest.approx(39.0 / 30.0)
+    np.testing.assert_allclose(decoded[:10], raw[:10], atol=1e-6)
+    np.testing.assert_allclose(decoded[-1], raw[-1], atol=1e-6)
+    assert np.max(np.abs(decoded - raw)) < 1.0
 
 
 def test_curvature_sampling_allocates_denser_support_on_a_bend():

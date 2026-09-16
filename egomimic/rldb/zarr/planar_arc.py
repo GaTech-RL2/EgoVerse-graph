@@ -382,10 +382,12 @@ class TokenizePlanarArcLength:
         """Reserve both ends of stationary intervals in the duration clock.
 
         An arc coordinate alone cannot distinguish arriving at a position
-        from leaving it after a hold. Both allocation modes retain those time
-        boundaries, then allocate the remaining supports by their respective
-        arc-target density. Refuse a budget that cannot represent the holds
-        rather than silently deleting elapsed time from a training target.
+        from leaving it after a hold. Both allocation modes reserve the
+        longest holds first within the same fixed support budget, then
+        allocate any remaining supports by their respective arc density.
+        Unselected short pauses are approximated geometrically, but their
+        elapsed time remains in the source clock. In particular, quantized
+        one-frame pauses must not make an otherwise valid sample unloadable.
         """
         stopped = np.diff(cumulative) <= self.zero_dist_epsilon
         if not np.any(stopped):
@@ -394,18 +396,19 @@ class TokenizePlanarArcLength:
         end_frame = last_index + alpha
         starts = np.flatnonzero(stopped & np.r_[True, ~stopped[:-1]])
         ends = np.flatnonzero(stopped & np.r_[~stopped[1:], True]) + 1
-        boundaries = [0.0, end_frame]
-        for start, end in zip(starts, ends, strict=True):
-            if start < end_frame:
-                boundaries.extend((float(start), min(float(end), end_frame)))
-        boundaries = np.unique(boundaries)
+        holds = [
+            (float(start), min(float(end), end_frame))
+            for start, end in zip(starts, ends, strict=True)
+            if start < end_frame
+        ]
+        selected = {0.0, end_frame}
+        for start, end in sorted(holds, key=lambda hold: (hold[0] - hold[1], hold[0])):
+            candidate = selected | {start, end}
+            if len(candidate) <= self.num_waypoints:
+                selected = candidate
+        boundaries = np.asarray(sorted(selected), dtype=np.float64)
         if len(boundaries) == 2:
             return None
-        if len(boundaries) > self.num_waypoints:
-            raise ValueError(
-                f"duration ARC needs at least {len(boundaries)} waypoints to "
-                f"preserve stationary intervals, configured {self.num_waypoints}"
-            )
 
         frames = np.arange(len(cumulative), dtype=np.float64)
         boundary_arc = np.interp(boundaries, frames, cumulative)

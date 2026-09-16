@@ -287,10 +287,14 @@ workflow:
           # the tensor UNCHANGED when it finds none -- raw pixels and raw pose
           # into a network trained on normalized inputs, still producing a
           # plausible number. Give it the pooled statistics of the training set.
+          # Pool whenever there IS a held-out pair, not only when one is being
+          # scored. The eval datamodule spans all nine embodiments so that
+          # normalize() has a key map, and it then demands stats for every id in
+          # that map -- so a job scoring nothing but in-domain suction still
+          # dies with "no entry for embodiment id 23". Keying this off
+          # EMBODIMENTS was right only while every job also scored scoop.
           NEED_POOL=no
-          for EMB in $EMBODIMENTS; do
-            case " $HELD_OUT " in *" $EMB "*) NEED_POOL=yes;; esac
-          done
+          if [ -n "$HELD_OUT" ]; then NEED_POOL=yes; fi
           if [ "$NEED_POOL" = yes ]; then
             # One line: a newline inside python -c breaks out of the YAML
             # block scalar, which is the fourth time that has bitten this file.

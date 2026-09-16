@@ -1,0 +1,24 @@
+# @package _global_
+# Single-embodiment BC base for the articulated corpus.
+#
+# The co-train base pins all seven embodiments into planar.action_dims, which
+# StagesUniteSeparate turns into a seven-domain head. A per-embodiment baseline
+# must declare exactly ONE domain, so action_dims is deliberately absent here
+# and set by each experiment.
+defaults:
+  - /experiment/pusht/planar_v2_base
+  - _self_
+
+planar:
+  articulated_root: /workspace/articulated
+
+run_provenance:
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  dataset_observation_alignment: pre_step
+  corpus: s3://rldb/staged/pushshapes_articulated/articulated-20260909/
+  corpus_manifest_sha256: 78de5167ec165c8916e1d9a8768085f6765cbba34edfe13ad183e13ccf4df94e
+  control_mode: ideal
+  train_episode_count_per_domain: 2970
+  valid_episode_count_per_domain: 30
+  union_episode_count_per_domain: 3000

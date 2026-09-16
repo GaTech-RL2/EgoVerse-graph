@@ -1,0 +1,64 @@
+# @package _global_
+# Single-embodiment BC baseline on chain_gripper: the SAME tokenizer, model, optimiser
+# and step budget as the co-trained arm artic_c7_arc_dur_D80_M56_R26deg, but
+# trained on chain_gripper alone.
+#
+# The comparison it buys: if per-embodiment BC reaches the same low rollout
+# coverage as the co-trained policy, then co-training is not what is costing
+# control, and the gap is the codec/closed-loop. If it is much better,
+# seven-domain co-training is diluting capacity.
+defaults:
+  - /experiment/pusht/artic_bc1_base
+  - override /data: pusht/artic_ideal_arc_chain_gripper
+  - override /model: bf/bf_planar_v2_arc_grip_paper_dp
+  - _self_
+
+name: artic_bc1_dur_D80_M56_chain_gripper
+description: bc1_chain_gripper_dur_D80_M56_R26_DDPM100_obs2_EMA
+
+planar:
+  raw_action_horizon: 80
+  action_horizon: 16
+  observation_horizon: 2
+  action_target_offset: 1
+  batch_size: 32
+  arc_distance: 80.0
+  arc_waypoints: 56
+  arc_rotation_distance: 0.4537856055185257   # 26 degrees, in RADIANS
+  arc_dt: 0.0333333333333333
+  arc_token_rows: 56
+  transform_target: egomimic.rldb.embodiment.articulated_arc.get_articulated_arc_duration_grip_transform_list
+  # Exactly one domain: StagesUniteSeparate builds its heads from these keys.
+  action_dims:
+    pushshapes_sim_chain_gripper: 5
+  eval_native_decoder:
+    _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+    resampled_vector_length: ${planar.arc_waypoints}
+    action_horizon: ${planar.action_horizon}
+    native_action_dim: 4
+    dt: ${planar.arc_dt}
+
+evaluator:
+  # Width-7 token: [x, y] [timing_t] [cos, sin] [timing_r] [grip].
+  semantic_blocks: [[0, 2], [2, 3], [3, 5], [5, 6], [6, 7]]
+  native_decoder: null
+  native_decoders:
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.embodiment.articulated_arc.ArticulatedArcDurationGripNativeDecoder
+      resampled_vector_length: 56
+      action_horizon: 16
+      native_action_dim: 4
+      dt: 0.0333333333333333
+
+eval_checkpoint:
+  use_ema: true
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true

@@ -1,8 +1,9 @@
 import logging
+from pathlib import Path
 
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
-from torch.utils.data import DataLoader, default_collate
+from torch.utils.data import DataLoader, Dataset, default_collate
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
@@ -96,6 +97,66 @@ def _params_for_group(valid_dataloader_params: dict, group_name: str) -> dict:
     return valid_dataloader_params.get(group_name, {})
 
 
+def _episode_id_at(dataset: Dataset, index: int) -> str:
+    """Resolve an episode id without loading a sample or decoding images."""
+
+    index_map = getattr(dataset, "index_map", None)
+    datasets = getattr(dataset, "datasets", None)
+    if index_map is not None and datasets is not None:
+        dataset_name, local_index = index_map[index]
+        return _episode_id_at(datasets[dataset_name], int(local_index))
+
+    episode_path = getattr(dataset, "episode_path", None)
+    if episode_path is None:
+        raise TypeError(
+            "limit_val_episodes requires a dataset exposing either index_map/"
+            "datasets or episode_path; got "
+            f"{type(dataset).__name__}"
+        )
+    name = Path(episode_path).name
+    return name[:-5] if name.endswith(".zarr") else name
+
+
+class EpisodeLimitedDataset(Dataset):
+    """Ordered prefix containing complete episodes from a map-backed dataset."""
+
+    def __init__(self, dataset: Dataset, max_episodes: int):
+        max_episodes = int(max_episodes)
+        if max_episodes < 1:
+            raise ValueError("max_episodes must be positive")
+        self.dataset = dataset
+        self.max_episodes = max_episodes
+        selected: set[str] = set()
+        self.indices: list[int] = []
+        for index in range(len(dataset)):
+            episode = _episode_id_at(dataset, index)
+            if episode not in selected:
+                if len(selected) >= max_episodes:
+                    break
+                selected.add(episode)
+            self.indices.append(index)
+        if not self.indices:
+            raise ValueError("cannot limit an empty validation dataset")
+        self.episode_ids = tuple(sorted(selected))
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, index):
+        return self.dataset[self.indices[index]]
+
+    @property
+    def norm_stats(self):
+        return self.dataset.norm_stats
+
+    def set_norm_stats_from(self, source) -> None:
+        self.dataset.set_norm_stats_from(source)
+
+    def __getattr__(self, name):
+        # Preserve dataset metadata used by diagnostics and downstream probes.
+        return getattr(self.dataset, name)
+
+
 class MultiDataModuleWrapper(LightningDataModule):
     """
     Build dictionary-based multi-source loaders with Lightning CombinedLoader.
@@ -109,6 +170,8 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
+        valid_episode_limit: int | None = None,
+        force_valid_order: bool = False,
     ):
         """
         Args:
@@ -133,6 +196,22 @@ class MultiDataModuleWrapper(LightningDataModule):
             for group, members in as_valid_groups(valid_datasets).items()
         }
         self.valid_groups = {g: m for g, m in self.valid_groups.items() if m}
+        self.valid_episode_limit = (
+            None if valid_episode_limit is None else int(valid_episode_limit)
+        )
+        if self.valid_episode_limit is not None and self.valid_episode_limit < 1:
+            raise ValueError("valid_episode_limit must be positive")
+        self.force_valid_order = bool(
+            force_valid_order or self.valid_episode_limit is not None
+        )
+        if self.valid_episode_limit is not None:
+            self.valid_groups = {
+                group: {
+                    source: EpisodeLimitedDataset(dataset, self.valid_episode_limit)
+                    for source, dataset in members.items()
+                }
+                for group, members in self.valid_groups.items()
+            }
         # Positional: Lightning hands `validation_step` a `dataloader_idx` that
         # indexes this list, and that is how the evaluator recovers the group
         # name for its metric prefix.
@@ -206,7 +285,15 @@ class MultiDataModuleWrapper(LightningDataModule):
                     f"No dataloader params found for dataset {dataset_name} in val group {group_name!r}. Please add {dataset_name} into your data config valid_dataloader_params."
                 )
             dataset_params = dict(dataset_params)
-            shuffle = dataset_params.pop("shuffle", False)
+            requested_shuffle = dataset_params.pop("shuffle", False)
+            if self.force_valid_order and requested_shuffle:
+                logger.warning(
+                    "Forcing shuffle=False for ordered validation group %s, "
+                    "source %s",
+                    group_name,
+                    dataset_name,
+                )
+            shuffle = False if self.force_valid_order else requested_shuffle
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=shuffle,

@@ -7,6 +7,7 @@ import torch
 
 from egomimic.eval.open_loop_sim import (
     OpenLoopSimEval,
+    arc_prefix_control_steps,
     executed_control_steps,
     truncate_arc_token,
 )
@@ -39,19 +40,87 @@ def test_execute_fraction_is_a_control_frequency_prefix():
 
 @pytest.mark.parametrize(
     ("mode", "rows", "expected_rows"),
-    [("mean", 101, 26), ("per_waypoint", 200, 50), ("duration", 200, 50)],
+    [("mean", 101, 27), ("per_waypoint", 200, 52), ("duration", 200, 52)],
 )
 def test_truncate_arc_token_keeps_matching_timing_rows(mode, rows, expected_rows):
     token = np.arange(rows * 14, dtype=np.float64).reshape(rows, 14)
     truncated = truncate_arc_token(token, 0.25, mode)
     assert truncated.shape == (expected_rows, 14)
     M = rows - 1 if mode == "mean" else rows // 2
-    K = 25
-    np.testing.assert_array_equal(truncated[:K], token[:K])
+    K = 26
+    np.testing.assert_array_equal(truncated[: K - 1], token[: K - 1])
+    np.testing.assert_allclose(
+        truncated[K - 1], 0.25 * token[24] + 0.75 * token[25]
+    )
     if mode == "mean":
-        np.testing.assert_array_equal(truncated[K:], token[M : M + 1])
+        assert truncated[K:].shape == (1, 14)
     else:
-        np.testing.assert_array_equal(truncated[K:], token[M : M + K])
+        timing = truncated[K:]
+        if mode == "per_waypoint":
+            np.testing.assert_array_equal(timing, token[M : M + K])
+        else:
+            expected = token[M : M + K].copy()
+            expected[24, (0, 7)] *= 0.75
+            np.testing.assert_array_equal(timing, expected)
+
+
+def _duration_arc_token(M: int, interval_duration: float) -> np.ndarray:
+    token = np.zeros((2 * M, 14), dtype=np.float64)
+    positions = np.linspace(0.0, 0.4, M)
+    token[:M, 0] = positions
+    token[:M, 7] = positions
+    token[M:, 0] = interval_duration
+    token[M:, 7] = interval_duration
+    return token
+
+
+def test_arc_prefix_uses_exact_distance_and_recovers_its_frame_stride():
+    dt = 1.0 / 30.0
+    token = _duration_arc_token(5, dt)
+    partial = truncate_arc_token(token, 0.375, "duration")
+
+    # 37.5% lies halfway between waypoint rows 1 and 2.
+    np.testing.assert_allclose(partial[2, (0, 7)], [0.15, 0.15])
+    # One complete interval plus half an interval spans 1.5 control periods.
+    assert arc_prefix_control_steps(token, 0.375, "duration", dt) == 2
+
+
+def test_arc_replan_stride_changes_with_predicted_timing():
+    evaluator = OpenLoopSimEval.__new__(OpenLoopSimEval)
+    evaluator.execute_fraction = 0.5
+    evaluator.execute_steps = 25
+    evaluator.control_horizon = 100
+    evaluator.control_dt = 1.0 / 30.0
+    evaluator.action_mode = "arc"
+    evaluator.resampled_vector_length = 5
+    evaluator.velocity_mode = "duration"
+    evaluator.min_distance_unit = 0.4
+    evaluator._arc_tokenizer = None
+    evaluator.require_episode_start = True
+    evaluator.limit_val_episodes = None
+
+    def records(token):
+        return [
+            {
+                "source": "yam_bimanual",
+                "label": "yam_bimanual",
+                "episode": "episode-a",
+                "frame": frame,
+                "prediction": token,
+                "ground_truth": np.zeros((100, 14)),
+            }
+            for frame in range(12)
+        ]
+
+    fast = evaluator._score_episode(records(_duration_arc_token(5, evaluator.control_dt)))
+    slow = evaluator._score_episode(
+        records(_duration_arc_token(5, 3.0 * evaluator.control_dt))
+    )
+
+    # The same 50% distance prefix spans 2 frames at the fast timing and 6 at
+    # the slow timing, so the oracle-observation replanning boundaries differ.
+    assert fast["segments"] == 6
+    assert slow["segments"] == 2
 
 
 def test_open_loop_sim_walks_an_episode_in_executed_prefixes():
@@ -157,7 +226,7 @@ def test_open_loop_sim_detokenizes_only_the_executed_arc_prefix():
     token[4:, 0] = 0.1
     token[4:, 7] = 0.1
     decoded = evaluator._decode_prediction(token)
-    assert decoded.shape == (2, 14)
+    assert decoded.shape == (3, 14)
     assert np.isfinite(decoded).all()
 
 

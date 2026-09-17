@@ -37,6 +37,10 @@ resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
 # evaluator directly instantiable outside an ABC experiment.
 velocity_mode: ${oc.select:abc.arc_velocity_mode,mean}
 
+# Optional post-hoc checkpoint step used for logger x-axis alignment. Training
+# leaves this null and uses trainer.global_step.
+log_step: null
+
 results_path: ${paths.output_dir}/open_loop_sim.json
 require_episode_start: true
 # Episode-level limit. The datamodule uses this to retain complete episodes,

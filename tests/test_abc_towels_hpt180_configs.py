@@ -42,7 +42,7 @@ def test_abc_towel_pair_preserves_hpt180_contract(experiment, is_arc, expected_h
     valid_filter = cfg.data.valid_datasets.yam_bimanual.filters.filter_lambdas[0]
     for expression in (train_filter, valid_filter):
         assert "row['lab'] == 'abc'" in expression
-        assert "row['task'] == 'fold stack towels'" in expression
+        assert "row['task'] == 'fold and stack the towels'" in expression
 
     transform = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
     assert transform.action_mode == ("arc_tokenizer_cartesian" if is_arc else "cartesian")

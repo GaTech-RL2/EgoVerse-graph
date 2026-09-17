@@ -1,4 +1,4 @@
-# HPT180 ARC-tokenized ABC-only YAM data: all ``fold stack towels`` episodes.
+# HPT180 ARC-tokenized ABC-only YAM data: all ``fold and stack the towels`` episodes.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -24,7 +24,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold stack towels' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the towels' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -52,7 +52,7 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold stack towels' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the towels' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
     mode: valid
     valid_ratio: 0.2
     bounds_check: false

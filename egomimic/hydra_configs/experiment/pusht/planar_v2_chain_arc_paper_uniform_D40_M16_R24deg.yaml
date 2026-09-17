@@ -44,5 +44,6 @@ run_provenance:
     timing_rows: 16
     timing_semantics: per_waypoint_interval_duration_seconds
     rollout_action_chunk_start_index: 0
-    execution_horizon: 40
-    execution_slice: "[0,40)"
+    # Execute half of the 40 decoded native actions, then replan.
+    execution_horizon: 20
+    execution_slice: "[0,20)"

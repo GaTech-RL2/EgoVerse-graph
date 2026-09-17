@@ -87,7 +87,7 @@ def policy():
     ), stage
 
 
-@pytest.mark.parametrize("execution_horizon", [8, 40])
+@pytest.mark.parametrize("execution_horizon", [8, 20, 40])
 def test_replans_use_adjacent_control_frames_and_unnormalize_once(execution_horizon):
     value, stage = policy()
     queue = PlanarActionQueue(value, execution_horizon=execution_horizon)
@@ -122,7 +122,8 @@ def test_observation_gaps_duplicates_and_missing_execution_feedback_are_rejected
     np.testing.assert_allclose(queue.next_action(), [50, 60, 0, 0.6], atol=1e-5)
 
 
-def test_native_queue_starts_at_zero_and_does_not_reuse_old_tail():
+@pytest.mark.parametrize("execution_horizon", [20, 40])
+def test_native_queue_starts_at_zero_and_does_not_reuse_old_tail(execution_horizon):
     class IndexedPolicy:
         native_shape = (40, 4)
 
@@ -140,14 +141,18 @@ def test_native_queue_starts_at_zero_and_does_not_reuse_old_tail():
             )
 
     value = IndexedPolicy()
-    queue = PlanarActionQueue(value, execution_horizon=40)
+    queue = PlanarActionQueue(value, execution_horizon=execution_horizon)
     queue.reset({})
     executed = []
-    for _ in range(41):
+    for _ in range(2 * execution_horizon + 1):
         executed.append(queue.next_action()[0])
         queue.observe({})
-    assert executed == list(range(100, 140)) + [200]
-    assert value.observed == list(range(42))
+    assert executed == (
+        list(range(100, 100 + execution_horizon))
+        + list(range(200, 200 + execution_horizon))
+        + [300]
+    )
+    assert value.observed == list(range(2 * execution_horizon + 2))
 
 
 def test_load_restores_exact_current_checkpoint_and_exported_normalizer(tmp_path):

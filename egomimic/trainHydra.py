@@ -601,11 +601,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         callbacks.extend(_instantiate_slurm_callbacks(cfg))
 
     callbacks = _callbacks_for_mode(callbacks, mode)
-    # In eval mode, apply trainer overrides from the eval object and disable logger
+    # In eval mode, apply trainer overrides from the eval object. Post-hoc
+    # checkpoint sweeps may retain the configured logger so each checkpoint can
+    # append metrics at its original global step.
     if mode == "eval":
         eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
+        eval_logger_enabled = bool(cfg.get("eval_logger_enabled", False))
         log.info(
-            "Eval mode: applying trainer overrides from eval config, disabling logger"
+            "Eval mode: applying trainer overrides from eval config; "
+            f"external logger enabled={eval_logger_enabled}"
         )
         with open_dict(cfg):
             for k, v in eval_obj.override_dict.items():
@@ -613,7 +617,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.trainer.devices = 1
             cfg.trainer.num_nodes = 1
             cfg.trainer.num_sanity_val_steps = 0
-            cfg.logger = None
+            if not eval_logger_enabled:
+                cfg.logger = None
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))

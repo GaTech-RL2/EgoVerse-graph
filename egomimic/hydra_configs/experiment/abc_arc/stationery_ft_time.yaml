@@ -1,0 +1,179 @@
+# @package _global_
+# Stationery fine-tune, 2026-09-17 -- time arm.
+#
+# Continues Elmo's checkpoint epoch-2099-step-00210000.ckpt (run
+# yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915) on the
+# re-collected station data. Model/data/trainer/callbacks/logger blocks are his,
+# lifted from resolved-config.yaml; the deltas are listed below.
+#
+# ft.max_steps drives BOTH trainer.max_steps and the cosine T_max
+# (model.scheduler.max_steps). They must never diverge: warmup_cosine_scheduler
+# computes T_max = max_steps - warmup_steps from ITS OWN argument, so a 60k trainer
+# against a 240k scheduler would anneal a quarter of the way down and stop, i.e.
+# train the whole run at a near-flat high LR. One knob removes that failure mode.
+#
+# Deltas vs Elmo's run:
+#   max_steps      240000 -> 60000      (Aidan, 09-17)
+#   warmup_steps    10000 -> 2500       (keeps warmup at ~1/24 of the run, as his was)
+#   checkpoints    every_n_train_steps 30000, save_top_k -1  (his cadence, unchanged)
+#   init_weights_from  <- weights-only init; cfg.ckpt_path stays null because in
+#                        mode=train Lightning treats it as a full RESUME and would
+#                        restore global_step=210000 against a 60k cap and stop.
+#   rl2 task string  organize_stationary -> organize_stationary_updated
+#   wandb id         new per arm (his id would have written into HIS run)
+#   norm_stats  reuses HIS norm_stats.json verbatim -- the checkpoint's own
+#               normalisation; recomputing it would invalidate the pretrained weights.
+#   evaluator   his ArcBimanualCartesianEval, unchanged (proven over his 210k steps).
+defaults:
+- _self_
+- override /model: e1/hpt_flow_wrists_ft
+- override /data: abc_arc/stationery_ft_time
+- override /trainer: ddp
+- override /logger: wandb
+- override /callbacks: checkpoints
+name: stationery_ft_time
+description: h640t8_d384x10_cos2.5k_ft60k_s42_time_20260917
+ft:
+  max_steps: 60000
+  warmup_steps: 2500
+init_weights_from: /storage/project/r-dxu345-0/paphiwetsa3/epoch-2099-step-00210000.ckpt
+ckpt_path: null
+mode: train
+seed: 42
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+  output_dir: null
+  work_dir: null
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+runtime:
+  slurm_requeue_owner: lightning
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: null
+  max_epochs: -1
+  min_epochs: 0
+  accelerator: gpu
+  devices: 1
+  precision: bf16
+  limit_train_batches: 100
+  limit_val_batches: 80
+  check_val_every_n_epoch: 200
+  deterministic: false
+  strategy: auto
+  num_nodes: 1
+  sync_batchnorm: false
+  num_sanity_val_steps: 2
+  max_steps: ${ft.max_steps}
+callbacks:
+  wandb_profiler:
+    _target_: egomimic.utils.timing_callback.WandbProfilerLogger
+    log_every_n_steps: 100
+  model_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: epoch-{epoch:04d}-step-{step:08d}
+    save_last: true
+    save_top_k: -1
+    every_n_epochs: null
+    every_n_train_steps: 30000
+    auto_insert_metric_name: false
+logger:
+  wandb:
+    _target_: lightning.pytorch.loggers.wandb.WandbLogger
+    save_dir: null
+    offline: false
+    id: stationery_ft_time_20260917_s42
+    anonymous: null
+    project: arc
+    log_model: false
+    prefix: ''
+    entity: rl2-group
+    group: ''
+    tags:
+    - abc
+    - rl2
+    - yam
+    - hpt
+    - flow
+    - stationery
+    - finetune
+    - time
+    job_type: ''
+    resume: never
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.2
+  num_workers: 8
+  save_cache_dir: null
+  precomputed_norm_path: /storage/project/r-dxu345-0/paphiwetsa3/norm_stats.json
+e1:
+  variant: time
+  spread: stationery
+  train_root: unused-s3-resolver
+  valid_root: unused-s3-resolver
+  train_mode: total
+  valid_mode: total
+  D: 0.4
+  M: 100
+  time_rows: 100
+  chunk_length: 100
+  h_match_frames: 40
+  limit_val_batches: 40
+  prog_horizon_m: 0.19
+  progress_smooth_hz: null
+  anchor_sampler: null
+  velocity_norm: path
+  fixed_spacing: false
+  arcmatch_gt_span_m: null
+  action_dim: 14
+  action_horizon: 100
+  image_weights: DEFAULT
+arc_tokenizer:
+  min_distance_unit: 0.4
+  resampled_vector_length: 100
+hpt:
+  embed_dim: 640
+  num_blocks: 8
+  num_heads: 8
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: 8
+      crossattn_dim_head: 80
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: 640
+  action_dim: 14
+  action_horizon: 100
+evaluator:
+  viz_func: null
+  _target_: egomimic.eval.arc_bimanual_cartesian_eval.ArcBimanualCartesianEval
+  action_key: actions_cartesian
+  obs_pose_key: observations.state.ee_pose
+  image_key: observations.images.front_img_1
+  min_distance_unit: 0.4
+  resampled_vector_length: 100
+  action_horizon: 100
+  velocity_mode: mean
+  revert_transforms:
+    yam_bimanual:
+      _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
+      is_quat: false
+      to_camera_frame: true
+    human_bimanual:
+      _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+      is_quat: false
+      gripper_padded: true
+  arc_metrics: true
+  arcmatch_points: 100
+  include_reconstruction_loss: true
+  rot_lever_m: 0.1
+  dtw_max_samples: 8
+  video_output_dir: null
+  video_chunk_frames: 1000
+  max_episode_frames: 6000
+  deterministic_seed: 420042

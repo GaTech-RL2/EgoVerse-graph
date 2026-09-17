@@ -19,7 +19,10 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
-from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
+from egomimic.eval.checkpoint_loading import (
+    init_pipeline_weights_from_checkpoint,
+    strict_load_pipeline_checkpoint,
+)
 from egomimic.eval.eval import Eval
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import export_configured_inference_artifact
@@ -686,6 +689,42 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.bind_data_context(normalizer=norm_stats)
             model.evaluator = eval_obj
         log.info("Starting training!")
+        init_weights_from = cfg.get("init_weights_from")
+        if init_weights_from:
+            # Weights-only init is for STARTING a fine-tune. A resume must always win:
+            # cfg.ckpt_path carries full training state, and a Slurm requeue re-enters
+            # here with the run already in progress. Re-initialising in either case
+            # would silently discard progress.
+            if cfg.get("ckpt_path"):
+                log.info(
+                    "ckpt_path is set (resume); ignoring init_weights_from=%s",
+                    init_weights_from,
+                )
+            elif os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
+                log.info(
+                    "Slurm restart #%s; ignoring init_weights_from=%s",
+                    os.environ.get("SLURM_RESTART_COUNT"),
+                    init_weights_from,
+                )
+            else:
+                init_ckpt = torch.load(
+                    init_weights_from, map_location="cpu", weights_only=False
+                )
+                _, reinitialised = init_pipeline_weights_from_checkpoint(
+                    model.model, init_ckpt
+                )
+                del init_ckpt
+                log.info("Initialised weights from %s", init_weights_from)
+                for key, src_shape, dst_shape in reinitialised:
+                    log.warning(
+                        "  re-initialised (checkpoint %s -> model %s): %s",
+                        src_shape,
+                        dst_shape,
+                        key,
+                    )
+                if not reinitialised:
+                    log.info("  every tensor carried over from the checkpoint")
+
         if (
             cfg.get("val_at_start", False)
             and not cfg.get("ckpt_path")

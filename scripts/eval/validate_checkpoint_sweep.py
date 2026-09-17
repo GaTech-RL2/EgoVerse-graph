@@ -102,6 +102,7 @@ def validation_command(
         f"+experiment={experiment}",
         "mode=eval",
         "eval_logger_enabled=true",
+        "trainer.limit_val_batches=1.0",
         "evaluator=eval_open_loop_sim",
         f"evaluator.action_mode={action_mode}",
         f"evaluator.execute_fraction={execute_fraction}",

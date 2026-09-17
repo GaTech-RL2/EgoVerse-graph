@@ -232,6 +232,16 @@ workflow:
             RN=$(basename $(dirname $(dirname "$d")))
             s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
               sync "$d/" "$DEST/$RN/checkpoints/" >>/tmp/ckpt_sync.log 2>&1
+            # PRUNE AFTER THE SYNC, never before: the copy in R2 is already safe,
+            # and what has to stay small is the container's local disk, which is
+            # what the 800Gi ephemeral limit measures.
+            #
+            # Do not trust ModelCheckpoint retention for this. save_top_k=-1 kept
+            # all 48 periodic checkpoints (1.3 TB, killed articbc-2 at 53%), and
+            # save_top_k=0 still writes and RETAINS them -- articbc-3 held both
+            # epoch 1399 and 1599 for every run. Deleting them here is
+            # independent of whatever Lightning decides to do.
+            ls -1t "$d"/epoch_*.ckpt 2>/dev/null | tail -n +2 | xargs -r rm -f
           done
           for f in $(find /workspace/EgoVerse-graph/logs -name norm_stats.json 2>/dev/null); do
             RN=$(basename $(dirname $(dirname "$f")))

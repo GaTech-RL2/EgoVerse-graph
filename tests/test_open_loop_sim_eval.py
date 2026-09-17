@@ -61,7 +61,7 @@ def test_truncate_arc_token_keeps_matching_timing_rows(mode, rows, expected_rows
         else:
             expected = token[M : M + K].copy()
             expected[24, (0, 7)] *= 0.75
-            np.testing.assert_array_equal(timing, expected)
+            np.testing.assert_allclose(timing, expected)
 
 
 def _duration_arc_token(M: int, interval_duration: float) -> np.ndarray:
@@ -83,6 +83,23 @@ def test_arc_prefix_uses_exact_distance_and_recovers_its_frame_stride():
     np.testing.assert_allclose(partial[2, (0, 7)], [0.15, 0.15])
     # One complete interval plus half an interval spans 1.5 control periods.
     assert arc_prefix_control_steps(token, 0.375, "duration", dt) == 2
+
+
+def test_arc_prefix_uses_total_bimanual_cumulative_distance():
+    token = np.zeros((8, 14), dtype=np.float64)
+    token[:4, 0] = [0.0, 0.1, 0.9, 1.0]
+    token[:4, 7] = [0.0, 0.1, 0.2, 0.3]
+    token[4:, 0] = 1.0 / 30.0
+    token[4:, 7] = 1.0 / 30.0
+
+    partial = truncate_arc_token(token, 0.5, "duration")
+
+    # Total bimanual distance is 1.3m. The 0.65m target lies 50% through
+    # interval 1 (whose combined distance is 0.9m), not at waypoint index 2.
+    np.testing.assert_allclose(partial[2, 0], 0.5)
+    np.testing.assert_allclose(partial[2, 7], 0.15)
+    np.testing.assert_allclose(partial[4, 0], (1.0 / 30.0) * 0.5)
+    np.testing.assert_allclose(partial[4, 7], (1.0 / 30.0) * 0.5)
 
 
 def test_arc_replan_stride_changes_with_predicted_timing():

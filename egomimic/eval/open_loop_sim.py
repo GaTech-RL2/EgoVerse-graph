@@ -66,9 +66,11 @@ def truncate_arc_token(
 
     The first ``M`` rows are waypoints.  ``mean`` has one timing row; the
     granular ``per_waypoint`` and ``duration`` modes have one timing row per
-    waypoint. ARC waypoints are uniform in normalized distance, so a fraction
-    that falls between rows gets an interpolated final waypoint. Timing rows
-    are truncated with their corresponding waypoints; a partial ``duration``
+    waypoint. The execution fraction is measured on the bimanual ARC distance
+    used for open-loop control: every waypoint interval contributes the left
+    arm's XYZ distance plus the right arm's XYZ distance. A fraction that falls
+    inside an interval gets an interpolated final waypoint. Timing rows are
+    truncated with their corresponding waypoints; a partial ``duration``
     interval is scaled by the same interpolation factor.
     """
 
@@ -86,17 +88,38 @@ def truncate_arc_token(
     fraction = float(execute_fraction)
     if not 0.0 < fraction <= 1.0:
         raise ValueError("execute_fraction must be in (0, 1]")
-    waypoint_position = (M - 1) * fraction
-    lower = min(M - 1, int(math.floor(waypoint_position)))
-    alpha = waypoint_position - lower
-    if alpha <= 1e-12 or lower == M - 1:
-        waypoints = value[: lower + 1].copy()
+    waypoints_all = value[:M]
+    joint_step_distance = (
+        np.linalg.norm(np.diff(waypoints_all[:, 0:3], axis=0), axis=-1)
+        + np.linalg.norm(np.diff(waypoints_all[:, 7:10], axis=0), axis=-1)
+    )
+    joint_cumulative_distance = np.concatenate(
+        [np.array([0.0], dtype=np.float64), np.cumsum(joint_step_distance)]
+    )
+    total_joint_distance = float(joint_cumulative_distance[-1])
+    target_distance = fraction * total_joint_distance
+
+    if target_distance >= total_joint_distance - 1e-12:
+        lower = M - 1
         alpha = 0.0
+        waypoints = value[: lower + 1].copy()
     else:
-        endpoint = (
-            (1.0 - alpha) * value[lower] + alpha * value[lower + 1]
-        )[None]
-        waypoints = np.concatenate((value[: lower + 1], endpoint), axis=0)
+        upper = int(np.searchsorted(joint_cumulative_distance, target_distance, side="right"))
+        upper = min(max(upper, 1), M - 1)
+        lower = upper - 1
+        interval_distance = (
+            joint_cumulative_distance[upper] - joint_cumulative_distance[lower]
+        )
+        if interval_distance <= 1e-12:
+            alpha = 0.0
+            lower = upper
+            waypoints = value[: lower + 1].copy()
+        else:
+            alpha = (target_distance - joint_cumulative_distance[lower]) / interval_distance
+            endpoint = (
+                (1.0 - alpha) * value[lower] + alpha * value[lower + 1]
+            )[None]
+            waypoints = np.concatenate((value[: lower + 1], endpoint), axis=0)
 
     # A positive fraction can fall inside the first interval. Keep its start
     # and interpolated endpoint so detokenization always has at least two rows.
@@ -123,17 +146,20 @@ def truncate_arc_token(
         # token duration. The detokenizer then applies its normal chord-to-arc
         # correction to the retained path.
         for xyz_slice in (slice(0, 3), slice(7, 10)):
-            full_chord = float(
-                np.linalg.norm(value[M - 1, xyz_slice] - value[0, xyz_slice])
+            full_distance = float(
+                np.linalg.norm(np.diff(value[:M, xyz_slice], axis=0), axis=-1).sum()
+            )
+            partial_distance = float(
+                np.linalg.norm(np.diff(waypoints[:, xyz_slice], axis=0), axis=-1).sum()
             )
             partial_chord = float(
                 np.linalg.norm(waypoints[-1, xyz_slice] - waypoints[0, xyz_slice])
             )
             velocity = timing[0, xyz_slice]
             speed = float(np.linalg.norm(velocity))
-            if full_chord > 1e-9 and partial_chord > 1e-9 and speed > 1e-9:
-                full_duration = full_chord / speed
-                partial_speed = partial_chord / max(fraction * full_duration, 1e-9)
+            if full_distance > 1e-9 and partial_distance > 1e-9 and speed > 1e-9:
+                full_duration = full_distance / speed
+                partial_speed = partial_chord / max(partial_distance / speed, 1e-9)
                 timing[0, xyz_slice] = velocity * (partial_speed / speed)
     return np.concatenate((waypoints, timing), axis=0)
 
@@ -177,7 +203,7 @@ def arc_prefix_control_steps(
                 where=interval_rate > 1e-8,
             )
         else:
-            chord = float(np.linalg.norm(xyz[-1] - xyz[0]))
+            chord = float(np.linalg.norm(np.diff(xyz, axis=0), axis=-1).sum())
             speed = float(np.linalg.norm(timing[0, xyz_slice]))
             interval_duration = np.array(
                 [chord / speed if chord > 1e-9 and speed > 1e-9 else np.inf]

@@ -18,6 +18,11 @@
 #     refctA sets model.pipeline.stages.4.cfg_scale=1.0 (labelled deviation, 2026-09-15 CFG-1.0-only rule):
 #     cfg_scale is read only by the inference-mode sampler (Valid/MSE, EnergyScore, rollouts); training
 #     losses, condition dropout 0.1 and the optimizer are unchanged. s3ctA validated at the embedded 4.0.
+#   refctP / refdpctP = the same two recipes retrained 2026-09-16 on the corrected chain data
+#     (chain_gripper_3000_v2_plus_gen_prestep1199: 3,000 human + 1,199 pre-step obstacle episodes; the 720
+#     post-step chain_gripper_gen episodes excluded); runs under runs/cotrain-prestep-20260916/. No norm-stats
+#     default: each row's smoke computes its own file (UNITE minmax, DP quantile) and the full run takes it
+#     via NORM_STATS=<smoke run>/norm_stats. refctP keeps refctA's CFG 1.0 validation deviation.
 #   identity env (defaults unchanged): RUN_NAME (run dir, default <tag>-<stamp>), WANDB_RUN_ID
 #     (default aidan-ct2-<tag>-<stamp>), WANDB_GROUP (default the sweep), GRES (default gpu:h200:WORLD),
 #     TEST_ONLY=1 (sbatch --test-only)
@@ -46,6 +51,11 @@ CHG=/storage/ice1/4/5/agao81/data/Tsim_v2/chain_gripper_3000_v2_plus_gen_1919
 SHA_CHG=e320fefd2e1e5d491d74a9910e7eb641fcb9b295a4c7e6e58a3c8234f15332af
 MAN_CHG=$REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_3000_plus_gen1919_split_seed42_v1.json
 DATA_CHG="ICE_DATASET_DIR_CHAIN=$CHG,ICE_SPLIT_MANIFEST_CHAIN=$MAN_CHG,ICE_EXPECTED_SPLIT_MANIFEST_SHA256_CHAIN=$SHA_CHG"
+# 2026-09-16 corrected chain source: chain_gripper_3000_v2 + chain_gripper_gen slots 0-1199 (4,199 pre-step episodes)
+CHP=/storage/ice1/4/5/agao81/data/Tsim_v2/chain_gripper_3000_v2_plus_gen_prestep1199
+SHA_CHP=e380e3c7a00084651dd8554f570394fd007ea7f3fe0442819f85b28de9f908e6
+MAN_CHP=$REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_3000_plus_gen1199_prestep_split_seed42_v1.json
+DATA_CHP="ICE_DATASET_DIR_CHAIN=$CHP,ICE_SPLIT_MANIFEST_CHAIN=$MAN_CHP,ICE_EXPECTED_SPLIT_MANIFEST_SHA256_CHAIN=$SHA_CHP"
 UNITE_ENV="ICE_UNITE_FAST=true,ICE_UNITE_LR=${LR:-1e-4},ICE_UNITE_LR_FINAL=${LR_FINAL:-5e-5}"
 [ -n "${LR_TERMINAL:-}" ] && UNITE_ENV="$UNITE_ENV,ICE_UNITE_LR_TERMINAL=$LR_TERMINAL"
 case "$ROW" in
@@ -65,8 +75,10 @@ case "$ROW" in
   s3dpch)    EXP=pusht/planar_v2_chaingen_points_dp_paper;          MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_CHG";          FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=unite-cotrain-3 ;;
   refctA)    EXP=pusht/unite_cotrain_usocket_chaingen_val01_h16;    MODEL=bf/ct_unite_register_separate_nt8_h384_s42; DATA="$DATA_US,$DATA_CHG"; FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=af-ladder-20260913; GRES=${GRES:-gpu:$WORLD}; NORM_STATS=${NORM_STATS:-$CEDAR/unite-cotrain-3/norm_stats_chaingen_minmax}; EXTRA="model.pipeline.stages.4.cfg_scale=1.0${EXTRA:+ $EXTRA}" ;;
   refdpct)   EXP=pusht/planar_v2_cotrain_dp_paper_points6_chaingen; MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_US,$DATA_CHG"; FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=af-ladder-20260913; GRES=${GRES:-gpu:$WORLD}; NORM_STATS=${NORM_STATS:-$CEDAR/unite-cotrain-3/s3-dp_paper-cotrain-chaingen-240k-09100200/norm_stats} ;;
+  refctP)    EXP=pusht/unite_cotrain_usocket_chainpre_val01_h16;    MODEL=bf/ct_unite_register_separate_nt8_h384_s42; DATA="$DATA_US,$DATA_CHP"; FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=cotrain-prestep-20260916; GRES=${GRES:-gpu:$WORLD}; EXTRA="model.pipeline.stages.4.cfg_scale=1.0${EXTRA:+ $EXTRA}" ;;
+  refdpctP)  EXP=pusht/planar_v2_cotrain_dp_paper_points6_chainpre; MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_US,$DATA_CHP"; FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=cotrain-prestep-20260916; GRES=${GRES:-gpu:$WORLD} ;;
   dpch) EXP=pusht/planar_v2_chain_points_dp_paper;       MODEL=bf/bf_planar_v2_dp_paper_points6;             DATA="$DATA_CH";          FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2 ;;
-  *) echo "row must be ctA|ctAc|ctA768|ctB|dpct|dpus|dpch|uniteus|unitech|s3ctA|s3ctB|s3ctA768|s3unitech|s3dpct|s3dpch|refctA|refdpct"; exit 64 ;;
+  *) echo "row must be ctA|ctAc|ctA768|ctB|dpct|dpus|dpch|uniteus|unitech|s3ctA|s3ctB|s3ctA768|s3unitech|s3dpct|s3dpch|refctA|refdpct|refctP|refdpctP"; exit 64 ;;
 esac
 [ "${SMOKE:-0}" = 1 ] && SWEEP=${SWEEP}-smoke
 OUT=$CEDAR/$SWEEP/${RUN_NAME:-${TAG}-${STAMP}}

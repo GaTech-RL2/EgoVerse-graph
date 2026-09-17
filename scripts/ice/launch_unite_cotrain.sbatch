@@ -98,6 +98,8 @@ case "$ICE_EXPERIMENT" in
   pusht/unite_chaingen_points_val01_h16) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=unite ;;
   pusht/planar_v2_cotrain_dp_paper_points6_chaingen) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=planar ;;
   pusht/planar_v2_chaingen_points_dp_paper) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=planar ;;
+  pusht/unite_cotrain_usocket_chainpre_val01_h16) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=unite ;;
+  pusht/planar_v2_cotrain_dp_paper_points6_chainpre) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=planar ;;
   pusht/planar_v2_cotrain_dp_paper_points6) ICE_EMBODIMENTS="USOCKET CHAIN"; ICE_FAMILY=planar ;;
   pusht/planar_v2_usocket_dp_paper) ICE_EMBODIMENTS="USOCKET"; ICE_FAMILY=planar ;;
   pusht/planar_v2_chain_points_dp_paper) ICE_EMBODIMENTS="CHAIN"; ICE_FAMILY=planar ;;
@@ -159,6 +161,8 @@ case "$ICE_EXPERIMENT:$ICE_MODEL" in
   pusht/unite_chaingen_points_val01_h16:bf/ch_unite_register_separate_nt8_h384_s42) ;;
   pusht/planar_v2_cotrain_dp_paper_points6_chaingen:bf/bf_planar_v2_dp_paper_points6) ;;
   pusht/planar_v2_chaingen_points_dp_paper:bf/bf_planar_v2_dp_paper_points6) ;;
+  pusht/unite_cotrain_usocket_chainpre_val01_h16:bf/ct_unite_register_separate_nt8_h384_s42) ;;
+  pusht/planar_v2_cotrain_dp_paper_points6_chainpre:bf/bf_planar_v2_dp_paper_points6) ;;
   *) die "unsupported UNITE cotrain experiment or model row" ;;
 esac
 if test "$ICE_FAMILY" = planar; then
@@ -472,6 +476,19 @@ elif experiment == "pusht/unite_chaingen_points_val01_h16":
     assert cfg.run_provenance.split_manifest_sha256 == chain_split_manifest_sha256
 elif experiment == "pusht/planar_v2_cotrain_dp_paper_points6_chaingen":
     assert cfg.name == "planar_v2_cotrain_dp_paper_points6_chaingen_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+    assert cfg.run_provenance.chain_split_manifest_sha256 == chain_split_manifest_sha256
+    assert set(cfg.evaluator.native_decoders) == set(domains)
+    assert cfg.evaluator.native_decoder is None
+    assert {int(v) for v in cfg.planar.action_dims.values()} == {6}
+elif experiment == "pusht/unite_cotrain_usocket_chainpre_val01_h16":
+    assert cfg.name == "unite_cotrain_usocket_chainpre_h16"
+    assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
+    assert cfg.run_provenance.chain_split_manifest_sha256 == chain_split_manifest_sha256
+    assert set(cfg.evaluator.native_decoders) == set(domains)
+    assert set(cfg.evaluator.semantic_blocks_by_embodiment) == set(domains)
+elif experiment == "pusht/planar_v2_cotrain_dp_paper_points6_chainpre":
+    assert cfg.name == "planar_v2_cotrain_dp_paper_points6_chainpre_h16"
     assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
     assert cfg.run_provenance.chain_split_manifest_sha256 == chain_split_manifest_sha256
     assert set(cfg.evaluator.native_decoders) == set(domains)

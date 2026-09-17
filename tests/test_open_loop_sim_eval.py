@@ -276,6 +276,14 @@ def test_open_loop_sim_logs_directly_through_trainer_logger():
     assert not any("dataloader_idx" in key for key in metrics)
 
 
+def test_open_loop_sim_uses_checkpoint_step_for_posthoc_logging():
+    evaluator = _baseline_evaluator()
+    evaluator.log_step = 40_000
+    evaluator.trainer = SimpleNamespace(global_step=0)
+
+    assert evaluator._resolved_log_step() == 40_000
+
+
 def test_open_loop_video_writes_one_full_episode_mp4(tmp_path, monkeypatch):
     evaluator = _baseline_evaluator()
     evaluator.video_output_dir = tmp_path

@@ -189,6 +189,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         min_distance_unit: float = 0.40,
         resampled_vector_length: int = 100,
         velocity_mode: str = "mean",
+        log_step: int | None = None,
         results_path: str | None = None,
         require_episode_start: bool = True,
         limit_val_episodes: int | None = None,
@@ -220,6 +221,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.min_distance_unit = float(min_distance_unit)
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
+        self.log_step = None if log_step is None else int(log_step)
+        if self.log_step is not None and self.log_step < 0:
+            raise ValueError("log_step must be nonnegative")
         self.results_path = Path(results_path) if results_path else None
         self.require_episode_start = bool(require_episode_start)
         self.limit_val_episodes = (
@@ -538,7 +542,13 @@ class OpenLoopSimEval(BimanualCartesianEval):
             payload[f"{prefix}/{embodiment_name}"] = wandb.Video(
                 path, fps=self._video_fps(), format="mp4"
             )
-        experiment.log(payload, step=int(getattr(self.trainer, "global_step", 0)))
+        experiment.log(payload, step=self._resolved_log_step())
+
+    def _resolved_log_step(self) -> int:
+        log_step = getattr(self, "log_step", None)
+        if log_step is not None:
+            return int(log_step)
+        return int(getattr(self.trainer, "global_step", 0))
 
     @staticmethod
     def _batch_values(value, batch_size: int, label: str) -> list:
@@ -988,11 +998,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     key: float(value.detach().cpu().item())
                     for key, value in self._metric_tensors(results).items()
                 }
-                step = getattr(self.trainer, "global_step", None)
-                if step is None:
-                    logger.log_metrics(metrics)
-                else:
-                    logger.log_metrics(metrics, step=step)
+                logger.log_metrics(metrics, step=self._resolved_log_step())
         if self.results_path is not None:
             self.results_path.parent.mkdir(parents=True, exist_ok=True)
             self.results_path.write_text(json.dumps(results, indent=2) + "\n")

@@ -252,16 +252,10 @@ class ArcDetokenizeStage(Stage):
         s_hi = torch.gather(cumulative, 1, upper)
         return s_lo + alpha * (s_hi - s_lo)
 
-    def _brackets_from_duration(
-        self, tokens: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Bracket control times directly in the stored duration clock.
-
-        Zero-distance supports can carry a hold, grip motion, or rotation at
-        radius zero. Converting time to arc and searching arc again loses the
-        identity of these supports. Keep their time interval and interpolate
-        the native channels in that interval instead.
-        """
+    def duration_waypoint_times(self, tokens: torch.Tensor) -> torch.Tensor:
+        """Waypoint times used by decoding, including the stalled-motion rule."""
+        if self.velocity_mode != "duration":
+            raise ValueError("Waypoint duration clocks require duration tokens")
         durations = tokens[:, self.num_waypoints :, 0].clamp_min(0.0)
         waypoints = tokens[:, : self.num_waypoints]
         interval_duration = durations[:, :-1]
@@ -275,9 +269,15 @@ class ArcDetokenizeStage(Stage):
             torch.full_like(interval_duration, stalled),
             interval_duration,
         )
-        elapsed = torch.cat(
+        return torch.cat(
             (torch.zeros_like(duration[:, :1]), torch.cumsum(duration, dim=1)), dim=1
         )
+
+    def _brackets_from_duration(
+        self, tokens: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Bracket control times without losing holds or grip-only motion."""
+        elapsed = self.duration_waypoint_times(tokens)
         steps = torch.arange(
             self.action_horizon, device=tokens.device, dtype=tokens.dtype
         )

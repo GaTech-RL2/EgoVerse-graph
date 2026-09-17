@@ -10,12 +10,14 @@ from omegaconf import OmegaConf
 from egomimic.eval.planar_rollout import (
     PlanarActionQueue,
     PlanarGraphPolicy,
+    PlanarArcExecutionSelector,
     load_planar_graph_policy,
 )
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.core import Stage
 from egomimic.pipeline.pushshapes import PlanarArcTrajectoryNativeDecoder
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+from egomimic.rldb.zarr.planar_arc import lambda_for_radius, planar_step_distance
 
 DOMAIN = "pushshapes_sim_chain_gripper"
 
@@ -153,6 +155,108 @@ def test_native_queue_starts_at_zero_and_does_not_reuse_old_tail(execution_horiz
         + [300]
     )
     assert value.observed == list(range(2 * execution_horizon + 2))
+
+
+def arc_token(x, durations, theta=None, grip=None):
+    count = len(x)
+    token = torch.zeros((count * 2, 5), dtype=torch.float64)
+    token[:count, 0] = torch.as_tensor(x)
+    angles = torch.zeros(count) if theta is None else torch.as_tensor(theta)
+    token[:count, 2] = torch.cos(angles)
+    token[:count, 3] = torch.sin(angles)
+    if grip is not None:
+        token[:count, 4] = torch.as_tensor(grip)
+    token[count:-1, 0] = torch.as_tensor(durations)
+    token[-1, 0] = 999  # Padding must never create an extra interval.
+    return token
+
+
+def test_distance_prefix_counts_supports_then_uses_their_nonuniform_durations():
+    decoder = PlanarArcTrajectoryNativeDecoder(6, 4, 40, dt=0.1)
+    token = arc_token([0, 3, 7, 19, 21, 40], [0.1, 0.2, 0.3, 0.4, 0.5])
+    distance = PlanarArcExecutionSelector(mode="distance_fraction", distance_budget=40)
+    waypoints = PlanarArcExecutionSelector(mode="waypoint_fraction")
+    selected = distance.select(token, decoder)
+    assert selected["selected_waypoint_count"] == 4
+    assert selected["selected_distance"] == 19
+    assert selected["execution_steps"] == 7  # t=0 ... 0.6 inclusive.
+    assert waypoints.select(token, decoder)["execution_steps"] == 4
+    # Same M, D and native horizon: different waypoint spacing changes count.
+    token[:6, 0] = torch.tensor([0, 3, 7, 19, 20, 40])
+    selected = distance.select(token, decoder)
+    assert selected["selected_waypoint_count"] == 5
+    assert selected["execution_steps"] == 11
+    # Half the configured D, not half this shortened prediction's total length.
+    token[:6, 0] = torch.tensor([0, 1, 2, 3, 4, 10])
+    assert distance.select(token, decoder)["selected_waypoint_count"] == 6
+
+
+def test_distance_prefix_uses_the_tokenizer_rotation_metric_across_angle_seam():
+    decoder = PlanarArcTrajectoryNativeDecoder(4, 4, 40, rotation_radius=3)
+    token = arc_token([0, 1, 2, 3], [0.1, 0.1, 0.1], [3.0, -3.0, -2.5, -2.0])
+    distances, _ = decoder.waypoint_schedule(token)
+    theta = np.arctan2(token[:4, 3].numpy(), token[:4, 2].numpy())
+    expected = np.r_[0, np.cumsum(planar_step_distance(
+        token[:4, :2].numpy(), theta, lambda_for_radius(3)
+    ))]
+    np.testing.assert_allclose(distances.numpy(), expected, atol=1e-7)
+    selector = PlanarArcExecutionSelector(mode="distance_fraction", distance_budget=3)
+    assert selector.select(token, decoder)["selected_waypoint_count"] == 1
+
+
+def test_distance_boundary_holds_and_zero_distance_grip_use_duration_clock():
+    decoder = PlanarArcTrajectoryNativeDecoder(4, 4, 40, dt=0.1)
+    selector = PlanarArcExecutionSelector(mode="distance_fraction", distance_budget=40)
+    token = arc_token([0, 20, 20, 30], [0.1, 0.3, 0.1], grip=[0, 0, 1, 1])
+    selected = selector.select(token, decoder)
+    assert selected["selected_waypoint_count"] == 3
+    assert selected["execution_steps"] == 5
+    assert decoder.decode(token)[0, 4, 3] == pytest.approx(1)
+    token[:4, 0] = 0
+    selected = selector.select(token, decoder)
+    assert selected["selected_waypoint_count"] == 4
+    assert selected["execution_steps"] == 6
+
+
+def test_waypoint_time_prefix_rounds_down_and_caps_at_the_native_horizon():
+    decoder = PlanarArcTrajectoryNativeDecoder(4, 4, 40, dt=0.1)
+    selector = PlanarArcExecutionSelector(mode="waypoint_fraction")
+    token = arc_token([0, 1, 2, 3], [0.25, 0.1, 0.1])
+    assert selector.select(token, decoder)["execution_steps"] == 3
+    token[4, 0] = 0  # Moving without duration uses the decoder's stalled rule.
+    selected = selector.select(token, decoder)
+    assert selected["execution_steps"] == 40
+    assert selected["native_horizon_clipped"]
+    assert selected["selected_endpoint_seconds"] == pytest.approx(4.1)
+
+
+def test_variable_prefix_replans_with_adjacent_history_and_discards_old_tail():
+    value, stage = policy()
+    # Install physical predictions via the normalizer's inverse. Predict six
+    # supports within D/2 initially, then only two within D/2 at the next replan.
+    selector = PlanarArcExecutionSelector(mode="distance_fraction", distance_budget=42)
+    queue = PlanarActionQueue(value, execution_selector=selector)
+    queue.reset(observation(0))
+    token = arc_token(np.arange(16) * 4, [1 / 30] * 15)
+    with torch.no_grad():
+        stage.output.copy_(value.normalizer.normalize({"actions": token}, 20)["actions"])
+    actual = []
+    for step in range(6):
+        actual.append(queue.next_action()[0])
+        queue.observe(observation(step + 1))
+    assert queue.last_execution["selected_waypoint_count"] == 6
+    assert queue.last_execution["execution_steps"] == 6
+    token[:16, 0] = torch.arange(16) * 11 + 100
+    with torch.no_grad():
+        stage.output.copy_(value.normalizer.normalize({"actions": token}, 20)["actions"])
+    for step in range(6, 9):
+        actual.append(queue.next_action()[0])
+        queue.observe(observation(step + 1))
+    np.testing.assert_allclose(actual, [0, 4, 8, 12, 16, 20, 100, 111, 100], atol=1e-4)
+    assert queue.prediction_count == 3
+    assert queue.last_execution["replan_control_step"] == 8
+    np.testing.assert_allclose(stage.seen[1][0, :, 0], [1.5, 2], atol=1e-5)
+    np.testing.assert_allclose(stage.seen[2][0, :, 0], [2.5, 3], atol=1e-5)
 
 
 def test_load_restores_exact_current_checkpoint_and_exported_normalizer(tmp_path):

@@ -28,6 +28,11 @@ planar:
     dt: ${planar.arc_dt}
     rotation_radius: ${planar.arc_rotation_radius}
     velocity_mode: ${planar.arc_velocity_mode}
+  eval_execution_selector:
+    _target_: egomimic.eval.planar_rollout.PlanarArcExecutionSelector
+    mode: distance_fraction
+    fraction: 0.5
+    distance_budget: ${planar.arc_distance}
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
 
 eval_checkpoint:
@@ -44,6 +49,8 @@ run_provenance:
     timing_rows: 16
     timing_semantics: per_waypoint_interval_duration_seconds
     rollout_action_chunk_start_index: 0
-    # Execute half of the 40 decoded native actions, then replan.
-    execution_horizon: 20
-    execution_slice: "[0,20)"
+    # D is distance, independent of the 40-row native time horizon. Select
+    # supports within D/2, then use their duration clock for native execution.
+    execution_horizon: null
+    execution_slice: "[0,selected_native_steps)"
+    execution_selector: ${planar.eval_execution_selector}

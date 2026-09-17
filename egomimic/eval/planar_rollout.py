@@ -6,9 +6,12 @@ calling evaluator's verified protocol.
 """
 
 import hashlib
+import math
 from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import torch
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
@@ -29,6 +32,83 @@ def require_file_hash(path, expected):
     if not isinstance(expected, str) or actual != expected:
         raise ValueError(f"SHA-256 mismatch for {path}: {actual} != {expected}")
     return actual
+
+
+@dataclass(frozen=True)
+class PlanarActionPrediction:
+    native_actions: np.ndarray
+    tokens: torch.Tensor
+
+
+class PlanarArcExecutionSelector:
+    """Choose supports first, then execute their control-rate time prefix.
+
+    Distance is accumulated between unnormalized geometric waypoints using
+    the decoder/tokenizer metric. It is independent of the native time horizon.
+    The largest prefix within the distance budget includes holds at its boundary.
+    Control samples at or before the last selected support time are retained;
+    off-grid endpoints are rounded down, with at least the anchored first action.
+    """
+
+    def __init__(self, *, mode, fraction=0.5, distance_budget=None):
+        if mode not in {"waypoint_fraction", "distance_fraction"}:
+            raise ValueError("Select waypoint_fraction or distance_fraction")
+        self.mode = mode
+        self.fraction = float(fraction)
+        if not math.isfinite(self.fraction) or not 0 < self.fraction <= 1:
+            raise ValueError("fraction must be finite and in (0, 1]")
+        self.distance_budget = (
+            None if distance_budget is None else float(distance_budget)
+        )
+        if mode == "distance_fraction":
+            if self.distance_budget is None or not (
+                math.isfinite(self.distance_budget) and self.distance_budget > 0
+            ):
+                raise ValueError("distance_fraction requires a positive distance_budget")
+        elif self.distance_budget is not None:
+            raise ValueError("waypoint_fraction does not use a distance_budget")
+
+    def select(self, tokens, decoder):
+        distances, elapsed = decoder.waypoint_schedule(tokens)
+        if not torch.isfinite(distances).all() or not torch.isfinite(elapsed).all():
+            raise ValueError("Nonfinite ARC waypoint schedule")
+        threshold = None
+        if self.mode == "waypoint_fraction":
+            count = max(1, math.floor(len(distances) * self.fraction))
+        else:
+            threshold = self.distance_budget * self.fraction
+            count = int((distances <= threshold).sum().item())
+        endpoint = count - 1
+        end_time = float(elapsed[endpoint].item())
+        stage = decoder.detokenizer
+        # Match the decoder's actual floating-point time grid. The tolerance
+        # only absorbs accumulation error at an exact control-period boundary.
+        times = torch.arange(
+            decoder.action_horizon, device=elapsed.device, dtype=elapsed.dtype
+        ) * stage.dt
+        steps = max(
+            1, int((times <= elapsed[endpoint] + stage.dt * 1e-5).sum().item())
+        )
+        return {
+            "mode": self.mode,
+            "fraction": self.fraction,
+            "distance_budget": self.distance_budget,
+            "distance_threshold": threshold,
+            "distance_metric": "translation_plus_weighted_chordal_rotation",
+            "rotation_radius": stage.rotation_radius,
+            "waypoint_count": len(distances),
+            "selected_waypoint_count": count,
+            "last_selected_waypoint_index": endpoint,
+            "selected_distance": float(distances[endpoint].item()),
+            "total_distance": float(distances[-1].item()),
+            "waypoint_distances": distances.detach().cpu().tolist(),
+            "waypoint_times_seconds": elapsed.detach().cpu().tolist(),
+            "selected_endpoint_seconds": end_time,
+            "execution_start_index": 0,
+            "execution_steps": steps,
+            "last_control_sample_seconds": float(times[steps - 1].item()),
+            "native_horizon_clipped": end_time > float(times[-1].item()),
+        }
 
 
 class PlanarGraphPolicy:
@@ -112,7 +192,7 @@ class PlanarGraphPolicy:
         }
 
     @torch.inference_mode()
-    def predict_native_actions(self):
+    def predict_action_plan(self):
         normalized = self.normalizer.normalize(
             self.observation_window(), self.embodiment_id
         )
@@ -140,17 +220,33 @@ class PlanarGraphPolicy:
             raise ValueError(
                 f"Invalid decoded native trajectory: {tuple(native.shape)}"
             )
-        return native[0].detach().float().cpu().numpy().copy()
+        return PlanarActionPrediction(
+            native_actions=native[0].detach().float().cpu().numpy().copy(),
+            tokens=actions[0].detach().clone(),
+        )
+
+    def predict_native_actions(self):
+        return self.predict_action_plan().native_actions
 
 
 class PlanarActionQueue:
     """Execute a decoded prefix from index zero while observing every step."""
 
-    def __init__(self, policy, *, execution_horizon):
+    def __init__(self, policy, *, execution_horizon=None, execution_selector=None):
         self.policy = policy
-        self.execution_horizon = int(execution_horizon)
-        if not 0 < self.execution_horizon <= policy.native_shape[0]:
-            raise ValueError("Execution horizon must fit within the decoded trajectory")
+        if (execution_horizon is None) == (execution_selector is None):
+            raise ValueError("Supply exactly one execution horizon or selector")
+        self.execution_selector = execution_selector
+        self.execution_horizon = (
+            None if execution_horizon is None else int(execution_horizon)
+        )
+        if self.execution_horizon is not None:
+            if not 0 < self.execution_horizon <= policy.native_shape[0]:
+                raise ValueError("Execution horizon must fit within the decoded trajectory")
+        self.prediction_count = 0
+        self.last_prediction = None
+        self.last_execution = None
+        self._chunk_horizon = None
         self._pending_observation = False
         self._chunk = None
         self._offset = 0
@@ -163,6 +259,10 @@ class PlanarActionQueue:
         self._chunk = None
         self._offset = 0
         self._step = 0
+        self.prediction_count = 0
+        self.last_prediction = None
+        self.last_execution = None
+        self._chunk_horizon = None
 
     def next_action(self):
         if self._step is None:
@@ -171,8 +271,25 @@ class PlanarActionQueue:
             raise RuntimeError(
                 "Observe the last executed action before requesting another"
             )
-        if self._chunk is None or self._offset == self.execution_horizon:
-            self._chunk = self.policy.predict_native_actions()
+        if self._chunk is None or self._offset == self._chunk_horizon:
+            if self.execution_selector is None:
+                self._chunk = self.policy.predict_native_actions()
+                receipt = {
+                    "mode": "fixed_native_steps",
+                    "execution_start_index": 0,
+                    "execution_steps": self.execution_horizon,
+                }
+            else:
+                self.last_prediction = self.policy.predict_action_plan()
+                self._chunk = self.last_prediction.native_actions
+                receipt = self.execution_selector.select(
+                    self.last_prediction.tokens, self.policy.decoder
+                )
+            self._chunk_horizon = int(receipt["execution_steps"])
+            if not 0 < self._chunk_horizon <= len(self._chunk):
+                raise ValueError("Selected execution prefix is outside the native chunk")
+            self.last_execution = {**receipt, "replan_control_step": self._step}
+            self.prediction_count += 1
             self._offset = 0
         action = self._chunk[self._offset].copy()
         self._offset += 1

@@ -257,11 +257,12 @@ def test_chain_duration_pair_differs_only_in_allocation_and_run_labels():
             assert cfg.ckpt_path is None
             assert cfg.eval_checkpoint.use_ema is False
             assert cfg.planar.eval_native_decoder.native_action_dim == 4
-            assert cfg.run_provenance.action_contract.execution_slice == "[0,20)"
-            assert (
-                cfg.run_provenance.action_contract.execution_horizon * 2
-                == cfg.planar.raw_action_horizon
-            )
+            assert cfg.run_provenance.action_contract.execution_horizon is None
+            selector = cfg.planar.eval_execution_selector
+            assert selector.mode == "distance_fraction"
+            assert selector.fraction == 0.5
+            assert selector.distance_budget == cfg.planar.arc_distance
+            assert selector == cfg.run_provenance.action_contract.execution_selector
             assert cfg.planar.arc_waypoint_sampling == allocation
             # Unresolved interpolation expressions must be identical as well:
             # both dataset transforms use this same allocation selector.

@@ -190,6 +190,23 @@ class PlanarArcTrajectoryNativeDecoder:
         ].reshape(*leading, self.action_horizon, self.native_action_dim)
         return decoded if is_torch else decoded.cpu().numpy()
 
+    def waypoint_schedule(self, actions):
+        """Return the same distance and duration clocks used by the decoder.
+
+        Accept one unnormalized token. The final timing row is padding and
+        does not create an extra waypoint interval.
+        """
+        value = torch.as_tensor(actions)
+        expected = (
+            arc_token_rows(self.num_waypoints, self.velocity_mode), PLANAR_ACTION_DIM
+        )
+        if tuple(value.shape) != expected or not torch.isfinite(value).all():
+            raise ValueError(f"Expected one finite ARC token of shape {expected}")
+        tokens = value.unsqueeze(0)
+        distance = self.detokenizer._arc_positions(tokens[:, : self.num_waypoints])
+        elapsed = self.detokenizer.duration_waypoint_times(tokens)
+        return distance[0], elapsed[0]
+
     __call__ = decode
 
 

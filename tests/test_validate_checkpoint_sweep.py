@@ -76,6 +76,7 @@ def test_builds_arc_eval_command_with_checkpoint_step_and_shared_wandb_id(tmp_pa
     assert "evaluator.limit_val_episodes=4" in command
     assert any(item.startswith('ckpt_path="') for item in command)
     assert 'logger.wandb.id="arc-offline-val"' in command
+    assert '+logger.wandb.name="arc offline checkpoint validation"' in command
     assert "+logger.wandb.resume=\"allow\"" in command
     assert command[-1] == "trainer.precision=32-true"
 

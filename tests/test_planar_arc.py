@@ -66,9 +66,7 @@ def test_rotation_radius_adds_metric_distance():
 
 def test_hybrid_rotation_budget_caps_a_shared_cartesian_window():
     """A small angular budget shortens the common arc window, not a stream."""
-    action = np.array(
-        [[0.0, 0.0, 0.0], [10.0, 0.0, math.pi], [20.0, 0.0, math.pi]]
-    )
+    action = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, math.pi], [20.0, 0.0, math.pi]])
     token = TokenizePlanarArcLength(
         min_distance_unit=20,
         resampled_vector_length=3,
@@ -107,7 +105,88 @@ def test_zero_motion_holds_pose_and_grip():
     )["actions"]
     np.testing.assert_allclose(token[:3, :2], [[4, 7]] * 3)
     np.testing.assert_allclose(token[:3, 4], 0.75)
-    assert token[-1, 0] == 0
+    np.testing.assert_allclose(token[3:, 0], 2.0 / 30.0)
+
+
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+@pytest.mark.parametrize("channel", [2, 3])
+def test_duration_preserves_stationary_rotation_and_grip(allocation, channel):
+    raw = np.repeat(np.array([[100.0, 100.0, 0.0, 0.0]]), 40, axis=0)
+    raw[:, channel] = np.linspace(0.0, 0.4 if channel == 2 else 1.0, 40)
+    token = TokenizePlanarArcLength(
+        min_distance_unit=40.0,
+        resampled_vector_length=16,
+        rotation_radius=0.0,
+        hybrid_rotation_unit=0.14776,
+        waypoint_sampling=allocation,
+    ).tokenize(raw)
+    decoded = PlanarArcTrajectoryNativeDecoder(16, 4, 40).decode(token)[0]
+    np.testing.assert_allclose(decoded, raw, atol=5e-7)
+    assert np.sum(token[16:-1, 0]) == pytest.approx(39.0 / 30.0)
+
+
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+@pytest.mark.parametrize("hold", ["initial", "middle", "trailing", "multiple"])
+def test_duration_roundtrip_preserves_hold_boundaries_and_grip(allocation, hold):
+    raw = np.zeros((40, 4))
+    if hold == "initial":
+        raw[:, 0] = np.r_[np.zeros(10), np.arange(30)]
+        start, end = 0, 10
+    elif hold == "middle":
+        raw[:, 0] = np.r_[np.arange(11), np.full(9, 10), np.arange(11, 31)]
+        start, end = 10, 19
+    elif hold == "trailing":
+        raw[:, 0] = np.r_[np.arange(30), np.full(10, 29)]
+        start, end = 29, 39
+    else:
+        raw[:, 0] = np.r_[
+            np.zeros(4), np.arange(1, 11), np.full(6, 10), np.arange(11, 31)
+        ]
+        start, end = 13, 19
+    raw[:, 3] = np.clip((np.arange(40) - start) / (end - start), 0.0, 1.0)
+    token = TokenizePlanarArcLength(
+        min_distance_unit=40.0,
+        resampled_vector_length=16,
+        rotation_radius=0.0,
+        hybrid_rotation_unit=0.14776,
+        waypoint_sampling=allocation,
+    ).tokenize(raw)
+    decoded = PlanarArcTrajectoryNativeDecoder(16, 4, 40).decode(token)[0]
+    np.testing.assert_allclose(decoded, raw, atol=1e-5)
+    assert token.shape == (32, 5)
+    assert np.sum(token[16:-1, 0]) == pytest.approx(39.0 / 30.0)
+
+
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+def test_duration_short_pauses_fit_budget_without_deleting_elapsed_time(allocation):
+    raw = np.column_stack((np.repeat(np.arange(4.0), 2), np.zeros((8, 3))))
+    tokenizer = TokenizePlanarArcLength(
+        resampled_vector_length=4, waypoint_sampling=allocation
+    )
+    token = tokenizer.tokenize(raw)
+    decoded = PlanarArcTrajectoryNativeDecoder(4, 4, 8).decode(token)[0]
+    assert token.shape == (8, 5)
+    assert np.sum(token[4:-1, 0]) == pytest.approx(7.0 / 30.0)
+    assert np.all(token[4:, 0] >= 0)
+    np.testing.assert_allclose(decoded[[0, -1]], raw[[0, -1]], atol=1e-6)
+    assert np.max(np.abs(decoded - raw)) < 1.0
+
+
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+def test_duration_keeps_long_hold_when_quantized_pauses_exceed_budget(allocation):
+    raw = np.zeros((40, 4))
+    raw[:, 0] = np.r_[np.zeros(10), np.repeat(np.arange(1.0, 16.0), 2)]
+    raw[:, 3] = np.clip(np.arange(40) / 9.0, 0, 1)
+    token = TokenizePlanarArcLength(
+        min_distance_unit=40, resampled_vector_length=16,
+        waypoint_sampling=allocation,
+    ).tokenize(raw)
+    decoded = PlanarArcTrajectoryNativeDecoder(16, 4, 40).decode(token)[0]
+    assert token.shape == (32, 5)
+    assert np.sum(token[16:-1, 0]) == pytest.approx(39.0 / 30.0)
+    np.testing.assert_allclose(decoded[:10], raw[:10], atol=1e-6)
+    np.testing.assert_allclose(decoded[-1], raw[-1], atol=1e-6)
+    assert np.max(np.abs(decoded - raw)) < 1.0
 
 
 def test_curvature_sampling_allocates_denser_support_on_a_bend():
@@ -128,10 +207,22 @@ def test_curvature_sampling_allocates_denser_support_on_a_bend():
     assert np.median(bend_gaps) < np.median(straight_gaps)
 
 
-def test_duration_decoder_restores_the_full_control_rate_trajectory():
-    raw = np.column_stack(
-        (np.arange(40, dtype=np.float32), np.zeros(40), np.zeros(40))
+def test_curvature_allocation_samples_the_same_geometry_as_uniform():
+    # This axis-aligned path has an analytic location at every arc coordinate.
+    # A spline fitted through the corners overshoots the path; it may estimate
+    # curvature for allocation, but must not replace the uniform arm's geometry.
+    xy = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 3.0], [5.0, 3.0]])
+    cumulative = np.array([0.0, 2.0, 5.0, 8.0])
+    sampled, targets = curvature_adaptive_curve_samples(xy, cumulative, 8.0, 16)
+    expected_x = np.where(
+        targets < 2.0, targets, np.where(targets <= 5.0, 2.0, targets - 3.0)
     )
+    expected_y = np.clip(targets - 2.0, 0.0, 3.0)
+    np.testing.assert_allclose(sampled, np.column_stack((expected_x, expected_y)))
+
+
+def test_duration_decoder_restores_the_full_control_rate_trajectory():
+    raw = np.column_stack((np.arange(40, dtype=np.float32), np.zeros(40), np.zeros(40)))
     token = TokenizePlanarArcLength(
         min_distance_unit=40.0,
         resampled_vector_length=16,

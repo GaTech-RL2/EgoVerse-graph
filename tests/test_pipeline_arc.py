@@ -644,6 +644,48 @@ def test_duration_stalled_interval_cannot_traverse_the_path():
     assert travelled < 0.05 * 50.0
 
 
+def test_duration_decoder_keeps_a_hold_before_motion():
+    token = torch.zeros(1, 6, PLANAR_ACTION_DIM, dtype=torch.float64)
+    token[0, :3, 0] = torch.tensor([0.0, 0.0, 2.0])
+    token[0, :3, 2] = 1.0
+    token[0, 3:, 0] = 2.0
+    det = ArcDetokenizeStage(
+        resampled_vector_length=3, action_horizon=5, dt=1.0, native_action_dim=4
+    )
+    decoded = det.forward({"pred_action": token})["pred_action_native"][0]
+    torch.testing.assert_close(
+        decoded[:, 0], torch.tensor([0.0, 0.0, 0.0, 1.0, 2.0], dtype=torch.float64)
+    )
+
+
+@pytest.mark.parametrize("rotation_radius", [0.0, 30.0])
+def test_duration_decoder_keeps_stationary_grip_and_heading_intervals(rotation_radius):
+    token = torch.zeros(1, 8, PLANAR_ACTION_DIM, dtype=torch.float64)
+    token[0, :4, 0] = torch.tensor([0.0, 2.0, 2.0, 4.0])
+    angles = torch.tensor([0.0, 0.0, 0.4, 0.4], dtype=torch.float64)
+    token[0, :4, 2] = torch.cos(angles)
+    token[0, :4, 3] = torch.sin(angles)
+    token[0, :4, 4] = torch.tensor([0.0, 0.0, 1.0, 1.0])
+    token[0, 4:, 0] = 2.0
+    det = ArcDetokenizeStage(
+        resampled_vector_length=4,
+        action_horizon=7,
+        dt=1.0,
+        native_action_dim=4,
+        rotation_radius=rotation_radius,
+    )
+    decoded = det.forward({"pred_action": token})["pred_action_native"][0]
+    torch.testing.assert_close(
+        decoded[2:5, 0], torch.full((3,), 2.0, dtype=torch.float64)
+    )
+    torch.testing.assert_close(
+        decoded[2:5, 2], torch.tensor([0.0, 0.2, 0.4], dtype=torch.float64)
+    )
+    torch.testing.assert_close(
+        decoded[2:5, 3], torch.tensor([0.0, 0.5, 1.0], dtype=torch.float64)
+    )
+
+
 def test_detokenize_rejects_the_other_modes_token_width():
     mean_det = ArcDetokenizeStage(
         resampled_vector_length=32,

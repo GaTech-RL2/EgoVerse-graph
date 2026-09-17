@@ -135,10 +135,12 @@ def curvature_adaptive_curve_samples(
     curvature_floor: float | None = None,
     epsilon: float = 1e-9,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Sample a natural cubic curve with asymptotic L2 chord-error density.
+    """Allocate supports using a natural cubic curvature estimate.
 
     The returned targets stay in the tokenizer's cumulative arc coordinate so
     per-segment durations can be recovered from the original source frames.
+    XY uses the same source-polyline interpolation as uniform allocation:
+    fitting a different geometric path would confound the allocation ablation.
     """
     xy = np.asarray(xy, dtype=np.float64)
     cumulative = np.asarray(cumulative, dtype=np.float64)
@@ -181,9 +183,7 @@ def curvature_adaptive_curve_samples(
     importance = np.concatenate(
         (
             np.zeros(1),
-            np.cumsum(
-                0.5 * (weighted_arc[:-1] + weighted_arc[1:]) * delta_s
-            ),
+            np.cumsum(0.5 * (weighted_arc[:-1] + weighted_arc[1:]) * delta_s),
         )
     )
     if importance[-1] <= epsilon:
@@ -195,7 +195,7 @@ def curvature_adaptive_curve_samples(
             dense_s,
         )
     targets[0], targets[-1] = 0.0, end
-    return spline(targets), targets
+    return np.stack([_interpolate(xy, cumulative, point) for point in targets]), targets
 
 
 class PadPlanarAction:
@@ -376,6 +376,69 @@ class TokenizePlanarArcLength:
         durations[-1] = delta_time[-1]
         return durations
 
+    def _stationary_support_frames(
+        self, cumulative: np.ndarray, targets: np.ndarray
+    ) -> np.ndarray | None:
+        """Reserve both ends of stationary intervals in the duration clock.
+
+        An arc coordinate alone cannot distinguish arriving at a position
+        from leaving it after a hold. Both allocation modes reserve the
+        longest holds first within the same fixed support budget, then
+        allocate any remaining supports by their respective arc density.
+        Unselected short pauses are approximated geometrically, but their
+        elapsed time remains in the source clock. In particular, quantized
+        one-frame pauses must not make an otherwise valid sample unloadable.
+        """
+        stopped = np.diff(cumulative) <= self.zero_dist_epsilon
+        if not np.any(stopped):
+            return None
+        last_index, alpha = _bracket_segment(cumulative, float(targets[-1]))
+        end_frame = last_index + alpha
+        starts = np.flatnonzero(stopped & np.r_[True, ~stopped[:-1]])
+        ends = np.flatnonzero(stopped & np.r_[~stopped[1:], True]) + 1
+        holds = [
+            (float(start), min(float(end), end_frame))
+            for start, end in zip(starts, ends, strict=True)
+            if start < end_frame
+        ]
+        selected = {0.0, end_frame}
+        for start, end in sorted(holds, key=lambda hold: (hold[0] - hold[1], hold[0])):
+            candidate = selected | {start, end}
+            if len(candidate) <= self.num_waypoints:
+                selected = candidate
+        boundaries = np.asarray(sorted(selected), dtype=np.float64)
+        if len(boundaries) == 2:
+            return None
+
+        frames = np.arange(len(cumulative), dtype=np.float64)
+        boundary_arc = np.interp(boundaries, frames, cumulative)
+        target_rank = np.linspace(0.0, 1.0, self.num_waypoints)
+        boundary_rank = np.interp(boundary_arc, targets, target_rank)
+        weights = np.diff(boundary_rank)
+        extra = self.num_waypoints - len(boundaries)
+        quotas = extra * weights / weights.sum()
+        counts = np.ones(len(weights), dtype=int) + np.floor(quotas).astype(int)
+        remaining = self.num_waypoints - 1 - counts.sum()
+        order = np.argsort(-(quotas - np.floor(quotas)), kind="stable")
+        counts[order[:remaining]] += 1
+
+        support_frames = [0.0]
+        for index, count in enumerate(counts):
+            if boundary_arc[index + 1] - boundary_arc[index] <= self.zero_dist_epsilon:
+                interior = np.linspace(
+                    boundaries[index], boundaries[index + 1], count + 1
+                )[1:-1]
+                support_frames.extend(interior.tolist())
+            else:
+                ranks = np.linspace(
+                    boundary_rank[index], boundary_rank[index + 1], count + 1
+                )[1:-1]
+                for point in np.interp(ranks, target_rank, targets):
+                    source_index, fraction = _bracket_segment(cumulative, float(point))
+                    support_frames.append(source_index + fraction)
+            support_frames.append(boundaries[index + 1])
+        return np.asarray(support_frames)
+
     def tokenize(self, actions: np.ndarray) -> np.ndarray:
         xy, theta, grip = self._components(actions)
         weight = lambda_for_radius(self.rotation_radius)
@@ -390,6 +453,16 @@ class TokenizePlanarArcLength:
             speed = 0.0
             rates = np.zeros(self.num_waypoints, dtype=np.float64)
             durations = np.zeros(self.num_waypoints, dtype=np.float64)
+            if self.velocity_mode == _DURATION:
+                # No geometric distance does not imply no native action:
+                # gripper opening and radius-zero rotation still evolve.
+                # Both allocation arms use the same temporal fallback.
+                frames = np.arange(len(actions), dtype=np.float64)
+                support_frames = np.linspace(0.0, frames[-1], self.num_waypoints)
+                theta_waypoints = np.interp(support_frames, frames, theta)
+                grip_waypoints = np.interp(support_frames, frames, grip)
+                durations[:-1] = np.diff(support_frames) * self.dt
+                durations[-1] = durations[-2]
         else:
             if self.waypoint_sampling == "curvature":
                 xy_waypoints, targets = curvature_adaptive_curve_samples(
@@ -419,6 +492,20 @@ class TokenizePlanarArcLength:
             speed = end / (max(1, last_index) * self.dt)
             rates = self._interval_rates(cumulative, targets)
             durations = self._interval_durations(cumulative, targets)
+            if self.velocity_mode == _DURATION:
+                support_frames = self._stationary_support_frames(cumulative, targets)
+                if support_frames is not None:
+                    frames = np.arange(len(actions), dtype=np.float64)
+                    xy_waypoints = np.column_stack(
+                        [
+                            np.interp(support_frames, frames, xy[:, axis])
+                            for axis in (0, 1)
+                        ]
+                    )
+                    theta_waypoints = np.interp(support_frames, frames, theta)
+                    grip_waypoints = np.interp(support_frames, frames, grip)
+                    durations[:-1] = np.diff(support_frames) * self.dt
+                    durations[-1] = durations[-2]
 
         xy_waypoints[0] = xy[0]
         theta_waypoints[0] = theta[0]

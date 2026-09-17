@@ -218,23 +218,91 @@ def test_diffusion_mse_is_visible_during_long_training_epochs():
     assert "on_step=True" in model_wrapper[per_source : per_source + 220]
 
 
-def test_duration_arc_explicitly_separates_raw_and_token_horizons():
+@pytest.mark.parametrize("embodiment", ["usocket", "chain"])
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+def test_duration_arc_explicitly_separates_raw_and_token_horizons(
+    embodiment, allocation
+):
     config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
+                f"+experiment=pusht/planar_v2_{embodiment}_arc_paper_{allocation}_D40_M16_R24deg",
                 "++paths.root_dir=.",
             ],
         )
         OmegaConf.resolve(cfg.data)
-        dataset = cfg.data.train_datasets.pushshapes_sim_u_socket
-        transform = dataset.resolver.transform_list
-        assert dataset.resolver.key_map.action_horizon == 40
-        assert transform.action_horizon == 32
-        assert transform.raw_action_horizon == 40
-        assert transform.action_target_offset == 1
+        for datasets in (cfg.data.train_datasets, cfg.data.valid_datasets):
+            dataset = next(iter(datasets.values()))
+            transform = dataset.resolver.transform_list
+            assert dataset.resolver.key_map.action_horizon == 40
+            assert transform.action_horizon == 32
+            assert transform.raw_action_horizon == 40
+            assert transform.action_target_offset == 1
+
+
+def test_chain_duration_pair_differs_only_in_allocation_and_run_labels():
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
+    configs = []
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
+        for allocation in ("uniform", "curvature"):
+            cfg = compose(
+                config_name="train_zarr_cartesian",
+                overrides=[
+                    f"+experiment=pusht/planar_v2_chain_arc_paper_{allocation}_D40_M16_R24deg",
+                    "++paths.root_dir=.",
+                ],
+            )
+            assert cfg.ckpt_path is None
+            assert cfg.eval_checkpoint.use_ema is False
+            assert cfg.planar.eval_native_decoder.native_action_dim == 4
+            assert cfg.run_provenance.action_contract.execution_horizon is None
+            selector = cfg.planar.eval_execution_selector
+            assert selector.mode == "distance_fraction"
+            assert selector.fraction == 0.5
+            assert selector.distance_budget == cfg.planar.arc_distance
+            assert selector == cfg.run_provenance.action_contract.execution_selector
+            assert cfg.planar.arc_waypoint_sampling == allocation
+            # Unresolved interpolation expressions must be identical as well:
+            # both dataset transforms use this same allocation selector.
+            payload = OmegaConf.to_container(cfg, resolve=False)
+            payload.pop("name")
+            payload.pop("description")
+            payload["planar"].pop("arc_waypoint_sampling")
+            configs.append(payload)
+    assert configs[0] == configs[1]
+
+
+@pytest.mark.parametrize("allocation", ["uniform", "curvature"])
+def test_chain_duration_config_executes_41_to_40_to_32_to_40(allocation):
+    import numpy as np
+    from hydra.utils import instantiate
+
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                f"+experiment=pusht/planar_v2_chain_arc_paper_{allocation}_D40_M16_R24deg",
+                "++paths.root_dir=.",
+            ],
+        )
+        resolver = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
+        keymap = instantiate(resolver.key_map)
+        transforms = instantiate(resolver.transform_list)
+        decoder = instantiate(cfg.planar.eval_native_decoder)
+
+    assert keymap["front_img_1"]["horizon"] == 2
+    assert keymap["actions"]["horizon"] == 41
+    native = np.column_stack((np.arange(41), np.zeros((41, 2)), np.linspace(0, 1, 41)))
+    batch = transforms[0].transform({"actions": native.copy()})
+    np.testing.assert_array_equal(batch["actions"], native[1:])
+    batch = transforms[1].transform(batch)
+    assert batch["actions"].shape == (32, 5)
+    decoded = decoder.decode(batch["actions"])[0]
+    assert decoded.shape == (40, 4)
+    np.testing.assert_allclose(decoded, native[1:], atol=1e-5)
 
 
 def test_ddp_device_count_is_per_node_without_eval_resolver():

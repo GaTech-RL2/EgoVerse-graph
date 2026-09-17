@@ -228,7 +228,81 @@ committed file at the time you read it. Both times this was skipped, the data wa
 within a week. `results/*.csv` is the place; `tools/plot_codec_rollout_results.py` reads
 from there, so a new run only needs its CSV added.
 
-### 3f. Articulated co-train sweep — LAUNCHED 2026-09-10, results pending
+### 3f. Articulated co-train sweep — COMPLETE 2026-09-16, all 45 cells
+
+Full table: `results/artic_rollout_45cells.csv`. Figures:
+`results/figures/artic_by_mechanism.png`, `artic_budget_confound.png`,
+`arc_vs_dp_delta.png`, `arc_vs_dp_pushers.png` (each with a `_dark` variant).
+Regenerate with `tools/plot_artic_by_mechanism.py` and `tools/plot_arc_vs_dp.py`.
+
+Peak coverage, 40 episodes per cell, 3,000-episode budgets:
+
+| embodiment | dur_M56 | stk_M56 | dur_M16 | stk_M16 | DP | role |
+|---|---|---|---|---|---|---|
+| u_socket | 0.103 | 0.116 | 0.106 | 0.093 | 0.078 | in-domain |
+| gripper | 0.044 | 0.045 | 0.036 | 0.088 | 0.023 | in-domain |
+| chain_gripper | 0.089 | 0.062 | 0.058 | 0.078 | 0.057 | in-domain |
+| suction | 0.359 | 0.382 | 0.221 | 0.255 | 0.279 | in-domain |
+| triangle | 0.557 | 0.693 | 0.610 | **0.710** | 0.601 | in-domain |
+| flipper | 0.467 | 0.532 | 0.519 | **0.588** | 0.437 | in-domain |
+| spring | 0.545 | 0.587 | 0.572 | **0.602** | 0.483 | in-domain |
+| umi | 0.001 | 0.058 | 0.001 | 0.039 | 0.031 | HELD-OUT |
+| scoop | 0.049 | 0.028 | 0.050 | 0.052 | 0.025 | HELD-OUT |
+| **mean** | 0.246 | 0.275 | 0.241 | **0.279** | 0.226 | |
+
+**ARC beats DP, paired on the same 40 seeds** (all arms score identical seeds, so
+this is a per-episode paired difference, 20k-sample bootstrap CI):
+
+| scope | ARC − DP | 95% CI |
+|---|---|---|
+| all in-domain (7 tools, n=280) | **+0.046** | [+0.018, +0.074] |
+| pushers only (3 tools, n=120) | **+0.075** | [+0.036, +0.116] |
+| flipper | +0.090 | [+0.030, +0.148] |
+| spring | +0.094 | [+0.019, +0.171] |
+| scoop (held out) | +0.020 | [+0.002, +0.040] |
+| every prehensile tool | +0.015…+0.031 | all include 0 |
+
+Stacked > duration on held-out transfer (0.043–0.045 vs 0.025); the duration arms
+score ~0.001 on umi, essentially zero. If you only remember one arm, `stk_M16`.
+
+**THE CONFOUND — do not report the grouping without it.** Grouped by contact
+mechanism (taken from the simulator's agent docstrings, not the names):
+prehensile (u_socket/gripper/chain_gripper/umi) 0.02–0.12, adhesion (suction)
+0.22–0.38, pushers (triangle/flipper/spring) 0.44–0.71. That looks like
+"grasping is hard". But the p99 frame budget runs 626–752 for the prehensile
+group and 4,826–5,365 for the pushers, and **across the seven trained tools,
+coverage vs budget gives r = +0.984.** Peak coverage is a maximum over time, so a
+7x longer budget mechanically buys more of it. The data cannot separate
+"grasping is hard" from "these episodes are short".
+
+The two held-out tools are the exceptions that break the fit: scoop has the
+LONGEST budget of all (5,365) and still scores 0.04, which is a generalization
+failure rather than a budget effect.
+
+**Superseded claims.** Anything said about this sweep before all 45 cells landed
+was drawn from the 21 cheapest cells, which are exactly the low-coverage ones.
+"All five arms fail the task" was an artefact of that ordering and is wrong.
+
+### 3f-bis. Single-embodiment BC baselines — RUNNING (articbc-2)
+
+Seven runs, one per training tool, same tokenizer/model/optimiser/step budget as
+`artic_c7_arc_dur_D80_M56_R26deg`, trained on one embodiment each. Configs
+`experiment/pusht/artic_bc1_arc_dur_D80_M56_R26deg_<emb>.yaml`.
+
+Exposure is matched on purpose: CombinedLoader draws one batch per domain per
+step, so each embodiment contributed 240k x 32 = 7.68M samples to the co-trained
+run, and a solo run at 240k steps sees the same 7.68M of its own. The only
+variable is whether 262.78M parameters are shared across seven tools.
+
+Reads: BC ≈ co-train means co-training is not what costs control and the gap is
+codec/closed-loop; BC >> co-train means capacity dilution; BC << co-train means
+the multi-tool data is doing real work.
+
+To score them, use `EVAL_DATA_MODE=per_emb` — their model has ONE head and their
+norm_stats.json ONE domain, so the default nine-domain eval config dies with
+"no entry for embodiment id".
+
+### 3f-old. Original launch note (2026-09-10)
 
 The first experiment on the **fixed** corpus
 (`s3://rldb/staged/pushshapes_articulated/articulated-20260909/`, 162,000 episodes,

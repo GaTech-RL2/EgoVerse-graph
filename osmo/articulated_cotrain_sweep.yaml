@@ -372,9 +372,18 @@ workflow:
               ${RESUME_CKPT[$EXP]:+ckpt_path=${RESUME_CKPT[$EXP]}} \
               trainer.limit_val_batches="$VAL_BATCHES" \
               trainer.val_check_interval="$VAL_INTERVAL" \
+              # save_top_k=0, NOT -1. save_last is true in the callback config,
+              # so this keeps exactly last.ckpt per run and drops the periodic
+              # copies. At -1 with CKPT_EVERY=5000 over 240k steps that is 48
+              # checkpoints x 3.92 GB x 7 runs = 1.3 TB, and articbc-2 died at
+              # 53% with
+              #   Evicted: exceeded its local ephemeral storage limit "800Gi"
+              # having already pushed 728 GB. Nothing reads the periodic copies:
+              # eval loads last.ckpt, resume loads last.ckpt, and monitor is None
+              # so there is no best-checkpoint selection to preserve.
               callbacks.model_checkpoint.every_n_epochs=0 \
               +callbacks.model_checkpoint.every_n_train_steps="$CKPT_EVERY" \
-              callbacks.model_checkpoint.save_top_k=-1 \
+              callbacks.model_checkpoint.save_top_k=0 \
               logger.wandb.entity="$WANDB_ENTITY" \
               > "/tmp/run_${EXP}.log" 2>&1 ) &
           PIDS="$PIDS $!"

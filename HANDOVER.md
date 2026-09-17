@@ -682,6 +682,31 @@ of that time was copying checkpoints nobody opens. Fixed in 61bf2bf by pulling
 Corollary for `ckpt_every`: a denser checkpoint schedule silently inflates this
 prefix, so anything that copies it wholesale degrades as training goes on.
 
+### 5.10e save_top_k=-1 is a disk leak that reads as preemption
+
+`callbacks/checkpoints.yaml` ships `save_top_k: -1`, which keeps EVERY periodic
+checkpoint. With `every_n_train_steps=5000` over 240k steps that is 48 per run at
+3.92 GB:
+
+| sweep | arithmetic | total |
+|---|---|---|
+| BC baselines (7 runs) | 48 x 7 x 3.92 GB | **1,317 GB** |
+| co-train arms (5 runs) | 48 x 5 x 3.92 GB | **941 GB** |
+
+Both exceed the 800Gi ephemeral limit, so both were unfinishable at submission
+time regardless of the pool. articbc-2-1 died at 53% with 728 GB already pushed.
+The co-train sweep's repeated "preemptions" were most likely this too.
+
+Set `callbacks.model_checkpoint.save_top_k=0`. `save_last` is already true, so
+that keeps exactly `last.ckpt` -- 27 GB for the whole BC sweep. Nothing reads the
+periodic copies: eval loads `last.ckpt`, resume loads `last.ckpt`, and `monitor`
+is None so there is no best-checkpoint selection to lose. Fixed in de73fef.
+
+This is the second distinct cause of `FAILED_EVICTED` in this project after the
+192 GB checkpoint pull in 5.10d. Both looked exactly like cluster preemption.
+**Read `osmo workflow events`, then do the storage arithmetic before blaming the
+pool.**
+
 ### 5.11 Checkpoint discovery is a fuzzy glob
 The launcher resolves `find "$CK" -path "*${EXP}*" -name last.ckpt | head -1`. Note that
 `planar_v2_usocket_dp_paper` matched the directory `planar_v2_usocket_dp_paper_h16`. That

@@ -111,7 +111,7 @@ def validation_command(
         encode_hydra_string_override("evaluator.results_path", str(results_path)),
         encode_hydra_string_override("evaluator.video_output_dir", str(video_dir)),
         encode_hydra_string_override("logger.wandb.id", wandb_run_id),
-        encode_hydra_string_override("logger.wandb.name", wandb_name),
+        encode_hydra_string_override("+logger.wandb.name", wandb_name),
         encode_hydra_string_override("logger.wandb.group", wandb_group),
         encode_hydra_string_override(
             "logger.wandb.job_type", "offline_checkpoint_validation"

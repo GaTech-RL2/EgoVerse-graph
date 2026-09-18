@@ -7,8 +7,10 @@
 #
 # For baseline runs, actions_cartesian is already a time-indexed control chunk.
 # For ARC runs, actions_cartesian_untokenized is the preserved control-space
-# ground-truth chunk. The predicted token is truncated at execute_fraction * D,
-# where D is cumulative left-plus-right EEF translation, then detokenized.
+# ground-truth chunk. ARC capping happens before detokenization. Waypoint mode
+# keeps exactly execute_fraction * M waypoint and matching velocity rows;
+# distance mode interpolates the crossing at execute_fraction * D combined
+# left-plus-right EEF translation.
 
 defaults:
   - viz@viz_func: cartesian/base
@@ -19,11 +21,10 @@ _target_: egomimic.eval.open_loop_sim.OpenLoopSimEval
 action_key: actions_cartesian
 ground_truth_action_key: actions_cartesian_untokenized
 
-# Main sweep knob. 0.25 means execute the first 25 control steps of a 100-step
-# baseline chunk, or the first 25% of combined-arm ARC distance and recover the
-# variable control-frame duration from token timing before requesting the next
-# recorded observation.
-execute_fraction: 0.25
+# Main sweep knob. With the default waypoint cap, 0.30 and M=100 retain exactly
+# the first 30 waypoint rows and their 30 per-waypoint velocity rows. M times
+# execute_fraction must be an integer. Baseline mode executes 30/100 frames.
+execute_fraction: 0.30
 control_horizon: 100
 control_dt: 0.03333333333333333
 
@@ -31,12 +32,12 @@ control_dt: 0.03333333333333333
 # prediction as a (T, 14) baseline control chunk. Set explicitly when a custom
 # token row count could collide with the baseline horizon.
 action_mode: auto
+arc_execution_cap_mode: waypoints
 min_distance_unit: ${oc.select:abc.arc_distance,0.40}
 resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
-# Reuse the data tokenizer's exact layout: mean, per_waypoint, and duration
-# have different row counts and timing semantics. The fallback keeps this
-# evaluator directly instantiable outside an ABC experiment.
-velocity_mode: ${oc.select:abc.arc_velocity_mode,mean}
+# M-based execution requires the per-waypoint velocity layout. Distance mode
+# remains available explicitly and interpolates its terminal waypoint.
+velocity_mode: ${oc.select:abc.arc_velocity_mode,per_waypoint}
 
 # Optional post-hoc checkpoint step used for logger x-axis alignment. Training
 # leaves this null and uses trainer.global_step.

@@ -94,6 +94,7 @@ def validation_command(
     wandb_group: str,
     extra_overrides: list[str],
     video_only: bool = False,
+    arc_execution_cap_mode: str = "waypoints",
 ) -> list[str]:
     results_path = output_dir / "open_loop_sim.json"
     video_dir = output_dir / "val_videos"
@@ -107,6 +108,7 @@ def validation_command(
         "evaluator=eval_open_loop_sim",
         f"evaluator.action_mode={action_mode}",
         f"evaluator.execute_fraction={execute_fraction}",
+        f"evaluator.arc_execution_cap_mode={arc_execution_cap_mode}",
         f"evaluator.log_step={checkpoint.step}",
         encode_hydra_string_override("ckpt_path", checkpoint.path),
         (
@@ -183,8 +185,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         required=True,
         help=(
-            "Fraction before replanning: ARC distance for arc mode, "
-            "control frames for baseline mode."
+            "Fraction before replanning: ARC waypoints or distance according "
+            "to --arc-execution-cap-mode; control frames for baseline mode."
+        ),
+    )
+    parser.add_argument(
+        "--arc-execution-cap-mode",
+        choices=("waypoints", "distance"),
+        default="waypoints",
+        help=(
+            "ARC prefix semantics before detokenization. Waypoint mode requires "
+            "M * execute_fraction to be integral and per-waypoint velocity."
         ),
     )
     parser.add_argument("--limit-val-episodes", type=int)
@@ -221,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
         "experiment": args.experiment,
         "action_mode": args.action_mode,
         "execute_fraction": args.execute_fraction,
+        "arc_execution_cap_mode": args.arc_execution_cap_mode,
         "limit_val_episodes": args.limit_val_episodes,
         "video_only": args.video_only,
         "wandb_run_id": args.wandb_run_id,
@@ -246,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
             wandb_name=args.wandb_name,
             wandb_group=args.wandb_group,
             video_only=args.video_only,
+            arc_execution_cap_mode=args.arc_execution_cap_mode,
             extra_overrides=list(args.override),
         )
         manifest["commands"].append(command)

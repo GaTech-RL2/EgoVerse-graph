@@ -72,6 +72,7 @@ def test_builds_arc_eval_command_with_checkpoint_step_and_shared_wandb_id(tmp_pa
     assert "trainer.limit_val_batches=1.0" in command
     assert "evaluator.action_mode=arc" in command
     assert "evaluator.execute_fraction=0.25" in command
+    assert "evaluator.arc_execution_cap_mode=waypoints" in command
     assert "evaluator.log_step=30000" in command
     assert "evaluator.limit_val_episodes=4" in command
     assert any(item.startswith('ckpt_path="') for item in command)
@@ -128,8 +129,10 @@ def test_builds_video_only_command_without_metric_output(tmp_path):
         wandb_group="offline-checkpoint-video",
         extra_overrides=[],
         video_only=True,
+        arc_execution_cap_mode="distance",
     )
 
     assert "evaluator.video_only=true" in command
+    assert "evaluator.arc_execution_cap_mode=distance" in command
     assert "evaluator.results_path=null" in command
     assert 'logger.wandb.job_type="offline_checkpoint_video"' in command

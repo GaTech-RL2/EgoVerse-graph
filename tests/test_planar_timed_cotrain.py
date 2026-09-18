@@ -176,3 +176,45 @@ def test_composite_resolver_keeps_causal_targets_and_one_disjoint_split(tmp_path
         CompositeEpisodeResolver({"a": resolvers["pre"], "b": resolvers["pre"]}).resolve()
     with pytest.raises(ValueError, match="expected 5"):
         CompositeEpisodeResolver(resolvers, expected_episode_count=5).resolve()
+
+    # The training entry point must enable norm_mode on both source keymaps.
+    from egomimic.trainHydra import _normalization_dataset_config
+    cfg = OmegaConf.create({
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver",
+        "resolver": {
+            "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.CompositeEpisodeResolver",
+            "resolvers": {
+                source: {
+                    "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride",
+                    "folder_path": str(tmp_path / source),
+                    "embodiment_override": "pushshapes_sim_chain_gripper",
+                    "key_map": {
+                        "_target_": "egomimic.rldb.embodiment.pushshapes.get_planar_keymap",
+                        "action_horizon": 4, "observation_horizon": 2,
+                        "action_target_offset": offset,
+                    },
+                    "transform_list": {
+                        "_target_": "egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list",
+                        "action_horizon": 4, "action_target_offset": offset,
+                    },
+                } for source, offset in [("pre", 1), ("post", 2)]
+            },
+        },
+        "mode": "train", "valid_ratio": .5, "split_seed": 42, "bounds_check": False,
+    })
+    norm_cfg = _normalization_dataset_config(cfg)
+    for source in ["pre", "post"]:
+        assert "norm_mode" not in cfg.resolver.resolvers[source].key_map
+        assert norm_cfg.resolver.resolvers[source].key_map.norm_mode
+    norm_dataset = instantiate(norm_cfg)
+    stats = MultiDataset(state={}, norm_mode="quantile")
+    stats.populate_from_datasets({"pushshapes_sim_chain_gripper": norm_dataset})
+    stats.infer_shapes_from_batch(norm_dataset[0])
+    stats.infer_norm_from_dataset(norm_dataset, "pushshapes_sim_chain_gripper",
+                                  sample_frac=1, num_workers=0)
+    assert stats.norm_stats
+    for leaf in norm_dataset.datasets.values():
+        assert "front_img_1" not in leaf.key_map
+        sample = leaf[3]
+        decoded = PlanarCommon5NativeDecoder(4, 4)(sample["actions"]).reshape(4, 4)
+        assert decoded[0, 0] == sample["state_agent_obj"][-1, 0]

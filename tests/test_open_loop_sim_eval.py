@@ -8,8 +8,10 @@ import torch
 from egomimic.eval.open_loop_sim import (
     OpenLoopSimEval,
     arc_prefix_control_steps,
+    executed_arc_waypoints,
     executed_control_steps,
     truncate_arc_token,
+    truncate_arc_token_by_waypoints,
 )
 from egomimic.eval.video import EvalVideo
 
@@ -21,9 +23,11 @@ def _baseline_evaluator(execute_steps=2):
     evaluator.control_dt = 1.0 / 30.0
     evaluator.execute_steps = execute_steps
     evaluator.action_mode = "baseline"
+    evaluator.arc_execution_cap_mode = "waypoints"
     evaluator.resampled_vector_length = 4
     evaluator.velocity_mode = "mean"
     evaluator.min_distance_unit = 0.4
+    evaluator.execute_arc_waypoints = 2
     evaluator._arc_tokenizer = None
     evaluator.require_episode_start = True
     evaluator.limit_val_episodes = None
@@ -36,6 +40,28 @@ def test_execute_fraction_is_a_control_frequency_prefix():
     assert executed_control_steps(100, 1.0) == 100
     with pytest.raises(ValueError, match="execute_fraction"):
         executed_control_steps(100, 0.0)
+
+
+def test_m_based_arc_execution_requires_an_exact_waypoint_count():
+    assert executed_arc_waypoints(100, 0.30) == 30
+    assert executed_arc_waypoints(20, 0.25) == 5
+    with pytest.raises(ValueError, match=r"M \* execute_fraction"):
+        executed_arc_waypoints(100, 0.333)
+
+
+def test_m_based_arc_execution_keeps_waypoints_and_matching_velocity_rows():
+    M = 100
+    token = np.zeros((2 * M, 14), dtype=np.float64)
+    token[:M, 0] = np.arange(M)
+    token[M:, 0] = 1_000 + np.arange(M)
+
+    partial = truncate_arc_token_by_waypoints(token, 0.30, "per_waypoint")
+
+    assert partial.shape == (60, 14)
+    np.testing.assert_array_equal(partial[:30], token[:30])
+    np.testing.assert_array_equal(partial[30:], token[M : M + 30])
+    with pytest.raises(ValueError, match="velocity_mode='per_waypoint'"):
+        truncate_arc_token_by_waypoints(token, 0.30, "duration")
 
 
 @pytest.mark.parametrize(
@@ -92,14 +118,24 @@ def test_arc_prefix_executes_30_percent_of_combined_D_and_recovers_stride():
     # Both arms move, so combined D is reached halfway as many waypoint rows
     # as the old per-arm interpretation.
     assert K == 16
-    assert arc_prefix_control_steps(token, 0.30, "duration", dt, 0.4) == 15
+    assert (
+        arc_prefix_control_steps(
+            token,
+            0.30,
+            "duration",
+            dt,
+            0.4,
+            arc_execution_cap_mode="distance",
+        )
+        == 15
+    )
 
 
-def test_arc_prefix_video_stride_follows_predicted_waypoint_timing():
+def test_m_based_arc_prefix_stride_follows_first_30_waypoints_timing():
     dt = 1.0 / 30.0
     token = _per_waypoint_arc_token(100, 2.0 * dt)
 
-    assert arc_prefix_control_steps(token, 0.30, "per_waypoint", dt, 0.4) == 30
+    assert arc_prefix_control_steps(token, 0.30, "per_waypoint", dt, 0.4) == 58
 
 
 def test_arc_replan_stride_changes_with_predicted_timing():
@@ -109,6 +145,7 @@ def test_arc_replan_stride_changes_with_predicted_timing():
     evaluator.control_horizon = 100
     evaluator.control_dt = 1.0 / 30.0
     evaluator.action_mode = "arc"
+    evaluator.arc_execution_cap_mode = "distance"
     evaluator.resampled_vector_length = 5
     evaluator.velocity_mode = "duration"
     evaluator.min_distance_unit = 0.4
@@ -234,6 +271,7 @@ def test_open_loop_sim_detokenizes_only_the_executed_arc_prefix():
     evaluator.execute_fraction = 0.25
     evaluator.execute_steps = 2
     evaluator.action_mode = "auto"
+    evaluator.arc_execution_cap_mode = "distance"
     evaluator.resampled_vector_length = 4
     evaluator.velocity_mode = "duration"
     evaluator.min_distance_unit = 0.4
@@ -380,12 +418,14 @@ def test_open_loop_video_decodes_executed_baseline_prefix_at_every_frame():
     assert decoded[:, -1, 0].tolist() == [0, 1, 2]
 
 
-def test_open_loop_video_detokenizes_only_combined_distance_arc_prefix():
+def test_open_loop_video_detokenizes_only_first_30_arc_waypoints():
     evaluator = _baseline_evaluator()
     evaluator.action_mode = "arc"
+    evaluator.arc_execution_cap_mode = "waypoints"
     evaluator.execute_fraction = 0.30
+    evaluator.execute_arc_waypoints = 30
     evaluator.resampled_vector_length = 100
-    evaluator.velocity_mode = "duration"
+    evaluator.velocity_mode = "per_waypoint"
     evaluator._native = lambda value, embodiment_id: value
     calls = []
 
@@ -395,23 +435,22 @@ def test_open_loop_video_detokenizes_only_combined_distance_arc_prefix():
             return np.full((action_horizon, 14), token[0, 0])
 
     evaluator._arc_tokenizer = Tokenizer()
-    token = torch.from_numpy(_duration_arc_token(100, evaluator.control_dt))[None]
+    token = torch.from_numpy(_per_waypoint_arc_token(100, 2.0 * evaluator.control_dt))[
+        None
+    ]
 
     decoded, lengths = evaluator._decoded_video_predictions(
         token, embodiment_id=0, max_steps=100
     )
 
-    assert decoded.shape == (1, 15, 14)
-    assert lengths == [15]
-    assert [action_horizon for _, action_horizon in calls] == [15]
+    assert decoded.shape == (1, 58, 14)
+    assert lengths == [58]
+    assert [action_horizon for _, action_horizon in calls] == [58]
     partial = calls[0][0]
+    assert partial.shape == (60, 14)
     waypoints = partial[: len(partial) // 2]
-    combined_distance = np.linalg.norm(
-        np.diff(waypoints[:, 0:3], axis=0), axis=-1
-    ).sum() + np.linalg.norm(
-        np.diff(waypoints[:, 7:10], axis=0), axis=-1
-    ).sum()
-    assert combined_distance == pytest.approx(0.12)
+    assert len(waypoints) == 30
+    np.testing.assert_array_equal(partial[30:], token.numpy()[0, 100:130])
 
 
 def test_open_loop_video_overlay_receives_only_matching_executed_prefixes(

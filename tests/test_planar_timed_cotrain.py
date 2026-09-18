@@ -9,6 +9,7 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 from egomimic.pipeline.pushshapes import PlanarArcTimedNativeDecoder
+from egomimic.eval.planar_rollout import PlanarTimedArcExecutionSelector
 from egomimic.rldb.embodiment.pushshapes import get_planar_arc_timed_transform_list
 from egomimic.rldb.zarr.planar_arc import TokenizePlanarArcTimed
 
@@ -69,6 +70,31 @@ def test_bad_predicted_timing_cannot_teleport_geometry(mode):
     assert decoded[1, 0] < .02
 
 
+@pytest.mark.parametrize("rotation_active,expected", [(False, 22), (True, 7)])
+def test_half_support_selection_uses_earliest_active_clock(rotation_active, expected):
+    tokens = np.zeros((16, 7))
+    tokens[:, 0] = np.arange(16)
+    tokens[:, 2] = .1
+    angle = np.arange(16) * (.01 if rotation_active else 0)
+    tokens[:, 3], tokens[:, 4] = np.cos(angle), np.sin(angle)
+    tokens[:, 5] = .03
+    result = PlanarTimedArcExecutionSelector().select(
+        tokens, PlanarArcTimedNativeDecoder(16, 80, 4, "duration"))
+    assert result["selected_waypoint_count"] == 8
+    assert result["execution_steps"] == expected
+    assert result["execution_start_index"] == 0
+
+
+def test_half_support_stationary_grip_uses_translation_duration():
+    actions = np.zeros((80, 4)); actions[:, 3] = np.linspace(0, 1, 80)
+    tokens, _ = roundtrip(actions)
+    result = PlanarTimedArcExecutionSelector().select(
+        tokens, PlanarArcTimedNativeDecoder(16, 80, 4, "duration"))
+    assert result["clocks"]["translation_grip"]["active"]
+    assert not result["clocks"]["rotation"]["active"]
+    assert result["execution_steps"] == 37
+
+
 @pytest.mark.parametrize("recipe", ["paper_dp"] + [f"arc_{mode}_D80_M{m}_R26deg_paper"
         for mode in ["duration", "stacked"] for m in [16, 56]])
 def test_five_cotrain_recipes_use_same_data_and_network(recipe):
@@ -80,6 +106,7 @@ def test_five_cotrain_recipes_use_same_data_and_network(recipe):
     assert cfg.trainer.limit_train_batches == 1.0
     assert cfg.trainer.max_steps == cfg.model.scheduler.max_steps == 240000
     assert cfg.ckpt_path is None
+    assert cfg.run_provenance.action_contract.rollout_action_chunk_start_index == 0
     assert cfg.planar.batch_size * cfg.launch_params.gpus_per_node * len(cfg.data.train_datasets) == 128
     assert set(cfg.data.train_datasets) == {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
     assert cfg.run_provenance.dataset_count == 7919

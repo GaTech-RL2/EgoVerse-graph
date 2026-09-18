@@ -360,18 +360,7 @@ class PlanarArcTimedNativeDecoder:
         hi = torch.gather(geometry, 1, upper[..., None].expand(-1, -1, width))
         return (1 - alpha[..., None]) * lo + alpha[..., None] * hi
 
-    def decode(self, actions, context: dict | None = None):
-        del context
-        is_tensor = torch.is_tensor(actions)
-        value = actions if is_tensor else torch.as_tensor(np.asarray(actions))
-        squeeze = value.ndim == 2
-        if squeeze:
-            value = value.unsqueeze(0)
-        expected = (self.num_waypoints, PLANAR_ARC_TIMED_DIM)
-        if value.ndim < 3 or tuple(value.shape[-2:]) != expected:
-            raise ValueError(f"expected (..., {expected[0]}, {expected[1]}), got {value.shape}")
-        leading = tuple(value.shape[:-2])
-        value = value.reshape(-1, *expected)
+    def _clock_durations(self, value):
         xy_duration = self._durations(value[..., :2], value[:, :-1, 2])
         heading_geometry = value[..., 3:5]
         if self.timing_mode == "duration":
@@ -394,6 +383,40 @@ class PlanarArcTimedNativeDecoder:
                 torch.full_like(angle, self.dt * (self.action_horizon + 1)),
                 heading_duration,
             )
+        return xy_duration, heading_duration
+
+    def waypoint_clocks(self, actions):
+        """Return the exact clocks used to decode one unnormalized prediction."""
+        value = torch.as_tensor(actions)
+        if tuple(value.shape) != (self.num_waypoints, PLANAR_ARC_TIMED_DIM):
+            raise ValueError("Expected one timed ARC token")
+        if not torch.isfinite(value).all():
+            raise ValueError("Nonfinite timed ARC token")
+        xy, heading = self._clock_durations(value.unsqueeze(0))
+        clocks = {}
+        for name, duration, geometry in (
+            ("translation_grip", xy[0], value[:, [0, 1, 6]]),
+            ("rotation", heading[0], value[:, 3:5]),
+        ):
+            seconds = torch.cat((duration.new_zeros(1), duration.cumsum(0)))
+            active = bool((torch.diff(geometry, dim=0).abs() > self.epsilon).any())
+            clocks[name] = {"seconds": seconds, "active": active}
+        return clocks
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        is_tensor = torch.is_tensor(actions)
+        value = actions if is_tensor else torch.as_tensor(np.asarray(actions))
+        squeeze = value.ndim == 2
+        if squeeze:
+            value = value.unsqueeze(0)
+        expected = (self.num_waypoints, PLANAR_ARC_TIMED_DIM)
+        if value.ndim < 3 or tuple(value.shape[-2:]) != expected:
+            raise ValueError(f"expected (..., {expected[0]}, {expected[1]}), got {value.shape}")
+        leading = tuple(value.shape[:-2])
+        value = value.reshape(-1, *expected)
+        xy_duration, heading_duration = self._clock_durations(value)
+        heading_geometry = value[..., 3:5]
         xy = self._sample(value[..., :2], xy_duration)
         heading = self._sample(heading_geometry, heading_duration)
         heading = heading / torch.linalg.vector_norm(heading, dim=-1, keepdim=True).clamp_min(1e-8)

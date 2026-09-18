@@ -21,6 +21,9 @@ planar:
   cotrain_data_root: /workspace/cotrain/data
   arc_waypoint_sampling: uniform
   eval_execution_fraction: 0.5
+  eval_execution_selector:
+    _target_: egomimic.eval.planar_rollout.PlanarTimedArcExecutionSelector
+    fraction: 0.5
 evaluator:
   native_decoder: null
   semantic_blocks:
@@ -90,6 +93,8 @@ run_provenance:
     timing_semantics: independently timed translation and rotation; grip follows translation
       clock
     raw_action_horizon: 80
+    rollout_action_chunk_start_index: 0
+    execution_selector: ${planar.eval_execution_selector}
   obstacle_selection:
     source: s3://rldb/datasets/pushshapes/arc-duration-handoff-20260916/chain_gripper_obstacle_mimicgen_128_20260826_output_128/
     levels:

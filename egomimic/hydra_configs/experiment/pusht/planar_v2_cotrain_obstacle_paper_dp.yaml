@@ -71,6 +71,7 @@ run_provenance:
     prediction_horizon: 16
     replan_every: 8
     execution_slice: '[0,8)'
+    rollout_action_chunk_start_index: 0
   obstacle_selection:
     source: s3://rldb/datasets/pushshapes/arc-duration-handoff-20260916/chain_gripper_obstacle_mimicgen_128_20260826_output_128/
     levels:

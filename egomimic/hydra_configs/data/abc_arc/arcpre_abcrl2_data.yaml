@@ -1,0 +1,100 @@
+# ARC ELMO-EQUIVALENT BASE data -- ABC stationery + the 2026-09-17 RL2 station re-upload
+# (organize_stationary_updated, rig rl2_abc), arc-duration action target. Mirrors the DATA
+# POOL of Elmo's checkpoint run (his filter carried both clauses; 2264 episodes) so that a
+# later RL2 fine-tune from this base parallels the time arm's Elmo-base -> RL2 fine-tune.
+# Distinct from arcpre_abc_data, which is ABC-only.
+# persistent_workers: default False re-forks loader workers at every epoch boundary and
+# this stack deadlocks there (job 13307279). True runs at 4.2 it/s (job 13308744).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the
+        stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
+        and row[''rig_name''] == ''rl2_abc''))'
+    mode: train
+    valid_ratio: 0.01
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the
+        stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
+        and row[''rig_name''] == ''rl2_abc''))'
+    mode: valid
+    valid_ratio: 0.01
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true

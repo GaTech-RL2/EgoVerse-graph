@@ -454,7 +454,7 @@ def test_open_loop_video_detokenizes_only_first_30_arc_waypoints():
 
 
 def test_open_loop_video_overlay_receives_only_matching_executed_prefixes(
-    monkeypatch,
+    monkeypatch, tmp_path,
 ):
     evaluator = _baseline_evaluator(execute_steps=2)
     evaluator._video_enabled = True
@@ -470,6 +470,8 @@ def test_open_loop_video_overlay_receives_only_matching_executed_prefixes(
     evaluator._revert_to_camframe = lambda **kwargs: kwargs["actions"]
     evaluator._group_video_dir = lambda *args: "/tmp"
     evaluator._buffer_per_episode = lambda *args: None
+    evaluator.trajectory_snapshot_path = tmp_path / "trajectory.npz"
+    evaluator._trajectory_snapshot_written = False
     captured = {}
 
     def viz(*, predictions, batch):
@@ -503,6 +505,11 @@ def test_open_loop_video_overlay_receives_only_matching_executed_prefixes(
     gt_overlay = captured["batch"][evaluator.action_key]
     assert pred_overlay.shape == (2, 2, 14)
     assert gt_overlay.shape == (2, 2, 14)
+    with np.load(evaluator.trajectory_snapshot_path) as snapshot:
+        assert snapshot["prediction"].shape == (2, 14)
+        assert snapshot["ground_truth"].shape == (2, 14)
+        assert snapshot["episode_hash"].item() == "episode-a"
+        assert snapshot["frame_index"].item() == -1
 
 
 def test_video_only_flushes_videos_without_computing_metrics(monkeypatch):

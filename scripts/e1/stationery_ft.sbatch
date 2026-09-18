@@ -3,9 +3,10 @@
 #SBATCH -q inferno
 #SBATCH -N1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=128G
-#SBATCH --gres=gpu:h200:1
+#SBATCH -p gpu-h100,gpu-h200
+#SBATCH --gres=gpu:1
 #SBATCH --time=16:00:00
 #SBATCH --job-name=statft
 #SBATCH --output=ft_%x_%j.log

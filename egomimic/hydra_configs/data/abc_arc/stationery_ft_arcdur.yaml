@@ -1,4 +1,13 @@
-# Stationery fine-tune data, 2026-09-17. Source policy lifted from the resolved
+# Stationery fine-tune data, 2026-09-17 -- RL2 STATION ONLY (no ABC).
+#
+# Aidan, 09-17: fine-tune on the lab's own YAM station episodes alone. The
+# checkpoint was already trained on ABC + the (since deleted) 09-14/15 rl2
+# batch, so re-feeding ABC here would mostly re-teach what it knows; the point
+# is adapting it to the re-collected station data. Pool = 198 episodes.
+#
+# valid_ratio 0.01 -> 0.05: on 198 episodes 1 % is ~2 validation episodes.
+#
+# Superseded header follows. Source policy lifted from the resolved
 # config of Elmo's checkpoint run; the ONLY edit is the rl2 task string.
 #
 # The 09-14/15 lab=rl2 task='organize_stationary' rows were hard deleted on 09-16
@@ -48,11 +57,10 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
       - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
-        and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the
-        stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
-        and row[''rig_name''] == ''rl2_abc''))'
+        and row[''is_deleted''] == False and row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
+        and row[''rig_name''] == ''rl2_abc'''
     mode: train
-    valid_ratio: 0.01
+    valid_ratio: 0.05
     bounds_check: false
     split_seed: 42
     expected_train_episode_count: null
@@ -89,11 +97,10 @@ valid_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
       - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
-        and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the
-        stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
-        and row[''rig_name''] == ''rl2_abc''))'
+        and row[''is_deleted''] == False and row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
+        and row[''rig_name''] == ''rl2_abc'''
     mode: valid
-    valid_ratio: 0.01
+    valid_ratio: 0.05
     bounds_check: false
     split_seed: 42
     expected_train_episode_count: null
@@ -103,8 +110,8 @@ valid_datasets:
 train_dataloader_params:
   yam_bimanual:
     batch_size: 32
-    num_workers: 12
+    num_workers: 7
 valid_dataloader_params:
   yam_bimanual:
     batch_size: 32
-    num_workers: 12
+    num_workers: 7

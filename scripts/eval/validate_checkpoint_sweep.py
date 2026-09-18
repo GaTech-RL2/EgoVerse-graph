@@ -93,6 +93,7 @@ def validation_command(
     wandb_name: str,
     wandb_group: str,
     extra_overrides: list[str],
+    video_only: bool = False,
 ) -> list[str]:
     results_path = output_dir / "open_loop_sim.json"
     video_dir = output_dir / "val_videos"
@@ -108,16 +109,29 @@ def validation_command(
         f"evaluator.execute_fraction={execute_fraction}",
         f"evaluator.log_step={checkpoint.step}",
         encode_hydra_string_override("ckpt_path", checkpoint.path),
-        encode_hydra_string_override("evaluator.results_path", str(results_path)),
+        (
+            "evaluator.results_path=null"
+            if video_only
+            else encode_hydra_string_override(
+                "evaluator.results_path", str(results_path)
+            )
+        ),
         encode_hydra_string_override("evaluator.video_output_dir", str(video_dir)),
         encode_hydra_string_override("logger.wandb.id", wandb_run_id),
         encode_hydra_string_override("+logger.wandb.name", wandb_name),
         encode_hydra_string_override("logger.wandb.group", wandb_group),
         encode_hydra_string_override(
-            "logger.wandb.job_type", "offline_checkpoint_validation"
+            "logger.wandb.job_type",
+            (
+                "offline_checkpoint_video"
+                if video_only
+                else "offline_checkpoint_validation"
+            ),
         ),
         encode_hydra_string_override("+logger.wandb.resume", "allow"),
     ]
+    if video_only:
+        command.append("evaluator.video_only=true")
     if limit_val_episodes is not None:
         command.append(f"evaluator.limit_val_episodes={limit_val_episodes}")
     command.extend(extra_overrides)
@@ -174,6 +188,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument("--limit-val-episodes", type=int)
+    parser.add_argument(
+        "--video-only",
+        action="store_true",
+        help="Render and upload validation videos without scoring or metric JSON.",
+    )
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument(
         "--override",
@@ -193,9 +212,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit_val_episodes is not None and args.limit_val_episodes < 1:
         raise ValueError("--limit-val-episodes must be positive")
 
-    checkpoints = discover_checkpoints(
-        args.checkpoint_root, args.checkpoint_pattern
-    )
+    checkpoints = discover_checkpoints(args.checkpoint_root, args.checkpoint_pattern)
     output_root = args.output_root.expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -205,6 +222,7 @@ def main(argv: list[str] | None = None) -> int:
         "action_mode": args.action_mode,
         "execute_fraction": args.execute_fraction,
         "limit_val_episodes": args.limit_val_episodes,
+        "video_only": args.video_only,
         "wandb_run_id": args.wandb_run_id,
         "wandb_name": args.wandb_name,
         "wandb_group": args.wandb_group,
@@ -227,15 +245,29 @@ def main(argv: list[str] | None = None) -> int:
             wandb_run_id=args.wandb_run_id,
             wandb_name=args.wandb_name,
             wandb_group=args.wandb_group,
+            video_only=args.video_only,
             extra_overrides=list(args.override),
         )
         manifest["commands"].append(command)
-        if args.resume and result_path.is_file():
-            print(f"skip completed checkpoint step={checkpoint.step}: {result_path}")
+        completion_path = (
+            checkpoint_output / "video_only_complete.json"
+            if args.video_only
+            else result_path
+        )
+        if args.resume and completion_path.is_file():
+            print(
+                f"skip completed checkpoint step={checkpoint.step}: "
+                f"{completion_path}"
+            )
             continue
         print(json.dumps(command))
         if args.execute:
             _run_and_tee(command, checkpoint_output / "validation.log")
+            if args.video_only:
+                completion_path.write_text(
+                    json.dumps({"checkpoint_step": checkpoint.step}) + "\n",
+                    encoding="utf-8",
+                )
 
     (output_root / "checkpoint_sweep_manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"

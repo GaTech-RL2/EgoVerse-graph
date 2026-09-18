@@ -77,7 +77,7 @@ def test_builds_arc_eval_command_with_checkpoint_step_and_shared_wandb_id(tmp_pa
     assert any(item.startswith('ckpt_path="') for item in command)
     assert 'logger.wandb.id="arc-offline-val"' in command
     assert '+logger.wandb.name="arc offline checkpoint validation"' in command
-    assert "+logger.wandb.resume=\"allow\"" in command
+    assert '+logger.wandb.resume="allow"' in command
     assert command[-1] == "trainer.precision=32-true"
 
 
@@ -106,3 +106,30 @@ def test_builds_baseline_eval_command_with_explicit_action_mode(tmp_path):
     assert "evaluator.execute_fraction=0.3" in command
     assert "trainer.limit_val_batches=1.0" in command
     assert "+experiment=abc_arc/stationery_rl2_hpt_baseline_openloop" in command
+
+
+def test_builds_video_only_command_without_metric_output(tmp_path):
+    checkpoint_path = tmp_path / "epoch=2-step=30000.ckpt"
+    checkpoint_path.write_bytes(b"checkpoint")
+    checkpoint = Checkpoint(
+        path=str(checkpoint_path.resolve()), step=30_000, size_bytes=10
+    )
+
+    command = validation_command(
+        python="python",
+        experiment="abc_arc/stationery_rl2_hpt_arc_D40_M100_openloop",
+        checkpoint=checkpoint,
+        output_dir=tmp_path / "output",
+        action_mode="arc",
+        execute_fraction=0.30,
+        limit_val_episodes=4,
+        wandb_run_id="arc-video-only",
+        wandb_name="arc-video-only",
+        wandb_group="offline-checkpoint-video",
+        extra_overrides=[],
+        video_only=True,
+    )
+
+    assert "evaluator.video_only=true" in command
+    assert "evaluator.results_path=null" in command
+    assert 'logger.wandb.job_type="offline_checkpoint_video"' in command

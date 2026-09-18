@@ -20,8 +20,9 @@ action_key: actions_cartesian
 ground_truth_action_key: actions_cartesian_untokenized
 
 # Main sweep knob. 0.25 means execute the first 25 control steps of a 100-step
-# baseline chunk, or the first 25% of ARC waypoints detokenized to 25 control
-# steps, before requesting the next recorded observation.
+# baseline chunk, or the first 25% of ARC waypoints and recover their variable
+# control-frame duration from token timing before requesting the next recorded
+# observation.
 execute_fraction: 0.25
 control_horizon: 100
 control_dt: 0.03333333333333333
@@ -42,6 +43,8 @@ velocity_mode: ${oc.select:abc.arc_velocity_mode,mean}
 log_step: null
 
 results_path: ${paths.output_dir}/open_loop_sim.json
+# Video-only checkpoint sweeps skip episode scoring and scalar/JSON metrics.
+video_only: false
 require_episode_start: true
 # Episode-level limit. The datamodule uses this to retain complete episodes,
 # not an arbitrary prefix of validation batches. null evaluates every episode.

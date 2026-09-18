@@ -259,7 +259,8 @@ def test_variable_prefix_replans_with_adjacent_history_and_discards_old_tail():
     np.testing.assert_allclose(stage.seen[2][0, :, 0], [2.5, 3], atol=1e-5)
 
 
-def test_load_restores_exact_current_checkpoint_and_exported_normalizer(tmp_path):
+@pytest.mark.parametrize("per_domain_decoder", [False, True])
+def test_load_restores_exact_current_checkpoint_and_exported_normalizer(tmp_path, per_domain_decoder):
     value, _ = policy()
     normalizer().cache_stats(str(tmp_path))
     cfg = OmegaConf.create(
@@ -291,6 +292,9 @@ def test_load_restores_exact_current_checkpoint_and_exported_normalizer(tmp_path
             },
         }
     )
+    if per_domain_decoder:
+        cfg.evaluator = {"native_decoders": {DOMAIN: cfg.planar.eval_native_decoder}}
+        cfg.planar.eval_native_decoder = None
     config = tmp_path / "training.yaml"
     OmegaConf.save(cfg, config)
     checkpoint = tmp_path / "fresh.ckpt"

@@ -111,6 +111,42 @@ class PlanarArcExecutionSelector:
         }
 
 
+class PlanarTimedArcExecutionSelector:
+    """Stop at the first active stream's half-support endpoint.
+
+    Translation/grip and rotation may have different clocks. Constant streams
+    impose no constraint; when both are stationary, use their duration clocks.
+    The fraction counts geometric supports, never native control samples.
+    """
+
+    def __init__(self, fraction=0.5):
+        self.fraction = float(fraction)
+        if not math.isfinite(self.fraction) or not 0 < self.fraction <= 1:
+            raise ValueError("fraction must be finite and in (0, 1]")
+
+    def select(self, tokens, decoder):
+        clocks = decoder.waypoint_clocks(tokens)
+        count = max(1, math.floor(decoder.num_waypoints * self.fraction))
+        active = [row["seconds"] for row in clocks.values() if row["active"]]
+        selected = active or [row["seconds"] for row in clocks.values()]
+        endpoint = torch.stack([seconds[count - 1] for seconds in selected]).min()
+        times = torch.arange(decoder.action_horizon, device=endpoint.device,
+                             dtype=endpoint.dtype) * decoder.dt
+        steps = max(1, int((times <= endpoint + decoder.dt * 1e-5).sum().item()))
+        return {
+            "mode": "independent_clocks_waypoint_fraction",
+            "fraction": self.fraction,
+            "waypoint_count": decoder.num_waypoints,
+            "selected_waypoint_count": count,
+            "selected_endpoint_seconds": float(endpoint.item()),
+            "execution_start_index": 0,
+            "execution_steps": steps,
+            "clocks": {name: {"active": row["active"],
+                                "seconds": row["seconds"].detach().cpu().tolist()}
+                       for name, row in clocks.items()},
+        }
+
+
 class PlanarGraphPolicy:
     """Normalize observations and decode predictions with the training contract.
 
@@ -357,7 +393,12 @@ def load_planar_graph_policy(
     graph.bind_data_context(normalizer=normalizer)
     strict_load_pipeline_checkpoint(graph, checkpoint, use_ema=use_ema)
     graph.nets.eval()
-    decoder = instantiate(cfg.planar.eval_native_decoder)
+    decoder_config = cfg.planar.eval_native_decoder
+    if decoder_config is None:
+        decoder_config = OmegaConf.select(cfg, f"evaluator.native_decoders.{embodiment_name}")
+    if decoder_config is None:
+        raise ValueError(f"No native decoder configured for {embodiment_name}")
+    decoder = instantiate(decoder_config)
     return PlanarGraphPolicy(
         graph=graph,
         normalizer=normalizer,

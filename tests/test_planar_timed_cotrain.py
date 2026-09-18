@@ -1,0 +1,220 @@
+"""Timed co-training must preserve causal anchors, clocks and both domains."""
+import json
+from pathlib import Path
+
+import numpy as np
+import pytest
+from hydra import compose, initialize_config_dir
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
+
+from egomimic.pipeline.pushshapes import PlanarArcTimedNativeDecoder
+from egomimic.eval.planar_rollout import PlanarTimedArcExecutionSelector
+from egomimic.rldb.embodiment.pushshapes import get_planar_arc_timed_transform_list
+from egomimic.rldb.zarr.planar_arc import TokenizePlanarArcTimed
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def roundtrip(actions, mode="duration", waypoints=16):
+    token = TokenizePlanarArcTimed(min_distance_unit=80, resampled_vector_length=waypoints,
+                                  timing_mode=mode).tokenize(actions)
+    decoded = PlanarArcTimedNativeDecoder(waypoints, len(actions), actions.shape[1], mode)(token)
+    return token, decoded
+
+
+@pytest.mark.parametrize("mode", ["duration", "velocity"])
+@pytest.mark.parametrize("m", [16, 56])
+def test_linear_timed_codec_retains_causal_anchor_and_grip(mode, m):
+    t = np.arange(80) / 30
+    actions = np.column_stack((20 + 20*t, 30 + 10*t, .15*t, .1 + .1*t))
+    _, decoded = roundtrip(actions, mode, m)
+    np.testing.assert_allclose(decoded[:, :2], actions[:, :2], atol=1e-10)
+    np.testing.assert_allclose(decoded[:, 3], actions[:, 3], atol=1e-10)
+    np.testing.assert_allclose(decoded[:, 2], actions[:, 2], atol=1e-6)
+
+
+def test_duration_holds_and_stationary_grip_change():
+    actions = np.zeros((16, 4))
+    actions[:, :2] = [30, 40]
+    actions[:, 3] = np.linspace(0, 1, 16)
+    token, decoded = roundtrip(actions)
+    assert np.all(token[:-1, 2] > 0)
+    np.testing.assert_allclose(decoded, actions, atol=1e-12)
+
+
+def test_duration_motion_wait_then_motion():
+    actions = np.zeros((31, 4))
+    actions[:, 0] = np.r_[np.arange(11), np.repeat(10., 10), np.arange(11., 21.)]
+    _, decoded = roundtrip(actions, waypoints=16)
+    np.testing.assert_allclose(decoded[10:21, 0], 10., atol=1e-10)
+    np.testing.assert_allclose(decoded[:, 0], actions[:, 0], atol=1e-10)
+
+
+@pytest.mark.parametrize("mode", ["duration", "velocity"])
+def test_alignment_slices_past_action_before_tokenization(mode):
+    raw = np.column_stack((np.arange(81), np.zeros(81), np.zeros(81), np.ones(81)))
+    batch = {"actions": raw.copy()}
+    for transform in get_planar_arc_timed_transform_list(raw_action_horizon=80,
+            action_target_offset=1, resampled_vector_length=16, timing_mode=mode):
+        batch = transform.transform(batch)
+    decoded = PlanarArcTimedNativeDecoder(16, 80, 4, mode)(batch["actions"])
+    np.testing.assert_allclose(decoded[0], raw[1])
+
+
+@pytest.mark.parametrize("mode", ["duration", "velocity"])
+def test_bad_predicted_timing_cannot_teleport_geometry(mode):
+    tokens = np.zeros((16, 7)); tokens[:, 0] = np.arange(16); tokens[:, 3] = 1
+    decoded = PlanarArcTimedNativeDecoder(16, 80, 4, mode)(tokens)
+    np.testing.assert_allclose(decoded[0], [0, 0, 0, 0])
+    assert decoded[1, 0] < .02
+
+
+@pytest.mark.parametrize("rotation_active,expected", [(False, 22), (True, 7)])
+def test_half_support_selection_uses_earliest_active_clock(rotation_active, expected):
+    tokens = np.zeros((16, 7))
+    tokens[:, 0] = np.arange(16)
+    tokens[:, 2] = .1
+    angle = np.arange(16) * (.01 if rotation_active else 0)
+    tokens[:, 3], tokens[:, 4] = np.cos(angle), np.sin(angle)
+    tokens[:, 5] = .03
+    result = PlanarTimedArcExecutionSelector().select(
+        tokens, PlanarArcTimedNativeDecoder(16, 80, 4, "duration"))
+    assert result["selected_waypoint_count"] == 8
+    assert result["execution_steps"] == expected
+    assert result["execution_start_index"] == 0
+
+
+def test_half_support_stationary_grip_uses_translation_duration():
+    actions = np.zeros((80, 4)); actions[:, 3] = np.linspace(0, 1, 80)
+    tokens, _ = roundtrip(actions)
+    result = PlanarTimedArcExecutionSelector().select(
+        tokens, PlanarArcTimedNativeDecoder(16, 80, 4, "duration"))
+    assert result["clocks"]["translation_grip"]["active"]
+    assert not result["clocks"]["rotation"]["active"]
+    assert result["execution_steps"] == 37
+
+
+@pytest.mark.parametrize("recipe", ["paper_dp"] + [f"arc_{mode}_D80_M{m}_R26deg_paper"
+        for mode in ["duration", "stacked"] for m in [16, 56]])
+def test_five_cotrain_recipes_use_same_data_and_network(recipe):
+    with initialize_config_dir(version_base=None, config_dir=str(ROOT / "egomimic/hydra_configs")):
+        cfg = compose(config_name="train_zarr_cartesian", overrides=[
+            f"+experiment=pusht/planar_v2_cotrain_obstacle_{recipe}"])
+    assert cfg.planar.observation_horizon == 2 and cfg.planar.action_target_offset == 1
+    assert cfg.planar.arc_waypoint_sampling == "uniform"
+    assert cfg.trainer.limit_train_batches == 1.0
+    assert cfg.trainer.max_steps == cfg.model.scheduler.max_steps == 240000
+    assert cfg.ckpt_path is None
+    assert cfg.run_provenance.action_contract.rollout_action_chunk_start_index == 0
+    assert cfg.planar.batch_size * cfg.launch_params.gpus_per_node * len(cfg.data.train_datasets) == 128
+    assert set(cfg.data.train_datasets) == {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
+    assert cfg.run_provenance.dataset_count == 7919
+    chain_sources = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver.resolvers
+    assert chain_sources.clean.key_map.action_target_offset == 1
+    assert chain_sources.obstacle.key_map.action_target_offset == 2
+    assert chain_sources.obstacle.transform_list.action_target_offset == 2
+    assert cfg.eval_checkpoint.use_ema is True
+    stage = cfg.model.pipeline.stages[3]
+    assert list(stage.policy.model.down_dims) == [512, 1024, 2048]
+    assert stage.action_dim == (5 if recipe == "paper_dp" else 7)
+    if recipe != "paper_dp":
+        assert cfg.planar.raw_action_horizon == 80
+        for spec in cfg.evaluator.native_decoders.values():
+            decoder = instantiate(spec)
+            assert decoder.action_horizon == 80
+    manifest = json.loads((ROOT / cfg.run_provenance.split_manifest_path).read_text())
+    for domain, item in manifest["domains"].items():
+        assert not set(item["train_ids"]) & set(item["valid_ids"])
+        assert cfg.data.train_datasets[domain].resolver.expected_episode_count == item["count"]
+
+
+def test_composite_resolver_keeps_causal_targets_and_one_disjoint_split(tmp_path):
+    import zarr
+    from egomimic.pipeline.pushshapes import PlanarCommon5NativeDecoder
+    from egomimic.rldb.embodiment.pushshapes import get_planar_keymap, get_planar_paper_transform_list
+    from egomimic.rldb.zarr.zarr_dataset_multi import (
+        CompositeEpisodeResolver, LocalEpisodeResolverWithEmbodimentOverride,
+        MultiDataset, episode_names_sha256,
+    )
+
+    resolvers = {}
+    all_ids = []
+    for source, offset in [("pre", 1), ("post", 2)]:
+        root = tmp_path / source
+        root.mkdir()
+        for episode in range(2):
+            name = f"{source}_{episode}"
+            all_ids.append(name)
+            group = zarr.open_group(str(root / (name + ".zarr")), mode="w")
+            actions = np.zeros((12, 4)); actions[:, 0] = np.arange(12)
+            states = np.zeros((12, 6)); states[:, 0] = np.arange(12) + offset - 1
+            group.create_array("actions", data=actions)
+            group.create_array("observations.state", data=states)
+            group.attrs.update(total_frames=12, embodiment="pushshapes_sim_chain_gripper",
+                features={"actions": {"dtype": "float64"}, "observations.state": {"dtype": "float64"}})
+        resolvers[source] = LocalEpisodeResolverWithEmbodimentOverride(
+            folder_path=root, embodiment_override="pushshapes_sim_chain_gripper",
+            key_map=get_planar_keymap(action_horizon=4, observation_horizon=2,
+                                     action_target_offset=offset, norm_mode=True),
+            transform_list=get_planar_paper_transform_list(action_horizon=4,
+                                                         action_target_offset=offset))
+    merged = CompositeEpisodeResolver(resolvers, expected_episode_count=4,
+                                     expected_episode_names_sha256=episode_names_sha256(all_ids))
+    train = MultiDataset._from_resolver(merged, mode="train", valid_ratio=.5, split_seed=42,
+                                       bounds_check=False)
+    valid = MultiDataset._from_resolver(merged, mode="valid", valid_ratio=.5, split_seed=42,
+                                       bounds_check=False)
+    assert not set(train.datasets) & set(valid.datasets)
+    assert set(train.datasets) | set(valid.datasets) == set(all_ids)
+    for dataset in [*train.datasets.values(), *valid.datasets.values()]:
+        batch = dataset[3]
+        decoded = PlanarCommon5NativeDecoder(4, 4)(batch["actions"]).reshape(4, 4)
+        assert decoded[0, 0] == batch["state_agent_obj"][-1, 0]
+        np.testing.assert_allclose(np.diff(decoded[:, 0]), 1)
+    with pytest.raises(ValueError, match="Duplicate episode IDs"):
+        CompositeEpisodeResolver({"a": resolvers["pre"], "b": resolvers["pre"]}).resolve()
+    with pytest.raises(ValueError, match="expected 5"):
+        CompositeEpisodeResolver(resolvers, expected_episode_count=5).resolve()
+
+    # The training entry point must enable norm_mode on both source keymaps.
+    from egomimic.trainHydra import _normalization_dataset_config
+    cfg = OmegaConf.create({
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver",
+        "resolver": {
+            "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.CompositeEpisodeResolver",
+            "resolvers": {
+                source: {
+                    "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride",
+                    "folder_path": str(tmp_path / source),
+                    "embodiment_override": "pushshapes_sim_chain_gripper",
+                    "key_map": {
+                        "_target_": "egomimic.rldb.embodiment.pushshapes.get_planar_keymap",
+                        "action_horizon": 4, "observation_horizon": 2,
+                        "action_target_offset": offset,
+                    },
+                    "transform_list": {
+                        "_target_": "egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list",
+                        "action_horizon": 4, "action_target_offset": offset,
+                    },
+                } for source, offset in [("pre", 1), ("post", 2)]
+            },
+        },
+        "mode": "train", "valid_ratio": .5, "split_seed": 42, "bounds_check": False,
+    })
+    norm_cfg = _normalization_dataset_config(cfg)
+    for source in ["pre", "post"]:
+        assert "norm_mode" not in cfg.resolver.resolvers[source].key_map
+        assert norm_cfg.resolver.resolvers[source].key_map.norm_mode
+    norm_dataset = instantiate(norm_cfg)
+    stats = MultiDataset(state={}, norm_mode="quantile")
+    stats.populate_from_datasets({"pushshapes_sim_chain_gripper": norm_dataset})
+    stats.infer_shapes_from_batch(norm_dataset[0])
+    stats.infer_norm_from_dataset(norm_dataset, "pushshapes_sim_chain_gripper",
+                                  sample_frac=1, num_workers=0)
+    assert stats.norm_stats
+    for leaf in norm_dataset.datasets.values():
+        assert "front_img_1" not in leaf.key_map
+        sample = leaf[3]
+        decoded = PlanarCommon5NativeDecoder(4, 4)(sample["actions"]).reshape(4, 4)
+        assert decoded[0, 0] == sample["state_agent_obj"][-1, 0]

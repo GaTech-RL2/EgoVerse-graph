@@ -16,7 +16,7 @@ from lightning.fabric.utilities.cloud_io import _load as pl_load
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
-from omegaconf import DictConfig, OmegaConf, open_dict
+from omegaconf import DictConfig, ListConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
@@ -37,6 +37,35 @@ from egomimic.utils.utils import extras, task_wrapper
 log = RankedLogger(__name__, rank_zero_only=True)
 
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def _normalization_dataset_config(dataset_cfg):
+    """Keep every source's transforms while omitting images/annotations for stats."""
+    result = copy.deepcopy(dataset_cfg)
+
+    def visit(node):
+        if isinstance(node, DictConfig):
+            for key in list(node.keys()):
+                value = node[key]
+                if key == "key_map" and isinstance(value, DictConfig):
+                    with open_dict(value):
+                        if "_target_" in value:
+                            value.norm_mode = True
+                        else:
+                            for name in list(value.keys()):
+                                spec = value[name]
+                                if isinstance(spec, DictConfig) and spec.get("key_type") in {
+                                    "camera_keys", "annotation_keys"
+                                }:
+                                    del value[name]
+                else:
+                    visit(value)
+        elif isinstance(node, ListConfig):
+            for value in node:
+                visit(value)
+
+    visit(result)
+    return result
 
 
 def _slurm_auto_requeue(cfg: DictConfig) -> bool:
@@ -515,15 +544,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         norm_stats.infer_shapes_from_batch(dataset[0])
-        instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
-        keymap_cfg = instantiate_copy.resolver.key_map
-        km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
-
-        # this remove annotation and image keys from the keymap
-        km["norm_mode"] = True
-
-        instantiate_copy.resolver.key_map = km
-        norm_dataset = hydra.utils.instantiate(instantiate_copy)
+        norm_dataset = hydra.utils.instantiate(
+            _normalization_dataset_config(cfg.data.train_datasets[dataset_name])
+        )
         # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
         norm_stats.infer_norm_from_dataset(
             norm_dataset,
@@ -534,12 +557,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 cfg, "norm_stats.precomputed_norm_path", default=None
             ),
         )
-        # Cache norm stats if save_cache_dir is set
-        save_cache_dir = OmegaConf.select(
-            cfg, "norm_stats.save_cache_dir", default=None
-        )
-        if save_cache_dir:
-            norm_stats.cache_stats(save_cache_dir=save_cache_dir)
+    # Publish a complete multi-embodiment cache only after every source loads.
+    # The input cache may be the same path: writing inside the loop would erase
+    # the remaining embodiments before they can read their precomputed stats.
+    save_cache_dir = OmegaConf.select(cfg, "norm_stats.save_cache_dir", default=None)
+    if save_cache_dir:
+        norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
     if cfg.get("norm_stats_only", False):
         if not OmegaConf.select(cfg, "norm_stats.save_cache_dir", default=None):

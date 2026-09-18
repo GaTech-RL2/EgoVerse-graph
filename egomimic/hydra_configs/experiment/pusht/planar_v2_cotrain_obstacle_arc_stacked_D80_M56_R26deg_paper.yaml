@@ -1,0 +1,5 @@
+# @package _global_
+defaults: [/experiment/pusht/planar_v2_cotrain_obstacle_arc_paper_base, _self_]
+name: cotrain_obstacle_arc_stacked_D80_M56_R26deg_paper
+description: paper_DP_arc_stacked_velocity_D80_M56_R26_us3k_chain3k_obs1920
+planar: {action_horizon: 56, arc_waypoints: 56, arc_timing_mode: velocity}

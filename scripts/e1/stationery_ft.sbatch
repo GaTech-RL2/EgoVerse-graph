@@ -51,4 +51,5 @@ $PY egomimic/trainHydra.py --config-name=train_zarr_cartesian \
   +experiment=${EXPERIMENT} \
   logger.wandb.id=${ARM}_20260917_s42_j${SLURM_JOB_ID} \
   ${EXTRA:-} \
+  paths.output_dir=$RUN \
   hydra.run.dir=$RUN

@@ -22,6 +22,12 @@
 #
 # expected_* episode pins are null here: Elmo's values (2242/22 + sha256) describe
 # HIS episode set. They are re-pinned to this pool's real values after the smoke.
+# persistent_workers: with the default (False) PyTorch tears down and re-forks the
+# loader workers at every epoch boundary, and this stack deadlocks there -- job
+# 13307279 wedged at step 99 of a 100-step epoch with workers idle in do_poll and
+# the main thread in futex_wait, after limping at ~19 s/step. With persistent
+# workers the same config crosses three epoch boundaries and runs at 4.2 it/s
+# (job 13308744), ~80x faster.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
   yam_bimanual:
@@ -91,7 +97,9 @@ train_dataloader_params:
   yam_bimanual:
     batch_size: 32
     num_workers: 7
+    persistent_workers: true
 valid_dataloader_params:
   yam_bimanual:
     batch_size: 32
     num_workers: 7
+    persistent_workers: true

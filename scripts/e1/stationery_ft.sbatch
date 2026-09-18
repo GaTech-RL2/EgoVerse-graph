@@ -5,8 +5,11 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=128G
-#SBATCH -p gpu-h100,gpu-h200
-#SBATCH --gres=gpu:1
+# Untyped gres let PACE expand the partition list to gpu-v100 and job 13307008
+# actually landed on a V100 (Volta: no bf16, and the config runs precision bf16).
+# Pin the class; H200 picked up both earlier jobs within 21 s.
+#SBATCH -p gpu-h200
+#SBATCH --gres=gpu:h200:1
 #SBATCH --time=16:00:00
 #SBATCH --job-name=statft
 #SBATCH --output=ft_%x_%j.log
@@ -26,10 +29,12 @@
 
 set -euo pipefail
 ARM=${ARM:?set ARM=time or ARM=arcdur}
+# EXPERIMENT lets a non stationery_ft_* config reuse this launcher (e.g. the ABC arc pretrain).
+EXPERIMENT=${EXPERIMENT:-abc_arc/stationery_ft_${ARM}}
 WT=${WT:-$(git rev-parse --show-toplevel)}
 cd "$WT"
 PY=${PY:-$WT/.venv/bin/python}
-RUN=${OUT:-$HOME/scratch/runs/stationery_ft}/${ARM}_s42
+RUN=${OUT:-$HOME/scratch/runs/stationery_ft}/${ARM}_s42_j${SLURM_JOB_ID}
 
 export PATH="$WT/.venv/bin:$PATH" PYTHONPATH="$WT"
 export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
@@ -43,5 +48,7 @@ export TORCHINDUCTOR_CACHE_DIR=/tmp/ti_$SLURM_JOB_ID TRITON_CACHE_DIR=/tmp/tr_$S
 nvidia-smi --query-gpu=name,clocks.sm,temperature.gpu --format=csv,noheader
 echo "=== FT $ARM -> $RUN ($(date)) commit=$(git rev-parse --short HEAD) ==="
 $PY egomimic/trainHydra.py --config-name=train_zarr_cartesian \
-  +experiment=abc_arc/stationery_ft_${ARM} \
+  +experiment=${EXPERIMENT} \
+  logger.wandb.id=${ARM}_20260917_s42_j${SLURM_JOB_ID} \
+  ${EXTRA:-} \
   hydra.run.dir=$RUN

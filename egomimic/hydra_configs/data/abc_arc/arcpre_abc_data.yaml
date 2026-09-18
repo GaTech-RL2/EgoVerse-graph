@@ -1,31 +1,12 @@
-# Stationery fine-tune data, 2026-09-17 -- RL2 STATION ONLY (no ABC).
+# ARC PRE-TRAIN data -- ABC stationery only, arc-duration action target.
+# Aidan, 09-17. Elmo's h640t8_d384x10 checkpoint is variant=time: it has NO arc
+# pretraining, so fine-tuning the arc row off it starts from randomly initialised
+# action projections and a denoiser trained to emit 14-D cartesian chunks. That
+# makes a time-vs-arc comparison unfair to arc. This config builds arc the ABC
+# pretrain it was missing, so the later rl2 fine-tune mirrors the time arm.
 #
-# Aidan, 09-17: fine-tune on the lab's own YAM station episodes alone. The
-# checkpoint was already trained on ABC + the (since deleted) 09-14/15 rl2
-# batch, so re-feeding ABC here would mostly re-teach what it knows; the point
-# is adapting it to the re-collected station data. Pool = 198 episodes.
-#
-# valid_ratio 0.01 -> 0.05: on 198 episodes 1 % is ~2 validation episodes.
-#
-# Superseded header follows. Source policy lifted from the resolved
-# config of Elmo's checkpoint run; the ONLY edit is the rl2 task string.
-#
-# The 09-14/15 lab=rl2 task='organize_stationary' rows were hard deleted on 09-16
-# and re-collected overnight, landing 09-17 as 'organize_stationary_updated'
-# (199 rows, operator aniketh, rig rl2_abc; 198 with a processed zarr, 1 died on
-# 'Zero Frames'). Against the live table the OLD string selects 0 rl2 rows and
-# yields a silent ABC-only run -- hence the rename here.
-#
-# All 198 usable rl2 episodes were mirrored to shared/egoverseS3ZarrDatasets by
-# scripts/pi05/sync_rl2_stationery.sbatch (job 13303933); before that none were
-# present locally and the resolver silently saw ABC only.
-#
-# expected_* episode pins are null here: Elmo's values (2242/22 + sha256) describe
-# HIS episode set. They are re-pinned to this pool's real values after the smoke.
-#
-# arcdur twin: identical episode selection; only the action target changes to the
-# E1 duration-timed arc token (D=0.40 m, M=100 -> (100, 16)), carrying actions_time
-# as open-loop ground truth. Transform block matches stationery_midtempo_arcdur.
+# Source policy is Elmo's, with the rl2 clause dropped (ABC only) and the action
+# target swapped to the E1 duration token (D=0.40, M=100 -> (100,16)).
 # persistent_workers: with the default (False) PyTorch tears down and re-forks the
 # loader workers at every epoch boundary, and this stack deadlocks there -- job
 # 13307279 wedged at step 99 of a 100-step epoch with workers idle in do_poll and
@@ -63,10 +44,10 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
       - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
-        and row[''is_deleted''] == False and row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
-        and row[''rig_name''] == ''rl2_abc'''
+        and row[''is_deleted''] == False and row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery
+        into containers'''
     mode: train
-    valid_ratio: 0.05
+    valid_ratio: 0.01
     bounds_check: false
     split_seed: 42
     expected_train_episode_count: null
@@ -103,10 +84,10 @@ valid_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
       - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
-        and row[''is_deleted''] == False and row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
-        and row[''rig_name''] == ''rl2_abc'''
+        and row[''is_deleted''] == False and row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery
+        into containers'''
     mode: valid
-    valid_ratio: 0.05
+    valid_ratio: 0.01
     bounds_check: false
     split_seed: 42
     expected_train_episode_count: null

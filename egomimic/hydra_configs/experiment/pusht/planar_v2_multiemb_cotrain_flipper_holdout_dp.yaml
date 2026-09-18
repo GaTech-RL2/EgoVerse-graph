@@ -1,0 +1,111 @@
+# @package _global_
+defaults:
+- /experiment/pusht/planar_v2_base
+- override /data: pusht/planar_v2_multiemb_cotrain_flipper_holdout
+- override /model: bf/bf_planar_v2_dp_paper
+- _self_
+name: multiemb_cotrain_flipper_holdout_paper_dp
+planar:
+  action_dim: 5
+  action_dims:
+    pushshapes_sim_u_socket: ${planar.action_dim}
+    pushshapes_sim_chain_gripper: ${planar.action_dim}
+    pushshapes_sim_gripper: ${planar.action_dim}
+    pushshapes_sim_umi: ${planar.action_dim}
+    pushshapes_sim_circle_small: ${planar.action_dim}
+    pushshapes_sim_stick: ${planar.action_dim}
+    pushshapes_sim_triangle: ${planar.action_dim}
+    pushshapes_sim_suction: ${planar.action_dim}
+    pushshapes_sim_spring: ${planar.action_dim}
+  observation_horizon: 2
+  action_target_offset: 1
+  raw_action_horizon: 16
+  action_horizon: 16
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list
+  arc_distance: 80.0
+  arc_waypoints: 16
+  arc_dt: 0.03333333333333333
+  arc_rotation_distance: 0.4537856055185257
+  arc_timing_mode: duration
+  arc_waypoint_sampling: uniform
+  eval_native_decoder: null
+  batch_size: 32
+  cotrain_data_root: ${planar.multiemb_data_root}/canonical
+  multiemb_data_root: /workspace/multiemb/data
+  multiemb_manifest_path: /workspace/multiemb/READY.json
+  multiemb_manifest_sha256: ???
+evaluator:
+  native_decoder: null
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 3
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 4
+    pushshapes_sim_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 4
+    pushshapes_sim_umi:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 4
+    pushshapes_sim_circle_small:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 2
+    pushshapes_sim_stick:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 2
+    pushshapes_sim_triangle:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 3
+    pushshapes_sim_suction:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 4
+    pushshapes_sim_spring:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 4
+eval_checkpoint:
+  use_ema: true
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+run_provenance:
+  campaign: multiemb-cotrain-20260918
+  source_contract: egomimic/hydra_configs/data/pusht/multiemb_cotrain_sources_v1.yaml
+  source_content_manifest_sha256: e3a3b1b12a97112bee95687b6154cfa9c1fe7f888944461264ba1c7f366c1eb3
+  source_split_manifest_sha256: db0312aac689c701fe5055733db6858556ce1b2032fa4d2c5fb7c296d24afca7
+  supplemental_manifest_sha256: ${planar.multiemb_manifest_sha256}
+  held_out_embodiments:
+  - flipper
+  excluded_embodiments:
+  - scoop
+  normalizer_training_only: true
+  source_action_target_offset:
+    usocket_clean: 1
+    chain_clean: 1
+    chain_obstacle: 2
+    supplemental_pre_step: 1
+  training_seed: ${seed}
+  sampler: one batch per training embodiment per step; max_size_cycle
+  execution_rule: 'DP: first half of actions; ARC: half of waypoint supports, then
+    replan'
+trainer:
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  precision: bf16-mixed

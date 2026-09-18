@@ -1,0 +1,88 @@
+# @package _global_
+defaults:
+- /experiment/pusht/planar_v2_multiemb_cotrain_flipper_holdout_dp
+- _self_
+planar:
+  action_dim: 7
+  raw_action_horizon: 80
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_timed_transform_list
+  eval_execution_fraction: 0.5
+  eval_execution_selector:
+    _target_: egomimic.eval.planar_rollout.PlanarTimedArcExecutionSelector
+    fraction: 0.5
+evaluator:
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 3
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 4
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 4
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_umi:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 4
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_circle_small:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 2
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_stick:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 2
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_triangle:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 3
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_suction:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 4
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_spring:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 4
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 3
+  - - 3
+    - 5
+  - - 5
+    - 6
+  - - 6
+    - 7

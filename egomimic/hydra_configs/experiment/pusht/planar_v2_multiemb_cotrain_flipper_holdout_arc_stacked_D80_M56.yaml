@@ -1,0 +1,9 @@
+# @package _global_
+defaults:
+- /experiment/pusht/planar_v2_multiemb_cotrain_flipper_holdout_arc_base
+- _self_
+name: multiemb_cotrain_flipper_holdout_arc_stacked_D80_M56
+planar:
+  action_horizon: 56
+  arc_waypoints: 56
+  arc_timing_mode: velocity

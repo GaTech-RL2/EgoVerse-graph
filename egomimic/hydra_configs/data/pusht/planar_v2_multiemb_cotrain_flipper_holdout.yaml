@@ -1,0 +1,235 @@
+# Manifest-assigned splits are never shuffled again. Flipper and Scoop are excluded.
+defaults:
+- /data/pusht/planar_v2_cotrain_obstacle_7919@_here_
+- _self_
+train_datasets:
+  pushshapes_sim_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_gripper
+      split: train
+      key_map: &id001
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: ${planar.observation_horizon}
+        action_target_offset: 1
+      transform_list: &id002
+        _target_: ${planar.transform_target}
+        raw_action_horizon: ${planar.raw_action_horizon}
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: 1
+        min_distance_unit: ${planar.arc_distance}
+        resampled_vector_length: ${planar.arc_waypoints}
+        dt: ${planar.arc_dt}
+        rotation_distance_unit: ${planar.arc_rotation_distance}
+        timing_mode: ${planar.arc_timing_mode}
+        waypoint_sampling: ${planar.arc_waypoint_sampling}
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_umi:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_umi
+      split: train
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_circle_small:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_circle_small
+      split: train
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_stick
+      split: train
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_triangle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_triangle
+      split: train
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_suction:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_suction
+      split: train
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_spring:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_spring
+      split: train
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+train_dataloader_params:
+  pushshapes_sim_gripper: &id003
+    batch_size: ${planar.batch_size}
+    num_workers: 2
+    pin_memory: true
+  pushshapes_sim_umi: *id003
+  pushshapes_sim_circle_small: *id003
+  pushshapes_sim_stick: *id003
+  pushshapes_sim_triangle: *id003
+  pushshapes_sim_suction: *id003
+  pushshapes_sim_spring: *id003
+valid_datasets:
+  pushshapes_sim_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_gripper
+      split: valid
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_umi:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_umi
+      split: valid
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_circle_small:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_circle_small
+      split: valid
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_stick
+      split: valid
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_triangle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_triangle
+      split: valid
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_suction:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_suction
+      split: valid
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_spring:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      root: ${planar.multiemb_data_root}
+      manifest_path: ${planar.multiemb_manifest_path}
+      manifest_sha256: ${planar.multiemb_manifest_sha256}
+      embodiment: pushshapes_sim_spring
+      split: valid
+      key_map: *id001
+      transform_list: *id002
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+valid_dataloader_params:
+  pushshapes_sim_gripper: *id003
+  pushshapes_sim_umi: *id003
+  pushshapes_sim_circle_small: *id003
+  pushshapes_sim_stick: *id003
+  pushshapes_sim_triangle: *id003
+  pushshapes_sim_suction: *id003
+  pushshapes_sim_spring: *id003

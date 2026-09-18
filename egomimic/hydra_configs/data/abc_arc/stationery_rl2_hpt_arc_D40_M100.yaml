@@ -1,3 +1,4 @@
+# Same source policy as the 100-step baseline, encoded as D=0.40/M=100 ARC.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -23,7 +24,12 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers'"
+        - >-
+          lambda row: row['embodiment'] == 'yam_bimanual' and
+          row['zarr_processed_path'] != '' and row['is_deleted'] == False and
+          ((row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers' and
+            int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 721) or
+           (row['lab'] == 'rl2' and row['task'] == 'organize_stationary'))
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -51,12 +57,15 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and row['lab'] == 'abc' and row['task'] == 'sort the stationery into containers'"
+        - >-
+          lambda row: row['embodiment'] == 'yam_bimanual' and
+          row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and
+          row['zarr_processed_path'] != '' and row['is_deleted'] == False
     mode: valid
     valid_ratio: 0.2
     bounds_check: false
 
 train_dataloader_params:
-  yam_bimanual: {batch_size: 128, num_workers: 6}
+  yam_bimanual: {batch_size: 32, num_workers: 6}
 valid_dataloader_params:
-  yam_bimanual: {batch_size: 128, num_workers: 6}
+  yam_bimanual: {batch_size: 32, num_workers: 6}

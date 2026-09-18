@@ -62,16 +62,14 @@ def executed_control_steps(control_horizon: int, execute_fraction: float) -> int
 def truncate_arc_token(
     token: np.ndarray, execute_fraction: float, velocity_mode: str
 ) -> np.ndarray:
-    """Keep exactly the first distance fraction of an ARC token.
+    """Keep the first waypoint fraction of an ARC token.
 
-    The first ``M`` rows are waypoints.  ``mean`` has one timing row; the
-    granular ``per_waypoint`` and ``duration`` modes have one timing row per
-    waypoint. The execution fraction is measured on the bimanual ARC distance
-    used for open-loop control: every waypoint interval contributes the left
-    arm's XYZ distance plus the right arm's XYZ distance. A fraction that falls
-    inside an interval gets an interpolated final waypoint. Timing rows are
-    truncated with their corresponding waypoints; a partial ``duration``
-    interval is scaled by the same interpolation factor.
+    ARC waypoints are already uniformly resampled in distance by the tokenizer.
+    For ``M=100`` and ``execute_fraction=0.30``, this keeps exactly the first
+    30 waypoint rows. ``mean`` has one timing row; the granular
+    ``per_waypoint`` and ``duration`` modes have one timing row per waypoint.
+    Timing is preserved so detokenization can recover the variable number of
+    30 Hz control frames needed to traverse the retained waypoint prefix.
     """
 
     mode = validate_bimanual_velocity_mode(velocity_mode)
@@ -88,79 +86,12 @@ def truncate_arc_token(
     fraction = float(execute_fraction)
     if not 0.0 < fraction <= 1.0:
         raise ValueError("execute_fraction must be in (0, 1]")
-    waypoints_all = value[:M]
-    joint_step_distance = (
-        np.linalg.norm(np.diff(waypoints_all[:, 0:3], axis=0), axis=-1)
-        + np.linalg.norm(np.diff(waypoints_all[:, 7:10], axis=0), axis=-1)
-    )
-    joint_cumulative_distance = np.concatenate(
-        [np.array([0.0], dtype=np.float64), np.cumsum(joint_step_distance)]
-    )
-    total_joint_distance = float(joint_cumulative_distance[-1])
-    target_distance = fraction * total_joint_distance
-
-    if target_distance >= total_joint_distance - 1e-12:
-        lower = M - 1
-        alpha = 0.0
-        waypoints = value[: lower + 1].copy()
-    else:
-        upper = int(np.searchsorted(joint_cumulative_distance, target_distance, side="right"))
-        upper = min(max(upper, 1), M - 1)
-        lower = upper - 1
-        interval_distance = (
-            joint_cumulative_distance[upper] - joint_cumulative_distance[lower]
-        )
-        if interval_distance <= 1e-12:
-            alpha = 0.0
-            lower = upper
-            waypoints = value[: lower + 1].copy()
-        else:
-            alpha = (target_distance - joint_cumulative_distance[lower]) / interval_distance
-            endpoint = (
-                (1.0 - alpha) * value[lower] + alpha * value[lower + 1]
-            )[None]
-            waypoints = np.concatenate((value[: lower + 1], endpoint), axis=0)
-
-    # A positive fraction can fall inside the first interval. Keep its start
-    # and interpolated endpoint so detokenization always has at least two rows.
-    if len(waypoints) < 2:
-        endpoint = (
-            (1.0 - fraction) * value[0] + fraction * value[1]
-        )[None]
-        waypoints = np.concatenate((value[:1], endpoint), axis=0)
-        lower = 0
-        alpha = fraction
-
+    waypoint_count = max(2, min(M, int(math.ceil(M * fraction))))
+    waypoints = value[:waypoint_count].copy()
     if granular:
-        timing = value[M : M + len(waypoints)].copy()
-        if mode == "duration" and alpha > 0.0:
-            # Row ``lower`` describes the interval ending at the interpolated
-            # waypoint. Only the elapsed-time slots are consumed in this mode.
-            timing[lower, (0, 7)] *= alpha
-        return np.concatenate((waypoints, timing), axis=0)
-
-    timing = value[M : M + 1].copy()
-    if fraction < 1.0:
-        # Mean mode stores a chord velocity for the whole token. Retarget its
-        # magnitude so the partial chord takes the same fraction of the full
-        # token duration. The detokenizer then applies its normal chord-to-arc
-        # correction to the retained path.
-        for xyz_slice in (slice(0, 3), slice(7, 10)):
-            full_distance = float(
-                np.linalg.norm(np.diff(value[:M, xyz_slice], axis=0), axis=-1).sum()
-            )
-            partial_distance = float(
-                np.linalg.norm(np.diff(waypoints[:, xyz_slice], axis=0), axis=-1).sum()
-            )
-            partial_chord = float(
-                np.linalg.norm(waypoints[-1, xyz_slice] - waypoints[0, xyz_slice])
-            )
-            velocity = timing[0, xyz_slice]
-            speed = float(np.linalg.norm(velocity))
-            if full_distance > 1e-9 and partial_distance > 1e-9 and speed > 1e-9:
-                full_duration = full_distance / speed
-                partial_speed = partial_chord / max(partial_distance / speed, 1e-9)
-                timing[0, xyz_slice] = velocity * (partial_speed / speed)
+        timing = value[M : M + waypoint_count].copy()
+    else:
+        timing = value[M : M + 1].copy()
     return np.concatenate((waypoints, timing), axis=0)
 
 
@@ -172,7 +103,7 @@ def arc_prefix_control_steps(
     *,
     max_steps: int | None = None,
 ) -> int:
-    """Recover the control-frame stride for an ARC distance prefix."""
+    """Recover the control-frame stride for an ARC waypoint prefix."""
 
     dt = float(control_dt)
     if dt <= 0.0:
@@ -233,9 +164,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
 
     ``execute_fraction`` is applied in representation space. A baseline uses
     the first prefix of its time-indexed action chunk. An ARC policy keeps the
-    requested distance fraction of its ``M`` waypoints, carries the matching
-    timing rows, and recovers the corresponding variable control-frame stride
-    before requesting the next observation.
+    requested fraction of its distance-resampled ``M`` waypoints, carries the
+    matching timing rows, and recovers the corresponding variable control-frame
+    stride before requesting the next observation.
 
     The evaluator expects validation to contain every frame of each episode,
     with ``episode_hash`` and ``frame_index`` metadata. It accumulates model
@@ -354,6 +285,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
     def on_validation_start(self):
         if self._video_enabled:
             EvalVideo.on_validation_start(self)
+        self._video_replan_states = {}
         self._records = []
         self.last_results = None
         if self.model is not None:
@@ -361,6 +293,90 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 self._metric_device = next(self.model.parameters()).device
             except StopIteration:
                 pass
+
+    def _video_replan_batch(
+        self,
+        *,
+        source_id: str,
+        source_batch: Mapping,
+        prediction: torch.Tensor,
+        embodiment_id: int,
+    ) -> tuple[Mapping, torch.Tensor]:
+        """Reuse each executed chunk overlay until its replan boundary.
+
+        The underlying validation image advances every frame. The predicted
+        and ground-truth trajectory overlays are sampled only at evaluator
+        replan frames and held fixed for the decoded execution length. This
+        makes the MP4 show exactly the same schedule used by ``_score_episode``.
+        """
+
+        batch_size = int(prediction.shape[0])
+        episodes = [
+            str(value)
+            for value in self._batch_values(
+                source_batch["episode_hash"], batch_size, "episode_hash"
+            )
+        ]
+        frames = [
+            int(value)
+            for value in self._batch_values(
+                source_batch["frame_index"], batch_size, "frame_index"
+            )
+        ]
+        target_key = (
+            self.ground_truth_action_key
+            if self.ground_truth_action_key in source_batch
+            else self.action_key
+        )
+        prediction_native = (
+            self._native(prediction, embodiment_id).detach().cpu().numpy()
+        )
+        target_native = (
+            self._native_key(source_batch[target_key], target_key, embodiment_id)
+            .detach()
+            .cpu()
+            .numpy()
+        )
+        if target_native.ndim != 3 or target_native.shape[0] != batch_size:
+            raise ValueError(
+                "open_loop_sim video ground truth must be batched as (B, T, 14), "
+                f"got {target_native.shape}"
+            )
+
+        video_predictions = []
+        video_targets = []
+        video_observations = []
+        group = self._validation_group or DEFAULT_VALID_GROUP
+        for index, (episode, frame) in enumerate(zip(episodes, frames)):
+            state_key = (group, source_id, episode)
+            state = self._video_replan_states.get(state_key)
+            if state is None or frame >= state["next_frame"]:
+                if state is not None and frame > state["next_frame"]:
+                    raise RuntimeError(
+                        "open_loop_sim video skipped replan frame "
+                        f"{state['next_frame']} for episode {episode!r}; got {frame}"
+                    )
+                _, steps = self._decode_prediction_with_steps(
+                    prediction_native[index],
+                    max_steps=int(target_native.shape[1]),
+                )
+                state = {
+                    "next_frame": frame + steps,
+                    "prediction": prediction[index].detach().clone(),
+                    "target": source_batch[target_key][index].detach().clone(),
+                    "observation": (
+                        source_batch[self.obs_pose_key][index].detach().clone()
+                    ),
+                }
+                self._video_replan_states[state_key] = state
+            video_predictions.append(state["prediction"])
+            video_targets.append(state["target"])
+            video_observations.append(state["observation"])
+
+        video_batch = dict(source_batch)
+        video_batch[target_key] = torch.stack(video_targets)
+        video_batch[self.obs_pose_key] = torch.stack(video_observations)
+        return video_batch, torch.stack(video_predictions)
 
     def _decoded_video_predictions(
         self, prediction: torch.Tensor, embodiment_id: int, max_steps: int
@@ -410,6 +426,12 @@ class OpenLoopSimEval(BimanualCartesianEval):
         viz_partial = self.viz_func.get(embodiment_name)
         if viz_partial is None or self.obs_pose_key not in source_batch:
             return
+        source_batch, prediction = self._video_replan_batch(
+            source_id=source_id,
+            source_batch=source_batch,
+            prediction=prediction,
+            embodiment_id=embodiment_id,
+        )
         target_key = (
             self.ground_truth_action_key
             if self.ground_truth_action_key in source_batch
@@ -752,6 +774,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         }
         executed = 0
         segments = 0
+        segment_control_steps = []
         cursor = frames[0]
         while cursor < end_frame:
             record = by_frame.get(cursor)
@@ -777,6 +800,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             sq["paired_mse"] += float(np.square(error[:, PAIRED_COLS]).sum())
             executed += n
             segments += 1
+            segment_control_steps.append(n)
             cursor += n
 
         episode_length = end_frame - frames[0]
@@ -794,6 +818,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             "label": records[0]["label"],
             "executed_steps": executed,
             "segments": segments,
+            "segment_control_steps": segment_control_steps,
             "coverage": executed / max(episode_length, 1),
             "metrics": {key: sq[key] / max(denominators[key], 1) for key in sq},
         }
@@ -882,6 +907,27 @@ class OpenLoopSimEval(BimanualCartesianEval):
             {
                 "execute_fraction": self.execute_fraction,
                 "execute_control_steps": self.execute_steps,
+                "execute_arc_waypoints": (
+                    max(
+                        2,
+                        min(
+                            self.resampled_vector_length,
+                            int(
+                                math.ceil(
+                                    self.resampled_vector_length
+                                    * self.execute_fraction
+                                )
+                            ),
+                        ),
+                    )
+                    if self.action_mode == "arc"
+                    else None
+                ),
+                "replan_stride_mode": (
+                    "arc_waypoint_timing"
+                    if self.action_mode == "arc"
+                    else "fixed_control_frames"
+                ),
                 "control_horizon": self.control_horizon,
                 "control_dt": self.control_dt,
                 "limit_val_episodes": self.limit_val_episodes,

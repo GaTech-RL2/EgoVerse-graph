@@ -40,28 +40,19 @@ def test_execute_fraction_is_a_control_frequency_prefix():
 
 @pytest.mark.parametrize(
     ("mode", "rows", "expected_rows"),
-    [("mean", 101, 27), ("per_waypoint", 200, 52), ("duration", 200, 52)],
+    [("mean", 101, 26), ("per_waypoint", 200, 50), ("duration", 200, 50)],
 )
 def test_truncate_arc_token_keeps_matching_timing_rows(mode, rows, expected_rows):
     token = np.arange(rows * 14, dtype=np.float64).reshape(rows, 14)
     truncated = truncate_arc_token(token, 0.25, mode)
     assert truncated.shape == (expected_rows, 14)
     M = rows - 1 if mode == "mean" else rows // 2
-    K = 26
-    np.testing.assert_array_equal(truncated[: K - 1], token[: K - 1])
-    np.testing.assert_allclose(
-        truncated[K - 1], 0.25 * token[24] + 0.75 * token[25]
-    )
+    K = 25
+    np.testing.assert_array_equal(truncated[:K], token[:K])
     if mode == "mean":
-        assert truncated[K:].shape == (1, 14)
+        np.testing.assert_array_equal(truncated[K:], token[M : M + 1])
     else:
-        timing = truncated[K:]
-        if mode == "per_waypoint":
-            np.testing.assert_array_equal(timing, token[M : M + K])
-        else:
-            expected = token[M : M + K].copy()
-            expected[24, (0, 7)] *= 0.75
-            np.testing.assert_allclose(timing, expected)
+        np.testing.assert_array_equal(truncated[K:], token[M : M + K])
 
 
 def _duration_arc_token(M: int, interval_duration: float) -> np.ndarray:
@@ -74,32 +65,35 @@ def _duration_arc_token(M: int, interval_duration: float) -> np.ndarray:
     return token
 
 
-def test_arc_prefix_uses_exact_distance_and_recovers_its_frame_stride():
+def _per_waypoint_arc_token(M: int, interval_duration: float) -> np.ndarray:
+    token = np.zeros((2 * M, 14), dtype=np.float64)
+    positions = np.linspace(0.0, 0.4, M)
+    token[:M, 0] = positions
+    token[:M, 7] = positions
+    interval_speed = (positions[1] - positions[0]) / interval_duration
+    token[M:, 0] = interval_speed
+    token[M:, 7] = interval_speed
+    return token
+
+
+def test_arc_prefix_keeps_30_of_100_waypoints_and_recovers_frame_stride():
     dt = 1.0 / 30.0
-    token = _duration_arc_token(5, dt)
-    partial = truncate_arc_token(token, 0.375, "duration")
+    token = _duration_arc_token(100, dt)
+    partial = truncate_arc_token(token, 0.30, "duration")
 
-    # 37.5% lies halfway between waypoint rows 1 and 2.
-    np.testing.assert_allclose(partial[2, (0, 7)], [0.15, 0.15])
-    # One complete interval plus half an interval spans 1.5 control periods.
-    assert arc_prefix_control_steps(token, 0.375, "duration", dt) == 2
+    assert partial.shape == (60, 14)
+    np.testing.assert_array_equal(partial[:30], token[:30])
+    np.testing.assert_array_equal(partial[30:], token[100:130])
+    # Thirty waypoints contain 29 timed intervals from the current waypoint.
+    assert arc_prefix_control_steps(token, 0.30, "duration", dt) == 29
 
 
-def test_arc_prefix_uses_total_bimanual_cumulative_distance():
-    token = np.zeros((8, 14), dtype=np.float64)
-    token[:4, 0] = [0.0, 0.1, 0.9, 1.0]
-    token[:4, 7] = [0.0, 0.1, 0.2, 0.3]
-    token[4:, 0] = 1.0 / 30.0
-    token[4:, 7] = 1.0 / 30.0
+def test_arc_prefix_video_stride_follows_predicted_waypoint_timing():
+    dt = 1.0 / 30.0
+    token = _per_waypoint_arc_token(100, 2.0 * dt)
 
-    partial = truncate_arc_token(token, 0.5, "duration")
-
-    # Total bimanual distance is 1.3m. The 0.65m target lies 50% through
-    # interval 1 (whose combined distance is 0.9m), not at waypoint index 2.
-    np.testing.assert_allclose(partial[2, 0], 0.5)
-    np.testing.assert_allclose(partial[2, 7], 0.15)
-    np.testing.assert_allclose(partial[4, 0], (1.0 / 30.0) * 0.5)
-    np.testing.assert_allclose(partial[4, 7], (1.0 / 30.0) * 0.5)
+    # The first 30 waypoints span 29 intervals at two video frames each.
+    assert arc_prefix_control_steps(token, 0.30, "per_waypoint", dt) == 58
 
 
 def test_arc_replan_stride_changes_with_predicted_timing():
@@ -134,8 +128,8 @@ def test_arc_replan_stride_changes_with_predicted_timing():
         records(_duration_arc_token(5, 3.0 * evaluator.control_dt))
     )
 
-    # The same 50% distance prefix spans 2 frames at the fast timing and 6 at
-    # the slow timing, so the oracle-observation replanning boundaries differ.
+    # The same waypoint prefix spans 2 frames at the fast timing and 6 at the
+    # slow timing, so the oracle-observation replanning boundaries differ.
     assert fast["segments"] == 6
     assert slow["segments"] == 2
 
@@ -158,6 +152,7 @@ def test_open_loop_sim_walks_an_episode_in_executed_prefixes():
     result = evaluator._score_episode(records)
     assert result["executed_steps"] == 6
     assert result["segments"] == 3
+    assert result["segment_control_steps"] == [2, 2, 2]
     assert result["coverage"] == pytest.approx(1.0)
     assert result["metrics"]["mse"] == pytest.approx(1.0)
     assert result["metrics"]["xyz_mse"] == pytest.approx(1.0)
@@ -362,3 +357,52 @@ def test_open_loop_video_uploads_only_first_episode_per_panel(monkeypatch):
         "Val_video_nested/yam_bimanual",
     ]
     assert payload["Val_video/yam_bimanual"]["path"] == "/tmp/episode-a.mp4"
+
+
+def test_open_loop_video_holds_each_overlay_until_variable_replan_boundary():
+    evaluator = _baseline_evaluator()
+    evaluator.action_key = "actions_cartesian"
+    evaluator.ground_truth_action_key = "actions_cartesian"
+    evaluator.obs_pose_key = "observations.state.ee_pose"
+    evaluator._validation_group = "valid"
+    evaluator._video_replan_states = {}
+    evaluator._native = lambda value, embodiment_id: value
+    evaluator._native_key = lambda value, key, embodiment_id: value
+
+    def decode(value, *, max_steps=None):
+        steps = min(int(value[0, 0]), int(max_steps))
+        return value[:steps], steps
+
+    evaluator._decode_prediction_with_steps = decode
+    stride_markers = [2, 99, 3, 99, 99, 1]
+    prediction = torch.stack(
+        [torch.full((4, 14), float(marker)) for marker in stride_markers]
+    )
+    source_batch = {
+        "episode_hash": ["episode-a"] * 6,
+        "frame_index": torch.arange(6),
+        "actions_cartesian": torch.stack(
+            [torch.full((4, 14), float(frame)) for frame in range(6)]
+        ),
+        "observations.state.ee_pose": torch.stack(
+            [torch.full((14,), float(frame)) for frame in range(6)]
+        ),
+    }
+
+    video_batch, video_prediction = evaluator._video_replan_batch(
+        source_id="yam_bimanual",
+        source_batch=source_batch,
+        prediction=prediction,
+        embodiment_id=0,
+    )
+
+    assert video_prediction[:, 0, 0].tolist() == [2, 2, 3, 3, 3, 1]
+    assert video_batch["actions_cartesian"][:, 0, 0].tolist() == [0, 0, 2, 2, 2, 5]
+    assert video_batch["observations.state.ee_pose"][:, 0].tolist() == [
+        0,
+        0,
+        2,
+        2,
+        2,
+        5,
+    ]

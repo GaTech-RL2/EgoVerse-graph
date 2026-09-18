@@ -1,3 +1,11 @@
+default-values:
+  # --set-env does NOT override the environment: block -- verified by dry-run,
+  # despite what its --help says. Template params + default-values do, and stay
+  # optional for callers that do not pass them.
+  eval_data_mode: all9
+  train_emb: "u_socket gripper chain_gripper suction triangle flipper spring"
+  held_out: "umi scoop"
+
 # Closed-loop rollout scoring for the articulated co-train sweep.
 #
 # NON-PROTOCOL, exactly as osmo/usocket_codec_rollout.yaml is: the canonical
@@ -49,11 +57,11 @@ workflow:
       # Tools with no grip channel; PadPlanarAction pads them with a constant 0
       # and the decoder must slice back to 3, not 4.
       THREE_DOF: "u_socket triangle scoop"
-      HELD_OUT: "umi scoop"
+      HELD_OUT: "{{held_out}}"
       # mode=eval still constructs the seven-domain training datamodule to bind
       # norm stats, so those corpora must be on disk even when scoring only one
       # embodiment. Staged as a union with EMBODIMENTS.
-      TRAIN_EMB: "u_socket gripper chain_gripper suction triangle flipper spring"
+      TRAIN_EMB: "{{train_emb}}"
       # 24 shards x 125 = 3000 per cell. Lower it to iterate on the eval path
       # without paying a 30-minute staging cycle for every attempt.
       SHARDS_PER_CELL: "{{shards_per_cell}}"
@@ -69,7 +77,7 @@ workflow:
       # head and their norm_stats.json has ONE domain, so handing them the
       # nine-domain config reproduces the "no entry for embodiment id" death
       # the suction-only job hit.
-      EVAL_DATA_MODE: "all9"
+      EVAL_DATA_MODE: "{{eval_data_mode}}"
       CHUNK_EPISODES: "10"
       SAMPLER_STEPS: "100"
       TSIM_VERSION: sim_v2
@@ -162,6 +170,9 @@ workflow:
         export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
         export AWS_DEFAULT_REGION=auto AWS_REGION=auto
         unset AWS_SESSION_TOKEN
+        # A single-domain BC baseline holds nothing out. An empty --set-string
+        # value is not reliably parseable, so callers pass held_out=none.
+        if [ "$HELD_OUT" = none ]; then HELD_OUT=""; fi
         S5="s5cmd --endpoint-url $R2_ENDPOINT_URL"
         ulimit -n 65536 || true
 

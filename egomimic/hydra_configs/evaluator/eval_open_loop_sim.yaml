@@ -33,6 +33,9 @@ control_dt: 0.03333333333333333
 # token row count could collide with the baseline horizon.
 action_mode: auto
 arc_execution_cap_mode: waypoints
+# ARC video overlays independently redraw every validation frame. Cap both the
+# predicted and GT paths at execute_fraction * D combined left+right travel.
+arc_video_trajectory_cap_mode: joint_distance
 min_distance_unit: ${oc.select:abc.arc_distance,0.40}
 resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
 # M-based execution requires the per-waypoint velocity layout. Distance mode

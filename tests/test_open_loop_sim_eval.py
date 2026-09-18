@@ -40,19 +40,23 @@ def test_execute_fraction_is_a_control_frequency_prefix():
 
 @pytest.mark.parametrize(
     ("mode", "rows", "expected_rows"),
-    [("mean", 101, 26), ("per_waypoint", 200, 50), ("duration", 200, 50)],
+    [("mean", 101, 27), ("per_waypoint", 200, 52), ("duration", 200, 52)],
 )
-def test_truncate_arc_token_keeps_matching_timing_rows(mode, rows, expected_rows):
-    token = np.arange(rows * 14, dtype=np.float64).reshape(rows, 14)
-    truncated = truncate_arc_token(token, 0.25, mode)
-    assert truncated.shape == (expected_rows, 14)
+def test_truncate_arc_token_uses_combined_distance_and_keeps_timing(
+    mode, rows, expected_rows
+):
     M = rows - 1 if mode == "mean" else rows // 2
-    K = 25
-    np.testing.assert_array_equal(truncated[:K], token[:K])
+    token = np.zeros((rows, 14), dtype=np.float64)
+    token[:M, 0] = np.linspace(0.0, 0.4, M)
+    truncated = truncate_arc_token(token, 0.25, mode, 0.4)
+    assert truncated.shape == (expected_rows, 14)
+    K = 26
+    assert truncated[K - 1, 0] == pytest.approx(0.1)
+    np.testing.assert_array_equal(truncated[: K - 1], token[: K - 1])
     if mode == "mean":
         np.testing.assert_array_equal(truncated[K:], token[M : M + 1])
     else:
-        np.testing.assert_array_equal(truncated[K:], token[M : M + K])
+        assert truncated[K:].shape == (K, 14)
 
 
 def _duration_arc_token(M: int, interval_duration: float) -> np.ndarray:
@@ -76,24 +80,26 @@ def _per_waypoint_arc_token(M: int, interval_duration: float) -> np.ndarray:
     return token
 
 
-def test_arc_prefix_keeps_30_of_100_waypoints_and_recovers_frame_stride():
+def test_arc_prefix_executes_30_percent_of_combined_D_and_recovers_stride():
     dt = 1.0 / 30.0
     token = _duration_arc_token(100, dt)
-    partial = truncate_arc_token(token, 0.30, "duration")
+    partial = truncate_arc_token(token, 0.30, "duration", 0.4)
 
-    assert partial.shape == (60, 14)
-    np.testing.assert_array_equal(partial[:30], token[:30])
-    np.testing.assert_array_equal(partial[30:], token[100:130])
-    # Thirty waypoints contain 29 timed intervals from the current waypoint.
-    assert arc_prefix_control_steps(token, 0.30, "duration", dt) == 29
+    K = len(partial) // 2
+    combined = np.linalg.norm(np.diff(partial[:K, 0:3], axis=0), axis=-1)
+    combined += np.linalg.norm(np.diff(partial[:K, 7:10], axis=0), axis=-1)
+    assert combined.sum() == pytest.approx(0.12)
+    # Both arms move, so combined D is reached halfway as many waypoint rows
+    # as the old per-arm interpretation.
+    assert K == 16
+    assert arc_prefix_control_steps(token, 0.30, "duration", dt, 0.4) == 15
 
 
 def test_arc_prefix_video_stride_follows_predicted_waypoint_timing():
     dt = 1.0 / 30.0
     token = _per_waypoint_arc_token(100, 2.0 * dt)
 
-    # The first 30 waypoints span 29 intervals at two video frames each.
-    assert arc_prefix_control_steps(token, 0.30, "per_waypoint", dt) == 58
+    assert arc_prefix_control_steps(token, 0.30, "per_waypoint", dt, 0.4) == 30
 
 
 def test_arc_replan_stride_changes_with_predicted_timing():
@@ -130,10 +136,10 @@ def test_arc_replan_stride_changes_with_predicted_timing():
         records(_duration_arc_token(5, 3.0 * evaluator.control_dt))
     )
 
-    # The same waypoint prefix spans 2 frames at the fast timing and 6 at the
-    # slow timing, so the oracle-observation replanning boundaries differ.
-    assert fast["segments"] == 6
-    assert slow["segments"] == 2
+    # The same combined-distance prefix spans 1 frame at the fast timing and
+    # 3 at the slow timing, so the oracle-observation boundaries differ.
+    assert fast["segments"] == 12
+    assert slow["segments"] == 4
 
 
 def test_open_loop_sim_walks_an_episode_in_executed_prefixes():
@@ -240,7 +246,7 @@ def test_open_loop_sim_detokenizes_only_the_executed_arc_prefix():
     token[4:, 0] = 0.1
     token[4:, 7] = 0.1
     decoded = evaluator._decode_prediction(token)
-    assert decoded.shape == (3, 14)
+    assert decoded.shape == (2, 14)
     assert np.isfinite(decoded).all()
 
 

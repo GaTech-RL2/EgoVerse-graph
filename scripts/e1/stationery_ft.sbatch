@@ -8,8 +8,8 @@
 # Untyped gres let PACE expand the partition list to gpu-v100 and job 13307008
 # actually landed on a V100 (Volta: no bf16, and the config runs precision bf16).
 # Pin the class; H200 picked up both earlier jobs within 21 s.
-#SBATCH -p gpu-h200
-#SBATCH --gres=gpu:h200:1
+#SBATCH -p gpu-h100,gpu-h200
+#SBATCH --gres=gpu:1
 #SBATCH --time=16:00:00
 #SBATCH --job-name=statft
 #SBATCH --output=ft_%x_%j.log
@@ -46,10 +46,13 @@ export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 export TORCHINDUCTOR_CACHE_DIR=/tmp/ti_$SLURM_JOB_ID TRITON_CACHE_DIR=/tmp/tr_$SLURM_JOB_ID
 
 nvidia-smi --query-gpu=name,clocks.sm,temperature.gpu --format=csv,noheader
+# GPU CLASS GUARD: job 13307008 once landed on a V100 (no bf16). Refuse anything but H100/H200.
+nvidia-smi --query-gpu=name --format=csv,noheader | grep -qE 'H100|H200' || { echo "WRONG GPU CLASS: $(nvidia-smi --query-gpu=name --format=csv,noheader)" >&2; exit 42; }
 echo "=== FT $ARM -> $RUN ($(date)) commit=$(git rev-parse --short HEAD) ==="
 $PY egomimic/trainHydra.py --config-name=train_zarr_cartesian \
   +experiment=${EXPERIMENT} \
   logger.wandb.id=${ARM}_20260917_s42_j${SLURM_JOB_ID} \
   ${EXTRA:-} \
   paths.output_dir=$RUN \
+  norm_stats.save_cache_dir=$RUN \
   hydra.run.dir=$RUN

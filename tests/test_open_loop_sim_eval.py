@@ -123,7 +123,9 @@ def test_arc_replan_stride_changes_with_predicted_timing():
             for frame in range(12)
         ]
 
-    fast = evaluator._score_episode(records(_duration_arc_token(5, evaluator.control_dt)))
+    fast = evaluator._score_episode(
+        records(_duration_arc_token(5, evaluator.control_dt))
+    )
     slow = evaluator._score_episode(
         records(_duration_arc_token(5, 3.0 * evaluator.control_dt))
     )
@@ -341,9 +343,7 @@ def test_open_loop_video_uploads_only_first_episode_per_panel(monkeypatch):
         ("valid", "human_bimanual", "/tmp/episode-c.mp4"),
         ("nested", "yam_bimanual", "/tmp/episode-d.mp4"),
     ]
-    fake_wandb = SimpleNamespace(
-        Video=lambda path, **kwargs: {"path": path, **kwargs}
-    )
+    fake_wandb = SimpleNamespace(Video=lambda path, **kwargs: {"path": path, **kwargs})
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
 
     OpenLoopSimEval._log_wandb_videos(evaluator)
@@ -359,50 +359,60 @@ def test_open_loop_video_uploads_only_first_episode_per_panel(monkeypatch):
     assert payload["Val_video/yam_bimanual"]["path"] == "/tmp/episode-a.mp4"
 
 
-def test_open_loop_video_holds_each_overlay_until_variable_replan_boundary():
+def test_open_loop_video_decodes_full_baseline_chunk_at_every_frame():
     evaluator = _baseline_evaluator()
-    evaluator.action_key = "actions_cartesian"
-    evaluator.ground_truth_action_key = "actions_cartesian"
-    evaluator.obs_pose_key = "observations.state.ee_pose"
-    evaluator._validation_group = "valid"
-    evaluator._video_replan_states = {}
     evaluator._native = lambda value, embodiment_id: value
-    evaluator._native_key = lambda value, key, embodiment_id: value
+    prediction = torch.stack([torch.full((4, 14), float(frame)) for frame in range(3)])
 
-    def decode(value, *, max_steps=None):
-        steps = min(int(value[0, 0]), int(max_steps))
-        return value[:steps], steps
-
-    evaluator._decode_prediction_with_steps = decode
-    stride_markers = [2, 99, 3, 99, 99, 1]
-    prediction = torch.stack(
-        [torch.full((4, 14), float(marker)) for marker in stride_markers]
-    )
-    source_batch = {
-        "episode_hash": ["episode-a"] * 6,
-        "frame_index": torch.arange(6),
-        "actions_cartesian": torch.stack(
-            [torch.full((4, 14), float(frame)) for frame in range(6)]
-        ),
-        "observations.state.ee_pose": torch.stack(
-            [torch.full((14,), float(frame)) for frame in range(6)]
-        ),
-    }
-
-    video_batch, video_prediction = evaluator._video_replan_batch(
-        source_id="yam_bimanual",
-        source_batch=source_batch,
-        prediction=prediction,
-        embodiment_id=0,
+    decoded = evaluator._decoded_video_predictions(
+        prediction, embodiment_id=0, max_steps=4
     )
 
-    assert video_prediction[:, 0, 0].tolist() == [2, 2, 3, 3, 3, 1]
-    assert video_batch["actions_cartesian"][:, 0, 0].tolist() == [0, 0, 2, 2, 2, 5]
-    assert video_batch["observations.state.ee_pose"][:, 0].tolist() == [
-        0,
-        0,
-        2,
-        2,
-        2,
-        5,
-    ]
+    assert decoded.shape == (3, 4, 14)
+    assert decoded[:, 0, 0].tolist() == [0, 1, 2]
+    assert decoded[:, -1, 0].tolist() == [0, 1, 2]
+
+
+def test_open_loop_video_detokenizes_full_arc_chunk():
+    evaluator = _baseline_evaluator()
+    evaluator.action_mode = "arc"
+    evaluator.resampled_vector_length = 4
+    evaluator.velocity_mode = "duration"
+    evaluator._native = lambda value, embodiment_id: value
+    calls = []
+
+    class Tokenizer:
+        def detokenize(self, token, action_horizon):
+            calls.append((token.copy(), action_horizon))
+            return np.full((action_horizon, 14), token[0, 0])
+
+    evaluator._arc_tokenizer = Tokenizer()
+    token = torch.zeros((2, 8, 14))
+    token[0, 0, 0] = 1.0
+    token[1, 0, 0] = 2.0
+
+    decoded = evaluator._decoded_video_predictions(
+        token, embodiment_id=0, max_steps=100
+    )
+
+    assert decoded.shape == (2, 100, 14)
+    assert [action_horizon for _, action_horizon in calls] == [100, 100]
+    assert all(value.shape == (8, 14) for value, _ in calls)
+    assert decoded[:, 0, 0].tolist() == [1, 2]
+
+
+def test_video_only_flushes_videos_without_computing_metrics(monkeypatch):
+    evaluator = _baseline_evaluator()
+    evaluator.video_only = True
+    evaluator._video_enabled = True
+    evaluator.last_results = "unset"
+    evaluator.trainer = SimpleNamespace(is_global_zero=True)
+    evaluator._all_records = lambda: pytest.fail("video-only mode scored records")
+    flushed = []
+    monkeypatch.setattr(
+        EvalVideo, "on_validation_end", lambda self: flushed.append(True)
+    )
+
+    assert evaluator.on_validation_end() is None
+    assert evaluator.last_results is None
+    assert flushed == [True]

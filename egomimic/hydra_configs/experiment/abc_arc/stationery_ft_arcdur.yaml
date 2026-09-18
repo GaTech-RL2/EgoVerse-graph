@@ -48,7 +48,7 @@ mode: train
 seed: 42
 paths:
   dataset_dir: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
-  output_dir: null
+  output_dir: ${hydra:runtime.output_dir}
   work_dir: null
 launch_params:
   gpus_per_node: 1

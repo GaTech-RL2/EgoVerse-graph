@@ -47,6 +47,7 @@ YPR_COLS = (3, 4, 5, 10, 11, 12)
 GRIP_COLS = (6, 13)
 PAIRED_COLS = XYZ_COLS + GRIP_COLS
 ARC_EXECUTION_CAP_MODES = ("waypoints", "distance")
+ARC_VIDEO_TRAJECTORY_CAP_MODES = ("execution_horizon", "joint_distance")
 
 
 def validate_arc_execution_cap_mode(mode: str) -> str:
@@ -56,6 +57,18 @@ def validate_arc_execution_cap_mode(mode: str) -> str:
         raise ValueError(
             "arc_execution_cap_mode must be one of "
             f"{ARC_EXECUTION_CAP_MODES}, got {mode!r}"
+        )
+    return value
+
+
+def validate_arc_video_trajectory_cap_mode(mode: str) -> str:
+    """Normalize ARC overlay capping independently of metric semantics."""
+
+    value = str(mode).strip().lower()
+    if value not in ARC_VIDEO_TRAJECTORY_CAP_MODES:
+        raise ValueError(
+            "arc_video_trajectory_cap_mode must be one of "
+            f"{ARC_VIDEO_TRAJECTORY_CAP_MODES}, got {mode!r}"
         )
     return value
 
@@ -199,6 +212,53 @@ def truncate_arc_token(
     return np.concatenate((waypoints, timing), axis=0)
 
 
+def truncate_cartesian_trajectory_by_joint_distance(
+    trajectory: np.ndarray, max_distance: float
+) -> np.ndarray:
+    """Interpolate a control trajectory at combined left-plus-right travel."""
+
+    value = np.asarray(trajectory, dtype=np.float64)
+    if value.ndim != 2 or value.shape[1] != 14:
+        raise ValueError(
+            "cartesian trajectory must have shape (T, 14), "
+            f"got {value.shape}"
+        )
+    distance = float(max_distance)
+    if not math.isfinite(distance) or distance <= 0.0:
+        raise ValueError("max_distance must be positive and finite")
+    if len(value) < 2:
+        return value.copy()
+
+    interval_distance = np.linalg.norm(
+        np.diff(value[:, 0:3], axis=0), axis=-1
+    ) + np.linalg.norm(np.diff(value[:, 7:10], axis=0), axis=-1)
+    cumulative = np.concatenate(([0.0], np.cumsum(interval_distance)))
+    crossing = np.flatnonzero(cumulative >= distance)
+    if not len(crossing):
+        return value.copy()
+
+    end_index = int(crossing[0])
+    if end_index < 1:
+        return value[:1].copy()
+    interval = float(interval_distance[end_index - 1])
+    alpha = (
+        1.0
+        if interval <= 1e-12
+        else float(
+            np.clip(
+                (distance - cumulative[end_index - 1]) / interval,
+                0.0,
+                1.0,
+            )
+        )
+    )
+    result = value[: end_index + 1].copy()
+    result[-1] = value[end_index - 1] + alpha * (
+        value[end_index] - value[end_index - 1]
+    )
+    return result
+
+
 def arc_execution_prefix(
     token: np.ndarray,
     execute_fraction: float,
@@ -314,6 +374,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         control_dt: float = 1.0 / 30.0,
         action_mode: str = "auto",
         arc_execution_cap_mode: str = "waypoints",
+        arc_video_trajectory_cap_mode: str = "joint_distance",
         min_distance_unit: float = 0.40,
         resampled_vector_length: int = 100,
         velocity_mode: str = "per_waypoint",
@@ -354,6 +415,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.action_mode = mode
         self.arc_execution_cap_mode = validate_arc_execution_cap_mode(
             arc_execution_cap_mode
+        )
+        self.arc_video_trajectory_cap_mode = (
+            validate_arc_video_trajectory_cap_mode(arc_video_trajectory_cap_mode)
         )
         self.ground_truth_action_key = str(ground_truth_action_key)
         self.min_distance_unit = float(min_distance_unit)
@@ -481,6 +545,50 @@ class OpenLoopSimEval(BimanualCartesianEval):
             lengths,
         )
 
+    def _cap_arc_video_trajectories(
+        self,
+        prediction: torch.Tensor,
+        ground_truth: torch.Tensor,
+        prefix_lengths: list[int],
+    ) -> tuple[torch.Tensor, torch.Tensor, list[int], list[int]]:
+        """Cap both ARC overlays at ``execute_fraction * D`` joint travel."""
+
+        cap = self.execute_fraction * self.min_distance_unit
+        pred_np = prediction.detach().cpu().numpy()
+        gt_np = ground_truth.detach().cpu().numpy()
+        pred_values = []
+        gt_values = []
+        pred_lengths = []
+        gt_lengths = []
+        for index, steps in enumerate(prefix_lengths):
+            pred = truncate_cartesian_trajectory_by_joint_distance(
+                pred_np[index, :steps], cap
+            )
+            gt = truncate_cartesian_trajectory_by_joint_distance(
+                gt_np[index, :steps], cap
+            )
+            pred_values.append(pred)
+            gt_values.append(gt)
+            pred_lengths.append(len(pred))
+            gt_lengths.append(len(gt))
+
+        width = max(max(pred_lengths), max(gt_lengths))
+
+        def _pad(values: list[np.ndarray]) -> torch.Tensor:
+            padded = []
+            for value in values:
+                if len(value) < width:
+                    value = np.concatenate(
+                        (value, np.repeat(value[-1:], width - len(value), axis=0)),
+                        axis=0,
+                    )
+                padded.append(value)
+            return torch.from_numpy(
+                np.stack(padded).astype(np.float32, copy=False)
+            )
+
+        return _pad(pred_values), _pad(gt_values), pred_lengths, gt_lengths
+
     def _maybe_log_open_loop_video(
         self,
         *,
@@ -534,6 +642,30 @@ class OpenLoopSimEval(BimanualCartesianEval):
             gt_prefixes.append(value)
         gt_native = torch.stack(gt_prefixes).to(dtype=pred_native.dtype)
 
+        prediction_lengths = list(prefix_lengths)
+        ground_truth_lengths = list(prefix_lengths)
+        is_arc_video = self.action_mode == "arc" or (
+            self.action_mode == "auto"
+            and self._is_arc_prediction(prediction[0].detach().cpu().numpy())
+        )
+        if (
+            is_arc_video
+            and getattr(
+                self,
+                "arc_video_trajectory_cap_mode",
+                "execution_horizon",
+            )
+            == "joint_distance"
+        ):
+            (
+                pred_native,
+                gt_native,
+                prediction_lengths,
+                ground_truth_lengths,
+            ) = self._cap_arc_video_trajectories(
+                pred_native, gt_native, prefix_lengths
+            )
+
         obs_pose_native = (
             self._native_pose(source_batch[self.obs_pose_key], embodiment_id)
             .detach()
@@ -559,7 +691,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
             source_batch=source_batch,
             prediction=pred_camframe,
             ground_truth=gt_camframe,
-            prefix_length=prefix_lengths[0],
+            prediction_length=prediction_lengths[0],
+            ground_truth_length=ground_truth_lengths[0],
         )
 
         images = source_batch[self.image_key]
@@ -615,7 +748,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         source_batch: Mapping,
         prediction,
         ground_truth,
-        prefix_length: int,
+        prediction_length: int,
+        ground_truth_length: int,
     ) -> None:
         """Save the first rendered executed prefix for speed/shape diagnostics."""
 
@@ -634,8 +768,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
             raise ValueError(
                 "trajectory snapshot expects batched (B, T, 14) camera-frame arrays"
             )
-        steps = min(int(prefix_length), int(pred.shape[1]), int(gt.shape[1]))
-        if steps < 1:
+        pred_steps = min(int(prediction_length), int(pred.shape[1]))
+        gt_steps = min(int(ground_truth_length), int(gt.shape[1]))
+        if pred_steps < 1 or gt_steps < 1:
             raise ValueError("trajectory snapshot execution prefix is empty")
 
         batch_size = int(pred.shape[0])
@@ -653,8 +788,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
             path,
-            prediction=pred[0, :steps].astype(np.float32, copy=False),
-            ground_truth=gt[0, :steps].astype(np.float32, copy=False),
+            prediction=pred[0, :pred_steps].astype(np.float32, copy=False),
+            ground_truth=gt[0, :gt_steps].astype(np.float32, copy=False),
             control_dt=np.asarray(self.control_dt, dtype=np.float64),
             source_id=np.asarray(str(source_id)),
             episode_hash=np.asarray(str(episode)),

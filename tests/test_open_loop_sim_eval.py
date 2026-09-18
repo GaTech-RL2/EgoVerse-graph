@@ -365,24 +365,26 @@ def test_open_loop_video_uploads_only_first_episode_per_panel(monkeypatch):
     assert payload["Val_video/yam_bimanual"]["path"] == "/tmp/episode-a.mp4"
 
 
-def test_open_loop_video_decodes_full_baseline_chunk_at_every_frame():
+def test_open_loop_video_decodes_executed_baseline_prefix_at_every_frame():
     evaluator = _baseline_evaluator()
     evaluator._native = lambda value, embodiment_id: value
     prediction = torch.stack([torch.full((4, 14), float(frame)) for frame in range(3)])
 
-    decoded = evaluator._decoded_video_predictions(
+    decoded, lengths = evaluator._decoded_video_predictions(
         prediction, embodiment_id=0, max_steps=4
     )
 
-    assert decoded.shape == (3, 4, 14)
+    assert decoded.shape == (3, 2, 14)
+    assert lengths == [2, 2, 2]
     assert decoded[:, 0, 0].tolist() == [0, 1, 2]
     assert decoded[:, -1, 0].tolist() == [0, 1, 2]
 
 
-def test_open_loop_video_detokenizes_full_arc_chunk():
+def test_open_loop_video_detokenizes_only_combined_distance_arc_prefix():
     evaluator = _baseline_evaluator()
     evaluator.action_mode = "arc"
-    evaluator.resampled_vector_length = 4
+    evaluator.execute_fraction = 0.30
+    evaluator.resampled_vector_length = 100
     evaluator.velocity_mode = "duration"
     evaluator._native = lambda value, embodiment_id: value
     calls = []
@@ -393,18 +395,75 @@ def test_open_loop_video_detokenizes_full_arc_chunk():
             return np.full((action_horizon, 14), token[0, 0])
 
     evaluator._arc_tokenizer = Tokenizer()
-    token = torch.zeros((2, 8, 14))
-    token[0, 0, 0] = 1.0
-    token[1, 0, 0] = 2.0
+    token = torch.from_numpy(_duration_arc_token(100, evaluator.control_dt))[None]
 
-    decoded = evaluator._decoded_video_predictions(
+    decoded, lengths = evaluator._decoded_video_predictions(
         token, embodiment_id=0, max_steps=100
     )
 
-    assert decoded.shape == (2, 100, 14)
-    assert [action_horizon for _, action_horizon in calls] == [100, 100]
-    assert all(value.shape == (8, 14) for value, _ in calls)
-    assert decoded[:, 0, 0].tolist() == [1, 2]
+    assert decoded.shape == (1, 15, 14)
+    assert lengths == [15]
+    assert [action_horizon for _, action_horizon in calls] == [15]
+    partial = calls[0][0]
+    waypoints = partial[: len(partial) // 2]
+    combined_distance = np.linalg.norm(
+        np.diff(waypoints[:, 0:3], axis=0), axis=-1
+    ).sum() + np.linalg.norm(
+        np.diff(waypoints[:, 7:10], axis=0), axis=-1
+    ).sum()
+    assert combined_distance == pytest.approx(0.12)
+
+
+def test_open_loop_video_overlay_receives_only_matching_executed_prefixes(
+    monkeypatch,
+):
+    evaluator = _baseline_evaluator(execute_steps=2)
+    evaluator._video_enabled = True
+    evaluator.trainer = SimpleNamespace(is_global_zero=True)
+    evaluator.action_key = "actions_cartesian"
+    evaluator.ground_truth_action_key = "actions_cartesian"
+    evaluator.obs_pose_key = "observations.state.ee_pose"
+    evaluator.image_key = "observations.images.front_img_1"
+    evaluator._validation_group = "valid"
+    evaluator._native = lambda value, embodiment_id: value
+    evaluator._native_key = lambda value, key, embodiment_id: value
+    evaluator._native_pose = lambda value, embodiment_id: value
+    evaluator._revert_to_camframe = lambda **kwargs: kwargs["actions"]
+    evaluator._group_video_dir = lambda *args: "/tmp"
+    evaluator._buffer_per_episode = lambda *args: None
+    captured = {}
+
+    def viz(*, predictions, batch):
+        captured["predictions"] = predictions
+        captured["batch"] = batch
+        return np.zeros((2, 4, 4, 3), dtype=np.uint8)
+
+    evaluator.viz_func = {"yam_bimanual": viz}
+    monkeypatch.setattr(
+        "egomimic.eval.open_loop_sim.overlay_annotation_fields",
+        lambda *args, **kwargs: {},
+    )
+    source_batch = {
+        evaluator.action_key: torch.arange(2 * 4 * 14).reshape(2, 4, 14),
+        evaluator.obs_pose_key: torch.zeros((2, 14)),
+        evaluator.image_key: torch.zeros((2, 3, 4, 4)),
+        "embodiment": torch.zeros(2, dtype=torch.long),
+        "episode_hash": ["episode-a", "episode-b"],
+    }
+    prediction = torch.ones((2, 4, 14))
+
+    evaluator._maybe_log_open_loop_video(
+        source_id="yam_bimanual",
+        source_batch=source_batch,
+        prediction=prediction,
+        embodiment_id=0,
+        embodiment_name="yam_bimanual",
+    )
+
+    pred_overlay = captured["predictions"]["yam_bimanual_actions_cartesian"]
+    gt_overlay = captured["batch"][evaluator.action_key]
+    assert pred_overlay.shape == (2, 2, 14)
+    assert gt_overlay.shape == (2, 2, 14)
 
 
 def test_video_only_flushes_videos_without_computing_metrics(monkeypatch):

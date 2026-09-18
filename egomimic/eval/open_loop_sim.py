@@ -348,45 +348,27 @@ class OpenLoopSimEval(BimanualCartesianEval):
 
     def _decoded_video_predictions(
         self, prediction: torch.Tensor, embodiment_id: int, max_steps: int
-    ) -> torch.Tensor:
-        """Decode the full predicted chunk independently at every video frame."""
+    ) -> tuple[torch.Tensor, list[int]]:
+        """Decode only each frame's independently executed prediction prefix."""
 
         native = self._native(prediction, embodiment_id).detach().cpu().numpy()
+        decoded_with_steps = [
+            self._decode_prediction_with_steps(sample, max_steps=max_steps)
+            for sample in native
+        ]
+        lengths = [steps for _, steps in decoded_with_steps]
+        width = max(lengths)
         decoded = []
-        for sample in native:
-            is_arc = self._is_arc_prediction(sample)
-            if self.action_mode == "arc" and not is_arc:
-                raise ValueError(
-                    "open_loop_sim action_mode='arc' received a non-ARC prediction "
-                    f"with shape {sample.shape}"
+        for value, steps in decoded_with_steps:
+            if steps < width:
+                value = np.concatenate(
+                    (value, np.repeat(value[-1:], width - steps, axis=0)), axis=0
                 )
-            if self.action_mode == "baseline" and is_arc:
-                raise ValueError(
-                    "open_loop_sim action_mode='baseline' received an ARC prediction"
-                )
-            if is_arc:
-                if self._arc_tokenizer is None:
-                    from egomimic.rldb.zarr.arc_length_tokenizer import (
-                        TokenizeBimanualArcLengthCartesian,
-                    )
-
-                    self._arc_tokenizer = TokenizeBimanualArcLengthCartesian(
-                        min_distance_unit=self.min_distance_unit,
-                        resampled_vector_length=self.resampled_vector_length,
-                        dt=self.control_dt,
-                        velocity_mode=self.velocity_mode,
-                    )
-                value = self._arc_tokenizer.detokenize(sample, action_horizon=max_steps)
-            else:
-                if sample.ndim != 2 or sample.shape[1] != 14:
-                    raise ValueError(
-                        "baseline open_loop_sim predictions must have shape (T, 14), "
-                        f"got {sample.shape}"
-                    )
-                value = sample[:max_steps]
-            decoded.append(np.asarray(value, dtype=np.float32))
-        width = min(value.shape[0] for value in decoded)
-        return torch.from_numpy(np.stack([value[:width] for value in decoded]))
+            decoded.append(value)
+        return (
+            torch.from_numpy(np.stack(decoded).astype(np.float32, copy=False)),
+            lengths,
+        )
 
     def _maybe_log_open_loop_video(
         self,
@@ -399,9 +381,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
     ) -> None:
         """Render one frame per validation sample and buffer by episode hash.
 
-        The metric path stores and scores only the executed prefix. The video
-        path is independent: it renders the full ground-truth and predicted
-        action chunk from every validation frame.
+        Like the metric path, each video frame shows only the independently
+        executed prediction prefix and its matching control-frequency ground
+        truth. ARC prefixes end at ``execute_fraction * D`` combined left-plus-
+        right EEF translation; their decoded timing determines the frame width.
         """
 
         if not getattr(self, "_video_enabled", False) or not getattr(
@@ -426,11 +409,19 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 "open_loop_sim video ground truth must be batched as (B, T, 14), "
                 f"got {tuple(gt_native.shape)}"
             )
-        pred_native = self._decoded_video_predictions(
+        pred_native, prefix_lengths = self._decoded_video_predictions(
             prediction, embodiment_id, int(gt_native.shape[1])
         )
         width = int(pred_native.shape[1])
-        gt_native = gt_native[:, :width].to(dtype=pred_native.dtype)
+        gt_prefixes = []
+        for index, steps in enumerate(prefix_lengths):
+            value = gt_native[index, :steps]
+            if steps < width:
+                value = torch.cat(
+                    (value, value[-1:].repeat(width - steps, 1)), dim=0
+                )
+            gt_prefixes.append(value)
+        gt_native = torch.stack(gt_prefixes).to(dtype=pred_native.dtype)
 
         obs_pose_native = (
             self._native_pose(source_batch[self.obs_pose_key], embodiment_id)

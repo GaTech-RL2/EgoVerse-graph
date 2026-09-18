@@ -64,3 +64,22 @@ def test_stationery_hpt180_pair_preserves_run_contract(
         assert transform_list.resampled_vector_length == 100
     else:
         assert transform_list.action_mode == "cartesian"
+
+
+@pytest.mark.parametrize(
+    "config_name",
+    [
+        "stationery_rl2_hpt_arc_D40_M100.yaml",
+        "stationery_rl2_hpt_baseline.yaml",
+        "stationery_rl2_hpt180_arc_D40_M100.yaml",
+        "stationery_rl2_hpt180_baseline.yaml",
+    ],
+)
+def test_stationery_rl2_filters_use_catalog_task_name(config_name):
+    config = (
+        _CONFIGS / "data" / "abc_arc" / config_name
+    ).read_text(encoding="utf-8")
+    expected = "row['task'] == 'organize_stationary_updated'"
+    stale = "row['task'] == 'organize_stationary'"
+    assert config.count(expected) == 2
+    assert stale not in config

@@ -1,0 +1,139 @@
+# @package _global_
+defaults:
+- /experiment/pusht/planar_v2_base
+- override /data: pusht/planar_v2_cotrain_obstacle_7919
+- override /model: bf/bf_planar_v2_dp_paper
+- _self_
+planar:
+  action_dim: 7
+  action_dims:
+    pushshapes_sim_u_socket: 7
+    pushshapes_sim_chain_gripper: 7
+  observation_horizon: 2
+  action_target_offset: 1
+  raw_action_horizon: 80
+  arc_distance: 80.0
+  arc_dt: 0.0333333333333333
+  arc_rotation_distance: 0.4537856055185257
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_timed_transform_list
+  eval_native_decoder: null
+  batch_size: 32
+  cotrain_data_root: /workspace/cotrain/data
+  arc_waypoint_sampling: uniform
+  eval_execution_fraction: 0.5
+evaluator:
+  native_decoder: null
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 3
+  - - 3
+    - 5
+  - - 5
+    - 6
+  - - 6
+    - 7
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 3
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 4
+      timing_mode: ${planar.arc_timing_mode}
+      dt: ${planar.arc_dt}
+eval_checkpoint:
+  use_ema: true
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+run_provenance:
+  obstacle_data: true
+  dataset_count: 7919
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_cotrain_obstacle_7919_split_seed42_v1.json
+  split_manifest_sha256: db0312aac689c701fe5055733db6858556ce1b2032fa4d2c5fb7c296d24afca7
+  train_episode_count_per_domain:
+    pushshapes_sim_u_socket: 2970
+    pushshapes_sim_chain_gripper: 4871
+  valid_episode_count_per_domain:
+    pushshapes_sim_u_socket: 29
+    pushshapes_sim_chain_gripper: 49
+  union_episode_count_per_domain:
+    pushshapes_sim_u_socket: 2999
+    pushshapes_sim_chain_gripper: 4920
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: ${planar.action_horizon}
+    waypoint_count: ${planar.arc_waypoints}
+    replan_every: null
+    execution_slice: '[0,selected_native_steps)'
+    execution_rule: half of ARC waypoint supports; control ticks determined by predicted
+      interval clocks
+    timing_semantics: independently timed translation and rotation; grip follows translation
+      clock
+    raw_action_horizon: 80
+  obstacle_selection:
+    source: s3://rldb/datasets/pushshapes/arc-duration-handoff-20260916/chain_gripper_obstacle_mimicgen_128_20260826_output_128/
+    levels:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    - 30
+    episode_indices_inclusive:
+    - 0
+    - 63
+    count: 1920
+    selection: first 64 episode indices per level; new source-pinned cohort, not asserted
+      identical to historical frozen1920
+  training_seed: 42
+  sampler: one batch per embodiment per step; max_size_cycle; mean of two source losses
+  effective_batch_size: 128
+  normalizer_training_only: true
+trainer:
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  precision: bf16-mixed

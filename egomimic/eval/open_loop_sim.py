@@ -319,6 +319,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         velocity_mode: str = "per_waypoint",
         log_step: int | None = None,
         results_path: str | None = None,
+        trajectory_snapshot_path: str | None = None,
         video_only: bool = False,
         require_episode_start: bool = True,
         limit_val_episodes: int | None = None,
@@ -375,6 +376,15 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if self.log_step is not None and self.log_step < 0:
             raise ValueError("log_step must be nonnegative")
         self.results_path = Path(results_path) if results_path else None
+        self.trajectory_snapshot_path = (
+            Path(trajectory_snapshot_path) if trajectory_snapshot_path else None
+        )
+        if (
+            self.trajectory_snapshot_path is not None
+            and self.trajectory_snapshot_path.suffix != ".npz"
+        ):
+            raise ValueError("trajectory_snapshot_path must end in .npz")
+        self._trajectory_snapshot_written = False
         self.video_only = bool(video_only)
         self.require_episode_start = bool(require_episode_start)
         self.limit_val_episodes = (
@@ -440,6 +450,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             EvalVideo.on_validation_start(self)
         self._records = []
         self.last_results = None
+        self._trajectory_snapshot_written = False
         if self.model is not None:
             try:
                 self._metric_device = next(self.model.parameters()).device
@@ -543,6 +554,14 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if pred_camframe is None or gt_camframe is None:
             return
 
+        self._write_trajectory_snapshot(
+            source_id=source_id,
+            source_batch=source_batch,
+            prediction=pred_camframe,
+            ground_truth=gt_camframe,
+            prefix_length=prefix_lengths[0],
+        )
+
         images = source_batch[self.image_key]
         if images.ndim == 5:
             images = images[:, 0]
@@ -588,6 +607,62 @@ class OpenLoopSimEval(BimanualCartesianEval):
         buf_key = (group, embodiment_name)
         out_dir = self._group_video_dir(group, embodiment_name)
         self._buffer_per_episode(buf_key, out_dir, list(frame_tensor), hashes)
+
+    def _write_trajectory_snapshot(
+        self,
+        *,
+        source_id: str,
+        source_batch: Mapping,
+        prediction,
+        ground_truth,
+        prefix_length: int,
+    ) -> None:
+        """Save the first rendered executed prefix for speed/shape diagnostics."""
+
+        path = getattr(self, "trajectory_snapshot_path", None)
+        if path is None or getattr(self, "_trajectory_snapshot_written", False):
+            return
+
+        def _numpy(value) -> np.ndarray:
+            if isinstance(value, torch.Tensor):
+                value = value.detach().cpu().numpy()
+            return np.asarray(value)
+
+        pred = _numpy(prediction)
+        gt = _numpy(ground_truth)
+        if pred.ndim != 3 or gt.ndim != 3 or pred.shape[0] < 1 or gt.shape[0] < 1:
+            raise ValueError(
+                "trajectory snapshot expects batched (B, T, 14) camera-frame arrays"
+            )
+        steps = min(int(prefix_length), int(pred.shape[1]), int(gt.shape[1]))
+        if steps < 1:
+            raise ValueError("trajectory snapshot execution prefix is empty")
+
+        batch_size = int(pred.shape[0])
+        episode = self._batch_values(
+            source_batch["episode_hash"], batch_size, "episode_hash"
+        )[0]
+        frame = -1
+        if "frame_index" in source_batch:
+            frame = int(
+                self._batch_values(
+                    source_batch["frame_index"], batch_size, "frame_index"
+                )[0]
+            )
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(
+            path,
+            prediction=pred[0, :steps].astype(np.float32, copy=False),
+            ground_truth=gt[0, :steps].astype(np.float32, copy=False),
+            control_dt=np.asarray(self.control_dt, dtype=np.float64),
+            source_id=np.asarray(str(source_id)),
+            episode_hash=np.asarray(str(episode)),
+            frame_index=np.asarray(frame, dtype=np.int64),
+            action_mode=np.asarray(str(self.action_mode)),
+            arc_execution_cap_mode=np.asarray(str(self.arc_execution_cap_mode)),
+        )
+        self._trajectory_snapshot_written = True
 
     def _log_wandb_videos(self) -> None:
         """Upload only the first episode MP4 for each val loop/panel."""

@@ -5,7 +5,7 @@ episodes) and ChainGripper (3,000 clean plus 1,920 obstacle episodes). Each
 optimizer step contains one batch from each embodiment and averages the two
 source losses. ChainGripper clean/obstacle sampling follows their frame counts.
 All five recipes use the same split, seed 42, normalizer procedure, optimizer,
-PaperConditionalUnet1D architecture, observation horizon 2, target offset 1,
+PaperConditionalUnet1D architecture, observation horizon 2, causal targets,
 240,000 updates, EMA settings, and effective batch size 128 (32 per embodiment
 per GPU, two GPUs). Validation is deferred; training loss is not a policy score.
 
@@ -61,3 +61,18 @@ initialization. OSMO launchers verify the data archive, record resolved config
 and normalizer hashes, smoke two-GPU training before the full run, and upload
 checkpoints under content-addressed paths. Existing datasets, branches and
 checkpoints are preserved.
+
+## Observation/action alignment
+
+Clean episodes store the observation before executing the same-index action;
+obstacle episodes store the observation after that action. Physics replay of
+manual and generated obstacle episodes confirms the latter convention. With
+two observation rows, clean targets start at loader action index 1 and obstacle
+targets at index 2. Both therefore begin with the action following the latest
+observed state. Slicing happens before either DP encoding or ARC tokenization.
+
+`CompositeEpisodeResolver` merges the two ChainGripper sources while retaining
+their key maps and transforms, before applying one pinned episode split.
+The launch creates `chain_clean` and `chain_obstacle` symlink views of the
+unchanged source bytes. Per-source offsets and storage conventions are recorded
+in run provenance. Live rollout always executes decoded action index zero.

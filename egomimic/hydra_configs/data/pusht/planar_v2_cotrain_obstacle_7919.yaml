@@ -1,4 +1,4 @@
-# Fresh, pinned handoff corpus plus 64 obstacle episodes per level.
+# Source arrays stay immutable. Clean observations are pre-step; obstacles are post-step.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
   pushshapes_sim_u_socket:
@@ -35,28 +35,55 @@ train_datasets:
     bounds_check: false
   pushshapes_sim_chain_gripper:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver: &id002
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${planar.cotrain_data_root}/chain
-      embodiment_override: pushshapes_sim_chain_gripper
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.CompositeEpisodeResolver
+      resolvers:
+        clean:
+          _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+          folder_path: ${planar.cotrain_data_root}/chain_clean
+          embodiment_override: pushshapes_sim_chain_gripper
+          expected_episode_count: 3000
+          expected_episode_names_sha256: 61e23164126fd2b2a9bd1cc7c7b015ddff05e18d5fe704b34d870b17742cddcd
+          key_map:
+            _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+            action_horizon: ${planar.raw_action_horizon}
+            observation_horizon: ${planar.observation_horizon}
+            action_target_offset: 1
+          transform_list:
+            _target_: ${planar.transform_target}
+            raw_action_horizon: ${planar.raw_action_horizon}
+            action_horizon: ${planar.action_horizon}
+            action_target_offset: 1
+            min_distance_unit: ${planar.arc_distance}
+            resampled_vector_length: ${planar.arc_waypoints}
+            dt: ${planar.arc_dt}
+            rotation_distance_unit: ${planar.arc_rotation_distance}
+            timing_mode: ${planar.arc_timing_mode}
+            waypoint_sampling: ${planar.arc_waypoint_sampling}
+        obstacle:
+          _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+          folder_path: ${planar.cotrain_data_root}/chain_obstacle
+          embodiment_override: pushshapes_sim_chain_gripper
+          expected_episode_count: 1920
+          expected_episode_names_sha256: bbcca296a9e25845aa5977c8824d56b55851787f6ad3706f97ac15c7eaf3c9dc
+          key_map:
+            _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+            action_horizon: ${planar.raw_action_horizon}
+            observation_horizon: ${planar.observation_horizon}
+            action_target_offset: 2
+          transform_list:
+            _target_: ${planar.transform_target}
+            raw_action_horizon: ${planar.raw_action_horizon}
+            action_horizon: ${planar.action_horizon}
+            action_target_offset: 2
+            min_distance_unit: ${planar.arc_distance}
+            resampled_vector_length: ${planar.arc_waypoints}
+            dt: ${planar.arc_dt}
+            rotation_distance_unit: ${planar.arc_rotation_distance}
+            timing_mode: ${planar.arc_timing_mode}
+            waypoint_sampling: ${planar.arc_waypoint_sampling}
       expected_episode_count: 4920
       expected_episode_names_sha256: d4b2456c66f954bdb3797fe2ec2f781a3fcb64a27027b6e163ed97c38df1320d
-      key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
-        action_horizon: ${planar.raw_action_horizon}
-        observation_horizon: ${planar.observation_horizon}
-        action_target_offset: ${planar.action_target_offset}
-      transform_list:
-        _target_: ${planar.transform_target}
-        raw_action_horizon: ${planar.raw_action_horizon}
-        action_horizon: ${planar.action_horizon}
-        action_target_offset: ${planar.action_target_offset}
-        min_distance_unit: ${planar.arc_distance}
-        resampled_vector_length: ${planar.arc_waypoints}
-        dt: ${planar.arc_dt}
-        rotation_distance_unit: ${planar.arc_rotation_distance}
-        timing_mode: ${planar.arc_timing_mode}
-        waypoint_sampling: ${planar.arc_waypoint_sampling}
     mode: train
     valid_ratio: 0.01
     split_seed: 42
@@ -79,7 +106,55 @@ valid_datasets:
     bounds_check: false
   pushshapes_sim_chain_gripper:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver: *id002
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.CompositeEpisodeResolver
+      resolvers:
+        clean:
+          _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+          folder_path: ${planar.cotrain_data_root}/chain_clean
+          embodiment_override: pushshapes_sim_chain_gripper
+          expected_episode_count: 3000
+          expected_episode_names_sha256: 61e23164126fd2b2a9bd1cc7c7b015ddff05e18d5fe704b34d870b17742cddcd
+          key_map:
+            _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+            action_horizon: ${planar.raw_action_horizon}
+            observation_horizon: ${planar.observation_horizon}
+            action_target_offset: 1
+          transform_list:
+            _target_: ${planar.transform_target}
+            raw_action_horizon: ${planar.raw_action_horizon}
+            action_horizon: ${planar.action_horizon}
+            action_target_offset: 1
+            min_distance_unit: ${planar.arc_distance}
+            resampled_vector_length: ${planar.arc_waypoints}
+            dt: ${planar.arc_dt}
+            rotation_distance_unit: ${planar.arc_rotation_distance}
+            timing_mode: ${planar.arc_timing_mode}
+            waypoint_sampling: ${planar.arc_waypoint_sampling}
+        obstacle:
+          _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+          folder_path: ${planar.cotrain_data_root}/chain_obstacle
+          embodiment_override: pushshapes_sim_chain_gripper
+          expected_episode_count: 1920
+          expected_episode_names_sha256: bbcca296a9e25845aa5977c8824d56b55851787f6ad3706f97ac15c7eaf3c9dc
+          key_map:
+            _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+            action_horizon: ${planar.raw_action_horizon}
+            observation_horizon: ${planar.observation_horizon}
+            action_target_offset: 2
+          transform_list:
+            _target_: ${planar.transform_target}
+            raw_action_horizon: ${planar.raw_action_horizon}
+            action_horizon: ${planar.action_horizon}
+            action_target_offset: 2
+            min_distance_unit: ${planar.arc_distance}
+            resampled_vector_length: ${planar.arc_waypoints}
+            dt: ${planar.arc_dt}
+            rotation_distance_unit: ${planar.arc_rotation_distance}
+            timing_mode: ${planar.arc_timing_mode}
+            waypoint_sampling: ${planar.arc_waypoint_sampling}
+      expected_episode_count: 4920
+      expected_episode_names_sha256: d4b2456c66f954bdb3797fe2ec2f781a3fcb64a27027b6e163ed97c38df1320d
     mode: valid
     valid_ratio: 0.01
     split_seed: 42

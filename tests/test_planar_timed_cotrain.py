@@ -110,6 +110,10 @@ def test_five_cotrain_recipes_use_same_data_and_network(recipe):
     assert cfg.planar.batch_size * cfg.launch_params.gpus_per_node * len(cfg.data.train_datasets) == 128
     assert set(cfg.data.train_datasets) == {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
     assert cfg.run_provenance.dataset_count == 7919
+    chain_sources = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver.resolvers
+    assert chain_sources.clean.key_map.action_target_offset == 1
+    assert chain_sources.obstacle.key_map.action_target_offset == 2
+    assert chain_sources.obstacle.transform_list.action_target_offset == 2
     assert cfg.eval_checkpoint.use_ema is True
     stage = cfg.model.pipeline.stages[3]
     assert list(stage.policy.model.down_dims) == [512, 1024, 2048]
@@ -123,3 +127,52 @@ def test_five_cotrain_recipes_use_same_data_and_network(recipe):
     for domain, item in manifest["domains"].items():
         assert not set(item["train_ids"]) & set(item["valid_ids"])
         assert cfg.data.train_datasets[domain].resolver.expected_episode_count == item["count"]
+
+
+def test_composite_resolver_keeps_causal_targets_and_one_disjoint_split(tmp_path):
+    import zarr
+    from egomimic.pipeline.pushshapes import PlanarCommon5NativeDecoder
+    from egomimic.rldb.embodiment.pushshapes import get_planar_keymap, get_planar_paper_transform_list
+    from egomimic.rldb.zarr.zarr_dataset_multi import (
+        CompositeEpisodeResolver, LocalEpisodeResolverWithEmbodimentOverride,
+        MultiDataset, episode_names_sha256,
+    )
+
+    resolvers = {}
+    all_ids = []
+    for source, offset in [("pre", 1), ("post", 2)]:
+        root = tmp_path / source
+        root.mkdir()
+        for episode in range(2):
+            name = f"{source}_{episode}"
+            all_ids.append(name)
+            group = zarr.open_group(str(root / (name + ".zarr")), mode="w")
+            actions = np.zeros((12, 4)); actions[:, 0] = np.arange(12)
+            states = np.zeros((12, 6)); states[:, 0] = np.arange(12) + offset - 1
+            group.create_array("actions", data=actions)
+            group.create_array("observations.state", data=states)
+            group.attrs.update(total_frames=12, embodiment="pushshapes_sim_chain_gripper",
+                features={"actions": {"dtype": "float64"}, "observations.state": {"dtype": "float64"}})
+        resolvers[source] = LocalEpisodeResolverWithEmbodimentOverride(
+            folder_path=root, embodiment_override="pushshapes_sim_chain_gripper",
+            key_map=get_planar_keymap(action_horizon=4, observation_horizon=2,
+                                     action_target_offset=offset, norm_mode=True),
+            transform_list=get_planar_paper_transform_list(action_horizon=4,
+                                                         action_target_offset=offset))
+    merged = CompositeEpisodeResolver(resolvers, expected_episode_count=4,
+                                     expected_episode_names_sha256=episode_names_sha256(all_ids))
+    train = MultiDataset._from_resolver(merged, mode="train", valid_ratio=.5, split_seed=42,
+                                       bounds_check=False)
+    valid = MultiDataset._from_resolver(merged, mode="valid", valid_ratio=.5, split_seed=42,
+                                       bounds_check=False)
+    assert not set(train.datasets) & set(valid.datasets)
+    assert set(train.datasets) | set(valid.datasets) == set(all_ids)
+    for dataset in [*train.datasets.values(), *valid.datasets.values()]:
+        batch = dataset[3]
+        decoded = PlanarCommon5NativeDecoder(4, 4)(batch["actions"]).reshape(4, 4)
+        assert decoded[0, 0] == batch["state_agent_obj"][-1, 0]
+        np.testing.assert_allclose(np.diff(decoded[:, 0]), 1)
+    with pytest.raises(ValueError, match="Duplicate episode IDs"):
+        CompositeEpisodeResolver({"a": resolvers["pre"], "b": resolvers["pre"]}).resolve()
+    with pytest.raises(ValueError, match="expected 5"):
+        CompositeEpisodeResolver(resolvers, expected_episode_count=5).resolve()

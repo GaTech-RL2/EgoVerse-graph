@@ -81,9 +81,9 @@ run_provenance:
     pushshapes_sim_u_socket: 2999
     pushshapes_sim_chain_gripper: 4920
   action_contract:
-    observation_alignment: pre_step
+    observation_alignment: causally_aligned_mixed_storage
     observation_horizon: 2
-    training_action_target_offset: 1
+    training_action_target_offsets: ${run_provenance.source_action_target_offset}
     prediction_horizon: ${planar.action_horizon}
     waypoint_count: ${planar.arc_waypoints}
     replan_every: null
@@ -138,6 +138,14 @@ run_provenance:
   sampler: one batch per embodiment per step; max_size_cycle; mean of two source losses
   effective_batch_size: 128
   normalizer_training_only: true
+  source_observation_alignment:
+    usocket_clean: pre_step
+    chain_clean: pre_step
+    chain_obstacle: post_step
+  source_action_target_offset:
+    usocket_clean: 1
+    chain_clean: 1
+    chain_obstacle: 2
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 0

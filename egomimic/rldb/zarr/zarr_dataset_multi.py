@@ -872,6 +872,35 @@ class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
         return datasets
 
 
+class CompositeEpisodeResolver(EpisodeResolver):
+    """Merge episode sources before splitting, retaining each source's schema.
+
+    Resolvers may map the same embodiment through different observation/action
+    offsets. IDs must be globally unique so a common split remains unambiguous.
+    """
+
+    def __init__(self, resolvers: dict, expected_episode_count=None,
+                 expected_episode_names_sha256=None):
+        if not resolvers:
+            raise ValueError("At least one episode resolver is required")
+        self.resolvers = dict(resolvers)
+        self.expected_episode_count = expected_episode_count
+        self.expected_episode_names_sha256 = expected_episode_names_sha256
+
+    def resolve(self, filters=None):
+        datasets = {}
+        for name, resolver in self.resolvers.items():
+            resolved = resolver.resolve(filters=filters)
+            duplicates = datasets.keys() & resolved.keys()
+            if duplicates:
+                raise ValueError(f"Duplicate episode IDs from {name}: {sorted(duplicates)[:5]}")
+            datasets.update(resolved)
+        _validate_episode_name_pin("composite inventory", datasets,
+                                   self.expected_episode_count,
+                                   self.expected_episode_names_sha256)
+        return datasets
+
+
 class LocalFolderEpisodeResolver(EpisodeResolver):
     """
     Resolves every zarr episode inside ``folder_path`` — no SQL, no external

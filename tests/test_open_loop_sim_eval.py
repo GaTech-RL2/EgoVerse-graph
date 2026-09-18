@@ -7,6 +7,7 @@ import torch
 
 from egomimic.eval.open_loop_sim import (
     OpenLoopSimEval,
+    arc_prefix_control_steps,
     executed_control_steps,
     truncate_arc_token,
 )
@@ -54,6 +55,85 @@ def test_truncate_arc_token_keeps_matching_timing_rows(mode, rows, expected_rows
         np.testing.assert_array_equal(truncated[K:], token[M : M + K])
 
 
+def _duration_arc_token(M: int, interval_duration: float) -> np.ndarray:
+    token = np.zeros((2 * M, 14), dtype=np.float64)
+    positions = np.linspace(0.0, 0.4, M)
+    token[:M, 0] = positions
+    token[:M, 7] = positions
+    token[M:, 0] = interval_duration
+    token[M:, 7] = interval_duration
+    return token
+
+
+def _per_waypoint_arc_token(M: int, interval_duration: float) -> np.ndarray:
+    token = np.zeros((2 * M, 14), dtype=np.float64)
+    positions = np.linspace(0.0, 0.4, M)
+    token[:M, 0] = positions
+    token[:M, 7] = positions
+    interval_speed = (positions[1] - positions[0]) / interval_duration
+    token[M:, 0] = interval_speed
+    token[M:, 7] = interval_speed
+    return token
+
+
+def test_arc_prefix_keeps_30_of_100_waypoints_and_recovers_frame_stride():
+    dt = 1.0 / 30.0
+    token = _duration_arc_token(100, dt)
+    partial = truncate_arc_token(token, 0.30, "duration")
+
+    assert partial.shape == (60, 14)
+    np.testing.assert_array_equal(partial[:30], token[:30])
+    np.testing.assert_array_equal(partial[30:], token[100:130])
+    # Thirty waypoints contain 29 timed intervals from the current waypoint.
+    assert arc_prefix_control_steps(token, 0.30, "duration", dt) == 29
+
+
+def test_arc_prefix_video_stride_follows_predicted_waypoint_timing():
+    dt = 1.0 / 30.0
+    token = _per_waypoint_arc_token(100, 2.0 * dt)
+
+    # The first 30 waypoints span 29 intervals at two video frames each.
+    assert arc_prefix_control_steps(token, 0.30, "per_waypoint", dt) == 58
+
+
+def test_arc_replan_stride_changes_with_predicted_timing():
+    evaluator = OpenLoopSimEval.__new__(OpenLoopSimEval)
+    evaluator.execute_fraction = 0.5
+    evaluator.execute_steps = 25
+    evaluator.control_horizon = 100
+    evaluator.control_dt = 1.0 / 30.0
+    evaluator.action_mode = "arc"
+    evaluator.resampled_vector_length = 5
+    evaluator.velocity_mode = "duration"
+    evaluator.min_distance_unit = 0.4
+    evaluator._arc_tokenizer = None
+    evaluator.require_episode_start = True
+    evaluator.limit_val_episodes = None
+
+    def records(token):
+        return [
+            {
+                "source": "yam_bimanual",
+                "label": "yam_bimanual",
+                "episode": "episode-a",
+                "frame": frame,
+                "prediction": token,
+                "ground_truth": np.zeros((100, 14)),
+            }
+            for frame in range(12)
+        ]
+
+    fast = evaluator._score_episode(records(_duration_arc_token(5, evaluator.control_dt)))
+    slow = evaluator._score_episode(
+        records(_duration_arc_token(5, 3.0 * evaluator.control_dt))
+    )
+
+    # The same waypoint prefix spans 2 frames at the fast timing and 6 at the
+    # slow timing, so the oracle-observation replanning boundaries differ.
+    assert fast["segments"] == 6
+    assert slow["segments"] == 2
+
+
 def test_open_loop_sim_walks_an_episode_in_executed_prefixes():
     evaluator = _baseline_evaluator()
     records = []
@@ -72,6 +152,7 @@ def test_open_loop_sim_walks_an_episode_in_executed_prefixes():
     result = evaluator._score_episode(records)
     assert result["executed_steps"] == 6
     assert result["segments"] == 3
+    assert result["segment_control_steps"] == [2, 2, 2]
     assert result["coverage"] == pytest.approx(1.0)
     assert result["metrics"]["mse"] == pytest.approx(1.0)
     assert result["metrics"]["xyz_mse"] == pytest.approx(1.0)
@@ -157,7 +238,7 @@ def test_open_loop_sim_detokenizes_only_the_executed_arc_prefix():
     token[4:, 0] = 0.1
     token[4:, 7] = 0.1
     decoded = evaluator._decode_prediction(token)
-    assert decoded.shape == (2, 14)
+    assert decoded.shape == (3, 14)
     assert np.isfinite(decoded).all()
 
 
@@ -268,3 +349,52 @@ def test_open_loop_video_uploads_only_first_episode_per_panel(monkeypatch):
         "Val_video_nested/yam_bimanual",
     ]
     assert payload["Val_video/yam_bimanual"]["path"] == "/tmp/episode-a.mp4"
+
+
+def test_open_loop_video_holds_each_overlay_until_variable_replan_boundary():
+    evaluator = _baseline_evaluator()
+    evaluator.action_key = "actions_cartesian"
+    evaluator.ground_truth_action_key = "actions_cartesian"
+    evaluator.obs_pose_key = "observations.state.ee_pose"
+    evaluator._validation_group = "valid"
+    evaluator._video_replan_states = {}
+    evaluator._native = lambda value, embodiment_id: value
+    evaluator._native_key = lambda value, key, embodiment_id: value
+
+    def decode(value, *, max_steps=None):
+        steps = min(int(value[0, 0]), int(max_steps))
+        return value[:steps], steps
+
+    evaluator._decode_prediction_with_steps = decode
+    stride_markers = [2, 99, 3, 99, 99, 1]
+    prediction = torch.stack(
+        [torch.full((4, 14), float(marker)) for marker in stride_markers]
+    )
+    source_batch = {
+        "episode_hash": ["episode-a"] * 6,
+        "frame_index": torch.arange(6),
+        "actions_cartesian": torch.stack(
+            [torch.full((4, 14), float(frame)) for frame in range(6)]
+        ),
+        "observations.state.ee_pose": torch.stack(
+            [torch.full((14,), float(frame)) for frame in range(6)]
+        ),
+    }
+
+    video_batch, video_prediction = evaluator._video_replan_batch(
+        source_id="yam_bimanual",
+        source_batch=source_batch,
+        prediction=prediction,
+        embodiment_id=0,
+    )
+
+    assert video_prediction[:, 0, 0].tolist() == [2, 2, 3, 3, 3, 1]
+    assert video_batch["actions_cartesian"][:, 0, 0].tolist() == [0, 0, 2, 2, 2, 5]
+    assert video_batch["observations.state.ee_pose"][:, 0].tolist() == [
+        0,
+        0,
+        2,
+        2,
+        2,
+        5,
+    ]

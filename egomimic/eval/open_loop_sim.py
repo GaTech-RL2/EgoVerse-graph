@@ -5,8 +5,9 @@ averaging independent action chunks.  Validation samples are observations at
 known episode/frame indices.  We cache the prediction made from each
 observation, then replay the episode at validation end:
 
-* execute the first ``execute_fraction`` of a baseline control chunk, or the
-  corresponding fraction of ARC waypoints;
+* execute the first ``execute_fraction`` of a baseline control chunk, or cap
+  ARC by an exact waypoint prefix (default) or interpolated combined-arm
+  distance prefix;
 * compare those control-frequency commands with the ground-truth commands;
 * advance to the observation at the resulting frame;
 * repeat until the episode ends.
@@ -45,6 +46,31 @@ XYZ_COLS = (0, 1, 2, 7, 8, 9)
 YPR_COLS = (3, 4, 5, 10, 11, 12)
 GRIP_COLS = (6, 13)
 PAIRED_COLS = XYZ_COLS + GRIP_COLS
+ARC_EXECUTION_CAP_MODES = ("waypoints", "distance")
+ARC_VIDEO_TRAJECTORY_CAP_MODES = ("execution_horizon", "joint_distance")
+
+
+def validate_arc_execution_cap_mode(mode: str) -> str:
+    """Normalize the two supported ARC execution-cap semantics."""
+    value = str(mode).strip().lower()
+    if value not in ARC_EXECUTION_CAP_MODES:
+        raise ValueError(
+            "arc_execution_cap_mode must be one of "
+            f"{ARC_EXECUTION_CAP_MODES}, got {mode!r}"
+        )
+    return value
+
+
+def validate_arc_video_trajectory_cap_mode(mode: str) -> str:
+    """Normalize ARC overlay capping independently of metric semantics."""
+
+    value = str(mode).strip().lower()
+    if value not in ARC_VIDEO_TRAJECTORY_CAP_MODES:
+        raise ValueError(
+            "arc_video_trajectory_cap_mode must be one of "
+            f"{ARC_VIDEO_TRAJECTORY_CAP_MODES}, got {mode!r}"
+        )
+    return value
 
 
 def executed_control_steps(control_horizon: int, execute_fraction: float) -> int:
@@ -59,17 +85,68 @@ def executed_control_steps(control_horizon: int, execute_fraction: float) -> int
     return max(1, min(horizon, int(math.ceil(horizon * fraction))))
 
 
-def truncate_arc_token(
-    token: np.ndarray, execute_fraction: float, velocity_mode: str
-) -> np.ndarray:
-    """Keep the first waypoint fraction of an ARC token.
+def executed_arc_waypoints(num_waypoints: int, execute_fraction: float) -> int:
+    """Return an exact integral M-based ARC execution prefix."""
+    M = int(num_waypoints)
+    fraction = float(execute_fraction)
+    if M < 2:
+        raise ValueError("num_waypoints must be at least two")
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError("execute_fraction must be in (0, 1]")
+    scaled = M * fraction
+    count = int(round(scaled))
+    if not math.isclose(scaled, count, rel_tol=0.0, abs_tol=1e-9):
+        raise ValueError(
+            "M-based ARC execution requires M * execute_fraction to be an "
+            f"integer, got {M} * {fraction} = {scaled}"
+        )
+    if count < 2:
+        raise ValueError(
+            "M-based ARC execution must retain at least two waypoints, " f"got {count}"
+        )
+    return count
 
-    ARC waypoints are already uniformly resampled in distance by the tokenizer.
-    For ``M=100`` and ``execute_fraction=0.30``, this keeps exactly the first
-    30 waypoint rows. ``mean`` has one timing row; the granular
-    ``per_waypoint`` and ``duration`` modes have one timing row per waypoint.
-    Timing is preserved so detokenization can recover the variable number of
-    30 Hz control frames needed to traverse the retained waypoint prefix.
+
+def truncate_arc_token_by_waypoints(
+    token: np.ndarray,
+    execute_fraction: float,
+    velocity_mode: str,
+) -> np.ndarray:
+    """Keep exactly ``execute_fraction * M`` waypoints and timing rows."""
+    mode = validate_bimanual_velocity_mode(velocity_mode)
+    if mode != "per_waypoint":
+        raise ValueError(
+            "M-based ARC execution requires velocity_mode='per_waypoint', "
+            f"got {mode!r}"
+        )
+    value = np.asarray(token, dtype=np.float64)
+    if value.ndim != 2 or value.shape[1] != 14:
+        raise ValueError(f"ARC token must have shape (rows, 14), got {value.shape}")
+    rows = int(value.shape[0])
+    M = rows // 2
+    if rows != bimanual_arc_token_rows(M, mode):
+        raise ValueError(
+            f"ARC token has {rows} rows, inconsistent with M={M} and mode={mode!r}"
+        )
+    count = executed_arc_waypoints(M, execute_fraction)
+    waypoints = value[:count].copy()
+    timing = value[M : M + count].copy()
+    return np.concatenate((waypoints, timing), axis=0)
+
+
+def truncate_arc_token(
+    token: np.ndarray,
+    execute_fraction: float,
+    velocity_mode: str,
+    min_distance_unit: float,
+) -> np.ndarray:
+    """Keep the prefix covering ``execute_fraction * D`` combined arm travel.
+
+    The distance coordinate is cumulative
+    ``||delta_left_xyz|| + ||delta_right_xyz||``. If the target falls inside a
+    waypoint interval, the final waypoint is interpolated to land exactly on
+    the target. Matching timing rows are retained so detokenization recovers
+    the variable 30 Hz execution horizon.
     """
 
     mode = validate_bimanual_velocity_mode(velocity_mode)
@@ -86,13 +163,114 @@ def truncate_arc_token(
     fraction = float(execute_fraction)
     if not 0.0 < fraction <= 1.0:
         raise ValueError("execute_fraction must be in (0, 1]")
-    waypoint_count = max(2, min(M, int(math.ceil(M * fraction))))
-    waypoints = value[:waypoint_count].copy()
+    distance = float(min_distance_unit)
+    if not math.isfinite(distance) or distance <= 0.0:
+        raise ValueError("min_distance_unit must be positive and finite")
+
+    all_waypoints = value[:M]
+    left_step = np.linalg.norm(np.diff(all_waypoints[:, 0:3], axis=0), axis=-1)
+    right_step = np.linalg.norm(
+        np.diff(all_waypoints[:, 7:10], axis=0), axis=-1
+    )
+    interval_distance = left_step + right_step
+    cumulative = np.concatenate(([0.0], np.cumsum(interval_distance)))
+    target = fraction * distance
+    crossing = np.flatnonzero(cumulative >= target)
+
+    partial_alpha = 1.0
+    if not len(crossing):
+        waypoint_count = M
+        waypoints = all_waypoints.copy()
+    else:
+        end_index = max(1, int(crossing[0]))
+        interval = float(interval_distance[end_index - 1])
+        partial_alpha = (
+            1.0
+            if interval <= 1e-12
+            else float(
+                np.clip(
+                    (target - cumulative[end_index - 1]) / interval,
+                    0.0,
+                    1.0,
+                )
+            )
+        )
+        waypoint_count = end_index + 1
+        waypoints = all_waypoints[:waypoint_count].copy()
+        if partial_alpha < 1.0:
+            waypoints[-1] = (
+                all_waypoints[end_index - 1]
+                + partial_alpha
+                * (all_waypoints[end_index] - all_waypoints[end_index - 1])
+            )
     if granular:
         timing = value[M : M + waypoint_count].copy()
+        if mode == "duration" and partial_alpha < 1.0:
+            timing[waypoint_count - 2, (0, 7)] *= partial_alpha
     else:
         timing = value[M : M + 1].copy()
     return np.concatenate((waypoints, timing), axis=0)
+
+
+def truncate_cartesian_trajectory_by_joint_distance(
+    trajectory: np.ndarray, max_distance: float
+) -> np.ndarray:
+    """Interpolate a control trajectory at combined left-plus-right travel."""
+
+    value = np.asarray(trajectory, dtype=np.float64)
+    if value.ndim != 2 or value.shape[1] != 14:
+        raise ValueError(
+            "cartesian trajectory must have shape (T, 14), "
+            f"got {value.shape}"
+        )
+    distance = float(max_distance)
+    if not math.isfinite(distance) or distance <= 0.0:
+        raise ValueError("max_distance must be positive and finite")
+    if len(value) < 2:
+        return value.copy()
+
+    interval_distance = np.linalg.norm(
+        np.diff(value[:, 0:3], axis=0), axis=-1
+    ) + np.linalg.norm(np.diff(value[:, 7:10], axis=0), axis=-1)
+    cumulative = np.concatenate(([0.0], np.cumsum(interval_distance)))
+    crossing = np.flatnonzero(cumulative >= distance)
+    if not len(crossing):
+        return value.copy()
+
+    end_index = int(crossing[0])
+    if end_index < 1:
+        return value[:1].copy()
+    interval = float(interval_distance[end_index - 1])
+    alpha = (
+        1.0
+        if interval <= 1e-12
+        else float(
+            np.clip(
+                (distance - cumulative[end_index - 1]) / interval,
+                0.0,
+                1.0,
+            )
+        )
+    )
+    result = value[: end_index + 1].copy()
+    result[-1] = value[end_index - 1] + alpha * (
+        value[end_index] - value[end_index - 1]
+    )
+    return result
+
+
+def arc_execution_prefix(
+    token: np.ndarray,
+    execute_fraction: float,
+    velocity_mode: str,
+    min_distance_unit: float,
+    arc_execution_cap_mode: str,
+) -> np.ndarray:
+    """Apply either exact M-based or interpolated distance-based capping."""
+    cap_mode = validate_arc_execution_cap_mode(arc_execution_cap_mode)
+    if cap_mode == "waypoints":
+        return truncate_arc_token_by_waypoints(token, execute_fraction, velocity_mode)
+    return truncate_arc_token(token, execute_fraction, velocity_mode, min_distance_unit)
 
 
 def arc_prefix_control_steps(
@@ -100,15 +278,23 @@ def arc_prefix_control_steps(
     execute_fraction: float,
     velocity_mode: str,
     control_dt: float,
+    min_distance_unit: float,
     *,
+    arc_execution_cap_mode: str = "waypoints",
     max_steps: int | None = None,
 ) -> int:
-    """Recover the control-frame stride for an ARC waypoint prefix."""
+    """Recover the control-frame stride for the configured ARC prefix."""
 
     dt = float(control_dt)
     if dt <= 0.0:
         raise ValueError("control_dt must be positive")
-    partial = truncate_arc_token(token, execute_fraction, velocity_mode)
+    partial = arc_execution_prefix(
+        token,
+        execute_fraction,
+        velocity_mode,
+        min_distance_unit,
+        arc_execution_cap_mode,
+    )
     mode = validate_bimanual_velocity_mode(velocity_mode)
     granular = mode in ("per_waypoint", "duration")
     M = len(partial) // 2 if granular else len(partial) - 1
@@ -162,11 +348,12 @@ def arc_prefix_control_steps(
 class OpenLoopSimEval(BimanualCartesianEval):
     """Compare baseline and ARC policies over complete recorded episodes.
 
-    ``execute_fraction`` is applied in representation space. A baseline uses
-    the first prefix of its time-indexed action chunk. An ARC policy keeps the
-    requested fraction of its distance-resampled ``M`` waypoints, carries the
-    matching timing rows, and recovers the corresponding variable control-frame
-    stride before requesting the next observation.
+    A baseline executes the requested fraction of its time-indexed action
+    chunk. ARC supports two explicit caps before detokenization: ``waypoints``
+    keeps exactly ``execute_fraction * M`` waypoint and per-waypoint velocity
+    rows; ``distance`` interpolates its terminal waypoint at
+    ``execute_fraction * D`` cumulative left-plus-right EEF translation. Token
+    timing recovers the corresponding variable control-frame stride.
 
     The evaluator expects validation to contain every frame of each episode,
     with ``episode_hash`` and ``frame_index`` metadata. It accumulates model
@@ -182,14 +369,19 @@ class OpenLoopSimEval(BimanualCartesianEval):
         *,
         action_key: str = "actions_cartesian",
         ground_truth_action_key: str = "actions_cartesian_untokenized",
-        execute_fraction: float = 0.25,
+        execute_fraction: float = 0.30,
         control_horizon: int = 100,
         control_dt: float = 1.0 / 30.0,
         action_mode: str = "auto",
+        arc_execution_cap_mode: str = "waypoints",
+        arc_video_trajectory_cap_mode: str = "joint_distance",
         min_distance_unit: float = 0.40,
         resampled_vector_length: int = 100,
-        velocity_mode: str = "mean",
+        velocity_mode: str = "per_waypoint",
+        log_step: int | None = None,
         results_path: str | None = None,
+        trajectory_snapshot_path: str | None = None,
+        video_only: bool = False,
         require_episode_start: bool = True,
         limit_val_episodes: int | None = None,
         requires_ordered_validation: bool = True,
@@ -211,16 +403,53 @@ class OpenLoopSimEval(BimanualCartesianEval):
             raise ValueError("action_mode must be auto, baseline, or arc")
         if float(control_dt) <= 0:
             raise ValueError("control_dt must be positive")
+        if (
+            not math.isfinite(float(min_distance_unit))
+            or float(min_distance_unit) <= 0
+        ):
+            raise ValueError("min_distance_unit must be positive and finite")
         validate_bimanual_velocity_mode(velocity_mode)
         self.execute_fraction = float(execute_fraction)
         self.control_horizon = int(control_horizon)
         self.control_dt = float(control_dt)
         self.action_mode = mode
+        self.arc_execution_cap_mode = validate_arc_execution_cap_mode(
+            arc_execution_cap_mode
+        )
+        self.arc_video_trajectory_cap_mode = (
+            validate_arc_video_trajectory_cap_mode(arc_video_trajectory_cap_mode)
+        )
         self.ground_truth_action_key = str(ground_truth_action_key)
         self.min_distance_unit = float(min_distance_unit)
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
+        self.execute_arc_waypoints = (
+            executed_arc_waypoints(self.resampled_vector_length, self.execute_fraction)
+            if mode == "arc" and self.arc_execution_cap_mode == "waypoints"
+            else None
+        )
+        if (
+            mode == "arc"
+            and self.arc_execution_cap_mode == "waypoints"
+            and self.velocity_mode != "per_waypoint"
+        ):
+            raise ValueError(
+                "M-based ARC execution requires velocity_mode='per_waypoint'"
+            )
+        self.log_step = None if log_step is None else int(log_step)
+        if self.log_step is not None and self.log_step < 0:
+            raise ValueError("log_step must be nonnegative")
         self.results_path = Path(results_path) if results_path else None
+        self.trajectory_snapshot_path = (
+            Path(trajectory_snapshot_path) if trajectory_snapshot_path else None
+        )
+        if (
+            self.trajectory_snapshot_path is not None
+            and self.trajectory_snapshot_path.suffix != ".npz"
+        ):
+            raise ValueError("trajectory_snapshot_path must end in .npz")
+        self._trajectory_snapshot_written = False
+        self.video_only = bool(video_only)
         self.require_episode_start = bool(require_episode_start)
         self.limit_val_episodes = (
             None if limit_val_episodes is None else int(limit_val_episodes)
@@ -274,6 +503,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
             **kwargs,
         )
         self._video_enabled = bool(self.viz_func)
+        if self.video_only and not self._video_enabled:
+            raise ValueError("video_only requires a configured visualization function")
         self.execute_steps = executed_control_steps(
             self.control_horizon, self.execute_fraction
         )
@@ -281,103 +512,19 @@ class OpenLoopSimEval(BimanualCartesianEval):
     def on_validation_start(self):
         if self._video_enabled:
             EvalVideo.on_validation_start(self)
-        self._video_replan_states = {}
         self._records = []
         self.last_results = None
+        self._trajectory_snapshot_written = False
         if self.model is not None:
             try:
                 self._metric_device = next(self.model.parameters()).device
             except StopIteration:
                 pass
 
-    def _video_replan_batch(
-        self,
-        *,
-        source_id: str,
-        source_batch: Mapping,
-        prediction: torch.Tensor,
-        embodiment_id: int,
-    ) -> tuple[Mapping, torch.Tensor]:
-        """Reuse each executed chunk overlay until its replan boundary.
-
-        The underlying validation image advances every frame. The predicted
-        and ground-truth trajectory overlays are sampled only at evaluator
-        replan frames and held fixed for the decoded execution length. This
-        makes the MP4 show exactly the same schedule used by ``_score_episode``.
-        """
-
-        batch_size = int(prediction.shape[0])
-        episodes = [
-            str(value)
-            for value in self._batch_values(
-                source_batch["episode_hash"], batch_size, "episode_hash"
-            )
-        ]
-        frames = [
-            int(value)
-            for value in self._batch_values(
-                source_batch["frame_index"], batch_size, "frame_index"
-            )
-        ]
-        target_key = (
-            self.ground_truth_action_key
-            if self.ground_truth_action_key in source_batch
-            else self.action_key
-        )
-        prediction_native = (
-            self._native(prediction, embodiment_id).detach().cpu().numpy()
-        )
-        target_native = (
-            self._native_key(source_batch[target_key], target_key, embodiment_id)
-            .detach()
-            .cpu()
-            .numpy()
-        )
-        if target_native.ndim != 3 or target_native.shape[0] != batch_size:
-            raise ValueError(
-                "open_loop_sim video ground truth must be batched as (B, T, 14), "
-                f"got {target_native.shape}"
-            )
-
-        video_predictions = []
-        video_targets = []
-        video_observations = []
-        group = self._validation_group or DEFAULT_VALID_GROUP
-        for index, (episode, frame) in enumerate(zip(episodes, frames)):
-            state_key = (group, source_id, episode)
-            state = self._video_replan_states.get(state_key)
-            if state is None or frame >= state["next_frame"]:
-                if state is not None and frame > state["next_frame"]:
-                    raise RuntimeError(
-                        "open_loop_sim video skipped replan frame "
-                        f"{state['next_frame']} for episode {episode!r}; got {frame}"
-                    )
-                _, steps = self._decode_prediction_with_steps(
-                    prediction_native[index],
-                    max_steps=int(target_native.shape[1]),
-                )
-                state = {
-                    "next_frame": frame + steps,
-                    "prediction": prediction[index].detach().clone(),
-                    "target": source_batch[target_key][index].detach().clone(),
-                    "observation": (
-                        source_batch[self.obs_pose_key][index].detach().clone()
-                    ),
-                }
-                self._video_replan_states[state_key] = state
-            video_predictions.append(state["prediction"])
-            video_targets.append(state["target"])
-            video_observations.append(state["observation"])
-
-        video_batch = dict(source_batch)
-        video_batch[target_key] = torch.stack(video_targets)
-        video_batch[self.obs_pose_key] = torch.stack(video_observations)
-        return video_batch, torch.stack(video_predictions)
-
     def _decoded_video_predictions(
         self, prediction: torch.Tensor, embodiment_id: int, max_steps: int
     ) -> tuple[torch.Tensor, list[int]]:
-        """Decode each predicted token/chunk to executed control-frequency rows."""
+        """Decode only each frame's independently executed prediction prefix."""
 
         native = self._native(prediction, embodiment_id).detach().cpu().numpy()
         decoded_with_steps = [
@@ -398,6 +545,50 @@ class OpenLoopSimEval(BimanualCartesianEval):
             lengths,
         )
 
+    def _cap_arc_video_trajectories(
+        self,
+        prediction: torch.Tensor,
+        ground_truth: torch.Tensor,
+        prefix_lengths: list[int],
+    ) -> tuple[torch.Tensor, torch.Tensor, list[int], list[int]]:
+        """Cap both ARC overlays at ``execute_fraction * D`` joint travel."""
+
+        cap = self.execute_fraction * self.min_distance_unit
+        pred_np = prediction.detach().cpu().numpy()
+        gt_np = ground_truth.detach().cpu().numpy()
+        pred_values = []
+        gt_values = []
+        pred_lengths = []
+        gt_lengths = []
+        for index, steps in enumerate(prefix_lengths):
+            pred = truncate_cartesian_trajectory_by_joint_distance(
+                pred_np[index, :steps], cap
+            )
+            gt = truncate_cartesian_trajectory_by_joint_distance(
+                gt_np[index, :steps], cap
+            )
+            pred_values.append(pred)
+            gt_values.append(gt)
+            pred_lengths.append(len(pred))
+            gt_lengths.append(len(gt))
+
+        width = max(max(pred_lengths), max(gt_lengths))
+
+        def _pad(values: list[np.ndarray]) -> torch.Tensor:
+            padded = []
+            for value in values:
+                if len(value) < width:
+                    value = np.concatenate(
+                        (value, np.repeat(value[-1:], width - len(value), axis=0)),
+                        axis=0,
+                    )
+                padded.append(value)
+            return torch.from_numpy(
+                np.stack(padded).astype(np.float32, copy=False)
+            )
+
+        return _pad(pred_values), _pad(gt_values), pred_lengths, gt_lengths
+
     def _maybe_log_open_loop_video(
         self,
         *,
@@ -409,10 +600,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
     ) -> None:
         """Render one frame per validation sample and buffer by episode hash.
 
-        The metric path stores only the executed prefix. The video path uses
-        exactly that same decoded prefix for both baseline and ARC predictions,
-        and the preserved control-frequency ground truth, so the visualization
-        cannot silently show a different trajectory from the reported score.
+        Like the metric path, each video frame shows only the independently
+        executed prediction prefix and its matching control-frequency ground
+        truth. ARC uses the configured waypoint- or distance-based cap before
+        its decoded timing determines the frame width.
         """
 
         if not getattr(self, "_video_enabled", False) or not getattr(
@@ -422,20 +613,16 @@ class OpenLoopSimEval(BimanualCartesianEval):
         viz_partial = self.viz_func.get(embodiment_name)
         if viz_partial is None or self.obs_pose_key not in source_batch:
             return
-        source_batch, prediction = self._video_replan_batch(
-            source_id=source_id,
-            source_batch=source_batch,
-            prediction=prediction,
-            embodiment_id=embodiment_id,
-        )
         target_key = (
             self.ground_truth_action_key
             if self.ground_truth_action_key in source_batch
             else self.action_key
         )
-        gt_native = self._native_key(
-            source_batch[target_key], target_key, embodiment_id
-        ).detach().cpu()
+        gt_native = (
+            self._native_key(source_batch[target_key], target_key, embodiment_id)
+            .detach()
+            .cpu()
+        )
         if gt_native.ndim != 3 or gt_native.shape[0] != prediction.shape[0]:
             raise ValueError(
                 "open_loop_sim video ground truth must be batched as (B, T, 14), "
@@ -455,9 +642,35 @@ class OpenLoopSimEval(BimanualCartesianEval):
             gt_prefixes.append(value)
         gt_native = torch.stack(gt_prefixes).to(dtype=pred_native.dtype)
 
-        obs_pose_native = self._native_pose(
-            source_batch[self.obs_pose_key], embodiment_id
-        ).detach().cpu()
+        prediction_lengths = list(prefix_lengths)
+        ground_truth_lengths = list(prefix_lengths)
+        is_arc_video = self.action_mode == "arc" or (
+            self.action_mode == "auto"
+            and self._is_arc_prediction(prediction[0].detach().cpu().numpy())
+        )
+        if (
+            is_arc_video
+            and getattr(
+                self,
+                "arc_video_trajectory_cap_mode",
+                "execution_horizon",
+            )
+            == "joint_distance"
+        ):
+            (
+                pred_native,
+                gt_native,
+                prediction_lengths,
+                ground_truth_lengths,
+            ) = self._cap_arc_video_trajectories(
+                pred_native, gt_native, prefix_lengths
+            )
+
+        obs_pose_native = (
+            self._native_pose(source_batch[self.obs_pose_key], embodiment_id)
+            .detach()
+            .cpu()
+        )
         if obs_pose_native.ndim == 3 and obs_pose_native.shape[1] == 1:
             obs_pose_native = obs_pose_native.squeeze(1)
         pred_camframe = self._revert_to_camframe(
@@ -472,6 +685,15 @@ class OpenLoopSimEval(BimanualCartesianEval):
         )
         if pred_camframe is None or gt_camframe is None:
             return
+
+        self._write_trajectory_snapshot(
+            source_id=source_id,
+            source_batch=source_batch,
+            prediction=pred_camframe,
+            ground_truth=gt_camframe,
+            prediction_length=prediction_lengths[0],
+            ground_truth_length=ground_truth_lengths[0],
+        )
 
         images = source_batch[self.image_key]
         if images.ndim == 5:
@@ -490,7 +712,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if "intrinsics" in source_batch:
             flat_batch["intrinsics"] = source_batch["intrinsics"].detach().cpu()
         flat_batch.update(
-            overlay_annotation_fields(viz_partial, {**source_batch, "source": source_id})
+            overlay_annotation_fields(
+                viz_partial, {**source_batch, "source": source_id}
+            )
         )
         try:
             frames = viz_partial(predictions=flat_predictions, batch=flat_batch)
@@ -517,6 +741,64 @@ class OpenLoopSimEval(BimanualCartesianEval):
         out_dir = self._group_video_dir(group, embodiment_name)
         self._buffer_per_episode(buf_key, out_dir, list(frame_tensor), hashes)
 
+    def _write_trajectory_snapshot(
+        self,
+        *,
+        source_id: str,
+        source_batch: Mapping,
+        prediction,
+        ground_truth,
+        prediction_length: int,
+        ground_truth_length: int,
+    ) -> None:
+        """Save the first rendered executed prefix for speed/shape diagnostics."""
+
+        path = getattr(self, "trajectory_snapshot_path", None)
+        if path is None or getattr(self, "_trajectory_snapshot_written", False):
+            return
+
+        def _numpy(value) -> np.ndarray:
+            if isinstance(value, torch.Tensor):
+                value = value.detach().cpu().numpy()
+            return np.asarray(value)
+
+        pred = _numpy(prediction)
+        gt = _numpy(ground_truth)
+        if pred.ndim != 3 or gt.ndim != 3 or pred.shape[0] < 1 or gt.shape[0] < 1:
+            raise ValueError(
+                "trajectory snapshot expects batched (B, T, 14) camera-frame arrays"
+            )
+        pred_steps = min(int(prediction_length), int(pred.shape[1]))
+        gt_steps = min(int(ground_truth_length), int(gt.shape[1]))
+        if pred_steps < 1 or gt_steps < 1:
+            raise ValueError("trajectory snapshot execution prefix is empty")
+
+        batch_size = int(pred.shape[0])
+        episode = self._batch_values(
+            source_batch["episode_hash"], batch_size, "episode_hash"
+        )[0]
+        frame = -1
+        if "frame_index" in source_batch:
+            frame = int(
+                self._batch_values(
+                    source_batch["frame_index"], batch_size, "frame_index"
+                )[0]
+            )
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(
+            path,
+            prediction=pred[0, :pred_steps].astype(np.float32, copy=False),
+            ground_truth=gt[0, :gt_steps].astype(np.float32, copy=False),
+            control_dt=np.asarray(self.control_dt, dtype=np.float64),
+            source_id=np.asarray(str(source_id)),
+            episode_hash=np.asarray(str(episode)),
+            frame_index=np.asarray(frame, dtype=np.int64),
+            action_mode=np.asarray(str(self.action_mode)),
+            arc_execution_cap_mode=np.asarray(str(self.arc_execution_cap_mode)),
+        )
+        self._trajectory_snapshot_written = True
+
     def _log_wandb_videos(self) -> None:
         """Upload only the first episode MP4 for each val loop/panel."""
 
@@ -538,7 +820,13 @@ class OpenLoopSimEval(BimanualCartesianEval):
             payload[f"{prefix}/{embodiment_name}"] = wandb.Video(
                 path, fps=self._video_fps(), format="mp4"
             )
-        experiment.log(payload, step=int(getattr(self.trainer, "global_step", 0)))
+        experiment.log(payload, step=self._resolved_log_step())
+
+    def _resolved_log_step(self) -> int:
+        log_step = getattr(self, "log_step", None)
+        if log_step is not None:
+            return int(log_step)
+        return int(getattr(self.trainer, "global_step", 0))
 
     @staticmethod
     def _batch_values(value, batch_size: int, label: str) -> list:
@@ -618,19 +906,25 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 dt=self.control_dt,
                 velocity_mode=self.velocity_mode,
             )
-        partial = truncate_arc_token(
-            prediction, self.execute_fraction, self.velocity_mode
+        partial = arc_execution_prefix(
+            prediction,
+            self.execute_fraction,
+            self.velocity_mode,
+            self.min_distance_unit,
+            self.arc_execution_cap_mode,
         )
         steps = arc_prefix_control_steps(
             prediction,
             self.execute_fraction,
             self.velocity_mode,
             self.control_dt,
+            self.min_distance_unit,
+            arc_execution_cap_mode=self.arc_execution_cap_mode,
             max_steps=max_steps,
         )
-        decoded = self._arc_tokenizer.detokenize(
-            partial, action_horizon=steps
-        ).astype(np.float64, copy=False)
+        decoded = self._arc_tokenizer.detokenize(partial, action_horizon=steps).astype(
+            np.float64, copy=False
+        )
         return decoded, steps
 
     def _decode_prediction(self, prediction: np.ndarray) -> np.ndarray:
@@ -700,7 +994,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         result = self._forward_deterministic(batch)
         for source_id, source_batch in batch.items():
             prediction = result[source_id]["pred_action"]
-            self._append_source_records(source_id, source_batch, prediction)
+            if not getattr(self, "video_only", False):
+                self._append_source_records(source_id, source_batch, prediction)
             if getattr(self, "_video_enabled", False) and self._should_viz(batch_idx):
                 embodiment_id, embodiment_name = self._embodiment(source_batch)
                 self._maybe_log_open_loop_video(
@@ -896,25 +1191,32 @@ class OpenLoopSimEval(BimanualCartesianEval):
         results.update(
             {
                 "execute_fraction": self.execute_fraction,
-                "execute_control_steps": self.execute_steps,
+                "execute_control_steps": (
+                    self.execute_steps if self.action_mode != "arc" else None
+                ),
+                "arc_execution_cap_mode": (
+                    self.arc_execution_cap_mode if self.action_mode == "arc" else None
+                ),
                 "execute_arc_waypoints": (
-                    max(
-                        2,
-                        min(
-                            self.resampled_vector_length,
-                            int(
-                                math.ceil(
-                                    self.resampled_vector_length
-                                    * self.execute_fraction
-                                )
-                            ),
-                        ),
-                    )
+                    self.execute_arc_waypoints
                     if self.action_mode == "arc"
+                    and self.arc_execution_cap_mode == "waypoints"
+                    else None
+                ),
+                "execute_arc_distance_m": (
+                    self.execute_fraction * self.min_distance_unit
+                    if self.action_mode == "arc"
+                    and self.arc_execution_cap_mode == "distance"
+                    else None
+                ),
+                "arc_distance_semantics": (
+                    "combined_left_plus_right_translation"
+                    if self.action_mode == "arc"
+                    and self.arc_execution_cap_mode == "distance"
                     else None
                 ),
                 "replan_stride_mode": (
-                    "arc_waypoint_timing"
+                    f"arc_{self.arc_execution_cap_mode}_timing"
                     if self.action_mode == "arc"
                     else "fixed_control_frames"
                 ),
@@ -960,6 +1262,17 @@ class OpenLoopSimEval(BimanualCartesianEval):
         }
 
     def on_validation_end(self):
+        if getattr(self, "video_only", False):
+            self.last_results = None
+            if dist.is_available() and dist.is_initialized() and dist.get_rank() != 0:
+                return None
+            if self.trainer is not None and not getattr(
+                self.trainer, "is_global_zero", True
+            ):
+                return None
+            EvalVideo.on_validation_end(self)
+            return None
+
         records = self._all_records()
         results = self._compute_results(records)
         self.last_results = results
@@ -988,11 +1301,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     key: float(value.detach().cpu().item())
                     for key, value in self._metric_tensors(results).items()
                 }
-                step = getattr(self.trainer, "global_step", None)
-                if step is None:
-                    logger.log_metrics(metrics)
-                else:
-                    logger.log_metrics(metrics, step=step)
+                logger.log_metrics(metrics, step=self._resolved_log_step())
         if self.results_path is not None:
             self.results_path.parent.mkdir(parents=True, exist_ok=True)
             self.results_path.write_text(json.dumps(results, indent=2) + "\n")

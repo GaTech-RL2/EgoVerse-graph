@@ -557,12 +557,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 cfg, "norm_stats.precomputed_norm_path", default=None
             ),
         )
-        # Cache norm stats if save_cache_dir is set
-        save_cache_dir = OmegaConf.select(
-            cfg, "norm_stats.save_cache_dir", default=None
-        )
-        if save_cache_dir:
-            norm_stats.cache_stats(save_cache_dir=save_cache_dir)
+    # Publish a complete multi-embodiment cache only after every source loads.
+    # The input cache may be the same path: writing inside the loop would erase
+    # the remaining embodiments before they can read their precomputed stats.
+    save_cache_dir = OmegaConf.select(cfg, "norm_stats.save_cache_dir", default=None)
+    if save_cache_dir:
+        norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
     if cfg.get("norm_stats_only", False):
         if not OmegaConf.select(cfg, "norm_stats.save_cache_dir", default=None):

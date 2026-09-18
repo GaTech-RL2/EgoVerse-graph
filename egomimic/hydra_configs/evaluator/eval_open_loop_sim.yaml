@@ -7,8 +7,8 @@
 #
 # For baseline runs, actions_cartesian is already a time-indexed control chunk.
 # For ARC runs, actions_cartesian_untokenized is the preserved control-space
-# ground-truth chunk and the predicted token is truncated by waypoint fraction
-# and detokenized before scoring.
+# ground-truth chunk. The predicted token is truncated at execute_fraction * D,
+# where D is cumulative left-plus-right EEF translation, then detokenized.
 
 defaults:
   - viz@viz_func: cartesian/base
@@ -20,9 +20,9 @@ action_key: actions_cartesian
 ground_truth_action_key: actions_cartesian_untokenized
 
 # Main sweep knob. 0.25 means execute the first 25 control steps of a 100-step
-# baseline chunk, or the first 25% of ARC waypoints and recover their variable
-# control-frame duration from token timing before requesting the next recorded
-# observation.
+# baseline chunk, or the first 25% of combined-arm ARC distance and recover the
+# variable control-frame duration from token timing before requesting the next
+# recorded observation.
 execute_fraction: 0.25
 control_horizon: 100
 control_dt: 0.03333333333333333

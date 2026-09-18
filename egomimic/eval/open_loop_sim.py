@@ -5,8 +5,8 @@ averaging independent action chunks.  Validation samples are observations at
 known episode/frame indices.  We cache the prediction made from each
 observation, then replay the episode at validation end:
 
-* execute the first ``execute_fraction`` of a baseline control chunk, or the
-  corresponding fraction of ARC waypoints;
+* execute the first ``execute_fraction`` of a baseline control chunk, or that
+  fraction of ARC ``D`` measured as combined left-plus-right EEF travel;
 * compare those control-frequency commands with the ground-truth commands;
 * advance to the observation at the resulting frame;
 * repeat until the episode ends.
@@ -60,16 +60,18 @@ def executed_control_steps(control_horizon: int, execute_fraction: float) -> int
 
 
 def truncate_arc_token(
-    token: np.ndarray, execute_fraction: float, velocity_mode: str
+    token: np.ndarray,
+    execute_fraction: float,
+    velocity_mode: str,
+    min_distance_unit: float,
 ) -> np.ndarray:
-    """Keep the first waypoint fraction of an ARC token.
+    """Keep the prefix covering ``execute_fraction * D`` combined arm travel.
 
-    ARC waypoints are already uniformly resampled in distance by the tokenizer.
-    For ``M=100`` and ``execute_fraction=0.30``, this keeps exactly the first
-    30 waypoint rows. ``mean`` has one timing row; the granular
-    ``per_waypoint`` and ``duration`` modes have one timing row per waypoint.
-    Timing is preserved so detokenization can recover the variable number of
-    30 Hz control frames needed to traverse the retained waypoint prefix.
+    The distance coordinate is cumulative
+    ``||delta_left_xyz|| + ||delta_right_xyz||``. If the target falls inside a
+    waypoint interval, the final waypoint is interpolated to land exactly on
+    the target. Matching timing rows are retained so detokenization recovers
+    the variable 30 Hz execution horizon.
     """
 
     mode = validate_bimanual_velocity_mode(velocity_mode)
@@ -86,10 +88,50 @@ def truncate_arc_token(
     fraction = float(execute_fraction)
     if not 0.0 < fraction <= 1.0:
         raise ValueError("execute_fraction must be in (0, 1]")
-    waypoint_count = max(2, min(M, int(math.ceil(M * fraction))))
-    waypoints = value[:waypoint_count].copy()
+    distance = float(min_distance_unit)
+    if not math.isfinite(distance) or distance <= 0.0:
+        raise ValueError("min_distance_unit must be positive and finite")
+
+    all_waypoints = value[:M]
+    left_step = np.linalg.norm(np.diff(all_waypoints[:, 0:3], axis=0), axis=-1)
+    right_step = np.linalg.norm(
+        np.diff(all_waypoints[:, 7:10], axis=0), axis=-1
+    )
+    interval_distance = left_step + right_step
+    cumulative = np.concatenate(([0.0], np.cumsum(interval_distance)))
+    target = fraction * distance
+    crossing = np.flatnonzero(cumulative >= target)
+
+    partial_alpha = 1.0
+    if not len(crossing):
+        waypoint_count = M
+        waypoints = all_waypoints.copy()
+    else:
+        end_index = max(1, int(crossing[0]))
+        interval = float(interval_distance[end_index - 1])
+        partial_alpha = (
+            1.0
+            if interval <= 1e-12
+            else float(
+                np.clip(
+                    (target - cumulative[end_index - 1]) / interval,
+                    0.0,
+                    1.0,
+                )
+            )
+        )
+        waypoint_count = end_index + 1
+        waypoints = all_waypoints[:waypoint_count].copy()
+        if partial_alpha < 1.0:
+            waypoints[-1] = (
+                all_waypoints[end_index - 1]
+                + partial_alpha
+                * (all_waypoints[end_index] - all_waypoints[end_index - 1])
+            )
     if granular:
         timing = value[M : M + waypoint_count].copy()
+        if mode == "duration" and partial_alpha < 1.0:
+            timing[waypoint_count - 2, (0, 7)] *= partial_alpha
     else:
         timing = value[M : M + 1].copy()
     return np.concatenate((waypoints, timing), axis=0)
@@ -100,15 +142,18 @@ def arc_prefix_control_steps(
     execute_fraction: float,
     velocity_mode: str,
     control_dt: float,
+    min_distance_unit: float,
     *,
     max_steps: int | None = None,
 ) -> int:
-    """Recover the control-frame stride for an ARC waypoint prefix."""
+    """Recover the control-frame stride for a combined-distance ARC prefix."""
 
     dt = float(control_dt)
     if dt <= 0.0:
         raise ValueError("control_dt must be positive")
-    partial = truncate_arc_token(token, execute_fraction, velocity_mode)
+    partial = truncate_arc_token(
+        token, execute_fraction, velocity_mode, min_distance_unit
+    )
     mode = validate_bimanual_velocity_mode(velocity_mode)
     granular = mode in ("per_waypoint", "duration")
     M = len(partial) // 2 if granular else len(partial) - 1
@@ -162,11 +207,10 @@ def arc_prefix_control_steps(
 class OpenLoopSimEval(BimanualCartesianEval):
     """Compare baseline and ARC policies over complete recorded episodes.
 
-    ``execute_fraction`` is applied in representation space. A baseline uses
-    the first prefix of its time-indexed action chunk. An ARC policy keeps the
-    requested fraction of its distance-resampled ``M`` waypoints, carries the
-    matching timing rows, and recovers the corresponding variable control-frame
-    stride before requesting the next observation.
+    A baseline executes the requested fraction of its time-indexed action
+    chunk. An ARC policy executes ``execute_fraction * D`` metres, where
+    distance is cumulative left-arm plus right-arm EEF translation, then uses
+    token timing to recover the corresponding variable control-frame stride.
 
     The evaluator expects validation to contain every frame of each episode,
     with ``episode_hash`` and ``frame_index`` metadata. It accumulates model
@@ -213,6 +257,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             raise ValueError("action_mode must be auto, baseline, or arc")
         if float(control_dt) <= 0:
             raise ValueError("control_dt must be positive")
+        if (
+            not math.isfinite(float(min_distance_unit))
+            or float(min_distance_unit) <= 0
+        ):
+            raise ValueError("min_distance_unit must be positive and finite")
         validate_bimanual_velocity_mode(velocity_mode)
         self.execute_fraction = float(execute_fraction)
         self.control_horizon = int(control_horizon)
@@ -557,13 +606,17 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 velocity_mode=self.velocity_mode,
             )
         partial = truncate_arc_token(
-            prediction, self.execute_fraction, self.velocity_mode
+            prediction,
+            self.execute_fraction,
+            self.velocity_mode,
+            self.min_distance_unit,
         )
         steps = arc_prefix_control_steps(
             prediction,
             self.execute_fraction,
             self.velocity_mode,
             self.control_dt,
+            self.min_distance_unit,
             max_steps=max_steps,
         )
         decoded = self._arc_tokenizer.detokenize(partial, action_horizon=steps).astype(
@@ -835,24 +888,22 @@ class OpenLoopSimEval(BimanualCartesianEval):
         results.update(
             {
                 "execute_fraction": self.execute_fraction,
-                "execute_control_steps": self.execute_steps,
-                "execute_arc_waypoints": (
-                    max(
-                        2,
-                        min(
-                            self.resampled_vector_length,
-                            int(
-                                math.ceil(
-                                    self.resampled_vector_length * self.execute_fraction
-                                )
-                            ),
-                        ),
-                    )
+                "execute_control_steps": (
+                    self.execute_steps if self.action_mode != "arc" else None
+                ),
+                "execute_arc_waypoints": None,
+                "execute_arc_distance_m": (
+                    self.execute_fraction * self.min_distance_unit
+                    if self.action_mode == "arc"
+                    else None
+                ),
+                "arc_distance_semantics": (
+                    "combined_left_plus_right_translation"
                     if self.action_mode == "arc"
                     else None
                 ),
                 "replan_stride_mode": (
-                    "arc_waypoint_timing"
+                    "arc_combined_distance_timing"
                     if self.action_mode == "arc"
                     else "fixed_control_frames"
                 ),

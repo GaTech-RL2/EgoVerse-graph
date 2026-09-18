@@ -188,13 +188,12 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         ``include_reconstruction_loss=True``: always detokenize so codec
         reconstruction is baked into arcmatch (controller-facing path).
 
-        ``False`` (default): score token waypoints when every arm has
-        ``L_gt >= D``; detok only when any arm is shorter than D so both sides
-        can be re-tokenized over that shorter shared span with the same M.
+        ``False`` (default): score token waypoints when combined-arm
+        ground-truth travel reaches ``D``; detok only for a shorter joint span.
         ``D`` is codec ``min_distance_unit`` (asserted equal to
         ``arcmatch_distance`` at init).
         """
-        from egomimic.eval.arc_metrics import arm_travel
+        from egomimic.eval.arc_metrics import combined_travel
 
         native = self._native(prediction, embodiment_id)
         if not self._is_arc(native):
@@ -209,7 +208,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         D = float(self.min_distance_unit)
         out: list[np.ndarray] = []
         for pred_i, gt_i in zip(tokens, ground_truth):
-            if np.any(arm_travel(gt_i) < D - 1e-12):
+            if combined_travel(gt_i) < D - 1e-12:
                 out.append(self._tokenizer.detokenize(pred_i, self.action_horizon))
             else:
                 if pred_i.shape[0] < M:

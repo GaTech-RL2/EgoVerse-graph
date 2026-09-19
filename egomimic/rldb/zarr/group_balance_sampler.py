@@ -57,13 +57,43 @@ def group_balance_weights(index_map, group_episode_files, group_fractions, defau
         for g in groups)
     logger.info("group balance sampler: %s ESS %.0f (%.0f%%)", summary, ess, 100 * ess / len(w))
     print(f"GROUP_BALANCE_SAMPLER {summary} ess_frac={ess / len(w):.2f}", flush=True)
-    return w
+    return w, frame_group, groups
+
+
+class GroupBalanceSampler(WeightedRandomSampler):
+    """WeightedRandomSampler that also reports what it ACTUALLY handed the loader.
+
+    The startup line only states the intent. This tallies the group of every index
+    it yields and prints the cumulative realised shares every ``report_every`` draws,
+    so the job log carries direct evidence of the exposure the model received.
+    (Indices a DataLoader prefetches past the end of an epoch are counted too.)
+    """
+
+    def __init__(self, weights, num_samples, generator, frame_group, groups, report_every=320000):
+        super().__init__(weights, num_samples=num_samples, replacement=True, generator=generator)
+        self._frame_group = np.asarray(frame_group)
+        self._groups = list(groups)
+        self._tally = np.zeros(len(self._groups), dtype=np.int64)
+        self._report_every = int(report_every)
+        self._next_report = self._report_every
+
+    def __iter__(self):
+        for idx in super().__iter__():
+            self._tally[self._frame_group[idx]] += 1
+            total = int(self._tally.sum())
+            if total >= self._next_report:
+                self._next_report += self._report_every
+                shares = " ".join(f"{g}={c / total:.4f}" for g, c in zip(self._groups, self._tally))
+                print(f"GROUP_BALANCE_REALISED draws={total} {shares}", flush=True)
+            yield idx
 
 
 def build_group_balance_sampler(dataset, group_episode_files, group_fractions, default_group,
-                                num_samples: int | None = None, seed: int = 0) -> WeightedRandomSampler:
-    w = group_balance_weights(dataset.index_map, group_episode_files, group_fractions, str(default_group))
+                                num_samples: int | None = None, seed: int = 0,
+                                report_every: int = 320000) -> WeightedRandomSampler:
+    w, frame_group, groups = group_balance_weights(
+        dataset.index_map, group_episode_files, group_fractions, str(default_group))
     gen = torch.Generator()
     gen.manual_seed(int(seed))
-    return WeightedRandomSampler(torch.as_tensor(w, dtype=torch.double), num_samples=int(num_samples or len(w)),
-                                 replacement=True, generator=gen)
+    return GroupBalanceSampler(torch.as_tensor(w, dtype=torch.double), int(num_samples or len(w)), gen,
+                               frame_group, groups, report_every=report_every)

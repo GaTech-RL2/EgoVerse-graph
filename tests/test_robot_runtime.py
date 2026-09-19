@@ -507,6 +507,53 @@ def test_yam_camera_preflight_runs_before_driver_initialization():
     assert not calls
 
 
+def test_yam_camera_reconnect_rebuilds_only_rgb_streams(monkeypatch):
+    import egomimic.robot.yam.interface as yam_interface
+
+    class Recorder:
+        def __init__(self, generation):
+            self.generation = generation
+            self.stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+        def get_image(self):
+            return np.full((2, 3, 3), self.generation, dtype=np.uint8)
+
+    opened, validated = [], []
+
+    def fake_open(cameras):
+        generation = len(opened) + 1
+        recorder = Recorder(generation)
+        opened.append((dict(cameras), recorder))
+        return {"front": recorder}, {"front": (2, 3)}
+
+    monkeypatch.setattr(yam_interface, "open_cameras", fake_open)
+    cameras = {"front": {"type": "realsense", "serial_number": "front"}}
+    robot = YamInterface(
+        ["left"],
+        {"left": "can0"},
+        cameras,
+        {},
+        {"left": [0, 0, 0, 0, 0, 0, 1]},
+        driver_factory=Driver,
+        solver_factory=Solver,
+        camera_validator=lambda config: validated.append(dict(config)),
+    )
+    driver = robot.controller["left"]
+    first = opened[0][1]
+
+    assert robot.reconnect_cameras() == ("front",)
+    assert first.stopped
+    assert not driver.closed
+    assert len(opened) == 2 and len(validated) == 2
+    np.testing.assert_array_equal(robot.get_obs()["front"], np.full((2, 3, 3), 2))
+
+    robot.close()
+    assert opened[1][1].stopped and driver.closed
+
+
 def replay_store(tmp_path, padded=5, total=3):
     import zarr
 
@@ -764,3 +811,43 @@ def test_quest_stop_unblocks_a_pending_socket_read(monkeypatch):
     reader.stop()
     remote.close()
     assert not reader.thread.is_alive()
+
+
+def test_rollout_discards_unreachable_plan_and_waits_for_the_next_action():
+    class UnreachableRobot(FakeRobot):
+        fail = True
+
+        def solve_ik(self, pose, arm):
+            if self.fail:
+                raise ValueError(
+                    "Predicted Cartesian target is unreachable within IK tolerances"
+                )
+            return np.asarray(pose).copy()
+
+    robot = UnreachableRobot()
+    chunk = np.tile(robot.q.copy(), (3, 1))
+    calls = []
+
+    def predict(obs):
+        calls.append(obs)
+        if len(calls) > 1:
+            robot.fail = False
+        return chunk.copy()
+
+    policy = SimpleNamespace(action_type="cartesian", predict=predict)
+    step = run_rollout(
+        robot,
+        policy,
+        dict(
+            frequency=30,
+            max_steps=2,
+            execute_steps=3,
+            max_joint_velocity=10,
+            preview={"enabled": False},
+        ),
+    )
+    # The unreachable sample ended neither the session nor the process, sent no
+    # command, and discarded the rest of its chunk so the next tick replanned.
+    assert len(calls) == 2
+    assert step == 2
+    assert [arm for arm, _ in robot.commands] == ["left", "right", "left", "right"]

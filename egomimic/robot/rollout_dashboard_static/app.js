@@ -11,6 +11,9 @@ let waitForStart = false;
 let videoEnabled = false;
 let videoRecording = false;
 let selectedVideo;
+let modelBrowserEnabled = false;
+let currentCheckpoint;
+let modelDirectory = '.';
 
 function send(message) {
   if (socket?.readyState !== WebSocket.OPEN) return false;
@@ -75,6 +78,58 @@ function updateVideoControls() {
   $('open-videos').disabled = !videoEnabled;
 }
 
+function updateModelControl() {
+  $('swap-model').disabled = !modelBrowserEnabled;
+}
+
+async function loadModels(path = '.') {
+  if (!modelBrowserEnabled) return;
+  const list = $('model-list');
+  list.textContent = 'Loading…';
+  try {
+    const response = await fetch(`/api/checkpoints?path=${encodeURIComponent(path)}`, {cache: 'no-store'});
+    if (!response.ok) throw Error(`Could not load checkpoint directory (${response.status})`);
+    const listing = await response.json();
+    modelDirectory = listing.path;
+    $('model-path').textContent = `Folder: ${listing.path}`;
+    $('model-up').disabled = listing.parent === null;
+    list.replaceChildren();
+    for (const entry of listing.entries) {
+      const row = document.createElement('button');
+      row.className = `model-row ${entry.type}`;
+      const kind = document.createElement('span');
+      kind.className = 'model-kind';
+      kind.textContent = entry.type === 'directory' ? 'Folder' : 'Checkpoint';
+      const name = document.createElement('span');
+      name.className = 'model-name';
+      name.textContent = entry.name;
+      row.append(kind, name);
+      if (entry.type === 'directory') {
+        row.onclick = () => loadModels(entry.path);
+      } else {
+        row.onclick = () => selectModel(entry);
+      }
+      list.append(row);
+    }
+    if (!listing.entries.length) list.textContent = 'No folders or .ckpt files here.';
+    $('model-up').onclick = () => listing.parent !== null && loadModels(listing.parent);
+  } catch (error) {
+    list.textContent = error.message;
+  }
+}
+
+function selectModel(entry) {
+  if (!confirm(`Load ${entry.name}? Existing plan actions will be discarded, the robot will hold position, and you must press Start after loading.`)) return;
+  if (!send({swap_model: entry.path})) {
+    reportDisconnected();
+    return;
+  }
+  $('models').close();
+  $('swap-model').disabled = true;
+  $('status').textContent = `Loading ${entry.name}; rollout control is paused.`;
+  $('status').className = 'starting';
+}
+
 function toggleVideoRecording() {
   if (!videoEnabled || (!started && !videoRecording)) return;
   if (!send({record_video: true})) {
@@ -120,6 +175,8 @@ function configure(message) {
   started = Boolean(message.started);
   videoEnabled = Boolean(message.video_recording_enabled);
   videoRecording = Boolean(message.video_recording);
+  modelBrowserEnabled = Boolean(message.model_browser_enabled);
+  currentCheckpoint = message.checkpoint;
   $('execute-steps').value = String(message.execute_steps);
   $('execute-steps').defaultValue = String(message.execute_steps);
   overlayCamera = message.overlay_camera;
@@ -151,6 +208,7 @@ function configure(message) {
   $('start').disabled = !waitForStart || started;
   updatePauseButton();
   updateVideoControls();
+  updateModelControl();
   $('restart').disabled = false;
   $('reconnect-cameras').disabled = false;
 }
@@ -159,6 +217,7 @@ function frame(message) {
   paused = Boolean(message.paused);
   started = Boolean(message.started);
   videoRecording = Boolean(message.video_recording);
+  currentCheckpoint = message.checkpoint;
   if (document.activeElement !== $('execute-steps')) {
     $('execute-steps').value = String(message.execute_steps);
     $('execute-steps').defaultValue = String(message.execute_steps);
@@ -166,6 +225,7 @@ function frame(message) {
   $('start').disabled = !waitForStart || started;
   updatePauseButton();
   updateVideoControls();
+  updateModelControl();
   $('status').textContent = `${message.status} · camera update ${message.age_ms} ms ago`;
   $('status').className = message.status === 'Running' ? 'running' : 'starting';
   $('overlay-status').textContent = message.overlay_enabled
@@ -286,6 +346,12 @@ $('stop').onclick = stopRollout;
 $('start').onclick = startRollout;
 $('pause').onclick = togglePause;
 $('record-video').onclick = toggleVideoRecording;
+$('swap-model').onclick = () => {
+  if (!modelBrowserEnabled) return;
+  $('model-current').textContent = currentCheckpoint ? `Current: ${currentCheckpoint}` : 'Current checkpoint unavailable';
+  $('models').showModal();
+  loadModels(modelDirectory);
+};
 $('open-videos').onclick = () => {
   $('videos').showModal();
   loadVideos();
@@ -295,6 +361,8 @@ $('close-videos').onclick = () => {
   $('video-player').pause();
   $('videos').close();
 };
+$('model-refresh').onclick = () => loadModels(modelDirectory);
+$('model-close').onclick = () => $('models').close();
 $('execute-steps').onchange = event => setExecuteSteps(event.target.value);
 $('restart').onclick = restartRollout;
 $('reconnect-cameras').onclick = reconnectCameras;
@@ -371,7 +439,7 @@ function connect() {
       // A newer tab owns the dashboard. Reconnecting would only take it back
       // and leave the two tabs fighting over the rollout.
       $('status').textContent = 'A newer tab took over this dashboard; close this one.';
-      for (const id of ['start', 'pause', 'record-video', 'open-videos', 'execute-steps',
+      for (const id of ['start', 'pause', 'record-video', 'open-videos', 'swap-model', 'execute-steps',
                         'restart', 'reconnect-cameras', 'overlay']) $(id).disabled = true;
       return;
     }
@@ -380,6 +448,7 @@ function connect() {
     $('pause').disabled = true;
     $('record-video').disabled = true;
     $('open-videos').disabled = true;
+    $('swap-model').disabled = true;
     $('execute-steps').disabled = true;
     $('restart').disabled = true;
     $('reconnect-cameras').disabled = true;

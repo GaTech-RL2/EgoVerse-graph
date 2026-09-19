@@ -1,6 +1,7 @@
 """Shared Eva/Yam rollout: local graph inference or recorded Zarr joint replay."""
 
 import argparse
+import copy
 import time
 from collections import deque
 
@@ -39,6 +40,12 @@ def validate_rollout_config(config):
         raise ValueError("execute_steps must be an integer in [1, 100]")
     preview = dict(config.get("preview", {}))
     validate_video_recording(config.get("video_recording"))
+    policy = config.get("policy")
+    if not isinstance(policy, dict):
+        raise ValueError("Rollout configuration needs a policy mapping")
+    from egomimic.robot.rollout_dashboard import validate_model_browser
+
+    validate_model_browser(config.get("model_browser"), policy.get("checkpoint"))
     if preview.get("mode") != "dashboard":
         return
     robot = config.get("robot")
@@ -52,7 +59,14 @@ def validate_rollout_config(config):
     validate_rollout_preview(preview, cameras=set(cameras))
 
 
-def create_preview_view(camera_res, preview, execute_steps=None, video_recording=None):
+def create_preview_view(
+    camera_res,
+    preview,
+    execute_steps=None,
+    video_recording=None,
+    model_browser=None,
+    checkpoint=None,
+):
     """Select the legacy OpenCV preview or the local browser dashboard."""
     preview = dict(preview)
     if preview.get("mode") == "dashboard":
@@ -62,6 +76,8 @@ def create_preview_view(camera_res, preview, execute_steps=None, video_recording
             camera_res,
             execute_steps=execute_steps,
             video_recording=video_recording,
+            model_browser=model_browser,
+            checkpoint=checkpoint,
             **preview,
         )
     return CameraView(camera_res, **preview)
@@ -79,7 +95,14 @@ def _velocity_decision(view, details):
     if not callable(choose):
         return "resample"
     decision = choose(details)
-    if decision not in {"execute", "reconnect", "resample", "restart", "stop"}:
+    if decision not in {
+        "execute",
+        "model_swap",
+        "reconnect",
+        "resample",
+        "restart",
+        "stop",
+    }:
         raise ValueError(f"Unknown velocity-limit decision: {decision!r}")
     return decision
 
@@ -94,6 +117,18 @@ def _take_video_recording_request(view) -> bool:
     """Consume one browser-only request to toggle display-only video capture."""
     take = getattr(view, "take_video_recording_request", None)
     return bool(take()) if callable(take) else False
+
+
+def _take_model_swap_request(view):
+    """Consume one dashboard-picked checkpoint without exposing a command path."""
+    take = getattr(view, "take_model_swap_request", None)
+    return take() if callable(take) else None
+
+
+def _set_model_checkpoint(view, checkpoint) -> None:
+    publish = getattr(view, "set_model_checkpoint", None)
+    if callable(publish):
+        publish(checkpoint)
 
 
 def _set_video_recording(view, recording: bool, saved=None) -> None:
@@ -115,6 +150,7 @@ def run_rollout(robot, policy, config, view=None):
     if policy.action_type not in ("joints", "cartesian"):
         raise ValueError("Unknown policy action representation")
     queue, last, step = deque(), None, 0
+    policy_config = copy.deepcopy(config.get("policy"))
     waiting_since, velocity_replans = None, 0
     ik_rejections = 0
     paused = False
@@ -123,6 +159,8 @@ def run_rollout(robot, policy, config, view=None):
         config["preview"],
         execute_steps=execute_steps,
         video_recording=config.get("video_recording"),
+        model_browser=config.get("model_browser"),
+        checkpoint=(policy_config or {}).get("checkpoint"),
     )
     video_config = validate_video_recording(config.get("video_recording"))
     video_recorder = (
@@ -189,6 +227,46 @@ def run_rollout(robot, policy, config, view=None):
             control = view.update(obs)
             if control in ("q", "\x1b"):
                 break
+            checkpoint = _take_model_swap_request(view)
+            if checkpoint is not None:
+                # Freeze the current measured pose before the potentially slow
+                # GPU checkpoint load. Old-model chunks are discarded and the
+                # operator must explicitly start the new model after it loads.
+                finish_video_recording()
+                queue.clear()
+                last = np.asarray(obs["joint_positions"], dtype=float).copy()
+                for arm in robot.arms:
+                    offset = ARM_OFFSET[arm]
+                    robot.set_joints(last[offset : offset + 7], arm)
+                started, paused = False, False
+                clear_plan = getattr(view, "clear_action_plan", None)
+                if callable(clear_plan):
+                    clear_plan()
+                _set_view_status(view, f"Loading checkpoint {checkpoint.name}")
+                try:
+                    if not isinstance(policy_config, dict):
+                        raise ValueError("Rollout policy configuration is unavailable")
+                    candidate_config = copy.deepcopy(policy_config)
+                    candidate_config["checkpoint"] = str(checkpoint)
+                    candidate = load_policy(candidate_config)
+                    if candidate.action_type != policy.action_type:
+                        raise ValueError(
+                            "Replacement checkpoint changed action representation"
+                        )
+                except Exception as error:
+                    _set_view_status(
+                        view,
+                        "Checkpoint load failed; previous model remains loaded — press c to retry",
+                    )
+                    print(f"Could not load requested checkpoint {checkpoint}: {error}")
+                else:
+                    policy, policy_config = candidate, candidate_config
+                    _set_model_checkpoint(view, checkpoint)
+                    _set_view_status(
+                        view, "Checkpoint loaded — press c to start the new model"
+                    )
+                time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                continue
             if _take_camera_reconnect_request(view):
                 # Never execute a target sampled before a camera recovery. The
                 # YAM method stops and reopens RGB streams only; it does not
@@ -383,6 +461,11 @@ def run_rollout(robot, policy, config, view=None):
                     # The dashboard has retained the explicit recovery event.
                     # Consume it on the next safe loop tick rather than
                     # charging it against the velocity-resample budget.
+                    time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                    continue
+                if decision == "model_swap":
+                    # The next tick consumes the validated checkpoint request
+                    # before another policy target can be considered.
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
                 if decision == "restart":

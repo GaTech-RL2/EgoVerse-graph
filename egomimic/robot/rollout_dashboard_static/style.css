@@ -67,6 +67,12 @@ dialog header { align-items: center; }
 .video-review h3 { margin: 2px 0 0; font-size: 20px; }
 .video-meta { margin: 4px 0 12px; }
 #video-player { display: block; width: 100%; max-height: calc(100vh - 260px); background: #090c10; }
+.model-path { margin: 0 0 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #dce3ed; }
+.model-list { min-height: 240px; max-height: calc(100vh - 270px); overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding: 8px; border: 1px solid #303a46; border-radius: 8px; background: #10151b; }
+.model-row { width: 100%; display: flex; gap: 8px; align-items: center; text-align: left; }
+.model-row.directory { border-color: #667587; background: #242e39; }
+.model-kind { flex: 0 0 72px; color: #80c9a0; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; }
+.model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 @media (max-width: 1000px) {
   header { flex-direction: column; }

@@ -17,6 +17,7 @@ from egomimic.robot.interface import ARM_OFFSET
 from egomimic.robot.rollout import run_rollout
 from egomimic.robot.rollout_dashboard import (
     SUPERSEDED_CLOSE_CODE,
+    CheckpointBrowser,
     RolloutDashboard,
     _broadcast_dashboard_message,
     load_action_overlay,
@@ -313,6 +314,68 @@ def test_dashboard_video_record_command_reaches_only_the_rollout_loop(tmp_path):
         dashboard.close()
 
 
+def test_checkpoint_browser_lists_only_rooted_checkpoint_candidates(tmp_path):
+    root = tmp_path / "models"
+    run = root / "run_a"
+    run.mkdir(parents=True)
+    checkpoint = run / "model.ckpt"
+    checkpoint.write_bytes(b"weights")
+    (run / "notes.txt").write_text("not a checkpoint")
+    outside = tmp_path / "outside.ckpt"
+    outside.write_bytes(b"outside")
+    (root / "outside-link.ckpt").symlink_to(outside)
+    browser = CheckpointBrowser(root)
+
+    assert browser.list_directory()["entries"] == [
+        {"type": "directory", "name": "run_a", "path": "run_a"}
+    ]
+    assert browser.list_directory("run_a")["entries"] == [
+        {"type": "checkpoint", "name": "model.ckpt", "path": "run_a/model.ckpt"}
+    ]
+    assert browser.resolve_checkpoint("run_a/model.ckpt") == checkpoint.resolve()
+    with pytest.raises(ValueError, match="escapes"):
+        browser.resolve_checkpoint("../outside.ckpt")
+
+
+def test_dashboard_model_swap_reaches_only_rollout_loop(tmp_path):
+    root = tmp_path / "models"
+    root.mkdir()
+    checkpoint = root / "next.ckpt"
+    checkpoint.write_bytes(b"weights")
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+        model_browser={"enabled": True, "root": str(root)},
+        checkpoint=str(checkpoint),
+    )
+
+    async def request_model_swap():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                config = await ws.receive_json()
+                assert config["model_browser_enabled"] is True
+                assert config["checkpoint"] == "next.ckpt"
+                await ws.send_json({"swap_model": "next.ckpt"})
+                deadline = time.monotonic() + 1.0
+                while dashboard._model_swap_checkpoint is None:
+                    if time.monotonic() >= deadline:
+                        pytest.fail("model swap did not reach dashboard")
+                    await asyncio.sleep(0.01)
+
+    try:
+        asyncio.run(request_model_swap())
+        assert dashboard.take_model_swap_request() == checkpoint.resolve()
+        assert not dashboard._start_requested.is_set()
+    finally:
+        dashboard.close()
+
+
 def test_rollout_video_recorder_publishes_completed_mosaic_and_manifest(tmp_path):
     config = {"enabled": True, "directory": str(tmp_path), "fps": 10}
     assert validate_video_recording(config) == config
@@ -449,6 +512,10 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
         "directory": "/home/rohan/rollouts/yam_hptflow",
         "fps": 12,
     }
+    assert profile["model_browser"] == {
+        "enabled": True,
+        "root": "/home/rohan/checkpoints/EgoVerse",
+    }
     assert set(adapter["camera_keys"]) == {
         "front_img_1",
         "left_wrist_img",
@@ -467,6 +534,8 @@ def test_dashboard_uses_space_for_pause_and_places_resample_below_cameras():
     assert "event.key === 'v'" in javascript
     assert 'id="recording-indicator"' in html
     assert 'id="open-videos"' in html
+    assert 'id="swap-model"' in html
+    assert "/api/checkpoints" in javascript
     assert "event.key === 'p'" not in javascript
 
 
@@ -583,6 +652,19 @@ class CameraRecoveryView(GatedView):
 
     def take_camera_reconnect_request(self):
         return next(self.reconnect_requests)
+
+
+class ModelSwapView(GatedView):
+    def __init__(self, controls, checkpoint):
+        super().__init__(controls)
+        self.checkpoints = iter((checkpoint, None, None))
+        self.loaded = []
+
+    def take_model_swap_request(self):
+        return next(self.checkpoints)
+
+    def set_model_checkpoint(self, checkpoint):
+        self.loaded.append(str(checkpoint))
 
 
 def test_rollout_publishes_graph_plan_to_view_without_changing_command_path(
@@ -707,6 +789,43 @@ def test_rollout_camera_reconnect_preserves_process_and_requires_c(monkeypatch):
     assert robot.camera_reconnects == 1
     assert len(robot.commands) == 2
     assert any("Reconnecting RGB cameras" in status for status in view.statuses)
+
+
+def test_rollout_model_swap_holds_and_requires_a_fresh_start(monkeypatch, tmp_path):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    checkpoint = tmp_path / "next.ckpt"
+    checkpoint.write_bytes(b"weights")
+    robot = FakeRobot()
+    view = ModelSwapView([None, "c", "q"], checkpoint)
+    target = np.zeros((1, 14), dtype=float)
+    target[:, [6, 13]] = 0.5
+    replacement = SimpleNamespace(action_type="joints", predict=lambda _obs: target)
+    loaded = []
+    monkeypatch.setattr(
+        "egomimic.robot.rollout.load_policy",
+        lambda config: loaded.append(config) or replacement,
+    )
+
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(
+            action_type="joints", predict=lambda _obs: pytest.fail("old model ran")
+        ),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "execute_steps": 1,
+            "max_joint_velocity": 1.0,
+            "preview": {"enabled": False, "wait_for_start": True},
+            "policy": {"kind": "graph", "checkpoint": "/old/model.ckpt"},
+        },
+        view=view,
+    )
+
+    assert steps == 1
+    assert loaded == [{"kind": "graph", "checkpoint": str(checkpoint)}]
+    assert view.loaded == [str(checkpoint)]
+    assert len(robot.commands) == 4  # paired hold, then paired new-model command
 
 
 def test_rollout_pause_holds_measured_joints_and_discards_policy_queue(monkeypatch):

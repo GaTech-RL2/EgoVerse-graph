@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM rollout</title>
-    <link rel="stylesheet" href="/style.css?v=4">
+    <link rel="stylesheet" href="/style.css?v=5">
   </head>
   <body>
     <main>
@@ -20,6 +20,7 @@
           <button id="start" disabled>Start rollout <kbd>c</kbd></button>
           <button id="pause" disabled>Pause rollout <kbd>Space</kbd></button>
           <button id="record-video" disabled>Record video <kbd>v</kbd></button>
+          <button id="swap-model" disabled>Swap model</button>
           <button id="restart" disabled>Reset YAM home <kbd>r</kbd></button>
           <button id="reconnect-cameras" disabled>Reconnect RGB cameras</button>
           <label class="overlay-toggle" for="overlay">
@@ -77,6 +78,22 @@
         </section>
       </div>
     </dialog>
-    <script type="module" src="/app.js?v=4"></script>
+    <dialog id="models">
+      <header>
+        <div>
+          <p class="eyebrow">LOCAL CHECKPOINT PICKER</p>
+          <h2>Swap rollout model</h2>
+          <p id="model-current" class="video-meta"></p>
+        </div>
+        <div class="actions">
+          <button id="model-up">Up one folder</button>
+          <button id="model-refresh">Refresh</button>
+          <button id="model-close">Close</button>
+        </div>
+      </header>
+      <p id="model-path" class="model-path"></p>
+      <div id="model-list" class="model-list">Loading…</div>
+    </dialog>
+    <script type="module" src="/app.js?v=5"></script>
   </body>
 </html>

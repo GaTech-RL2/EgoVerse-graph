@@ -49,12 +49,120 @@ DEFAULTS = {
 STATIC = Path(__file__).with_name("rollout_dashboard_static")
 # Private-range close code: this tab lost the dashboard to a newer one.
 SUPERSEDED_CLOSE_CODE = 4001
+CHECKPOINT_SUFFIXES = frozenset({".ckpt"})
+MODEL_BROWSER_DEFAULTS = {"enabled": False, "root": None}
 
 
 def _require_bool(value: object, name: str) -> bool:
     if type(value) is not bool:
         raise ValueError(f"{name} must be a boolean")
     return bool(value)
+
+
+class CheckpointBrowser:
+    """Filesystem browser constrained to one explicitly configured checkpoint root."""
+
+    def __init__(self, root: str | Path) -> None:
+        if not isinstance(root, (str, Path)):
+            raise ValueError(
+                "model_browser.root must be an existing absolute directory"
+            )
+        root = Path(root)
+        if not root.is_absolute() or not root.is_dir():
+            raise ValueError(
+                "model_browser.root must be an existing absolute directory"
+            )
+        self.root = root.resolve(strict=True)
+
+    def _resolve(self, relative: object) -> Path:
+        if (
+            not isinstance(relative, str)
+            or not relative
+            or Path(relative).is_absolute()
+        ):
+            raise ValueError("Checkpoint browser paths must be nonempty and relative")
+        try:
+            path = (self.root / relative).resolve(strict=True)
+        except OSError as error:
+            raise ValueError("Checkpoint browser path does not exist") from error
+        try:
+            path.relative_to(self.root)
+        except ValueError as error:
+            raise ValueError(
+                "Checkpoint browser path escapes model_browser.root"
+            ) from error
+        return path
+
+    def relative(self, path: str | Path) -> str:
+        path = Path(path).resolve(strict=True)
+        try:
+            relative = path.relative_to(self.root)
+        except ValueError as error:
+            raise ValueError("Checkpoint is outside model_browser.root") from error
+        return "." if not relative.parts else relative.as_posix()
+
+    def resolve_checkpoint(self, relative: object) -> Path:
+        path = self._resolve(relative)
+        if path.suffix.lower() not in CHECKPOINT_SUFFIXES or not path.is_file():
+            raise ValueError("Selected model must be an existing .ckpt file")
+        return path
+
+    def validate_checkpoint(self, checkpoint: str | Path) -> Path:
+        checkpoint = Path(checkpoint)
+        if not checkpoint.is_absolute():
+            raise ValueError("policy.checkpoint must be an absolute path")
+        return self.resolve_checkpoint(self.relative(checkpoint))
+
+    def list_directory(self, relative: object = ".") -> dict:
+        directory = self._resolve(relative)
+        if not directory.is_dir():
+            raise ValueError("Checkpoint browser path is not a directory")
+        entries = []
+        try:
+            children = tuple(directory.iterdir())
+        except OSError as error:
+            raise ValueError("Could not read checkpoint browser directory") from error
+        for child in sorted(
+            children, key=lambda entry: (not entry.is_dir(), entry.name.lower())
+        ):
+            if child.name.startswith("."):
+                continue
+            try:
+                resolved = child.resolve(strict=True)
+                child_relative = self.relative(resolved)
+            except (OSError, ValueError):
+                # Broken links and links outside the configured root never
+                # become browser-visible candidates.
+                continue
+            if resolved.is_dir():
+                entries.append(
+                    {"type": "directory", "name": child.name, "path": child_relative}
+                )
+            elif resolved.is_file() and resolved.suffix.lower() in CHECKPOINT_SUFFIXES:
+                entries.append(
+                    {"type": "checkpoint", "name": child.name, "path": child_relative}
+                )
+        parent = None if directory == self.root else self.relative(directory.parent)
+        return {"path": self.relative(directory), "parent": parent, "entries": entries}
+
+
+def validate_model_browser(
+    config: Mapping[str, object] | None, checkpoint: str | Path | None = None
+) -> CheckpointBrowser | None:
+    """Validate the optional, local-only model-picker root before hardware opens."""
+    config = {} if config is None else dict(config)
+    unknown = config.keys() - MODEL_BROWSER_DEFAULTS.keys()
+    if unknown:
+        raise ValueError(
+            "Unknown model_browser option(s): " + ", ".join(sorted(unknown))
+        )
+    result = {**MODEL_BROWSER_DEFAULTS, **config}
+    if not _require_bool(result["enabled"], "model_browser.enabled"):
+        return None
+    browser = CheckpointBrowser(result["root"])
+    if checkpoint is not None:
+        browser.validate_checkpoint(checkpoint)
+    return browser
 
 
 def _matrix(value: object, name: str) -> np.ndarray:
@@ -315,13 +423,20 @@ class RolloutDashboard:
     """Three-camera rollout view with a display-only Cartesian action overlay."""
 
     def __init__(
-        self, cameras, execute_steps=10, video_recording=None, **config
+        self,
+        cameras,
+        execute_steps=10,
+        video_recording=None,
+        model_browser=None,
+        checkpoint=None,
+        **config,
     ) -> None:
         self.cameras = tuple(cameras)
         if not self.cameras:
             raise ValueError("The rollout dashboard needs at least one camera")
         self.config, self.overlay = validate_rollout_preview(config, set(self.cameras))
         self.video_recording_config = validate_video_recording(video_recording)
+        self.model_browser = validate_model_browser(model_browser, checkpoint)
         if not self.config["enabled"]:
             raise ValueError(
                 "preview.enabled must be true when preview.mode is dashboard"
@@ -336,6 +451,12 @@ class RolloutDashboard:
         self._inference_ms = deque(maxlen=20)
         self._video_recording = False
         self._video_last_saved: dict | None = None
+        self._checkpoint = (
+            None
+            if self.model_browser is None
+            else self.model_browser.relative(Path(checkpoint))
+        )
+        self._model_swap_checkpoint: Path | None = None
         self._wait_for_start = self.config["wait_for_start"]
         self._status = (
             "Ready — press c to start" if self._wait_for_start else "Starting"
@@ -412,6 +533,36 @@ class RolloutDashboard:
         """Ask the rollout loop to start or save display-only MP4 recording."""
         if self.video_recording_config["enabled"]:
             self._video_record_requested.set()
+
+    def request_model_swap(self, relative: object) -> None:
+        """Queue a checkpoint replacement; rollout owns the actual model load."""
+        if self.model_browser is None:
+            return
+        try:
+            checkpoint = self.model_browser.resolve_checkpoint(relative)
+        except ValueError:
+            return
+        self._start_requested.clear()
+        self._paused.clear()
+        with self._lock:
+            self._model_swap_checkpoint = checkpoint
+            self._status = (
+                f"Checkpoint selected: {self.model_browser.relative(checkpoint)} — "
+                "control is paused"
+            )
+
+    def take_model_swap_request(self) -> Path | None:
+        """Return one validated checkpoint selected by the focused browser tab."""
+        with self._lock:
+            checkpoint, self._model_swap_checkpoint = self._model_swap_checkpoint, None
+        return checkpoint
+
+    def set_model_checkpoint(self, checkpoint: str | Path) -> None:
+        """Publish a successful rollout-owned model change to the browser."""
+        if self.model_browser is None:
+            return
+        with self._lock:
+            self._checkpoint = self.model_browser.relative(checkpoint)
 
     def take_video_recording_request(self) -> bool:
         """Consume one browser recording toggle on the rollout control loop."""
@@ -497,6 +648,10 @@ class RolloutDashboard:
                 # Let the regular loop consume the recovery action rather than
                 # treating it as a velocity-limit override or a home reset.
                 return "reconnect"
+            with self._lock:
+                if self._model_swap_checkpoint is not None:
+                    self._velocity_prompt = None
+                    return "model_swap"
             if self._restart_requested.is_set():
                 self._restart_requested.clear()
                 return "restart"
@@ -597,6 +752,8 @@ class RolloutDashboard:
                     if self._video_last_saved is None
                     else self._video_last_saved.copy()
                 ),
+                "model_browser_enabled": self.model_browser is not None,
+                "checkpoint": self._checkpoint,
                 "velocity_prompt": (
                     None
                     if self._velocity_prompt is None
@@ -645,6 +802,7 @@ class RolloutDashboard:
                 paused = self._paused.is_set()
                 started = self._start_requested.is_set()
                 execute_steps = self._execute_steps
+                checkpoint = self._checkpoint
             for client in superseded:
                 # Closed in the background: an unresponsive stale tab must not
                 # hold up the operator's new one.
@@ -668,6 +826,8 @@ class RolloutDashboard:
                             "enabled"
                         ],
                         "video_recording": self._video_recording,
+                        "model_browser_enabled": self.model_browser is not None,
+                        "checkpoint": checkpoint,
                     }
                 )
                 async for message in ws:
@@ -689,6 +849,8 @@ class RolloutDashboard:
                         self.request_camera_reconnect()
                     if command.get("record_video") is True:
                         self.request_video_recording()
+                    if "swap_model" in command:
+                        self.request_model_swap(command["swap_model"])
                     if type(command.get("paused")) is bool:
                         self.request_pause(command["paused"])
                     if type(command.get("execute_steps")) is int:
@@ -718,6 +880,18 @@ class RolloutDashboard:
         app.router.add_get("/", index)
         app.router.add_get("/{name:app.js|style.css}", asset)
         app.router.add_get("/ws", websocket)
+        if self.model_browser is not None:
+
+            async def checkpoints(request):
+                try:
+                    listing = self.model_browser.list_directory(
+                        request.query.get("path", ".")
+                    )
+                except ValueError as error:
+                    raise web.HTTPBadRequest(text=str(error)) from error
+                return web.json_response(listing)
+
+            app.router.add_get("/api/checkpoints", checkpoints)
         if self.video_recording_config["enabled"]:
 
             async def videos(_request):

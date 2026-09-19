@@ -62,6 +62,11 @@ video_recording:
   enabled: true
   directory: /home/rohan/rollouts/yam_hptflow
   fps: 12
+# Browser-only checkpoint picker. It can browse only under this root, and a
+# chosen .ckpt is strictly loaded before the robot executes a fresh plan.
+model_browser:
+  enabled: true
+  root: /home/rohan/checkpoints/EgoVerse
 # Reset both physical followers to the configured home before the browser
 # starts accepting policy commands, and again for dashboard Restart / r.
 reset_on_start: true

@@ -11,16 +11,19 @@ Do not reuse the old `artic_cotrain7` roster: it trained on Flipper.
 | --- | --- |
 | Audited co-training sources | U-Socket: 2,999 clean episodes; ChainGripper: 3,000 clean plus the separately pinned 1,920 obstacle episodes |
 | Newly generated candidates | Parallel gripper, UMI, small circle, straight bar (`stick`), pentagonal pusher (`pentagon`) |
-| Retained existing sources | Suction and spring, 3,000 ideal-control episodes each |
+| Retained existing sources | Suction, spring and **triangle**, 3,000 ideal-control episodes each |
 | Held out of training and validation | **Flipper** |
-| Excluded from the new roster | Scoop; triangle, which already has data |
+| Excluded from the new roster | Scoop |
 
 The source contract and generation thresholds are in
-[`multiemb_cotrain_sources_v2.yaml`](../egomimic/hydra_configs/data/pusht/multiemb_cotrain_sources_v2.yaml).
-Revision 2 replaces the duplicated triangle candidate with the simulator's new
-five-sided contact geometry, with controlled yaw and native `(x, y, angle)` actions.
-The first source contract, triangle outputs and old preview remain available;
-they are not part of the revised release.
+[`multiemb_cotrain_sources_v3.yaml`](../egomimic/hydra_configs/data/pusht/multiemb_cotrain_sources_v3.yaml).
+Revision 3 keeps the successful existing triangle corpus in training and adds
+the new five-sided pentagon, with controlled yaw and native `(x, y, angle)`
+actions. The ten training embodiments share the same data configuration.
+The original triangle data is hash-audited from its 24 immutable shards;
+its pixels and actions are preserved. Earlier contracts and generated triangle
+outputs remain available, but the latter are not substituted for the retained
+triangle corpus in this release.
 The baseline and all four uniform ARC D80/M16/M56 duration/stacked recipes share
 the same dataset configuration. Stacked retains the existing independently
 timed velocity representation; this migration does not change its codec.
@@ -51,7 +54,7 @@ The original 24-scene pilot accepted 22 gripper, 22 UMI, 22 small-circle, 10 bar
 These are **generation acceptance counts**, not learned-policy scores.
 Ten preview videos were inspected through ordered frames covering the clips.
 Pusher contact replanning takes substantially more steps than grasp transport.
-The replacement pentagonal pusher has radius 12 and accepted **18/24** of the
+The new pentagonal pusher has radius 12 and accepted **18/24** of the
 identical pilot scenes (15 train, 3 validation) under the same thresholds.
 Every accepted trajectory had zero replay state error. Ordered frames from
 three preview videos were inspected before bulk promotion. The pilot selected
@@ -97,6 +100,8 @@ No new model-training job is launched by this data-generation work.
 Artifacts are under `s3://rldb/experiments/multiemb-cotrain-20260918/`.
 The immutable pilot lives in `pilot-v1/`; bulk outputs and source capsules have
 separate versioned prefixes. See the campaign receipts for active workflow IDs.
-The revised release is `release-v2/`, with `bulk-pentagon-v1/pentagon/`
-replacing the prior triangle input. Its manifest pins the simulator capsule
-for each generated embodiment, including the pentagon geometry addition.
+The revised release is `release-v3/`. Interrupted UMI and pentagon generation
+continues under `bulk-resume-20260919-v1/`, using the saved accepted episodes
+and source-attempt identities without replacing earlier archives. The release
+pins each generated embodiment's simulator capsule and the retained triangle
+shards separately. Flipper remains absent from training and validation.

@@ -1,0 +1,64 @@
+# Campaign specification, not a Hydra data-module recipe.
+schema_version: 1
+campaign: multiemb-cotrain-20260918
+roster_revision: 3
+supersedes_source_contract: multiemb_cotrain_sources_v2.yaml
+supersedes_for_future_experiments: artic_cotrain7
+source_content_manifest_sha256: e3a3b1b12a97112bee95687b6154cfa9c1fe7f888944461264ba1c7f366c1eb3
+source_split_manifest: egomimic/hydra_configs/data/pusht/planar_v2_cotrain_obstacle_7919_split_seed42_v1.json
+source_split_manifest_sha256: db0312aac689c701fe5055733db6858556ce1b2032fa4d2c5fb7c296d24afca7
+source_archive:
+  uri: s3://rldb/experiments/obstacle-cotrain-20260917/data-v2/bundles/4cfd2c8af7e9b636fe92b3ed022560c8e127bb26621c383ebaea15cd0ac4fd40/cotrain-data.zip
+  sha256: 4cfd2c8af7e9b636fe92b3ed022560c8e127bb26621c383ebaea15cd0ac4fd40
+sources:
+  u_socket:
+    uri: s3://rldb/datasets/pushshapes/arc-duration-handoff-20260916/u_socket_3000_v2_clean/
+    episodes: 2999
+    source_folder: usocket
+    observation_alignment: pre_step
+    action_target_offset_obs2: 1
+  chain_gripper:
+    uri: s3://rldb/datasets/pushshapes/arc-duration-handoff-20260916/chain_gripper_3000_v2/
+    episodes: 3000
+    source_folder: chain
+    observation_alignment: pre_step
+    action_target_offset_obs2: 1
+optional_obstacle_source:
+  embodiment: chain_gripper
+  episodes: 1920
+  observation_alignment: post_step
+  action_target_offset_obs2: 2
+  used_for_current_generation: false
+roster:
+  train_sources: [u_socket, chain_gripper]
+  generated_candidates: [gripper, umi, circle_small, stick, pentagon]
+  retained_articulated: [suction, spring, triangle]
+  held_out: [flipper]
+  excluded: [scoop]
+  fit_normalization_on_held_out: false
+  generated_split_policy: inherit_source_episode_split
+  preserve_historical_sources: true
+generation:
+  max_steps: 4500
+  success_coverage: 0.95
+  min_contact_steps: 20
+  min_object_displacement: 30.0
+  max_jerk_speed: 0.5
+  max_object_overflow: 0.0001
+  max_penetration: 0.6
+  min_mechanism_work_steps: 5
+  min_angle_travel: 0.01
+  waypoint_spacing: 20.0
+  waypoint_angle_spacing: 0.2
+  waypoint_position_tolerance: 12.0
+  waypoint_angle_tolerance: 0.2
+  replay_tolerance: 0.00001
+  image_size: 96
+pilot:
+  seed: 20260918
+  train_sources_per_domain: 10
+  valid_sources_per_domain: 2
+  workers_per_embodiment: 6
+  minimum_accepted_per_embodiment: 10
+  bulk_target_per_embodiment: 3000
+  bulk_requires_passing_pilot_and_visual_review: true

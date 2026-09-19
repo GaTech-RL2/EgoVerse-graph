@@ -94,9 +94,9 @@ policy:
   kind: graph
   # The environment variables let an operator intentionally select a later
   # immutable bundle. The defaults name the validated current latest checkpoint.
-  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915/resolved-config.yaml}
-  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915__step-90000__epoch-899__sha256-f87f630a751f6014.ckpt}
-  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/yam_rl2_abc_hptflow_h640t8_d384x10_cos10k_s42_yam97cutoff20260915/norm_stats.json}
+  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/yam_rl2_stationery_ft_time_h640t8_d384x10_cos2.5k_ft60k_s42_j13308879/resolved-config.yaml}
+  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/yam_rl2_stationery_ft_time_h640t8_d384x10_cos2.5k_ft60k_s42_j13308879/yam_rl2_stationery_ft_time_h640t8_d384x10_cos2.5k_ft60k_s42_j13308879__step-60000__epoch-599__sha256-cb5c36d43c61ce58.ckpt}
+  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/yam_rl2_stationery_ft_time_h640t8_d384x10_cos2.5k_ft60k_s42_j13308879/norm_stats.json}
   device: cuda:0
   use_ema: false
   # The checkpoint's resolved training config specifies 50 flow-Euler steps.

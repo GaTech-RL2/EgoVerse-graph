@@ -45,7 +45,7 @@ def validate_rollout_config(config):
         raise ValueError("Rollout configuration needs a policy mapping")
     from egomimic.robot.rollout_dashboard import validate_model_browser
 
-    validate_model_browser(config.get("model_browser"), policy.get("checkpoint"))
+    validate_model_browser(config.get("model_browser"), policy)
     if preview.get("mode") != "dashboard":
         return
     robot = config.get("robot")
@@ -65,7 +65,7 @@ def create_preview_view(
     execute_steps=None,
     video_recording=None,
     model_browser=None,
-    checkpoint=None,
+    policy=None,
 ):
     """Select the legacy OpenCV preview or the local browser dashboard."""
     preview = dict(preview)
@@ -77,7 +77,7 @@ def create_preview_view(
             execute_steps=execute_steps,
             video_recording=video_recording,
             model_browser=model_browser,
-            checkpoint=checkpoint,
+            policy=policy,
             **preview,
         )
     return CameraView(camera_res, **preview)
@@ -160,7 +160,7 @@ def run_rollout(robot, policy, config, view=None):
         execute_steps=execute_steps,
         video_recording=config.get("video_recording"),
         model_browser=config.get("model_browser"),
-        checkpoint=(policy_config or {}).get("checkpoint"),
+        policy=policy_config,
     )
     video_config = validate_video_recording(config.get("video_recording"))
     video_recorder = (
@@ -227,8 +227,8 @@ def run_rollout(robot, policy, config, view=None):
             control = view.update(obs)
             if control in ("q", "\x1b"):
                 break
-            checkpoint = _take_model_swap_request(view)
-            if checkpoint is not None:
+            bundle = _take_model_swap_request(view)
+            if bundle is not None:
                 # Freeze the current measured pose before the potentially slow
                 # GPU checkpoint load. Old-model chunks are discarded and the
                 # operator must explicitly start the new model after it loads.
@@ -242,12 +242,16 @@ def run_rollout(robot, policy, config, view=None):
                 clear_plan = getattr(view, "clear_action_plan", None)
                 if callable(clear_plan):
                     clear_plan()
-                _set_view_status(view, f"Loading checkpoint {checkpoint.name}")
+                _set_view_status(view, f"Loading checkpoint {bundle.checkpoint.name}")
                 try:
                     if not isinstance(policy_config, dict):
                         raise ValueError("Rollout policy configuration is unavailable")
                     candidate_config = copy.deepcopy(policy_config)
-                    candidate_config["checkpoint"] = str(checkpoint)
+                    candidate_config.update(
+                        checkpoint=str(bundle.checkpoint),
+                        training_config=str(bundle.training_config),
+                        normalizer_path=str(bundle.normalizer_path),
+                    )
                     candidate = load_policy(candidate_config)
                     if candidate.action_type != policy.action_type:
                         raise ValueError(
@@ -258,10 +262,12 @@ def run_rollout(robot, policy, config, view=None):
                         view,
                         "Checkpoint load failed; previous model remains loaded — press c to retry",
                     )
-                    print(f"Could not load requested checkpoint {checkpoint}: {error}")
+                    print(
+                        f"Could not load requested checkpoint {bundle.checkpoint}: {error}"
+                    )
                 else:
                     policy, policy_config = candidate, candidate_config
-                    _set_model_checkpoint(view, checkpoint)
+                    _set_model_checkpoint(view, bundle)
                     _set_view_status(
                         view, "Checkpoint loaded — press c to start the new model"
                     )

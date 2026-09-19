@@ -59,6 +59,15 @@ def _require_bool(value: object, name: str) -> bool:
     return bool(value)
 
 
+@dataclass(frozen=True)
+class CheckpointBundle:
+    """One checkpoint and the exact inference artifacts stored beside it."""
+
+    checkpoint: Path
+    training_config: Path
+    normalizer_path: Path
+
+
 class CheckpointBrowser:
     """Filesystem browser constrained to one explicitly configured checkpoint root."""
 
@@ -101,17 +110,50 @@ class CheckpointBrowser:
             raise ValueError("Checkpoint is outside model_browser.root") from error
         return "." if not relative.parts else relative.as_posix()
 
-    def resolve_checkpoint(self, relative: object) -> Path:
+    def resolve_bundle(self, relative: object) -> CheckpointBundle:
         path = self._resolve(relative)
         if path.suffix.lower() not in CHECKPOINT_SUFFIXES or not path.is_file():
             raise ValueError("Selected model must be an existing .ckpt file")
-        return path
+        artifacts = {}
+        for key, names in {
+            "training_config": ("resolved-config.yaml", "training-config.yaml"),
+            "normalizer_path": ("norm_stats.json",),
+        }.items():
+            for name in names:
+                candidate = path.parent / name
+                if not candidate.is_file():
+                    continue
+                try:
+                    candidate = candidate.resolve(strict=True)
+                    self.relative(candidate)
+                except (OSError, ValueError):
+                    continue
+                artifacts[key] = candidate
+                break
+            else:
+                raise ValueError(
+                    f"Checkpoint bundle is missing {key.replace('_', ' ')} beside {path.name}"
+                )
+        return CheckpointBundle(checkpoint=path, **artifacts)
 
-    def validate_checkpoint(self, checkpoint: str | Path) -> Path:
-        checkpoint = Path(checkpoint)
-        if not checkpoint.is_absolute():
+    def validate_policy(self, policy: Mapping[str, object]) -> CheckpointBundle:
+        checkpoint = policy.get("checkpoint")
+        if not isinstance(checkpoint, str) or not Path(checkpoint).is_absolute():
             raise ValueError("policy.checkpoint must be an absolute path")
-        return self.resolve_checkpoint(self.relative(checkpoint))
+        bundle = self.resolve_bundle(self.relative(checkpoint))
+        for key, expected in (
+            ("training_config", bundle.training_config),
+            ("normalizer_path", bundle.normalizer_path),
+        ):
+            value = policy.get(key)
+            if (
+                not isinstance(value, str)
+                or Path(value).resolve(strict=True) != expected
+            ):
+                raise ValueError(
+                    f"policy.{key} must match the selected checkpoint bundle"
+                )
+        return bundle
 
     def list_directory(self, relative: object = ".") -> dict:
         directory = self._resolve(relative)
@@ -139,6 +181,10 @@ class CheckpointBrowser:
                     {"type": "directory", "name": child.name, "path": child_relative}
                 )
             elif resolved.is_file() and resolved.suffix.lower() in CHECKPOINT_SUFFIXES:
+                try:
+                    self.resolve_bundle(child_relative)
+                except ValueError:
+                    continue
                 entries.append(
                     {"type": "checkpoint", "name": child.name, "path": child_relative}
                 )
@@ -147,7 +193,7 @@ class CheckpointBrowser:
 
 
 def validate_model_browser(
-    config: Mapping[str, object] | None, checkpoint: str | Path | None = None
+    config: Mapping[str, object] | None, policy: Mapping[str, object] | None = None
 ) -> CheckpointBrowser | None:
     """Validate the optional, local-only model-picker root before hardware opens."""
     config = {} if config is None else dict(config)
@@ -160,8 +206,8 @@ def validate_model_browser(
     if not _require_bool(result["enabled"], "model_browser.enabled"):
         return None
     browser = CheckpointBrowser(result["root"])
-    if checkpoint is not None:
-        browser.validate_checkpoint(checkpoint)
+    if policy is not None:
+        browser.validate_policy(policy)
     return browser
 
 
@@ -428,7 +474,7 @@ class RolloutDashboard:
         execute_steps=10,
         video_recording=None,
         model_browser=None,
-        checkpoint=None,
+        policy=None,
         **config,
     ) -> None:
         self.cameras = tuple(cameras)
@@ -436,7 +482,7 @@ class RolloutDashboard:
             raise ValueError("The rollout dashboard needs at least one camera")
         self.config, self.overlay = validate_rollout_preview(config, set(self.cameras))
         self.video_recording_config = validate_video_recording(video_recording)
-        self.model_browser = validate_model_browser(model_browser, checkpoint)
+        self.model_browser = validate_model_browser(model_browser, policy)
         if not self.config["enabled"]:
             raise ValueError(
                 "preview.enabled must be true when preview.mode is dashboard"
@@ -454,9 +500,9 @@ class RolloutDashboard:
         self._checkpoint = (
             None
             if self.model_browser is None
-            else self.model_browser.relative(Path(checkpoint))
+            else self.model_browser.relative(Path(policy["checkpoint"]))
         )
-        self._model_swap_checkpoint: Path | None = None
+        self._model_swap_checkpoint: CheckpointBundle | None = None
         self._wait_for_start = self.config["wait_for_start"]
         self._status = (
             "Ready — press c to start" if self._wait_for_start else "Starting"
@@ -539,30 +585,30 @@ class RolloutDashboard:
         if self.model_browser is None:
             return
         try:
-            checkpoint = self.model_browser.resolve_checkpoint(relative)
+            bundle = self.model_browser.resolve_bundle(relative)
         except ValueError:
             return
         self._start_requested.clear()
         self._paused.clear()
         with self._lock:
-            self._model_swap_checkpoint = checkpoint
+            self._model_swap_checkpoint = bundle
             self._status = (
-                f"Checkpoint selected: {self.model_browser.relative(checkpoint)} — "
+                f"Checkpoint selected: {self.model_browser.relative(bundle.checkpoint)} — "
                 "control is paused"
             )
 
-    def take_model_swap_request(self) -> Path | None:
+    def take_model_swap_request(self) -> CheckpointBundle | None:
         """Return one validated checkpoint selected by the focused browser tab."""
         with self._lock:
             checkpoint, self._model_swap_checkpoint = self._model_swap_checkpoint, None
         return checkpoint
 
-    def set_model_checkpoint(self, checkpoint: str | Path) -> None:
+    def set_model_checkpoint(self, bundle: CheckpointBundle) -> None:
         """Publish a successful rollout-owned model change to the browser."""
         if self.model_browser is None:
             return
         with self._lock:
-            self._checkpoint = self.model_browser.relative(checkpoint)
+            self._checkpoint = self.model_browser.relative(bundle.checkpoint)
 
     def take_video_recording_request(self) -> bool:
         """Consume one browser recording toggle on the rollout control loop."""

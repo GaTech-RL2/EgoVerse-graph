@@ -320,6 +320,8 @@ def test_checkpoint_browser_lists_only_rooted_checkpoint_candidates(tmp_path):
     run.mkdir(parents=True)
     checkpoint = run / "model.ckpt"
     checkpoint.write_bytes(b"weights")
+    (run / "resolved-config.yaml").write_text("model: {}\n")
+    (run / "norm_stats.json").write_text("{}\n")
     (run / "notes.txt").write_text("not a checkpoint")
     outside = tmp_path / "outside.ckpt"
     outside.write_bytes(b"outside")
@@ -332,9 +334,9 @@ def test_checkpoint_browser_lists_only_rooted_checkpoint_candidates(tmp_path):
     assert browser.list_directory("run_a")["entries"] == [
         {"type": "checkpoint", "name": "model.ckpt", "path": "run_a/model.ckpt"}
     ]
-    assert browser.resolve_checkpoint("run_a/model.ckpt") == checkpoint.resolve()
+    assert browser.resolve_bundle("run_a/model.ckpt").checkpoint == checkpoint.resolve()
     with pytest.raises(ValueError, match="escapes"):
-        browser.resolve_checkpoint("../outside.ckpt")
+        browser.resolve_bundle("../outside.ckpt")
 
 
 def test_dashboard_model_swap_reaches_only_rollout_loop(tmp_path):
@@ -342,6 +344,10 @@ def test_dashboard_model_swap_reaches_only_rollout_loop(tmp_path):
     root.mkdir()
     checkpoint = root / "next.ckpt"
     checkpoint.write_bytes(b"weights")
+    training_config = root / "resolved-config.yaml"
+    training_config.write_text("model: {}\n")
+    normalizer = root / "norm_stats.json"
+    normalizer.write_text("{}\n")
     dashboard = RolloutDashboard(
         ("front_img_1",),
         host="127.0.0.1",
@@ -350,7 +356,11 @@ def test_dashboard_model_swap_reaches_only_rollout_loop(tmp_path):
         wait_for_start=True,
         action_overlay=overlay_config(calibration_file(tmp_path)),
         model_browser={"enabled": True, "root": str(root)},
-        checkpoint=str(checkpoint),
+        policy={
+            "checkpoint": str(checkpoint),
+            "training_config": str(training_config),
+            "normalizer_path": str(normalizer),
+        },
     )
 
     async def request_model_swap():
@@ -370,7 +380,7 @@ def test_dashboard_model_swap_reaches_only_rollout_loop(tmp_path):
 
     try:
         asyncio.run(request_model_swap())
-        assert dashboard.take_model_swap_request() == checkpoint.resolve()
+        assert dashboard.take_model_swap_request().checkpoint == checkpoint.resolve()
         assert not dashboard._start_requested.is_set()
     finally:
         dashboard.close()
@@ -664,7 +674,7 @@ class ModelSwapView(GatedView):
         return next(self.checkpoints)
 
     def set_model_checkpoint(self, checkpoint):
-        self.loaded.append(str(checkpoint))
+        self.loaded.append(str(checkpoint.checkpoint))
 
 
 def test_rollout_publishes_graph_plan_to_view_without_changing_command_path(
@@ -795,8 +805,13 @@ def test_rollout_model_swap_holds_and_requires_a_fresh_start(monkeypatch, tmp_pa
     monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
     checkpoint = tmp_path / "next.ckpt"
     checkpoint.write_bytes(b"weights")
+    training_config = tmp_path / "resolved-config.yaml"
+    training_config.write_text("model: {}\n")
+    normalizer = tmp_path / "norm_stats.json"
+    normalizer.write_text("{}\n")
+    bundle = CheckpointBrowser(tmp_path).resolve_bundle("next.ckpt")
     robot = FakeRobot()
-    view = ModelSwapView([None, "c", "q"], checkpoint)
+    view = ModelSwapView([None, "c", "q"], bundle)
     target = np.zeros((1, 14), dtype=float)
     target[:, [6, 13]] = 0.5
     replacement = SimpleNamespace(action_type="joints", predict=lambda _obs: target)
@@ -817,13 +832,25 @@ def test_rollout_model_swap_holds_and_requires_a_fresh_start(monkeypatch, tmp_pa
             "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "preview": {"enabled": False, "wait_for_start": True},
-            "policy": {"kind": "graph", "checkpoint": "/old/model.ckpt"},
+            "policy": {
+                "kind": "graph",
+                "checkpoint": "/old/model.ckpt",
+                "training_config": "/old/resolved-config.yaml",
+                "normalizer_path": "/old/norm_stats.json",
+            },
         },
         view=view,
     )
 
     assert steps == 1
-    assert loaded == [{"kind": "graph", "checkpoint": str(checkpoint)}]
+    assert loaded == [
+        {
+            "kind": "graph",
+            "checkpoint": str(checkpoint),
+            "training_config": str(training_config),
+            "normalizer_path": str(normalizer),
+        }
+    ]
     assert view.loaded == [str(checkpoint)]
     assert len(robot.commands) == 4  # paired hold, then paired new-model command
 

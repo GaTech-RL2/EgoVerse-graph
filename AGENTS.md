@@ -74,3 +74,10 @@ Use an isolated worktree for consolidation or substantial review follow-ups.
 The consolidated PR/source map is in [docs/ARC_STACK.md](docs/ARC_STACK.md) and
 [docs/arc_consolidation.json](docs/arc_consolidation.json). PI environment and
 graph behavior are documented in [docs/PI05_GRAPH.md](docs/PI05_GRAPH.md).
+
+For future PushShapes multi-embodiment experiments, follow
+[docs/MULTI_EMBODIMENT_DATA.md](docs/MULTI_EMBODIMENT_DATA.md): use the audited
+co-training U-Socket/ChainGripper data, hold out Flipper, and exclude Scoop.
+Use source contract revision 3: retain the existing triangle corpus in training
+alongside the newly generated pentagon.
+Preserve historical recipes and datasets. Use OSMO compute for this campaign.

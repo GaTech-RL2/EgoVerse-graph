@@ -29,8 +29,23 @@ class EMBODIMENT(Enum):
     # A parallel-jaw robot in a station-anchored world frame -- NOT egocentric human
     # data, so it carries no obs_head_pose/obs_keypoints and no extrinsics.
     YAM_BIMANUAL = 7
+    # Preserve the historical small-circle ID and accept the simulator's name.
+    PUSHSHAPES_SIM_SMALL_CIRCLE = 17
+    PUSHSHAPES_SIM_CIRCLE_SMALL = 17
     PUSHSHAPES_SIM_U_SOCKET = 19
     PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
+    # These IDs already key the articulated corpus's saved normalizers.
+    # Excluding an embodiment from a recipe must not remove its reader identity.
+    PUSHSHAPES_SIM_GRIPPER = 21
+    PUSHSHAPES_SIM_SUCTION = 22
+    PUSHSHAPES_SIM_UMI = 23
+    PUSHSHAPES_SIM_TRIANGLE = 24
+    PUSHSHAPES_SIM_SCOOP = 25
+    PUSHSHAPES_SIM_FLIPPER = 26
+    PUSHSHAPES_SIM_SPRING = 27
+    PUSHSHAPES_SIM_STICK = 28
+    PUSHSHAPES_SIM_L = 29
+    PUSHSHAPES_SIM_PENTAGON = 30
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

@@ -78,4 +78,5 @@ graph behavior are documented in [docs/PI05_GRAPH.md](docs/PI05_GRAPH.md).
 For future PushShapes multi-embodiment experiments, follow
 [docs/MULTI_EMBODIMENT_DATA.md](docs/MULTI_EMBODIMENT_DATA.md): use the audited
 co-training U-Socket/ChainGripper data, hold out Flipper, and exclude Scoop.
+Use source contract revision 2: pentagon replaces the duplicated triangle candidate.
 Preserve historical recipes and datasets. Use OSMO compute for this campaign.

@@ -54,7 +54,7 @@ evaluator:
       native_action_dim: 2
       timing_mode: ${planar.arc_timing_mode}
       dt: ${planar.arc_dt}
-    pushshapes_sim_triangle:
+    pushshapes_sim_pentagon:
       _target_: egomimic.pipeline.pushshapes.PlanarArcTimedNativeDecoder
       resampled_vector_length: ${planar.arc_waypoints}
       action_horizon: ${planar.raw_action_horizon}

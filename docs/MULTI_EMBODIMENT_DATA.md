@@ -10,13 +10,17 @@ Do not reuse the old `artic_cotrain7` roster: it trained on Flipper.
 | Role | Embodiments / sources |
 | --- | --- |
 | Audited co-training sources | U-Socket: 2,999 clean episodes; ChainGripper: 3,000 clean plus the separately pinned 1,920 obstacle episodes |
-| Newly generated candidates | Parallel gripper, UMI, small circle, straight bar (`stick`), triangle |
+| Newly generated candidates | Parallel gripper, UMI, small circle, straight bar (`stick`), pentagonal pusher (`pentagon`) |
 | Retained existing sources | Suction and spring, 3,000 ideal-control episodes each |
 | Held out of training and validation | **Flipper** |
-| Excluded from the new roster | Scoop |
+| Excluded from the new roster | Scoop; triangle, which already has data |
 
 The source contract and generation thresholds are in
-[`multiemb_cotrain_sources_v1.yaml`](../egomimic/hydra_configs/data/pusht/multiemb_cotrain_sources_v1.yaml).
+[`multiemb_cotrain_sources_v2.yaml`](../egomimic/hydra_configs/data/pusht/multiemb_cotrain_sources_v2.yaml).
+Revision 2 replaces the duplicated triangle candidate with the simulator's new
+five-sided contact geometry, with controlled yaw and native `(x, y, angle)` actions.
+The first source contract, triangle outputs and old preview remain available;
+they are not part of the revised release.
 The baseline and all four uniform ARC D80/M16/M56 duration/stacked recipes share
 the same dataset configuration. Stacked retains the existing independently
 timed velocity representation; this migration does not change its codec.
@@ -42,11 +46,16 @@ Derived siblings inherit the source episode's original split. The existing
 obstacle split is preserved; it has not been established to be disjoint by
 original demonstration family.
 
-The 24-scene pilot accepted 22 gripper, 22 UMI, 22 small-circle, 10 bar and
+The original 24-scene pilot accepted 22 gripper, 22 UMI, 22 small-circle, 10 bar and
 10 triangle episodes. Every accepted trajectory replayed with zero state error.
 These are **generation acceptance counts**, not learned-policy scores.
 Ten preview videos were inspected through ordered frames covering the clips.
 Pusher contact replanning takes substantially more steps than grasp transport.
+The replacement pentagonal pusher has radius 12 and accepted **18/24** of the
+identical pilot scenes (15 train, 3 validation) under the same thresholds.
+Every accepted trajectory had zero replay state error. Ordered frames from
+three preview videos were inspected before bulk promotion. The pilot selected
+the geometry size; its acceptance count is not an independent benchmark score.
 
 Bulk generation targets 2,970 training and 30 validation episodes per target,
 using only the available source scenes. Exhausting the source pool produces an
@@ -88,3 +97,6 @@ No new model-training job is launched by this data-generation work.
 Artifacts are under `s3://rldb/experiments/multiemb-cotrain-20260918/`.
 The immutable pilot lives in `pilot-v1/`; bulk outputs and source capsules have
 separate versioned prefixes. See the campaign receipts for active workflow IDs.
+The revised release is `release-v2/`, with `bulk-pentagon-v1/pentagon/`
+replacing the prior triangle input. Its manifest pins the simulator capsule
+for each generated embodiment, including the pentagon geometry addition.

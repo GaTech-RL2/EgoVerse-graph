@@ -14,7 +14,7 @@ planar:
     pushshapes_sim_umi: ${planar.action_dim}
     pushshapes_sim_circle_small: ${planar.action_dim}
     pushshapes_sim_stick: ${planar.action_dim}
-    pushshapes_sim_triangle: ${planar.action_dim}
+    pushshapes_sim_pentagon: ${planar.action_dim}
     pushshapes_sim_suction: ${planar.action_dim}
     pushshapes_sim_spring: ${planar.action_dim}
   observation_horizon: 2
@@ -61,7 +61,7 @@ evaluator:
       _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
       action_horizon: ${planar.action_horizon}
       native_action_dim: 2
-    pushshapes_sim_triangle:
+    pushshapes_sim_pentagon:
       _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
       action_horizon: ${planar.action_horizon}
       native_action_dim: 3
@@ -87,7 +87,7 @@ callbacks:
     validate_with_ema: true
 run_provenance:
   campaign: multiemb-cotrain-20260918
-  source_contract: egomimic/hydra_configs/data/pusht/multiemb_cotrain_sources_v1.yaml
+  source_contract: egomimic/hydra_configs/data/pusht/multiemb_cotrain_sources_v2.yaml
   source_content_manifest_sha256: e3a3b1b12a97112bee95687b6154cfa9c1fe7f888944461264ba1c7f366c1eb3
   source_split_manifest_sha256: db0312aac689c701fe5055733db6858556ce1b2032fa4d2c5fb7c296d24afca7
   supplemental_manifest_sha256: ${planar.multiemb_manifest_sha256}
@@ -95,6 +95,7 @@ run_provenance:
   - flipper
   excluded_embodiments:
   - scoop
+  - triangle
   normalizer_training_only: true
   source_action_target_offset:
     usocket_clean: 1

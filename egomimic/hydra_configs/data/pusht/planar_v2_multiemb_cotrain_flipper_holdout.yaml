@@ -1,4 +1,4 @@
-# Manifest-assigned splits are never shuffled again. Flipper and Scoop are excluded.
+# Manifest-assigned splits are never shuffled again. Flipper, Scoop and the duplicated triangle candidate are excluded.
 defaults:
 - /data/pusht/planar_v2_cotrain_obstacle_7919@_here_
 - _self_
@@ -73,14 +73,14 @@ train_datasets:
     mode: total
     valid_ratio: 0.0
     bounds_check: false
-  pushshapes_sim_triangle:
+  pushshapes_sim_pentagon:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
       root: ${planar.multiemb_data_root}
       manifest_path: ${planar.multiemb_manifest_path}
       manifest_sha256: ${planar.multiemb_manifest_sha256}
-      embodiment: pushshapes_sim_triangle
+      embodiment: pushshapes_sim_pentagon
       split: train
       key_map: *id001
       transform_list: *id002
@@ -123,7 +123,7 @@ train_dataloader_params:
   pushshapes_sim_umi: *id003
   pushshapes_sim_circle_small: *id003
   pushshapes_sim_stick: *id003
-  pushshapes_sim_triangle: *id003
+  pushshapes_sim_pentagon: *id003
   pushshapes_sim_suction: *id003
   pushshapes_sim_spring: *id003
 valid_datasets:
@@ -183,14 +183,14 @@ valid_datasets:
     mode: total
     valid_ratio: 0.0
     bounds_check: false
-  pushshapes_sim_triangle:
+  pushshapes_sim_pentagon:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
       root: ${planar.multiemb_data_root}
       manifest_path: ${planar.multiemb_manifest_path}
       manifest_sha256: ${planar.multiemb_manifest_sha256}
-      embodiment: pushshapes_sim_triangle
+      embodiment: pushshapes_sim_pentagon
       split: valid
       key_map: *id001
       transform_list: *id002
@@ -230,6 +230,6 @@ valid_dataloader_params:
   pushshapes_sim_umi: *id003
   pushshapes_sim_circle_small: *id003
   pushshapes_sim_stick: *id003
-  pushshapes_sim_triangle: *id003
+  pushshapes_sim_pentagon: *id003
   pushshapes_sim_suction: *id003
   pushshapes_sim_spring: *id003

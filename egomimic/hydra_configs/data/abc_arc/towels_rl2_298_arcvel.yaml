@@ -1,0 +1,98 @@
+# RL2-ONLY fold_towels, the 298-episode pool (Aidan 2026-09-20: "300 episodes of fold towels for rl2 ... time, arc dur, and arc vel from
+# scratch on this new subset ... everything running under the same regime"). 299 SQL rows, 298 processed (1 Zero Frames).
+# SAME REGIME across the three cells: one loader path (bimanual_arc keymap + transform list; the time target it builds is the same
+# _build_yam_bimanual_eef_frame_transform_list 100-frame EEF-relative chunk as Yam.get_transform_list), one pool, one split
+# (seed 42, valid_ratio 0.05), one evaluator. Only `variant` differs: arcvel.
+# The pool is PINNED by an episode_hash cutoff so jobs that start hours apart cannot resolve different pools as new data lands.
+# persistent_workers true: default re-forks loader workers each epoch and this stack deadlocks there (job 13307279).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcvel
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels''
+        and row[''rig_name''] == ''rl2_abc'' and str(row[''episode_hash'']) < ''2026-09-20-03'''
+    mode: train
+    valid_ratio: 0.05
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcvel
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels''
+        and row[''rig_name''] == ''rl2_abc'' and str(row[''episode_hash'']) < ''2026-09-20-03'''
+    mode: valid
+    valid_ratio: 0.05
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true

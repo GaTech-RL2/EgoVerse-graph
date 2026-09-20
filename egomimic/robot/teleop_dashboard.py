@@ -176,6 +176,7 @@ class TeleopDashboard:
         self._episode_state = "next"
         self._updated_at = 0.0
         self._clients = 0
+        self._camera_reconnect_requested = threading.Event()
         self._stop = threading.Event()
         self._ready = threading.Event()
         self._error: Exception | None = None
@@ -237,6 +238,19 @@ class TeleopDashboard:
         with self._lock:
             self._episode_id = int(episode_id)
             self._episode_state = state
+
+    def request_camera_reconnect(self) -> None:
+        """Queue one RGB-only recovery request for the collection loop."""
+        with self._lock:
+            self._status = "Camera reconnect requested — followers will disarm"
+        self._camera_reconnect_requested.set()
+
+    def take_camera_reconnect_request(self) -> bool:
+        """Return one explicit browser recovery request to the collection loop."""
+        if not self._camera_reconnect_requested.is_set():
+            return False
+        self._camera_reconnect_requested.clear()
+        return True
 
     def _enqueue_key(self, key: object) -> None:
         if not isinstance(key, str) or key.lower() not in self.keys:
@@ -312,6 +326,8 @@ class TeleopDashboard:
                             command = json.loads(message.data)
                             self._enqueue_key(command.get("key"))
                             self._enqueue_episode(command.get("episode"))
+                            if command.get("reconnect_cameras") is True:
+                                self.request_camera_reconnect()
                         except (AttributeError, json.JSONDecodeError):
                             pass
             finally:

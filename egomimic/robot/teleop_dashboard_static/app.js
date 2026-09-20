@@ -18,6 +18,17 @@ function send(key) {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({key}));
 }
 
+function reconnectCameras() {
+  if (socket?.readyState !== WebSocket.OPEN) {
+    $('status').textContent = 'Dashboard is not connected.';
+    return;
+  }
+  if (!confirm('Reconnect all RGB cameras? Followers will disarm and teleop must be armed again.')) return;
+  $('reconnect-cameras').disabled = true;
+  $('status').textContent = 'Camera reconnect requested…';
+  socket.send(JSON.stringify({reconnect_cameras: true}));
+}
+
 function configure(message) {
   cameras.clear();
   $('cameras').replaceChildren();
@@ -52,9 +63,15 @@ function configure(message) {
   $('reset-home').onclick = () => {
     if (confirm('Reset both YAM arms to home?')) send(message.keys.home);
   };
+  $('reconnect-cameras').disabled = false;
+  $('reconnect-cameras').onclick = reconnectCameras;
+  const isEditable = target => target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+    || (target instanceof HTMLElement && target.isContentEditable);
   document.onkeydown = event => {
     if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.target instanceof HTMLInputElement) return;
+    if (isEditable(event.target)) return;
     const key = event.code === 'Space' ? ' ' : event.key.toLowerCase();
     if (reverse[key]) {
       event.preventDefault();
@@ -88,10 +105,8 @@ function updateEpisode(message) {
       pendingEpisodeFrames = 0;
     } else if (++pendingEpisodeFrames >= 6) {
       const rejected = pendingEpisode;
-      input.value = currentEpisode;
-      $('episode-hint').textContent = `ID ${rejected} is unavailable; keeping ${currentEpisode}`;
-      pendingEpisode = undefined;
-      pendingEpisodeFrames = 0;
+      input.value = rejected;
+      $('episode-hint').textContent = `ID ${rejected} was not accepted; choose an unused ID and try again.`;
     } else {
       input.value = pendingEpisode;
       $('episode-hint').textContent = `Applying episode ${pendingEpisode}…`;
@@ -112,6 +127,9 @@ function frame(message) {
   $('status').className = message.status.startsWith('active')
     ? 'active' : message.status.startsWith('armed') ? 'armed' : 'disarmed';
   $('recording-indicator').hidden = !message.recording;
+  const recovering = message.status.startsWith('Camera reconnect')
+    || message.status.startsWith('Reconnecting RGB');
+  $('reconnect-cameras').disabled = recovering;
   updateEpisode(message);
   for (const [name, tile] of cameras) {
     const image = message.images[name];
@@ -261,23 +279,35 @@ $('close-demos').onclick = () => {
   pausePlayback();
   $('demos').close();
 };
-$('set-episode').onclick = () => {
-  const episode = Number($('episode-number').value);
-  if (!Number.isInteger(episode) || episode < 0) {
-    $('episode-hint').textContent = 'Enter a nonnegative whole number.';
+function submitEpisode(event) {
+  event.preventDefault();
+  const input = $('episode-number');
+  const raw = input.value.trim();
+  const hint = $('episode-hint');
+  if (!/^\d+$/.test(raw)) {
+    hint.textContent = 'Enter a nonnegative whole number.';
+    return;
+  }
+  const episode = Number(raw);
+  if (!Number.isSafeInteger(episode)) {
+    hint.textContent = 'Enter a smaller whole number.';
     return;
   }
   if (socket?.readyState !== WebSocket.OPEN) {
-    $('episode-hint').textContent = 'Dashboard is not connected.';
+    hint.textContent = 'Dashboard is not connected.';
     return;
   }
   pendingEpisode = episode;
   pendingEpisodeFrames = 0;
-  $('episode-hint').textContent = `Requesting episode ${episode}…`;
+  hint.textContent = `Requesting episode ${episode}…`;
   socket.send(JSON.stringify({episode}));
-};
-$('episode-number').onkeydown = event => {
-  if (event.key === 'Enter') $('set-episode').click();
+}
+const episodeForm = $('episode-form');
+episodeForm.onsubmit = submitEpisode;
+episodeForm.onkeydown = event => event.stopPropagation();
+$('episode-number').oninput = () => {
+  pendingEpisode = undefined;
+  pendingEpisodeFrames = 0;
 };
 $('seek').oninput = () => {
   pausePlayback();
@@ -314,6 +344,7 @@ function connect() {
     if (message.type === 'frame') frame(message);
   };
   socket.onclose = () => {
+    $('reconnect-cameras').disabled = true;
     $('status').textContent = 'Dashboard disconnected; retrying…';
     setTimeout(connect, 1000);
   };

@@ -32,6 +32,30 @@ SMALL = dict(
 )
 
 
+@pytest.mark.parametrize("component", ["tokenizer", "observation_encoder"])
+def test_cpu_checkpoint_preserves_normalizer_device(component):
+    from egomimic.models.oat.factory import make_obs_encoder
+    from egomimic.models.oat.model.common.normalizer import LinearNormalizer
+
+    network = (
+        make_tokenizer(**SMALL) if component == "tokenizer" else make_obs_encoder()
+    )
+    checkpoint = network.state_dict()
+    # Meta reproduces the cross-device load contract on CPU-only CI. The real
+    # CUDA inference path is additionally checked by the L40S rollout workflow.
+    network.to("meta")
+    network.load_state_dict(checkpoint)
+    normalizers = [
+        module for module in network.modules() if isinstance(module, LinearNormalizer)
+    ]
+    assert normalizers
+    assert all(
+        parameter.device.type == "meta"
+        for module in normalizers
+        for parameter in module.parameters()
+    )
+
+
 @pytest.fixture(scope="module")
 def reference():
     root = os.environ.get("OAT_REFERENCE_ROOT")

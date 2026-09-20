@@ -16,6 +16,30 @@ from egomimic.models.oat.tokenizer.oat.quantizer.fsq import FSQ
 from egomimic.models.oat.tokenizer.oat.tokenizer import OATTok
 
 
+def _capture_normalizer_devices(module, *_args):
+    # Upstream normalizers replace their ParameterDict from checkpoint tensors.
+    # A CPU-mapped checkpoint otherwise moves a CUDA normalizer back to CPU.
+    module._normalizer_load_devices = [
+        (child, next(child.parameters()).device)
+        for child in module.modules()
+        if isinstance(child, LinearNormalizer) and len(child.params_dict)
+    ]
+
+
+def _restore_normalizer_devices(module, _incompatible_keys):
+    for child, device in module._normalizer_load_devices:
+        child.to(device)
+    del module._normalizer_load_devices
+
+
+def _preserve_normalizer_devices(network):
+    # Hook the parent: DictOfTensorMixin overrides _load_from_state_dict without
+    # invoking Module's pre-hooks. This also covers Lightning GPU resume.
+    network.register_load_state_dict_pre_hook(_capture_normalizer_devices)
+    network.register_load_state_dict_post_hook(_restore_normalizer_devices)
+    return network
+
+
 def identity_normalizer(keys):
     normalizer = LinearNormalizer()
     for key in keys:
@@ -72,7 +96,7 @@ def make_tokenizer(
     )
     # MultiDataset owns the real affine transform, once, for both methods.
     tokenizer.set_normalizer(identity_normalizer(["action"]))
-    return tokenizer
+    return _preserve_normalizer_devices(tokenizer)
 
 
 def libero_shape_meta(image_size=128):
@@ -114,7 +138,7 @@ def make_obs_encoder(shape_meta=None, crop_shape=(76, 76)):
         ),
     )
     encoder.set_normalizer(identity_normalizer(shape_meta["obs"]))
-    return encoder
+    return _preserve_normalizer_devices(encoder)
 
 
 def load_tokenizer(checkpoint, *, use_ema=True):

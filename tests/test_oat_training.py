@@ -150,3 +150,4 @@ def test_final_checkpoint_includes_epoch_after_periodic_checkpoint(tmp_path):
     )
     assert payload["global_step"] == objects["trainer"].global_step == 6
     assert payload["ema_num_updates"] == 6
+    assert payload["loops"]["fit_loop"]["epoch_progress"]["current"]["completed"] == 3

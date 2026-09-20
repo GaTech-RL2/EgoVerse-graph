@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -253,6 +254,56 @@ def training_arguments(method, suite, dataset, evidence, mode, epochs):
     return args
 
 
+def restore_checkpoints(client, source_run, evidence, *, suite, mode, epochs):
+    """Recover completed training checkpoints without reusing partial rollouts."""
+    import torch
+
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", source_run):
+        raise ValueError("Invalid source run ID")
+    prefix = f"experiments/arc-oat-20260919/{source_run}/"
+
+    def read(name):
+        return json.loads(
+            client.get_object(Bucket="rldb", Key=prefix + name)["Body"].read()
+        )
+
+    runtime, receipts = read("runtime.json"), read("checkpoint-receipts.json")
+    if (runtime["suite"], runtime["mode"], runtime["epochs"]) != (
+        suite,
+        mode,
+        1 if mode == "smoke" else epochs,
+    ):
+        raise ValueError("Recovery suite, mode or training budget differs")
+    restored = {}
+    for method in ("tokenizer", "oat", "arc"):
+        relative = f"training/{method}/checkpoints/last.ckpt"
+        receipt = receipts[relative]
+        uri = receipt["uri"]
+        if not uri.startswith("s3://rldb/" + prefix + "checkpoints/"):
+            raise ValueError("Checkpoint receipt points outside its source run")
+        path = evidence / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        client.download_file("rldb", uri.removeprefix("s3://rldb/"), str(path))
+        if digest(path) != receipt["sha256"] or path.stat().st_size != receipt["bytes"]:
+            raise ValueError("Recovered checkpoint hash or size differs")
+        payload = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+        completed = payload["loops"]["fit_loop"]["epoch_progress"]["current"][
+            "completed"
+        ]
+        if completed < runtime["epochs"]:
+            raise ValueError("Cannot evaluate an incomplete training checkpoint")
+        restored[method] = {
+            **receipt,
+            "epochs_completed": completed,
+            "global_step": payload["global_step"],
+        }
+        del payload
+    write_json(
+        evidence / "recovered-training.json",
+        {"source_run": source_run, "runtime": runtime, "checkpoints": restored},
+    )
+
+
 def configure_simulator(root):
     import yaml
 
@@ -284,6 +335,9 @@ def main():
     parser.add_argument("--mode", choices=("smoke", "full"), required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--epochs", type=int, default=5001)
+    parser.add_argument(
+        "--evaluate-from-run", default=os.environ.get("EVALUATE_FROM_RUN") or None
+    )
     args = parser.parse_args()
     if (
         not torch.cuda.is_available()
@@ -308,6 +362,7 @@ def main():
             "suite": args.suite,
             "mode": args.mode,
             "epochs": 1 if args.mode == "smoke" else args.epochs,
+            "evaluate_from_run": args.evaluate_from_run,
             "artifact_prefix": "s3://rldb/" + uploader.prefix,
         },
     )
@@ -318,7 +373,16 @@ def main():
         write_json(evidence / "status.json", {"state": "STAGING_DATA"})
         dataset = stage_dataset(args.root, args.suite, evidence)
         configure_simulator(args.root)
-        for method in ("tokenizer", "oat", "arc"):
+        if args.evaluate_from_run:
+            restore_checkpoints(
+                uploader.client,
+                args.evaluate_from_run,
+                evidence,
+                suite=args.suite,
+                mode=args.mode,
+                epochs=args.epochs,
+            )
+        for method in () if args.evaluate_from_run else ("tokenizer", "oat", "arc"):
             write_json(
                 evidence / "status.json", {"state": "TRAINING", "method": method}
             )
@@ -405,6 +469,7 @@ def main():
                 "benchmark_performance": args.mode == "full",
             },
         )
+        print("BENCHMARK_RESULT", (evidence / "status.json").read_text(), flush=True)
     except BaseException as error:
         write_json(
             evidence / "status.json",

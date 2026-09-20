@@ -9,13 +9,17 @@ import yaml
 from egomimic.benchmarks.libero.catalog import TASKS
 
 
-def workflow(commit, run_id, suite, mode="smoke", epochs=5001):
+def workflow(commit, run_id, suite, mode="smoke", epochs=5001, evaluate_from_run=None):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", run_id):
         raise ValueError("run_id must be a DNS label of at most 63 characters")
     if suite not in TASKS or mode not in {"smoke", "full"} or epochs < 1:
         raise ValueError("Invalid suite, mode or epoch budget")
+    if evaluate_from_run is not None and not re.fullmatch(
+        r"[a-z0-9][a-z0-9-]{0,62}", evaluate_from_run
+    ):
+        raise ValueError("Invalid evaluation source run ID")
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
@@ -51,6 +55,7 @@ def workflow(commit, run_id, suite, mode="smoke", epochs=5001):
                         "SUITE": suite,
                         "RUN_MODE": mode,
                         "EPOCHS": str(epochs),
+                        "EVALUATE_FROM_RUN": evaluate_from_run or "",
                     },
                     "command": ["bash"],
                     "args": ["/tmp/entry.sh"],
@@ -68,11 +73,19 @@ def main():
     parser.add_argument("--suite", choices=TASKS, default="libero_10")
     parser.add_argument("--mode", choices=("smoke", "full"), default="smoke")
     parser.add_argument("--epochs", type=int, default=5001)
+    parser.add_argument("--evaluate-from-run")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     with args.output.open("x") as handle:
         yaml.safe_dump(
-            workflow(args.commit, args.run_id, args.suite, args.mode, args.epochs),
+            workflow(
+                args.commit,
+                args.run_id,
+                args.suite,
+                args.mode,
+                args.epochs,
+                args.evaluate_from_run,
+            ),
             handle,
             sort_keys=False,
         )

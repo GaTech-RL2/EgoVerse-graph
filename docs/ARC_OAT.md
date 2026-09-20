@@ -56,6 +56,20 @@ but is preemptible. Automatic recovery from R2 is not implemented; recover a
 recorded checkpoint with the shared `ckpt_path` training option before resuming
 a preempted run. The default NORMAL-priority smoke only needs one free GPU.
 
+To rerun evaluation from completed training after a simulator or inference
+failure, render a workflow with a **new** run ID and
+`--evaluate-from-run <original-run-id>`. Use the original R2 run ID, which may
+differ from OSMO's suffixed workflow name. This restores the three recorded
+final checkpoints, verifies their hashes, completed epoch counts, suite and
+training budget, and starts fresh paired rollouts/reconstruction. It does not
+repeat training or reuse partially written rollout results. Recovery provenance
+records both the training source revision and current evaluation revision.
+
+Native factory hooks preserve OAT normalizers' device when loading CPU-mapped
+checkpoints into an accelerator model, including Lightning resume. Upstream's
+normalizer load method replaces its parameter dictionaries, so moving the
+networks before loading weights alone is insufficient.
+
 Source pins:
 
 - [OAT](https://github.com/Chaoqi-LIU/oat/tree/1da92695ef12c23b7000a0b1a76cab0aef4750e6)

@@ -10,6 +10,7 @@ from egomimic.benchmarks.libero.cluster import (
     ArtifactUploader,
     digest,
     extract_replay,
+    restore_checkpoints,
     training_arguments,
 )
 
@@ -95,3 +96,80 @@ def test_checkpoint_snapshots_are_content_addressed_and_receipted(
     assert receipts["last.ckpt"]["sha256"] == digest(path)
     assert any(first_hash in key for key in storage.objects)
     assert any(digest(path) in key for key in storage.objects)
+
+
+@pytest.mark.parametrize("invalid", [None, "budget", "hash", "incomplete", "outside"])
+def test_recovery_verifies_checkpoints_and_complete_training(tmp_path, invalid):
+    import io
+    import shutil
+
+    import torch
+
+    source = tmp_path / "source.ckpt"
+    torch.save(
+        {
+            "global_step": 2,
+            "loops": {
+                "fit_loop": {
+                    "epoch_progress": {
+                        "current": {"completed": 0 if invalid == "incomplete" else 1}
+                    }
+                }
+            },
+        },
+        source,
+    )
+    prefix = "experiments/arc-oat-20260919/source-run/"
+    runtime = {
+        "suite": "libero_10",
+        "mode": "full" if invalid == "budget" else "smoke",
+        "epochs": 1,
+    }
+    receipt = {
+        "sha256": "bad" if invalid == "hash" else digest(source),
+        "bytes": source.stat().st_size,
+        "uri": "s3://rldb/"
+        + ("another-run/" if invalid == "outside" else prefix + "checkpoints/")
+        + "last.ckpt",
+    }
+    receipts = {
+        f"training/{method}/checkpoints/last.ckpt": receipt
+        for method in ("tokenizer", "oat", "arc")
+    }
+
+    class Storage:
+        def get_object(self, Bucket, Key):
+            value = runtime if Key.endswith("runtime.json") else receipts
+            return {"Body": io.BytesIO(json.dumps(value).encode())}
+
+        def download_file(self, bucket, key, destination):
+            shutil.copyfile(source, destination)
+
+    evidence = tmp_path / "evidence"
+    if invalid is not None:
+        with pytest.raises(ValueError):
+            restore_checkpoints(
+                Storage(),
+                "source-run",
+                evidence,
+                suite="libero_10",
+                mode="smoke",
+                epochs=5001,
+            )
+    else:
+        restore_checkpoints(
+            Storage(),
+            "source-run",
+            evidence,
+            suite="libero_10",
+            mode="smoke",
+            epochs=5001,
+        )
+        assert (
+            len(
+                json.loads((evidence / "recovered-training.json").read_text())[
+                    "checkpoints"
+                ]
+            )
+            == 3
+        )

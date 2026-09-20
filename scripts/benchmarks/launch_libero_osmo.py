@@ -26,7 +26,7 @@ def workflow(commit, run_id, suite, mode="smoke", epochs=5001):
                     "gpu": 1,
                     "memory": "64Gi",
                     "storage": "240Gi",
-                    "platform": "ovx-l40",
+                    "platform": "ovx-l40s",
                 }
             },
             "timeout": {

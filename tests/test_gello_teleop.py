@@ -663,6 +663,17 @@ class SequenceView:
         self.closed = True
 
 
+class CameraRecoveryView(SequenceView):
+    """Request RGB recovery once, then use the normal GELLO arm gate."""
+
+    def __init__(self):
+        super().__init__([None, "g", None, "q"])
+        self.requests = iter((True, False, False, False))
+
+    def take_camera_reconnect_request(self):
+        return next(self.requests)
+
+
 class SafeReader:
     def read(self):
         joints = np.r_[np.zeros(6), 0.5]
@@ -736,6 +747,39 @@ def test_g_arms_without_starting_an_episode(tmp_path, monkeypatch):
     assert [arm for arm, _ in robot.commands][:2] == ["left", "right"]
 
 
+def test_camera_reconnect_disarms_and_requires_a_fresh_gello_gate(
+    tmp_path, monkeypatch
+):
+    profile = yaml.safe_load(PROFILE.read_text())
+    profile["robot"]["cameras"] = {}
+    profile["recording"].update(directory=str(tmp_path), episode_length=10)
+    profile["preview"]["enabled"] = False
+    monkeypatch.setattr(time, "sleep", lambda delay: None)
+    robot = FakeFollower()
+    robot.camera_reconnects = 0
+
+    def reconnect_cameras():
+        robot.camera_reconnects += 1
+
+    robot.reconnect_cameras = reconnect_cameras
+    view = CameraRecoveryView()
+    steps = collect_gello.run_collection(
+        robot,
+        TriggerReader(squeeze_after=2),
+        profile,
+        view=view,
+        max_steps=4,
+    )
+
+    assert steps == 3 and view.closed
+    assert robot.camera_reconnects == 1
+    # The recovery tick cannot command a follower. Motion begins only after g
+    # has armed the system and the following squeeze passes the trigger gate.
+    assert [arm for arm, _ in robot.commands] == ["left", "right"]
+    assert any("Reconnecting RGB cameras" in status for status in view.statuses)
+    assert any("reconnected — press g" in status for status in view.statuses)
+
+
 def test_completed_recording_advances_dashboard_episode_id(tmp_path, monkeypatch):
     profile = yaml.safe_load(PROFILE.read_text())
     profile["robot"]["cameras"] = {}
@@ -749,6 +793,20 @@ def test_completed_recording_advances_dashboard_episode_id(tmp_path, monkeypatch
     assert view.episodes[-1] == (1, "next")
     with h5py.File(tmp_path / "demo_0.hdf5") as episode:
         assert episode.attrs["complete"]
+
+
+def test_stop_discards_active_take_without_advancing_episode_id(tmp_path, monkeypatch):
+    profile = yaml.safe_load(PROFILE.read_text())
+    profile["robot"]["cameras"] = {}
+    profile["recording"].update(directory=str(tmp_path), episode_length=10)
+    profile["preview"]["enabled"] = False
+    monkeypatch.setattr(time, "sleep", lambda delay: None)
+    view = SequenceView(["b", None, None, "x", "q"])
+    collect_gello.run_collection(
+        FakeFollower(), TriggerReader(), profile, view=view, max_steps=5
+    )
+    assert view.episodes[-1] == (0, "next")
+    assert not list(tmp_path.glob("*.hdf5"))
 
 
 def test_episode_override_rejects_an_existing_demo(tmp_path, monkeypatch):
@@ -828,6 +886,14 @@ def test_dashboard_places_episode_and_demo_controls_below_cameras():
     assert ".command-row { display: flex" in css
     assert "overflow-y: auto" in css
     assert "method: 'DELETE'" in javascript
+    assert 'id="episode-form"' in html
+    assert 'type="submit"' in html
+    assert "episodeForm.onsubmit = submitEpisode" in javascript
+    assert "event.preventDefault()" in javascript
+    assert "was not accepted; choose an unused ID" in javascript
+    assert 'id="reconnect-cameras"' in html
+    assert "function reconnectCameras()" in javascript
+    assert "reconnect_cameras: true" in javascript
 
 
 def test_pending_recording_creates_no_file_until_triggers_activate(

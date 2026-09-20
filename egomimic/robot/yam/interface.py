@@ -1,6 +1,8 @@
 """Local i2rt Yam driver with the same interface used by Eva collection/rollout."""
 
+import copy
 import inspect
+import threading
 import time
 
 import numpy as np
@@ -66,7 +68,12 @@ class YamInterface:
             raise ValueError(
                 "Home, frequency, and gripper control values must be positive"
             )
-        camera_validator(cameras)
+        # Keep an immutable local copy so a disconnected RealSense pipeline can
+        # be rebuilt without reopening CAN drivers or changing station settings.
+        self._camera_config = copy.deepcopy(cameras)
+        self._camera_validator = camera_validator
+        self._camera_lock = threading.RLock()
+        self._camera_validator(self._camera_config)
         streaming_spec = dict(teleop_kinematics or {})
         if streaming_spec and streaming_solver_factory is None:
             import mink
@@ -124,7 +131,7 @@ class YamInterface:
                 self._validate_gripper_control(driver, arm)
                 print(f"YAM startup: {arm} follower state is ready")
             print("YAM startup: opening configured RGB cameras")
-            self.recorders, self.camera_res = open_cameras(cameras)
+            self.recorders, self.camera_res = open_cameras(self._camera_config)
             print("YAM startup: RGB cameras are ready")
         except BaseException:
             self.close()
@@ -176,11 +183,44 @@ class YamInterface:
             poses[offset : offset + 7] = np.r_[
                 pose_vector(self.solvers[arm].fk(q[:6])), q[6]
             ]
+        # Camera recovery swaps this mapping atomically. A snapshot avoids a
+        # concurrent dashboard request observing a partially rebuilt mapping.
+        with self._camera_lock:
+            recorders = tuple(self.recorders.items())
         return {
             "joint_positions": joints,
             "ee_poses": poses,
-            **{name: camera.get_image() for name, camera in self.recorders.items()},
+            **{name: camera.get_image() for name, camera in recorders},
         }
+
+    def reconnect_cameras(self):
+        """Rebuild configured RGB streams without touching follower drivers.
+
+        The caller must explicitly request recovery after physically reconnecting
+        a camera. Existing streams are stopped before reopening all configured
+        serials together, avoiding a stale RealSense pipeline mixed with fresh
+        views. No CAN driver is closed or commanded here.
+        """
+        if not self._camera_config:
+            return ()
+        print("YAM camera recovery: validating configured RGB cameras")
+        self._camera_validator(self._camera_config)
+        with self._camera_lock:
+            old_recorders, self.recorders = self.recorders, {}
+        print("YAM camera recovery: stopping existing RGB streams")
+        close_cameras(old_recorders)
+        try:
+            print("YAM camera recovery: opening configured RGB cameras")
+            recorders, resolutions = open_cameras(self._camera_config)
+        except BaseException:
+            # Keep the mapping empty on failure. The caller can report the
+            # failure and retry after the physical USB device is present.
+            raise
+        with self._camera_lock:
+            self.recorders = recorders
+            self.camera_res = resolutions
+        print("YAM camera recovery: RGB cameras are ready")
+        return tuple(recorders)
 
     def solve_ik(self, ee_pose, arm):
         return self.solvers[arm].ik(pose_matrix(ee_pose), self.get_joints(arm)[:6])
@@ -230,8 +270,10 @@ class YamInterface:
 
     def close(self):
         errors = []
+        with self._camera_lock:
+            recorders, self.recorders = self.recorders, {}
         try:
-            close_cameras(self.recorders)
+            close_cameras(recorders)
         except Exception as error:
             errors.append(error)
         for driver in self.controller.values():

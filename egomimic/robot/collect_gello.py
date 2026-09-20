@@ -264,6 +264,12 @@ class TerminalKeyView:
             self._termios.tcsetattr(self._fd, self._termios.TCSADRAIN, settings)
 
 
+def _take_camera_reconnect_request(view) -> bool:
+    """Consume one dashboard-only RGB recovery request, if the view has one."""
+    take = getattr(view, "take_camera_reconnect_request", None)
+    return bool(take()) if callable(take) else False
+
+
 def run_collection(robot, reader, config, view=None, max_steps=None):
     """Run direct leader/follower control and incremental HDF5 capture."""
     config = validate_gello_config(config)
@@ -290,6 +296,7 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
         ).stem.removeprefix("demo_")
     )
     writer, steps, ready, record_phase = None, 0, False, 0.0
+    startup_complete = False
     record_pending = False
     arm_record_on_next_sample = False
     started = time.monotonic()
@@ -345,6 +352,47 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                     last_warning = tick
             update_dashboard_status()
             view_event = view.update(obs, recording=writer is not None)
+            if _take_camera_reconnect_request(view):
+                # A camera recovery never commands or closes the follower. Hold
+                # it first, preserve an in-progress take, then require the
+                # normal g + release/squeeze gate before teleop can resume.
+                control.disarm()
+                record_pending = False
+                arm_record_on_next_sample = False
+                if writer is not None:
+                    writer_path = writer.path
+                    writer.close(complete=False)
+                    writer = None
+                    record_phase = 0.0
+                    print(f"Preserved interrupted episode: {writer_path}")
+                    advance_episode()
+                update_dashboard_episode()
+                set_status = getattr(view, "set_status", None)
+                if callable(set_status):
+                    set_status("Reconnecting RGB cameras — followers disarmed")
+                reconnect = getattr(robot, "reconnect_cameras", None)
+                try:
+                    if not callable(reconnect):
+                        raise RuntimeError(
+                            "This robot runtime does not support camera recovery"
+                        )
+                    reconnect()
+                except Exception as error:
+                    print(f"Camera reconnect failed; replug and try again: {error}")
+                    if callable(set_status):
+                        set_status("Camera reconnect failed — replug and try again")
+                else:
+                    print("RGB cameras reconnected; followers remain disarmed.")
+                    if callable(set_status):
+                        set_status(
+                            "RGB cameras reconnected — press g, then squeeze both GELLO triggers"
+                        )
+                # The prior frame and leader sample were taken before recovery.
+                # Reacquire both on a future tick before accepting any command.
+                ready = False
+                steps += 1
+                time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                continue
             if isinstance(view_event, dict) and "episode" in view_event:
                 requested_episode = int(view_event["episode"])
                 requested_path = (
@@ -369,11 +417,18 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                 record_pending = False
                 arm_record_on_next_sample = False
                 if writer is not None:
+                    writer_path = writer.path
                     writer.close(complete=False)
-                    print(f"Preserved interrupted episode: {writer.path}")
                     writer = None
                     record_phase = 0.0
-                    advance_episode()
+                    if event == keys["stop"]:
+                        # X explicitly discards the current take. Remove the
+                        # incomplete file so the same episode ID remains usable.
+                        writer_path.unlink()
+                        print(f"Discarded {writer_path}; episode ID unchanged.")
+                    else:
+                        print(f"Preserved interrupted episode: {writer_path}")
+                        advance_episode()
                 if event == keys["home"]:
                     control.reset()
                     robot.set_home()
@@ -386,7 +441,11 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
             input_ready = sample is not None
             if not ready:
                 ready = cameras_ready and input_ready
-                if not ready and tick - started > float(config["startup_timeout"]):
+                if ready:
+                    startup_complete = True
+                elif not startup_complete and tick - started > float(
+                    config["startup_timeout"]
+                ):
                     raise TimeoutError(
                         "Waiting for configured cameras and both USB GELLO leaders; "
                         "check serial paths, Dynamixel IDs/baudrate, and camera serials."

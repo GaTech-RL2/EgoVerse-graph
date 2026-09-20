@@ -507,6 +507,53 @@ def test_yam_camera_preflight_runs_before_driver_initialization():
     assert not calls
 
 
+def test_yam_camera_reconnect_rebuilds_only_rgb_streams(monkeypatch):
+    import egomimic.robot.yam.interface as yam_interface
+
+    class Recorder:
+        def __init__(self, generation):
+            self.generation = generation
+            self.stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+        def get_image(self):
+            return np.full((2, 3, 3), self.generation, dtype=np.uint8)
+
+    opened, validated = [], []
+
+    def fake_open(cameras):
+        generation = len(opened) + 1
+        recorder = Recorder(generation)
+        opened.append((dict(cameras), recorder))
+        return {"front": recorder}, {"front": (2, 3)}
+
+    monkeypatch.setattr(yam_interface, "open_cameras", fake_open)
+    cameras = {"front": {"type": "realsense", "serial_number": "front"}}
+    robot = YamInterface(
+        ["left"],
+        {"left": "can0"},
+        cameras,
+        {},
+        {"left": [0, 0, 0, 0, 0, 0, 1]},
+        driver_factory=Driver,
+        solver_factory=Solver,
+        camera_validator=lambda config: validated.append(dict(config)),
+    )
+    driver = robot.controller["left"]
+    first = opened[0][1]
+
+    assert robot.reconnect_cameras() == ("front",)
+    assert first.stopped
+    assert not driver.closed
+    assert len(opened) == 2 and len(validated) == 2
+    np.testing.assert_array_equal(robot.get_obs()["front"], np.full((2, 3, 3), 2))
+
+    robot.close()
+    assert opened[1][1].stopped and driver.closed
+
+
 def replay_store(tmp_path, padded=5, total=3):
     import zarr
 
@@ -515,6 +562,25 @@ def replay_store(tmp_path, padded=5, total=3):
     for side in ("left", "right"):
         store.create_array(f"{side}.cmd_joints", data=np.zeros((padded, 6)))
         store.create_array(f"{side}.cmd_gripper", data=np.full((padded, 1), 0.5))
+    return store
+
+
+def yam_pipeline_replay_store(tmp_path, padded=5, total=3):
+    import zarr
+
+    store = zarr.open_group(str(tmp_path / "yam_episode.zarr"), mode="w")
+    store.attrs.update(
+        complete=True,
+        committed_samples=total,
+        arm_order=["left", "right"],
+        schema="rl2_yam.episode.v1",
+    )
+    joints = np.zeros((padded, 2, 6))
+    joints[:total, 0, 0] = np.arange(total) * 0.01
+    joints[:total, 1, 0] = np.arange(total) * -0.01
+    grippers = np.full((padded, 2), 0.5)
+    store.create_array("actions/joint_position", data=joints)
+    store.create_array("actions/gripper", data=grippers)
     return store
 
 
@@ -574,6 +640,55 @@ def test_replay_rejects_nan_and_ignores_chunk_padding(tmp_path):
     policy = ZarrReplayPolicy(tmp_path / "demo.zarr", keys=replay_keys(), chunk_size=8)
     with pytest.raises(ValueError, match="finite"):
         policy.predict(FakeRobot().get_obs())
+
+
+def test_replay_reads_completed_yam_pipeline_split_actions(tmp_path):
+    store = yam_pipeline_replay_store(tmp_path)
+    policy = ZarrReplayPolicy(
+        tmp_path / "yam_episode.zarr",
+        joint_action_key="actions/joint_position",
+        gripper_action_key="actions/gripper",
+        chunk_size=8,
+    )
+    rows = policy.predict(FakeRobot().get_obs())
+    assert rows.shape == (3, 14)
+    np.testing.assert_allclose(rows[:, :6], store["actions/joint_position"][:3, 0])
+    np.testing.assert_allclose(rows[:, 6], store["actions/gripper"][:3, 0])
+    np.testing.assert_allclose(rows[:, 7:13], store["actions/joint_position"][:3, 1])
+    np.testing.assert_allclose(rows[:, 13], store["actions/gripper"][:3, 1])
+
+    store.attrs["complete"] = False
+    with pytest.raises(ValueError, match="completed Zarr episode"):
+        ZarrReplayPolicy(
+            tmp_path / "yam_episode.zarr",
+            joint_action_key="actions/joint_position",
+            gripper_action_key="actions/gripper",
+        )
+
+
+def test_hdf5_replay_requires_a_completed_joint_demo(tmp_path):
+    path = tmp_path / "demo_0.hdf5"
+    actions = np.zeros((2, 14), dtype=np.float32)
+    actions[:, [6, 13]] = 0.5
+    with h5py.File(path, "w") as episode:
+        episode.attrs["complete"] = True
+        episode.create_dataset("actions/joints", data=actions)
+
+    policy = load_policy(
+        {
+            "kind": "hdf5_replay",
+            "path": str(path),
+            "action_key": "actions/joints",
+            "chunk_size": 2,
+        }
+    )
+    np.testing.assert_allclose(policy.predict(FakeRobot().get_obs()), actions)
+    policy.close()
+
+    with h5py.File(path, "r+") as episode:
+        episode.attrs["complete"] = False
+    with pytest.raises(ValueError, match="completed HDF5"):
+        load_policy({"kind": "hdf5_replay", "path": str(path)})
 
 
 def test_no_non_graph_inference_backend():
@@ -764,3 +879,43 @@ def test_quest_stop_unblocks_a_pending_socket_read(monkeypatch):
     reader.stop()
     remote.close()
     assert not reader.thread.is_alive()
+
+
+def test_rollout_discards_unreachable_plan_and_waits_for_the_next_action():
+    class UnreachableRobot(FakeRobot):
+        fail = True
+
+        def solve_ik(self, pose, arm):
+            if self.fail:
+                raise ValueError(
+                    "Predicted Cartesian target is unreachable within IK tolerances"
+                )
+            return np.asarray(pose).copy()
+
+    robot = UnreachableRobot()
+    chunk = np.tile(robot.q.copy(), (3, 1))
+    calls = []
+
+    def predict(obs):
+        calls.append(obs)
+        if len(calls) > 1:
+            robot.fail = False
+        return chunk.copy()
+
+    policy = SimpleNamespace(action_type="cartesian", predict=predict)
+    step = run_rollout(
+        robot,
+        policy,
+        dict(
+            frequency=30,
+            max_steps=2,
+            execute_steps=3,
+            max_joint_velocity=10,
+            preview={"enabled": False},
+        ),
+    )
+    # The unreachable sample ended neither the session nor the process, sent no
+    # command, and discarded the rest of its chunk so the next tick replanned.
+    assert len(calls) == 2
+    assert step == 2
+    assert [arm for arm, _ in robot.commands] == ["left", "right", "left", "right"]

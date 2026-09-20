@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM GELLO Teleop</title>
-    <link rel="stylesheet" href="/style.css?v=9">
+    <link rel="stylesheet" href="/style.css?v=11">
   </head>
   <body>
     <main>
@@ -20,6 +20,7 @@
       </header>
       <section class="command-row" aria-label="Teleop controls">
         <button id="reset-home" class="home">Reset both YAM arms to home [y]</button>
+        <button id="reconnect-cameras">Reconnect RGB cameras</button>
         <div id="controls" class="controls"></div>
       </section>
       <section id="cameras" class="cameras" aria-label="Live RGB cameras"></section>
@@ -29,10 +30,10 @@
         </div>
         <div class="episode-control">
           <label for="episode-number" id="episode-label">Next episode ID</label>
-          <div>
-            <input id="episode-number" type="number" min="0" step="1" inputmode="numeric">
-            <button id="set-episode">Use ID</button>
-          </div>
+          <form id="episode-form" novalidate>
+            <input id="episode-number" type="number" min="0" step="1" inputmode="numeric" autocomplete="off" required aria-describedby="episode-hint">
+            <button id="set-episode" type="submit">Use ID</button>
+          </form>
           <small id="episode-hint">Waiting for collector…</small>
         </div>
       </section>
@@ -78,6 +79,6 @@
         </section>
       </div>
     </dialog>
-    <script type="module" src="/app.js?v=10"></script>
+    <script type="module" src="/app.js?v=12"></script>
   </body>
 </html>

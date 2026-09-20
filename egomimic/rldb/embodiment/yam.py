@@ -128,6 +128,7 @@ class Yam(Embodiment):
     # for callers that use it as the token/model horizon; it is not a raw
     # source-frame count anymore.
     ARC_DISTANCE = 0.40
+    ARC_ROTATION_DISTANCE = float(np.deg2rad(24.0))
     # ARC reads a bounded 600-frame native source buffer, then cuts the
     # shortest prefix satisfying the distance target.  This is deliberately a
     # source-read buffer, not the model/token horizon.
@@ -142,6 +143,7 @@ class Yam(Embodiment):
         action_mode: Literal[
             "cartesian",
             "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
         ] = "cartesian",
         coord_frame: Literal[
             "camframe",
@@ -156,6 +158,7 @@ class Yam(Embodiment):
         # Arc-tokenizer args, only consulted when
         # action_mode="arc_tokenizer_cartesian".
         min_distance_unit: float = 0.40,
+        rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 100,
         chunk_length: int | None = None,
         # How the arc token carries timing; see
@@ -183,14 +186,28 @@ class Yam(Embodiment):
         Geometric hops always run in xyz+quat; ``rotation_mode`` then converts
         rotation to euler (xyz+ypr, 14D), quat (16D), or Zhou 6D (20D).
         """
-        if action_mode not in ("cartesian", "arc_tokenizer_cartesian"):
+        if action_mode not in (
+            "cartesian",
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             raise ValueError(f"unknown action_mode {action_mode!r}")
+        if (
+            action_mode == "hybrid_arc_tokenizer_cartesian"
+            and rotation_distance_unit is None
+        ):
+            raise ValueError(
+                "hybrid_arc_tokenizer_cartesian requires rotation_distance_unit"
+            )
         # ``None`` is meaningful here: it keeps the loader's source window
         # intact.  Baseline callers get a 100-frame window from the keymap;
         # ARC callers get a variable-length, distance-resolved window.  The
         # ARC tokenizer then performs the only resampling (100 equal-distance
         # waypoints), so no time interpolation/decimation occurs beforehand.
-        if action_mode == "arc_tokenizer_cartesian":
+        if action_mode in (
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             # A caller-supplied legacy chunk length must not reintroduce
             # time interpolation before distance tokenization.
             chunk_length = None
@@ -217,7 +234,10 @@ class Yam(Embodiment):
             )
         else:
             raise ValueError(f"unknown coord_frame {coord_frame!r}")
-        if action_mode == "arc_tokenizer_cartesian":
+        if action_mode in (
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             from egomimic.rldb.embodiment.eva import (
                 UNTOKENIZED_ACTION_KEY,
                 _append_arc_tokenizer,
@@ -226,6 +246,7 @@ class Yam(Embodiment):
             return _append_arc_tokenizer(
                 transform_list,
                 min_distance_unit=min_distance_unit,
+                rotation_distance_unit=rotation_distance_unit,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 velocity_mode=velocity_mode,
@@ -333,19 +354,28 @@ class Yam(Embodiment):
             right_wrist_key = "observations.images.right_wrist_img"
             left_wrist_key = "observations.images.left_wrist_img"
 
-        if keymap_mode == "arc_tokenizer_cartesian":
+        if keymap_mode in (
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             # The dataset resolver recognizes this declarative horizon and
             # resolves it per sample by reading just enough source pose frames
             # for both arms to accumulate ARC_DISTANCE. ``source_buffer_frames``
             # is a safety bound for stationary/short episodes, not a target
             # length.
             horizon = {
-                "type": "arc_distance",
+                "type": (
+                    "arc_hybrid"
+                    if keymap_mode == "hybrid_arc_tokenizer_cartesian"
+                    else "arc_distance"
+                ),
                 "distance": cls.ARC_DISTANCE,
                 "source_buffer_frames": cls.ARC_SOURCE_BUFFER_FRAMES,
                 "pose_zarr_keys": ["left.cmd_ee_pose", "right.cmd_ee_pose"],
                 "require_all_arms": True,
             }
+            if keymap_mode == "hybrid_arc_tokenizer_cartesian":
+                horizon["rotation_distance"] = cls.ARC_ROTATION_DISTANCE
         else:
             horizon = cls.ACTION_HORIZON
 

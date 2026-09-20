@@ -22,7 +22,7 @@ def workflow(commit, run_id, suite, mode="smoke", epochs=5001):
             "name": run_id,
             "resources": {
                 "default": {
-                    "cpu": 16,
+                    "cpu": 12,
                     "gpu": 1,
                     "memory": "64Gi",
                     "storage": "240Gi",

@@ -26,7 +26,7 @@ osmo workflow submit /tmp/libero-osmo.yaml --pool groot-l40s-03
 ```
 
 Use a lowercase, unique run ID. The workflow refuses existing R2 output at
-`s3://rldb/experiments/arc-oat-20260919/<run-id>/`. It requests one GPU, 16 CPU
+`s3://rldb/experiments/arc-oat-20260919/<run-id>/`. It requests one GPU, 12 CPU
 cores, 64 GiB RAM and 240 GiB disk. The smoke run trains the actual default
 tokenizer, OAT policy and ARC policy for two batches each, reloads their EMA
 checkpoints, performs one four-step rollout on every task in the selected

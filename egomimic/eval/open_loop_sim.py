@@ -39,6 +39,8 @@ from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     bimanual_arc_token_rows,
+    cumulative_rotation_length,
+    slerp_pair_ypr,
     validate_bimanual_velocity_mode,
 )
 
@@ -102,7 +104,7 @@ def executed_arc_waypoints(num_waypoints: int, execute_fraction: float) -> int:
         )
     if count < 2:
         raise ValueError(
-            "M-based ARC execution must retain at least two waypoints, " f"got {count}"
+            f"M-based ARC execution must retain at least two waypoints, got {count}"
         )
     return count
 
@@ -116,8 +118,7 @@ def truncate_arc_token_by_waypoints(
     mode = validate_bimanual_velocity_mode(velocity_mode)
     if mode != "per_waypoint":
         raise ValueError(
-            "M-based ARC execution requires velocity_mode='per_waypoint', "
-            f"got {mode!r}"
+            f"M-based ARC execution requires velocity_mode='per_waypoint', got {mode!r}"
         )
     value = np.asarray(token, dtype=np.float64)
     if value.ndim != 2 or value.shape[1] != 14:
@@ -169,9 +170,7 @@ def truncate_arc_token(
 
     all_waypoints = value[:M]
     left_step = np.linalg.norm(np.diff(all_waypoints[:, 0:3], axis=0), axis=-1)
-    right_step = np.linalg.norm(
-        np.diff(all_waypoints[:, 7:10], axis=0), axis=-1
-    )
+    right_step = np.linalg.norm(np.diff(all_waypoints[:, 7:10], axis=0), axis=-1)
     interval_distance = left_step + right_step
     cumulative = np.concatenate(([0.0], np.cumsum(interval_distance)))
     target = fraction * distance
@@ -198,10 +197,8 @@ def truncate_arc_token(
         waypoint_count = end_index + 1
         waypoints = all_waypoints[:waypoint_count].copy()
         if partial_alpha < 1.0:
-            waypoints[-1] = (
-                all_waypoints[end_index - 1]
-                + partial_alpha
-                * (all_waypoints[end_index] - all_waypoints[end_index - 1])
+            waypoints[-1] = all_waypoints[end_index - 1] + partial_alpha * (
+                all_waypoints[end_index] - all_waypoints[end_index - 1]
             )
     if granular:
         timing = value[M : M + waypoint_count].copy()
@@ -220,8 +217,7 @@ def truncate_cartesian_trajectory_by_joint_distance(
     value = np.asarray(trajectory, dtype=np.float64)
     if value.ndim != 2 or value.shape[1] != 14:
         raise ValueError(
-            "cartesian trajectory must have shape (T, 14), "
-            f"got {value.shape}"
+            f"cartesian trajectory must have shape (T, 14), got {value.shape}"
         )
     distance = float(max_distance)
     if not math.isfinite(distance) or distance <= 0.0:
@@ -259,6 +255,90 @@ def truncate_cartesian_trajectory_by_joint_distance(
     return result
 
 
+def truncate_cartesian_trajectory_by_joint_clocks(
+    trajectory: np.ndarray,
+    max_translation_distance: float,
+    max_rotation_distance: float,
+) -> np.ndarray:
+    """Cap bimanual translation and SO(3) rotation independently.
+
+    Both limits use joint cumulative distance (left increment + right
+    increment). Translation and gripper hold once D is reached; orientation
+    holds once R is reached. The returned trajectory ends after both clocks
+    have either reached their cap or exhausted the available prefix.
+    """
+    value = np.asarray(trajectory, dtype=np.float64)
+    if value.ndim != 2 or value.shape[1] != 14:
+        raise ValueError(
+            f"cartesian trajectory must have shape (T, 14), got {value.shape}"
+        )
+    translation_cap = float(max_translation_distance)
+    rotation_cap = float(max_rotation_distance)
+    if not math.isfinite(translation_cap) or translation_cap <= 0.0:
+        raise ValueError("max_translation_distance must be positive and finite")
+    if not math.isfinite(rotation_cap) or rotation_cap <= 0.0:
+        raise ValueError("max_rotation_distance must be positive and finite")
+    if len(value) < 2:
+        return value.copy()
+
+    translation_step = np.linalg.norm(
+        np.diff(value[:, 0:3], axis=0), axis=-1
+    ) + np.linalg.norm(np.diff(value[:, 7:10], axis=0), axis=-1)
+    translation_cumulative = np.concatenate(([0.0], np.cumsum(translation_step)))
+    rotation_step = np.diff(cumulative_rotation_length(value[:, 3:6])) + np.diff(
+        cumulative_rotation_length(value[:, 10:13])
+    )
+    rotation_cumulative = np.concatenate(([0.0], np.cumsum(rotation_step)))
+
+    def _crossing(cumulative: np.ndarray, cap: float) -> tuple[int, float, bool]:
+        reached = np.flatnonzero(cumulative >= cap)
+        if not len(reached):
+            return len(cumulative) - 1, 1.0, False
+        index = int(reached[0])
+        if index == 0:
+            return 0, 0.0, True
+        interval = float(cumulative[index] - cumulative[index - 1])
+        alpha = (
+            1.0
+            if interval <= 1e-12
+            else float(
+                np.clip(
+                    (cap - cumulative[index - 1]) / interval,
+                    0.0,
+                    1.0,
+                )
+            )
+        )
+        return index, alpha, True
+
+    translation_index, translation_alpha, translation_reached = _crossing(
+        translation_cumulative, translation_cap
+    )
+    rotation_index, rotation_alpha, rotation_reached = _crossing(
+        rotation_cumulative, rotation_cap
+    )
+    end_index = max(translation_index, rotation_index)
+    result = value[: end_index + 1].copy()
+
+    if translation_reached:
+        terminal = value[translation_index - 1] + translation_alpha * (
+            value[translation_index] - value[translation_index - 1]
+        )
+        translation_columns = [0, 1, 2, 6, 7, 8, 9, 13]
+        result[translation_index:, translation_columns] = terminal[translation_columns]
+
+    if rotation_reached:
+        for ypr_slice in (slice(3, 6), slice(10, 13)):
+            terminal_ypr = slerp_pair_ypr(
+                value[rotation_index - 1, ypr_slice],
+                value[rotation_index, ypr_slice],
+                np.array([rotation_alpha]),
+            )[0]
+            result[rotation_index:, ypr_slice] = terminal_ypr
+
+    return result
+
+
 def arc_execution_prefix(
     token: np.ndarray,
     execute_fraction: float,
@@ -280,6 +360,7 @@ def arc_prefix_control_steps(
     control_dt: float,
     min_distance_unit: float,
     *,
+    rotation_distance_unit: float | None = None,
     arc_execution_cap_mode: str = "waypoints",
     max_steps: int | None = None,
 ) -> int:
@@ -288,6 +369,11 @@ def arc_prefix_control_steps(
     dt = float(control_dt)
     if dt <= 0.0:
         raise ValueError("control_dt must be positive")
+    if rotation_distance_unit is not None and (
+        not math.isfinite(float(rotation_distance_unit))
+        or float(rotation_distance_unit) <= 0.0
+    ):
+        raise ValueError("rotation_distance_unit must be positive and finite")
     partial = arc_execution_prefix(
         token,
         execute_fraction,
@@ -333,6 +419,52 @@ def arc_prefix_control_steps(
             duration = float(interval_duration[moving].sum())
         durations.append(duration)
 
+    if rotation_distance_unit is not None:
+        if mode != "per_waypoint":
+            raise ValueError(
+                "independent rotation clock requires velocity_mode='per_waypoint'"
+            )
+        shared_durations = []
+        for slices, rotation in (
+            ((slice(0, 3), slice(7, 10)), False),
+            ((slice(3, 6), slice(10, 13)), True),
+        ):
+            step_by_arm = []
+            rate_by_arm = []
+            for value_slice in slices:
+                if rotation:
+                    cumulative = cumulative_rotation_length(waypoints[:, value_slice])
+                    step = np.diff(cumulative)
+                else:
+                    step = np.linalg.norm(
+                        np.diff(waypoints[:, value_slice], axis=0), axis=-1
+                    )
+                step_by_arm.append(step)
+                rate_by_arm.append(np.linalg.norm(timing[:-1, value_slice], axis=-1))
+
+            interval_durations = []
+            for index in range(M - 1):
+                moving = [step[index] > 1e-12 for step in step_by_arm]
+                if not any(moving):
+                    interval_durations.append(0.0)
+                elif any(
+                    is_moving and rate[index] <= 1e-8
+                    for is_moving, rate in zip(moving, rate_by_arm)
+                ):
+                    interval_durations.append(math.inf)
+                else:
+                    interval_durations.append(
+                        max(
+                            step[index] / rate[index]
+                            for is_moving, step, rate in zip(
+                                moving, step_by_arm, rate_by_arm
+                            )
+                            if is_moving
+                        )
+                    )
+            shared_durations.append(float(np.sum(interval_durations)))
+        durations = shared_durations
+
     duration = max(durations, default=0.0)
     if math.isfinite(duration):
         steps = max(1, int(math.ceil(duration / dt - 1e-9)))
@@ -376,6 +508,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         arc_execution_cap_mode: str = "waypoints",
         arc_video_trajectory_cap_mode: str = "joint_distance",
         min_distance_unit: float = 0.40,
+        rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 100,
         velocity_mode: str = "per_waypoint",
         log_step: int | None = None,
@@ -403,11 +536,13 @@ class OpenLoopSimEval(BimanualCartesianEval):
             raise ValueError("action_mode must be auto, baseline, or arc")
         if float(control_dt) <= 0:
             raise ValueError("control_dt must be positive")
-        if (
-            not math.isfinite(float(min_distance_unit))
-            or float(min_distance_unit) <= 0
-        ):
+        if not math.isfinite(float(min_distance_unit)) or float(min_distance_unit) <= 0:
             raise ValueError("min_distance_unit must be positive and finite")
+        if rotation_distance_unit is not None and (
+            not math.isfinite(float(rotation_distance_unit))
+            or float(rotation_distance_unit) <= 0
+        ):
+            raise ValueError("rotation_distance_unit must be positive and finite")
         validate_bimanual_velocity_mode(velocity_mode)
         self.execute_fraction = float(execute_fraction)
         self.control_horizon = int(control_horizon)
@@ -416,11 +551,14 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.arc_execution_cap_mode = validate_arc_execution_cap_mode(
             arc_execution_cap_mode
         )
-        self.arc_video_trajectory_cap_mode = (
-            validate_arc_video_trajectory_cap_mode(arc_video_trajectory_cap_mode)
+        self.arc_video_trajectory_cap_mode = validate_arc_video_trajectory_cap_mode(
+            arc_video_trajectory_cap_mode
         )
         self.ground_truth_action_key = str(ground_truth_action_key)
         self.min_distance_unit = float(min_distance_unit)
+        self.rotation_distance_unit = (
+            None if rotation_distance_unit is None else float(rotation_distance_unit)
+        )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
         self.execute_arc_waypoints = (
@@ -551,9 +689,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
         ground_truth: torch.Tensor,
         prefix_lengths: list[int],
     ) -> tuple[torch.Tensor, torch.Tensor, list[int], list[int]]:
-        """Cap both ARC overlays at ``execute_fraction * D`` joint travel."""
+        """Cap ARC overlays at the configured executed joint-clock prefixes."""
 
         cap = self.execute_fraction * self.min_distance_unit
+        rotation_distance_unit = getattr(self, "rotation_distance_unit", None)
         pred_np = prediction.detach().cpu().numpy()
         gt_np = ground_truth.detach().cpu().numpy()
         pred_values = []
@@ -561,12 +700,21 @@ class OpenLoopSimEval(BimanualCartesianEval):
         pred_lengths = []
         gt_lengths = []
         for index, steps in enumerate(prefix_lengths):
-            pred = truncate_cartesian_trajectory_by_joint_distance(
-                pred_np[index, :steps], cap
-            )
-            gt = truncate_cartesian_trajectory_by_joint_distance(
-                gt_np[index, :steps], cap
-            )
+            if rotation_distance_unit is None:
+                pred = truncate_cartesian_trajectory_by_joint_distance(
+                    pred_np[index, :steps], cap
+                )
+                gt = truncate_cartesian_trajectory_by_joint_distance(
+                    gt_np[index, :steps], cap
+                )
+            else:
+                rotation_cap = self.execute_fraction * rotation_distance_unit
+                pred = truncate_cartesian_trajectory_by_joint_clocks(
+                    pred_np[index, :steps], cap, rotation_cap
+                )
+                gt = truncate_cartesian_trajectory_by_joint_clocks(
+                    gt_np[index, :steps], cap, rotation_cap
+                )
             pred_values.append(pred)
             gt_values.append(gt)
             pred_lengths.append(len(pred))
@@ -583,9 +731,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                         axis=0,
                     )
                 padded.append(value)
-            return torch.from_numpy(
-                np.stack(padded).astype(np.float32, copy=False)
-            )
+            return torch.from_numpy(np.stack(padded).astype(np.float32, copy=False))
 
         return _pad(pred_values), _pad(gt_values), pred_lengths, gt_lengths
 
@@ -636,9 +782,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         for index, steps in enumerate(prefix_lengths):
             value = gt_native[index, :steps]
             if steps < width:
-                value = torch.cat(
-                    (value, value[-1:].repeat(width - steps, 1)), dim=0
-                )
+                value = torch.cat((value, value[-1:].repeat(width - steps, 1)), dim=0)
             gt_prefixes.append(value)
         gt_native = torch.stack(gt_prefixes).to(dtype=pred_native.dtype)
 
@@ -662,9 +806,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 gt_native,
                 prediction_lengths,
                 ground_truth_lengths,
-            ) = self._cap_arc_video_trajectories(
-                pred_native, gt_native, prefix_lengths
-            )
+            ) = self._cap_arc_video_trajectories(pred_native, gt_native, prefix_lengths)
 
         obs_pose_native = (
             self._native_pose(source_batch[self.obs_pose_key], embodiment_id)
@@ -900,8 +1042,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 TokenizeBimanualArcLengthCartesian,
             )
 
+            rotation_distance_unit = getattr(self, "rotation_distance_unit", None)
             self._arc_tokenizer = TokenizeBimanualArcLengthCartesian(
                 min_distance_unit=self.min_distance_unit,
+                rotation_distance_unit=rotation_distance_unit,
                 resampled_vector_length=self.resampled_vector_length,
                 dt=self.control_dt,
                 velocity_mode=self.velocity_mode,
@@ -919,6 +1063,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self.velocity_mode,
             self.control_dt,
             self.min_distance_unit,
+            rotation_distance_unit=getattr(self, "rotation_distance_unit", None),
             arc_execution_cap_mode=self.arc_execution_cap_mode,
             max_steps=max_steps,
         )

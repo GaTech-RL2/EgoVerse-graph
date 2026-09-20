@@ -37,6 +37,7 @@ arc_execution_cap_mode: waypoints
 # predicted and GT paths at execute_fraction * D combined left+right travel.
 arc_video_trajectory_cap_mode: joint_distance
 min_distance_unit: ${oc.select:abc.arc_distance,0.40}
+rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,null}
 resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
 # M-based execution requires the per-waypoint velocity layout. Distance mode
 # remains available explicitly and interpolates its terminal waypoint.

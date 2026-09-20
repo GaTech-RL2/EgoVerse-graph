@@ -38,6 +38,7 @@ import pandas as pd
 import simplejpeg
 import torch
 import zarr
+from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
@@ -2031,10 +2032,15 @@ class ZarrDataset(torch.utils.data.Dataset):
         reaching the distance, the available prefix is returned and the
         regular repeat-last padding rule handles short tails. ``max_frames``
         is accepted as a legacy spelling.
+
+        ``arc_hybrid`` uses one joint translation clock and one joint rotation
+        clock. Each clock sums the left and right arm increments, and the
+        returned source window covers both requested caps.
         """
-        if not isinstance(spec, dict) or spec.get("type") != "arc_distance":
+        horizon_type = spec.get("type") if isinstance(spec, dict) else None
+        if horizon_type not in ("arc_distance", "arc_hybrid"):
             raise TypeError(
-                "dynamic horizon must be an 'arc_distance' spec, got "
+                "dynamic horizon must be an 'arc_distance' or 'arc_hybrid' spec, got "
                 f"{spec!r}"
             )
         distance = float(spec.get("distance", 0.0))
@@ -2042,6 +2048,14 @@ class ZarrDataset(torch.utils.data.Dataset):
             raise ValueError(
                 f"arc_distance horizon requires a positive finite distance, got {distance!r}"
             )
+        rotation_distance = None
+        if horizon_type == "arc_hybrid":
+            rotation_distance = float(spec.get("rotation_distance", 0.0))
+            if not np.isfinite(rotation_distance) or rotation_distance <= 0.0:
+                raise ValueError(
+                    "arc_hybrid horizon requires positive finite rotation_distance, "
+                    f"got {rotation_distance!r}"
+                )
         max_frames_value = spec.get(
             "source_buffer_frames", spec.get("max_frames", self.total_frames)
         )
@@ -2068,6 +2082,58 @@ class ZarrDataset(torch.utils.data.Dataset):
         poses = self.episode_reader.read(
             {str(key): (int(start_idx), end_idx) for key in pose_keys}
         )
+        if rotation_distance is not None:
+            # Hybrid ARC uses two bimanual clocks. Each clock advances by the
+            # left-arm increment plus the right-arm increment at a native
+            # timestep. Keep reading until both independent caps are covered.
+            pose_arrays = []
+            common_usable = available
+            for key in pose_keys:
+                pose = np.asarray(poses[str(key)], dtype=np.float64)
+                if pose.ndim != 2 or pose.shape[1] < 7:
+                    raise ValueError(
+                        f"arc_hybrid pose key {key!r} must be (T, >=7), "
+                        f"got {pose.shape}"
+                    )
+                finite = np.isfinite(pose[:, :7]).all(axis=1)
+                first_bad = np.flatnonzero(~finite)
+                usable = int(first_bad[0]) if len(first_bad) else len(pose)
+                common_usable = min(common_usable, usable)
+                pose_arrays.append(pose)
+
+            if len(pose_arrays) != 2:
+                raise ValueError(
+                    "arc_hybrid horizon requires exactly two pose_zarr_keys "
+                    f"for the bimanual joint clocks, got {len(pose_arrays)}"
+                )
+            if common_usable < 2:
+                return max(2, available)
+
+            left, right = (pose[:common_usable] for pose in pose_arrays)
+            translation_step = np.linalg.norm(
+                np.diff(left[:, :3], axis=0), axis=1
+            ) + np.linalg.norm(np.diff(right[:, :3], axis=0), axis=1)
+            translation_cumulative = np.concatenate(
+                ([0.0], np.cumsum(translation_step))
+            )
+
+            rotation_steps = []
+            for pose in (left, right):
+                quaternion_xyzw = pose[:, 3:7][:, [1, 2, 3, 0]]
+                rotations = R.from_quat(quaternion_xyzw)
+                relative = rotations[:-1].inv() * rotations[1:]
+                rotation_steps.append(np.linalg.norm(relative.as_rotvec(), axis=-1))
+            rotation_cumulative = np.concatenate(
+                ([0.0], np.cumsum(rotation_steps[0] + rotation_steps[1]))
+            )
+
+            translation_reached = np.flatnonzero(translation_cumulative >= distance)
+            rotation_reached = np.flatnonzero(rotation_cumulative >= rotation_distance)
+            if not len(translation_reached) or not len(rotation_reached):
+                return max(2, available)
+            required = max(int(translation_reached[0]), int(rotation_reached[0]))
+            return max(2, min(available, required + 1))
+
         crossing_indices: list[int | None] = []
         for key in pose_keys:
             pose = np.asarray(poses[str(key)], dtype=np.float64)
@@ -2178,9 +2244,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                 key_type = self.key_map[k].get("key_type", None)
                 horizon_spec = self.key_map[k].get("horizon", None)
                 horizon = (
-                    dynamic_horizon
-                    if isinstance(horizon_spec, dict)
-                    else horizon_spec
+                    dynamic_horizon if isinstance(horizon_spec, dict) else horizon_spec
                 )
 
                 if key_type == "annotation_keys":

@@ -178,6 +178,11 @@ def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
     use_ema = settings.get("use_ema", False) if settings is not None else False
     if not isinstance(use_ema, bool):
         raise TypeError("eval_checkpoint.use_ema must be a boolean")
+    # Manual evaluation restore must honor the same data/model contracts as
+    # Lightning's full-state resume before any checkpoint weights are applied.
+    checkpoint_hook = getattr(model, "on_load_checkpoint", None)
+    if checkpoint_hook is not None:
+        checkpoint_hook(checkpoint)
     strict_load_pipeline_checkpoint(
         algo,
         checkpoint,

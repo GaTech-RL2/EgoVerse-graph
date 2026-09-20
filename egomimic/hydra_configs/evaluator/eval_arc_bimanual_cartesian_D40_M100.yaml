@@ -26,6 +26,7 @@ image_key: observations.images.front_img_1
 
 # Must match data/abc_arc/abc_fstshirt_arc_bc_D40_M100.yaml.
 min_distance_unit: 0.40
+rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,null}
 resampled_vector_length: 100
 # Control steps to reconstruct for the overlay.
 action_horizon: 100

@@ -288,10 +288,13 @@ def test_original_abc_cotrain_study_shares_one_arcmatch_configuration():
 
     root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
     experiments = sorted(
-        f"abc_arc/{p.stem}" for p in (root / "experiment/abc_arc").glob("abc_*.yaml")
+        f"abc_arc/{p.stem}"
+        for p in (root / "experiment/abc_arc").glob("abc_*.yaml")
         # Stationery is a separate source campaign with controller-facing
-        # reconstruction metrics, covered by test_robot_arc_campaigns.py.
-        if not p.stem.startswith("abc_stationery_")
+        # reconstruction metrics, covered by test_robot_arc_campaigns.py. The
+        # HPT180 towel launch recipes are likewise outside this original
+        # ten-arm cotrain study.
+        if not p.stem.startswith(("abc_stationery_", "abc_towels_"))
     )
     assert len(experiments) == 10, experiments
 

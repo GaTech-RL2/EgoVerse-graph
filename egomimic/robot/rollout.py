@@ -1,4 +1,4 @@
-"""Shared Eva/Yam rollout: local graph inference or recorded Zarr joint replay."""
+"""Shared Eva/Yam rollout: graph inference or read-only recorded action replay."""
 
 import argparse
 import copy
@@ -24,9 +24,11 @@ def load_policy(config):
         from egomimic.robot.replay_policy import ZarrReplayPolicy
 
         return ZarrReplayPolicy(**config)
-    raise ValueError(
-        "Use kind=graph for inference or kind=zarr_replay for recorded actions"
-    )
+    if kind == "hdf5_replay":
+        from egomimic.robot.replay_policy import Hdf5ReplayPolicy
+
+        return Hdf5ReplayPolicy(**config)
+    raise ValueError("Use kind=graph, zarr_replay, or hdf5_replay for recorded actions")
 
 
 def validate_rollout_config(config):
@@ -513,6 +515,9 @@ def run_rollout(robot, policy, config, view=None):
     finally:
         finish_video_recording()
         view.close()
+        close_policy = getattr(policy, "close", None)
+        if callable(close_policy):
+            close_policy()
     return step
 
 

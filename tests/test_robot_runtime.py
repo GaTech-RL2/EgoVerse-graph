@@ -565,6 +565,25 @@ def replay_store(tmp_path, padded=5, total=3):
     return store
 
 
+def yam_pipeline_replay_store(tmp_path, padded=5, total=3):
+    import zarr
+
+    store = zarr.open_group(str(tmp_path / "yam_episode.zarr"), mode="w")
+    store.attrs.update(
+        complete=True,
+        committed_samples=total,
+        arm_order=["left", "right"],
+        schema="rl2_yam.episode.v1",
+    )
+    joints = np.zeros((padded, 2, 6))
+    joints[:total, 0, 0] = np.arange(total) * 0.01
+    joints[:total, 1, 0] = np.arange(total) * -0.01
+    grippers = np.full((padded, 2), 0.5)
+    store.create_array("actions/joint_position", data=joints)
+    store.create_array("actions/gripper", data=grippers)
+    return store
+
+
 def replay_keys():
     return {
         arm: {"joints": f"{arm}.cmd_joints", "gripper": f"{arm}.cmd_gripper"}
@@ -621,6 +640,55 @@ def test_replay_rejects_nan_and_ignores_chunk_padding(tmp_path):
     policy = ZarrReplayPolicy(tmp_path / "demo.zarr", keys=replay_keys(), chunk_size=8)
     with pytest.raises(ValueError, match="finite"):
         policy.predict(FakeRobot().get_obs())
+
+
+def test_replay_reads_completed_yam_pipeline_split_actions(tmp_path):
+    store = yam_pipeline_replay_store(tmp_path)
+    policy = ZarrReplayPolicy(
+        tmp_path / "yam_episode.zarr",
+        joint_action_key="actions/joint_position",
+        gripper_action_key="actions/gripper",
+        chunk_size=8,
+    )
+    rows = policy.predict(FakeRobot().get_obs())
+    assert rows.shape == (3, 14)
+    np.testing.assert_allclose(rows[:, :6], store["actions/joint_position"][:3, 0])
+    np.testing.assert_allclose(rows[:, 6], store["actions/gripper"][:3, 0])
+    np.testing.assert_allclose(rows[:, 7:13], store["actions/joint_position"][:3, 1])
+    np.testing.assert_allclose(rows[:, 13], store["actions/gripper"][:3, 1])
+
+    store.attrs["complete"] = False
+    with pytest.raises(ValueError, match="completed Zarr episode"):
+        ZarrReplayPolicy(
+            tmp_path / "yam_episode.zarr",
+            joint_action_key="actions/joint_position",
+            gripper_action_key="actions/gripper",
+        )
+
+
+def test_hdf5_replay_requires_a_completed_joint_demo(tmp_path):
+    path = tmp_path / "demo_0.hdf5"
+    actions = np.zeros((2, 14), dtype=np.float32)
+    actions[:, [6, 13]] = 0.5
+    with h5py.File(path, "w") as episode:
+        episode.attrs["complete"] = True
+        episode.create_dataset("actions/joints", data=actions)
+
+    policy = load_policy(
+        {
+            "kind": "hdf5_replay",
+            "path": str(path),
+            "action_key": "actions/joints",
+            "chunk_size": 2,
+        }
+    )
+    np.testing.assert_allclose(policy.predict(FakeRobot().get_obs()), actions)
+    policy.close()
+
+    with h5py.File(path, "r+") as episode:
+        episode.attrs["complete"] = False
+    with pytest.raises(ValueError, match="completed HDF5"):
+        load_policy({"kind": "hdf5_replay", "path": str(path)})
 
 
 def test_no_non_graph_inference_backend():

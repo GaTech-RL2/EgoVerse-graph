@@ -41,6 +41,18 @@ the inventory below to cover the complete comparison. Runs initialize from
 scratch; smoke checkpoints never initialize full training. Final checkpoints
 include the last epoch even when it falls outside the periodic save cadence.
 
+Full runs write CSV training metrics under each model's `metrics/version_0/`
+directory and automatically produce a paired `comparison.json` per suite.
+To aggregate all five suites automatically, use the same `--campaign-id NAME`
+on each workflow and set `--run-id NAME-libero-10`, `NAME-libero-90`,
+`NAME-libero-spatial`, `NAME-libero-object`, and `NAME-libero-goal` respectively.
+After uploading its completed results, each workflow checks all five receipts;
+the last suite publishes `campaigns/NAME/comparison.json` under the R2 experiment
+prefix. It rejects mixed source revisions, training budgets and incomplete
+protocols. Full workflows allow up to two days in queue and 60 days execution;
+this is a timeout, not a runtime estimate. Use a pool with available NORMAL
+quota (for example `groot-l40s-01` or `groot-l40s-03`).
+
 The released, SHA-256-verified LIBERO-10 Zarr archive is pinned to Hugging Face
 revision `685b2b764e525ad33ab36d7315adbcab07494251`. The other suites download
 official demonstrations at `yifengzhu-hf/LIBERO-datasets` revision

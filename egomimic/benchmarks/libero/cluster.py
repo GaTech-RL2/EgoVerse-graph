@@ -236,6 +236,8 @@ def training_arguments(method, suite, dataset, evidence, mode, epochs):
         args.append(
             f"benchmark.tokenizer_checkpoint={Path(evidence) / 'training/tokenizer/checkpoints/last.ckpt'}"
         )
+    if mode == "full":
+        args.append("logger=csv")
     if mode == "smoke":
         args.extend(
             [
@@ -252,6 +254,60 @@ def training_arguments(method, suite, dataset, evidence, mode, epochs):
             ]
         )
     return args
+
+
+def publish_campaign(client, campaign_id, *, commit, epochs):
+    """The last completed suite publishes scores after checking every receipt."""
+    from botocore.exceptions import ClientError
+
+    results, sources = {}, {}
+    for suite in TASKS:
+        run_id = f"{campaign_id}-{suite.replace('_', '-')}"
+        prefix = f"experiments/arc-oat-20260919/{run_id}/"
+
+        def read(name):
+            return json.loads(
+                client.get_object(Bucket="rldb", Key=prefix + name)["Body"].read()
+            )
+
+        try:
+            status, runtime = read("status.json"), read("runtime.json")
+            if status["state"] != "SUITE_COMPLETE":
+                return False
+            result = read("comparison.json")
+        except ClientError as error:
+            if error.response["Error"]["Code"] in {"NoSuchKey", "404"}:
+                return False
+            raise
+        if (
+            runtime["source_commit"] != commit
+            or runtime["mode"] != "full"
+            or runtime["epochs"] != epochs
+            or runtime["suite"] != suite
+            or result["suite"] != suite
+            or not result["complete_protocol"]
+        ):
+            raise ValueError("Campaign source, training budget or suite differs")
+        results[suite] = result
+        sources[suite] = "s3://rldb/" + prefix
+    report = {
+        "complete_benchmark_suite": True,
+        "unique_tasks": sum(map(len, TASKS.values())),
+        "source_commit": commit,
+        "training_epochs": epochs,
+        "full_released_training_budget": epochs == 5001,
+        "sources": sources,
+        "suites": results,
+    }
+    key = f"experiments/arc-oat-20260919/campaigns/{campaign_id}/comparison.json"
+    client.put_object(
+        Bucket="rldb",
+        Key=key,
+        Body=(json.dumps(report, indent=2) + "\n").encode(),
+        ContentType="application/json",
+    )
+    print("CAMPAIGN_COMPLETE", "s3://rldb/" + key, flush=True)
+    return True
 
 
 def restore_checkpoints(client, source_run, evidence, *, suite, mode, epochs):
@@ -335,10 +391,17 @@ def main():
     parser.add_argument("--mode", choices=("smoke", "full"), required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--epochs", type=int, default=5001)
+    parser.add_argument("--campaign-id", default=os.environ.get("CAMPAIGN_ID") or None)
     parser.add_argument(
         "--evaluate-from-run", default=os.environ.get("EVALUATE_FROM_RUN") or None
     )
     args = parser.parse_args()
+    if args.campaign_id and (
+        args.mode != "full"
+        or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,44}", args.campaign_id)
+        or args.run_id != f"{args.campaign_id}-{args.suite.replace('_', '-')}"
+    ):
+        raise ValueError("Campaign requires full mode and matching suite run IDs")
     if (
         not torch.cuda.is_available()
         or torch.cuda.device_count() != 1
@@ -363,6 +426,7 @@ def main():
             "mode": args.mode,
             "epochs": 1 if args.mode == "smoke" else args.epochs,
             "evaluate_from_run": args.evaluate_from_run,
+            "campaign_id": args.campaign_id,
             "artifact_prefix": "s3://rldb/" + uploader.prefix,
         },
     )
@@ -461,6 +525,16 @@ def main():
         if args.mode == "smoke":
             argv += ["--limit", "16", "--batch-size", "4"]
         execute(argv, evidence / "reconstruction.log")
+        from egomimic.benchmarks.libero.report import compare_runs
+
+        write_json(
+            evidence / "comparison.json",
+            compare_runs(
+                evidence / "arc" / args.suite,
+                evidence / "oat" / args.suite,
+                require_full=args.mode == "full",
+            ),
+        )
         write_json(
             evidence / "status.json",
             {
@@ -482,6 +556,10 @@ def main():
         uploader.upload(final=True)
         # Include checkpoint receipts created during the final pass.
         uploader.upload(final=True)
+    if args.campaign_id:
+        publish_campaign(
+            uploader.client, args.campaign_id, commit=commit, epochs=args.epochs
+        )
 
 
 if __name__ == "__main__":

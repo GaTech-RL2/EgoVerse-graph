@@ -9,7 +9,15 @@ import yaml
 from egomimic.benchmarks.libero.catalog import TASKS
 
 
-def workflow(commit, run_id, suite, mode="smoke", epochs=5001, evaluate_from_run=None):
+def workflow(
+    commit,
+    run_id,
+    suite,
+    mode="smoke",
+    epochs=5001,
+    evaluate_from_run=None,
+    campaign_id=None,
+):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", run_id):
@@ -20,6 +28,12 @@ def workflow(commit, run_id, suite, mode="smoke", epochs=5001, evaluate_from_run
         r"[a-z0-9][a-z0-9-]{0,62}", evaluate_from_run
     ):
         raise ValueError("Invalid evaluation source run ID")
+    if campaign_id is not None and (
+        mode != "full"
+        or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,44}", campaign_id)
+        or run_id != f"{campaign_id}-{suite.replace('_', '-')}"
+    ):
+        raise ValueError("Campaign requires full mode and matching suite run IDs")
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
@@ -34,8 +48,8 @@ def workflow(commit, run_id, suite, mode="smoke", epochs=5001, evaluate_from_run
                 }
             },
             "timeout": {
-                "queue_timeout": "4h",
-                "exec_timeout": "4h" if mode == "smoke" else "30d",
+                "queue_timeout": "4h" if mode == "smoke" else "2d",
+                "exec_timeout": "4h" if mode == "smoke" else "60d",
             },
             "tasks": [
                 {
@@ -56,6 +70,7 @@ def workflow(commit, run_id, suite, mode="smoke", epochs=5001, evaluate_from_run
                         "RUN_MODE": mode,
                         "EPOCHS": str(epochs),
                         "EVALUATE_FROM_RUN": evaluate_from_run or "",
+                        "CAMPAIGN_ID": campaign_id or "",
                     },
                     "command": ["bash"],
                     "args": ["/tmp/entry.sh"],
@@ -74,6 +89,7 @@ def main():
     parser.add_argument("--mode", choices=("smoke", "full"), default="smoke")
     parser.add_argument("--epochs", type=int, default=5001)
     parser.add_argument("--evaluate-from-run")
+    parser.add_argument("--campaign-id")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     with args.output.open("x") as handle:
@@ -85,6 +101,7 @@ def main():
                 args.mode,
                 args.epochs,
                 args.evaluate_from_run,
+                args.campaign_id,
             ),
             handle,
             sort_keys=False,

@@ -10,6 +10,7 @@ from egomimic.benchmarks.libero.cluster import (
     ArtifactUploader,
     digest,
     extract_replay,
+    publish_campaign,
     restore_checkpoints,
     training_arguments,
 )
@@ -28,6 +29,8 @@ def test_cluster_arguments_compose_native_graph(mode, method, tmp_path):
     assert cfg.trainer.devices == 1 and cfg.trainer.precision == "bf16-mixed"
     assert cfg.benchmark.batch_size == (4 if mode == "smoke" else 256)
     assert cfg.trainer.max_epochs == (1 if mode == "smoke" else 5001)
+    if mode == "full":
+        assert cfg.logger.csv._target_ == "lightning.pytorch.loggers.CSVLogger"
     assert cfg.callbacks.ema.final_checkpoint_path.endswith("checkpoints/last.ckpt")
     if method == "oat":
         assert cfg.benchmark.tokenizer_checkpoint.endswith(
@@ -45,6 +48,67 @@ def test_workflow_pins_source_and_requests_one_gpu():
     assert workflow["tasks"][0]["environment"]["SOURCE_COMMIT"] == "a" * 40
     with pytest.raises(ValueError, match="immutable"):
         module.workflow("main", "libero-smoke-test", "libero_10")
+    full = module.workflow(
+        "a" * 40, "study-libero-10", "libero_10", mode="full", campaign_id="study"
+    )["workflow"]
+    assert full["timeout"]["exec_timeout"] == "60d"
+    assert full["tasks"][0]["environment"]["CAMPAIGN_ID"] == "study"
+    with pytest.raises(ValueError, match="Campaign"):
+        module.workflow(
+            "a" * 40, "unrelated-run", "libero_10", mode="full", campaign_id="study"
+        )
+
+
+@pytest.mark.parametrize(
+    "condition", ["complete", "missing", "running", "source", "budget"]
+)
+def test_campaign_only_publishes_complete_matching_results(condition):
+    import io
+
+    from botocore.exceptions import ClientError
+
+    from egomimic.benchmarks.libero.catalog import TASKS
+
+    class Storage:
+        report = None
+
+        def get_object(self, Bucket, Key):
+            suite = next(
+                suite for suite in TASKS if f"study-{suite.replace('_', '-')}/" in Key
+            )
+            if suite == "libero_90" and condition == "missing":
+                raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+            payload = {
+                "status.json": {
+                    "state": "TRAINING" if condition == "running" else "SUITE_COMPLETE"
+                },
+                "runtime.json": {
+                    "source_commit": "b" * 40 if condition == "source" else "a" * 40,
+                    "mode": "full",
+                    "epochs": 1 if condition == "budget" else 5001,
+                    "suite": suite,
+                },
+                "comparison.json": {"suite": suite, "complete_protocol": True},
+            }[Key.rsplit("/", 1)[1]]
+            return {"Body": io.BytesIO(json.dumps(payload).encode())}
+
+        def put_object(self, **kwargs):
+            self.report = json.loads(kwargs["Body"])
+
+    storage = Storage()
+    if condition in {"source", "budget"}:
+        with pytest.raises(ValueError, match="Campaign"):
+            publish_campaign(storage, "study", commit="a" * 40, epochs=5001)
+    else:
+        assert publish_campaign(storage, "study", commit="a" * 40, epochs=5001) == (
+            condition == "complete"
+        )
+    if condition == "complete":
+        assert storage.report["unique_tasks"] == 130
+        assert set(storage.report["suites"]) == set(TASKS)
+        assert storage.report["full_released_training_budget"] is True
+    else:
+        assert storage.report is None
 
 
 def test_released_replay_archive_detection_and_traversal_rejection(tmp_path):

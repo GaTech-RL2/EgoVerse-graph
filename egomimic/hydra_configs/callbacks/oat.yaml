@@ -15,3 +15,7 @@ ema:
   power: 0.75
   min_decay: 0.0
   validate_with_ema: true
+batch_budget:
+  _target_: egomimic.pl_utils.oat_training.OATBatchBudgetCallback
+  global_batch_size: 1024
+  report_path: ${paths.output_dir}/training-budget.json

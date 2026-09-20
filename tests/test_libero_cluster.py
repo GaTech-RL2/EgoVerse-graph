@@ -31,6 +31,11 @@ def test_cluster_arguments_compose_native_graph(mode, method, tmp_path):
     assert cfg.trainer.max_epochs == (1 if mode == "smoke" else 5001)
     if mode == "full":
         assert cfg.logger.csv._target_ == "lightning.pytorch.loggers.CSVLogger"
+        assert cfg.trainer.accumulate_grad_batches == 4
+        assert cfg.callbacks.batch_budget.global_batch_size == 1024
+    else:
+        assert cfg.trainer.accumulate_grad_batches == 1
+        assert cfg.callbacks.batch_budget is None
     assert cfg.callbacks.ema.final_checkpoint_path.endswith("checkpoints/last.ckpt")
     if method == "oat":
         assert cfg.benchmark.tokenizer_checkpoint.endswith(
@@ -86,6 +91,7 @@ def test_campaign_only_publishes_complete_matching_results(condition):
                     "source_commit": "b" * 40 if condition == "source" else "a" * 40,
                     "mode": "full",
                     "epochs": 1 if condition == "budget" else 5001,
+                    "global_batch_size": 1024,
                     "suite": suite,
                 },
                 "comparison.json": {"suite": suite, "complete_protocol": True},

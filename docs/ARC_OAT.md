@@ -41,6 +41,23 @@ the inventory below to cover the complete comparison. Runs initialize from
 scratch; smoke checkpoints never initialize full training. Final checkpoints
 include the last epoch even when it falls outside the periodic save cadence.
 
+The released OAT Slurm recipes launch **four processes with batch 256 each**.
+The reference global optimizer batch is therefore **1024**, not 256. These
+single-L40S runs accumulate four microbatches of 256. `OATBatchBudgetCallback`
+drops incomplete global batches at epoch boundaries, matching Accelerate's
+four-rank `drop_last` behavior. For `N` training windows, each model performs
+`floor(N / 1024)` optimizer updates per epoch and `5001 * floor(N / 1024)` in
+total. EMA advances only on optimizer updates. Each model writes its measured
+window count and exact update budget to `training-budget.json` and checkpoints.
+For four-GPU training, use batch 256 and accumulation 1; numerical sample/RNG
+ordering can still differ from the upstream Accelerate runtime.
+
+The initial `arc-oat-full-20260920-v1` submissions used effective batch 256 and
+were cancelled when this mismatch was identified. They must not be
+reported as the released training setup. Corrected submissions use the budget
+above. The paper documents architecture/optimizer settings; the exact 5001-epoch
+budget and four-process execution come from the released code and launchers.
+
 Full runs write CSV training metrics under each model's `metrics/version_0/`
 directory and automatically produce a paired `comparison.json` per suite.
 To aggregate all five suites automatically, use the same `--campaign-id NAME`
@@ -141,8 +158,8 @@ package or its Workspace classes.
   Teacher forcing predicts FSQ codes; inference uses temperature 1 and top-k 10.
 - Training: tokenizer MSE first, then token cross entropy with the tokenizer
   frozen; AdamW rates 5e-5 for tokenizer/policy and 1e-5 for observation encoders,
-  betas `(0.9,0.95)`, zero weight decay, gradient clipping 1, batch size 256,
-  5,001 epochs and the source EMA schedule. The source's `constant` scheduler
+  betas `(0.9,0.95)`, zero weight decay, gradient clipping 1, microbatch 256,
+  effective batch 1024, 5,001 epochs and the source EMA schedule. The source's `constant` scheduler
   ignores its warmup setting; the native recipe likewise keeps LR constant.
 
 The source architecture is preserved. One explicit training correction keeps
@@ -181,6 +198,13 @@ methods receive and reconstruct the same horizon. At a limited support budget
 it is lossy; when there are more dwell/gripper boundaries than supports, some
 must be omitted. The reconstruction sweep measures that error. The command
 path is not a claim about the robot's physically realized future pose.
+
+Concretely, the current LIBERO policy uses **M=16** supports and **no fixed D**:
+the represented distance is the full 32-command window's accumulated progress.
+This is different from the repository's fixed-distance D/M ARC formulation.
+The rotation radius of 0.05 m weights rotation in the progress metric; it is not
+a distance horizon D. The seven controller dimensions and eleven token channels
+also must not be confused with D.
 
 Regression cases cover straight/curved/closed paths; full holds; leading,
 internal and trailing pauses; pure rotation crossing π; simultaneous

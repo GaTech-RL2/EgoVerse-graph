@@ -245,6 +245,8 @@ def training_arguments(method, suite, dataset, evidence, mode, epochs):
                 "trainer.max_epochs=1",
                 "trainer.limit_train_batches=2",
                 "trainer.limit_val_batches=1",
+                "trainer.accumulate_grad_batches=1",
+                "callbacks.batch_budget=null",
                 "trainer.check_val_every_n_epoch=1",
                 "callbacks.model_checkpoint.every_n_epochs=1",
                 "data.train_dataloader_params.libero_panda.num_workers=0",
@@ -283,6 +285,7 @@ def publish_campaign(client, campaign_id, *, commit, epochs):
             runtime["source_commit"] != commit
             or runtime["mode"] != "full"
             or runtime["epochs"] != epochs
+            or runtime.get("global_batch_size") != 1024
             or runtime["suite"] != suite
             or result["suite"] != suite
             or not result["complete_protocol"]
@@ -295,6 +298,7 @@ def publish_campaign(client, campaign_id, *, commit, epochs):
         "unique_tasks": sum(map(len, TASKS.values())),
         "source_commit": commit,
         "training_epochs": epochs,
+        "global_batch_size": 1024,
         "full_released_training_budget": epochs == 5001,
         "sources": sources,
         "suites": results,
@@ -330,6 +334,8 @@ def restore_checkpoints(client, source_run, evidence, *, suite, mode, epochs):
         1 if mode == "smoke" else epochs,
     ):
         raise ValueError("Recovery suite, mode or training budget differs")
+    if mode == "full" and runtime.get("global_batch_size") != 1024:
+        raise ValueError("Recovery does not match the released global training batch")
     restored = {}
     for method in ("tokenizer", "oat", "arc"):
         relative = f"training/{method}/checkpoints/last.ckpt"
@@ -425,6 +431,7 @@ def main():
             "suite": args.suite,
             "mode": args.mode,
             "epochs": 1 if args.mode == "smoke" else args.epochs,
+            "global_batch_size": 4 if args.mode == "smoke" else 1024,
             "evaluate_from_run": args.evaluate_from_run,
             "campaign_id": args.campaign_id,
             "artifact_prefix": "s3://rldb/" + uploader.prefix,

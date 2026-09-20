@@ -30,6 +30,8 @@ def config_for(experiment, path, output):
                 "trainer.max_epochs=1",
                 "trainer.limit_train_batches=2",
                 "trainer.limit_val_batches=1",
+                "trainer.accumulate_grad_batches=1",
+                "callbacks.batch_budget=null",
                 "trainer.check_val_every_n_epoch=1",
                 "callbacks.model_checkpoint.every_n_epochs=1",
                 "data.train_dataloader_params.libero_panda.num_workers=0",
@@ -151,3 +153,41 @@ def test_final_checkpoint_includes_epoch_after_periodic_checkpoint(tmp_path):
     assert payload["global_step"] == objects["trainer"].global_step == 6
     assert payload["ema_num_updates"] == 6
     assert payload["loops"]["fit_loop"]["epoch_progress"]["current"]["completed"] == 3
+
+
+def test_accumulation_preserves_global_batch_drop_last_steps_and_ema(tmp_path):
+    from omegaconf import OmegaConf
+
+    from egomimic.trainHydra import train
+
+    path = tmp_path / "replay.zarr"
+    make_replay(path)  # 90 train examples: 11 full batches of 8, two dropped.
+    cfg = config_for("libero_oattok", path, tmp_path / "tokenizer")
+    spec = cfg.model.pipeline.stages[0].tokenizer
+    spec.emb_dim, spec.head_dim = 32, 8
+    spec.encoder_depth, spec.decoder_depth, spec.num_registers = 1, 1, 4
+    cfg.trainer.limit_train_batches = 1.0
+    cfg.trainer.accumulate_grad_batches = 4
+    cfg.callbacks.batch_budget = OmegaConf.create(
+        {
+            "_target_": "egomimic.pl_utils.oat_training.OATBatchBudgetCallback",
+            "global_batch_size": 8,
+            "report_path": str(tmp_path / "training-budget.json"),
+        }
+    )
+    _, objects = train(cfg)
+    payload = torch.load(
+        tmp_path / "tokenizer/checkpoints/last.ckpt",
+        map_location="cpu",
+        weights_only=False,
+    )
+    assert objects["trainer"].num_training_batches == 44
+    assert payload["global_step"] == payload["ema_num_updates"] == 11
+    assert payload["training_budget"]["total_optimizer_steps"] == 11
+    assert payload["training_budget"]["dropped_examples_per_epoch"] == 2
+    cfg.ckpt_path = str(tmp_path / "tokenizer/checkpoints/last.ckpt")
+    cfg.trainer.max_epochs = 2
+    _, resumed = train(cfg)
+    payload = torch.load(cfg.ckpt_path, map_location="cpu", weights_only=False)
+    assert resumed["trainer"].global_step == payload["ema_num_updates"] == 22
+    assert payload["training_budget"]["total_optimizer_steps"] == 22

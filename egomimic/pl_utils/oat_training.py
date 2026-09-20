@@ -1,9 +1,68 @@
 """Optimizer/checkpoint policy for native OAT/ARC benchmark graphs."""
 
+import json
+from pathlib import Path
+
 import torch
+from lightning import Callback
 
 from egomimic.pl_utils.training_behavior import TrainingBehavior
 from egomimic.utils.ema_callback import EMACallback
+
+
+class OATBatchBudgetCallback(Callback):
+    """Match the released four-rank, drop-last optimizer budget on any device count."""
+
+    def __init__(self, global_batch_size=1024, report_path=None):
+        self.global_batch_size = int(global_batch_size)
+        self.report_path = report_path
+        self.budget = None
+
+    def on_fit_start(self, trainer, pl_module):
+        del pl_module
+        datasets = trainer.datamodule.train_datasets
+        if len(datasets) != 1:
+            raise ValueError("OAT budget requires exactly one replay training dataset")
+        name, dataset = next(iter(datasets.items()))
+        params = trainer.datamodule.train_dataloader_params[name]
+        microbatch = int(params["batch_size"])
+        accumulation = int(trainer.accumulate_grad_batches)
+        effective = microbatch * int(trainer.world_size) * accumulation
+        if effective != self.global_batch_size or not params.get("drop_last", False):
+            raise ValueError("OAT requires its configured global batch and drop_last")
+        if trainer.limit_train_batches != 1.0:
+            raise ValueError(
+                "Disable the OAT batch budget callback for limited smoke tests"
+            )
+        steps = len(dataset) // effective
+        if not steps:
+            raise ValueError("Training replay is smaller than one global batch")
+        # Accelerate's four-rank BatchSamplerShard drops an incomplete GLOBAL
+        # batch. Lightning otherwise takes a final partial accumulation step.
+        trainer.limit_train_batches = steps * accumulation
+        self.budget = {
+            "train_examples": len(dataset),
+            "microbatch_size": microbatch,
+            "world_size": int(trainer.world_size),
+            "gradient_accumulation": accumulation,
+            "global_batch_size": effective,
+            "optimizer_steps_per_epoch": steps,
+            "microbatches_per_epoch": steps * accumulation,
+            "epochs": int(trainer.max_epochs),
+            "total_optimizer_steps": steps * int(trainer.max_epochs),
+            "dropped_examples_per_epoch": len(dataset) % effective,
+        }
+        if trainer.is_global_zero:
+            encoded = json.dumps(self.budget, indent=2) + "\n"
+            print("OAT_TRAINING_BUDGET", encoded, flush=True)
+            if self.report_path:
+                path = Path(self.report_path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(encoded)
+
+    def on_save_checkpoint(self, trainer, pl_module, checkpoint):
+        del trainer, pl_module
+        checkpoint["training_budget"] = self.budget
 
 
 class OATTrainingBehavior(TrainingBehavior):

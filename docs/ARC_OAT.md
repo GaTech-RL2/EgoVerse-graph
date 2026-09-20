@@ -5,6 +5,57 @@ This port targets **EgoVerse-graph**, using `PipelineAlgo`, `ModelWrapper`,
 released implementation of Chaoqi Liu's Ordered Action Tokenization. The
 archived repository now links to Praxis; Praxis is not used in this port.
 
+## L40S launch through OSMO
+
+The launch setup follows the other EgoVerse agent's working OSMO recipe:
+`groot-l40s-03`, the NVIDIA PyTorch 25.06 image, immutable Git source,
+`egoverse-github` credentials, and R2 checkpoints using the existing
+`grabber-arc-r2-20260916` credential. It does not use the Slurm launcher.
+The container checks that its allocated GPU is actually an L40S.
+
+From a clean, **pushed** source revision, render and inspect a workflow:
+
+```sh
+source emimic/bin/activate
+python -m scripts.benchmarks.launch_libero_osmo \
+  --commit "$(git rev-parse HEAD)" \
+  --run-id arc-oat-libero10-smoke-unique \
+  --suite libero_10 --mode smoke --output /tmp/libero-osmo.yaml
+osmo workflow submit /tmp/libero-osmo.yaml --pool groot-l40s-03 --dry-run
+osmo workflow submit /tmp/libero-osmo.yaml --pool groot-l40s-03
+```
+
+Use a lowercase, unique run ID. The workflow refuses existing R2 output at
+`s3://rldb/experiments/arc-oat-20260919/<run-id>/`. It requests one GPU, 16 CPU
+cores, 64 GiB RAM and 240 GiB disk. The smoke run trains the actual default
+tokenizer, OAT policy and ARC policy for two batches each, reloads their EMA
+checkpoints, performs one four-step rollout on every task in the selected
+suite, checks paired initial-state hashes, and evaluates 16 reconstruction
+windows. These checks are not benchmark performance measurements.
+
+`--mode full` runs the standard 5001-epoch recipe for each of the three models,
+all held-out reconstruction windows, and the complete 50-trial × 5-repetition
+rollout protocol. `--epochs` can set a smaller pilot budget; such a run is not
+the full released training budget. Render a separate workflow per suite from
+the inventory below to cover the complete comparison. Runs initialize from
+scratch; smoke checkpoints never initialize full training. Final checkpoints
+include the last epoch even when it falls outside the periodic save cadence.
+
+The released, SHA-256-verified LIBERO-10 Zarr archive is pinned to Hugging Face
+revision `685b2b764e525ad33ab36d7315adbcab07494251`. The other suites download
+official demonstrations at `yifengzhu-hf/LIBERO-datasets` revision
+`f13aa24a3da8c43c7225569f28c562979fa0e35a`, verify every file's LFS SHA-256,
+and use the shared converter. Both methods see the same replay and split.
+
+Checkpoints upload periodically under content-addressed R2 keys. The run's
+`checkpoint-receipts.json` maps local checkpoint names to their hashes and
+durable URIs; `status.json`, logs, resolved Hydra configs, environment versions
+and data receipts also upload. Monitor with `osmo workflow query <id>` and
+`osmo workflow logs <id> -n 80`. LOW priority may use spare physical capacity
+but is preemptible. Automatic recovery from R2 is not implemented; recover a
+recorded checkpoint with the shared `ckpt_path` training option before resuming
+a preempted run. The default NORMAL-priority smoke only needs one free GPU.
+
 Source pins:
 
 - [OAT](https://github.com/Chaoqi-LIU/oat/tree/1da92695ef12c23b7000a0b1a76cab0aef4750e6)

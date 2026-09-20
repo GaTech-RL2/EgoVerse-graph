@@ -1,0 +1,423 @@
+"""Run native LIBERO training/evaluation in an isolated OSMO L40S container."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
+import urllib.request
+import zipfile
+from pathlib import Path
+
+from egomimic.benchmarks.libero.catalog import TASKS
+
+DATA_REPO = "yifengzhu-hf/LIBERO-datasets"
+DATA_REVISION = "f13aa24a3da8c43c7225569f28c562979fa0e35a"
+REPLAY_REPO = "chaoqi-liu/libero10_N500.zarr"
+REPLAY_REVISION = "685b2b764e525ad33ab36d7315adbcab07494251"
+REPLAY_NAME = "libero10_N500.zarr.zip"
+REPLAY_SHA256 = "176de6aed271a76a5d6afc43af1ef6562614e86e9b08aaae5eb4c337538a0550"
+
+
+def digest(path):
+    with Path(path).open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def write_json(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(value, indent=2) + "\n")
+    temporary.replace(path)
+
+
+def download(url, path, expected_sha256):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and digest(path) == expected_sha256:
+        return
+    temporary = path.with_suffix(path.suffix + ".partial")
+    with (
+        urllib.request.urlopen(url, timeout=120) as source,
+        temporary.open("wb") as target,
+    ):
+        shutil.copyfileobj(source, target, length=8 * 1024 * 1024)
+    if digest(temporary) != expected_sha256:
+        raise ValueError(f"Download hash mismatch: {path.name}")
+    temporary.replace(path)
+
+
+def extract_replay(archive, output):
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=False)
+    with zipfile.ZipFile(archive) as handle:
+        for member in handle.infolist():
+            path = Path(member.filename)
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or (member.external_attr >> 16) & 0o170000 == 0o120000
+            ):
+                raise ValueError("Unsafe replay archive member")
+        handle.extractall(output)
+    roots = [
+        path.parent
+        for path in output.rglob(".zgroup")
+        if (path.parent / "meta/episode_ends").is_dir()
+    ]
+    if len(roots) != 1:
+        raise ValueError("Expected exactly one OAT replay in the archive")
+    return roots[0]
+
+
+def stage_dataset(root, suite, evidence):
+    data = Path(root) / "data"
+    data.mkdir(parents=True, exist_ok=True)
+    if suite == "libero_10":
+        archive = data / REPLAY_NAME
+        url = f"https://huggingface.co/datasets/{REPLAY_REPO}/resolve/{REPLAY_REVISION}/{REPLAY_NAME}"
+        download(url, archive, REPLAY_SHA256)
+        replay = extract_replay(archive, data / "released")
+        write_json(
+            evidence / "data-source.json",
+            {
+                "repo": REPLAY_REPO,
+                "revision": REPLAY_REVISION,
+                "sha256": REPLAY_SHA256,
+                "url": url,
+            },
+        )
+        return replay
+    # The release supplies one ready-made replay. Other catalog suites use
+    # official demonstrations and the same native conversion for both methods.
+    from egomimic.benchmarks.libero.convert import convert_suite
+
+    url = f"https://huggingface.co/api/datasets/{DATA_REPO}/revision/{DATA_REVISION}?blobs=true"
+    with urllib.request.urlopen(url, timeout=120) as response:
+        metadata = json.load(response)
+    if metadata["sha"] != DATA_REVISION:
+        raise ValueError("Dataset revision changed")
+    sources = {
+        Path(row["rfilename"]).name: row
+        for row in metadata["siblings"]
+        if row["rfilename"].startswith(suite + "/")
+    }
+    receipts = []
+    for task in TASKS[suite]:
+        source = sources[task + "_demo.hdf5"]
+        url = f"https://huggingface.co/datasets/{DATA_REPO}/resolve/{DATA_REVISION}/{source['rfilename']}"
+        download(url, data / "raw" / source["rfilename"], source["lfs"]["sha256"])
+        receipts.append(source)
+    replay = data / f"{suite}.zarr"
+    convert_suite(data / "raw" / suite, replay, suite)
+    write_json(
+        evidence / "data-source.json",
+        {"repo": DATA_REPO, "revision": DATA_REVISION, "files": receipts},
+    )
+    return replay
+
+
+class ArtifactUploader:
+    """Snapshot completed checkpoints and stream evidence to a unique R2 prefix."""
+
+    def __init__(self, evidence, run_id):
+        import boto3
+
+        self.client = boto3.client(
+            "s3",
+            endpoint_url=os.environ["R2_ENDPOINT_URL"],
+            aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+            aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+        )
+        self.evidence = Path(evidence)
+        self.prefix = f"experiments/arc-oat-20260919/{run_id}/"
+        if self.client.list_objects_v2(
+            Bucket="rldb", Prefix=self.prefix, MaxKeys=1
+        ).get("KeyCount"):
+            raise FileExistsError("Refusing to overwrite an existing run prefix")
+        self.sent, self.receipts = {}, {}
+        self.stop = threading.Event()
+        self.thread = threading.Thread(target=self.loop, daemon=True)
+
+    def upload(self, final=False):
+        for path in sorted(self.evidence.rglob("*")):
+            if not path.is_file() or path.suffix in {".tmp", ".partial"}:
+                continue
+            try:
+                before = (path.stat().st_size, path.stat().st_mtime_ns)
+                if self.sent.get(str(path)) == before:
+                    continue
+                checkpoint = path.suffix == ".ckpt"
+                if checkpoint and not final and time.time() - path.stat().st_mtime < 5:
+                    continue
+                # Copy first: last.ckpt can be replaced by Lightning mid-upload.
+                snapshot = self.evidence.parent / "upload-snapshot"
+                shutil.copyfile(path, snapshot)
+                if before != (path.stat().st_size, path.stat().st_mtime_ns):
+                    continue
+                sha = digest(snapshot)
+                relative = path.relative_to(self.evidence).as_posix()
+                key = self.prefix + (
+                    f"checkpoints/{sha}/{path.name}" if checkpoint else relative
+                )
+                self.client.upload_file(
+                    str(snapshot), "rldb", key, ExtraArgs={"Metadata": {"sha256": sha}}
+                )
+                snapshot.unlink()
+                self.sent[str(path)] = before
+                if checkpoint:
+                    self.receipts[relative] = {
+                        "sha256": sha,
+                        "bytes": before[0],
+                        "uri": "s3://rldb/" + key,
+                    }
+                    write_json(
+                        self.evidence / "checkpoint-receipts.json", self.receipts
+                    )
+            except FileNotFoundError:
+                # save_top_k can retire the previous file during a scan.
+                continue
+
+    def loop(self):
+        while not self.stop.wait(30):
+            try:
+                self.upload()
+            except Exception as error:
+                print("ARTIFACT_UPLOAD_RETRY", type(error).__name__, flush=True)
+
+
+def execute(argv, log):
+    print("EXECUTE", json.dumps(argv), flush=True)
+    with Path(log).open("w") as handle:
+        process = subprocess.Popen(
+            argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
+        for line in process.stdout:
+            handle.write(line)
+            handle.flush()
+            print(line, end="", flush=True)
+        if process.wait():
+            raise RuntimeError(f"Command failed; see {log}")
+
+
+def training_arguments(method, suite, dataset, evidence, mode, epochs):
+    experiment = {
+        "tokenizer": "libero_oattok",
+        "oat": "libero_oatpolicy",
+        "arc": "libero_arc_policy",
+    }[method]
+    run = Path(evidence) / "training" / method
+    args = [
+        sys.executable,
+        "-m",
+        "egomimic.trainHydra",
+        f"+experiment=oat/{experiment}",
+        "hydra/launcher=basic",
+        f"benchmark.suite={suite}",
+        f"benchmark.dataset={dataset}",
+        f"hydra.run.dir={run}",
+        f"paths.output_dir={run}",
+        "runtime.slurm_requeue_owner=none",
+        "trainer.devices=1",
+        "trainer.precision=bf16-mixed",
+        f"trainer.max_epochs={epochs}",
+        "callbacks.model_checkpoint.save_top_k=1",
+        "++trainer.enable_progress_bar=false",
+    ]
+    if method == "oat":
+        args.append(
+            f"benchmark.tokenizer_checkpoint={Path(evidence) / 'training/tokenizer/checkpoints/last.ckpt'}"
+        )
+    if mode == "smoke":
+        args.extend(
+            [
+                "benchmark.batch_size=4",
+                "trainer.max_epochs=1",
+                "trainer.limit_train_batches=2",
+                "trainer.limit_val_batches=1",
+                "trainer.check_val_every_n_epoch=1",
+                "callbacks.model_checkpoint.every_n_epochs=1",
+                "data.train_dataloader_params.libero_panda.num_workers=0",
+                "data.train_dataloader_params.libero_panda.persistent_workers=false",
+                "data.valid_dataloader_params.libero_panda.num_workers=0",
+                "data.valid_dataloader_params.libero_panda.persistent_workers=false",
+            ]
+        )
+    return args
+
+
+def configure_simulator(root):
+    import yaml
+
+    package = Path(os.environ["LIBERO_SOURCE_ROOT"]) / "libero/libero"
+    paths = {
+        "benchmark_root": package,
+        "bddl_files": package / "bddl_files",
+        "init_states": package / "init_files",
+        "assets": package / "assets",
+        "datasets": Path(root) / "data",
+    }
+    if not all(path.is_dir() for path in paths.values()):
+        raise FileNotFoundError(
+            "Pinned LIBERO simulator assets or data directory missing"
+        )
+    config = Path(os.environ["LIBERO_CONFIG_PATH"])
+    config.mkdir(parents=True, exist_ok=True)
+    (config / "config.yaml").write_text(
+        yaml.safe_dump({key: str(value) for key, value in paths.items()})
+    )
+
+
+def main():
+    import torch
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--suite", choices=TASKS, required=True)
+    parser.add_argument("--mode", choices=("smoke", "full"), required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--epochs", type=int, default=5001)
+    args = parser.parse_args()
+    if (
+        not torch.cuda.is_available()
+        or torch.cuda.device_count() != 1
+        or "L40S" not in torch.cuda.get_device_name(0)
+    ):
+        raise RuntimeError("This workflow requests exactly one L40S GPU")
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    if commit != os.environ["SOURCE_COMMIT"]:
+        raise RuntimeError("Unexpected source revision")
+    evidence = args.root / "evidence"
+    evidence.mkdir(parents=True, exist_ok=False)
+    uploader = ArtifactUploader(evidence, args.run_id)
+    write_json(
+        evidence / "runtime.json",
+        {
+            "source_commit": commit,
+            "python": sys.version,
+            "torch": torch.__version__,
+            "cuda": torch.version.cuda,
+            "gpu": torch.cuda.get_device_name(0),
+            "suite": args.suite,
+            "mode": args.mode,
+            "epochs": 1 if args.mode == "smoke" else args.epochs,
+            "artifact_prefix": "s3://rldb/" + uploader.prefix,
+        },
+    )
+    uploader.thread.start()
+    try:
+        execute(["nvidia-smi"], evidence / "nvidia-smi.log")
+        execute(["uv", "pip", "freeze"], evidence / "environment.txt")
+        write_json(evidence / "status.json", {"state": "STAGING_DATA"})
+        dataset = stage_dataset(args.root, args.suite, evidence)
+        configure_simulator(args.root)
+        for method in ("tokenizer", "oat", "arc"):
+            write_json(
+                evidence / "status.json", {"state": "TRAINING", "method": method}
+            )
+            argv = training_arguments(
+                method, args.suite, dataset, evidence, args.mode, args.epochs
+            )
+            write_json(evidence / f"{method}-arguments.json", argv)
+            execute(argv, evidence / f"{method}-training.log")
+            checkpoint = evidence / f"training/{method}/checkpoints/last.ckpt"
+            if not checkpoint.is_file():
+                raise FileNotFoundError(checkpoint)
+        for method in ("oat", "arc"):
+            write_json(
+                evidence / "status.json", {"state": "ROLLOUTS", "method": method}
+            )
+            argv = [
+                sys.executable,
+                "-m",
+                "egomimic.benchmarks.libero.cli",
+                "rollout",
+                "--checkpoint",
+                str(evidence / f"training/{method}/checkpoints/last.ckpt"),
+                "--output",
+                str(evidence / method / args.suite),
+            ]
+            if args.mode == "smoke":
+                argv += [
+                    "--trials-per-task",
+                    "1",
+                    "--repetitions",
+                    "1",
+                    "--max-episode-steps",
+                    "4",
+                    "--video-trials",
+                    "0",
+                ]
+            execute(argv, evidence / f"{method}-rollout.log")
+        records = {
+            method: [
+                json.loads(line)
+                for line in (evidence / method / args.suite / "episodes.jsonl")
+                .read_text()
+                .splitlines()
+            ]
+            for method in ("oat", "arc")
+        }
+        paired = [
+            [
+                (
+                    row["task"],
+                    row["repetition"],
+                    row["trial"],
+                    row["seed"],
+                    row["initial_state_sha256"],
+                )
+                for row in records[method]
+            ]
+            for method in ("oat", "arc")
+        ]
+        if paired[0] != paired[1]:
+            raise RuntimeError("ARC and OAT did not use identical initial states")
+        argv = [
+            sys.executable,
+            "-m",
+            "egomimic.benchmarks.libero.cli",
+            "reconstruct",
+            "--suite",
+            args.suite,
+            "--dataset",
+            str(dataset),
+            "--checkpoint",
+            str(evidence / "training/tokenizer/checkpoints/last.ckpt"),
+            "--output",
+            str(evidence / "reconstruction.json"),
+        ]
+        if args.mode == "smoke":
+            argv += ["--limit", "16", "--batch-size", "4"]
+        execute(argv, evidence / "reconstruction.log")
+        write_json(
+            evidence / "status.json",
+            {
+                "state": "SMOKE_PASSED" if args.mode == "smoke" else "SUITE_COMPLETE",
+                "paired_episodes_per_method": len(paired[0]),
+                "benchmark_performance": args.mode == "full",
+            },
+        )
+    except BaseException as error:
+        write_json(
+            evidence / "status.json",
+            {"state": "FAILED", "type": type(error).__name__, "error": str(error)},
+        )
+        raise
+    finally:
+        uploader.stop.set()
+        uploader.thread.join()
+        uploader.upload(final=True)
+        # Include checkpoint receipts created during the final pass.
+        uploader.upload(final=True)
+
+
+if __name__ == "__main__":
+    main()

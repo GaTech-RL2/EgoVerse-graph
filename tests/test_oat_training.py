@@ -129,3 +129,24 @@ def test_arc_policy_uses_shared_training_graph_and_can_infer_without_targets(
         objects["model"].on_load_checkpoint(payload)
     with pytest.raises(ValueError, match="different benchmark"):
         _load_eval_checkpoint(objects["model"], payload, cfg)
+
+
+def test_final_checkpoint_includes_epoch_after_periodic_checkpoint(tmp_path):
+    from egomimic.trainHydra import train
+
+    path = tmp_path / "replay.zarr"
+    make_replay(path)
+    cfg = config_for("libero_oattok", path, tmp_path / "tokenizer")
+    spec = cfg.model.pipeline.stages[0].tokenizer
+    spec.emb_dim, spec.head_dim = 32, 8
+    spec.encoder_depth, spec.decoder_depth, spec.num_registers = 1, 1, 4
+    cfg.trainer.max_epochs = 3
+    cfg.callbacks.model_checkpoint.every_n_epochs = 2
+    _, objects = train(cfg)
+    payload = torch.load(
+        tmp_path / "tokenizer/checkpoints/last.ckpt",
+        map_location="cpu",
+        weights_only=False,
+    )
+    assert payload["global_step"] == objects["trainer"].global_step == 6
+    assert payload["ema_num_updates"] == 6

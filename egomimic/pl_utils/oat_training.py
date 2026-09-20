@@ -78,5 +78,15 @@ class OATTrainingBehavior(TrainingBehavior):
 class OATEMACallback(EMACallback):
     """Use the upstream zero-based EMA update counter with shared checkpoint I/O."""
 
+    def __init__(self, final_checkpoint_path=None, **kwargs):
+        super().__init__(**kwargs)
+        self.final_checkpoint_path = final_checkpoint_path
+
     def _schedule(self, update):
         return super()._schedule(update - 1)
+
+    def on_train_end(self, trainer, pl_module):
+        # The released budget (5001 epochs) is not divisible by the ten-epoch
+        # checkpoint cadence. Persist the actual final optimizer/EMA state.
+        if self.final_checkpoint_path is not None:
+            trainer.save_checkpoint(self.final_checkpoint_path)

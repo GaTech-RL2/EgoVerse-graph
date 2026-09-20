@@ -1,0 +1,20 @@
+# @package _global_
+# Overlay for an Eva/human graph recipe. Batch size is TOTAL samples per rank.
+data:
+  dataset_weights:
+    eva_bimanual: 1.0
+    human_bimanual: 3.0
+  weighted_dataloader_params:
+    batch_size: 64
+    num_workers: 6
+    pin_memory: true
+  samples_per_epoch: 100000
+  sampling_seed: ${seed}
+
+model:
+  pipeline:
+    homogeneous_training: true
+
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  sync_batchnorm: false

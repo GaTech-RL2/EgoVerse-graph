@@ -12,6 +12,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from egomimic.eval.pipeline_diagnostics import DiagnosticProvider
 from egomimic.pl_utils.training_behavior import TrainingBehavior
+from egomimic.utils.batch_utils import batch_size, sample_mean
 
 
 def _unwrap_combined_loader_batch(batch):
@@ -207,13 +208,28 @@ class ModelWrapper(LightningModule):
                 metrics.setdefault(metric, []).append((source, scalar))
         return metrics
 
-    def _log_train_metric(self, name: str, value: Any) -> None:
+    def _log_train_metric(self, name: str, value: Any, *, sample_count=None) -> None:
         """Log default-training metrics with the configured temporal reduction."""
-
+        trainer = getattr(self, "_trainer", None)
+        weighted = (
+            getattr(getattr(trainer, "datamodule", None), "weighted_dataset", None)
+            is not None
+        )
+        # A rank can sample no rows from a given source. Only fixed metric keys
+        # may participate in collectives; conditional source logs stay local.
+        shared = (
+            not weighted
+            or name in {"Train/Loss", "Train/loss"}
+            or name.startswith("Timing/")
+        )
         self.log(
             name,
             value,
-            sync_dist=True,
+            sync_dist=shared,
+            rank_zero_only=not shared,
+            batch_size=sample_count
+            if sample_count is not None
+            else getattr(self, "_active_training_batch_size", None),
             on_step=self.train_log_on_step,
             on_epoch=not self.train_log_on_step,
         )
@@ -226,10 +242,16 @@ class ModelWrapper(LightningModule):
                 self._log_train_metric(
                     f"Train/{metric}/{source}",
                     value,
+                    sample_count=getattr(self, "_active_source_sizes", {}).get(source),
                 )
+            sizes = [
+                getattr(self, "_active_source_sizes", {}).get(source, 1)
+                for source, _ in source_values
+            ]
             self._log_train_metric(
                 f"Train/{metric}",
-                torch.stack([value for _, value in source_values]).mean(),
+                sample_mean([value for _, value in source_values], sizes),
+                sample_count=sum(sizes),
             )
 
     def training_step(self, batch, batch_idx):
@@ -240,6 +262,10 @@ class ModelWrapper(LightningModule):
         self.train()
         t0 = time.time()
         batch = self.model.process_batch_for_training(batch)
+        self._active_source_sizes = {
+            source: batch_size(values) for source, values in batch.items()
+        }
+        self._active_training_batch_size = sum(self._active_source_sizes.values())
         t1 = time.time()
         predictions = self.model.forward_training(batch)
         t2 = time.time()
@@ -343,7 +369,9 @@ class ModelWrapper(LightningModule):
         wrapper directly) or the index is out of range, and the evaluator then
         keeps its unprefixed metric names.
         """
-        datamodule = getattr(self.trainer, "datamodule", None) if self._trainer else None
+        datamodule = (
+            getattr(self.trainer, "datamodule", None) if self._trainer else None
+        )
         names = getattr(datamodule, "valid_group_names", None)
         if not names or not 0 <= int(dataloader_idx) < len(names):
             return None
@@ -463,6 +491,22 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
+        if (
+            self.trainer.world_size > 1
+            and getattr(self.trainer.datamodule, "weighted_dataset", None) is not None
+        ):
+            if any(
+                isinstance(module, torch.nn.SyncBatchNorm)
+                for module in self.nets.modules()
+            ):
+                raise ValueError(
+                    "Weighted distributed training requires trainer.sync_batchnorm=false because source modules may be absent on a rank"
+                )
+            ddp = getattr(self.trainer.strategy, "_ddp_kwargs", {})
+            if ddp.get("find_unused_parameters") is not True:
+                raise ValueError(
+                    "Weighted distributed training requires ddp_find_unused_parameters_true for conditionally active source modules"
+                )
 
     def on_train_epoch_start(self):
         for i, param_group in enumerate(self.optimizers().param_groups):

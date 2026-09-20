@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 from egomimic.models.diffusion_policy import DiffusionPolicy
 from egomimic.pipeline.core import Stage
+from egomimic.utils.batch_utils import map_batches
 
 _SCHEDULER_FIELDS = (
     "num_train_timesteps",
@@ -248,6 +249,31 @@ class DiffusionDenoiserStage(Stage):
         if mode == "inference":
             return self._forward_inference(batch)
         raise ValueError(f"Unsupported diffusion execution mode {mode!r}")
+
+    def execute_batches(self, batches, *, mode):
+        if mode != "train":
+            return super().execute_batches(batches, mode=mode)
+        signature = _scheduler_signature(self.policy.noise_scheduler)
+        for batch in batches.values():
+            if batch["diffusion/scheduler_signature"] != signature:
+                raise ValueError("Forward and reverse diffusion schedulers differ")
+        inputs = {
+            source: {
+                key: batch[key]
+                for key in self.reads
+                if key != "diffusion/scheduler_signature"
+            }
+            for source, batch in batches.items()
+        }
+
+        def predict(values):
+            values["diffusion/scheduler_signature"] = signature
+            return self._forward_train(values)["diffusion/predicted_noise"]
+
+        predictions = map_batches(inputs, predict)
+        for source, batch in batches.items():
+            batch["diffusion/predicted_noise"] = predictions[source]
+        return batches
 
     def forward(self, batch: dict) -> dict:
         """Retain direct-call training behavior; graph mode is always explicit."""

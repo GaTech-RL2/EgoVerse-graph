@@ -183,7 +183,8 @@ def tiny_rl_config():
         "steps": 4, "log_interval": 2, "checkpoint_interval": 2, "eval_interval": 0})
 
 
-def test_lightning_checkpoint_resume_preserves_optimizer_and_flow_rng(tmp_path, tiny_rl_config):
+@pytest.mark.parametrize("backup_codec", [None, "native_window", "arc"])
+def test_lightning_checkpoint_resume_preserves_optimizer_and_flow_rng(tmp_path, tiny_rl_config, backup_codec):
     import lightning as L
     from types import SimpleNamespace
     from torch.utils.data import DataLoader
@@ -191,7 +192,13 @@ def test_lightning_checkpoint_resume_preserves_optimizer_and_flow_rng(tmp_path, 
     from egomimic.trainRL import RLReceipts
     from egomimic.utils.experiment_artifacts import ArtifactWriter
     cfg = tiny_rl_config
-    batch = {"ogbench": replay().sample(4, np.random.RandomState(12))}
+    data = replay()
+    if backup_codec is not None:
+        data.include_future_observations = True
+        stage = cfg.model.pipeline.stages[0]
+        stage.backup_mode, stage.use_chunk_critic = "policy_window", False
+        stage.codec.kind = backup_codec
+    batch = {"ogbench": data.sample(4, np.random.RandomState(12))}
 
     def fit(directory, steps, resume=None, start=0):
         torch.manual_seed(81)

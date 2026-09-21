@@ -49,7 +49,7 @@ OGBench transition replay uses s[t] with a[t], without the observation-horizon
 offset used by robot sequence datasets. Replay excludes windows crossing
 episode boundaries. Bellman rewards and discount exponents always refer to
 native environment timesteps, including when a sampled goal shortens a backup.
-The critic's long native action chunk is never replaced by an approximate
+In the fixed DQC comparison, the critic's long native action chunk is never replaced by an approximate
 decoded chunk. The short critic conditions on the encoded behavior prefix.
 
 Losses and gradients are checked against the pinned JAX implementation in
@@ -110,7 +110,7 @@ Each group below has `mean`, `std` (population), `min`, and `max` under
 | `q_target` | Frozen short-policy critic target used to train V |
 | `v` | Current observation/goal value prediction |
 | `v_next` | Next-observation value used in the Bellman backup |
-| `bellman_target` | Discounted, terminal-masked target for the long critic |
+| `bellman_target` | Discounted, terminal-masked TD target (long critic in DQC; action critic in direct TD) |
 
 Q/V diagnostics are sigmoid probabilities, not logits. Critic distributions
 aggregate ensemble heads using configured `q_agg` (`mean` or `min`), matching
@@ -126,6 +126,57 @@ success probabilities measured against outcomes. Plot against
 `trainer/global_step` in W&B, rather than the W&B event index. Jobs already
 running a pinned source archive retain their original logging; the additional
 metrics begin with launches using this updated source and recipe.
+
+## Separate variable-duration TD comparison
+
+`hydra_configs/benchmark/smdp_comparison.yaml` specifies a fresh two-arm
+comparison: **native_window versus uniform ARC**, with the same replay-selected
+M/D/R, native cap, data, seeds, optimizer, training budget, and evaluation.
+Apply its dotted overrides to the base recipe *after* the domain settings.
+Within this pair, only `codec.kind` differs in the model/data configuration;
+run IDs and artifact paths differ for bookkeeping. The original fixed-25-step
+DQC experiment continues separately and is not resumed into this variant.
+
+`backup_mode=policy_window` directly trains the policy action critic at the
+represented window's endpoint. It disables the long critic/distillation teacher
+and requires `kappa_d=0.5` (symmetric BCE, with the existing constant 0.5 loss
+weight). It retains DQC's quantile value fit, target-action critic update, flow
+actor, and best-of-N action selection. This is an offline goal-conditioned
+semi-Markov QC variant, not the unchanged DQC algorithm or the original paper's
+offline-to-online experiment. Differences from fixed DQC include removal of
+the long teacher; this is not a discount-exponent-only ablation.
+
+For a recorded prefix of **tau native controls**, replay provides the observed
+state trajectory, and the codec selects tau using the same spatial/rotation
+rule in both arms. TD changes the endpoint, accumulated goal reward, mask and
+discount together. Tau is neither M nor a fixed 25. If no goal occurs within
+the prefix, the target is `gamma**tau * V(s[t+tau], g)`. A goal at native offset
+delta inside the prefix gives `gamma**delta` with no bootstrap. This preserves
+upstream's **state-based, half-open [t,t+tau) reward convention**: a current goal
+gives reward 1 at offset 0, and a goal exactly at the endpoint bootstraps V at
+that goal state. It is not shifted to a transition-arrival reward. Admitted
+replay windows remain within one episode, including their endpoint.
+
+Stationary controls still consume native time. ARC's geometry approximation
+does not create an exact simulator transition: training uses the recorded
+behavior endpoint, with approximation error bounded only by the replay
+calibration measurements. At inference each arm executes its full predicted
+decoded duration, stopping early if the environment terminates or truncates.
+
+`Train/SMDP/duration/{mean,min,max}` logs represented native duration;
+`backup_horizon` logs elapsed time up to the first goal or the window endpoint;
+`bootstrap_discount` logs gamma raised to that elapsed time (before masking).
+`goal_terminal_fraction` records how often the bootstrap is masked. Q/V metrics
+remain available; `q_chunk` is absent because this variant has no long teacher.
+The real-data `scripts/benchmark/audit_goal_backup.py` verifies equal native/ARC
+targets, decoded durations, independently indexed endpoints and rewards, and
+publishes data/target hashes. CPU fixtures additionally cover goal boundaries,
+stationary holds, unchanged fixed-backup parity, and exact checkpoint resume.
+
+For generated corpora, `scripts/data_download/wait_goal_manifest.py` is a CPU
+gate on the existing verified dataset manifest. It checks its content hash,
+generator, unique shard count, and transition count before releasing dependent
+GPU tasks; it does not generate another dataset or modify the source objects.
 
 ## Dataset scope
 

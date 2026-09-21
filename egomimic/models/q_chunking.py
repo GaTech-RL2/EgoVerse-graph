@@ -43,8 +43,9 @@ class Ensemble(nn.Module):
 class DecoupledQChunking(nn.Module):
     """Long native-action critic, distilled policy critic, and flow BC actor.
 
-    Only the short policy representation is supplied by the codec. All Bellman
-    rewards and discount exponents remain in native environment timesteps.
+    Only the policy representation is supplied by the codec. With the long
+    critic disabled, the action critic receives TD targets directly. All
+    Bellman rewards and discount exponents remain in native environment time.
     """
     def __init__(self, observation_dim, goal_dim, action_dim, backup_horizon,
                  policy_dim, hidden_dims=(1024, 1024, 1024, 1024), num_qs=2,

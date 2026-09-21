@@ -126,7 +126,8 @@ def train(cfg):
                                cfg.batch_size, cfg.steps, cfg.replace_interval,
                                start_step=start, backup_horizon=cfg.backup_horizon,
                                discount=cfg.discount, cache_keep_shards=cfg.get("cache_keep_shards", 128),
-                               data_registry=cfg.get("data_registry"))
+                               data_registry=cfg.get("data_registry"),
+                               include_future_observations=cfg.get("include_future_observations", False))
     first = replay.load_shard((start // cfg.replace_interval) % len(cfg.shards))
     example = first.sample(1, np.random.RandomState(0))
     del first
@@ -152,7 +153,8 @@ def train(cfg):
         "source_archive_sha256": os.environ.get("SOURCE_SHA256"), "config": config_receipt,
         "torch": torch.__version__, "lightning": L.__version__, "device": cfg.device,
         "gpu": torch.cuda.get_device_name() if torch.cuda.is_available() else None,
-        "resume_step": start, "resolved_native_backup_horizon": cfg.backup_horizon})
+        "resume_step": start, "resolved_native_backup_horizon": cfg.backup_horizon,
+        "backup_mode": resolved["model"]["pipeline"]["stages"][0].get("backup_mode", "fixed")})
     model = ModelWrapper(config_tree=cfg, train_log_on_step=True, enable_grad_norm=False)
     loggers = [CSVLogger(str(writer.directory), name="csv")]
     if cfg.wandb.enabled:

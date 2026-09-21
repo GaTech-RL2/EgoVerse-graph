@@ -81,11 +81,13 @@ def pin_shared_data_receipt(registry, receipt):
 
 class GoalReplay:
     def __init__(self, data, backup_horizon=25, discount=0.999,
-                 p_current=0.2, p_future=0.5, p_random=0.3):
+                 p_current=0.2, p_future=0.5, p_random=0.3,
+                 include_future_observations=False):
         if not np.isclose(p_current + p_future + p_random, 1):
             raise ValueError("goal probabilities must sum to one")
         self.data = data
         self.horizon, self.discount = int(backup_horizon), float(discount)
+        self.include_future_observations = bool(include_future_observations)
         self.p_current, self.p_future = float(p_current), float(p_future)
         self.terminals = np.flatnonzero(data["terminals"] > 0)
         if not len(self.terminals) or self.terminals[-1] != len(data["actions"]) - 1:
@@ -129,7 +131,47 @@ class GoalReplay:
             "high_value_masks": 1 - successes,
             "policy_valid": np.ones(len(idx), dtype=np.float32),
         }
-        return {key: torch.from_numpy(np.asarray(value, dtype=np.float32)) for key, value in result.items()}
+        result = {key: torch.from_numpy(np.asarray(value, dtype=np.float32))
+                  for key, value in result.items()}
+        if self.include_future_observations:
+            # Include s[t] through s[t+H], so the codec-selected action prefix
+            # can back up at its own endpoint without inventing simulator states.
+            trajectory = self.data["observations"][idx[:, None] + np.arange(self.horizon + 1)]
+            result["high_value_observation_trajectory"] = torch.from_numpy(
+                np.asarray(trajectory, dtype=np.float32))
+            result["high_value_goal_offset"] = torch.from_numpy(offsets)
+        return result
+
+
+@torch.no_grad()
+def goal_window_targets(batch, lengths, discount):
+    """Goal-conditioned semi-Markov targets for the represented action prefix.
+
+    Preserve DQC's state-based reward: a goal at offset delta < tau gives
+    gamma**delta and terminates the backup. A goal exactly at tau belongs to
+    the next half-open reward interval and bootstraps V(s[t+tau], g). There are
+    no other rewards in this replay contract, and admitted windows never cross
+    an episode boundary. ``lengths`` is elapsed native time, never token count.
+    """
+    trajectory = batch["high_value_observation_trajectory"]
+    offsets = batch["high_value_goal_offset"]
+    if (lengths.ndim != 1 or lengths.shape != offsets.shape
+            or trajectory.ndim != 3 or trajectory.shape[0] != len(lengths)):
+        raise ValueError("window lengths, goal offsets, and observation trajectory must align")
+    if lengths.dtype not in (torch.int32, torch.int64) or offsets.dtype != torch.int64:
+        raise ValueError("window lengths and goal offsets must be integer native steps")
+    if bool(((lengths < 1) | (lengths >= trajectory.shape[1])).any()):
+        raise ValueError("window duration is outside the recorded observation trajectory")
+    success = (offsets >= 0) & (offsets < lengths)
+    horizon = torch.where(success, offsets, lengths)
+    rows = torch.arange(len(lengths), device=lengths.device)
+    horizon_float = horizon.to(trajectory.dtype)
+    return {
+        "high_value_next_observations": trajectory[rows, horizon],
+        "high_value_backup_horizon": horizon_float,
+        "high_value_rewards": float(discount) ** horizon_float * success,
+        "high_value_masks": (~success).to(trajectory.dtype),
+    }
 
 
 class ShardedGoalReplay(IterableDataset):

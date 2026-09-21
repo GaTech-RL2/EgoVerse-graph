@@ -1,6 +1,7 @@
 """Chunked goal-conditioned RL in the shared graph runtime."""
 from egomimic.pipeline.core import Stage
 from egomimic.models.q_chunking import DecoupledQChunking
+from egomimic.rldb.goal_replay import goal_window_targets
 
 
 class QChunkingStage(Stage):
@@ -12,21 +13,45 @@ class QChunkingStage(Stage):
     }
     writes_by_mode = {"train": ("loss/*", "log/*"), "inference": ("pred_action", "action_lengths")}
 
-    def __init__(self, codec, **network):
+    def __init__(self, codec, backup_mode="fixed", **network):
         super().__init__()
         self.codec = codec
         if codec.native_horizon > network["backup_horizon"]:
             raise ValueError("policy window cannot exceed the critic's native backup horizon")
+        if backup_mode not in {"fixed", "policy_window"}:
+            raise ValueError("backup_mode must be fixed or policy_window")
+        self.backup_mode = backup_mode
+        if backup_mode == "policy_window":
+            if network.get("use_chunk_critic", True):
+                raise ValueError("policy_window requires direct TD without the long chunk critic")
+            if network.get("kappa_d", 0.5) != 0.5:
+                raise ValueError("policy_window requires symmetric direct TD (kappa_d=0.5)")
+            self.reads_by_mode = {**self.reads_by_mode, "train": (
+                "observations", "high_value_goals", "high_value_action_chunks",
+                "high_value_observation_trajectory", "high_value_goal_offset")}
         self.agent = DecoupledQChunking(policy_dim=codec.encoded_dim, **network)
 
     def execute(self, batch, *, mode):
         if mode == "train":
-            actions, _ = self.codec.encode(batch["high_value_action_chunks"])
+            actions, lengths = self.codec.encode(batch["high_value_action_chunks"])
             metrics = {} if batch.get("log_predictions", True) else None
-            losses = self.agent.losses(batch, actions, metrics=metrics)
+            targets = batch
+            if self.backup_mode == "policy_window":
+                targets = {**batch, **goal_window_targets(batch, lengths, self.agent.discount)}
+            losses = self.agent.losses(targets, actions, metrics=metrics)
             batch.update({"loss/" + name: value for name, value in losses.items()})
             if metrics is not None:
                 batch.update({"log/DQC/" + name: value for name, value in metrics.items()})
+                if self.backup_mode == "policy_window":
+                    for name, values in {
+                        "duration": lengths.float(),
+                        "backup_horizon": targets["high_value_backup_horizon"],
+                        "bootstrap_discount": self.agent.discount ** targets["high_value_backup_horizon"],
+                    }.items():
+                        batch.update({f"log/SMDP/{name}/mean": values.mean().detach(),
+                                      f"log/SMDP/{name}/min": values.min().detach(),
+                                      f"log/SMDP/{name}/max": values.max().detach()})
+                    batch["log/SMDP/goal_terminal_fraction"] = (1 - targets["high_value_masks"]).mean()
         else:
             latent = self.agent.sample(batch["observations"], batch["goals"],
                                        generator=batch.get("generator"))

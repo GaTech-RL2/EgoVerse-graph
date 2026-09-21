@@ -1,7 +1,7 @@
 # Five-configuration LIBERO ARC launch
 
-All **30 full L40S workflows were submitted**. Snapshot: 2026-09-21T22:16:43.545669+00:00.
-Scheduler state: 20 RUNNING, 10 PENDING.
+All **30 full L40S workflows were submitted**. Snapshot: 2026-09-21T22:20:46.402780+00:00.
+Scheduler state: 30 RUNNING.
 A running scheduler state includes environment setup and replay validation; it is not a policy-training score.
 
 Source is pinned to `60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7`. Each policy uses 5,001 epochs and global batch 1,024 (microbatch 256 × accumulation 4).

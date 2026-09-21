@@ -1,13 +1,12 @@
 {
-  "as_of": "2026-09-21T22:16:43.545669+00:00",
+  "as_of": "2026-09-21T22:20:46.402780+00:00",
   "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
   "full_workflows": 30,
   "configuration_triples": 5,
   "mode_config_combinations": 6,
   "suites": 5,
   "scheduler_counts": {
-    "RUNNING": 20,
-    "PENDING": 10
+    "RUNNING": 30
   },
   "epochs": 5001,
   "global_batch_size": 1024,
@@ -209,8 +208,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-stk1-libero-90-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-90-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:03.090676",
       "failure_messages": []
     },
     {
@@ -227,8 +226,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-stk2-libero-spatial-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-spatial-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:17:38.566648",
       "failure_messages": []
     },
     {
@@ -317,8 +316,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-dur1-libero-spatial-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-spatial-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:07.783952",
       "failure_messages": []
     },
     {
@@ -335,8 +334,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-dur1-libero-object-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-object-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:07.326557",
       "failure_messages": []
     },
     {
@@ -353,8 +352,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-dur1-libero-goal-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-goal-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:10.458718",
       "failure_messages": []
     },
     {
@@ -371,8 +370,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-dur1-libero-10-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-10-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:05.579036",
       "failure_messages": []
     },
     {
@@ -389,8 +388,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-dur1-libero-90-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-90-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:12.919132",
       "failure_messages": []
     },
     {
@@ -425,8 +424,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-dur2-libero-object-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-object-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:26.594661",
       "failure_messages": []
     },
     {
@@ -515,8 +514,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-shared-stk-libero-object-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-object-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:12.850528",
       "failure_messages": []
     },
     {
@@ -569,8 +568,8 @@
       "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
       "workflow_name": "arc-five-v2-20260921-shared-stk-libero-90-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-90-1",
-      "status": "PENDING",
-      "start_time": null,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:18:48.450698",
       "failure_messages": []
     },
     {
@@ -677,7 +676,7 @@
       "workflow_name": "arc-five-smoke-20260921-shared-stk-1",
       "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-smoke-20260921-shared-stk-1",
       "smoke": true,
-      "status": "RUNNING",
+      "status": "COMPLETED",
       "start_time": "2026-09-21T22:05:26.578507",
       "failure_messages": []
     }
@@ -1523,6 +1522,131 @@
     }
   },
   "started_replay_settings_verified": 20,
+  "gpu_smoke_receipts": {
+    "arc-five-smoke-20260921-shared-stk": {
+      "status.json": {
+        "state": "ARC_SMOKE_PASSED",
+        "episodes_per_method": 10,
+        "benchmark_performance": false,
+        "paired_oat_comparison_complete": false
+      },
+      "runtime.json": {
+        "source_commit": "f5fe77e8433a2cf431d5a8adb285c866369c508a",
+        "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+        "torch": "2.7.1+cu126",
+        "cuda": "12.6",
+        "gpu": "NVIDIA L40S",
+        "suite": "libero_10",
+        "mode": "smoke",
+        "epochs": 1,
+        "global_batch_size": 4,
+        "evaluate_from_run": null,
+        "resume_from_run": null,
+        "arc_replay_run": null,
+        "arc_modes": [
+          "stk"
+        ],
+        "arc_replay_runs": {
+          "stk": "arc-five-smoke-20260921-shared-stk-replay"
+        },
+        "arc_only": true,
+        "arc_profile": "shared",
+        "oat_reference_run": null,
+        "campaign_id": null,
+        "campaign_runs": null,
+        "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-smoke-20260921-shared-stk/"
+      },
+      "checkpoint-receipts.json": {
+        "training/arc_stk/checkpoints/epoch_epoch=0.ckpt": {
+          "sha256": "6d3cffbe66c61c50f5355d8bda4d77fdd0e0cb1cce96f1e471e6e547fb33e7fc",
+          "bytes": 1004453256,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-smoke-20260921-shared-stk/checkpoints/6d3cffbe66c61c50f5355d8bda4d77fdd0e0cb1cce96f1e471e6e547fb33e7fc/epoch_epoch=0.ckpt"
+        },
+        "training/arc_stk/checkpoints/last.ckpt": {
+          "sha256": "58db2e0a1970748f83344080f35ddb9af430fb1070783eeb6fb506ee307f76ad",
+          "bytes": 1004453320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-smoke-20260921-shared-stk/checkpoints/58db2e0a1970748f83344080f35ddb9af430fb1070783eeb6fb506ee307f76ad/last.ckpt"
+        }
+      },
+      "arc-results.json": {
+        "suite": "libero_10",
+        "profile": "shared",
+        "complete_protocol": false,
+        "oat_reference_run": null,
+        "paired_oat_comparison_complete": false,
+        "variants": {
+          "stk": {
+            "metrics": {
+              "episodes": 10,
+              "mean_success_rate": 0,
+              "success_rate_std": null,
+              "success_rate_stderr": null,
+              "per_repetition_success": [
+                0
+              ],
+              "per_task_success": {
+                "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it": 0,
+                "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it": 0,
+                "KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it": 0,
+                "KITCHEN_SCENE8_put_both_moka_pots_on_the_stove": 0,
+                "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket": 0,
+                "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket": 0,
+                "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket": 0,
+                "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate": 0,
+                "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate": 0,
+                "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy": 0
+              },
+              "inference_seconds_mean": 0.40892595417099076,
+              "inference_seconds_p95": 0.6074389171029905
+            },
+            "representation": {
+              "kind": "SE3 ARC",
+              "mode": "stk",
+              "waypoints": 36,
+              "float32_channels": 12,
+              "dt": 0.05,
+              "max_translation": 1.6,
+              "max_rotation_degrees": 384,
+              "independent_clocks": true
+            },
+            "checkpoint_sha256": "58db2e0a1970748f83344080f35ddb9af430fb1070783eeb6fb506ee307f76ad"
+          }
+        }
+      }
+    },
+    "arc-five-smoke-20260921-dur1-dur": {
+      "status.json": {
+        "state": "TRAINING",
+        "method": "arc_dur"
+      },
+      "runtime.json": {
+        "source_commit": "f5fe77e8433a2cf431d5a8adb285c866369c508a",
+        "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+        "torch": "2.7.1+cu126",
+        "cuda": "12.6",
+        "gpu": "NVIDIA L40S",
+        "suite": "libero_10",
+        "mode": "smoke",
+        "epochs": 1,
+        "global_batch_size": 4,
+        "evaluate_from_run": null,
+        "resume_from_run": null,
+        "arc_replay_run": null,
+        "arc_modes": [
+          "dur"
+        ],
+        "arc_replay_runs": {
+          "dur": "arc-five-smoke-20260921-dur1-dur-replay"
+        },
+        "arc_only": true,
+        "arc_profile": "dur_1",
+        "oat_reference_run": null,
+        "campaign_id": null,
+        "campaign_runs": null,
+        "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-smoke-20260921-dur1-dur/"
+      }
+    }
+  },
   "checks": {
     "focused_tests_passed_across_targeted_invocations": 115,
     "ruff": "passed",

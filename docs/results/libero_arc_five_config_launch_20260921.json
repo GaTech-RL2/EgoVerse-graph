@@ -1,0 +1,1539 @@
+{
+  "as_of": "2026-09-21T22:16:43.545669+00:00",
+  "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+  "full_workflows": 30,
+  "configuration_triples": 5,
+  "mode_config_combinations": 6,
+  "suites": 5,
+  "scheduler_counts": {
+    "RUNNING": 20,
+    "PENDING": 10
+  },
+  "epochs": 5001,
+  "global_batch_size": 1024,
+  "resource_per_workflow": {
+    "gpu": "one L40S",
+    "cpu": 20,
+    "memory_gib": 128,
+    "priority": "NORMAL"
+  },
+  "replay": {
+    "calibration": "reuse matching audited parent demos 0\u20131",
+    "selection_demos": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "confirmation_demos": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "parameters_frozen_before_testing": true,
+    "full_policy_training_waits_for_completed_replay_and_controls": true
+  },
+  "original_full_campaign": "arc-oat-full-20260921-v6",
+  "original_arc_settings": {
+    "libero_spatial": {
+      "stk": {
+        "max_rotation_degrees": 96,
+        "max_translation": 1.6,
+        "num_waypoints": 36,
+        "mode": "stk"
+      },
+      "dur": {
+        "max_rotation_degrees": 128,
+        "max_translation": 0.8,
+        "num_waypoints": 32,
+        "mode": "dur"
+      }
+    },
+    "libero_object": {
+      "stk": {
+        "max_rotation_degrees": 48,
+        "max_translation": 1.6,
+        "num_waypoints": 36,
+        "mode": "stk"
+      },
+      "dur": {
+        "max_rotation_degrees": 48,
+        "max_translation": 0.8,
+        "num_waypoints": 36,
+        "mode": "dur"
+      }
+    },
+    "libero_goal": {
+      "stk": {
+        "max_rotation_degrees": 192,
+        "max_translation": 1.6,
+        "num_waypoints": 36,
+        "mode": "stk"
+      },
+      "dur": {
+        "max_rotation_degrees": 192,
+        "max_translation": 1.6,
+        "num_waypoints": 36,
+        "mode": "dur"
+      }
+    },
+    "libero_10": {
+      "stk": {
+        "max_rotation_degrees": 128,
+        "max_translation": 1.6,
+        "num_waypoints": 32,
+        "mode": "stk"
+      },
+      "dur": {
+        "max_rotation_degrees": 192,
+        "max_translation": 0.8,
+        "num_waypoints": 32,
+        "mode": "dur"
+      }
+    },
+    "libero_90": {
+      "stk": {
+        "max_rotation_degrees": 128,
+        "max_translation": 0.8,
+        "num_waypoints": 36,
+        "mode": "stk"
+      },
+      "dur": {
+        "max_rotation_degrees": 128,
+        "max_translation": 1.6,
+        "num_waypoints": 36,
+        "mode": "dur"
+      }
+    }
+  },
+  "runs": [
+    {
+      "run_id": "arc-five-v2-20260921-stk1-libero-spatial",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_spatial",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-spatial-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk1-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-spatial-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:12:20.294182",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk1-libero-object",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_object",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-object",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-object-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk1-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-object-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:12:24.394788",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk1-libero-goal",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_goal",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-goal-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk1-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-goal-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:12:28.881588",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk1-libero-10",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_10",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-10",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-10-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk1-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-10-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:12:32.472069",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk1-libero-90",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_90",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-90",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-90-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk1-libero-90-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-90-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk2-libero-spatial",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_spatial",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-spatial-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk2-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-spatial-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk2-libero-object",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_object",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-object",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-object-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk2-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-object-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:12:44.282315",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk2-libero-goal",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_goal",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-goal-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk2-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-goal-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:12:48.291103",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk2-libero-10",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_10",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-10",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-10-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk2-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-10-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:12:53.275076",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-stk2-libero-90",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_90",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-90",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-90-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-stk2-libero-90-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-90-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:12:54.794731",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur1-libero-spatial",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_spatial",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-spatial-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur1-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-spatial-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur1-libero-object",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_object",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-object",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-object-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur1-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-object-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur1-libero-goal",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_goal",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-goal-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur1-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-goal-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur1-libero-10",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_10",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-10",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-10-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur1-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-10-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur1-libero-90",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_90",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-90",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-90-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur1-libero-90-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-90-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur2-libero-spatial",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_spatial",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-spatial-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur2-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-spatial-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:19.398642",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur2-libero-object",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_object",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-object",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-object-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur2-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-object-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur2-libero-goal",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_goal",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-goal-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur2-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-goal-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:26.598311",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur2-libero-10",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_10",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-10",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-10-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur2-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-10-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:27.774620",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-dur2-libero-90",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_90",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-90",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-90-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-dur2-libero-90-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-90-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:27.834341",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-stk-libero-spatial",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_spatial",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-spatial-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-stk-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-spatial-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:30.223167",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-stk-libero-object",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_object",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-object",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-object-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-stk-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-object-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-stk-libero-goal",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_goal",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-goal-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-stk-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-goal-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:32.203462",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-stk-libero-10",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_10",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-10",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-10-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-stk-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-10-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:36.510835",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-stk-libero-90",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_90",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-90",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-90-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-stk-libero-90-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-90-1",
+      "status": "PENDING",
+      "start_time": null,
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-dur-libero-spatial",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_spatial",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-spatial-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-dur-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-spatial-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:43.085338",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-dur-libero-object",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_object",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-object",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-object-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-dur-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-object-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:46.963179",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-dur-libero-goal",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_goal",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-goal-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-dur-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-goal-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:51.145731",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-dur-libero-10",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_10",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-10",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-10-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-dur-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-10-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:51.514428",
+      "failure_messages": []
+    },
+    {
+      "run_id": "arc-five-v2-20260921-shared-dur-libero-90",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_90",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-90",
+      "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-90-replay",
+      "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+      "workflow_name": "arc-five-v2-20260921-shared-dur-libero-90-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-90-1",
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:13:54.234821",
+      "failure_messages": []
+    }
+  ],
+  "smokes": [
+    {
+      "workflow_name": "arc-five-smoke-20260921-dur1-dur-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-smoke-20260921-dur1-dur-1",
+      "smoke": true,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:10:32.356435",
+      "failure_messages": []
+    },
+    {
+      "workflow_name": "arc-five-smoke-20260921-shared-stk-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-smoke-20260921-shared-stk-1",
+      "smoke": true,
+      "status": "RUNNING",
+      "start_time": "2026-09-21T22:05:26.578507",
+      "failure_messages": []
+    }
+  ],
+  "runtime_snapshot": {
+    "full": [
+      {
+        "run": "arc-five-v2-20260921-stk1-libero-spatial",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 79,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            192
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "stk_1"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-stk1-libero-object",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 80,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            192
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "stk_1"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-stk1-libero-goal",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 80,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            192
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "stk_1"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-stk1-libero-10",
+        "policy": null,
+        "replay": {
+          "state": "STAGING_RAW_DEMONSTRATIONS"
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            192
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "stk_1"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-stk1-libero-90",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-stk2-libero-spatial",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-stk2-libero-object",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 80,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            192
+          ],
+          "translation_metres": [
+            0.8
+          ],
+          "waypoints": [
+            32
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "stk_2"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-stk2-libero-goal",
+        "policy": null,
+        "replay": {
+          "state": "confirmation",
+          "completed": 1,
+          "total": 150
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            192
+          ],
+          "translation_metres": [
+            0.8
+          ],
+          "waypoints": [
+            32
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "stk_2"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-stk2-libero-10",
+        "policy": null,
+        "replay": {
+          "state": "STAGING_RAW_DEMONSTRATIONS"
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            192
+          ],
+          "translation_metres": [
+            0.8
+          ],
+          "waypoints": [
+            32
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "stk_2"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-stk2-libero-90",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 24,
+          "total": 720
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            192
+          ],
+          "translation_metres": [
+            0.8
+          ],
+          "waypoints": [
+            32
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "stk_2"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-dur1-libero-spatial",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-dur1-libero-object",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-dur1-libero-goal",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-dur1-libero-10",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-dur1-libero-90",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-dur2-libero-spatial",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 32,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            0.8
+          ],
+          "waypoints": [
+            32
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "dur_2"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-dur2-libero-object",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-dur2-libero-goal",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 56,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            0.8
+          ],
+          "waypoints": [
+            32
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "dur_2"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-dur2-libero-10",
+        "policy": null,
+        "replay": {
+          "state": "STAGING_RAW_DEMONSTRATIONS"
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            0.8
+          ],
+          "waypoints": [
+            32
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "dur_2"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-dur2-libero-90",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 24,
+          "total": 720
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            0.8
+          ],
+          "waypoints": [
+            32
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "dur_2"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-stk-libero-spatial",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 32,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "shared"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-stk-libero-object",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-stk-libero-goal",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 9,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "shared"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-stk-libero-10",
+        "policy": null,
+        "replay": {
+          "state": "STAGING_RAW_DEMONSTRATIONS"
+        },
+        "settings": {
+          "arc_mode": "stk",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "shared"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-stk-libero-90",
+        "policy": null,
+        "replay": null,
+        "settings": null
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-dur-libero-spatial",
+        "policy": null,
+        "replay": {
+          "state": "STAGING_RAW_DEMONSTRATIONS"
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "shared"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-dur-libero-object",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 48,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "shared"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-dur-libero-goal",
+        "policy": null,
+        "replay": {
+          "state": "selection",
+          "completed": 56,
+          "total": 80
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "shared"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-dur-libero-10",
+        "policy": null,
+        "replay": {
+          "state": "STAGING_RAW_DEMONSTRATIONS"
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "shared"
+        }
+      },
+      {
+        "run": "arc-five-v2-20260921-shared-dur-libero-90",
+        "policy": null,
+        "replay": {
+          "state": "STAGING_RAW_DEMONSTRATIONS"
+        },
+        "settings": {
+          "arc_mode": "dur",
+          "rotation_degrees": [
+            384
+          ],
+          "translation_metres": [
+            1.6
+          ],
+          "waypoints": [
+            36
+          ],
+          "confirmation_demos": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "frozen_profile": "shared"
+        }
+      }
+    ],
+    "smokes": {
+      "arc-five-smoke-20260921-shared-stk": {
+        "state": "TRAINING",
+        "method": "arc_stk"
+      },
+      "arc-five-smoke-20260921-dur1-dur": {
+        "state": "TRAINING",
+        "method": "arc_dur"
+      }
+    }
+  },
+  "started_replay_settings_verified": 20,
+  "checks": {
+    "focused_tests_passed_across_targeted_invocations": 115,
+    "ruff": "passed",
+    "shell_syntax": "passed",
+    "file_roundtrip_preserves_numeric_replay_tolerances": true
+  },
+  "superseded_attempt": {
+    "source_commit": "f5fe77e8433a2cf431d5a8adb285c866369c508a",
+    "failure": "YAML reader interpreted JSON exponent notation as text before replay/training.",
+    "terminal_full_workflows": 30,
+    "training_checkpoints_lost": 0
+  },
+  "full_policy_scores_available": false
+}

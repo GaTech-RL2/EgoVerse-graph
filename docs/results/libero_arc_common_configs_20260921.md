@@ -4,7 +4,9 @@ These are **calibration-ranked sweep configurations**, using the same R/D/M on
 LIBERO Spatial, Object, Goal, 10 and 90. There are two STK configurations, two
 DUR configurations, and one common configuration evaluated in both modes.
 The five distinct parameter triples expand to six mode/config combinations,
-or **30 ARC policy runs** across five suites. This sweep has not been launched.
+or **30 ARC policy runs** across five suites. The subsequent
+[launch receipt](libero_arc_five_config_launch_20260921.md) records their
+submitted workflows and replay-before-training protocol.
 
 | Configuration | Mode | R (degrees) | D (metres) | M | Equal-suite calibration success |
 | --- | --- | ---: | ---: | ---: | ---: |

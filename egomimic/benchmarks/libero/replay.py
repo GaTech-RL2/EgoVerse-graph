@@ -588,6 +588,9 @@ def load_calibration_parent(client, parent, suite, spec, evidence):
 
 
 def calibrate(root, suite, spec, evidence, *, calibration_parent=None, client=None):
+    # Simulator configuration needs a local data directory even with raw files
+    # read directly from a verified external cache.
+    (Path(root) / "data").mkdir(parents=True, exist_ok=True)
     raw = stage_raw_dataset(root, suite, evidence)
     configure_simulator(root)
     from egomimic.benchmarks.libero.rollout import verify_libero_installation

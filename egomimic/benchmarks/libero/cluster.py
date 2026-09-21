@@ -111,16 +111,28 @@ def stage_dataset(root, suite, evidence):
         if row["rfilename"].startswith(suite + "/")
     }
     receipts = []
+    cache = os.environ.get("LIBERO_RAW_CACHE") or None
+    raw = Path(cache) if cache else data / "raw"
     for task in TASKS[suite]:
         source = sources[task + "_demo.hdf5"]
         url = f"https://huggingface.co/datasets/{DATA_REPO}/resolve/{DATA_REVISION}/{source['rfilename']}"
-        download(url, data / "raw" / source["rfilename"], source["lfs"]["sha256"])
+        path = raw / source["rfilename"]
+        if cache:
+            if not path.is_file() or digest(path) != source["lfs"]["sha256"]:
+                raise ValueError(f"Cached demonstration checksum differs: {path}")
+        else:
+            download(url, path, source["lfs"]["sha256"])
         receipts.append(source)
     replay = data / f"{suite}.zarr"
-    convert_suite(data / "raw" / suite, replay, suite)
+    convert_suite(raw / suite, replay, suite)
     write_json(
         evidence / "data-source.json",
-        {"repo": DATA_REPO, "revision": DATA_REVISION, "files": receipts},
+        {
+            "repo": DATA_REPO,
+            "revision": DATA_REVISION,
+            "files": receipts,
+            "verified_read_only_cache": cache,
+        },
     )
     return replay
 
@@ -258,13 +270,38 @@ def training_arguments(method, suite, dataset, evidence, mode, epochs):
     return args
 
 
-def publish_campaign(client, campaign_id, *, commit, epochs):
+def campaign_sources(campaign_id, commit, replacements=None):
+    """Pin each suite explicitly when a recovered run replaces a campaign member."""
+    sources = (
+        replacements
+        if replacements is not None
+        else {
+            suite: {
+                "run_id": f"{campaign_id}-{suite.replace('_', '-')}",
+                "source_commit": commit,
+            }
+            for suite in TASKS
+        }
+    )
+    if set(sources) != set(TASKS) or any(
+        not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", row.get("run_id", ""))
+        or not re.fullmatch(r"[0-9a-f]{40}", row.get("source_commit", ""))
+        for row in sources.values()
+    ):
+        raise ValueError("Campaign requires all suites and immutable run/source pins")
+    if len({row["run_id"] for row in sources.values()}) != len(TASKS):
+        raise ValueError("Campaign cannot reuse one run for multiple suites")
+    return sources
+
+
+def publish_campaign(client, campaign_id, *, commit, epochs, run_sources=None):
     """The last completed suite publishes scores after checking every receipt."""
     from botocore.exceptions import ClientError
 
-    results, sources = {}, {}
+    results, sources, commits = {}, {}, {}
+    expected = campaign_sources(campaign_id, commit, run_sources)
     for suite in TASKS:
-        run_id = f"{campaign_id}-{suite.replace('_', '-')}"
+        run_id = expected[suite]["run_id"]
         prefix = f"experiments/arc-oat-20260919/{run_id}/"
 
         def read(name):
@@ -282,7 +319,7 @@ def publish_campaign(client, campaign_id, *, commit, epochs):
                 return False
             raise
         if (
-            runtime["source_commit"] != commit
+            runtime["source_commit"] != expected[suite]["source_commit"]
             or runtime["mode"] != "full"
             or runtime["epochs"] != epochs
             or runtime.get("global_batch_size") != 1024
@@ -293,10 +330,14 @@ def publish_campaign(client, campaign_id, *, commit, epochs):
             raise ValueError("Campaign source, training budget or suite differs")
         results[suite] = result
         sources[suite] = "s3://rldb/" + prefix
+        commits[suite] = runtime["source_commit"]
     report = {
         "complete_benchmark_suite": True,
         "unique_tasks": sum(map(len, TASKS.values())),
-        "source_commit": commit,
+        "source_commit": next(iter(commits.values()))
+        if len(set(commits.values())) == 1
+        else None,
+        "source_commits": commits,
         "training_epochs": epochs,
         "global_batch_size": 1024,
         "full_released_training_budget": epochs == 5001,
@@ -533,6 +574,11 @@ def main():
     parser.add_argument("--epochs", type=int, default=5001)
     parser.add_argument("--campaign-id", default=os.environ.get("CAMPAIGN_ID") or None)
     parser.add_argument(
+        "--campaign-runs",
+        type=json.loads,
+        default=json.loads(os.environ.get("CAMPAIGN_RUNS_JSON") or "null"),
+    )
+    parser.add_argument(
         "--evaluate-from-run", default=os.environ.get("EVALUATE_FROM_RUN") or None
     )
     parser.add_argument(
@@ -544,10 +590,20 @@ def main():
     args = parser.parse_args()
     if args.evaluate_from_run and args.resume_from_run:
         raise ValueError("Choose evaluation recovery or training resume")
+    if args.campaign_runs is not None and not args.campaign_id:
+        raise ValueError("Campaign source manifest requires a campaign ID")
+    expected_run = (
+        campaign_sources(
+            args.campaign_id, os.environ["SOURCE_COMMIT"], args.campaign_runs
+        )[args.suite]
+        if args.campaign_id
+        else None
+    )
     if args.campaign_id and (
         args.mode != "full"
         or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,44}", args.campaign_id)
-        or args.run_id != f"{args.campaign_id}-{args.suite.replace('_', '-')}"
+        or args.run_id != expected_run["run_id"]
+        or os.environ["SOURCE_COMMIT"] != expected_run["source_commit"]
     ):
         raise ValueError("Campaign requires full mode and matching suite run IDs")
     if (
@@ -578,6 +634,7 @@ def main():
             "resume_from_run": args.resume_from_run,
             "arc_replay_run": args.arc_replay_run,
             "campaign_id": args.campaign_id,
+            "campaign_runs": args.campaign_runs,
             "artifact_prefix": "s3://rldb/" + uploader.prefix,
         },
     )
@@ -744,7 +801,11 @@ def main():
         uploader.upload(final=True)
     if args.campaign_id:
         publish_campaign(
-            uploader.client, args.campaign_id, commit=commit, epochs=args.epochs
+            uploader.client,
+            args.campaign_id,
+            commit=commit,
+            epochs=args.epochs,
+            run_sources=args.campaign_runs,
         )
 
 

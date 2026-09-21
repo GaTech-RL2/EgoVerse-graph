@@ -9,11 +9,13 @@ from hydra import compose, initialize_config_dir
 from egomimic.benchmarks.libero.cluster import (
     ArtifactUploader,
     CalibrationPending,
+    campaign_sources,
     digest,
     extract_replay,
     load_arc_calibration,
     publish_campaign,
     restore_checkpoints,
+    stage_dataset,
     training_arguments,
 )
 
@@ -70,6 +72,32 @@ def test_workflow_pins_source_and_requests_one_gpu():
     assert replay["resources"]["default"]["cpu"] >= 32
     assert replay["resources"]["default"]["gpu"] == 1
     assert replay["resources"]["default"]["memory"] == "192Gi"
+    replacements = campaign_sources("study", "a" * 40)
+    replacements["libero_90"] = {
+        "run_id": "recovered-libero-90",
+        "source_commit": "b" * 40,
+    }
+    replacement = module.workflow(
+        "b" * 40,
+        "recovered-libero-90",
+        "libero_90",
+        mode="full",
+        campaign_id="study",
+        campaign_runs=replacements,
+    )["workflow"]
+    assert (
+        json.loads(replacement["tasks"][0]["environment"]["CAMPAIGN_RUNS_JSON"])
+        == replacements
+    )
+    with pytest.raises(ValueError, match="Campaign"):
+        module.workflow(
+            "a" * 40,
+            "recovered-libero-90",
+            "libero_90",
+            mode="full",
+            campaign_id="study",
+            campaign_runs=replacements,
+        )
     with pytest.raises(ValueError, match="Campaign"):
         module.workflow(
             "a" * 40, "unrelated-run", "libero_10", mode="full", campaign_id="study"
@@ -142,6 +170,98 @@ def test_released_replay_archive_detection_and_traversal_rejection(tmp_path):
     with pytest.raises(ValueError, match="Unsafe"):
         extract_replay(archive, tmp_path / "bad")
     assert not (tmp_path / "outside").exists()
+
+
+@pytest.mark.parametrize("bad_source", [False, True])
+def test_campaign_can_pin_a_replacement_without_restarting_other_suites(bad_source):
+    import io
+
+    from egomimic.benchmarks.libero.catalog import TASKS
+
+    pinned = campaign_sources("study", "a" * 40)
+    pinned["libero_90"] = {"run_id": "recovered-libero-90", "source_commit": "b" * 40}
+
+    class Storage:
+        report = None
+
+        def get_object(self, Bucket, Key):
+            suite = next(s for s, r in pinned.items() if f"/{r['run_id']}/" in Key)
+            row = {
+                "status.json": {"state": "SUITE_COMPLETE"},
+                "runtime.json": {
+                    "source_commit": "c" * 40
+                    if bad_source
+                    else pinned[suite]["source_commit"],
+                    "suite": suite,
+                    "mode": "full",
+                    "epochs": 5001,
+                    "global_batch_size": 1024,
+                },
+                "comparison.json": {"suite": suite, "complete_protocol": True},
+            }[Key.rsplit("/", 1)[1]]
+            return {"Body": io.BytesIO(json.dumps(row).encode())}
+
+        def put_object(self, **kwargs):
+            self.report = json.loads(kwargs["Body"])
+
+    storage = Storage()
+    if bad_source:
+        with pytest.raises(ValueError, match="source"):
+            publish_campaign(
+                storage, "study", commit="b" * 40, epochs=5001, run_sources=pinned
+            )
+        assert storage.report is None
+    else:
+        assert publish_campaign(
+            storage, "study", commit="b" * 40, epochs=5001, run_sources=pinned
+        )
+        assert storage.report["source_commit"] is None
+        assert storage.report["source_commits"]["libero_90"] == "b" * 40
+        assert set(storage.report["suites"]) == set(TASKS)
+    with pytest.raises(ValueError, match="all suites"):
+        campaign_sources("study", "a" * 40, {"libero_90": pinned["libero_90"]})
+
+
+def test_full_training_converts_only_verified_cached_demonstrations(
+    tmp_path, monkeypatch
+):
+    import hashlib
+    import io
+
+    from egomimic.benchmarks.libero import cluster, convert
+
+    raw = tmp_path / "cache/libero_90/task_demo.hdf5"
+    raw.parent.mkdir(parents=True)
+    raw.write_bytes(b"official demonstration")
+    metadata = {
+        "sha": cluster.DATA_REVISION,
+        "siblings": [
+            {
+                "rfilename": "libero_90/task_demo.hdf5",
+                "lfs": {"sha256": hashlib.sha256(raw.read_bytes()).hexdigest()},
+            }
+        ],
+    }
+    monkeypatch.setenv("LIBERO_RAW_CACHE", str(raw.parent.parent))
+    monkeypatch.setattr(cluster, "TASKS", {"libero_90": ["task"]})
+    monkeypatch.setattr(
+        cluster.urllib.request,
+        "urlopen",
+        lambda *a, **k: io.BytesIO(json.dumps(metadata).encode()),
+    )
+    monkeypatch.setattr(
+        cluster, "download", lambda *a, **k: pytest.fail("Cache must not download")
+    )
+    calls = []
+    monkeypatch.setattr(convert, "convert_suite", lambda *args: calls.append(args))
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    result = stage_dataset(tmp_path / "root", "libero_90", evidence)
+    assert calls == [(raw.parent, result, "libero_90")]
+    raw.write_bytes(b"corrupt")
+    with pytest.raises(ValueError, match="checksum"):
+        stage_dataset(tmp_path / "root", "libero_90", evidence)
+    assert raw.read_bytes() == b"corrupt" and len(calls) == 1
 
 
 def test_checkpoint_snapshots_are_content_addressed_and_receipted(

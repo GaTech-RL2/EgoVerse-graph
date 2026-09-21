@@ -1,12 +1,14 @@
 """Render a pinned, single-L40S ARC/OAT workflow; submit with the OSMO CLI."""
 
 import argparse
+import json
 import re
 from pathlib import Path
 
 import yaml
 
 from egomimic.benchmarks.libero.catalog import TASKS
+from egomimic.benchmarks.libero.cluster import campaign_sources
 
 
 def workflow(
@@ -23,6 +25,7 @@ def workflow(
     replay_spec="libero_arc_replay",
     calibration_parent=None,
     raw_cache=None,
+    campaign_runs=None,
 ):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
@@ -34,10 +37,18 @@ def workflow(
         r"[a-z0-9][a-z0-9-]{0,62}", evaluate_from_run
     ):
         raise ValueError("Invalid evaluation source run ID")
+    if campaign_runs is not None and campaign_id is None:
+        raise ValueError("Campaign source manifest requires a campaign ID")
+    expected_run = (
+        campaign_sources(campaign_id, commit, campaign_runs)[suite]
+        if campaign_id
+        else None
+    )
     if campaign_id is not None and (
         mode != "full"
         or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,44}", campaign_id)
-        or run_id != f"{campaign_id}-{suite.replace('_', '-')}"
+        or run_id != expected_run["run_id"]
+        or commit != expected_run["source_commit"]
     ):
         raise ValueError("Campaign requires full mode and matching suite run IDs")
     if replay and (evaluate_from_run or campaign_id):
@@ -104,6 +115,7 @@ def workflow(
                         "EPOCHS": str(epochs),
                         "EVALUATE_FROM_RUN": evaluate_from_run or "",
                         "CAMPAIGN_ID": campaign_id or "",
+                        "CAMPAIGN_RUNS_JSON": json.dumps(campaign_runs),
                         "RUN_KIND": "replay" if replay else "benchmark",
                         "RESUME_FROM_RUN": resume_from_run or "",
                         "ARC_REPLAY_RUN": arc_replay_run or "",
@@ -129,6 +141,7 @@ def main():
     parser.add_argument("--epochs", type=int, default=5001)
     parser.add_argument("--evaluate-from-run")
     parser.add_argument("--campaign-id")
+    parser.add_argument("--campaign-runs-file", type=Path)
     parser.add_argument("--replay", action="store_true")
     parser.add_argument("--resume-from-run")
     parser.add_argument("--arc-replay-run")
@@ -153,6 +166,9 @@ def main():
                 args.replay_spec,
                 args.calibration_parent,
                 args.raw_cache,
+                json.loads(args.campaign_runs_file.read_text())
+                if args.campaign_runs_file
+                else None,
             ),
             handle,
             sort_keys=False,

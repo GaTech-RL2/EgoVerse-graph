@@ -89,6 +89,16 @@ skipped. The runner verifies source receipts, hashes, suite and training budget
 before resuming through the shared `ckpt_path` training option. The default
 NORMAL-priority smoke only needs one free GPU.
 
+An isolated suite recovery can remain in the same campaign using
+`--campaign-runs-file manifest.json` when rendering its workflow. The manifest
+maps every suite to an explicit `run_id` and immutable `source_commit`, including
+the replacement's own source. The publisher verifies every declared source,
+budget, suite and completed evaluation; aggregate reports retain the per-suite
+source revisions. This lets a recovered suite use its own artifact prefix while
+the other suites continue from their existing checkpoints. `--raw-cache` also
+supports full training on the converted suites: verified HDF5 files are read
+without modification and the normal converter writes a fresh local Zarr.
+
 Full ARC training additionally requires `--arc-replay-run <run-id>` pointing to
 a completed [R/D/M replay calibration](LIBERO_ARC_REPLAY.md). Both graph stages
 load the measured choice from that receipt. Missing or invalid replay evidence

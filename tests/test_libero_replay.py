@@ -9,6 +9,7 @@ from egomimic.benchmarks.libero.replay import (
     candidate_id,
     candidates_from_spec,
     rank_candidates,
+    read_demo,
     rebase_demo_xml,
     reconstruct_episode,
     summarize,
@@ -28,7 +29,7 @@ def spec():
 
 def test_splits_are_disjoint_and_all_candidates_match_policy_shape(spec):
     validate_spec(spec)
-    assert len(candidates_from_spec(spec)) == 125
+    assert len(candidates_from_spec(spec)) == 336
     spec["confirmation_demos"].append(spec["calibration_demos"][0])
     with pytest.raises(ValueError, match="overlap"):
         validate_spec(spec)
@@ -57,7 +58,7 @@ def test_short_horizon_cannot_cheat_by_replanning_early(spec):
     np.testing.assert_allclose(decoded[2:16, 0], 0, atol=1e-6)
 
 
-def test_selection_uses_paired_success_not_equal_aggregate_counts(spec):
+def test_selection_reports_paired_losses_and_can_require_strict_retention(spec):
     candidates = {
         "small": {"num_waypoints": 8},
         "large": {"num_waypoints": 16},
@@ -76,6 +77,10 @@ def test_selection_uses_paired_success_not_equal_aggregate_counts(spec):
     ]
     summary = summarize(rows, ["raw", *candidates])
     assert summary["small"]["success_rate"] == summary["large"]["success_rate"]
+    assert summary["small"]["lost_raw_successes"] == 1
+    assert summary["small"]["gained_successes"] == 1
+    assert rank_candidates(summary, candidates, spec) == ["small", "large"]
+    spec["minimum_retention"] = 1.0
     assert rank_candidates(summary, candidates, spec) == ["large"]
     with pytest.raises(RuntimeError, match="Raw demonstration"):
         validate_controls(summary, spec)
@@ -96,9 +101,64 @@ def test_fidelity_is_secondary_to_retention_and_token_rate(spec):
     assert rank_candidates(
         summary, {"small": {"num_waypoints": 8}, "large": {"num_waypoints": 16}}, spec
     ) == ["small", "large"]
-    controls = {"raw": {"success_rate": 1}, "dense": {"retention": 0.8}}
+    controls = {
+        "raw": {"success_rate": 1},
+        "raw_repeat": {"max_state_l2_vs_raw_mean": 0},
+        "dense": {"retention": 0.8, "max_action_mse": 1.0e-4},
+    }
     with pytest.raises(RuntimeError, match="Dense ARC"):
         validate_controls(controls, spec)
+
+
+def test_numerical_control_distinguishes_roundoff_from_reset_nondeterminism(spec):
+    controls = {
+        "raw": {"success_rate": 1},
+        "raw_repeat": {"max_state_l2_vs_raw_mean": 0},
+        "dense": {"retention": 0.8, "max_action_mse": 1.0e-14},
+    }
+    validate_controls(controls, spec)
+    controls["raw_repeat"]["max_state_l2_vs_raw_mean"] = 1.0e-8
+    with pytest.raises(RuntimeError, match="not repeatable"):
+        validate_controls(controls, spec)
+
+
+def test_replay_commands_use_training_precision_and_preserve_source(tmp_path):
+    import h5py
+
+    path = tmp_path / "task_demo.hdf5"
+    actions = np.full((7, 7), 0.1, dtype=np.float64)
+    with h5py.File(path, "w") as handle:
+        data = handle.create_group("data")
+        data.attrs["bddl_file_name"] = "task.bddl"
+        demo = data.create_group("demo_0")
+        demo.create_dataset("actions", data=actions)
+        demo.create_dataset("states", data=np.zeros((7, 10)))
+        demo.attrs["model_file"] = "<mujoco/>"
+    demo = read_demo(path, 0)
+    assert demo["actions"].dtype == np.float32
+    np.testing.assert_array_equal(demo["actions"], actions.astype(np.float32))
+    np.testing.assert_array_equal(demo["source_actions"], actions)
+    assert not np.array_equal(demo["source_actions"], demo["actions"])
+
+
+@pytest.mark.parametrize("waypoints", [4, 8, 16, 24, 32, 36])
+def test_candidate_support_shapes_allow_policy_forward_and_backward(waypoints):
+    import torch
+
+    from egomimic.models.denoising_nets import ConditionalUnet1D
+
+    model = ConditionalUnet1D(
+        input_dim=11,
+        cond_dim=276,
+        ac_latent_seq=1,
+        diffusion_step_embed_dim=16,
+        down_dims=[8, 16, 32],
+    )
+    inputs = torch.randn(2, waypoints, 11, requires_grad=True)
+    output = model(inputs, torch.tensor([1, 3]), torch.randn(2, 276))
+    assert output.shape == inputs.shape
+    output.square().mean().backward()
+    assert torch.isfinite(inputs.grad).all()
 
 
 def test_model_relocation_changes_only_asset_paths(tmp_path):

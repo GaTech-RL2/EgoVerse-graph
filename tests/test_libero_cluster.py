@@ -350,10 +350,11 @@ def test_arc_training_requires_matching_confirmed_replay(
         ).hexdigest(),
         "confirmation": {
             "raw": {"success_rate": 1},
-            "dense": {"retention": 1},
+            "raw_repeat": {"max_state_l2_vs_raw_mean": 0},
+            "dense": {"retention": 1, "max_action_mse": 0},
             selected: {
                 "retention": 0.9 if invalid == "retention" else 1,
-                "success_rate": 1,
+                "success_rate": 0.9 if invalid == "retention" else 1,
                 "raw_successes": 50,
                 "episodes": 50,
                 "successes": 50,

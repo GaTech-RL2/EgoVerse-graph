@@ -80,12 +80,16 @@ def validate_spec(spec):
     for key in (
         "minimum_execution_coverage",
         "minimum_raw_success",
-        "minimum_dense_retention",
         "minimum_retention",
         "maximum_success_rate_drop",
     ):
         if not 0 <= spec[key] <= 1:
             raise ValueError(f"Invalid replay threshold {key}")
+    if spec.get("action_dtype") != "float32":
+        raise ValueError("Replay must use the training dataset's float32 commands")
+    for key in ("max_dense_action_mse", "max_raw_repeat_state_error"):
+        if not np.isfinite(spec[key]) or spec[key] < 0:
+            raise ValueError(f"Invalid numerical control threshold {key}")
     candidates_from_spec(spec)
 
 
@@ -188,8 +192,12 @@ def read_demo(path, demo_id):
     with h5py.File(path, "r") as handle:
         data = handle["data"]
         demo = data[f"demo_{demo_id}"]
+        source_actions = demo["actions"][:]
         return {
-            "actions": demo["actions"][:],
+            # Both the released OAT replay and native HDF5 conversion train on
+            # float32. Even this cast can change brittle contact outcomes.
+            "actions": source_actions.astype(np.float32),
+            "source_actions": source_actions,
             "states": demo["states"][:],
             "xml": demo.attrs["model_file"],
             "bddl": Path(data.attrs["bddl_file_name"]).name,
@@ -241,20 +249,41 @@ def replay_job(job):
         "length": len(demo["actions"]),
         "initial_state_sha256": hashlib.sha256(demo["states"][0].tobytes()).hexdigest(),
         "original_actions_sha256": hashlib.sha256(
+            demo["source_actions"].tobytes()
+        ).hexdigest(),
+        "training_actions_sha256": hashlib.sha256(
             demo["actions"].tobytes()
         ).hexdigest(),
+        "action_dtype": str(demo["actions"].dtype),
+        "source_action_dtype": str(demo["source_actions"].dtype),
         "model_xml_sha256": hashlib.sha256(demo["xml"].encode()).hexdigest(),
         "candidates": {},
     }
     baseline_positions, baseline_states, cache = None, None, {}
     try:
         for key, candidate in candidates.items():
-            if key == "raw":
-                actions, metrics = demo["actions"], {}
+            if candidate is None:
+                actions = (
+                    demo["source_actions"]
+                    if key == "source_precision_raw"
+                    else demo["actions"]
+                )
+                metrics = {
+                    "action_mse": float(
+                        np.mean(
+                            (
+                                actions.astype(np.float64)
+                                - demo["actions"].astype(np.float64)
+                            )
+                            ** 2
+                        )
+                    )
+                }
             else:
                 actions, metrics = reconstruct_episode(demo["actions"], candidate, spec)
             action_hash = hashlib.sha256(actions.tobytes()).hexdigest()
-            if action_hash in cache:
+            # A repeatability control must actually rerun the simulator.
+            if key != "raw_repeat" and action_hash in cache:
                 previous = cache[action_hash]
                 result["candidates"][key] = {
                     **result["candidates"][previous],
@@ -357,6 +386,12 @@ def summarize(rows, candidates):
             "eef_rmse_vs_raw_metres": float(
                 np.mean([v["eef_rmse_vs_raw_metres"] for v in values])
             ),
+            "max_action_mse": max(v.get("action_mse", 0) for v in values),
+            "max_state_l2_vs_raw_mean": max(
+                v.get("state_l2_vs_raw_mean", 0) for v in values
+            ),
+            "gained_successes": sum(v["success"] for v in values)
+            - (raw_successes - lost),
         }
     return summary
 
@@ -387,8 +422,22 @@ def validate_controls(summary, spec):
         raise RuntimeError(
             "Raw demonstration replay success is too low; investigate reset/simulator before tuning"
         )
-    if summary["dense"]["retention"] < spec["minimum_dense_retention"]:
-        raise RuntimeError("Dense ARC control does not retain raw replay success")
+    if (
+        summary.get("raw_repeat", {}).get("max_state_l2_vs_raw_mean", float("inf"))
+        > spec["max_raw_repeat_state_error"]
+    ):
+        raise RuntimeError(
+            "Raw simulator replay is not repeatable from the saved reset"
+        )
+    # Dynamics can amplify roundoff: validate the dense codec numerically and
+    # report its task outcomes, rather than pretending float32 is lossless.
+    if (
+        summary["dense"].get("max_action_mse", float("inf"))
+        > spec["max_dense_action_mse"]
+    ):
+        raise RuntimeError(
+            "Dense ARC command reconstruction exceeds numerical tolerance"
+        )
 
 
 def calibrate(root, suite, spec, evidence):
@@ -400,6 +449,8 @@ def calibrate(root, suite, spec, evidence):
     candidates = candidates_from_spec(spec)
     controls = {
         "raw": None,
+        "raw_repeat": None,
+        "source_precision_raw": None,
         "dense": {
             "num_waypoints": spec["horizon"] + 1,
             "max_translation": None,
@@ -470,8 +521,8 @@ def calibrate(root, suite, spec, evidence):
             "calibration",
         )
         summary = summarize(calibration, {**controls, **eligible})
-        validate_controls(summary, spec)
         write_json(evidence / "calibration.json", summary)
+        validate_controls(summary, spec)
         ranked = rank_candidates(summary, eligible, spec)
         # Compare the best R/D at each M on the independent selection split.
         shortlist = {}
@@ -482,7 +533,7 @@ def calibrate(root, suite, spec, evidence):
                 shortlist[key] = candidates[key]
         if not shortlist:
             raise RuntimeError(
-                "No tested candidate preserves raw calibration successes"
+                "No tested candidate matches the raw calibration success criterion"
             )
         selection = run_jobs(
             pool,
@@ -492,12 +543,12 @@ def calibrate(root, suite, spec, evidence):
             "selection",
         )
         summary = summarize(selection, {**controls, **shortlist})
-        validate_controls(summary, spec)
         write_json(evidence / "selection.json", summary)
+        validate_controls(summary, spec)
         ranked = rank_candidates(summary, shortlist, spec)
         if not ranked:
             raise RuntimeError(
-                "No shortlisted candidate preserves raw selection successes"
+                "No shortlisted candidate matches the raw selection success criterion"
             )
         selected = ranked[0]
         frozen = {
@@ -506,6 +557,8 @@ def calibrate(root, suite, spec, evidence):
             "suite": suite,
             "selected_before_confirmation": True,
             "spec_sha256": digest(evidence / "spec.json"),
+            "action_dtype": spec["action_dtype"],
+            "objective": "lowest M matching overall raw success; report paired gains/losses",
         }
         write_json(evidence / "selected-before-confirmation.json", frozen)
         confirmation_candidates = {
@@ -521,6 +574,7 @@ def calibrate(root, suite, spec, evidence):
             "confirmation",
         )
         summary = summarize(confirmation, confirmation_candidates)
+        write_json(evidence / "confirmation.json", summary)
         validate_controls(summary, spec)
         confirmed = selected in rank_candidates(
             summary, {selected: candidates[selected]}, spec

@@ -16,10 +16,12 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from pathlib import Path
 
 import h5py
@@ -201,6 +203,57 @@ def rebase_demo_xml(xml, robosuite_root, assets_root):
     return ET.tostring(tree, encoding="unicode")
 
 
+def demo_task_definition(bddl, xml):
+    """Bind the goal to the object version actually saved in this demonstration.
+
+    Some official LIBERO-90 recordings predate the salad-dressing asset rename.
+    Keep their entire saved physics model intact, including its geometry, and
+    change only the BDDL object identifiers/type used to look up that model.
+    """
+    bodies = {body.get("name") for body in ET.fromstring(xml).iter("body")}
+    aliases = {}
+    if (
+        "salad_dressing_1_main" in bodies
+        and "new_salad_dressing_1_main" not in bodies
+        and re.search(r"\bnew_salad_dressing_1\b", bddl)
+    ):
+        aliases = {
+            "new_salad_dressing_1": "salad_dressing_1",
+            "new_salad_dressing": "salad_dressing",
+        }
+        for original, recorded in aliases.items():
+            bddl = re.sub(r"\b" + re.escape(original) + r"\b", recorded, bddl)
+    return bddl, aliases
+
+
+@contextmanager
+def replay_environment(bddl_path, xml, dt):
+    from libero.libero.envs.env_wrapper import ControlEnv
+
+    original = Path(bddl_path).read_text()
+    definition, aliases = demo_task_definition(original, xml)
+    metadata = {
+        "original_bddl_sha256": hashlib.sha256(original.encode()).hexdigest(),
+        "replay_bddl_sha256": hashlib.sha256(definition.encode()).hexdigest(),
+        "recorded_object_aliases": aliases,
+    }
+    with tempfile.TemporaryDirectory(prefix="libero-replay-bddl-") as temporary:
+        path = Path(temporary) / Path(bddl_path).name
+        path.write_text(definition)
+        env = ControlEnv(
+            bddl_file_name=str(path),
+            use_camera_obs=False,
+            has_renderer=False,
+            has_offscreen_renderer=False,
+            control_freq=round(1 / dt),
+            ignore_done=True,
+        )
+        try:
+            yield env, metadata
+        finally:
+            env.close()
+
+
 def read_demo(path, demo_id):
     with h5py.File(path, "r") as handle:
         data = handle["data"]
@@ -236,26 +289,12 @@ def replay_job(job):
     path, demo_id, candidates, spec, suite = job
     import robosuite
     from libero.libero import get_libero_path
-    from libero.libero.envs.env_wrapper import ControlEnv
 
     demo = read_demo(path, demo_id)
     task = Path(path).stem.removesuffix("_demo")
     xml = rebase_demo_xml(
         demo["xml"], Path(robosuite.__file__).parent, get_libero_path("assets")
     )
-    env = ControlEnv(
-        bddl_file_name=str(Path(get_libero_path("bddl_files")) / suite / demo["bddl"]),
-        use_camera_obs=False,
-        has_renderer=False,
-        has_offscreen_renderer=False,
-        control_freq=round(1 / spec["dt"]),
-        ignore_done=True,
-    )
-    controller = env.robots[0].controller
-    if not np.allclose(controller.output_max[:6], [0.05] * 3 + [0.5] * 3):
-        raise RuntimeError("Unexpected OSC scales")
-    if not getattr(controller, "use_delta", True):
-        raise RuntimeError("Expected delta OSC controller")
     result = {
         "task": task,
         "demo": demo_id,
@@ -273,7 +312,15 @@ def replay_job(job):
         "candidates": {},
     }
     baseline_positions, baseline_states, cache = None, None, {}
-    try:
+    with replay_environment(
+        Path(get_libero_path("bddl_files")) / suite / demo["bddl"], xml, spec["dt"]
+    ) as (env, task_definition):
+        result.update(task_definition)
+        controller = env.robots[0].controller
+        if not np.allclose(controller.output_max[:6], [0.05] * 3 + [0.5] * 3):
+            raise RuntimeError("Unexpected OSC scales")
+        if not getattr(controller, "use_delta", True):
+            raise RuntimeError("Expected delta OSC controller")
         for key, candidate in candidates.items():
             if candidate is None:
                 actions = (
@@ -343,8 +390,6 @@ def replay_job(job):
             )
             result["candidates"][key] = metrics
             cache[action_hash] = key
-    finally:
-        env.close()
     return result
 
 

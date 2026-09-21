@@ -52,13 +52,20 @@ def workflow(
         "libero_arc_replay_refine",
     }:
         raise ValueError("Unknown checked-in replay specification")
+    replay_workers = yaml.safe_load(
+        (
+            Path(__file__).parents[2]
+            / "egomimic/hydra_configs/benchmark"
+            / f"{replay_spec}.yaml"
+        ).read_text()
+    )["workers"]
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
             "name": run_id,
             "resources": {
                 "default": {
-                    "cpu": 12,
+                    "cpu": max(12, replay_workers + 4) if replay else 12,
                     "gpu": 1,
                     "memory": "64Gi",
                     "storage": "128Gi" if replay else "240Gi",

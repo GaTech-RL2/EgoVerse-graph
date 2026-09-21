@@ -8,6 +8,7 @@ import yaml
 from egomimic.benchmarks.libero.replay import (
     candidate_id,
     candidates_from_spec,
+    demo_task_definition,
     load_calibration_parent,
     rank_candidates,
     read_demo,
@@ -176,6 +177,26 @@ def test_model_relocation_changes_only_asset_paths(tmp_path):
     assert str(suite / "robot.stl") in updated
     with pytest.raises(FileNotFoundError):
         rebase_demo_xml(xml.replace("robot.stl", "missing.stl"), suite, assets)
+
+
+def test_legacy_task_binding_preserves_goal_and_saved_physics():
+    bddl = """(:objects new_salad_dressing_1 - new_salad_dressing)
+    (:goal (And (In new_salad_dressing_1 wooden_tray_1_contain_region)))
+    ; region: table_new_salad_dressing_init_region
+    """
+    xml = '<mujoco><worldbody><body name="salad_dressing_1_main" pos="0 0 0"><geom size="0.1"/></body></worldbody></mujoco>'
+    updated, aliases = demo_task_definition(bddl, xml)
+    assert updated == bddl.replace("new_salad_dressing_1", "salad_dressing_1").replace(
+        "- new_salad_dressing)", "- salad_dressing)"
+    )
+    assert aliases == {
+        "new_salad_dressing_1": "salad_dressing_1",
+        "new_salad_dressing": "salad_dressing",
+    }
+    # Current recordings retain their original task definition unchanged.
+    current_xml = xml.replace("salad_dressing_1_main", "new_salad_dressing_1_main")
+    assert demo_task_definition(bddl, current_xml) == (bddl, {})
+    assert demo_task_definition(bddl, "<mujoco/>") == (bddl, {})
 
 
 def test_candidate_names_distinguish_rotation_horizon_and_metric_radius(spec):

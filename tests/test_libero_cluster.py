@@ -60,6 +60,15 @@ def test_workflow_pins_source_and_requests_one_gpu():
     )["workflow"]
     assert full["timeout"]["exec_timeout"] == "60d"
     assert full["tasks"][0]["environment"]["CAMPAIGN_ID"] == "study"
+    replay = module.workflow(
+        "a" * 40,
+        "replay-refine",
+        "libero_90",
+        replay=True,
+        replay_spec="libero_arc_replay_refine",
+    )["workflow"]
+    assert replay["resources"]["default"]["cpu"] >= 32
+    assert replay["resources"]["default"]["gpu"] == 1
     with pytest.raises(ValueError, match="Campaign"):
         module.workflow(
             "a" * 40, "unrelated-run", "libero_10", mode="full", campaign_id="study"

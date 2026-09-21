@@ -33,7 +33,13 @@ are codec experiment splits within the official training demonstrations.
 Normal policy benchmark rollouts use independent initial states and seeds.
 
 Each replay restores the demonstration's saved model XML and initial simulator
-state. Only asset paths are relocated. It then executes actions without state
+state. Only asset paths are relocated in the XML. Four LIBERO-90 living-room
+tasks contain the old `salad_dressing_1` model while the pinned BDDL expects
+`new_salad_dressing_1`. For those recordings, replay binds BDDL object references
+and type to the recorded asset, preserving the saved geometry and the same
+logical goal. Original/effective task-definition hashes and that mapping are
+recorded per episode; recordings with the current asset remain unchanged.
+Replay then executes actions without state
 injection, corrections, or extra settling steps. Commands are cast to float32,
 matching the released replay, converter, and graph input. Both original source
 commands and their cast values are hashed. Four controls run: float32 raw,
@@ -84,7 +90,8 @@ python -m egomimic.benchmarks.libero.replay \
 
 For OSMO, render `scripts/benchmarks/launch_libero_osmo.py --replay` with an
 immutable pushed commit and unique run ID. Each isolated workflow requests one
-L40S and runs eight independent physics workers. No rendering or policy model
+L40S. The pilot uses eight independent physics workers; the updated refinement
+spec uses 32, with the CPU request derived from that specification. No rendering or policy model
 is needed for the replay scores. Raw HDF5 downloads are pinned by revision and
 verified against their LFS SHA-256 hashes. Per-episode results, split/spec,
 source revision, controls, selection, and confirmation are uploaded to the

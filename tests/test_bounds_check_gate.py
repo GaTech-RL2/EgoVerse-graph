@@ -8,6 +8,7 @@ different distribution than its config described.
 """
 
 import numpy as np
+import random
 import torch
 
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
@@ -125,3 +126,22 @@ def test_the_flag_reaches_the_dataset_through_from_resolver_kwargs():
     signature = inspect.signature(MultiDataset.__init__)
     assert "bounds_check" in signature.parameters
     assert signature.parameters["bounds_check"].default is True
+
+
+def test_deterministic_fallback_is_independent_of_python_rng_state():
+    ds, _ = _dataset(bounds_check=True)
+    ds.fallback_policy = "deterministic_hash"
+    ds.fallback_seed = 42
+
+    random.seed(1)
+    first = ds._next_after_failure(1, "src", None, reason="bad", origin_idx=1)
+    random.seed(999_999)
+    second = ds._next_after_failure(1, "src", None, reason="bad", origin_idx=1)
+    assert first == second
+
+
+def test_legacy_bounds_semantics_checks_rotation_channels():
+    ds, _ = _dataset(bounds_check=True)
+    assert ds.bounds_semantics == "rotation_aware"
+    ds.bounds_semantics = "legacy_full_vector"
+    assert ds.bounds_semantics == "legacy_full_vector"

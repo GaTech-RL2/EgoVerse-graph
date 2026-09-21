@@ -669,6 +669,27 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         return optimizer_loss
 
     def on_after_backward(self) -> None:
+        next_step = int(self.context.global_step) + 1
+        if (
+            self.gradient_telemetry_cadence
+            and next_step % self.gradient_telemetry_cadence == 0
+        ):
+            pieces = [
+                parameter.grad.detach().float().square().sum()
+                for parameter in self.context.nets.parameters()
+                if parameter.grad is not None
+            ]
+            if not pieces:
+                raise RuntimeError("Action Flow optimizer update has no gradients")
+            total = torch.stack(pieces).sum().sqrt()
+            self._log_telemetry("GradientNorm/TotalPreclip", total)
+            clip_value = float(getattr(self.context.trainer, "gradient_clip_val", 0.0))
+            coefficient = (
+                min(1.0, clip_value / max(float(total), 1.0e-12))
+                if clip_value > 0.0
+                else 1.0
+            )
+            self._log_telemetry("GradientClip/Coefficient", coefficient)
         if self.context.device.type == "cuda":
             self._log_telemetry(
                 "Compute/PeakAllocatedBytes",

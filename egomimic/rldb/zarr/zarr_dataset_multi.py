@@ -983,6 +983,9 @@ class MultiDataset(torch.utils.data.Dataset):
     # Default for instances built without going through __init__ (state
     # reloads, test doubles). __init__ always overwrites it.
     bounds_check: bool = True
+    bounds_semantics: str = "rotation_aware"
+    fallback_policy: str = "legacy_random"
+    fallback_seed: int = SEED
 
     def __init__(
         self,
@@ -1000,6 +1003,9 @@ class MultiDataset(torch.utils.data.Dataset):
         norm_mode: str = "zscore",
         state: dict | None = None,
         bounds_check: bool = True,
+        bounds_semantics: str = "rotation_aware",
+        fallback_policy: str = "legacy_random",
+        fallback_seed: int = SEED,
         **kwargs,
     ):
         """
@@ -1040,6 +1046,17 @@ class MultiDataset(torch.utils.data.Dataset):
         # the dataset graph entirely, and leaving the attribute unset would
         # make any later __getitem__ raise AttributeError instead.
         self.bounds_check = bool(bounds_check)
+        if bounds_semantics not in {"rotation_aware", "legacy_full_vector"}:
+            raise ValueError(
+                "bounds_semantics must be 'rotation_aware' or 'legacy_full_vector'"
+            )
+        if fallback_policy not in {"legacy_random", "deterministic_hash"}:
+            raise ValueError(
+                "fallback_policy must be 'legacy_random' or 'deterministic_hash'"
+            )
+        self.bounds_semantics = bounds_semantics
+        self.fallback_policy = fallback_policy
+        self.fallback_seed = int(fallback_seed)
 
         if state is not None:
             # Deploy / state-only construction — no dataset graph.
@@ -1195,7 +1212,10 @@ class MultiDataset(torch.utils.data.Dataset):
             # channels are bounds-checked. Unrecognized widths fall through to
             # a full-vector check; NaN/Inf above still covers the full vector.
             cartesian_layout = None
-            if zarr_key in ("actions_cartesian", "observations.state.ee_pose"):
+            if (
+                self.bounds_semantics == "rotation_aware"
+                and zarr_key in ("actions_cartesian", "observations.state.ee_pose")
+            ):
                 cartesian_layout = bimanual_cartesian_layout(arr.shape[-1])
             if cartesian_layout is not None:
                 check_idx = list(cartesian_layout["xyz"]) + list(
@@ -1213,7 +1233,7 @@ class MultiDataset(torch.utils.data.Dataset):
             # reject every frame on any roundoff (today the cells are exactly
             # 0.0, so this only guards against a different BLAS/dtype path).
             # 1e-6 (m / normalized grip) is far below any real outlier.
-            tol = 1e-6
+            tol = 0.0 if self.bounds_semantics == "legacy_full_vector" else 1e-6
             below = arr_q < q_low - tol
             above = arr_q > q_high + tol
             if torch.any(below) or torch.any(above):
@@ -1231,6 +1251,7 @@ class MultiDataset(torch.utils.data.Dataset):
         return None
 
     def __getitem__(self, idx, _attempts: int | None = None):
+        origin_idx = int(idx)
         attempts = _attempts
         while True:
             dataset_name, local_idx = self.index_map[idx]
@@ -1242,6 +1263,7 @@ class MultiDataset(torch.utils.data.Dataset):
                     idx,
                     dataset_name,
                     attempts,
+                    origin_idx=origin_idx,
                     reason=f"Sample failed ({type(e).__name__}: {e}) at "
                     f"{dataset_name}[{local_idx}]",
                 )
@@ -1263,6 +1285,7 @@ class MultiDataset(torch.utils.data.Dataset):
                     idx,
                     dataset_name,
                     attempts,
+                    origin_idx=origin_idx,
                     reason=violation,
                 )
                 idx = next_idx
@@ -1274,7 +1297,13 @@ class MultiDataset(torch.utils.data.Dataset):
             return data
 
     def _next_after_failure(
-        self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
+        self,
+        idx: int,
+        dataset_name: str,
+        attempts: int | None,
+        *,
+        reason: str,
+        origin_idx: int | None = None,
     ) -> tuple[int, int]:
         attempts = (attempts or 0) + 1
         if attempts >= self.MAX_FALLBACK_ATTEMPTS:
@@ -1288,10 +1317,30 @@ class MultiDataset(torch.utils.data.Dataset):
             ]
         else:
             candidates = None
-        if candidates:
+        if not candidates:
+            candidates = [
+                candidate
+                for candidate in range(len(self.index_map))
+                if candidate != idx
+            ]
+        if not candidates:
+            raise RuntimeError("No fallback sample is available")
+        if self.fallback_policy == "legacy_random":
             next_idx = random.choice(candidates)
         else:
-            next_idx = random.randrange(len(self.index_map))
+            # Stateless selection is independent of worker scheduling, Python's
+            # process-local RNG state, prefetch timing, and retry interleaving.
+            # Keep the requested index in the key so every worker maps the same
+            # rejected sample and attempt to the same replacement.
+            requested = idx if origin_idx is None else int(origin_idx)
+            payload = (
+                f"v1:{self.fallback_seed}:{requested}:{attempts}:"
+                f"{dataset_name}:{len(candidates)}"
+            ).encode("utf-8")
+            offset = int.from_bytes(
+                hashlib.sha256(payload).digest()[:8], "big", signed=False
+            )
+            next_idx = candidates[offset % len(candidates)]
         next_dataset_name, next_local_idx = self.index_map[next_idx]
         logger.warning(
             f"{reason} | attempt {attempts}, "

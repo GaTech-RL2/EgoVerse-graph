@@ -4,7 +4,7 @@
 The smoke is deliberately narrower than a general checkpoint validator.  It
 binds a two-step Lightning run to one of the two approved Action Flow configs,
 checks the exact optimizer/validation execution contract, strictly reconstructs
-the ActionFlowModelWrapper on CPU, and proves that W&B and both immutable
+the configured model wrapper on CPU, and proves that W&B and both immutable
 validation artifact streams completed successfully.
 """
 
@@ -42,6 +42,7 @@ from egomimic.eval.planar_action_eval import (  # noqa: E402
     USOCKET_NATIVE_ERROR_CONFIG,
     normalize_usocket_native_error_config,
 )
+from egomimic.pl_utils.pl_model import ModelWrapper  # noqa: E402
 from egomimic.pl_utils.pl_model_action_flow import (  # noqa: E402
     ActionFlowModelWrapper,
 )
@@ -78,6 +79,14 @@ UNITE_H384_EXPERIMENT = "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42"
 UNITE_H384_PARITY_EXPERIMENT = (
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
 )
+UNITE_H384_DETERMINISTIC_EXPERIMENT = (
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_"
+    "val8_deterministic_s42"
+)
+UNITE_H384_PARITY_EXPERIMENTS = {
+    UNITE_H384_PARITY_EXPERIMENT,
+    UNITE_H384_DETERMINISTIC_EXPERIMENT,
+}
 UNITE_H384_PARAMETER_COUNT = 97_956_100
 APPROVED_EXPERIMENTS = {
     UNITE_H384_EXPERIMENT: (
@@ -87,6 +96,11 @@ APPROVED_EXPERIMENTS = {
     ),
     UNITE_H384_PARITY_EXPERIMENT: (
         "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+        1.0,
+        1.0,
+    ),
+    UNITE_H384_DETERMINISTIC_EXPERIMENT: (
+        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_deterministic_s42",
         1.0,
         1.0,
     ),
@@ -347,7 +361,7 @@ def _validate_config(
     scaled_muon = experiment == SCALED_MUON_EXPERIMENT
     scaled_200m = experiment in SCALED_200M_EXPERIMENTS
     unite_recipe = method == STOPGRAD_UNITE_METHOD
-    unite_parity = experiment == UNITE_H384_PARITY_EXPERIMENT
+    unite_parity = experiment in UNITE_H384_PARITY_EXPERIMENTS
     field_hidden_dim = 1_024 if scaled_200m else 512
     field_depth = 14 if scaled_200m else 12
     field_num_heads = 16 if scaled_200m else 8
@@ -1102,6 +1116,7 @@ def _validate_optimizer_state(
             APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_PARITY_EXPERIMENT][0],
+            APPROVED_EXPERIMENTS[UNITE_H384_DETERMINISTIC_EXPERIMENT][0],
         }
     )
     if not composite_optimizer:
@@ -1216,6 +1231,8 @@ def _validate_checkpoint(
     del immutable_payload, payload
 
     wrapper_type = ActionFlowModelWrapper
+    if method == STOPGRAD_UNITE_METHOD:
+        wrapper_type = ModelWrapper
     if method == LIKELIHOOD_METHOD:
         from egomimic.pl_utils.pl_model_action_flow_likelihood import (
             ActionFlowLikelihoodModelWrapper,
@@ -1254,15 +1271,20 @@ def _validate_checkpoint(
         )
     except Exception as error:
         raise SmokeVerificationError(
-            f"strict ActionFlowModelWrapper reload failed: {last_path}"
+            f"strict configured model wrapper reload failed: {last_path}"
         ) from error
     _require(
         type(restored) is wrapper_type,
         f"checkpoint restored unexpected wrapper {type(restored)!r}",
     )
     if loss_schedule is not None:
+        warmup_owner = (
+            restored.training_behavior
+            if method == STOPGRAD_UNITE_METHOD
+            else restored
+        )
         _require(
-            restored.reconstruction_only_warmup_steps == expected_warmup_steps,
+            warmup_owner.reconstruction_only_warmup_steps == expected_warmup_steps,
             "strict reload lost the reconstruction-only warmup",
         )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
@@ -1294,6 +1316,9 @@ def _validate_checkpoint(
     if method == LIKELIHOOD_METHOD:
         stages = restored.model.pipeline.stages
         owners = (stages[3].mean_encoder, stages[5].field, stages[6].decoder)
+    elif method == STOPGRAD_UNITE_METHOD:
+        stages = restored.model.pipeline.stages
+        owners = (stages[4].encoder, stages[6].field, stages[7].decoder)
     else:
         owners = (restored.encoder_e, restored.field_v, restored.decoder_g)
     _require(

@@ -51,6 +51,7 @@ def _resolved_smoke_config(
         cfg.trainer.val_check_interval = 2 if experiment in {
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
             "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+            MODULE.UNITE_H384_DETERMINISTIC_EXPERIMENT,
         } else 1
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
@@ -196,6 +197,31 @@ def test_config_gate_accepts_unite_h384_parity_contract(tmp_path, monkeypatch):
     assert config.model.pipeline.stages[6].cfg_scale == pytest.approx(4.0)
     assert config.model.pipeline.stages[8].flow_aggregation == "sum_samples"
     assert config.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size == 32
+
+
+def test_config_gate_accepts_unite_h384_deterministic_contract(
+    tmp_path, monkeypatch
+):
+    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
+        tmp_path,
+        experiment=MODULE.UNITE_H384_DETERMINISTIC_EXPERIMENT,
+    )
+    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+
+    config, _ = MODULE._validate_config(
+        config_path=config_path,
+        experiment=experiment,
+        run_dir=run_dir,
+        expected_head=HEAD,
+        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        expected_split_sha256=None,
+        expected_normalization_sha256=normalization_hash,
+    )
+
+    assert config.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
+    assert config.model.pipeline.stages[6].cfg_scale == pytest.approx(4.0)
+    assert config.model.pipeline.stages[8].flow_aggregation == "sum_samples"
+    assert config.trainer.deterministic is True
 
 
 @pytest.mark.parametrize(

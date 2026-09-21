@@ -33,6 +33,7 @@ class RLReceipts(Callback):
         self.cfg, self.replay, self.writer = cfg, replay, writer
         self.start_time, self.start_step = time.monotonic(), replay.start_step
         self.resume_rng = None
+        self.evaluated_steps = set()
 
     def on_save_checkpoint(self, trainer, module, checkpoint):
         checkpoint["replay_next_update"] = trainer.global_step
@@ -72,21 +73,25 @@ class RLReceipts(Callback):
         if step % self.cfg.checkpoint_interval == 0 or step == self.cfg.steps:
             self.checkpoint(trainer)
         if self.cfg.eval_interval and (step % self.cfg.eval_interval == 0 or step == self.cfg.steps):
-            import ogbench
-            env = ogbench.make_env_and_datasets(self.cfg.env_name, env_only=True)
-            try:
-                directory = self.writer.directory / "evaluation" / f"step-{step:09d}"
-                scores = evaluate_goals(module.model, env, directory,
-                    episodes=self.cfg.eval_episodes, seed_start=self.cfg.eval_seed_start,
-                    task_ids=self.cfg.get("eval_task_ids"),
-                    video_episodes=self.cfg.video_episodes)
-                for path in sorted(directory.iterdir()):
-                    self.writer.publish(path)
-                for logger in trainer.loggers:
-                    logger.log_metrics({"evaluation/success": scores["success"],
-                        **{f"evaluation/task{k}": v for k, v in scores["tasks"].items()}}, step=step)
-            finally:
-                env.close()
+            self.evaluate(trainer, module)
+
+    def evaluate(self, trainer, module):
+        import ogbench
+        step = trainer.global_step
+        env = ogbench.make_env_and_datasets(self.cfg.env_name, env_only=True)
+        try:
+            directory = self.writer.directory / "evaluation" / f"step-{step:09d}"
+            scores = evaluate_goals(module.model, env, directory,
+                episodes=self.cfg.eval_episodes, seed_start=self.cfg.eval_seed_start,
+                task_ids=self.cfg.get("eval_task_ids"), video_episodes=self.cfg.video_episodes)
+            for path in sorted(directory.iterdir()):
+                self.writer.publish(path)
+            for logger in trainer.loggers:
+                logger.log_metrics({"evaluation/success": scores["success"],
+                    **{f"evaluation/task{k}": v for k, v in scores["tasks"].items()}}, step=step)
+            self.evaluated_steps.add(step)
+        finally:
+            env.close()
 
 
 def train(cfg):
@@ -105,9 +110,11 @@ def train(cfg):
     replay = ShardedGoalReplay(cfg.env_name, cfg.shards, cfg.cache_dir, cfg.seed,
                                cfg.batch_size, cfg.steps, cfg.replace_interval,
                                start_step=start, backup_horizon=cfg.backup_horizon,
-                               discount=cfg.discount)
+                               discount=cfg.discount, cache_keep_shards=cfg.get("cache_keep_shards", 128),
+                               data_registry=cfg.get("data_registry"))
     first = replay.load_shard((start // cfg.replace_interval) % len(cfg.shards))
     example = first.sample(1, np.random.RandomState(0))
+    del first
     cfg.observation_dim = int(example["observations"].shape[-1])
     cfg.goal_dim = int(example["high_value_goals"].shape[-1])
     cfg.action_dim = int(example["high_value_action_chunks"].shape[-1])
@@ -146,8 +153,13 @@ def train(cfg):
     loader = DataLoader(replay, batch_size=None, num_workers=0, generator=loader_rng)
     try:
         trainer.fit(model, train_dataloaders=loader, ckpt_path=resume)
+        # A preemption after the final checkpoint but during evaluation must
+        # resume evaluation, rather than silently declaring training complete.
+        if cfg.eval_interval and trainer.global_step not in callback.evaluated_steps:
+            callback.evaluate(trainer, model)
         writer.json("status.json", {"state": "COMPLETED", "step": trainer.global_step,
-                                    "loaded_shards": replay.receipts})
+                                    "loaded_shards": replay.receipts,
+                                    "evaluated_steps_this_attempt": sorted(callback.evaluated_steps)})
     except BaseException as error:
         writer.json("failure.json", {"type": type(error).__name__, "message": str(error),
                                      "step": trainer.global_step})

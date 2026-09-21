@@ -46,7 +46,7 @@ def run_matrix(matrix):
             continue
         checkpoint = read_optional(writer.client, matrix.bucket, cfg.artifacts.prefix + "/latest-checkpoint.json")
         if checkpoint:
-            resume = writer.directory / "resume" / (cfg.run_id + ".ckpt")
+            resume = writer.directory / "resume" / (cfg.run_id + "-" + checkpoint["sha256"][:16] + ".ckpt")
             download_verified(checkpoint["uri"], resume, checkpoint["sha256"])
             cfg.resume = str(resume)
         path = writer.directory / (cfg.run_id + ".yaml")

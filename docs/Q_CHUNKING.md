@@ -6,6 +6,10 @@ The base configuration is `hydra_configs/benchmark/dqc.yaml`; task selection,
 published hyperparameters, seeds, and replay calibration grids live in
 `hydra_configs/benchmark/dqc_suite.yaml`.
 
+Use an isolated Python 3.11 environment with `requirements-goal-rl.txt` for the
+audited benchmark. Numerical parity tests additionally use JAX 0.4.38, Flax
+0.10.4, Distrax 0.1.5 and ml-collections 1.1.0 with the pinned upstream checkout.
+
 This implements **Decoupled Q-chunking**, the repository explicitly requested:
 https://github.com/ColinQiyangLi/dqc at
 `df898256a77f3594b54a7268bd5f89915981da35` (MIT; `third_party/dqc/LICENSE`).
@@ -78,6 +82,10 @@ Checkpoints contain optimizer state, replay update alignment, and Torch RNG.
 Replay sampling is derived from (training seed, update), and shard replacement
 occurs every 1000 updates. Outputs include resolved config, environment-bound
 normalizer metadata, data hashes, compute runtime, checkpoints, and scores.
+An optional shared data registry atomically pins each shard's content hash;
+paired jobs fail before consuming a shard if its bytes differ. Generated data
+use a verified manifest. Scratch caches can be bounded without modifying the
+source objects or deleting pre-existing user files.
 
 ## Dataset scope
 

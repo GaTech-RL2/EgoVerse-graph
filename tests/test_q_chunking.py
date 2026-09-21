@@ -89,3 +89,43 @@ def test_graph_backward_target_lifecycle_and_inference():
     assert inference["pred_action"].shape == (4, 2, 2)
     assert inference["action_lengths"].tolist() == [2] * 4
     assert torch.isfinite(inference["pred_action"]).all()
+
+
+def test_lightning_checkpoint_resume_preserves_optimizer_and_flow_rng(tmp_path):
+    import lightning as L
+    from omegaconf import OmegaConf
+    from types import SimpleNamespace
+    from torch.utils.data import DataLoader
+    from egomimic.pl_utils.pl_model import ModelWrapper
+    from egomimic.trainRL import RLReceipts
+    from egomimic.utils.experiment_artifacts import ArtifactWriter
+    cfg = OmegaConf.create({"model": {"pipeline": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo", "device": "cpu", "stages": [{
+            "_target_": "egomimic.pipeline.stages_q_chunking.QChunkingStage",
+            "codec": {"_target_": "egomimic.rldb.action_codec.ControlChunkCodec",
+                      "action_dim": 2, "native_horizon": 2},
+            "observation_dim": 3, "goal_dim": 1, "action_dim": 2,
+            "backup_horizon": 3, "hidden_dims": [16, 16]}]},
+        "training_behavior": {"_target_": "egomimic.pl_utils.target_network_behavior.TargetNetworkBehavior"},
+        "optimizer": {"_target_": "torch.optim.Adam", "lr": 3e-4}},
+        "steps": 4, "log_interval": 2, "checkpoint_interval": 2, "eval_interval": 0})
+    batch = {"ogbench": replay().sample(4, np.random.RandomState(12))}
+
+    def fit(directory, steps, resume=None, start=0):
+        torch.manual_seed(81)
+        model = ModelWrapper(config_tree=cfg, enable_grad_norm=False, train_log_on_step=True)
+        callback = RLReceipts(cfg, SimpleNamespace(start_step=start, receipts={}), ArtifactWriter(directory))
+        trainer = L.Trainer(accelerator="cpu", devices=1, max_steps=steps, max_epochs=-1,
+            logger=False, callbacks=[callback], enable_checkpointing=False, enable_progress_bar=False,
+            enable_model_summary=False, limit_val_batches=0)
+        loader = DataLoader([batch] * (steps-start), batch_size=None,
+                             generator=torch.Generator().manual_seed(33))
+        trainer.fit(model, train_dataloaders=loader, ckpt_path=resume)
+        return {key: value.clone() for key, value in model.state_dict().items()}
+
+    expected = fit(tmp_path / "continuous", 4)
+    fit(tmp_path / "first", 2)
+    checkpoint = tmp_path / "first/checkpoints/step-000000002.ckpt"
+    resumed = fit(tmp_path / "resumed", 4, str(checkpoint), 2)
+    for key in expected:
+        torch.testing.assert_close(expected[key], resumed[key], rtol=0, atol=0)

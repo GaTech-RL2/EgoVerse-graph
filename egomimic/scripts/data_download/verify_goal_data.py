@@ -23,12 +23,15 @@ def verify(cfg):
             head = s3.head_object(Bucket=cfg["bucket"], Key=role["uri"].split("/", 3)[3])
             assert head["Metadata"]["sha256"] == role["sha256"] and head["ContentLength"] == role["bytes"]
         return {"url": train["uri"], "sha256": train["sha256"],
+                "array_sha256": train["array_sha256"],
                 "validation_url": validation["uri"], "validation_sha256": validation["sha256"],
                 "rows": train["rows"], "episodes": train["episodes"]}
     with ThreadPoolExecutor(max_workers=16) as pool:
-        shards = list(pool.map(check, range(cfg["shards"])))
+        shards = list(pool.map(check, cfg.get("seeds", list(range(cfg["shards"])))))
+    assert len(shards) == cfg["shards"]
     # Distinct shard files are required; a repeated upload cannot fake scale.
     assert len({row["sha256"] for row in shards}) == len(shards)
+    assert len({row["array_sha256"] for row in shards}) == len(shards)
     transitions = sum(row["rows"] - row["episodes"] for row in shards)
     assert transitions == cfg["expected_transitions"]
     manifest = {"status": "READY", "shards": shards, "transitions": transitions,

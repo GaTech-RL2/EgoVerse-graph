@@ -8,6 +8,7 @@ paired representations consume identical transition/goal draws.
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 import urllib.request
 
@@ -54,6 +55,28 @@ def download_verified(url, path, expected_sha256=None):
     if expected_sha256 and digest != expected_sha256:
         raise ValueError(f"dataset hash mismatch: {path}")
     return digest
+
+
+def pin_shared_data_receipt(registry, receipt):
+    """First reader pins a URL's contents atomically; every paired run verifies."""
+    import os
+    import boto3
+    from botocore.config import Config
+    s3 = boto3.client("s3", endpoint_url=os.environ.get("R2_ENDPOINT_URL"),
+        aws_access_key_id=os.environ.get("R2_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.environ.get("R2_SECRET_ACCESS_KEY"), region_name="auto",
+        config=Config(retries={"max_attempts": 8}))
+    key = registry["prefix"].rstrip("/") + "/" + hashlib.sha256(receipt["url"].encode()).hexdigest() + ".json"
+    raw = json.dumps(receipt, sort_keys=True).encode()
+    try:
+        s3.put_object(Bucket=registry["bucket"], Key=key, Body=raw, IfNoneMatch="*",
+                      Metadata={"sha256": hashlib.sha256(raw).hexdigest()})
+    except s3.exceptions.ClientError as error:
+        if error.response["Error"]["Code"] not in {"PreconditionFailed", "412", "ConditionalRequestConflict", "409"}:
+            raise
+        existing = json.loads(s3.get_object(Bucket=registry["bucket"], Key=key)["Body"].read())
+        if existing != receipt:
+            raise ValueError("paired runs received different data for the same dataset URL")
 
 
 class GoalReplay:
@@ -112,7 +135,8 @@ class GoalReplay:
 class ShardedGoalReplay(IterableDataset):
     """One complete pre-batched sample per optimizer update (no worker RNG)."""
     def __init__(self, env_name, shards, cache_dir, seed, batch_size, steps,
-                 replace_interval=1000, start_step=0, **replay_options):
+                 replace_interval=1000, start_step=0, cache_keep_shards=128,
+                 data_registry=None, **replay_options):
         super().__init__()
         if not shards:
             raise ValueError("empty dataset manifest")
@@ -124,6 +148,10 @@ class ShardedGoalReplay(IterableDataset):
         self.receipts = {}
         self._shard_index, self._replay = None, None
         self._env = None
+        self.cache_keep_shards = max(1, int(cache_keep_shards))
+        self._cached_shards = {}
+        self._owned_cache_files = set()
+        self.data_registry = data_registry
 
     def load_shard(self, index):
         import ogbench
@@ -131,9 +159,13 @@ class ShardedGoalReplay(IterableDataset):
             return self._replay
         spec = self.shards[index]
         path = self.cache_dir / Path(spec["url"]).name
+        if not path.exists():
+            self._owned_cache_files.add(path)
         digest = download_verified(spec["url"], path, spec.get("sha256"))
         # The public loader expects a val companion even during dataset_only.
         val_path = path.with_name(path.stem + "-val.npz")
+        if not val_path.exists():
+            self._owned_cache_files.add(val_path)
         val_digest = download_verified(spec["validation_url"], val_path, spec.get("validation_sha256"))
         if self._env is None:
             self._env = ogbench.make_env_and_datasets(self.env_name, env_only=True)
@@ -147,6 +179,18 @@ class ShardedGoalReplay(IterableDataset):
                                "validation_sha256": val_digest,
                                "transitions": int(len(data["actions"])),
                                "valid_chunk_starts": int(len(self._replay.valid_indices))}
+        if self.data_registry:
+            pin_shared_data_receipt(self.data_registry, self.receipts[index])
+        self._cached_shards.pop(index, None)
+        self._cached_shards[index] = (path, val_path)
+        while len(self._cached_shards) > self.cache_keep_shards:
+            oldest = next(iter(self._cached_shards))
+            for cached in self._cached_shards.pop(oldest):
+                # Evict only scratch copies this loader downloaded. Immutable
+                # source objects and pre-existing user files are never deleted.
+                if cached in self._owned_cache_files:
+                    cached.unlink(missing_ok=True)
+                    self._owned_cache_files.remove(cached)
         return self._replay
 
     def __iter__(self):

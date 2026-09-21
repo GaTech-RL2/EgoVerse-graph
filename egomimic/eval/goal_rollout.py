@@ -20,6 +20,8 @@ def evaluate_goals(pipeline, env, output_dir, episodes=50, seed_start=2000000,
     directory.mkdir(parents=True, exist_ok=True)
     task_ids = list(task_ids or range(1, len(env.unwrapped.task_infos) + 1))
     records = []
+    journal = directory / "rollouts.partial.jsonl"
+    journal.write_text("")
     prior_mode = pipeline.nets.training
     pipeline.nets.eval()
     try:
@@ -73,13 +75,14 @@ def evaluate_goals(pipeline, env, output_dir, episodes=50, seed_start=2000000,
                     import imageio.v2 as imageio
                     imageio.mimsave(directory / (stem + ".mp4"), frames,
                                     fps=env.metadata.get("render_fps", 30) / video_stride)
-                with (directory / "rollouts.jsonl").open("a") as out:
+                with journal.open("a") as out:
                     out.write(json.dumps(row) + "\n")
         summary = {"success": float(np.mean([r["success"] for r in records])),
                    "episodes": len(records), "tasks": {
                        str(t): float(np.mean([r["success"] for r in records if r["task_id"] == t]))
                        for t in task_ids}}
         (directory / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+        journal.replace(directory / "rollouts.jsonl")
         return summary
     finally:
         pipeline.nets.train(prior_mode)

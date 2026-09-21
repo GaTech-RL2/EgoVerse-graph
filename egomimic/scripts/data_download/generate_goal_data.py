@@ -116,7 +116,8 @@ def run_shard(work):
                          "array_sha256": semantic_sha,
                          "rows": int(len(arrays["actions"])),
                          "episodes": int(arrays["terminals"].sum()), "bytes": head["ContentLength"]})
-    report = {"seed": seed, "generator_sha256": cfg["generator_sha256"], "artifacts": receipts}
+    report = {"seed": seed, "generator_sha256": cfg["generator_sha256"],
+              "generator_args": cfg["generator_args"], "artifacts": receipts}
     s3.put_object(Bucket=cfg["bucket"], Key=receipt_key, Body=json.dumps(report).encode())
     print(json.dumps(report), flush=True)
     # Remove only this worker's uploaded scratch files, never source datasets.

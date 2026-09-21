@@ -134,6 +134,30 @@ def test_unite_h384_parity_config_pins_sum_cfg_and_validation_contract():
     ]
 
 
+def test_unite_h384_deterministic_profile_keeps_the_parity_recipe():
+    experiment = (
+        "pusht/"
+        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_"
+        "val8_deterministic_s42"
+    )
+    report, config = preflight.validate_experiment(
+        experiment,
+        config_root=CONFIG_ROOT,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["action_flow_method"] == preflight.STOPGRAD_UNITE_METHOD
+    assert report["parameters"]["pipeline_total"]["total"] == 97_956_100
+    assert report["optimization"]["validation_every_steps"] == 10_000
+    assert report["optimization"]["checkpoint_every_steps"] == 30_000
+    assert config.trainer.deterministic is True
+    dataset = config.data.train_datasets.pushshapes_sim_u_socket
+    assert dataset.bounds_check is True
+    assert dataset.bounds_semantics == "legacy_full_vector"
+    assert dataset.fallback_policy == "deterministic_hash"
+    assert int(dataset.fallback_seed) == 42
+
+
 def test_scaled_h512_usocket_config_passes_the_dedicated_contract():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",

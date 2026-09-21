@@ -106,6 +106,34 @@ policy:
   # HPT-Flow is stochastic. Reject an invalid whole plan and resample rather
   # than clamping an individual gripper; abort before robot commands if all fail.
   max_valid_samples: 8
+  # Model-selection behavior is declarative. The selected checkpoint's
+  # e1.variant picks one profile; native_shape is verified before inference.
+  # Add a profile here before selecting any new action representation.
+  inference_profiles:
+    time:
+      native_shape: [100, 14]
+      adapter:
+        decoder: null
+    arcvel:
+      native_shape: [100, 16]
+      adapter:
+        decoder:
+          _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+          token_layout: e1_profile
+          min_distance_unit: 0.4
+          resampled_vector_length: 100
+          dt: 0.03333333333333333
+          action_horizon: 100
+    arcdur:
+      native_shape: [100, 16]
+      adapter:
+        decoder:
+          _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+          token_layout: e1_dur
+          min_distance_unit: 0.4
+          resampled_vector_length: 100
+          dt: 0.03333333333333333
+          action_horizon: 100
   adapter:
     _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
     embodiment_id: 7

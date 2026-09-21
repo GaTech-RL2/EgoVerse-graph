@@ -15,6 +15,7 @@ from egomimic.robot.arc_decoder import BimanualArcDecoder
 from egomimic.robot.graph_policy import (
     CartesianGraphAdapter,
     GraphRobotPolicy,
+    configure_adapter_for_training,
     configure_flow_inference_steps,
     load_graph_policy,
     load_normalizer,
@@ -294,6 +295,84 @@ def test_graph_adapter_decodes_all_arc_layouts_before_frame_conversion(layout):
     poses = adapter(decoder=decoder).actions(tokens, FakeRobot().get_obs())
     assert poses.shape == (7, 14)
     assert np.isfinite(poses).all()
+
+
+@pytest.mark.parametrize(
+    ("variant", "action_dim", "expected_layout"),
+    [
+        ("time", 14, None),
+        ("arcvel", 16, "e1_profile"),
+        ("arcdur", 16, "e1_dur"),
+    ],
+)
+def test_selected_e1_model_derives_its_rollout_decoder(
+    variant, action_dim, expected_layout
+):
+    training = OmegaConf.create(
+        {
+            "e1": {
+                "variant": variant,
+                "D": 0.4,
+                "M": 100,
+                "chunk_length": 100,
+            },
+            "hpt": {"action_dim": action_dim, "action_horizon": 100},
+            "evaluator": {"dt": 1 / 30},
+        }
+    )
+    adapter_config = {
+        "_target_": "egomimic.robot.graph_policy.CartesianGraphAdapter",
+        "decoder": {"_target_": "old.decoder"},
+    }
+
+    profiles = OmegaConf.create(
+        {
+            "time": {"native_shape": [100, 14], "adapter": {"decoder": None}},
+            "arcvel": {
+                "native_shape": [100, 16],
+                "adapter": {
+                    "decoder": {
+                        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+                        "token_layout": "e1_profile",
+                    }
+                },
+            },
+            "arcdur": {
+                "native_shape": [100, 16],
+                "adapter": {
+                    "decoder": {
+                        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+                        "token_layout": "e1_dur",
+                    }
+                },
+            },
+        }
+    )
+    selected = configure_adapter_for_training(adapter_config, training, profiles)
+
+    if expected_layout is None:
+        assert "decoder" not in selected
+    else:
+        assert selected["decoder"] == {
+            "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+            "token_layout": expected_layout,
+        }
+
+
+def test_selected_e1_model_rejects_an_incompatible_token_width():
+    training = OmegaConf.create(
+        {
+            "e1": {"variant": "arcvel"},
+            "hpt": {"action_dim": 14, "action_horizon": 100},
+        }
+    )
+
+    with pytest.raises(ValueError, match="expects"):
+        configure_adapter_for_training(
+            {},
+            training,
+            {"arcvel": {"native_shape": [100, 16], "adapter": {}}},
+        )
 
 
 def test_normalizer_export_roundtrip_and_incomplete_cache_rejection(tmp_path):

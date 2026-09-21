@@ -1,6 +1,8 @@
 """Local graph inference for robot embodiments using the training data contract."""
 
+import copy
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +17,70 @@ from egomimic.pipeline.stages_flow import FlowDenoiserStage
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.robot.interface import ARM_OFFSET, pose_matrix, pose_vector
 from egomimic.robot.teleop import rigid_transform
+
+
+def configure_adapter_for_training(adapter_config, training, inference_profiles=None):
+    """Apply the YAML inference profile for the selected model's variant.
+
+    The checkpoint's resolved config supplies its variant and native output
+    shape. The robot rollout YAML owns all inference behavior, including the
+    ARC decoder; this function only validates the selected checkpoint against
+    that declared profile and applies its adapter override.
+    """
+    if not isinstance(adapter_config, Mapping):
+        raise TypeError("policy.adapter must be a mapping")
+    result = dict(adapter_config)
+    if inference_profiles is None:
+        return result
+    if not isinstance(inference_profiles, Mapping):
+        raise TypeError("policy.inference_profiles must be a mapping")
+    variant = OmegaConf.select(training, "e1.variant")
+    if not isinstance(variant, str):
+        raise ValueError("Selected model must declare e1.variant")
+    profile = inference_profiles.get(variant)
+    if not isinstance(profile, Mapping):
+        raise ValueError(
+            f"No policy.inference_profiles entry for selected variant {variant!r}"
+        )
+    expected_shape = profile.get("native_shape")
+    if OmegaConf.is_list(expected_shape):
+        expected_shape = tuple(expected_shape)
+    if (
+        not isinstance(expected_shape, (list, tuple))
+        or len(expected_shape) != 2
+        or any(type(value) is not int or value <= 0 for value in expected_shape)
+    ):
+        raise ValueError(
+            f"policy.inference_profiles.{variant}.native_shape must be [H, D]"
+        )
+    action_dim = OmegaConf.select(training, "hpt.action_dim")
+    action_horizon = OmegaConf.select(training, "hpt.action_horizon")
+    if (
+        type(action_horizon) is not int
+        or type(action_dim) is not int
+        or action_horizon <= 0
+        or action_dim <= 0
+    ):
+        raise ValueError(
+            "Selected model hpt.action_horizon and hpt.action_dim must be positive integers"
+        )
+    actual_shape = (action_horizon, action_dim)
+    if tuple(expected_shape) != actual_shape:
+        raise ValueError(
+            f"Selected {variant} model emits {actual_shape}, but its YAML profile "
+            f"expects {tuple(expected_shape)}"
+        )
+    override = profile.get("adapter", {})
+    if not isinstance(override, Mapping):
+        raise ValueError(
+            f"policy.inference_profiles.{variant}.adapter must be a mapping"
+        )
+    for key, value in override.items():
+        if value is None:
+            result.pop(key, None)
+        else:
+            result[key] = copy.deepcopy(value)
+    return result
 
 
 def load_normalizer(path):
@@ -315,9 +381,12 @@ def load_graph_policy(config):
     if "num_inference_steps" in config:
         configure_flow_inference_steps(graph, config["num_inference_steps"])
     graph.nets.eval()
+    adapter_config = configure_adapter_for_training(
+        config["adapter"], training, config.get("inference_profiles")
+    )
     return GraphRobotPolicy(
         graph,
         normalizer,
-        instantiate(config["adapter"]),
+        instantiate(adapter_config),
         max_valid_samples=config.get("max_valid_samples", 1),
     )

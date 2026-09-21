@@ -1,8 +1,10 @@
 # Five-configuration LIBERO ARC launch
 
-All **30 full L40S workflows were submitted**. Snapshot: 2026-09-21T22:20:46.402780+00:00.
+All **30 full L40S workflows were submitted**. Snapshot: 2026-09-21T22:55:16.257746+00:00.
 Scheduler state: 30 RUNNING.
 A running scheduler state includes environment setup and replay validation; it is not a policy-training score.
+
+At 2026-09-21T22:58:50.619942+00:00, **24 ARC policies had recorded optimizer updates** (210–450 per policy). The remaining 6 LIBERO-90 workflows were completing replay confirmation or preparing training data. They start ARC training automatically after these checks and do not wait for OAT.
 
 Source is pinned to `60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7`. Each policy uses 5,001 epochs and global batch 1,024 (microbatch 256 × accumulation 4).
 The five distinct R/D/M triples expand to six mode/configuration combinations and five suites.
@@ -37,6 +39,7 @@ These are the earlier per-suite replay selections configured in the original ful
 
 115 focused tests passed across targeted invocations, including replay-before-training sequencing, frozen-setting enforcement, full and smoke ARC-only evaluation, and the exact replay-file parser round trip. Ruff, shell syntax and whitespace checks passed.
 Two additional L40S smokes exercise the shared STK M=36 and DUR1 M=24 policies. Their status and the complete run/parent/reference map are recorded in the [machine-readable launch receipt](libero_arc_five_config_launch_20260921.json).
+Both smokes completed with ARC_SMOKE_PASSED, including training, EMA checkpoint reload and ten short rollouts. These smoke rollouts are not full benchmark scores.
 
 The first full attempt stopped before replay or training because JSON exponent notation was parsed as text by the YAML reader. The replacement source writes YAML and tests the real parser round trip. All 30 first-attempt workflows are terminal; no training checkpoints were lost.
 

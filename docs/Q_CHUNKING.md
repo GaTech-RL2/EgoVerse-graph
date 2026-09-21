@@ -77,6 +77,15 @@ termination/time limits, starting decoded execution at action zero. It executes
 the complete represented chunk. Shared reset seeds, raw per-rollout results,
 action traces, and a small fixed set of preview videos support paired analysis.
 This DQC protocol does not reuse PushShapes-specific M/2 or D/2 replanning.
+Evaluation seeds both the environment and its action space: Gym's reset seed
+does not seed action-space sampling, which Cube environments use when settling
+their goal states. Manipulation environments also return a fresh Box on every
+property access; a temporary per-instance subclass caches one space during
+evaluation so the reset's internal samples use that seeded RNG. The original
+class is restored on exit, without globally modifying OGBench. Legacy
+evaluations before this fix may share initial physics
+states but differ slightly in their goal vectors. Check stored reset hashes
+before claiming exact paired resets; retain those legacy results separately.
 
 Checkpoints contain optimizer state, replay update alignment, and Torch RNG.
 Every checkpoint remains in durable artifact storage. With remote storage

@@ -3,10 +3,38 @@ from __future__ import annotations
 
 import json
 import hashlib
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 import numpy as np
 import torch
+
+
+@contextmanager
+def evaluation_action_space(env):
+    """Keep a seedable space for environments returning a new Box per access.
+
+    OGBench manipulation's action_space property constructs a fresh unseeded
+    Box, including *inside* reset. Cache it only on this evaluation instance;
+    never patch the dependency's class globally. Restore the class on exit.
+    """
+    base = env.unwrapped
+    space = base.action_space
+    original_class = type(base)
+    if base.action_space is space:
+        yield space
+        return
+
+    class EvaluationActionSpace(original_class):
+        @property
+        def action_space(self):
+            return space
+
+    base.__class__ = EvaluationActionSpace
+    try:
+        yield space
+    finally:
+        base.__class__ = original_class
 
 
 def evaluate_goals(pipeline, env, output_dir, episodes=50, seed_start=2000000,
@@ -24,11 +52,16 @@ def evaluate_goals(pipeline, env, output_dir, episodes=50, seed_start=2000000,
     journal.write_text("")
     prior_mode = pipeline.nets.training
     pipeline.nets.eval()
+    space_context = ExitStack()
     try:
+        action_space = space_context.enter_context(evaluation_action_space(env))
         for task_id in task_ids:
             for episode in range(episodes):
                 seed = int(seed_start + 10000 * task_id + episode)
                 np.random.seed(seed)
+                # Gym reset(seed=...) does not seed spaces. Some environments
+                # sample this RNG while settling the goal during reset.
+                action_space.seed(seed)
                 observation, info = env.reset(seed=seed, options={"task_id": task_id, "render_goal": False})
                 goals = info["goal"]
                 base = env.unwrapped
@@ -85,4 +118,5 @@ def evaluate_goals(pipeline, env, output_dir, episodes=50, seed_start=2000000,
         journal.replace(directory / "rollouts.jsonl")
         return summary
     finally:
+        space_context.close()
         pipeline.nets.train(prior_mode)

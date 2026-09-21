@@ -1,3 +1,12 @@
+> **2026-09-21 — this document has been superseded in places.**
+> Start with `/Users/rpunamiya/Desktop/GEAR/sim_run/wt_codec/docs/00_START_HERE.md`,
+> which indexes a focused set:
+> `01_ARC_CODEC.md`, `02_TRAINING.md`, `03_EVAL.md`, `04_INFRA.md`,
+> `05_RESULTS.md`, `06_LANDMINES.md`.
+> This file remains accurate for the u_socket-era history and §6 open threads.
+> Where the two disagree, **docs/ wins** — notably §3a below, which is confounded
+> by an action-target off-by-one (see `docs/06_LANDMINES.md` item 2).
+
 # Handover — U-Socket ARC action-codec study (+ PushShapes data generation)
 
 **Date:** 2026-09-10 · **Author:** previous agent session · **Audience:** the agent picking this up

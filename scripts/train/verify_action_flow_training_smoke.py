@@ -1316,6 +1316,9 @@ def _validate_checkpoint(
     if method == LIKELIHOOD_METHOD:
         stages = restored.model.pipeline.stages
         owners = (stages[3].mean_encoder, stages[5].field, stages[6].decoder)
+    elif method == STOPGRAD_UNITE_METHOD:
+        stages = restored.model.pipeline.stages
+        owners = (stages[4].encoder, stages[6].field, stages[7].decoder)
     else:
         owners = (restored.encoder_e, restored.field_v, restored.decoder_g)
     _require(

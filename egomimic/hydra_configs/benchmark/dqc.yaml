@@ -73,6 +73,7 @@ model:
         best_of_n: 32
   training_behavior:
     _target_: egomimic.pl_utils.target_network_behavior.TargetNetworkBehavior
+    prediction_log_interval: ${log_interval}
   optimizer:
     _target_: torch.optim.Adam
     lr: 0.0003

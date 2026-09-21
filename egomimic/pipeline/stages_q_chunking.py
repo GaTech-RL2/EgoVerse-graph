@@ -10,7 +10,7 @@ class QChunkingStage(Stage):
                   "high_value_masks", "high_value_backup_horizon"),
         "inference": ("observations", "goals"),
     }
-    writes_by_mode = {"train": ("loss/*",), "inference": ("pred_action", "action_lengths")}
+    writes_by_mode = {"train": ("loss/*", "log/*"), "inference": ("pred_action", "action_lengths")}
 
     def __init__(self, codec, **network):
         super().__init__()
@@ -22,8 +22,11 @@ class QChunkingStage(Stage):
     def execute(self, batch, *, mode):
         if mode == "train":
             actions, _ = self.codec.encode(batch["high_value_action_chunks"])
-            losses = self.agent.losses(batch, actions)
+            metrics = {} if batch.get("log_predictions", True) else None
+            losses = self.agent.losses(batch, actions, metrics=metrics)
             batch.update({"loss/" + name: value for name, value in losses.items()})
+            if metrics is not None:
+                batch.update({"log/DQC/" + name: value for name, value in metrics.items()})
         else:
             latent = self.agent.sample(batch["observations"], batch["goals"],
                                        generator=batch.get("generator"))

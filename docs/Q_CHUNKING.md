@@ -91,6 +91,42 @@ paired jobs fail before consuming a shard if its bytes differ. Generated data
 use a verified manifest. Scratch caches can be bounded without modifying the
 source objects or deleting pre-existing user files.
 
+## Prediction logging
+
+New runs log detached prediction diagnostics to both W&B and CSV alongside the
+losses, every `log_interval` updates (1,000 in the benchmark). The configured
+`TargetNetworkBehavior.prediction_log_interval` follows that interval and uses
+Lightning's restored global step, including after a mid-interval resume.
+Metrics reuse the current training pass: no extra network forwards, actor
+samples, or RNG draws. They are `log/*` outputs, excluded from the loss sum.
+
+Each group below has `mean`, `std` (population), `min`, and `max` under
+`Train/DQC/<group>/<stat>`, with per-source copies ending in `/ogbench`:
+
+| Group | Meaning |
+| --- | --- |
+| `q_action` | Online short-policy critic on encoded replay actions |
+| `q_chunk` | Long native-action critic; absent when that critic is disabled |
+| `q_target` | Frozen short-policy critic target used to train V |
+| `v` | Current observation/goal value prediction |
+| `v_next` | Next-observation value used in the Bellman backup |
+| `bellman_target` | Discounted, terminal-masked target for the long critic |
+
+Q/V diagnostics are sigmoid probabilities, not logits. Critic distributions
+aggregate ensemble heads using configured `q_agg` (`mean` or `min`), matching
+the value-target convention. `q_action/ensemble_std` and
+`q_chunk/ensemble_std` additionally report the mean per-example disagreement
+between heads. `bellman_target/entropy` is mean Bernoulli target entropy in
+nats, including exact zero/one targets without infinities. It helps distinguish
+a moving BCE entropy floor from prediction error.
+
+These statistics describe the logged replay minibatch, including hindsight
+goals. They are not held-out calibration, selected-action Q values, or rollout
+success probabilities measured against outcomes. Plot against
+`trainer/global_step` in W&B, rather than the W&B event index. Jobs already
+running a pinned source archive retain their original logging; the additional
+metrics begin with launches using this updated source and recipe.
+
 ## Dataset scope
 
 The six domains and dataset sizes match the linked reproduction script.

@@ -83,7 +83,36 @@ class DecoupledQChunking(nn.Module):
                                   self.action_critic.parameters(), strict=True):
             target.lerp_(online, self.tau)
 
-    def losses(self, batch, policy_actions, *, noise=None, times=None):
+    @torch.no_grad()
+    def prediction_metrics(self, *, action_q, chunk_q, target_q, value, next_value, backup):
+        """Scalar diagnostics on replay actions, in probability space.
+
+        Reuse the loss pass's predictions without extra forwards or RNG draws.
+        Ensemble distributions use the same aggregation as the value target.
+        """
+        predictions = {"q_action": self.aggregate(action_q), "q_target": target_q,
+                       "v": value, "v_next": next_value, "bellman_target": backup}
+        if chunk_q is not None:
+            predictions["q_chunk"] = self.aggregate(chunk_q)
+        metrics = {}
+        for name, prediction in predictions.items():
+            prediction = prediction.detach()
+            metrics.update({f"{name}/mean": prediction.mean(),
+                            f"{name}/std": prediction.std(unbiased=False),
+                            f"{name}/min": prediction.min(),
+                            f"{name}/max": prediction.max()})
+        # BCE includes target entropy, so even a perfectly fitted moving target
+        # need not have a decreasing or zero BCE. xlogy handles exact 0 and 1.
+        metrics["bellman_target/entropy"] = -(
+            torch.special.xlogy(backup, backup)
+            + torch.special.xlogy(1 - backup, 1 - backup)).mean()
+        for name, q in [("q_action", action_q), ("q_chunk", chunk_q)]:
+            if q is not None:
+                metrics[f"{name}/ensemble_std"] = q.std(dim=0, unbiased=False).mean()
+        return metrics
+
+    def losses(self, batch, policy_actions, *, noise=None, times=None, metrics=None):
+        """Return only optimization losses; optionally fill detached diagnostics."""
         obs, goals = batch["observations"], batch["high_value_goals"]
         native = batch["high_value_action_chunks"].flatten(1)
         with torch.no_grad():
@@ -99,7 +128,8 @@ class DecoupledQChunking(nn.Module):
         else:
             policy_target = backup[None].expand(len(self.action_critic.members), -1)
         logits = self.action_critic(obs, goals, policy_actions)
-        weights = torch.where(policy_target >= logits.detach().sigmoid(),
+        action_q = logits.detach().sigmoid()
+        weights = torch.where(policy_target >= action_q,
                               self.kappa_d, 1 - self.kappa_d)
         # Replay admits only complete native backup windows: no flattened-action
         # indexing into temporal masks (an upstream indexing error is inert there).
@@ -111,7 +141,8 @@ class DecoupledQChunking(nn.Module):
             # Clamp only to prevent infinities when sigmoid saturates in float32.
             target_logit = torch.logit(target_q.clamp(1e-7, 1 - 1e-7))
         v_logits = self.value(obs, goals).squeeze(-1)
-        v_weights = torch.where(target_q >= v_logits.detach().sigmoid(),
+        value = v_logits.detach().sigmoid()
+        v_weights = torch.where(target_q >= value,
                                 self.kappa_b, 1 - self.kappa_b)
         result["value"] = (v_weights * (v_logits - target_logit).abs() * valid).mean()
         noise = torch.randn_like(policy_actions) if noise is None else noise
@@ -119,6 +150,10 @@ class DecoupledQChunking(nn.Module):
         mixed = (1 - times) * noise + times * policy_actions
         prediction = self.actor_bc(obs, mixed, times)
         result["actor_bc"] = ((prediction - (policy_actions - noise)).square().mean(-1) * valid).mean()
+        if metrics is not None:
+            metrics.update(self.prediction_metrics(action_q=action_q,
+                chunk_q=policy_target if self.chunk_critic is not None else None,
+                target_q=target_q, value=value, next_value=next_v, backup=backup))
         return result
 
     @torch.no_grad()

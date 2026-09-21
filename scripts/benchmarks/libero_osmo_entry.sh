@@ -39,7 +39,7 @@ git -C "$LIBERO_SOURCE_ROOT" checkout --detach FETCH_HEAD
 uv pip install --no-deps -e "$LIBERO_SOURCE_ROOT"
 export LIBERO_CONFIG_PATH=/workspace/libero/config
 if [[ "${RUN_KIND:-benchmark}" == replay ]]; then
-    python -m egomimic.benchmarks.libero.replay --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID"
+    python -m egomimic.benchmarks.libero.replay --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --spec "egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml"
 else
     python -m egomimic.benchmarks.libero.cluster --root /workspace/libero --suite "$SUITE" --mode "$RUN_MODE" --run-id "$RUN_ID" --epochs "$EPOCHS"
 fi

@@ -20,6 +20,7 @@ def workflow(
     replay=False,
     resume_from_run=None,
     arc_replay_run=None,
+    replay_spec="libero_arc_replay",
 ):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
@@ -44,6 +45,8 @@ def workflow(
             raise ValueError("Invalid training/replay source run ID")
     if evaluate_from_run and resume_from_run:
         raise ValueError("Choose evaluation recovery or training resume")
+    if replay_spec not in {"libero_arc_replay", "libero_arc_replay_expanded"}:
+        raise ValueError("Unknown checked-in replay specification")
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
@@ -86,6 +89,7 @@ def workflow(
                         "RUN_KIND": "replay" if replay else "benchmark",
                         "RESUME_FROM_RUN": resume_from_run or "",
                         "ARC_REPLAY_RUN": arc_replay_run or "",
+                        "REPLAY_SPEC": replay_spec,
                     },
                     "command": ["bash"],
                     "args": ["/tmp/entry.sh"],
@@ -108,6 +112,7 @@ def main():
     parser.add_argument("--replay", action="store_true")
     parser.add_argument("--resume-from-run")
     parser.add_argument("--arc-replay-run")
+    parser.add_argument("--replay-spec", default="libero_arc_replay")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     with args.output.open("x") as handle:
@@ -123,6 +128,7 @@ def main():
                 args.replay,
                 args.resume_from_run,
                 args.arc_replay_run,
+                args.replay_spec,
             ),
             handle,
             sort_keys=False,

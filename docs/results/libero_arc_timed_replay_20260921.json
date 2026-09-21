@@ -1,8 +1,8 @@
 {
   "kind": "demonstration_replay_not_policy_scores",
   "best_tested_not_global_optimum": true,
-  "complete": false,
-  "completed_mode_suite_searches": 8,
+  "complete": true,
+  "completed_mode_suite_searches": 10,
   "expected_mode_suite_searches": 10,
   "arc_modes": [
     "stk",
@@ -83,9 +83,9 @@
     "max_raw_repeat_state_error": 0.0
   },
   "independently_verified_episode_records": {
-    "calibration": 160,
-    "selection": 640,
-    "confirmation": 1200
+    "calibration": 520,
+    "selection": 2080,
+    "confirmation": 3900
   },
   "suites": [
     {
@@ -543,6 +543,7 @@
         "full_artifacts_available_at_run_prefix": true
       },
       "verified_episode_count": 150,
+      "recorded_model_compatibility_episodes": 0,
       "verified_selection_and_calibration": {
         "selection": {
           "verified_episode_count": 80,
@@ -1305,6 +1306,7 @@
         "full_artifacts_available_at_run_prefix": true
       },
       "verified_episode_count": 150,
+      "recorded_model_compatibility_episodes": 0,
       "verified_selection_and_calibration": {
         "selection": {
           "verified_episode_count": 80,
@@ -2067,6 +2069,7 @@
         "full_artifacts_available_at_run_prefix": true
       },
       "verified_episode_count": 150,
+      "recorded_model_compatibility_episodes": 0,
       "verified_selection_and_calibration": {
         "selection": {
           "verified_episode_count": 80,
@@ -2829,6 +2832,7 @@
         "full_artifacts_available_at_run_prefix": true
       },
       "verified_episode_count": 150,
+      "recorded_model_compatibility_episodes": 0,
       "verified_selection_and_calibration": {
         "selection": {
           "verified_episode_count": 80,
@@ -3591,6 +3595,7 @@
         "full_artifacts_available_at_run_prefix": true
       },
       "verified_episode_count": 150,
+      "recorded_model_compatibility_episodes": 0,
       "verified_selection_and_calibration": {
         "selection": {
           "verified_episode_count": 80,
@@ -4353,6 +4358,7 @@
         "full_artifacts_available_at_run_prefix": true
       },
       "verified_episode_count": 150,
+      "recorded_model_compatibility_episodes": 0,
       "verified_selection_and_calibration": {
         "selection": {
           "verified_episode_count": 80,
@@ -5115,6 +5121,7 @@
         "full_artifacts_available_at_run_prefix": true
       },
       "verified_episode_count": 150,
+      "recorded_model_compatibility_episodes": 0,
       "verified_selection_and_calibration": {
         "selection": {
           "verified_episode_count": 80,
@@ -5877,6 +5884,7 @@
         "full_artifacts_available_at_run_prefix": true
       },
       "verified_episode_count": 150,
+      "recorded_model_compatibility_episodes": 0,
       "verified_selection_and_calibration": {
         "selection": {
           "verified_episode_count": 80,
@@ -6187,14 +6195,5744 @@
     {
       "suite": "libero_90",
       "arc_mode": "stk",
-      "complete": false,
-      "run_id": "arc-replay-stk-20260921-libero-90"
+      "complete": true,
+      "run_id": "arc-replay-stk-20260921-libero-90",
+      "source_commit": "7f28d4d99b69be775e281122b50683f31420dfa6",
+      "status": "REPLAY_EVALUATED",
+      "codec": {
+        "max_rotation_degrees": 128,
+        "max_translation": 0.8,
+        "num_waypoints": 36,
+        "mode": "stk"
+      },
+      "candidate_id": "stk_R128_D0.8_M36",
+      "matches_raw_success": false,
+      "calibration_grid_candidates": 336,
+      "simulator_calibration_candidates": 72,
+      "selection": {
+        "raw": {
+          "episodes": 720,
+          "successes": 678,
+          "raw_successes": 678,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9416666666666667,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "raw_repeat": {
+          "episodes": 720,
+          "successes": 678,
+          "raw_successes": 678,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9416666666666667,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "source_precision_raw": {
+          "episodes": 720,
+          "successes": 679,
+          "raw_successes": 678,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9430555555555555,
+          "action_mse": 3.566352055678563e-17,
+          "eef_rmse_vs_raw_metres": 2.847158524457248e-05,
+          "max_action_mse": 7.798719694219572e-17,
+          "max_state_l2_vs_raw_mean": 0.9322217844282074,
+          "gained_successes": 1
+        },
+        "dense": {
+          "episodes": 720,
+          "successes": 679,
+          "raw_successes": 678,
+          "lost_raw_successes": 6,
+          "retention": 0.9911504424778761,
+          "success_rate": 0.9430555555555555,
+          "action_mse": 5.220055175906214e-15,
+          "eef_rmse_vs_raw_metres": 0.0004854292564800812,
+          "max_action_mse": 1.3024234500876237e-14,
+          "max_state_l2_vs_raw_mean": 0.9855171896152742,
+          "gained_successes": 7
+        },
+        "mode_dense": {
+          "episodes": 720,
+          "successes": 653,
+          "raw_successes": 678,
+          "lost_raw_successes": 42,
+          "retention": 0.9380530973451328,
+          "success_rate": 0.9069444444444444,
+          "action_mse": 0.011001778840902232,
+          "eef_rmse_vs_raw_metres": 0.0024648118988426374,
+          "max_action_mse": 0.06553420703604304,
+          "max_state_l2_vs_raw_mean": 1.1491586513817482,
+          "gained_successes": 17
+        },
+        "stk_R128_D0.8_M32": {
+          "episodes": 720,
+          "successes": 656,
+          "raw_successes": 678,
+          "lost_raw_successes": 38,
+          "retention": 0.943952802359882,
+          "success_rate": 0.9111111111111111,
+          "action_mse": 0.010758646665789,
+          "eef_rmse_vs_raw_metres": 0.003051517274999924,
+          "max_action_mse": 0.060034847513009734,
+          "max_state_l2_vs_raw_mean": 1.2196218988275724,
+          "gained_successes": 16
+        },
+        "stk_R192_D0.8_M24": {
+          "episodes": 720,
+          "successes": 642,
+          "raw_successes": 678,
+          "lost_raw_successes": 54,
+          "retention": 0.9203539823008849,
+          "success_rate": 0.8916666666666667,
+          "action_mse": 0.012925377760403015,
+          "eef_rmse_vs_raw_metres": 0.0029780657260543154,
+          "max_action_mse": 0.06557376252996486,
+          "max_state_l2_vs_raw_mean": 1.2815077112734028,
+          "gained_successes": 18
+        },
+        "stk_R128_D0.8_M36": {
+          "episodes": 720,
+          "successes": 657,
+          "raw_successes": 678,
+          "lost_raw_successes": 38,
+          "retention": 0.943952802359882,
+          "success_rate": 0.9125,
+          "action_mse": 0.010177899003227025,
+          "eef_rmse_vs_raw_metres": 0.0030415393237595346,
+          "max_action_mse": 0.048169814757621165,
+          "max_state_l2_vs_raw_mean": 1.5443279112064299,
+          "gained_successes": 17
+        },
+        "stk_R384_D0.8_M16": {
+          "episodes": 720,
+          "successes": 611,
+          "raw_successes": 678,
+          "lost_raw_successes": 84,
+          "retention": 0.8761061946902655,
+          "success_rate": 0.8486111111111111,
+          "action_mse": 0.016581772743584685,
+          "eef_rmse_vs_raw_metres": 0.003481635254223362,
+          "max_action_mse": 0.07527453252805333,
+          "max_state_l2_vs_raw_mean": 1.1369869620386792,
+          "gained_successes": 17
+        },
+        "stk_R192_D0.8_M8": {
+          "episodes": 720,
+          "successes": 500,
+          "raw_successes": 678,
+          "lost_raw_successes": 190,
+          "retention": 0.7197640117994101,
+          "success_rate": 0.6944444444444444,
+          "action_mse": 0.0259214545088194,
+          "eef_rmse_vs_raw_metres": 0.005998344838028907,
+          "max_action_mse": 0.10412786823076088,
+          "max_state_l2_vs_raw_mean": 2.707368938355773,
+          "gained_successes": 12
+        },
+        "stk_R192_D0.8_M4": {
+          "episodes": 720,
+          "successes": 262,
+          "raw_successes": 678,
+          "lost_raw_successes": 422,
+          "retention": 0.3775811209439528,
+          "success_rate": 0.3638888888888889,
+          "action_mse": 0.040805653889961595,
+          "eef_rmse_vs_raw_metres": 0.012179574984246705,
+          "max_action_mse": 0.12570923750920754,
+          "max_state_l2_vs_raw_mean": 2.134550339251951,
+          "gained_successes": 6
+        }
+      },
+      "confirmation": {
+        "raw": {
+          "episodes": 1350,
+          "successes": 1265,
+          "raw_successes": 1265,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.937037037037037,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "raw_repeat": {
+          "episodes": 1350,
+          "successes": 1265,
+          "raw_successes": 1265,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.937037037037037,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "source_precision_raw": {
+          "episodes": 1350,
+          "successes": 1265,
+          "raw_successes": 1265,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.937037037037037,
+          "action_mse": 3.585720263097187e-17,
+          "eef_rmse_vs_raw_metres": 2.310459391143483e-05,
+          "max_action_mse": 9.357834085633565e-17,
+          "max_state_l2_vs_raw_mean": 0.6166503025909359,
+          "gained_successes": 0
+        },
+        "dense": {
+          "episodes": 1350,
+          "successes": 1272,
+          "raw_successes": 1265,
+          "lost_raw_successes": 9,
+          "retention": 0.9928853754940712,
+          "success_rate": 0.9422222222222222,
+          "action_mse": 5.2086630391283655e-15,
+          "eef_rmse_vs_raw_metres": 0.0005514234756613891,
+          "max_action_mse": 1.2108846780835424e-14,
+          "max_state_l2_vs_raw_mean": 0.9488080210701992,
+          "gained_successes": 16
+        },
+        "mode_dense": {
+          "episodes": 1350,
+          "successes": 1207,
+          "raw_successes": 1265,
+          "lost_raw_successes": 86,
+          "retention": 0.9320158102766798,
+          "success_rate": 0.894074074074074,
+          "action_mse": 0.01134870857555742,
+          "eef_rmse_vs_raw_metres": 0.002203770816572073,
+          "max_action_mse": 0.06488947513610754,
+          "max_state_l2_vs_raw_mean": 1.4479689526583122,
+          "gained_successes": 28
+        },
+        "previous_M16": {
+          "episodes": 1350,
+          "successes": 1107,
+          "raw_successes": 1265,
+          "lost_raw_successes": 188,
+          "retention": 0.8513833992094861,
+          "success_rate": 0.82,
+          "action_mse": 0.017367289978463683,
+          "eef_rmse_vs_raw_metres": 0.00335907899621093,
+          "max_action_mse": 0.07475805270596357,
+          "max_state_l2_vs_raw_mean": 1.153906206182141,
+          "gained_successes": 30
+        },
+        "stk_R128_D0.8_M36": {
+          "episodes": 1350,
+          "successes": 1223,
+          "raw_successes": 1265,
+          "lost_raw_successes": 75,
+          "retention": 0.9407114624505929,
+          "success_rate": 0.9059259259259259,
+          "action_mse": 0.010333451765689597,
+          "eef_rmse_vs_raw_metres": 0.002877385244634756,
+          "max_action_mse": 0.053529395832277345,
+          "max_state_l2_vs_raw_mean": 1.1922557425279643,
+          "gained_successes": 33
+        }
+      },
+      "search_audit": {
+        "grid_candidates": 336,
+        "simulator_candidates": 72,
+        "shortlist": {
+          "stk_R128_D0.8_M32": {
+            "max_rotation_degrees": 128,
+            "max_translation": 0.8,
+            "num_waypoints": 32,
+            "mode": "stk"
+          },
+          "stk_R192_D0.8_M24": {
+            "max_rotation_degrees": 192,
+            "max_translation": 0.8,
+            "num_waypoints": 24,
+            "mode": "stk"
+          },
+          "stk_R128_D0.8_M36": {
+            "max_rotation_degrees": 128,
+            "max_translation": 0.8,
+            "num_waypoints": 36,
+            "mode": "stk"
+          },
+          "stk_R384_D0.8_M16": {
+            "max_rotation_degrees": 384,
+            "max_translation": 0.8,
+            "num_waypoints": 16,
+            "mode": "stk"
+          },
+          "stk_R192_D0.8_M8": {
+            "max_rotation_degrees": 192,
+            "max_translation": 0.8,
+            "num_waypoints": 8,
+            "mode": "stk"
+          },
+          "stk_R192_D0.8_M4": {
+            "max_rotation_degrees": 192,
+            "max_translation": 0.8,
+            "num_waypoints": 4,
+            "mode": "stk"
+          }
+        },
+        "calibration_shortlist": {
+          "stk_R128_D0.8_M32": {
+            "episodes": 180,
+            "successes": 157,
+            "raw_successes": 165,
+            "lost_raw_successes": 9,
+            "retention": 0.9454545454545454,
+            "success_rate": 0.8722222222222222,
+            "action_mse": 0.011394532048502071,
+            "eef_rmse_vs_raw_metres": 0.002901286227966536,
+            "max_action_mse": 0.05719257078816684,
+            "max_state_l2_vs_raw_mean": 1.1013186244835607,
+            "gained_successes": 1
+          },
+          "stk_R192_D0.8_M24": {
+            "episodes": 180,
+            "successes": 156,
+            "raw_successes": 165,
+            "lost_raw_successes": 11,
+            "retention": 0.9333333333333333,
+            "success_rate": 0.8666666666666667,
+            "action_mse": 0.014117137690110177,
+            "eef_rmse_vs_raw_metres": 0.0030254152483902823,
+            "max_action_mse": 0.06434362600739349,
+            "max_state_l2_vs_raw_mean": 1.1293832367516585,
+            "gained_successes": 2
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 180,
+            "successes": 156,
+            "raw_successes": 165,
+            "lost_raw_successes": 10,
+            "retention": 0.9393939393939394,
+            "success_rate": 0.8666666666666667,
+            "action_mse": 0.011120843924707373,
+            "eef_rmse_vs_raw_metres": 0.002647483756724383,
+            "max_action_mse": 0.06559518886650291,
+            "max_state_l2_vs_raw_mean": 3.068460950100479,
+            "gained_successes": 1
+          },
+          "stk_R384_D0.8_M16": {
+            "episodes": 180,
+            "successes": 148,
+            "raw_successes": 165,
+            "lost_raw_successes": 20,
+            "retention": 0.8787878787878788,
+            "success_rate": 0.8222222222222222,
+            "action_mse": 0.017963588067495005,
+            "eef_rmse_vs_raw_metres": 0.00376760627157888,
+            "max_action_mse": 0.07166144719716826,
+            "max_state_l2_vs_raw_mean": 1.1302772469684652,
+            "gained_successes": 3
+          },
+          "stk_R192_D0.8_M8": {
+            "episodes": 180,
+            "successes": 120,
+            "raw_successes": 165,
+            "lost_raw_successes": 48,
+            "retention": 0.7090909090909091,
+            "success_rate": 0.6666666666666666,
+            "action_mse": 0.027670599439009347,
+            "eef_rmse_vs_raw_metres": 0.005957761332204495,
+            "max_action_mse": 0.0819116414248573,
+            "max_state_l2_vs_raw_mean": 0.9786796899170218,
+            "gained_successes": 3
+          },
+          "stk_R192_D0.8_M4": {
+            "episodes": 180,
+            "successes": 64,
+            "raw_successes": 165,
+            "lost_raw_successes": 103,
+            "retention": 0.37575757575757573,
+            "success_rate": 0.35555555555555557,
+            "action_mse": 0.042544270993129026,
+            "eef_rmse_vs_raw_metres": 0.011492035956213743,
+            "max_action_mse": 0.11798911973816606,
+            "max_state_l2_vs_raw_mean": 1.2959054100224714,
+            "gained_successes": 2
+          }
+        },
+        "shortlist_coverage": {
+          "stk_R128_D0.8_M32": 0.9935339794728795,
+          "stk_R192_D0.8_M24": 0.9984962399138047,
+          "stk_R128_D0.8_M36": 0.9935339794761224,
+          "stk_R384_D0.8_M16": 0.9984962398788688,
+          "stk_R192_D0.8_M8": 0.9984962398974851,
+          "stk_R192_D0.8_M4": 0.998496239980578
+        },
+        "data_revision": "f13aa24a3da8c43c7225569f28c562979fa0e35a",
+        "controls": {
+          "raw": {
+            "episodes": 180,
+            "successes": 165,
+            "raw_successes": 165,
+            "lost_raw_successes": 0,
+            "retention": 1.0,
+            "success_rate": 0.9166666666666666,
+            "action_mse": 0.0,
+            "eef_rmse_vs_raw_metres": 0.0,
+            "max_action_mse": 0.0,
+            "max_state_l2_vs_raw_mean": 0.0,
+            "gained_successes": 0
+          },
+          "raw_repeat": {
+            "episodes": 180,
+            "successes": 165,
+            "raw_successes": 165,
+            "lost_raw_successes": 0,
+            "retention": 1.0,
+            "success_rate": 0.9166666666666666,
+            "action_mse": 0.0,
+            "eef_rmse_vs_raw_metres": 0.0,
+            "max_action_mse": 0.0,
+            "max_state_l2_vs_raw_mean": 0.0,
+            "gained_successes": 0
+          },
+          "source_precision_raw": {
+            "episodes": 180,
+            "successes": 164,
+            "raw_successes": 165,
+            "lost_raw_successes": 1,
+            "retention": 0.9939393939393939,
+            "success_rate": 0.9111111111111111,
+            "action_mse": 3.657625861042898e-17,
+            "eef_rmse_vs_raw_metres": 6.179614386359e-05,
+            "max_action_mse": 8.727124486937206e-17,
+            "max_state_l2_vs_raw_mean": 0.5772260493880418,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 180,
+            "successes": 164,
+            "raw_successes": 165,
+            "lost_raw_successes": 1,
+            "retention": 0.9939393939393939,
+            "success_rate": 0.9111111111111111,
+            "action_mse": 5.266976202795461e-15,
+            "eef_rmse_vs_raw_metres": 0.0006022763506573427,
+            "max_action_mse": 1.504047971293135e-14,
+            "max_state_l2_vs_raw_mean": 0.7404396549106851,
+            "gained_successes": 0
+          },
+          "mode_dense": {
+            "episodes": 180,
+            "successes": 155,
+            "raw_successes": 165,
+            "lost_raw_successes": 12,
+            "retention": 0.9272727272727272,
+            "success_rate": 0.8611111111111112,
+            "action_mse": 0.011706557612700168,
+            "eef_rmse_vs_raw_metres": 0.002045681809625741,
+            "max_action_mse": 0.06430112268403983,
+            "max_state_l2_vs_raw_mean": 1.165560343813668,
+            "gained_successes": 2
+          }
+        },
+        "full_artifacts_available_at_run_prefix": true
+      },
+      "verified_episode_count": 1350,
+      "recorded_model_compatibility_episodes": 60,
+      "verified_selection_and_calibration": {
+        "selection": {
+          "verified_episode_count": 720,
+          "inventory_sha256": "c61babdbd4eac4bc3f074f9145c7d48659c0d97af388a511e94d3a8446806313"
+        },
+        "calibration": {
+          "verified_episode_count": 180,
+          "inventory_sha256": "b7f6816274537690b073474645921357d07bdcd2495029e8f2bc7588e5764237"
+        }
+      },
+      "confirmation_inventory_sha256": "3a761c474f5daa3e25434df4a7842367cc577daa94e09272bb6f065a9a4bdd16",
+      "artifact_sha256": {
+        "status.json": "853d7ae0031b7eba4928046fec19141f6fbdf8e3db8ddf770fdf8ff046d2e28f",
+        "runtime.json": "31828c73df514a11b82f6fa2d090c6cfe3cae81882f9edff49567452e4207552",
+        "spec.json": "d0c9ea3a0c3317e654fd1ff33bcc4b4a9a5b2bb9c2875bc19146b6f91e99151e",
+        "environment-audit.json": "cd8e26433f63621242f9204087c74bcc90f024321419655f4151fa4bda954c73",
+        "selection.json": "1d9ab31848cb98fc0eeda9802688d18a94c657991499b89dfff6bd7dc60eebff",
+        "selected-before-confirmation.json": "3c168492baf59a97241e142ea583262562f79ad2d4f70c2e3008e7f206757960",
+        "result.json": "74df55168177826cd49768f08d321c38486cd0f6a46670a81e4c7da58bf7d14a",
+        "screen.json": "1c556d6df60bb1d13963946a3e642c8b0dc77df4ca03a3e63b9fdf385f5924ea",
+        "calibration.json": "135dda147bb898c1f0ff08b335c1e2cf35c82b8f1b96a82642bc26ef72ac5590",
+        "controls.json": "73d3965ba081dc29b35b106a51af4723589e85d6d097970c7b1a83775a8e0887",
+        "data-source.json": "fe71e3d27ad60db7713012b5d29bc0a1f1497b0215c75cb391e3e549c501ec12"
+      },
+      "environment": {
+        "source_commit": "7f28d4d99b69be775e281122b50683f31420dfa6",
+        "arc_mode": "stk",
+        "versions": {
+          "numpy": "2.3.5",
+          "scipy": "1.17.1",
+          "mujoco": "3.4.0",
+          "robosuite": "1.4.0",
+          "libero": "0.1.0",
+          "torch": "2.7.1",
+          "h5py": "3.16.0",
+          "numba": "0.63.1"
+        },
+        "codec_sha256": "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03",
+        "codec_sources": {
+          "egomimic/rldb/zarr/libero_arc.py": "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03",
+          "egomimic/rldb/zarr/planar_arc.py": "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1",
+          "egomimic/rldb/zarr/libero_arc_timed.py": "b15874a9bebc4101433a8d6b33618c06cff38b380743cf58cf477024855cfd2d"
+        }
+      },
+      "per_task": {
+        "KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet_and_put_the_black_bowl_on_top_of_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE10_put_the_black_bowl_in_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE10_put_the_butter_at_the_back_in_the_top_drawer_of_the_cabinet_and_close_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE10_put_the_butter_at_the_front_in_the_top_drawer_of_the_cabinet_and_close_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE10_put_the_chocolate_pudding_in_the_top_drawer_of_the_cabinet_and_close_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE1_open_the_bottom_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet_and_put_the_bowl_in_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE1_put_the_black_bowl_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE1_put_the_black_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE2_open_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE2_put_the_black_bowl_at_the_back_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE2_put_the_black_bowl_at_the_front_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE2_put_the_middle_black_bowl_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 5,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE2_put_the_middle_black_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE2_stack_the_black_bowl_at_the_front_on_the_black_bowl_in_the_middle": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE2_stack_the_middle_black_bowl_on_the_back_black_bowl": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE3_put_the_frying_pan_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE3_put_the_moka_pot_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE3_turn_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_frying_pan_on_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE4_put_the_black_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_put_the_wine_bottle_on_the_wine_rack": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_close_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_put_the_black_bowl_in_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_put_the_black_bowl_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_put_the_black_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_put_the_ketchup_in_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 9,
+            "lost_raw_successes": 6,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE6_close_the_microwave": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE6_put_the_yellow_and_white_mug_to_the_front_of_the_white_mug": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE7_open_the_microwave": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE7_put_the_white_bowl_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE7_put_the_white_bowl_to_the_right_of_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 4,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE8_turn_off_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_put_the_frying_pan_on_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE9_put_the_frying_pan_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_put_the_frying_pan_under_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_put_the_white_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 7,
+            "lost_raw_successes": 6,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_turn_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_turn_on_the_stove_and_put_the_frying_pan_on_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "LIVING_ROOM_SCENE1_pick_up_the_ketchup_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE1_pick_up_the_tomato_sauce_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_alphabet_soup_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_butter_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 5,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_milk_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_orange_juice_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 2
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_tomato_sauce_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_alphabet_soup_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_butter_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 5,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_cream_cheese_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_ketchup_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_tomato_sauce_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE4_pick_up_the_black_bowl_on_the_left_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE4_pick_up_the_chocolate_pudding_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE4_pick_up_the_salad_dressing_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 9,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE4_stack_the_left_bowl_on_the_right_bowl_and_place_them_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 5,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "LIVING_ROOM_SCENE4_stack_the_right_bowl_on_the_left_bowl_and_place_them_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 3
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 8,
+            "lost_raw_successes": 4,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 2
+          }
+        },
+        "LIVING_ROOM_SCENE5_put_the_red_mug_on_the_left_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE5_put_the_red_mug_on_the_right_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE5_put_the_yellow_and_white_mug_on_the_right_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_left_of_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE6_put_the_red_mug_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 9,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE1_pick_up_the_yellow_and_white_mug_and_place_it_to_the_right_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 8,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_red_mug_and_place_it_to_the_right_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_white_mug_and_place_it_to_the_right_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE4_pick_up_the_book_in_the_middle_and_place_it_on_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE4_pick_up_the_book_on_the_left_and_place_it_on_top_of_the_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE4_pick_up_the_book_on_the_right_and_place_it_on_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE4_pick_up_the_book_on_the_right_and_place_it_under_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "stk_R128_D0.8_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        }
+      }
     },
     {
       "suite": "libero_90",
       "arc_mode": "dur",
-      "complete": false,
-      "run_id": "arc-replay-dur-20260921-libero-90"
+      "complete": true,
+      "run_id": "arc-replay-dur-20260921-libero-90",
+      "source_commit": "7f28d4d99b69be775e281122b50683f31420dfa6",
+      "status": "REPLAY_EVALUATED",
+      "codec": {
+        "max_rotation_degrees": 128,
+        "max_translation": 1.6,
+        "num_waypoints": 36,
+        "mode": "dur"
+      },
+      "candidate_id": "dur_R128_D1.6_M36",
+      "matches_raw_success": false,
+      "calibration_grid_candidates": 336,
+      "simulator_calibration_candidates": 72,
+      "selection": {
+        "raw": {
+          "episodes": 720,
+          "successes": 678,
+          "raw_successes": 678,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9416666666666667,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "raw_repeat": {
+          "episodes": 720,
+          "successes": 678,
+          "raw_successes": 678,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9416666666666667,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "source_precision_raw": {
+          "episodes": 720,
+          "successes": 679,
+          "raw_successes": 678,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9430555555555555,
+          "action_mse": 3.566352055678563e-17,
+          "eef_rmse_vs_raw_metres": 2.847158524457248e-05,
+          "max_action_mse": 7.798719694219572e-17,
+          "max_state_l2_vs_raw_mean": 0.9322217844282074,
+          "gained_successes": 1
+        },
+        "dense": {
+          "episodes": 720,
+          "successes": 679,
+          "raw_successes": 678,
+          "lost_raw_successes": 6,
+          "retention": 0.9911504424778761,
+          "success_rate": 0.9430555555555555,
+          "action_mse": 5.220055175906214e-15,
+          "eef_rmse_vs_raw_metres": 0.0004854292564800812,
+          "max_action_mse": 1.3024234500876237e-14,
+          "max_state_l2_vs_raw_mean": 0.9855171896152742,
+          "gained_successes": 7
+        },
+        "mode_dense": {
+          "episodes": 720,
+          "successes": 669,
+          "raw_successes": 678,
+          "lost_raw_successes": 28,
+          "retention": 0.9587020648967551,
+          "success_rate": 0.9291666666666667,
+          "action_mse": 0.009796505274824377,
+          "eef_rmse_vs_raw_metres": 0.0020274961894291106,
+          "max_action_mse": 0.044032991990230544,
+          "max_state_l2_vs_raw_mean": 1.1984037992206285,
+          "gained_successes": 19
+        },
+        "dur_R128_D1.6_M36": {
+          "episodes": 720,
+          "successes": 670,
+          "raw_successes": 678,
+          "lost_raw_successes": 26,
+          "retention": 0.9616519174041298,
+          "success_rate": 0.9305555555555556,
+          "action_mse": 0.009440058921074555,
+          "eef_rmse_vs_raw_metres": 0.0022900856245089175,
+          "max_action_mse": 0.0440358233357442,
+          "max_state_l2_vs_raw_mean": 1.2108650785074664,
+          "gained_successes": 18
+        },
+        "dur_R128_D0.8_M32": {
+          "episodes": 720,
+          "successes": 660,
+          "raw_successes": 678,
+          "lost_raw_successes": 32,
+          "retention": 0.9528023598820059,
+          "success_rate": 0.9166666666666666,
+          "action_mse": 0.009630567501695388,
+          "eef_rmse_vs_raw_metres": 0.0028198864333242543,
+          "max_action_mse": 0.0516068590435393,
+          "max_state_l2_vs_raw_mean": 1.223795281506002,
+          "gained_successes": 14
+        },
+        "dur_R192_D0.8_M24": {
+          "episodes": 720,
+          "successes": 657,
+          "raw_successes": 678,
+          "lost_raw_successes": 42,
+          "retention": 0.9380530973451328,
+          "success_rate": 0.9125,
+          "action_mse": 0.011466643679580068,
+          "eef_rmse_vs_raw_metres": 0.0027205846451305153,
+          "max_action_mse": 0.050378034435668025,
+          "max_state_l2_vs_raw_mean": 1.1591353194327398,
+          "gained_successes": 21
+        },
+        "dur_R192_D0.8_M16": {
+          "episodes": 720,
+          "successes": 632,
+          "raw_successes": 678,
+          "lost_raw_successes": 63,
+          "retention": 0.9070796460176991,
+          "success_rate": 0.8777777777777778,
+          "action_mse": 0.014678981162980137,
+          "eef_rmse_vs_raw_metres": 0.003210642617946725,
+          "max_action_mse": 0.06319521385238992,
+          "max_state_l2_vs_raw_mean": 1.2598540608122073,
+          "gained_successes": 17
+        },
+        "dur_R128_D0.8_M8": {
+          "episodes": 720,
+          "successes": 531,
+          "raw_successes": 678,
+          "lost_raw_successes": 160,
+          "retention": 0.7640117994100295,
+          "success_rate": 0.7375,
+          "action_mse": 0.02336303287158558,
+          "eef_rmse_vs_raw_metres": 0.0056341465938085315,
+          "max_action_mse": 0.08004687312137855,
+          "max_state_l2_vs_raw_mean": 1.37116395213345,
+          "gained_successes": 13
+        },
+        "dur_R384_D0.8_M4": {
+          "episodes": 720,
+          "successes": 266,
+          "raw_successes": 678,
+          "lost_raw_successes": 417,
+          "retention": 0.38495575221238937,
+          "success_rate": 0.36944444444444446,
+          "action_mse": 0.03713205165011335,
+          "eef_rmse_vs_raw_metres": 0.013727103731343284,
+          "max_action_mse": 0.123278657903217,
+          "max_state_l2_vs_raw_mean": 2.1433892070550873,
+          "gained_successes": 5
+        }
+      },
+      "confirmation": {
+        "raw": {
+          "episodes": 1350,
+          "successes": 1265,
+          "raw_successes": 1265,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.937037037037037,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "raw_repeat": {
+          "episodes": 1350,
+          "successes": 1265,
+          "raw_successes": 1265,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.937037037037037,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "source_precision_raw": {
+          "episodes": 1350,
+          "successes": 1265,
+          "raw_successes": 1265,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.937037037037037,
+          "action_mse": 3.585720263097187e-17,
+          "eef_rmse_vs_raw_metres": 2.310459391143483e-05,
+          "max_action_mse": 9.357834085633565e-17,
+          "max_state_l2_vs_raw_mean": 0.6166503025909359,
+          "gained_successes": 0
+        },
+        "dense": {
+          "episodes": 1350,
+          "successes": 1272,
+          "raw_successes": 1265,
+          "lost_raw_successes": 9,
+          "retention": 0.9928853754940712,
+          "success_rate": 0.9422222222222222,
+          "action_mse": 5.2086630391283655e-15,
+          "eef_rmse_vs_raw_metres": 0.0005514234756613891,
+          "max_action_mse": 1.2108846780835424e-14,
+          "max_state_l2_vs_raw_mean": 0.9488080210701992,
+          "gained_successes": 16
+        },
+        "mode_dense": {
+          "episodes": 1350,
+          "successes": 1220,
+          "raw_successes": 1265,
+          "lost_raw_successes": 75,
+          "retention": 0.9407114624505929,
+          "success_rate": 0.9037037037037037,
+          "action_mse": 0.009889286553088917,
+          "eef_rmse_vs_raw_metres": 0.001918874209396807,
+          "max_action_mse": 0.04776986349313125,
+          "max_state_l2_vs_raw_mean": 1.1344499535075812,
+          "gained_successes": 30
+        },
+        "previous_M16": {
+          "episodes": 1350,
+          "successes": 1142,
+          "raw_successes": 1265,
+          "lost_raw_successes": 152,
+          "retention": 0.8798418972332016,
+          "success_rate": 0.845925925925926,
+          "action_mse": 0.015408737232807418,
+          "eef_rmse_vs_raw_metres": 0.0030782611249157107,
+          "max_action_mse": 0.08050558632687184,
+          "max_state_l2_vs_raw_mean": 1.2283466731970176,
+          "gained_successes": 29
+        },
+        "dur_R128_D1.6_M36": {
+          "episodes": 1350,
+          "successes": 1231,
+          "raw_successes": 1265,
+          "lost_raw_successes": 66,
+          "retention": 0.9478260869565217,
+          "success_rate": 0.9118518518518518,
+          "action_mse": 0.009441506216226222,
+          "eef_rmse_vs_raw_metres": 0.002110514307013949,
+          "max_action_mse": 0.04490291553850951,
+          "max_state_l2_vs_raw_mean": 1.1856746636760187,
+          "gained_successes": 32
+        }
+      },
+      "search_audit": {
+        "grid_candidates": 336,
+        "simulator_candidates": 72,
+        "shortlist": {
+          "dur_R128_D1.6_M36": {
+            "max_rotation_degrees": 128,
+            "max_translation": 1.6,
+            "num_waypoints": 36,
+            "mode": "dur"
+          },
+          "dur_R128_D0.8_M32": {
+            "max_rotation_degrees": 128,
+            "max_translation": 0.8,
+            "num_waypoints": 32,
+            "mode": "dur"
+          },
+          "dur_R192_D0.8_M24": {
+            "max_rotation_degrees": 192,
+            "max_translation": 0.8,
+            "num_waypoints": 24,
+            "mode": "dur"
+          },
+          "dur_R192_D0.8_M16": {
+            "max_rotation_degrees": 192,
+            "max_translation": 0.8,
+            "num_waypoints": 16,
+            "mode": "dur"
+          },
+          "dur_R128_D0.8_M8": {
+            "max_rotation_degrees": 128,
+            "max_translation": 0.8,
+            "num_waypoints": 8,
+            "mode": "dur"
+          },
+          "dur_R384_D0.8_M4": {
+            "max_rotation_degrees": 384,
+            "max_translation": 0.8,
+            "num_waypoints": 4,
+            "mode": "dur"
+          }
+        },
+        "calibration_shortlist": {
+          "dur_R128_D1.6_M36": {
+            "episodes": 180,
+            "successes": 163,
+            "raw_successes": 165,
+            "lost_raw_successes": 5,
+            "retention": 0.9696969696969697,
+            "success_rate": 0.9055555555555556,
+            "action_mse": 0.010014793357963774,
+            "eef_rmse_vs_raw_metres": 0.0017201922161586274,
+            "max_action_mse": 0.03790222403040298,
+            "max_state_l2_vs_raw_mean": 0.8095747900239744,
+            "gained_successes": 3
+          },
+          "dur_R128_D0.8_M32": {
+            "episodes": 180,
+            "successes": 160,
+            "raw_successes": 165,
+            "lost_raw_successes": 7,
+            "retention": 0.9575757575757575,
+            "success_rate": 0.8888888888888888,
+            "action_mse": 0.010133972555721755,
+            "eef_rmse_vs_raw_metres": 0.002685436802291935,
+            "max_action_mse": 0.039515866243529894,
+            "max_state_l2_vs_raw_mean": 0.980202367010275,
+            "gained_successes": 2
+          },
+          "dur_R192_D0.8_M24": {
+            "episodes": 180,
+            "successes": 156,
+            "raw_successes": 165,
+            "lost_raw_successes": 10,
+            "retention": 0.9393939393939394,
+            "success_rate": 0.8666666666666667,
+            "action_mse": 0.012368341731894522,
+            "eef_rmse_vs_raw_metres": 0.0027742080024039835,
+            "max_action_mse": 0.04741029118113184,
+            "max_state_l2_vs_raw_mean": 0.9256281080537649,
+            "gained_successes": 1
+          },
+          "dur_R192_D0.8_M16": {
+            "episodes": 180,
+            "successes": 151,
+            "raw_successes": 165,
+            "lost_raw_successes": 15,
+            "retention": 0.9090909090909091,
+            "success_rate": 0.8388888888888889,
+            "action_mse": 0.015551990697419847,
+            "eef_rmse_vs_raw_metres": 0.003212309656422171,
+            "max_action_mse": 0.05209117688955147,
+            "max_state_l2_vs_raw_mean": 0.9767576287268369,
+            "gained_successes": 1
+          },
+          "dur_R128_D0.8_M8": {
+            "episodes": 180,
+            "successes": 127,
+            "raw_successes": 165,
+            "lost_raw_successes": 41,
+            "retention": 0.7515151515151515,
+            "success_rate": 0.7055555555555556,
+            "action_mse": 0.025293043334821984,
+            "eef_rmse_vs_raw_metres": 0.006050338089764007,
+            "max_action_mse": 0.07574507435921302,
+            "max_state_l2_vs_raw_mean": 0.946456367366154,
+            "gained_successes": 3
+          },
+          "dur_R384_D0.8_M4": {
+            "episodes": 180,
+            "successes": 70,
+            "raw_successes": 165,
+            "lost_raw_successes": 100,
+            "retention": 0.3939393939393939,
+            "success_rate": 0.3888888888888889,
+            "action_mse": 0.03919437661776487,
+            "eef_rmse_vs_raw_metres": 0.012256879401929247,
+            "max_action_mse": 0.1304122065098742,
+            "max_state_l2_vs_raw_mean": 1.2549878237537537,
+            "gained_successes": 5
+          }
+        },
+        "shortlist_coverage": {
+          "dur_R128_D1.6_M36": 0.9950377396389052,
+          "dur_R128_D0.8_M32": 0.993533979461135,
+          "dur_R192_D0.8_M24": 0.9984962398600956,
+          "dur_R192_D0.8_M16": 0.9984962398797297,
+          "dur_R128_D0.8_M8": 0.9935339794022328,
+          "dur_R384_D0.8_M4": 0.9984962397394861
+        },
+        "data_revision": "f13aa24a3da8c43c7225569f28c562979fa0e35a",
+        "controls": {
+          "raw": {
+            "episodes": 180,
+            "successes": 165,
+            "raw_successes": 165,
+            "lost_raw_successes": 0,
+            "retention": 1.0,
+            "success_rate": 0.9166666666666666,
+            "action_mse": 0.0,
+            "eef_rmse_vs_raw_metres": 0.0,
+            "max_action_mse": 0.0,
+            "max_state_l2_vs_raw_mean": 0.0,
+            "gained_successes": 0
+          },
+          "raw_repeat": {
+            "episodes": 180,
+            "successes": 165,
+            "raw_successes": 165,
+            "lost_raw_successes": 0,
+            "retention": 1.0,
+            "success_rate": 0.9166666666666666,
+            "action_mse": 0.0,
+            "eef_rmse_vs_raw_metres": 0.0,
+            "max_action_mse": 0.0,
+            "max_state_l2_vs_raw_mean": 0.0,
+            "gained_successes": 0
+          },
+          "source_precision_raw": {
+            "episodes": 180,
+            "successes": 164,
+            "raw_successes": 165,
+            "lost_raw_successes": 1,
+            "retention": 0.9939393939393939,
+            "success_rate": 0.9111111111111111,
+            "action_mse": 3.657625861042898e-17,
+            "eef_rmse_vs_raw_metres": 6.179614386359e-05,
+            "max_action_mse": 8.727124486937206e-17,
+            "max_state_l2_vs_raw_mean": 0.5772260493880418,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 180,
+            "successes": 164,
+            "raw_successes": 165,
+            "lost_raw_successes": 1,
+            "retention": 0.9939393939393939,
+            "success_rate": 0.9111111111111111,
+            "action_mse": 5.266976202795461e-15,
+            "eef_rmse_vs_raw_metres": 0.0006022763506573427,
+            "max_action_mse": 1.504047971293135e-14,
+            "max_state_l2_vs_raw_mean": 0.7404396549106851,
+            "gained_successes": 0
+          },
+          "mode_dense": {
+            "episodes": 180,
+            "successes": 161,
+            "raw_successes": 165,
+            "lost_raw_successes": 7,
+            "retention": 0.9575757575757575,
+            "success_rate": 0.8944444444444445,
+            "action_mse": 0.01010794734312519,
+            "eef_rmse_vs_raw_metres": 0.001815161272778376,
+            "max_action_mse": 0.0304938859154405,
+            "max_state_l2_vs_raw_mean": 0.806323096420159,
+            "gained_successes": 3
+          }
+        },
+        "full_artifacts_available_at_run_prefix": true
+      },
+      "verified_episode_count": 1350,
+      "recorded_model_compatibility_episodes": 60,
+      "verified_selection_and_calibration": {
+        "selection": {
+          "verified_episode_count": 720,
+          "inventory_sha256": "7494f348e62927d7c0aaa57dba8af80d022f218a305569b7390d82afdf41fadf"
+        },
+        "calibration": {
+          "verified_episode_count": 180,
+          "inventory_sha256": "96b92cde7234a37a5a9fe828d6a654d82c69c861c6d340eeb68a76aa41c81666"
+        }
+      },
+      "confirmation_inventory_sha256": "f1926c627bff2827883e07678426d34efa0c64a55336722efb79a670e1a7d79b",
+      "artifact_sha256": {
+        "status.json": "853d7ae0031b7eba4928046fec19141f6fbdf8e3db8ddf770fdf8ff046d2e28f",
+        "runtime.json": "a51b50dde9b39ec3b5987fe15598f8449ff76ff1c5a53a1241125a49663f0ee9",
+        "spec.json": "fecaf6c9efabfafa7da600bfa3df48d287815221ec3093f8312470c92920bf1e",
+        "environment-audit.json": "8b0bae3ef7dc87ddaa4c27fe42781527f476bb553cf523d124b98d894bb78cd2",
+        "selection.json": "bd27cb158642f23697c88d7f2acf999ac7e7dc141b751fbe609adafff94b600f",
+        "selected-before-confirmation.json": "3d55883528a90c332e49c0dd68cf1bd4d2e0dbd8bf78afb3a81aaac6d0239b17",
+        "result.json": "5a12d1a868b0f5169348f74801705fbe960f32b18c8f090b18338a3508971a18",
+        "screen.json": "9c64eceea57a78a06ff00e7e55e19da232227306efff73089e2b2ea63d27522f",
+        "calibration.json": "ad5e253c5ff7dabc90764027f55e544d1cb20293f0010464786e8d32db8b7b1e",
+        "controls.json": "bb7104b12f4cfa096b64d372eb51fe15ad494e4e25a07b1d5a16af3ae2f00d5d",
+        "data-source.json": "fe71e3d27ad60db7713012b5d29bc0a1f1497b0215c75cb391e3e549c501ec12"
+      },
+      "environment": {
+        "source_commit": "7f28d4d99b69be775e281122b50683f31420dfa6",
+        "arc_mode": "dur",
+        "versions": {
+          "numpy": "2.3.5",
+          "scipy": "1.17.1",
+          "mujoco": "3.4.0",
+          "robosuite": "1.4.0",
+          "libero": "0.1.0",
+          "torch": "2.7.1",
+          "h5py": "3.16.0",
+          "numba": "0.63.1"
+        },
+        "codec_sha256": "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03",
+        "codec_sources": {
+          "egomimic/rldb/zarr/libero_arc.py": "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03",
+          "egomimic/rldb/zarr/planar_arc.py": "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1",
+          "egomimic/rldb/zarr/libero_arc_timed.py": "b15874a9bebc4101433a8d6b33618c06cff38b380743cf58cf477024855cfd2d"
+        }
+      },
+      "per_task": {
+        "KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet_and_put_the_black_bowl_on_top_of_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE10_put_the_black_bowl_in_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE10_put_the_butter_at_the_back_in_the_top_drawer_of_the_cabinet_and_close_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 9,
+            "lost_raw_successes": 5,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE10_put_the_butter_at_the_front_in_the_top_drawer_of_the_cabinet_and_close_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE10_put_the_chocolate_pudding_in_the_top_drawer_of_the_cabinet_and_close_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE1_open_the_bottom_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet_and_put_the_bowl_in_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE1_put_the_black_bowl_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE1_put_the_black_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE2_open_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE2_put_the_black_bowl_at_the_back_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE2_put_the_black_bowl_at_the_front_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE2_put_the_middle_black_bowl_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE2_put_the_middle_black_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE2_stack_the_black_bowl_at_the_front_on_the_black_bowl_in_the_middle": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE2_stack_the_middle_black_bowl_on_the_back_black_bowl": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE3_put_the_frying_pan_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE3_put_the_moka_pot_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE3_turn_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_frying_pan_on_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE4_put_the_black_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE4_put_the_wine_bottle_on_the_wine_rack": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_close_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_put_the_black_bowl_in_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_put_the_black_bowl_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_put_the_black_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE5_put_the_ketchup_in_the_top_drawer_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE6_close_the_microwave": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE6_put_the_yellow_and_white_mug_to_the_front_of_the_white_mug": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE7_open_the_microwave": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE7_put_the_white_bowl_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE7_put_the_white_bowl_to_the_right_of_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 4,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE8_turn_off_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_put_the_frying_pan_on_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "KITCHEN_SCENE9_put_the_frying_pan_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_put_the_frying_pan_under_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_put_the_white_bowl_on_top_of_the_cabinet": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_turn_on_the_stove": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "KITCHEN_SCENE9_turn_on_the_stove_and_put_the_frying_pan_on_it": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "LIVING_ROOM_SCENE1_pick_up_the_ketchup_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE1_pick_up_the_tomato_sauce_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_alphabet_soup_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_butter_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_milk_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_orange_juice_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 2
+          }
+        },
+        "LIVING_ROOM_SCENE2_pick_up_the_tomato_sauce_and_put_it_in_the_basket": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_alphabet_soup_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_butter_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_cream_cheese_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_ketchup_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE3_pick_up_the_tomato_sauce_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE4_pick_up_the_black_bowl_on_the_left_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE4_pick_up_the_chocolate_pudding_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE4_pick_up_the_salad_dressing_and_put_it_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE4_stack_the_left_bowl_on_the_right_bowl_and_place_them_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 2
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "LIVING_ROOM_SCENE4_stack_the_right_bowl_on_the_left_bowl_and_place_them_in_the_tray": {
+          "raw": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 4
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 6,
+            "lost_raw_successes": 8,
+            "gained_successes": 3
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 2
+          }
+        },
+        "LIVING_ROOM_SCENE5_put_the_red_mug_on_the_left_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE5_put_the_red_mug_on_the_right_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 6,
+            "lost_raw_successes": 8,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE5_put_the_yellow_and_white_mug_on_the_right_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_left_of_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE6_put_the_red_mug_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 2
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          }
+        },
+        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 3,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE1_pick_up_the_yellow_and_white_mug_and_place_it_to_the_right_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 4,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 10,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 3,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 12,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 5,
+            "lost_raw_successes": 7,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 11,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_red_mug_and_place_it_to_the_right_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 2,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE3_pick_up_the_white_mug_and_place_it_to_the_right_of_the_caddy": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE4_pick_up_the_book_in_the_middle_and_place_it_on_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 13,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE4_pick_up_the_book_on_the_left_and_place_it_on_top_of_the_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 1,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE4_pick_up_the_book_on_the_right_and_place_it_on_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        },
+        "STUDY_SCENE4_pick_up_the_book_on_the_right_and_place_it_under_the_cabinet_shelf": {
+          "raw": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "dur_R128_D1.6_M36": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          },
+          "previous_M16": {
+            "episodes": 15,
+            "successes": 15,
+            "lost_raw_successes": 0,
+            "gained_successes": 1
+          },
+          "dense": {
+            "episodes": 15,
+            "successes": 14,
+            "lost_raw_successes": 0,
+            "gained_successes": 0
+          }
+        }
+      }
     }
-  ]
+  ],
+  "cross_mode_pairing": {
+    "kind": "cross_mode_demonstration_replay_pairing",
+    "verified_episode_pairs": 1950,
+    "suites": {
+      "libero_spatial": {
+        "episode_pairs": 150,
+        "identical_recorded_inputs": true,
+        "paired_input_inventory_sha256": "ba34e825cb24dccf872542d5e3bb9307da937c34c813b032fc90b4d167afb37c",
+        "raw_outcome_disagreements": {
+          "raw_success_equal": 0,
+          "raw_final_success_equal": 0,
+          "raw_first_success_step_equal": 0
+        }
+      },
+      "libero_object": {
+        "episode_pairs": 150,
+        "identical_recorded_inputs": true,
+        "paired_input_inventory_sha256": "4dd2535aed1087ad0bc40dab18a18143f15ebccd837026c2b33836f4eaea085b",
+        "raw_outcome_disagreements": {
+          "raw_success_equal": 0,
+          "raw_final_success_equal": 0,
+          "raw_first_success_step_equal": 0
+        }
+      },
+      "libero_goal": {
+        "episode_pairs": 150,
+        "identical_recorded_inputs": true,
+        "paired_input_inventory_sha256": "71f8ed18827ee6e45223024c636806eb520e45faa4a85fa91ebf11263382e179",
+        "raw_outcome_disagreements": {
+          "raw_success_equal": 0,
+          "raw_final_success_equal": 0,
+          "raw_first_success_step_equal": 0
+        }
+      },
+      "libero_10": {
+        "episode_pairs": 150,
+        "identical_recorded_inputs": true,
+        "paired_input_inventory_sha256": "30aacd7492866bc0df99d74789117f65971a74b15f32c1064a828cc21b745b05",
+        "raw_outcome_disagreements": {
+          "raw_success_equal": 0,
+          "raw_final_success_equal": 0,
+          "raw_first_success_step_equal": 0
+        }
+      },
+      "libero_90": {
+        "episode_pairs": 1350,
+        "identical_recorded_inputs": true,
+        "paired_input_inventory_sha256": "44737e5b57cb5479b2a05f521137e518392160776f3e792d30676aa8571bf405",
+        "raw_outcome_disagreements": {
+          "raw_success_equal": 0,
+          "raw_final_success_equal": 0,
+          "raw_first_success_step_equal": 0
+        }
+      }
+    }
+  }
 }

@@ -5,7 +5,8 @@ reconstructed demonstration commands through the pinned LIBERO simulator; its
 success rates are **not trained-policy benchmark scores**.
 
 The dated [STK/DUR results and support-count curves](results/libero_arc_timed_replay_20260921.md)
-record completed searches, pending suites, and independently audited evidence.
+record all ten completed searches, selected R/D/M, and independently audited
+evidence, including 3,900 final episode records across all five suites.
 
 ## STK and DUR comparison
 

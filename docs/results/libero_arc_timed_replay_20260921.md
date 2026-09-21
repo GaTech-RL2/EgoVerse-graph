@@ -1,6 +1,6 @@
 # LIBERO STK and DUR replay — 21 September 2026
 
-**8/10 mode/suite searches complete.** These are demonstration-codec replay
+**10/10 mode/suite searches complete.** These are demonstration-codec replay
 results, not trained-policy benchmark scores. Each mode uses its own frozen
 validation choice; final episodes never retune R/D/M.
 
@@ -14,8 +14,8 @@ validation choice; final episodes never retune R/D/M.
 | Goal | dur | 192 | 1.6 | 36 | 77 / 79 (n=80) | 135 / 143 (n=150) | -5.33 |
 | LIBERO-10 | stk | 128 | 1.6 | 32 | 61 / 67 (n=80) | 108 / 125 (n=150) | -11.33 |
 | LIBERO-10 | dur | 192 | 0.8 | 32 | 61 / 67 (n=80) | 113 / 125 (n=150) | -8.00 |
-| LIBERO-90 | stk | pending | pending | pending | pending | pending | pending |
-| LIBERO-90 | dur | pending | pending | pending | pending | pending | pending |
+| LIBERO-90 | stk | 128 | 0.8 | 36 | 657 / 678 (n=720) | 1223 / 1265 (n=1350) | -3.11 |
+| LIBERO-90 | dur | 128 | 1.6 | 36 | 670 / 678 (n=720) | 1231 / 1265 (n=1350) | -2.52 |
 
 R caps accumulated rotation; D caps accumulated translation. STK stores
 interval velocities, while DUR stores interval seconds. Both have separate
@@ -46,12 +46,17 @@ can still change outcomes after tiny numerical differences. The JSON also
 reports source-precision raw, dense joint-clock, dense native-mode, and
 uncapped M=16 controls, plus each raw success lost and gained.
 
-Audited episode records: 160 calibration, 640 selection, and 1200 final.
+Audited episode records: 520 calibration, 2080 selection, and 3900 final.
 The audit checks SHA-256 metadata, exact task/demo inventories, recomputes
 all split summaries from episode records, rebuilds the calibration shortlist
 and selection ranking, and verifies that the frozen choice did not change.
 The accompanying JSON records artifact and inventory hashes, codec source
 hashes, environment versions, per-task outcomes, and each R2 run ID.
+All 1,950 STK/DUR pairs have identical saved states, model XML, and
+original/training action bytes. Raw success, final success, and the first
+success step agree for every pair; the JSON records the pairing audit.
+Four legacy LIBERO-90 tasks use the recorded-asset BDDL binding described
+in the protocol; their saved geometry and logical task goals are preserved.
 
 Artifacts are under
 `s3://rldb/experiments/arc-oat-20260919/<run_id>/`.

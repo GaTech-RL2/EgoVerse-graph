@@ -1,0 +1,37 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+  - _self_
+
+name: action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_deterministic_s42
+description: "Historical H384 Action Flow recipe with deterministic legacy-compatible data replacement"
+
+trainer:
+  deterministic: true
+
+data:
+  seed: ${seed}
+  train_datasets:
+    pushshapes_sim_u_socket:
+      bounds_check: true
+      bounds_semantics: legacy_full_vector
+      fallback_policy: deterministic_hash
+      fallback_seed: ${seed}
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      bounds_check: true
+      bounds_semantics: legacy_full_vector
+      fallback_policy: deterministic_hash
+      fallback_seed: ${seed}
+
+run_provenance:
+  reproducibility:
+    schema_version: 1
+    bounds_check: true
+    bounds_semantics: legacy_full_vector
+    fallback_policy: deterministic_hash
+    fallback_seed: ${seed}
+    loader_generator: sha256_source_scoped_v1
+    loader_generator_checkpoint_state: true
+    lightning_deterministic_algorithms: true
+    validation_noise_bank: immutable_energy_score_seed_bank_k32_v1

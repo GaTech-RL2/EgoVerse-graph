@@ -1,5 +1,7 @@
+import hashlib
 import logging
 
+import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from torch.utils.data import DataLoader, default_collate
@@ -109,6 +111,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
+        seed: int = 42,
     ):
         """
         Args:
@@ -146,7 +149,48 @@ class MultiDataModuleWrapper(LightningDataModule):
         )
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
+        self.seed = int(seed)
+        self._loader_generators = {}
+        self._restored_generator_states = {}
         self.collate_fn = annotation_collate
+
+    def _loader_generator(self, split: str, dataset_name: str) -> torch.Generator:
+        key = f"{split}:{dataset_name}"
+        if key in self._loader_generators:
+            return self._loader_generators[key]
+        generator = torch.Generator(device="cpu")
+        restored = self._restored_generator_states.pop(key, None)
+        if restored is not None:
+            generator.set_state(restored.cpu())
+        else:
+            digest = hashlib.sha256(
+                f"egomimic-loader-v1:{self.seed}:{key}".encode("utf-8")
+            ).digest()
+            generator.manual_seed(
+                int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
+            )
+        self._loader_generators[key] = generator
+        return generator
+
+    def state_dict(self):
+        return {
+            "schema_version": 1,
+            "seed": self.seed,
+            "generator_states": {
+                key: generator.get_state().clone()
+                for key, generator in self._loader_generators.items()
+            },
+        }
+
+    def load_state_dict(self, state_dict):
+        if int(state_dict.get("schema_version", 0)) != 1:
+            raise ValueError("unsupported dataloader RNG checkpoint schema")
+        if int(state_dict.get("seed", self.seed)) != self.seed:
+            raise ValueError("dataloader RNG checkpoint seed differs from config")
+        self._restored_generator_states = {
+            str(key): value.clone().cpu()
+            for key, value in state_dict.get("generator_states", {}).items()
+        }
 
     def iter_valid_datasets(self):
         """Yield ``(group, source, dataset)`` for EVERY val dataset.
@@ -183,6 +227,7 @@ class MultiDataModuleWrapper(LightningDataModule):
                 iterables[dataset_name] = DataLoader(
                     dataset,
                     sampler=sampler,
+                    generator=self._loader_generator("train", dataset_name),
                     collate_fn=self.collate_fn,
                     **dataset_params,
                 )
@@ -190,6 +235,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=True,
+                generator=self._loader_generator("train", dataset_name),
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )
@@ -210,6 +256,9 @@ class MultiDataModuleWrapper(LightningDataModule):
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=shuffle,
+                generator=self._loader_generator(
+                    f"valid:{group_name}", dataset_name
+                ),
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )

@@ -231,6 +231,8 @@ def method_stage_targets(method: str) -> tuple[str, ...]:
 def method_wrapper_target(method: str) -> str:
     if method == LIKELIHOOD_METHOD:
         return "egomimic.pl_utils.pl_model_action_flow_likelihood.ActionFlowLikelihoodModelWrapper"
+    if method == STOPGRAD_UNITE_METHOD:
+        return "egomimic.pl_utils.pl_model.ModelWrapper"
     return "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper"
 
 
@@ -244,6 +246,17 @@ def validate_method_contract(config: DictConfig, experiment: str | None = None) 
         method_stage_targets(method),
         "stage topology",
     )
+    if method == STOPGRAD_UNITE_METHOD:
+        _exact(
+            str(config.model.training_behavior._target_),
+            "egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior",
+            "Action Flow training behavior",
+        )
+        _exact(
+            str(config.model.diagnostic_provider._target_),
+            "egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider",
+            "Action Flow diagnostic provider",
+        )
     if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD}:
         field_index = 6 if method == STOPGRAD_UNITE_METHOD else 5
         _exact(

@@ -129,3 +129,71 @@ def test_lightning_checkpoint_resume_preserves_optimizer_and_flow_rng(tmp_path):
     resumed = fit(tmp_path / "resumed", 4, str(checkpoint), 2)
     for key in expected:
         torch.testing.assert_close(expected[key], resumed[key], rtol=0, atol=0)
+
+
+@pytest.fixture
+def checkpoint_writer(tmp_path):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from omegaconf import OmegaConf
+    from egomimic.trainRL import RLReceipts
+    from egomimic.utils.experiment_artifacts import ArtifactWriter
+
+    class Remote:
+        def __init__(self):
+            self.objects = {}
+
+        def upload_file(self, filename, bucket, key, ExtraArgs):
+            self.objects[key] = {"body": Path(filename).read_bytes(),
+                                 "Metadata": dict(ExtraArgs["Metadata"])}
+
+        def head_object(self, Bucket, Key):
+            item = self.objects[Key]
+            return {"ContentLength": len(item["body"]), "Metadata": item["Metadata"]}
+
+    writer = ArtifactWriter(tmp_path)
+    writer.bucket, writer.prefix, writer.client = "test", "owned-run", Remote()
+    cfg = OmegaConf.create({"local_checkpoint_keep": 2})
+    callback = RLReceipts(cfg, SimpleNamespace(start_step=0), writer)
+
+    def save(step):
+        callback.checkpoint(SimpleNamespace(global_step=step,
+            save_checkpoint=lambda path: path.write_bytes(f"checkpoint {step}".encode())))
+
+    return writer, save
+
+
+@pytest.mark.parametrize("remote", [True, False])
+def test_checkpoint_retention_preserves_durable_and_preexisting_files(checkpoint_writer, tmp_path, remote):
+    writer, save = checkpoint_writer
+    if not remote:
+        writer.client = None
+    preexisting = tmp_path / "checkpoints/step-000000000.ckpt"
+    preexisting.parent.mkdir()
+    preexisting.write_bytes(b"pre-existing work")
+    for step in range(1, 5):
+        save(step)
+    assert preexisting.read_bytes() == b"pre-existing work"
+    kept = {path.name for path in preexisting.parent.glob("*.ckpt")}
+    assert kept == {f"step-{step:09d}.ckpt" for step in ([0, 3, 4] if remote else range(5))}
+    if remote:
+        assert all(f"owned-run/checkpoints/step-{step:09d}.ckpt" in writer.client.objects
+                   for step in range(1, 5))
+
+
+@pytest.mark.parametrize("damage", ["local", "remote_hash", "remote_size"])
+def test_checkpoint_retention_refuses_unverified_copy(checkpoint_writer, tmp_path, damage):
+    writer, save = checkpoint_writer
+    save(1)
+    save(2)
+    previous = tmp_path / "checkpoints/step-000000001.ckpt"
+    remote = writer.client.objects["owned-run/checkpoints/step-000000001.ckpt"]
+    if damage == "local":
+        previous.write_bytes(b"modified work")
+    elif damage == "remote_hash":
+        remote["Metadata"]["sha256"] = "wrong"
+    else:
+        remote["body"] = b"truncated"
+    with pytest.raises(RuntimeError, match="verified durable copy"):
+        save(3)
+    assert previous.exists()

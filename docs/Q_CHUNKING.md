@@ -79,6 +79,10 @@ action traces, and a small fixed set of preview videos support paired analysis.
 This DQC protocol does not reuse PushShapes-specific M/2 or D/2 replanning.
 
 Checkpoints contain optimizer state, replay update alignment, and Torch RNG.
+Every checkpoint remains in durable artifact storage. With remote storage
+enabled, `local_checkpoint_keep` bounds only the scratch copies created by the
+current process, after rechecking the local hash and remote hash/size. Local-only
+runs and pre-existing files are retained.
 Replay sampling is derived from (training seed, update), and shard replacement
 occurs every 1000 updates. Outputs include resolved config, environment-bound
 normalizer metadata, data hashes, compute runtime, checkpoints, and scores.

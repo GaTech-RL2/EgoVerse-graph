@@ -34,6 +34,7 @@ class RLReceipts(Callback):
         self.start_time, self.start_step = time.monotonic(), replay.start_step
         self.resume_rng = None
         self.evaluated_steps = set()
+        self.local_checkpoints = []
 
     def on_save_checkpoint(self, trainer, module, checkpoint):
         checkpoint["replay_next_update"] = trainer.global_step
@@ -56,6 +57,20 @@ class RLReceipts(Callback):
         trainer.save_checkpoint(path)
         receipt = self.writer.publish(path)
         self.writer.json("latest-checkpoint.json", {"step": step, **receipt})
+        self.local_checkpoints.append((path, receipt))
+        keep = int(self.cfg.get("local_checkpoint_keep", 2))
+        if self.writer.client and keep > 0:
+            # These are only scratch files this callback created and uploaded.
+            # Keep every remote checkpoint and leave pre-existing files alone.
+            for previous, published in self.local_checkpoints[:-keep]:
+                key = self.writer.prefix + "/" + str(previous.relative_to(self.writer.directory))
+                remote = self.writer.client.head_object(Bucket=self.writer.bucket, Key=key)
+                if (previous.is_symlink() or sha256_file(previous) != published["sha256"]
+                        or remote["ContentLength"] != published["bytes"]
+                        or remote.get("Metadata", {}).get("sha256") != published["sha256"]):
+                    raise RuntimeError("refusing to evict a checkpoint without its verified durable copy")
+                previous.unlink()
+            self.local_checkpoints = self.local_checkpoints[-keep:]
 
     def on_train_batch_end(self, trainer, module, outputs, batch, batch_idx):
         step = trainer.global_step

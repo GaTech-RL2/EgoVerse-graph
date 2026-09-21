@@ -119,6 +119,8 @@ def test_arc_policy_uses_shared_training_graph_and_can_infer_without_targets(
     policy, _ = load_policy(tmp_path / "arc/checkpoints/last.ckpt", device="cpu")
     assert policy.algo.pipeline.stages[1].arc_mode == arc_mode
     assert policy.algo.pipeline.stages[-1].arc_mode == arc_mode
+    assert policy.algo.pipeline.stages[1].velocity_norm_bound == pytest.approx(3**0.5)
+    assert policy.algo.pipeline.stages[-1].velocity_norm_bound == pytest.approx(3**0.5)
     dataset = objects["datamodule"].train_datasets["libero_panda"]
     values = dataset[0]
     values.pop("actions")

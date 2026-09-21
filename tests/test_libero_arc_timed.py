@@ -191,3 +191,26 @@ def test_mode_specific_replay_grid_and_policy_shape(mode):
     decoded, metrics = reconstruct_episode(actions, candidate, spec)
     np.testing.assert_allclose(decoded, actions, atol=3e-6)
     assert metrics["execution_coverage"] == pytest.approx(1)
+
+
+def test_velocity_targets_fit_diffusion_clipping_for_diagonal_osc_commands():
+    import torch
+
+    from egomimic.pipeline.stages_libero_arc import LiberoArcStage
+
+    actions = torch.ones(1, 32, 7)
+    stage = LiberoArcStage(
+        arc_mode="stk", num_waypoints=33, velocity_norm_bound=np.sqrt(3)
+    )
+    tokens = stage.execute({"actions": actions}, mode="train")["target"]
+    assert float(tokens.abs().max()) <= 1 + 1e-6
+    # Clipping to the scheduler's [-1,1] range must retain all legal diagonal
+    # speeds. A per-component scale instead clips these magnitudes by sqrt(3).
+    decoder = LiberoArcStage(
+        arc_mode="stk",
+        num_waypoints=33,
+        operation="decode",
+        velocity_norm_bound=np.sqrt(3),
+    )
+    decoded = decoder.execute({"pred_arc": tokens.clamp(-1, 1)}, mode="inference")
+    torch.testing.assert_close(decoded["pred_action"], actions, atol=5e-6, rtol=5e-6)

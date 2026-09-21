@@ -576,6 +576,10 @@ def load_arc_calibration(client, source_run, evidence, *, suite, arc_mode="joint
     }
     if arc_mode != "joint_dur":
         overrides.update(arc_mode=arc_mode, arc_action_dim=12)
+    if arc_mode == "stk":
+        # Three componentwise [-1,1] controller commands have magnitude <=sqrt(3).
+        # Include this in resume compatibility checks as well as the saved config.
+        overrides["arc_velocity_norm_bound"] = 3**0.5
     write_json(
         evidence
         / (

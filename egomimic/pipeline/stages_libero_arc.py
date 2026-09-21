@@ -19,6 +19,7 @@ class LiberoArcStage(Stage):
         reconstruction=False,
         operation="encode",
         arc_mode="joint_dur",
+        velocity_norm_bound=1.0,
         **codec_kwargs,
     ):
         super().__init__()
@@ -26,6 +27,11 @@ class LiberoArcStage(Stage):
             make_libero_arc_codec(arc_mode, **codec_kwargs) if codec is None else codec
         )
         self.arc_mode = getattr(self.codec, "mode", "joint_dur")
+        # The config records the rate scale so checkpoints retain their units.
+        # Legacy checkpoints omit this argument and retain their original scale.
+        self.velocity_norm_bound = float(velocity_norm_bound)
+        if not np.isfinite(self.velocity_norm_bound) or self.velocity_norm_bound <= 0:
+            raise ValueError("Velocity normalization bound must be finite and positive")
         self.reconstruction = reconstruction
         if operation not in {"encode", "decode"}:
             raise ValueError("operation must be encode or decode")
@@ -54,8 +60,12 @@ class LiberoArcStage(Stage):
         elif self.arc_mode == "dur":
             scale[[3, 10]] = self.codec.dt * self.codec.horizon
         else:
-            scale[3] = self.codec.translation_scale / self.codec.dt
-            scale[10] = self.codec.rotation_scale / self.codec.dt
+            scale[3] = (
+                self.velocity_norm_bound * self.codec.translation_scale / self.codec.dt
+            )
+            scale[10] = (
+                self.velocity_norm_bound * self.codec.rotation_scale / self.codec.dt
+            )
         return scale
 
     def execute(self, batch, *, mode):

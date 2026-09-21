@@ -51,6 +51,11 @@ def test_cluster_arguments_compose_native_graph(mode, method, tmp_path):
         assert cfg.benchmark.arc_action_dim == 12
         stages = cfg.model.pipeline.stages
         assert stages[1].arc_mode == stages[-1].arc_mode == mode
+        assert (
+            stages[1].velocity_norm_bound
+            == stages[-1].velocity_norm_bound
+            == pytest.approx(3**0.5)
+        )
         assert stages[2].action_dim == stages[3].policy.model.input_dim == 12
 
 
@@ -680,6 +685,8 @@ def test_arc_training_requires_matching_confirmed_replay(
         }
         if arc_mode != "joint_dur":
             expected.update(arc_mode=arc_mode, arc_action_dim=12)
+        if arc_mode == "stk":
+            expected["arc_velocity_norm_bound"] = 3**0.5
         assert overrides == expected
         receipt = (
             "arc-calibration.json"

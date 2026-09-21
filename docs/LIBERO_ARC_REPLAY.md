@@ -16,6 +16,12 @@ rotation timing, and gripper. D caps translation alone; R caps rotation alone.
 Gripper follows the translation clock and is held as a discrete OSC command.
 Velocity timing uses m/s and rad/s; duration timing uses seconds.
 
+STK policy targets divide rate magnitudes by the three-axis OSC bound
+`sqrt(3) * controller_scale / dt`, so valid diagonal commands fit the diffusion
+sampler's [-1,1] clipping range. The bound is recorded in the Hydra config and
+restored with the checkpoint. It does not change the native replay codec or
+the R/D/M selection. Older checkpoints without that field retain their scale.
+
 [STK](../egomimic/hydra_configs/benchmark/libero_arc_replay_stk.yaml) and
 [DUR](../egomimic/hydra_configs/benchmark/libero_arc_replay_dur.yaml) each test
 the 336-candidate grid below on all five suites, with calibration demos 0–1,

@@ -12,6 +12,7 @@ pipeline:
     - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
       operation: encode
       arc_mode: ${benchmark.arc_mode}
+      velocity_norm_bound: ${benchmark.arc_velocity_norm_bound}
       num_waypoints: ${benchmark.arc_waypoints}
       horizon: ${benchmark.horizon}
       max_translation: ${benchmark.arc_max_translation}
@@ -46,6 +47,7 @@ pipeline:
     - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
       operation: decode
       arc_mode: ${benchmark.arc_mode}
+      velocity_norm_bound: ${benchmark.arc_velocity_norm_bound}
       num_waypoints: ${benchmark.arc_waypoints}
       horizon: ${benchmark.horizon}
       max_translation: ${benchmark.arc_max_translation}

@@ -40,6 +40,37 @@ def test_rotation_budget_does_not_shorten_translation_or_grip(mode):
     np.testing.assert_allclose(decoded[4:, 5], 0, atol=3e-6)
 
 
+@pytest.mark.parametrize("mode", ["stk", "dur"])
+def test_noncommuting_rotations_use_world_frame_osc_convention(mode):
+    # Equal angular increments make the uniform arc supports coincide with
+    # control frames; changing axes detects reversed composition conventions.
+    actions = np.zeros((16, 7))
+    actions[:, 0] = 0.1
+    for index in range(16):
+        actions[index, 3 + index % 3] = 0.2
+    actions[:, 6] = -1
+    actions[8:, 6] = 1
+    codec = LiberoArcTimedCodec(mode=mode, horizon=16, num_waypoints=17)
+    np.testing.assert_allclose(codec.decode(codec.encode(actions)), actions, atol=3e-6)
+
+
+@pytest.mark.parametrize("mode", ["stk", "dur"])
+def test_each_budget_preserves_its_fractional_final_command(mode):
+    actions = np.zeros((32, 7))
+    actions[:, 0] = 0.2
+    actions[:, 5] = np.deg2rad(3) / 0.5
+    codec = LiberoArcTimedCodec(
+        mode=mode, num_waypoints=16, max_translation=0.055, max_rotation_degrees=13.5
+    )
+    decoded = codec.decode(codec.encode(actions))
+    np.testing.assert_allclose(decoded[:5, 0], 0.2, atol=3e-6)
+    assert decoded[5, 0] == pytest.approx(0.1, abs=3e-6)
+    np.testing.assert_allclose(decoded[6:, 0], 0, atol=3e-6)
+    np.testing.assert_allclose(decoded[:4, 5], actions[:4, 5], atol=3e-6)
+    assert decoded[4, 5] == pytest.approx(actions[4, 5] / 2, abs=3e-6)
+    np.testing.assert_allclose(decoded[5:, 5], 0, atol=3e-6)
+
+
 def test_duration_preserves_independent_stop_and_go_intervals():
     actions = np.zeros((32, 7))
     actions[:, 6] = -1

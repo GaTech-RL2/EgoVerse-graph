@@ -39,8 +39,16 @@ domains:
       rotation: null
       action_scale: null
     calibration_grid:
-      distance: [4.0, 8.0, 16.0, 32.0]
+      native_horizon: [5, 10, 15, 20, 25]
+      waypoints: [4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 19, 20, 24]
+      distance: [8.0, 12.0, 16.0, 24.0, 32.0, 48.0, 64.0, 96.0]
       rotation: [null]
+    # Follow-up after compressed grids failed: preserve action/physics fidelity
+    # and allow expansion as a negative control, reporting its scalar cost.
+    # This must not be reported as a compression-gate success.
+    calibration_gates:
+      scalar_compression_ratio: 0.0
+    calibration_label: fidelity_only_arc_control_after_compression_failure
   puzzle-4x5:
     env_name: puzzle-4x5-play-oraclerep-v0
     dataset: puzzle-4x5-play-v0

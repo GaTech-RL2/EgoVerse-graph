@@ -29,9 +29,26 @@ def download_verified(url, path, expected_sha256=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
         temporary = path.with_suffix(path.suffix + ".partial")
-        with urllib.request.urlopen(url, timeout=120) as response, temporary.open("wb") as out:
-            while block := response.read(8 * 1024 * 1024):
-                out.write(block)
+        if url.startswith("s3://"):
+            import boto3
+            import os
+            from botocore.config import Config
+            bucket, key = url.removeprefix("s3://").split("/", 1)
+            client = boto3.client("s3", endpoint_url=os.environ.get("R2_ENDPOINT_URL"),
+                aws_access_key_id=os.environ.get("R2_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.environ.get("R2_SECRET_ACCESS_KEY"),
+                region_name="auto", config=Config(retries={"max_attempts": 8}))
+            head = client.head_object(Bucket=bucket, Key=key)
+            expected_sha256 = expected_sha256 or head["Metadata"].get("sha256")
+            if not expected_sha256:
+                raise ValueError("S3 replay shards require a recorded SHA-256")
+            client.download_file(bucket, key, str(temporary))
+        else:
+            with urllib.request.urlopen(url, timeout=120) as response, temporary.open("wb") as out:
+                while block := response.read(8 * 1024 * 1024):
+                    out.write(block)
+        if expected_sha256 and sha256_file(temporary) != expected_sha256:
+            raise ValueError(f"downloaded dataset hash mismatch: {path}")
         temporary.replace(path)
     digest = sha256_file(path)
     if expected_sha256 and digest != expected_sha256:
@@ -67,8 +84,11 @@ class GoalReplay:
             random_goals = rng.choice(self.valid_indices, size=len(idx))
             distance = rng.rand(len(idx))
             future = np.round(np.minimum(idx + 1, ends) * distance + ends * (1 - distance)).astype(int)
-            goals = np.where(rng.rand(len(idx)) < self.p_future / (1 - self.p_current), future, random_goals)
-            goals = np.where(rng.rand(len(idx)) < self.p_current, idx, goals)
+            if self.p_current == 1:
+                goals = idx.copy()
+            else:
+                goals = np.where(rng.rand(len(idx)) < self.p_future / (1 - self.p_current), future, random_goals)
+                goals = np.where(rng.rand(len(idx)) < self.p_current, idx, goals)
         else:
             goals = np.asarray(goal_indices, dtype=np.int64)
         offsets = goals - idx

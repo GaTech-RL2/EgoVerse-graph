@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import hashlib
 from pathlib import Path
 
 import hydra
@@ -24,10 +25,10 @@ def _restore(env, raw, index, seed):
     env.reset(seed=seed)
     base = env.unwrapped
     if "button_states" in raw:
-        base._cur_button_states = raw["button_states"][index].copy()
-        if hasattr(base, "_prev_button_states"):
-            base._prev_button_states = base._cur_button_states.copy()
-    base.set_state(raw["qpos"][index].copy(), raw["qvel"][index].copy())
+        base.set_state(raw["qpos"][index].copy(), raw["qvel"][index].copy(),
+                       raw["button_states"][index].copy())
+    else:
+        base.set_state(raw["qpos"][index].copy(), raw["qvel"][index].copy())
 
 
 def physics_replay(env, raw, indices, original, decoded, lengths, preview_dir=None):
@@ -105,14 +106,23 @@ def calibrate(cfg):
     output.mkdir(parents=True, exist_ok=True)
     env = ogbench.make_env_and_datasets(cfg.env_name, env_only=True, terminate_at_goal=False)
     selected = None
+    physics_cache = {}
     try:
-        for row in eligible[:cfg.physics_candidates]:
+        for row in eligible:
             codec = hydra.utils.instantiate(row["codec"])
             count = min(cfg.physics_windows, len(actions))
             latent, lengths = codec.encode(actions[:count])
             recovered, _ = codec.decode(latent)
-            physics = physics_replay(env, raw, indices[:count], actions[:count].numpy(),
-                                      recovered.numpy(), lengths.numpy())
+            fingerprint = hashlib.sha256(lengths.numpy().tobytes())
+            for index, length in enumerate(lengths):
+                fingerprint.update(np.round(recovered[index, :int(length)].numpy(), 5).tobytes())
+            key = fingerprint.hexdigest()
+            if key not in physics_cache:
+                if len(physics_cache) >= cfg.physics_candidates:
+                    break
+                physics_cache[key] = physics_replay(env, raw, indices[:count], actions[:count].numpy(),
+                                                   recovered.numpy(), lengths.numpy())
+            physics = physics_cache[key]
             row["physics"] = physics
             if physics["qpos_rmse_p90"] <= cfg.gates.qpos_rmse_p90:
                 selected = row
@@ -122,6 +132,7 @@ def calibrate(cfg):
     finally:
         env.close()
     report = {"status": "PASS" if selected else "NO_CANDIDATE_PASSED",
+              "compression_achieved": bool(selected and selected["scalar_compression_ratio"] > 1),
               "env_name": cfg.env_name, "source_validation_sha256": sha256_file(cfg.validation_path),
               "calibration_config": OmegaConf.to_container(cfg, resolve=True),
               "sample_indices": indices.tolist(), "selected": selected, "candidates": candidates,

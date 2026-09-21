@@ -30,6 +30,22 @@ def client():
 
 def run_shard(work):
     cfg, seed = work
+    s3 = client()
+    receipt_key = cfg["prefix"].rstrip("/") + f"/receipts/{seed:03d}.json"
+    try:
+        receipt = json.loads(s3.get_object(Bucket=cfg["bucket"], Key=receipt_key)["Body"].read())
+    except s3.exceptions.ClientError as error:
+        if error.response["Error"]["Code"] not in {"404", "NoSuchKey"}:
+            raise
+    else:
+        if receipt["generator_sha256"] != cfg["generator_sha256"]:
+            raise RuntimeError("existing shard was produced by a different generator")
+        for item in receipt["artifacts"]:
+            key = item["uri"].split("/", 3)[3]
+            head = s3.head_object(Bucket=cfg["bucket"], Key=key)
+            assert head["Metadata"]["sha256"] == item["sha256"]
+            assert head["ContentLength"] == item["bytes"]
+        return receipt
     import gymnasium
     import numpy as np
     from absl import flags
@@ -70,10 +86,17 @@ def run_shard(work):
         gymnasium.make = original_make
         # Each process runs one shard (max_tasks_per_child=1), keeping absl flags
         # and MuJoCo state isolated rather than redefining them for later seeds.
-    s3 = client()
     receipts = []
     for data_path in [path, path.with_name(path.stem + "-val.npz")]:
         sha = hashlib.sha256(data_path.read_bytes()).hexdigest()
+        arrays = np.load(data_path)
+        semantic = hashlib.sha256()
+        for field in sorted(arrays.files):
+            array = arrays[field]
+            semantic.update(field.encode())
+            semantic.update(str((array.shape, array.dtype.str)).encode())
+            semantic.update(array.tobytes())
+        semantic_sha = semantic.hexdigest()
         key = cfg["prefix"].rstrip("/") + "/" + data_path.name
         # Unique campaign prefixes; completed shards are immutable.
         try:
@@ -82,17 +105,19 @@ def run_shard(work):
             if error.response["Error"]["Code"] not in {"404", "NoSuchKey"}:
                 raise
             existing = None
-        if existing and existing.get("Metadata", {}).get("sha256") != sha:
+        if existing and existing.get("Metadata", {}).get("array_sha256") != semantic_sha:
             raise RuntimeError("refusing to replace a different existing shard")
         if not existing:
-            s3.upload_file(str(data_path), cfg["bucket"], key, ExtraArgs={"Metadata": {"sha256": sha}})
-        arrays = np.load(data_path)
-        receipts.append({"uri": f"s3://{cfg['bucket']}/{key}", "sha256": sha,
+            s3.upload_file(str(data_path), cfg["bucket"], key,
+                ExtraArgs={"Metadata": {"sha256": sha, "array_sha256": semantic_sha}})
+        head = s3.head_object(Bucket=cfg["bucket"], Key=key)
+        assert head["Metadata"]["array_sha256"] == semantic_sha
+        receipts.append({"uri": f"s3://{cfg['bucket']}/{key}", "sha256": head["Metadata"]["sha256"],
+                         "array_sha256": semantic_sha,
                          "rows": int(len(arrays["actions"])),
-                         "episodes": int(arrays["terminals"].sum()), "bytes": data_path.stat().st_size})
+                         "episodes": int(arrays["terminals"].sum()), "bytes": head["ContentLength"]})
     report = {"seed": seed, "generator_sha256": cfg["generator_sha256"], "artifacts": receipts}
-    key = cfg["prefix"].rstrip("/") + f"/receipts/{seed:03d}.json"
-    s3.put_object(Bucket=cfg["bucket"], Key=key, Body=json.dumps(report).encode())
+    s3.put_object(Bucket=cfg["bucket"], Key=receipt_key, Body=json.dumps(report).encode())
     print(json.dumps(report), flush=True)
     # Remove only this worker's uploaded scratch files, never source datasets.
     for data_path in [path, path.with_name(path.stem + "-val.npz")]:

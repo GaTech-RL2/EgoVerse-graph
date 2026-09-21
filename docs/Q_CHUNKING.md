@@ -63,6 +63,11 @@ goal success. Selection must pass the preregistered gates and never uses
 learned-policy evaluation. Report the best passing **tested** configuration,
 not a globally optimal setting.
 
+The initial and expanded humanoid sweeps failed the 1.25x compression gate.
+A separately labeled follow-up permits expansion while keeping the same
+action and physics fidelity thresholds. Its scalar cost is reported. Such a
+selection is an ARC representation control, not successful compression.
+
 `eval/goal_rollout.py` evaluates graph outputs under the environment's original
 termination/time limits, starting decoded execution at action zero. It executes
 the complete represented chunk. Shared reset seeds, raw per-rollout results,

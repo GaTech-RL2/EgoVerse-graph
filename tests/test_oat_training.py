@@ -93,15 +93,21 @@ def test_shared_training_tokenizer_then_policy_reload_and_resume(tmp_path, preci
 
 
 @pytest.mark.parametrize("precision", ["32-true", "bf16-mixed"])
+@pytest.mark.parametrize("arc_mode", ["joint_dur", "dur", "stk"])
 def test_arc_policy_uses_shared_training_graph_and_can_infer_without_targets(
-    tmp_path, precision
+    tmp_path, precision, arc_mode
 ):
     from egomimic.benchmarks.libero.rollout import load_policy
     from egomimic.trainHydra import _load_eval_checkpoint, train
 
     path = tmp_path / "replay.zarr"
     make_replay(path)
-    cfg = config_for("libero_arc_policy", path, tmp_path / "arc")
+    experiment = (
+        "libero_arc_policy"
+        if arc_mode == "joint_dur"
+        else f"libero_arc_{arc_mode}_policy"
+    )
+    cfg = config_for(experiment, path, tmp_path / "arc")
     cfg.trainer.precision = precision
     cfg.benchmark.arc_waypoints = 8
     denoiser = cfg.model.pipeline.stages[3]
@@ -111,6 +117,8 @@ def test_arc_policy_uses_shared_training_graph_and_can_infer_without_targets(
     _, objects = train(cfg)
     assert objects["trainer"].global_step == 2
     policy, _ = load_policy(tmp_path / "arc/checkpoints/last.ckpt", device="cpu")
+    assert policy.algo.pipeline.stages[1].arc_mode == arc_mode
+    assert policy.algo.pipeline.stages[-1].arc_mode == arc_mode
     dataset = objects["datamodule"].train_datasets["libero_panda"]
     values = dataset[0]
     values.pop("actions")

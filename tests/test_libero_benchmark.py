@@ -191,6 +191,20 @@ def test_rollouts_stop_inside_chunk_and_compare_all_expected_records(tmp_path):
     result = compare_runs(tmp_path / "arc", tmp_path / "oat", require_full=False)
     assert result["paired_success_difference"] == 0
     assert result["arc"]["mean_success_rate"] == 1
+    protocol_file = tmp_path / "arc/protocol.json"
+    protocol = json.loads(protocol_file.read_text())
+    protocol["representation"] = {"mode": "stk"}
+    protocol_file.write_text(json.dumps(protocol))
+    with pytest.raises(ValueError, match="representation mode"):
+        compare_runs(
+            tmp_path / "arc", tmp_path / "oat", require_full=False, arc_mode="dur"
+        )
+    assert (
+        compare_runs(
+            tmp_path / "arc", tmp_path / "oat", require_full=False, arc_mode="stk"
+        )["arc"]["episodes"]
+        == len(plan)
+    )
     with pytest.raises(ValueError, match="Full benchmark"):
         compare_runs(tmp_path / "arc", tmp_path / "oat")
     file = tmp_path / "arc/episodes.jsonl"

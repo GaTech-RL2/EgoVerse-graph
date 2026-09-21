@@ -20,7 +20,7 @@ def reconstruction(args):
 
     from egomimic.eval.libero_eval import action_metrics
     from egomimic.models.oat.factory import load_tokenizer
-    from egomimic.rldb.zarr.libero_arc import LiberoArcCodec
+    from egomimic.rldb.zarr.libero_arc_timed import make_libero_arc_codec
     from egomimic.rldb.zarr.libero_dataset import (
         EMBODIMENT,
         LiberoDataset,
@@ -60,7 +60,11 @@ def reconstruction(args):
     if any(not 1 <= k <= tokenizer.latent_horizon for k in budgets):
         raise ValueError("OAT prefix budgets exceed the tokenizer length")
     codecs = {
-        m: LiberoArcCodec(num_waypoints=m, horizon=horizon) for m in args.waypoints
+        f"arc_{mode}_m{m}": make_libero_arc_codec(
+            mode, num_waypoints=m, horizon=horizon
+        )
+        for mode in args.arc_modes
+        for m in args.waypoints
     }
     totals, count = {}, 0
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
@@ -81,11 +85,11 @@ def reconstruction(args):
                 predictions[f"oat_k{k}"] = normalizer.unnormalize(
                     {"actions": decoded}, EMBODIMENT
                 )["actions"]
-            for m, codec in codecs.items():
+            for name, codec in codecs.items():
                 decoded = np.stack(
                     [codec.decode(codec.encode(row)) for row in target.cpu().numpy()]
                 )
-                predictions[f"arc_m{m}"] = torch.from_numpy(decoded).to(target)
+                predictions[name] = torch.from_numpy(decoded).to(target)
             for name, prediction in predictions.items():
                 accumulator = totals.setdefault(name, {})
                 for metric, value in action_metrics(prediction, target).items():
@@ -103,7 +107,16 @@ def reconstruction(args):
         for k in budgets
     }
     sizes.update(
-        {f"arc_m{m}": {"float32_scalars": m * 11, "bits": m * 11 * 32} for m in codecs}
+        {
+            name: {
+                "float32_scalars": codec.num_waypoints
+                * (12 if hasattr(codec, "mode") else 11),
+                "bits": codec.num_waypoints
+                * (12 if hasattr(codec, "mode") else 11)
+                * 32,
+            }
+            for name, codec in codecs.items()
+        }
     )
     return {
         "suite": args.suite,
@@ -150,6 +163,12 @@ def main():
     recon.add_argument("--limit", type=int)
     recon.add_argument("--tokens", type=int, nargs="+", default=[1, 2, 4, 8])
     recon.add_argument("--waypoints", type=int, nargs="+", default=[2, 4, 8, 16, 33])
+    recon.add_argument(
+        "--arc-modes",
+        nargs="+",
+        choices=("joint_dur", "stk", "dur"),
+        default=["dur", "stk"],
+    )
     compare = commands.add_parser("compare")
     compare.add_argument("--arc-root", required=True)
     compare.add_argument("--oat-root", required=True)
@@ -227,13 +246,20 @@ def main():
                 stage.codec for stage in stages if isinstance(stage, LiberoArcStage)
             )
             metadata["representation"] = {
-                "kind": "SE3 duration ARC",
+                "kind": "SE3 ARC",
+                "mode": getattr(codec, "mode", "joint_dur"),
                 "waypoints": codec.num_waypoints,
-                "float32_channels": 11,
+                "float32_channels": 12 if hasattr(codec, "mode") else 11,
                 "dt": codec.dt,
-                "rotation_radius": codec.rotation_radius,
-                "gripper_radius": codec.gripper_radius,
+                "max_translation": codec.max_translation,
+                "max_rotation_degrees": codec.max_rotation_degrees,
+                "independent_clocks": hasattr(codec, "mode"),
             }
+            if not hasattr(codec, "mode"):
+                metadata["representation"].update(
+                    rotation_radius=codec.rotation_radius,
+                    gripper_radius=codec.gripper_radius,
+                )
         run_rollouts(
             policy,
             rollout_plan(

@@ -21,7 +21,7 @@ from egomimic.benchmarks.libero.cluster import (
 
 
 @pytest.mark.parametrize("mode", ["smoke", "full"])
-@pytest.mark.parametrize("method", ["tokenizer", "oat", "arc"])
+@pytest.mark.parametrize("method", ["tokenizer", "oat", "arc", "arc_dur", "arc_stk"])
 def test_cluster_arguments_compose_native_graph(mode, method, tmp_path):
     args = training_arguments(
         method, "libero_10", tmp_path / "replay.zarr", tmp_path, mode, 5001
@@ -45,6 +45,13 @@ def test_cluster_arguments_compose_native_graph(mode, method, tmp_path):
         assert cfg.benchmark.tokenizer_checkpoint.endswith(
             "tokenizer/checkpoints/last.ckpt"
         )
+    if method in {"arc_dur", "arc_stk"}:
+        mode = method.removeprefix("arc_")
+        assert cfg.benchmark.arc_mode == mode
+        assert cfg.benchmark.arc_action_dim == 12
+        stages = cfg.model.pipeline.stages
+        assert stages[1].arc_mode == stages[-1].arc_mode == mode
+        assert stages[2].action_dim == stages[3].policy.model.input_dim == 12
 
 
 def test_workflow_pins_source_and_requests_one_gpu():
@@ -55,6 +62,10 @@ def test_workflow_pins_source_and_requests_one_gpu():
     workflow = module.workflow("a" * 40, "libero-smoke-test", "libero_10")["workflow"]
     assert workflow["resources"]["default"]["gpu"] == 1
     assert workflow["tasks"][0]["environment"]["SOURCE_COMMIT"] == "a" * 40
+    assert json.loads(workflow["tasks"][0]["environment"]["ARC_MODES_JSON"]) == [
+        "dur",
+        "stk",
+    ]
     with pytest.raises(ValueError, match="immutable"):
         module.workflow("main", "libero-smoke-test", "libero_10")
     full = module.workflow(
@@ -101,6 +112,25 @@ def test_workflow_pins_source_and_requests_one_gpu():
     with pytest.raises(ValueError, match="Campaign"):
         module.workflow(
             "a" * 40, "unrelated-run", "libero_10", mode="full", campaign_id="study"
+        )
+    variants = module.workflow(
+        "a" * 40,
+        "both-modes",
+        "libero_10",
+        mode="full",
+        arc_replay_runs={"dur": "dur-replay", "stk": "stk-replay"},
+    )["workflow"]
+    assert json.loads(variants["tasks"][0]["environment"]["ARC_REPLAY_RUNS_JSON"]) == {
+        "dur": "dur-replay",
+        "stk": "stk-replay",
+    }
+    with pytest.raises(ValueError, match="mode-specific"):
+        module.workflow(
+            "a" * 40,
+            "ambiguous-mode",
+            "libero_10",
+            arc_modes=["dur", "stk"],
+            arc_replay_run="legacy-run",
         )
 
 
@@ -220,6 +250,78 @@ def test_campaign_can_pin_a_replacement_without_restarting_other_suites(bad_sour
         assert set(storage.report["suites"]) == set(TASKS)
     with pytest.raises(ValueError, match="all suites"):
         campaign_sources("study", "a" * 40, {"libero_90": pinned["libero_90"]})
+
+
+@pytest.mark.parametrize("missing_mode", [False, True])
+def test_dual_mode_campaign_requires_every_variant(missing_mode):
+    import io
+
+    from egomimic.benchmarks.libero.catalog import TASKS
+
+    class Storage:
+        report = None
+
+        def get_object(self, Bucket, Key):
+            suite = next(s for s in TASKS if f"study-{s.replace('_', '-')}/" in Key)
+            variants = {
+                mode: {"suite": suite, "complete_protocol": True}
+                for mode in ("dur", "stk")
+            }
+            if missing_mode and suite == "libero_90":
+                del variants["stk"]
+            value = {
+                "runtime.json": {
+                    "suite": suite,
+                    "mode": "full",
+                    "epochs": 5001,
+                    "global_batch_size": 1024,
+                    "source_commit": "a" * 40,
+                    "arc_modes": ["dur", "stk"],
+                },
+                "status.json": {"state": "SUITE_COMPLETE"},
+                "comparison.json": {
+                    "suite": suite,
+                    "complete_protocol": True,
+                    "variants": variants,
+                },
+            }[Key.rsplit("/", 1)[1]]
+            return {"Body": io.BytesIO(json.dumps(value).encode())}
+
+        def put_object(self, **kwargs):
+            self.report = json.loads(kwargs["Body"])
+
+    storage = Storage()
+    if missing_mode:
+        with pytest.raises(ValueError, match="every ARC mode"):
+            publish_campaign(
+                storage, "study", commit="a" * 40, epochs=5001, arc_modes=["dur", "stk"]
+            )
+        assert storage.report is None
+    else:
+        assert publish_campaign(
+            storage, "study", commit="a" * 40, epochs=5001, arc_modes=["dur", "stk"]
+        )
+        assert storage.report["arc_modes"] == ["dur", "stk"]
+
+
+def test_campaign_plan_shares_oat_and_schedules_both_arc_variants():
+    from egomimic.benchmarks.libero.campaign import campaign_plan
+    from egomimic.benchmarks.libero.catalog import TASKS
+
+    plan = campaign_plan("/data", "/results")
+    jobs = {job["id"]: job for job in plan["jobs"]}
+    assert len(jobs) == len(plan["jobs"]) == 42
+    for suite in TASKS:
+        assert jobs[f"{suite}/oat"]["requires"] == [f"{suite}/tokenizer"]
+        for mode in ("dur", "stk"):
+            assert (
+                f"+experiment=oat/libero_arc_{mode}_policy"
+                in jobs[f"{suite}/arc_{mode}"]["argv"]
+            )
+            assert (
+                f"{suite}/arc_{mode}_rollout"
+                in jobs[f"complete_comparison_{mode}"]["requires"]
+            )
 
 
 def test_full_training_converts_only_verified_cached_demonstrations(
@@ -378,7 +480,12 @@ def test_recovery_verifies_checkpoints_and_complete_training(tmp_path, invalid):
 
 
 @pytest.mark.parametrize("invalid", [None, "optimizer", "normalizer", "budget"])
-def test_partial_resume_preserves_only_existing_verified_checkpoints(tmp_path, invalid):
+@pytest.mark.parametrize(
+    "methods", [("tokenizer", "oat", "arc"), ("tokenizer", "oat", "arc_dur", "arc_stk")]
+)
+def test_partial_resume_preserves_only_existing_verified_checkpoints(
+    tmp_path, invalid, methods
+):
     import io
     import shutil
 
@@ -432,6 +539,7 @@ def test_partial_resume_preserves_only_existing_verified_checkpoints(tmp_path, i
                 mode="full",
                 epochs=5001,
                 allow_partial=True,
+                methods=methods,
             )
     else:
         restored = restore_checkpoints(
@@ -442,6 +550,7 @@ def test_partial_resume_preserves_only_existing_verified_checkpoints(tmp_path, i
             mode="full",
             epochs=5001,
             allow_partial=True,
+            methods=methods,
         )
         assert set(restored) == {"tokenizer"}
         assert restored["tokenizer"]["global_step"] == 140

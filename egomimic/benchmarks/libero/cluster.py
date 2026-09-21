@@ -225,6 +225,8 @@ def training_arguments(method, suite, dataset, evidence, mode, epochs):
         "tokenizer": "libero_oattok",
         "oat": "libero_oatpolicy",
         "arc": "libero_arc_policy",
+        "arc_stk": "libero_arc_stk_policy",
+        "arc_dur": "libero_arc_dur_policy",
     }[method]
     run = Path(evidence) / "training" / method
     args = [
@@ -294,7 +296,9 @@ def campaign_sources(campaign_id, commit, replacements=None):
     return sources
 
 
-def publish_campaign(client, campaign_id, *, commit, epochs, run_sources=None):
+def publish_campaign(
+    client, campaign_id, *, commit, epochs, run_sources=None, arc_modes=("joint_dur",)
+):
     """The last completed suite publishes scores after checking every receipt."""
     from botocore.exceptions import ClientError
 
@@ -326,8 +330,17 @@ def publish_campaign(client, campaign_id, *, commit, epochs, run_sources=None):
             or runtime["suite"] != suite
             or result["suite"] != suite
             or not result["complete_protocol"]
+            or tuple(runtime.get("arc_modes", ["joint_dur"])) != tuple(arc_modes)
         ):
             raise ValueError("Campaign source, training budget or suite differs")
+        if tuple(arc_modes) != ("joint_dur",) and (
+            set(result.get("variants", {})) != set(arc_modes)
+            or any(
+                not row.get("complete_protocol") or row.get("suite") != suite
+                for row in result["variants"].values()
+            )
+        ):
+            raise ValueError("Campaign lacks completed results for every ARC mode")
         results[suite] = result
         sources[suite] = "s3://rldb/" + prefix
         commits[suite] = runtime["source_commit"]
@@ -341,6 +354,7 @@ def publish_campaign(client, campaign_id, *, commit, epochs, run_sources=None):
         "training_epochs": epochs,
         "global_batch_size": 1024,
         "full_released_training_budget": epochs == 5001,
+        "arc_modes": list(arc_modes),
         "sources": sources,
         "suites": results,
     }
@@ -356,7 +370,15 @@ def publish_campaign(client, campaign_id, *, commit, epochs, run_sources=None):
 
 
 def restore_checkpoints(
-    client, source_run, evidence, *, suite, mode, epochs, allow_partial=False
+    client,
+    source_run,
+    evidence,
+    *,
+    suite,
+    mode,
+    epochs,
+    allow_partial=False,
+    methods=("tokenizer", "oat", "arc"),
 ):
     """Recover completed training checkpoints without reusing partial rollouts."""
     import torch
@@ -380,7 +402,7 @@ def restore_checkpoints(
     if mode == "full" and runtime.get("global_batch_size") != 1024:
         raise ValueError("Recovery does not match the released global training batch")
     restored = {}
-    for method in ("tokenizer", "oat", "arc"):
+    for method in methods:
         relative = f"training/{method}/checkpoints/last.ckpt"
         if allow_partial and relative not in receipts:
             continue
@@ -416,7 +438,7 @@ def restore_checkpoints(
             "global_step": payload["global_step"],
             "complete": completed >= runtime["epochs"],
         }
-        if method == "arc" and allow_partial:
+        if method.startswith("arc") and allow_partial:
             restored[method]["benchmark"] = payload["hyper_parameters"]["config_tree"][
                 "benchmark"
             ]
@@ -432,6 +454,17 @@ def restore_checkpoints(
 
 class CalibrationPending(RuntimeError):
     """An unconfirmed codec must not start a full ARC policy run."""
+
+
+def arc_method_modes(modes):
+    modes = tuple(modes)
+    if (
+        not modes
+        or len(set(modes)) != len(modes)
+        or any(m not in {"joint_dur", "stk", "dur"} for m in modes)
+    ):
+        raise ValueError("ARC modes must be unique joint_dur, stk or dur values")
+    return {"arc" if mode == "joint_dur" else f"arc_{mode}": mode for mode in modes}
 
 
 def load_arc_calibration(client, source_run, evidence, *, suite, arc_mode="joint_dur"):
@@ -608,7 +641,27 @@ def main():
     parser.add_argument(
         "--arc-replay-run", default=os.environ.get("ARC_REPLAY_RUN") or None
     )
+    parser.add_argument(
+        "--arc-modes",
+        nargs="+",
+        default=json.loads(os.environ.get("ARC_MODES_JSON") or '["dur", "stk"]'),
+    )
+    parser.add_argument(
+        "--arc-replay-runs",
+        type=json.loads,
+        default=json.loads(os.environ.get("ARC_REPLAY_RUNS_JSON") or "{}"),
+    )
     args = parser.parse_args()
+    arc_methods = arc_method_modes(args.arc_modes)
+    methods = ("tokenizer", "oat", *arc_methods)
+    policy_methods = ("oat", *arc_methods)
+    replay_runs = dict(args.arc_replay_runs)
+    if args.arc_replay_run:
+        if args.arc_modes != ["joint_dur"]:
+            raise ValueError("Use mode-specific replay runs for independent ARC clocks")
+        replay_runs["joint_dur"] = args.arc_replay_run
+    if set(replay_runs) - set(args.arc_modes):
+        raise ValueError("Unexpected replay mode")
     if args.evaluate_from_run and args.resume_from_run:
         raise ValueError("Choose evaluation recovery or training resume")
     if args.campaign_runs is not None and not args.campaign_id:
@@ -654,6 +707,8 @@ def main():
             "evaluate_from_run": args.evaluate_from_run,
             "resume_from_run": args.resume_from_run,
             "arc_replay_run": args.arc_replay_run,
+            "arc_modes": args.arc_modes,
+            "arc_replay_runs": replay_runs,
             "campaign_id": args.campaign_id,
             "campaign_runs": args.campaign_runs,
             "artifact_prefix": "s3://rldb/" + uploader.prefix,
@@ -676,12 +731,18 @@ def main():
                 mode=args.mode,
                 epochs=args.epochs,
                 allow_partial=bool(args.resume_from_run),
+                methods=methods,
             )
-        for method in () if args.evaluate_from_run else ("tokenizer", "oat", "arc"):
+        for method in () if args.evaluate_from_run else methods:
             overrides = {}
-            if method == "arc" and args.mode == "full":
+            if method in arc_methods and args.mode == "full":
+                arc_mode = arc_methods[method]
                 overrides = load_arc_calibration(
-                    uploader.client, args.arc_replay_run, evidence, suite=args.suite
+                    uploader.client,
+                    replay_runs.get(arc_mode),
+                    evidence,
+                    suite=args.suite,
+                    arc_mode=arc_mode,
                 )
                 if method in restored and any(
                     restored[method]["benchmark"].get(key) != value
@@ -711,7 +772,7 @@ def main():
             checkpoint = evidence / f"training/{method}/checkpoints/last.ckpt"
             if not checkpoint.is_file():
                 raise FileNotFoundError(checkpoint)
-        for method in ("oat", "arc"):
+        for method in policy_methods:
             write_json(
                 evidence / "status.json", {"state": "ROLLOUTS", "method": method}
             )
@@ -744,7 +805,7 @@ def main():
                 .read_text()
                 .splitlines()
             ]
-            for method in ("oat", "arc")
+            for method in policy_methods
         }
         paired = [
             [
@@ -757,9 +818,9 @@ def main():
                 )
                 for row in records[method]
             ]
-            for method in ("oat", "arc")
+            for method in policy_methods
         ]
-        if paired[0] != paired[1]:
+        if any(row != paired[0] for row in paired[1:]):
             raise RuntimeError("ARC and OAT did not use identical initial states")
         argv = [
             sys.executable,
@@ -774,20 +835,36 @@ def main():
             str(evidence / "training/tokenizer/checkpoints/last.ckpt"),
             "--output",
             str(evidence / "reconstruction.json"),
+            "--arc-modes",
+            *args.arc_modes,
         ]
         if args.mode == "smoke":
             argv += ["--limit", "16", "--batch-size", "4"]
         execute(argv, evidence / "reconstruction.log")
         from egomimic.benchmarks.libero.report import compare_runs
 
-        write_json(
-            evidence / "comparison.json",
-            compare_runs(
-                evidence / "arc" / args.suite,
+        variants = {
+            mode: compare_runs(
+                evidence / method / args.suite,
                 evidence / "oat" / args.suite,
                 require_full=args.mode == "full",
-            ),
+                arc_mode=mode,
+            )
+            for method, mode in arc_methods.items()
+        }
+        comparison = (
+            variants["joint_dur"]
+            if args.arc_modes == ["joint_dur"]
+            else {
+                "suite": args.suite,
+                "complete_protocol": args.mode == "full",
+                "variants": variants,
+                "shared_oat_checkpoint": next(iter(variants.values()))["checkpoints"][
+                    "oat"
+                ],
+            }
         )
+        write_json(evidence / "comparison.json", comparison)
         write_json(
             evidence / "status.json",
             {
@@ -827,6 +904,7 @@ def main():
             commit=commit,
             epochs=args.epochs,
             run_sources=args.campaign_runs,
+            arc_modes=args.arc_modes,
         )
 
 

@@ -82,7 +82,7 @@ def summarize(records):
     }
 
 
-def compare_runs(arc_directory, oat_directory, *, require_full=True):
+def compare_runs(arc_directory, oat_directory, *, require_full=True, arc_mode=None):
     arc_protocol, arc = read_run(arc_directory)
     oat_protocol, oat = read_run(oat_directory)
     common = (
@@ -103,6 +103,11 @@ def compare_runs(arc_directory, oat_directory, *, require_full=True):
             raise ValueError(f"ARC and OAT protocol mismatch: {field}")
     if arc_protocol.get("method") != "arc" or oat_protocol.get("method") != "oat":
         raise ValueError("Comparison requires native ARC and OAT policy records")
+    if (
+        arc_mode is not None
+        and arc_protocol.get("representation", {}).get("mode") != arc_mode
+    ):
+        raise ValueError("ARC representation mode differs from requested comparison")
     suite = arc_protocol["suite"]
     if require_full:
         expected = [asdict(spec) for spec in rollout_plan(suite)]

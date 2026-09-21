@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from egomimic.benchmarks.libero.catalog import TASKS
-from egomimic.benchmarks.libero.cluster import campaign_sources
+from egomimic.benchmarks.libero.cluster import arc_method_modes, campaign_sources
 
 
 def workflow(
@@ -26,7 +26,16 @@ def workflow(
     calibration_parent=None,
     raw_cache=None,
     campaign_runs=None,
+    arc_modes=None,
+    arc_replay_runs=None,
 ):
+    arc_modes = list(arc_modes or (["joint_dur"] if arc_replay_run else ["dur", "stk"]))
+    arc_method_modes(arc_modes)
+    arc_replay_runs = dict(arc_replay_runs or {})
+    if arc_replay_run and arc_modes != ["joint_dur"]:
+        raise ValueError("Independent modes require mode-specific replay runs")
+    if set(arc_replay_runs) - set(arc_modes):
+        raise ValueError("Unexpected ARC replay mode")
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", run_id):
@@ -53,7 +62,12 @@ def workflow(
         raise ValueError("Campaign requires full mode and matching suite run IDs")
     if replay and (evaluate_from_run or campaign_id):
         raise ValueError("Replay calibration is separate from a policy campaign")
-    for source in (resume_from_run, arc_replay_run, calibration_parent):
+    for source in (
+        resume_from_run,
+        arc_replay_run,
+        calibration_parent,
+        *arc_replay_runs.values(),
+    ):
         if source is not None and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", source):
             raise ValueError("Invalid training/replay source run ID")
     if evaluate_from_run and resume_from_run:
@@ -121,6 +135,8 @@ def workflow(
                         "RUN_KIND": "replay" if replay else "benchmark",
                         "RESUME_FROM_RUN": resume_from_run or "",
                         "ARC_REPLAY_RUN": arc_replay_run or "",
+                        "ARC_MODES_JSON": json.dumps(arc_modes),
+                        "ARC_REPLAY_RUNS_JSON": json.dumps(arc_replay_runs),
                         "REPLAY_SPEC": replay_spec,
                         "REPLAY_CALIBRATION_PARENT": calibration_parent or "",
                         "LIBERO_RAW_CACHE": str(raw_cache) if raw_cache else "",
@@ -147,6 +163,8 @@ def main():
     parser.add_argument("--replay", action="store_true")
     parser.add_argument("--resume-from-run")
     parser.add_argument("--arc-replay-run")
+    parser.add_argument("--arc-modes", nargs="+", choices=("joint_dur", "stk", "dur"))
+    parser.add_argument("--arc-replay-runs-file", type=Path)
     parser.add_argument("--replay-spec", default="libero_arc_replay")
     parser.add_argument("--calibration-parent")
     parser.add_argument("--raw-cache")
@@ -170,6 +188,10 @@ def main():
                 args.raw_cache,
                 json.loads(args.campaign_runs_file.read_text())
                 if args.campaign_runs_file
+                else None,
+                args.arc_modes,
+                json.loads(args.arc_replay_runs_file.read_text())
+                if args.arc_replay_runs_file
                 else None,
             ),
             handle,

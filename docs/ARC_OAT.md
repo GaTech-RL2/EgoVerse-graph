@@ -28,7 +28,7 @@ osmo workflow submit /tmp/libero-osmo.yaml --pool groot-l40s-03
 Use a lowercase, unique run ID. The workflow refuses existing R2 output at
 `s3://rldb/experiments/arc-oat-20260919/<run-id>/`. It requests one GPU, 12 CPU
 cores, 64 GiB RAM and 240 GiB disk. The smoke run trains the actual default
-tokenizer, OAT policy and ARC policy for two batches each, reloads their EMA
+tokenizer, OAT policy, STK ARC policy and DUR ARC policy for two batches each, reloads their EMA
 checkpoints, performs one four-step rollout on every task in the selected
 suite, checks paired initial-state hashes, and evaluates 16 reconstruction
 windows. These checks are not benchmark performance measurements.
@@ -99,16 +99,24 @@ the other suites continue from their existing checkpoints. `--raw-cache` also
 supports full training on the converted suites: verified HDF5 files are read
 without modification and the normal converter writes a fresh local Zarr.
 
-Full ARC training additionally requires `--arc-replay-run <run-id>` pointing to
-a completed [R/D/M replay calibration](LIBERO_ARC_REPLAY.md). Both graph stages
-load the measured choice from that receipt. Missing or invalid replay evidence
+Full training defaults to **both `dur` and `stk`**. Supply
+`--arc-replay-runs-file replays.json` with `{"dur": "dur-replay-run", "stk": "stk-replay-run"}`
+pointing to completed [R/D/M replay calibrations](LIBERO_ARC_REPLAY.md) for that
+suite. Each mode trains its own policy from its own measured R/D/M settings;
+the tokenizer and OAT policy are trained once and shared in both comparisons.
+Both graph stages load the matching mode and measured choice from its receipt.
+The gate checks all codec source dependencies. Missing or invalid replay evidence
 preserves the OAT checkpoints and stops before ARC starts. Replay outcomes
 measure demonstration reconstruction, separately from trained-policy scores.
+The earlier shared-clock baseline remains available explicitly as
+`--arc-modes joint_dur --arc-replay-run <legacy-run-id>`; its receipts cannot
+authorize either independent-clock variant. Aggregate publication requires
+both requested variants in every suite, with paired initial states and seeds.
 
 To rerun evaluation from completed training after a simulator or inference
 failure, render a workflow with a **new** run ID and
 `--evaluate-from-run <original-run-id>`. Use the original R2 run ID, which may
-differ from OSMO's suffixed workflow name. This restores the three recorded
+differ from OSMO's suffixed workflow name. This restores all requested recorded
 final checkpoints, verifies their hashes, completed epoch counts, suite and
 training budget, and starts fresh paired rollouts/reconstruction. It does not
 repeat training or reuse partially written rollout results. Recovery provenance
@@ -201,7 +209,17 @@ hold. The repository also has legacy bimanual mean/profile/log-duration codecs
 and the newer planar duration/adaptive curve codec; their layouts differ.
 
 LIBERO is single-arm 6-DoF delta OSC control, so neither the planar tokenizer
-nor a reduced xyz/gripper bimanual adapter is a valid drop-in codec. The new
+nor a reduced xyz/gripper bimanual adapter is a valid drop-in codec.
+`LiberoArcTimedCodec` ports the independently timed native planar STK and DUR
+contracts to this control space. Each has M×12 floats: xyz, translation timing,
+rotation6d, rotation timing, and gripper. STK stores local m/s and rad/s;
+DUR stores interval seconds. Translation and SO(3) rotation have separate
+uniform arc supports and separate D/R budgets. DUR reserves dwell boundaries;
+STK cannot encode a stationary pause through zero velocity alone. Decoding
+uses linear translation, SO(3) SLERP, and held gripper commands following the
+translation clock. The two modes are independently calibrated before training.
+
+The earlier shared-clock **`joint_dur`**
 `LiberoArcCodec` is an explicit SE(3) duration-ARC extension for this control
 space. It integrates controller increments (0.05 m and 0.5 rad scales) into an
 anchored command path, uses the native ARC chordal rotation metric with xyz
@@ -211,20 +229,17 @@ boundaries cover motion with no translation. Rotation uses SLERP, position
 uses a natural cubic curve in progress, and the duration clock maps progress
 back to 20 Hz before differencing into the original delta commands.
 
-This is a documented control-space extension, not an unchanged legacy
-bimanual codec or the planar curvature-adaptive recipe. It covers the entire
-32-action window instead of capping it at a fixed metric distance, so both
-methods receive and reconstruct the same horizon. At a limited support budget
+These are documented control-space extensions, not unchanged legacy
+bimanual codecs or the planar curvature-adaptive recipe. The maximum lookahead
+is 32 commands, capped by the R/D choices measured in replay. At a limited support budget
 it is lossy; when there are more dwell/gripper boundaries than supports, some
 must be omitted. The reconstruction sweep measures that error. The command
 path is not a claim about the robot's physically realized future pose.
 
-Concretely, the current LIBERO policy uses **M=16** supports and **no fixed D**:
-the represented distance is the full 32-command window's accumulated progress.
-This is different from the repository's fixed-distance D/M ARC formulation.
-The rotation radius of 0.05 m weights rotation in the progress metric; it is not
-a distance horizon D. The seven controller dimensions and eleven token channels
-also must not be confused with D.
+M=16 and uncapped R/D are recipe placeholders, overridden by each mode's
+completed replay evidence in full training. R is accumulated geodesic degrees;
+D is accumulated translation metres. The shared-clock baseline's 0.05 m
+rotation radius weights its progress metric and is distinct from R and D.
 
 Regression cases cover straight/curved/closed paths; full holds; leading,
 internal and trailing pauses; pure rotation crossing π; simultaneous
@@ -235,12 +250,12 @@ time-scale invariance of geometry; bfloat16 predictions; episode boundaries;
 and observation/action alignment. At control-grid grip
 transitions, float32 clock tolerance prevents a one-frame delay.
 
-Tokenizer-only reconstruction compares OAT prefixes `{1,2,4,8}` against ARC
+Tokenizer-only reconstruction compares OAT prefixes `{1,2,4,8}` against both ARC variants at
 support budgets `{2,4,8,16,33}` on identical held-out chunks. It reports raw
 action MSE (the source benchmark), MAE, per-channel-family MSE, gripper sign
 accuracy and integrated translation-command endpoint error. Representation
 sizes are recorded: an OAT token has a 1,000-value vocabulary; an ARC support
-has 11 floats. Equal row counts are **not** equal bit rates.
+has 12 floats (11 for the legacy shared-clock baseline). Equal row counts are **not** equal bit rates.
 
 Closed-loop comparison uses the actual OAT autoregressive policy and the
 existing continuous EgoVerse diffusion graph for ARC, with identical

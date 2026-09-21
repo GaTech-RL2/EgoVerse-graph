@@ -15,13 +15,14 @@ def campaign_plan(data_root, output_root, python=sys.executable):
         dataset = str(data_root / f"{suite}.zarr")
         outputs = {
             name: output_root / "training" / suite / name
-            for name in ("tokenizer", "oat", "arc")
+            for name in ("tokenizer", "oat", "arc_dur", "arc_stk")
         }
         tokenizer_checkpoint = str(outputs["tokenizer"] / "checkpoints/last.ckpt")
         for name, experiment in (
             ("tokenizer", "libero_oattok"),
             ("oat", "libero_oatpolicy"),
-            ("arc", "libero_arc_policy"),
+            ("arc_dur", "libero_arc_dur_policy"),
+            ("arc_stk", "libero_arc_stk_policy"),
         ):
             args = [
                 python,
@@ -61,7 +62,7 @@ def campaign_plan(data_root, output_root, python=sys.executable):
                 ],
             }
         )
-        for method in ("arc", "oat"):
+        for method in ("arc_dur", "arc_stk", "oat"):
             jobs.append(
                 {
                     "id": f"{suite}/{method}_rollout",
@@ -78,32 +79,34 @@ def campaign_plan(data_root, output_root, python=sys.executable):
                     ],
                 }
             )
-    jobs.append(
-        {
-            "id": "complete_comparison",
-            "requires": [
-                f"{suite}/{method}_rollout"
-                for suite in TASKS
-                for method in ("arc", "oat")
-            ],
-            "argv": [
-                python,
-                "-m",
-                "egomimic.benchmarks.libero.cli",
-                "compare",
-                "--arc-root",
-                str(output_root / "arc"),
-                "--oat-root",
-                str(output_root / "oat"),
-                "--output",
-                str(output_root / "comparison.json"),
-            ],
-        }
-    )
+    for mode in ("dur", "stk"):
+        jobs.append(
+            {
+                "id": f"complete_comparison_{mode}",
+                "requires": [
+                    f"{suite}/{method}_rollout"
+                    for suite in TASKS
+                    for method in (f"arc_{mode}", "oat")
+                ],
+                "argv": [
+                    python,
+                    "-m",
+                    "egomimic.benchmarks.libero.cli",
+                    "compare",
+                    "--arc-root",
+                    str(output_root / f"arc_{mode}"),
+                    "--oat-root",
+                    str(output_root / "oat"),
+                    "--output",
+                    str(output_root / f"comparison_{mode}.json"),
+                ],
+            }
+        )
     return {
         "oat_commit": OAT_COMMIT,
         "libero_commit": LIBERO_COMMIT,
         "training_seed": 42,
+        "arc_modes": ["dur", "stk"],
         "checkpoint_selection": "final EMA; preselected before simulator evaluation",
         "jobs": jobs,
     }

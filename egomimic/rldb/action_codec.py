@@ -58,16 +58,20 @@ class ControlChunkCodec(nn.Module):
             return self.waypoints * (self.action_dim + 1)
         return self.native_horizon * self.action_dim + int(self.kind == "native_window")
 
-    def spatial_clock(self, actions):
+    def spatial_distances(self, actions):
+        """Cumulative translation/control and angular travel in physical units."""
         physical = actions * self.action_scale
         if self.path_mode == "control":
             physical = torch.diff(physical, dim=1, prepend=physical[:, :1])
-        translation = physical[..., self.translation_indices].norm(dim=-1).cumsum(1) / self.distance
-        progress = translation
-        if self.rotation_indices:
-            angular = physical[..., self.rotation_indices].norm(dim=-1).cumsum(1) / self.rotation
-            progress = torch.maximum(progress, angular)
-        return progress
+        translation = physical[..., self.translation_indices].norm(dim=-1).cumsum(1)
+        angular = (physical[..., self.rotation_indices].norm(dim=-1).cumsum(1)
+                   if self.rotation_indices else None)
+        return translation, angular
+
+    def spatial_clock(self, actions):
+        translation, angular = self.spatial_distances(actions)
+        progress = translation / self.distance
+        return torch.maximum(progress, angular / self.rotation) if angular is not None else progress
 
     def window_lengths(self, actions):
         if self.kind == "native":

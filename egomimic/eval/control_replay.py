@@ -6,6 +6,7 @@ the benchmark's evaluation reset bank or trained-model scores.
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import itertools
 import json
 import hashlib
@@ -17,11 +18,84 @@ from omegaconf import OmegaConf
 import torch
 
 from egomimic.rldb.goal_replay import sha256_file
+from egomimic.eval.goal_rollout import evaluation_action_space
+
+
+def duration_statistics(lengths, cap):
+    values = lengths.float()
+    unique, counts = torch.unique(lengths, return_counts=True)
+    result = {"mean_native_steps": float(values.mean()),
+              "min_native_steps": int(lengths.min()), "max_native_steps": int(lengths.max()),
+              "native_steps_histogram": dict(zip(map(str, unique.tolist()), counts.tolist())),
+              "native_cap_fraction": float((lengths == cap).float().mean())}
+    for percentile in (10, 25, 50, 75, 90, 99):
+        result[f"native_steps_p{percentile}"] = float(torch.quantile(values, percentile / 100))
+    return result
+
+
+def median_spatial_budgets(codec, actions, target, rotation_multipliers):
+    """Fit spatial thresholds, not a fixed temporal window, using replay only.
+
+    Five-action path medians set relative distance/rotation scales. A common
+    multiplier then brackets the median crossing between actions five and six.
+    This avoids rounding the median to 4.5 when half the paths end below the
+    exact five-action median. Individual paths retain their own durations.
+    """
+    if int(target) != target or not 1 <= target < codec.native_horizon:
+        raise ValueError("duration target must be an integer below the native cap")
+    target = int(target)
+    translation, angular = codec.spatial_distances(actions[:, :codec.native_horizon])
+
+    def scale_for(path):
+        median = float(torch.quantile(path[:, target - 1], .5))
+        positive = path[path > 0]
+        # A zero median in one coordinate must not divide by zero. Another
+        # coordinate may still determine a well-defined spatial boundary.
+        return median, median if median > 0 else (float(positive.median()) if len(positive) else 1.)
+
+    distance_median, distance = scale_for(translation)
+    rotation_median, rotation = scale_for(angular) if angular is not None else (None, None)
+    choices = []
+    for ratio in rotation_multipliers if angular is not None else [1.]:
+        if not np.isfinite(ratio) or ratio <= 0:
+            raise ValueError("rotation multipliers must be positive and finite")
+        clock = translation / distance
+        if angular is not None:
+            clock = torch.maximum(clock, angular / (rotation * ratio))
+        multiplier = float((torch.quantile(clock[:, target - 1], .5)
+                            + torch.quantile(clock[:, target], .5)) / 2)
+        if multiplier <= 0:
+            raise ValueError("stationary replay cannot identify the requested median spatial duration")
+        choices.append({"distance": distance * multiplier,
+                        "rotation": None if rotation is None else rotation * ratio * multiplier})
+    return choices, {"target_native_steps": target, "distance_at_target_median": distance_median,
+                     "rotation_at_target_median": rotation_median, "spatial_budgets": choices}
+
+
+def passes_trace_gates(row, cfg):
+    passes = (row["action_rmse_p90"] <= cfg.gates.action_rmse_p90
+        and row["mean_native_steps"] >= cfg.gates.mean_native_steps
+        and row["scalar_compression_ratio"] >= cfg.gates.scalar_compression_ratio)
+    match = cfg.get("duration_matching")
+    if match:
+        passes = passes and abs(row["native_steps_p50"] - match.target_native_steps) <= match.tolerance
+    return bool(passes)
+
+
+def candidate_rank(row, cfg):
+    match = cfg.get("duration_matching")
+    if match:
+        # At matched duration prefer fewer scalars, then a mean near the
+        # reference. Maximizing mean-based compression would favor long tails.
+        return (abs(row["native_steps_p50"] - match.target_native_steps), row["encoded_scalars"],
+                abs(row["mean_native_steps"] - match.target_native_steps), row["action_rmse_p90"])
+    return (-row["scalar_compression_ratio"], row["action_rmse_p90"])
 
 
 def _restore(env, raw, index, seed):
     # Some OGBench task/goal choices use NumPy's global RNG as well as np_random.
     np.random.seed(seed)
+    env.action_space.seed(seed)
     env.reset(seed=seed)
     base = env.unwrapped
     if "button_states" in raw:
@@ -78,8 +152,18 @@ def calibrate(cfg):
     cfg.codec.action_dim = int(actions.shape[-1])
     candidates = []
     grid = OmegaConf.to_container(cfg.grid)
-    for values in itertools.product(*(grid[key] for key in grid)):
-        choice = dict(zip(grid, values))
+    match = cfg.get("duration_matching")
+    budgets, proposal = [{}], None
+    if match:
+        if min(grid["native_horizon"]) <= match.target_native_steps:
+            raise ValueError("a median-matched variable window needs a cap above its target")
+        if "distance" in grid or "rotation" in grid:
+            raise ValueError("median spatial proposals replace the distance/rotation grid")
+        spec = OmegaConf.merge(cfg.codec, {"native_horizon": max_horizon, "kind": "arc"})
+        budgets, proposal = median_spatial_budgets(hydra.utils.instantiate(spec), actions,
+            match.target_native_steps, match.rotation_multipliers)
+    for values, budget in itertools.product(itertools.product(*(grid[key] for key in grid)), budgets):
+        choice = {**dict(zip(grid, values)), **budget}
         spec = OmegaConf.merge(cfg.codec, choice, {"kind": "arc", "action_dim": actions.shape[-1]})
         codec = hydra.utils.instantiate(spec)
         latent, lengths = codec.encode(actions)
@@ -92,22 +176,23 @@ def calibrate(cfg):
         compression = float(lengths.float().mean() * actions.shape[-1] / codec.encoded_dim)
         row = {"codec": OmegaConf.to_container(spec, resolve=True),
                "action_rmse_mean": float(rms.mean()), "action_rmse_p90": float(torch.quantile(rms, .9)),
-               "mean_native_steps": float(lengths.float().mean()),
-               "native_steps_p10": float(torch.quantile(lengths.float(), .1)),
+               **duration_statistics(lengths, codec.native_horizon),
+               "encoded_scalars": codec.encoded_dim,
+               "median_scalar_compression_ratio": float(lengths.float().quantile(.5) * actions.shape[-1] / codec.encoded_dim),
                "scalar_compression_ratio": compression,
                "roundtrip_length_errors": 0}
-        row["passes_trace_gates"] = (row["action_rmse_p90"] <= cfg.gates.action_rmse_p90
-            and row["mean_native_steps"] >= cfg.gates.mean_native_steps
-            and compression >= cfg.gates.scalar_compression_ratio)
+        row["passes_trace_gates"] = passes_trace_gates(row, cfg)
         candidates.append(row)
     eligible = sorted([r for r in candidates if r["passes_trace_gates"]],
-                      key=lambda r: (-r["scalar_compression_ratio"], r["action_rmse_p90"]))
+                      key=lambda r: candidate_rank(r, cfg))
     output = Path(cfg.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     env = ogbench.make_env_and_datasets(cfg.env_name, env_only=True, terminate_at_goal=False)
     selected = None
     physics_cache = {}
-    try:
+    with ExitStack() as stack:
+        stack.callback(env.close)
+        stack.enter_context(evaluation_action_space(env))
         for row in eligible:
             codec = hydra.utils.instantiate(row["codec"])
             count = min(cfg.physics_windows, len(actions))
@@ -129,13 +214,12 @@ def calibrate(cfg):
                 physics_replay(env, raw, indices[:3], actions[:3].numpy(),
                                recovered[:3].numpy(), lengths[:3].numpy(), output / "previews")
                 break
-    finally:
-        env.close()
     report = {"status": "PASS" if selected else "NO_CANDIDATE_PASSED",
               "compression_achieved": bool(selected and selected["scalar_compression_ratio"] > 1),
               "env_name": cfg.env_name, "source_validation_sha256": sha256_file(cfg.validation_path),
               "calibration_config": OmegaConf.to_container(cfg, resolve=True),
               "sample_indices": indices.tolist(), "selected": selected, "candidates": candidates,
+              "duration_match_proposal": proposal,
               "selection_uses_policy_evaluation": False, "canonical_policy_score": False}
     (output / "calibration.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"status": report["status"], "candidates": len(candidates),

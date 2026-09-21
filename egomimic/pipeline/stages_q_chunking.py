@@ -42,6 +42,16 @@ class QChunkingStage(Stage):
             batch.update({"loss/" + name: value for name, value in losses.items()})
             if metrics is not None:
                 batch.update({"log/DQC/" + name: value for name, value in metrics.items()})
+                duration = lengths.float()
+                batch.update({"log/Chunk/native_duration/mean": duration.mean(),
+                              "log/Chunk/native_duration/min": duration.min(),
+                              "log/Chunk/native_duration/max": duration.max()})
+                for label, quantile in (("p10", .1), ("p50", .5), ("p90", .9)):
+                    batch[f"log/Chunk/native_duration/{label}"] = duration.quantile(quantile)
+                batch["log/TD/native_backup_horizon/mean"] = targets["high_value_backup_horizon"].mean()
+                active = targets["high_value_masks"] > 0
+                if active.any():
+                    batch["log/TD/nonterminal_backup_horizon/mean"] = targets["high_value_backup_horizon"][active].mean()
                 if self.backup_mode == "policy_window":
                     for name, values in {
                         "duration": lengths.float(),

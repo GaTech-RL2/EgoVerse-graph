@@ -136,6 +136,44 @@ success probabilities measured against outcomes. Plot against
 running a pinned source archive retain their original logging; the additional
 metrics begin with launches using this updated source and recipe.
 
+## DQC-matched median-duration comparison
+
+`hydra_configs/benchmark/dqc_median_comparison.yaml` defines a separate fresh
+comparison of standard DQC, matched native-window and uniform ARC. The replay
+calibrator first measures cumulative distance and rotation over five native
+actions. It tests relative rotation budgets and scales each pair of spatial
+thresholds until the selected window has median duration five. The 25-action
+cap remains above that target: fast segments, slow segments and stationary
+holds keep different durations. This does **not** force every decoded chunk
+to five actions, set M to five, or reinterpret spatial D as a timestep count.
+
+Only held-out replay is used. Candidates must have median exactly five and
+pass the same action/physics fidelity gates. Among passing candidates the
+calibrator prefers fewer encoded scalars, then a mean duration closer to five;
+it no longer rewards long tails for improving mean-based compression. Reports
+include duration histograms, quantiles, cap fraction and both median- and
+mean-based scalar compression. Compression is measured rather than required
+at the expense of matching duration. In particular, a humanoid fidelity-only
+expansion must remain labeled as an expansion. Learned-policy duration may
+drift from the replay median and must also be measured during evaluation.
+
+The **fixed matching TD** variant uses DQC's original native 25-action teacher
+and its fixed backup. Its reward, endpoint, mask and discount exponent are
+unchanged; goals within the 25-step window terminate the backup early under
+the original convention. Short-policy duration affects neither that teacher
+nor the number of optimizer updates. All three arms retain the per-domain
+kappa values, batch 4096 and one-million-update budget. The paired native-window
+and ARC configurations differ only in codec kind; standard DQC has a fixed
+five-action codec, so its boundaries necessarily differ. Network input/output
+dimensions follow the representation; the hidden architecture is shared.
+
+`Train/Chunk/native_duration/{mean,min,max,p10,p50,p90}` measures replay prefix
+durations in both TD modes. `Train/TD/native_backup_horizon/mean` includes early
+goals; `Train/TD/nonterminal_backup_horizon/mean` verifies 25 for the fixed
+variant. The real-data backup audit now supports both modes and checks all
+three fixed-DQC representations against independently indexed native targets.
+Older jobs, calibration reports and results remain separate.
+
 ## Separate variable-duration TD comparison
 
 `hydra_configs/benchmark/smdp_comparison.yaml` specifies a fresh two-arm

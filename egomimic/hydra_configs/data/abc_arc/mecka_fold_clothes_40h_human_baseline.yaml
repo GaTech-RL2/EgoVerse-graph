@@ -7,17 +7,17 @@ train_datasets:
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
-    image_hw: [360, 640]
-    key_map:
-      _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-      keymap_mode: cartesian
-      annotation_key: annotations
-    transform_list:
-      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-      action_mode: cartesian_gripper_padded
-      coord_frame: eef_frame
-      rotation_mode: euler
-      stride: 1
+      image_hw: [360, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian_gripper_padded
+        coord_frame: eef_frame
+        rotation_mode: euler
+        stride: 1
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -32,17 +32,17 @@ valid_datasets:
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
-    image_hw: [360, 640]
-    key_map:
-      _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-      keymap_mode: cartesian
-      annotation_key: annotations
-    transform_list:
-      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-      action_mode: cartesian_gripper_padded
-      coord_frame: eef_frame
-      rotation_mode: euler
-      stride: 1
+      image_hw: [360, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian_gripper_padded
+        coord_frame: eef_frame
+        rotation_mode: euler
+        stride: 1
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

@@ -20,6 +20,8 @@ trainer:
   num_sanity_val_steps: 0
   accumulate_grad_batches: 1
   log_every_n_steps: 10
+norm_stats:
+  sample_frac: 0.20
 abc:
   arc_velocity_mode: per_waypoint
   arc_token_rows: 200

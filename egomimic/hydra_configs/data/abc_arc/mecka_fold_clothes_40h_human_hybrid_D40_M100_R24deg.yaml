@@ -7,21 +7,21 @@ train_datasets:
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
-    image_hw: [360, 640]
-    key_map:
-      _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-      keymap_mode: hybrid_arc_tokenizer_cartesian
-      annotation_key: annotations
-    transform_list:
-      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-      action_mode: hybrid_arc_tokenizer_cartesian
-      coord_frame: eef_frame
-      rotation_mode: euler
-      stride: 1
-      min_distance_unit: 0.40
-      rotation_distance_unit: 0.4188790204786391
-      resampled_vector_length: 100
-      velocity_mode: per_waypoint
+      image_hw: [360, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: hybrid_arc_tokenizer_cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: hybrid_arc_tokenizer_cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+        stride: 1
+        min_distance_unit: 0.40
+        rotation_distance_unit: 0.4188790204786391
+        resampled_vector_length: 100
+        velocity_mode: per_waypoint
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -36,21 +36,21 @@ valid_datasets:
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
-    image_hw: [360, 640]
-    key_map:
-      _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-      keymap_mode: hybrid_arc_tokenizer_cartesian
-      annotation_key: annotations
-    transform_list:
-      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-      action_mode: hybrid_arc_tokenizer_cartesian
-      coord_frame: eef_frame
-      rotation_mode: euler
-      stride: 1
-      min_distance_unit: 0.40
-      rotation_distance_unit: 0.4188790204786391
-      resampled_vector_length: 100
-      velocity_mode: per_waypoint
+      image_hw: [360, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: hybrid_arc_tokenizer_cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: hybrid_arc_tokenizer_cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+        stride: 1
+        min_distance_unit: 0.40
+        rotation_distance_unit: 0.4188790204786391
+        resampled_vector_length: 100
+        velocity_mode: per_waypoint
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

@@ -14,7 +14,7 @@ import pytest
 import yaml
 
 from egomimic.robot.interface import ARM_OFFSET
-from egomimic.robot.rollout import run_rollout
+from egomimic.robot.rollout import run_rollout, validate_rollout_config
 from egomimic.robot.rollout_dashboard import (
     SUPERSEDED_CLOSE_CODE,
     CheckpointBrowser,
@@ -60,6 +60,29 @@ def overlay_config(path):
     }
 
 
+def runtime_controls(inference_steps=10, replan_every=30):
+    return {
+        "inference_steps": {
+            "label": "Euler integration steps",
+            "description": "Flow solver budget.",
+            "type": "integer",
+            "min": 1,
+            "max": 100,
+            "step": 1,
+            "value": inference_steps,
+        },
+        "replan_every": {
+            "label": "Repredict every",
+            "description": "Executable action prefix.",
+            "type": "integer",
+            "min": 1,
+            "max": 100,
+            "step": 1,
+            "value": replan_every,
+        },
+    }
+
+
 def available_loopback_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(("127.0.0.1", 0))
@@ -89,6 +112,11 @@ def test_dashboard_broadcast_discards_only_a_disconnected_browser():
 
     assert disconnected == {reset, closed}
     assert healthy.messages == [{"type": "frame"}]
+
+
+def test_rollout_rejects_the_removed_top_level_replan_setting():
+    with pytest.raises(ValueError, match="moved to policy.inference_graph"):
+        validate_rollout_config({"execute_steps": 10})
 
 
 def test_dashboard_start_command_reaches_rollout_start_gate(tmp_path):
@@ -230,10 +258,10 @@ def test_dashboard_camera_reconnect_interrupts_velocity_prompt(tmp_path):
         dashboard.close()
 
 
-def test_dashboard_resample_interval_updates_from_browser(tmp_path):
+def test_dashboard_accepts_only_profile_declared_inference_overrides(tmp_path):
     dashboard = RolloutDashboard(
         ("front_img_1",),
-        execute_steps=30,
+        inference_controls=runtime_controls(),
         host="127.0.0.1",
         port=available_loopback_port(),
         open_browser=False,
@@ -247,16 +275,31 @@ def test_dashboard_resample_interval_updates_from_browser(tmp_path):
         async with ClientSession() as session:
             async with session.ws_connect(f"{dashboard.url}/ws") as ws:
                 config = await ws.receive_json()
-                assert config["execute_steps"] == 30
-                await ws.send_json({"execute_steps": 17})
+                assert config["inference_controls"]["replan_every"]["value"] == 30
+                await ws.send_json(
+                    {
+                        "inference_override": {
+                            "inference_steps": 7,
+                            "replan_every": 17,
+                        }
+                    }
+                )
                 deadline = time.monotonic() + 1.0
-                while dashboard.get_execute_steps() != 17:
+                while dashboard._pending_inference_overrides.get("replan_every") != 17:
                     if time.monotonic() >= deadline:
-                        pytest.fail("resample interval did not reach dashboard")
+                        pytest.fail("inference override did not reach dashboard")
                     await asyncio.sleep(0.01)
 
     try:
         asyncio.run(set_interval())
+        assert dashboard.take_inference_override_request() == {
+            "inference_steps": 7,
+            "replan_every": 17,
+        }
+        dashboard.request_inference_overrides({"inference_steps": 8, "not_declared": 3})
+        assert dashboard.take_inference_override_request() is None
+        dashboard.request_inference_override("not_declared", 3)
+        assert dashboard.take_inference_override_request() is None
     finally:
         dashboard.close()
 
@@ -540,8 +583,27 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
         adapter["base_T_model"]["right"], expected_right_T_left, atol=1e-12
     )
     assert profile["max_joint_velocity"] / profile["frequency"] == 0.4
-    assert profile["execute_steps"] == 30
-    assert profile["policy"]["num_inference_steps"] == 10
+    assert "execute_steps" not in profile
+    inference = profile["policy"]["inference_graph"]
+    assert inference["input"]["history_length"] == 1
+    assert inference["output"] == {
+        "representation": "cartesian",
+        "shape": [100, 14],
+    }
+    profiles = inference["profiles"]
+    assert all(
+        profiles[name]["overrides"]["inference_steps"]["default"] == 10
+        for name in ("flow_time", "flow_arcvel", "flow_arcdur")
+    )
+    assert profiles["diffusion_time"]["overrides"]["inference_steps"]["default"] == 100
+    assert all(
+        model["overrides"]["replan_every"]["default"] == 30
+        for model in profiles.values()
+    )
+    assert profiles["diffusion_time"]["overrides"]["inference_steps"]["target"] == {
+        "kind": "stage_attribute",
+        "attribute_path": "policy.num_inference_steps",
+    }
     assert profile["reset_on_start"] is True
     assert profile["reset_home_on_restart"] is True
     assert profile["video_recording"] == {
@@ -560,13 +622,13 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
     }
 
 
-def test_dashboard_uses_space_for_pause_and_places_resample_below_cameras():
+def test_dashboard_uses_space_and_places_dynamic_inference_controls_below_cameras():
     static = ROOT / "egomimic/robot/rollout_dashboard_static"
     html = (static / "index.html").read_text()
     javascript = (static / "app.js").read_text()
 
     assert "Pause rollout <kbd>Space</kbd>" in html
-    assert html.index('id="cameras"') < html.index('id="execute-steps"')
+    assert html.index('id="cameras"') < html.index('id="inference-controls"')
     assert "event.code === 'Space'" in javascript
     assert "event.key === 'v'" in javascript
     assert 'id="recording-indicator"' in html
@@ -578,7 +640,13 @@ def test_dashboard_uses_space_for_pause_and_places_resample_below_cameras():
     assert 'class="rollout-button-grid"' in html
     assert ".rollout-button-grid { display: grid;" in (static / "style.css").read_text()
     assert ".recording[hidden]" in (static / "style.css").read_text()
-    assert "?v=6" in html
+    assert "?v=8" in html
+    assert "inference_override" in javascript
+    assert "updateInferenceControls" in javascript
+    assert "Apply settings" in javascript
+    assert "current action prefix will finish" in javascript
+    assert "Euler" not in javascript
+    assert "execute-steps" not in html
     assert "/api/checkpoints" in javascript
     assert "event.key === 'p'" not in javascript
 
@@ -671,13 +739,17 @@ class PauseView(GatedView):
         return self.paused
 
 
-class ResampleIntervalView(GatedView):
-    def __init__(self, controls, execute_steps):
+class InferenceOverrideView(GatedView):
+    def __init__(self, controls, overrides):
         super().__init__(controls)
-        self.execute_steps = execute_steps
+        self.overrides = iter(overrides)
+        self.published = []
 
-    def get_execute_steps(self):
-        return self.execute_steps
+    def take_inference_override_request(self):
+        return next(self.overrides)
+
+    def set_inference_controls(self, controls):
+        self.published.append(controls)
 
 
 class InferenceView(View):
@@ -703,12 +775,16 @@ class ModelSelectionView(GatedView):
         super().__init__(controls)
         self.checkpoints = iter((checkpoint, None, None))
         self.loaded = []
+        self.inference_controls = []
 
     def take_model_selection_request(self):
         return next(self.checkpoints)
 
     def set_model_checkpoint(self, checkpoint):
         self.loaded.append(str(checkpoint.checkpoint))
+
+    def set_inference_controls(self, controls):
+        self.inference_controls.append(controls)
 
 
 def test_rollout_publishes_graph_plan_to_view_without_changing_command_path(
@@ -726,7 +802,6 @@ def test_rollout_publishes_graph_plan_to_view_without_changing_command_path(
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "preview": {"enabled": False},
         },
@@ -759,7 +834,6 @@ def test_rollout_waits_for_c_and_restart_discards_the_existing_plan(monkeypatch)
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "preview": {"enabled": False, "wait_for_start": True},
         },
@@ -788,7 +862,6 @@ def test_rollout_homes_on_startup_and_restart_when_enabled(monkeypatch):
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "reset_on_start": True,
             "reset_home_on_restart": True,
@@ -822,7 +895,6 @@ def test_rollout_camera_reconnect_preserves_process_and_requires_c(monkeypatch):
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "preview": {"enabled": False, "wait_for_start": True},
         },
@@ -865,7 +937,6 @@ def test_rollout_model_selection_holds_and_requires_a_fresh_start(
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "preview": {"enabled": False, "wait_for_start": True},
             "policy": {
@@ -888,6 +959,7 @@ def test_rollout_model_selection_holds_and_requires_a_fresh_start(
         }
     ]
     assert view.loaded == [str(checkpoint)]
+    assert view.inference_controls == [{}]
     assert len(robot.commands) == 4  # paired hold, then paired new-model command
 
 
@@ -910,7 +982,6 @@ def test_rollout_pause_holds_measured_joints_and_discards_policy_queue(monkeypat
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "preview": {"enabled": False},
         },
@@ -923,34 +994,60 @@ def test_rollout_pause_holds_measured_joints_and_discards_policy_queue(monkeypat
     assert any("Paused" in status for status in view.statuses)
 
 
-def test_rollout_uses_dashboard_resample_interval_on_next_plan(monkeypatch):
+def test_rollout_applies_policy_owned_override_at_natural_replan_boundary(
+    monkeypatch,
+):
     monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
     robot = FakeRobot()
-    view = ResampleIntervalView([None, None, "q"], execute_steps=1)
+    view = InferenceOverrideView(
+        [None, None, None, None, "q"],
+        [None, {"replan_every": 1}, None, None, None],
+    )
     target = np.zeros((3, 14), dtype=float)
     target[:, [6, 13]] = 0.5
-    calls = 0
 
-    def predict(_obs):
-        nonlocal calls
-        calls += 1
-        return target
+    class RuntimePolicy:
+        action_type = "cartesian"
+
+        def __init__(self):
+            self.calls = 0
+            self.replan_every = 3
+            self.applied_after_calls = None
+
+        def predict(self, _obs):
+            self.calls += 1
+            return target
+
+        def execution_plan(self, prediction):
+            return prediction[: self.replan_every]
+
+        def apply_inference_overrides(self, overrides):
+            self.applied_after_calls = self.calls
+            self.replan_every = overrides["replan_every"]
+            return runtime_controls(replan_every=self.replan_every)
+
+        def inference_controls(self):
+            return runtime_controls(replan_every=self.replan_every)
+
+    policy = RuntimePolicy()
 
     steps = run_rollout(
         robot,
-        SimpleNamespace(action_type="cartesian", predict=predict),
+        policy,
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 3,
             "max_joint_velocity": 1.0,
             "preview": {"enabled": False},
         },
         view=view,
     )
 
-    assert steps == 2
-    assert calls == 2
+    assert steps == 4
+    assert policy.calls == 2
+    assert policy.applied_after_calls == 1
+    assert view.published[-1]["replan_every"]["value"] == 1
+    assert any("queued" in status.lower() for status in view.statuses)
 
 
 def test_rollout_records_command_ready_inference_latency(monkeypatch):
@@ -965,7 +1062,6 @@ def test_rollout_records_command_ready_inference_latency(monkeypatch):
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "preview": {"enabled": False},
         },
@@ -994,7 +1090,6 @@ def test_rollout_resamples_a_velocity_unsafe_plan_before_commanding(monkeypatch)
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "max_velocity_replans": 1,
             "preview": {"enabled": False},
@@ -1021,7 +1116,6 @@ def test_rollout_executes_velocity_unsafe_pair_only_after_explicit_choice(monkey
         {
             "frequency": 30,
             "max_steps": 4,
-            "execute_steps": 1,
             "max_joint_velocity": 1.0,
             "max_velocity_replans": 1,
             "preview": {"enabled": False},
@@ -1035,6 +1129,52 @@ def test_rollout_executes_velocity_unsafe_pair_only_after_explicit_choice(monkey
         {"arms": ["left", "right"], "max_joint_step": 0.2, "limit": 1 / 30}
     ]
     assert any("operator-approved" in status for status in view.statuses)
+
+
+def test_rollout_continues_after_repeated_explicit_velocity_overrides(monkeypatch):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot = FakeRobot()
+    view = VelocityChoiceView([None, None, None, "q"], "execute")
+    unsafe = np.zeros((3, 14), dtype=float)
+    unsafe[:, 0] = [0.2, 0.4, 0.6]
+    unsafe[:, 7] = [0.2, 0.4, 0.6]
+    unsafe[:, [6, 13]] = 0.5
+
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(action_type="joints", predict=lambda _obs: unsafe),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "max_joint_velocity": 1.0,
+            "max_velocity_replans": 1,
+            "preview": {"enabled": False},
+        },
+        view=view,
+    )
+
+    assert steps == 3
+    assert len(robot.commands) == 6
+    assert len(view.velocity_details) == 3
+    assert view.statuses[-1] == "Running"
+
+
+def test_dashboard_keeps_safety_status_visible_while_repredicting(tmp_path):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+    try:
+        dashboard.request_start()
+        dashboard.set_status("Unreachable IK target; plan discarded")
+        dashboard.update({})
+        assert dashboard._snapshot()["status"].startswith("Unreachable IK")
+    finally:
+        dashboard.close()
 
 
 def test_a_new_browser_tab_supersedes_the_stale_dashboard_tab(tmp_path):

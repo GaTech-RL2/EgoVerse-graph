@@ -59,6 +59,50 @@ def _require_bool(value: object, name: str) -> bool:
     return bool(value)
 
 
+def _validate_inference_controls(controls: Mapping[str, object] | None) -> dict:
+    """Validate the policy-produced schema before it reaches browser code."""
+    controls = {} if controls is None else controls
+    if not isinstance(controls, Mapping):
+        raise ValueError("Inference controls must be a mapping")
+    result = {}
+    for name, spec in controls.items():
+        if (
+            not isinstance(name, str)
+            or not name.isidentifier()
+            or name.startswith("_")
+            or not isinstance(spec, Mapping)
+        ):
+            raise ValueError("Inference controls must have safe named mappings")
+        label, description = spec.get("label"), spec.get("description", "")
+        minimum, maximum = spec.get("min"), spec.get("max")
+        step, value = spec.get("step"), spec.get("value")
+        if (
+            spec.get("type") != "integer"
+            or not isinstance(label, str)
+            or not label
+            or not isinstance(description, str)
+            or type(minimum) is not int
+            or type(maximum) is not int
+            or type(step) is not int
+            or type(value) is not int
+            or minimum > maximum
+            or step <= 0
+            or not minimum <= value <= maximum
+            or (value - minimum) % step
+        ):
+            raise ValueError(f"Inference control {name!r} has an invalid schema")
+        result[name] = {
+            "label": label,
+            "description": description,
+            "type": "integer",
+            "min": minimum,
+            "max": maximum,
+            "step": step,
+            "value": value,
+        }
+    return result
+
+
 @dataclass(frozen=True)
 class CheckpointBundle:
     """One checkpoint and the exact inference artifacts stored beside it."""
@@ -480,7 +524,7 @@ class RolloutDashboard:
     def __init__(
         self,
         cameras,
-        execute_steps=10,
+        inference_controls=None,
         video_recording=None,
         model_browser=None,
         policy=None,
@@ -496,13 +540,13 @@ class RolloutDashboard:
             raise ValueError(
                 "preview.enabled must be true when preview.mode is dashboard"
             )
-        if type(execute_steps) is not int or not 1 <= execute_steps <= 100:
-            raise ValueError("Dashboard execute_steps must be an integer in [1, 100]")
         self._frames: dict[str, np.ndarray] = {}
         self._plan: np.ndarray | None = None
         self._overlay_status = "Waiting for a Cartesian graph plan"
         self._overlay_enabled = self.config["action_overlay"]["initial_enabled"]
-        self._execute_steps = execute_steps
+        self._inference_controls = _validate_inference_controls(inference_controls)
+        self._pending_inference_overrides: dict[str, int] = {}
+        self._inference_controls_revision = 0
         self._inference_ms = deque(maxlen=20)
         self._video_recording = False
         self._video_last_saved: dict | None = None
@@ -658,17 +702,48 @@ class RolloutDashboard:
         """Return the browser's requested policy-control pause state."""
         return self._paused.is_set()
 
-    def request_execute_steps(self, execute_steps: int) -> None:
-        """Set the next graph-plan resample interval from a trusted UI message."""
-        if type(execute_steps) is not int or not 1 <= execute_steps <= 100:
-            return
+    def request_inference_overrides(self, overrides: object) -> bool:
+        """Atomically queue values explicitly exposed by the selected profile."""
+        if not isinstance(overrides, Mapping) or not overrides:
+            return False
         with self._lock:
-            self._execute_steps = execute_steps
+            validated = {}
+            for name, value in overrides.items():
+                if not isinstance(name, str) or type(value) is not int:
+                    return False
+                spec = self._inference_controls.get(name)
+                if (
+                    spec is None
+                    or not spec["min"] <= value <= spec["max"]
+                    or (value - spec["min"]) % spec["step"]
+                ):
+                    return False
+                validated[name] = value
+            self._pending_inference_overrides.update(validated)
+        return True
 
-    def get_execute_steps(self) -> int:
-        """Return the resample interval for the next graph-plan chunk."""
+    def request_inference_override(self, name: object, value: object) -> None:
+        """Compatibility wrapper for callers submitting one declared value."""
+        self.request_inference_overrides({name: value})
+
+    def take_inference_override_request(self) -> dict[str, int] | None:
+        """Consume the latest validated UI values on the rollout thread."""
         with self._lock:
-            return self._execute_steps
+            if not self._pending_inference_overrides:
+                return None
+            result, self._pending_inference_overrides = (
+                self._pending_inference_overrides,
+                {},
+            )
+        return result
+
+    def set_inference_controls(self, controls) -> None:
+        """Publish the active model profile and discard stale model values."""
+        controls = _validate_inference_controls(controls)
+        with self._lock:
+            self._inference_controls = controls
+            self._pending_inference_overrides.clear()
+            self._inference_controls_revision += 1
 
     def record_inference(self, seconds: float) -> None:
         """Record end-to-end wall time for one plan becoming command-ready."""
@@ -788,7 +863,8 @@ class RolloutDashboard:
                 "updated_at": self._updated_at,
                 "paused": self._paused.is_set(),
                 "started": self._start_requested.is_set(),
-                "execute_steps": self._execute_steps,
+                "inference_controls": deepcopy(self._inference_controls),
+                "inference_controls_revision": self._inference_controls_revision,
                 "inference": {
                     "samples": len(inference_ms),
                     "last_ms": None if not inference_ms else inference_ms[-1],
@@ -852,7 +928,8 @@ class RolloutDashboard:
                 overlay_enabled = self._overlay_enabled
                 paused = self._paused.is_set()
                 started = self._start_requested.is_set()
-                execute_steps = self._execute_steps
+                inference_controls = deepcopy(self._inference_controls)
+                inference_controls_revision = self._inference_controls_revision
                 checkpoint = self._checkpoint
             for client in superseded:
                 # Closed in the background: an unresponsive stale tab must not
@@ -872,7 +949,8 @@ class RolloutDashboard:
                         "wait_for_start": self._wait_for_start,
                         "paused": paused,
                         "started": started,
-                        "execute_steps": execute_steps,
+                        "inference_controls": inference_controls,
+                        "inference_controls_revision": inference_controls_revision,
                         "video_recording_enabled": self.video_recording_config[
                             "enabled"
                         ],
@@ -904,8 +982,11 @@ class RolloutDashboard:
                         self.request_model_selection(command["select_model"])
                     if type(command.get("paused")) is bool:
                         self.request_pause(command["paused"])
-                    if type(command.get("execute_steps")) is int:
-                        self.request_execute_steps(command["execute_steps"])
+                    overrides = command.get(
+                        "inference_overrides", command.get("inference_override")
+                    )
+                    if isinstance(overrides, Mapping):
+                        self.request_inference_overrides(overrides)
                     decision = command.get("velocity_action")
                     if decision in {"execute", "resample", "restart"}:
                         with self._lock:
@@ -1003,7 +1084,10 @@ class RolloutDashboard:
                         "age_ms": round(max(0.0, now - snapshot["updated_at"]) * 1000),
                         "paused": snapshot["paused"],
                         "started": snapshot["started"],
-                        "execute_steps": snapshot["execute_steps"],
+                        "inference_controls": snapshot["inference_controls"],
+                        "inference_controls_revision": snapshot[
+                            "inference_controls_revision"
+                        ],
                         "inference": snapshot["inference"],
                         "video_recording": snapshot["video_recording"],
                         "video_last_saved": snapshot["video_last_saved"],

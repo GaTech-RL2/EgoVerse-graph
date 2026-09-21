@@ -14,6 +14,12 @@ let selectedVideo;
 let modelBrowserEnabled = false;
 let currentCheckpoint;
 let modelDirectory = '.';
+let inferenceControls = {};
+let inferenceControlSignature = '';
+let inferenceControlRevision = 0;
+let inferenceDrafts = {};
+let pendingInferenceApply;
+let inferenceApplyFeedback = '';
 
 function send(message) {
   if (socket?.readyState !== WebSocket.OPEN) return false;
@@ -152,13 +158,159 @@ function togglePause() {
   if (!send({paused: !paused})) reportDisconnected();
 }
 
-function setExecuteSteps(value) {
-  const executeSteps = Number(value);
-  if (!Number.isInteger(executeSteps) || executeSteps < 1 || executeSteps > 100) {
-    $('execute-steps').value = String($('execute-steps').defaultValue);
+function parsedInferenceDraft(name) {
+  const spec = inferenceControls[name];
+  const raw = inferenceDrafts[name] ?? '';
+  const value = Number(raw);
+  const valid = Boolean(spec) && raw.trim() !== '' && Number.isInteger(value)
+    && value >= spec.min && value <= spec.max
+    && (value - spec.min) % spec.step === 0;
+  return {valid, value, dirty: valid && value !== spec?.value};
+}
+
+function updateInferenceApplyState() {
+  const button = $('apply-inference');
+  const status = $('inference-apply-status');
+  if (!button || !status) return;
+  const parsed = Object.keys(inferenceControls).map(parsedInferenceDraft);
+  const invalid = parsed.some(item => !item.valid);
+  const dirty = parsed.some(item => item.dirty);
+  button.disabled = Boolean(pendingInferenceApply) || invalid || !dirty
+    || socket?.readyState !== WebSocket.OPEN;
+  button.textContent = pendingInferenceApply ? 'Queued…' : 'Apply settings';
+  if (pendingInferenceApply) {
+    status.textContent = started && !paused
+      ? 'Queued; the current action prefix will finish before these settings apply.'
+      : 'Applying settings before the next plan.';
+  } else if (invalid) {
+    status.textContent = 'Enter values within the limits declared by this model profile.';
+  } else if (dirty) {
+    status.textContent = 'Unapplied changes. Press Enter or Apply settings.';
+  } else {
+    status.textContent = inferenceApplyFeedback
+      || 'Active values from the selected model profile.';
+  }
+}
+
+function editInferenceControl(name, input) {
+  inferenceDrafts[name] = input.value;
+  inferenceApplyFeedback = '';
+  const parsed = parsedInferenceDraft(name);
+  input.setCustomValidity(parsed.valid ? '' : 'Use a valid value in the declared range.');
+  input.dataset.dirty = String(parsed.dirty);
+  updateInferenceApplyState();
+}
+
+function applyInferenceOverrides() {
+  if (pendingInferenceApply) return;
+  const values = {};
+  for (const name of Object.keys(inferenceControls)) {
+    const parsed = parsedInferenceDraft(name);
+    if (!parsed.valid) {
+      $(`inference-${name}`)?.reportValidity();
+      return;
+    }
+    if (parsed.dirty) values[name] = parsed.value;
+  }
+  if (!Object.keys(values).length) return;
+  if (!send({inference_override: values})) {
+    reportDisconnected();
     return;
   }
-  if (!send({execute_steps: executeSteps})) reportDisconnected();
+  pendingInferenceApply = {values, afterRevision: inferenceControlRevision};
+  setInferenceControlsDisabled(true);
+  updateInferenceApplyState();
+}
+
+function setInferenceControlsDisabled(disabled) {
+  for (const input of $('inference-controls').querySelectorAll('input')) {
+    input.disabled = disabled;
+  }
+  const button = $('apply-inference');
+  if (button) button.disabled = disabled;
+  if (!disabled) updateInferenceApplyState();
+}
+
+function updateInferenceControls(controls, revision = inferenceControlRevision) {
+  inferenceControls = controls && typeof controls === 'object' ? controls : {};
+  const entries = Object.entries(inferenceControls);
+  const signature = JSON.stringify(entries.map(([name, spec]) => [
+    name, spec.label, spec.description, spec.type, spec.min, spec.max, spec.step,
+  ]));
+  const container = $('inference-controls');
+  if (signature !== inferenceControlSignature) {
+    inferenceControlSignature = signature;
+    inferenceDrafts = {};
+    pendingInferenceApply = undefined;
+    inferenceApplyFeedback = '';
+    container.replaceChildren();
+    for (const [name, spec] of entries) {
+      const label = document.createElement('label');
+      label.className = 'inference-control';
+      label.title = spec.description || spec.label;
+      label.htmlFor = `inference-${name}`;
+      label.append(document.createTextNode(spec.label));
+      const input = document.createElement('input');
+      input.id = `inference-${name}`;
+      input.type = 'number';
+      input.min = String(spec.min);
+      input.max = String(spec.max);
+      input.step = String(spec.step);
+      input.value = String(spec.value);
+      input.defaultValue = String(spec.value);
+      inferenceDrafts[name] = input.value;
+      input.oninput = event => editInferenceControl(name, event.target);
+      input.onkeydown = event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          applyInferenceOverrides();
+        }
+      };
+      label.append(input);
+      container.append(label);
+    }
+    const apply = document.createElement('button');
+    apply.id = 'apply-inference';
+    apply.className = 'inference-apply';
+    apply.type = 'button';
+    apply.onclick = applyInferenceOverrides;
+    apply.textContent = 'Apply settings';
+    const status = document.createElement('span');
+    status.id = 'inference-apply-status';
+    status.className = 'inference-apply-status';
+    status.setAttribute('aria-live', 'polite');
+    container.append(apply, status);
+  }
+  container.hidden = entries.length === 0;
+  const hasRevision = Number.isInteger(revision);
+  const nextRevision = hasRevision ? revision : inferenceControlRevision;
+  const pendingValuesApplied = pendingInferenceApply
+    && Object.entries(pendingInferenceApply.values).every(
+      ([name, value]) => inferenceControls[name]?.value === value,
+    );
+  if (pendingInferenceApply && (
+    nextRevision > pendingInferenceApply.afterRevision
+    || (!hasRevision && pendingValuesApplied)
+  )) {
+    inferenceApplyFeedback = pendingValuesApplied
+      ? 'Applied atomically at the replan boundary.'
+      : 'Settings were rejected; active model values were restored.';
+    pendingInferenceApply = undefined;
+    for (const [name, spec] of entries) inferenceDrafts[name] = String(spec.value);
+  }
+  inferenceControlRevision = nextRevision;
+  for (const [name, spec] of entries) {
+    const input = $(`inference-${name}`);
+    const parsed = parsedInferenceDraft(name);
+    if (input && !pendingInferenceApply && !parsed.dirty && document.activeElement !== input) {
+      inferenceDrafts[name] = String(spec.value);
+      input.value = String(spec.value);
+      input.defaultValue = String(spec.value);
+      input.dataset.dirty = 'false';
+      input.setCustomValidity('');
+    }
+  }
+  setInferenceControlsDisabled(Boolean(pendingInferenceApply));
 }
 
 function updateInference(inference) {
@@ -186,8 +338,9 @@ function configure(message) {
   modelBrowserEnabled = Boolean(message.model_browser_enabled);
   currentCheckpoint = message.checkpoint;
   updateCurrentModel();
-  $('execute-steps').value = String(message.execute_steps);
-  $('execute-steps').defaultValue = String(message.execute_steps);
+  updateInferenceControls(
+    message.inference_controls, message.inference_controls_revision,
+  );
   overlayCamera = message.overlay_camera;
   cameras.clear();
   $('cameras').replaceChildren();
@@ -213,7 +366,6 @@ function configure(message) {
   }
   $('overlay').checked = Boolean(message.overlay_enabled);
   $('overlay').disabled = false;
-  $('execute-steps').disabled = false;
   $('start').disabled = !waitForStart || started;
   updatePauseButton();
   updateVideoControls();
@@ -228,10 +380,9 @@ function frame(message) {
   videoRecording = Boolean(message.video_recording);
   currentCheckpoint = message.checkpoint;
   updateCurrentModel();
-  if (document.activeElement !== $('execute-steps')) {
-    $('execute-steps').value = String(message.execute_steps);
-    $('execute-steps').defaultValue = String(message.execute_steps);
-  }
+  updateInferenceControls(
+    message.inference_controls, message.inference_controls_revision,
+  );
   $('start').disabled = !waitForStart || started;
   updatePauseButton();
   updateVideoControls();
@@ -373,7 +524,6 @@ $('close-videos').onclick = () => {
 };
 $('model-refresh').onclick = () => loadModels(modelDirectory);
 $('model-close').onclick = () => $('models').close();
-$('execute-steps').onchange = event => setExecuteSteps(event.target.value);
 $('restart').onclick = restartRollout;
 $('reconnect-cameras').onclick = reconnectCameras;
 for (const button of document.querySelectorAll('[data-velocity-action]')) {
@@ -427,6 +577,7 @@ function connect() {
     retryDelay = 500;
     expectedImages = [];
     $('status').textContent = 'Connected; waiting for rollout frames';
+    updateInferenceApplyState();
   };
   socket.onmessage = event => {
     // Camera JPEGs arrive as binary messages, in the order the preceding frame
@@ -449,8 +600,9 @@ function connect() {
       // A newer tab owns the dashboard. Reconnecting would only take it back
       // and leave the two tabs fighting over the rollout.
       $('status').textContent = 'A newer tab took over this dashboard; close this one.';
-      for (const id of ['start', 'pause', 'record-video', 'open-videos', 'select-model', 'execute-steps',
+      for (const id of ['start', 'pause', 'record-video', 'open-videos', 'select-model',
                         'restart', 'reconnect-cameras', 'overlay']) $(id).disabled = true;
+      setInferenceControlsDisabled(true);
       return;
     }
     $('status').textContent = 'Dashboard disconnected; retrying…';
@@ -459,7 +611,7 @@ function connect() {
     $('record-video').disabled = true;
     $('open-videos').disabled = true;
     $('select-model').disabled = true;
-    $('execute-steps').disabled = true;
+    setInferenceControlsDisabled(true);
     $('restart').disabled = true;
     $('reconnect-cameras').disabled = true;
     $('overlay').disabled = true;

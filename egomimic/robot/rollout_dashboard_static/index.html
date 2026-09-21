@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM rollout</title>
-    <link rel="stylesheet" href="/style.css?v=6">
+    <link rel="stylesheet" href="/style.css?v=8">
   </head>
   <body>
     <main>
@@ -49,13 +49,9 @@
       <section id="cameras" class="cameras" aria-label="Live rollout cameras"></section>
       <div class="rollout-controls">
         <button id="open-videos" class="video-launch" disabled>Recorded videos</button>
-        <label class="resample-control" for="execute-steps">
-          Resample every
-          <input id="execute-steps" type="number" min="1" max="100" step="1" disabled>
-          actions
-        </label>
+        <div id="inference-controls" class="inference-controls" hidden aria-label="Selected model inference controls"></div>
       </div>
-      <p class="notice">This dashboard binds to the station loopback interface only. Start, pause, and home requests are executed by the rollout loop; video recording observes existing camera frames only and has no direct arm or teleoperation control.</p>
+      <p class="notice">This dashboard binds to the station loopback interface only. Runtime inference controls are declared and bounded by the selected model's YAML profile. Start, pause, and home requests are executed by the rollout loop; video recording observes existing camera frames only and has no direct arm or teleoperation control.</p>
     </main>
     <dialog id="videos">
       <header>
@@ -99,6 +95,6 @@
       <p id="model-path" class="model-path"></p>
       <div id="model-list" class="model-list">Loading…</div>
     </dialog>
-    <script type="module" src="/app.js?v=6"></script>
+    <script type="module" src="/app.js?v=8"></script>
   </body>
 </html>

@@ -21,7 +21,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'human_bimanual' row['lab'] == 'mecka' row['task'] == 'fold_clothes' row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -46,7 +46,7 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'human_bimanual' row['lab'] == 'mecka' row['task'] == 'fold_clothes' row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
     mode: valid
     valid_ratio: 0.2
     bounds_check: false

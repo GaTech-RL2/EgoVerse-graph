@@ -5,9 +5,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from egomimic.benchmarks.libero.arc_sweep import fixed_replay_spec, profile_settings
-from egomimic.benchmarks.libero.replay import candidates_from_spec
+from egomimic.benchmarks.libero.replay import candidates_from_spec, validate_spec
 
 
 @pytest.mark.parametrize(
@@ -82,6 +83,11 @@ def test_policy_launch_follows_replay_and_stops_on_preflight_failure(
 
     def execute(argv, log):
         calls.append(argv)
+        if argv[2].endswith(".replay"):
+            # Exercise exactly the disk format read in the real subprocess.
+            loaded = yaml.safe_load(Path(argv[argv.index("--spec") + 1]).read_text())
+            validate_spec(loaded)
+            assert loaded["max_dense_action_mse"] == 1e-12
         if replay_failure:
             raise RuntimeError("preflight failed")
 
@@ -113,7 +119,9 @@ def test_policy_launch_follows_replay_and_stops_on_preflight_failure(
         assert len(calls) == 2 and "--arc-only" in calls[1]
         assert calls[0][2].endswith(".replay") and calls[1][2].endswith(".cluster")
     assert (
-        json.loads((tmp_path / "fixed-replay-spec.json").read_text())["frozen_profile"]
+        yaml.safe_load((tmp_path / "fixed-replay-spec.yaml").read_text())[
+            "frozen_profile"
+        ]
         == "stk_1"
     )
 

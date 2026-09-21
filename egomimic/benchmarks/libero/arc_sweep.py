@@ -72,7 +72,7 @@ def fixed_replay_spec(profile_id, mode):
 
 def main():
     from egomimic.benchmarks.libero.catalog import TASKS
-    from egomimic.benchmarks.libero.cluster import execute, write_json
+    from egomimic.benchmarks.libero.cluster import execute
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
@@ -88,8 +88,10 @@ def main():
         raise ValueError("Sweep run ID is too long or invalid")
     args.root.mkdir(parents=True, exist_ok=True)
     spec = fixed_replay_spec(args.profile, args.arc_mode)
-    path = args.root / "fixed-replay-spec.json"
-    write_json(path, spec)
+    # Match replay.main's YAML reader. JSON's 1e-12 spelling is parsed as a
+    # string by PyYAML; safe_dump writes an unambiguous numeric scalar.
+    path = args.root / "fixed-replay-spec.yaml"
+    path.write_text(yaml.safe_dump(spec, sort_keys=False))
     if args.mode == "full":
         if not os.environ.get("REPLAY_CALIBRATION_PARENT"):
             raise ValueError("A full sweep requires its audited calibration parent")

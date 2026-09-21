@@ -20,7 +20,7 @@ import tempfile
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -80,6 +80,8 @@ def validate_spec(spec):
         raise ValueError("Demo IDs must be nonnegative integers")
     if not 1 <= spec["execute_steps"] <= spec["horizon"] or spec["workers"] < 1:
         raise ValueError("Invalid execution horizon or worker count")
+    if spec.get("max_tasks_per_worker", 4) < 1:
+        raise ValueError("Worker recycling interval must be positive")
     for key in (
         "minimum_execution_coverage",
         "minimum_raw_success",
@@ -154,10 +156,19 @@ def stage_raw_dataset(root, suite, evidence):
         raise ValueError("Dataset revision differs")
     sources = {row["rfilename"]: row for row in metadata["siblings"]}
     records = [sources[f"{suite}/{task}_demo.hdf5"] for task in TASKS[suite]]
-    raw = Path(root) / "data/raw"
+    cache = os.environ.get("LIBERO_RAW_CACHE") or None
+    raw = Path(cache) if cache else Path(root) / "data/raw"
 
     def fetch(row):
         path = raw / row["rfilename"]
+        if cache:
+            # A cache is read-only and must match the official LFS receipt.
+            # Never repair or overwrite another run's data in this path.
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            if digest(path) != row["lfs"]["sha256"]:
+                raise ValueError(f"Cached demonstration checksum differs: {path}")
+            return
         url = f"https://huggingface.co/datasets/{DATA_REPO}/resolve/{DATA_REVISION}/{row['rfilename']}"
         for attempt in range(3):
             try:
@@ -176,6 +187,7 @@ def stage_raw_dataset(root, suite, evidence):
             "repo": DATA_REPO,
             "revision": DATA_REVISION,
             "files": records,
+            "verified_read_only_cache": cache,
         },
     )
     return raw / suite
@@ -395,9 +407,7 @@ def replay_job(job):
 
 def run_jobs(pool, function, jobs, evidence, phase):
     rows = []
-    futures = [pool.submit(function, job) for job in jobs]
-    for future in as_completed(futures):
-        row = future.result()
+    for row in pool.imap_unordered(function, jobs, chunksize=1):
         rows.append(row)
         write_json(evidence / phase / f"{row['task']}-demo-{row['demo']}.json", row)
         print(
@@ -608,8 +618,11 @@ def calibrate(root, suite, spec, evidence, *, calibration_parent=None, client=No
             for demo in demos
         ]
 
-    with ProcessPoolExecutor(
-        max_workers=spec["workers"], mp_context=multiprocessing.get_context("spawn")
+    # MuJoCo/model allocations can accumulate across many environment resets.
+    # Bound each process's lifetime, including long selection/confirmation runs.
+    with multiprocessing.get_context("spawn").Pool(
+        processes=spec["workers"],
+        maxtasksperchild=spec.get("max_tasks_per_worker", 4),
     ) as pool:
         if calibration_parent:
             eligible, summary = load_calibration_parent(

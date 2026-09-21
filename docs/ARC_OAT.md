@@ -38,7 +38,8 @@ all held-out reconstruction windows, and the complete 50-trial × 5-repetition
 rollout protocol. `--epochs` can set a smaller pilot budget; such a run is not
 the full released training budget. Render a separate workflow per suite from
 the inventory below to cover the complete comparison. Runs initialize from
-scratch; smoke checkpoints never initialize full training. Final checkpoints
+scratch unless `--resume-from-run` is supplied; smoke checkpoints never
+initialize full training. Final checkpoints
 include the last epoch even when it falls outside the periodic save cadence.
 
 The released OAT Slurm recipes launch **four processes with batch 256 each**.
@@ -81,9 +82,18 @@ Checkpoints upload periodically under content-addressed R2 keys. The run's
 durable URIs; `status.json`, logs, resolved Hydra configs, environment versions
 and data receipts also upload. Monitor with `osmo workflow query <id>` and
 `osmo workflow logs <id> -n 80`. LOW priority may use spare physical capacity
-but is preemptible. Automatic recovery from R2 is not implemented; recover a
-recorded checkpoint with the shared `ckpt_path` training option before resuming
-a preempted run. The default NORMAL-priority smoke only needs one free GPU.
+but is preemptible. To resume a stopped or superseded full run, supply
+`--resume-from-run <run-id>` to a new workflow. Partial checkpoints retain their
+optimizer, EMA, normalizer and epoch/update counters; completed stages are
+skipped. The runner verifies source receipts, hashes, suite and training budget
+before resuming through the shared `ckpt_path` training option. The default
+NORMAL-priority smoke only needs one free GPU.
+
+Full ARC training additionally requires `--arc-replay-run <run-id>` pointing to
+a completed [R/D/M replay calibration](LIBERO_ARC_REPLAY.md). Both graph stages
+load the measured choice from that receipt. Missing or invalid replay evidence
+preserves the OAT checkpoints and stops before ARC starts. Replay outcomes
+measure demonstration reconstruction, separately from trained-policy scores.
 
 To rerun evaluation from completed training after a simulator or inference
 failure, render a workflow with a **new** run ID and

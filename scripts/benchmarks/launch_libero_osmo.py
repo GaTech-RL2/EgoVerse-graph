@@ -22,6 +22,7 @@ def workflow(
     arc_replay_run=None,
     replay_spec="libero_arc_replay",
     calibration_parent=None,
+    raw_cache=None,
 ):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
@@ -52,13 +53,16 @@ def workflow(
         "libero_arc_replay_refine",
     }:
         raise ValueError("Unknown checked-in replay specification")
-    replay_workers = yaml.safe_load(
+    if raw_cache is not None and not Path(raw_cache).is_absolute():
+        raise ValueError("Raw cache must be an absolute path")
+    replay_config = yaml.safe_load(
         (
             Path(__file__).parents[2]
             / "egomimic/hydra_configs/benchmark"
             / f"{replay_spec}.yaml"
         ).read_text()
-    )["workers"]
+    )
+    replay_workers = replay_config["workers"]
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
@@ -67,7 +71,9 @@ def workflow(
                 "default": {
                     "cpu": max(12, replay_workers + 4) if replay else 12,
                     "gpu": 1,
-                    "memory": "64Gi",
+                    "memory": f"{replay_config.get('memory_gib', 64)}Gi"
+                    if replay
+                    else "64Gi",
                     "storage": "128Gi" if replay else "240Gi",
                     "platform": "ovx-l40s",
                 }
@@ -103,6 +109,7 @@ def workflow(
                         "ARC_REPLAY_RUN": arc_replay_run or "",
                         "REPLAY_SPEC": replay_spec,
                         "REPLAY_CALIBRATION_PARENT": calibration_parent or "",
+                        "LIBERO_RAW_CACHE": str(raw_cache) if raw_cache else "",
                     },
                     "command": ["bash"],
                     "args": ["/tmp/entry.sh"],
@@ -127,6 +134,7 @@ def main():
     parser.add_argument("--arc-replay-run")
     parser.add_argument("--replay-spec", default="libero_arc_replay")
     parser.add_argument("--calibration-parent")
+    parser.add_argument("--raw-cache")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     with args.output.open("x") as handle:
@@ -144,6 +152,7 @@ def main():
                 args.arc_replay_run,
                 args.replay_spec,
                 args.calibration_parent,
+                args.raw_cache,
             ),
             handle,
             sort_keys=False,

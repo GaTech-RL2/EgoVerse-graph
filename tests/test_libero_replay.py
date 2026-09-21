@@ -14,6 +14,8 @@ from egomimic.benchmarks.libero.replay import (
     read_demo,
     rebase_demo_xml,
     reconstruct_episode,
+    run_jobs,
+    stage_raw_dataset,
     summarize,
     validate_controls,
     validate_spec,
@@ -296,3 +298,59 @@ def test_refinement_reuses_only_compatible_calibration(
             "reused_only_calibration"
         ]
     assert not {"selection.json", "confirmation.json", "result.json"} & set(requested)
+
+
+def _pool_probe_task(index):
+    import os
+
+    return {"task": "probe", "demo": index, "pid": os.getpid()}
+
+
+def test_recycling_workers_retains_every_episode_once(tmp_path):
+    import multiprocessing
+
+    with multiprocessing.get_context("spawn").Pool(2, maxtasksperchild=1) as pool:
+        rows = run_jobs(pool, _pool_probe_task, list(range(4)), tmp_path, "probe")
+    assert [row["demo"] for row in rows] == list(range(4))
+    assert len({row["pid"] for row in rows}) == 4
+    assert len(list((tmp_path / "probe").glob("*.json"))) == 4
+
+
+def test_raw_cache_is_verified_and_never_overwritten(tmp_path, monkeypatch):
+    import hashlib
+    import io
+    import json
+
+    from egomimic.benchmarks.libero import replay
+
+    cache = tmp_path / "cache"
+    source = cache / "libero_10/task_demo.hdf5"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"official demonstration")
+    metadata = {
+        "sha": replay.DATA_REVISION,
+        "siblings": [
+            {
+                "rfilename": "libero_10/task_demo.hdf5",
+                "lfs": {"sha256": hashlib.sha256(source.read_bytes()).hexdigest()},
+            }
+        ],
+    }
+    monkeypatch.setenv("LIBERO_RAW_CACHE", str(cache))
+    monkeypatch.setattr(replay, "TASKS", {"libero_10": ["task"]})
+    monkeypatch.setattr(
+        replay.urllib.request,
+        "urlopen",
+        lambda *a, **k: io.BytesIO(json.dumps(metadata).encode()),
+    )
+    monkeypatch.setattr(
+        replay, "download", lambda *a, **k: pytest.fail("Cache must not download")
+    )
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    assert stage_raw_dataset(tmp_path / "root", "libero_10", evidence) == source.parent
+    assert not (tmp_path / "root").exists()
+    source.write_bytes(b"corrupt cached data")
+    with pytest.raises(ValueError, match="checksum"):
+        stage_raw_dataset(tmp_path / "root", "libero_10", evidence)
+    assert source.read_bytes() == b"corrupt cached data"

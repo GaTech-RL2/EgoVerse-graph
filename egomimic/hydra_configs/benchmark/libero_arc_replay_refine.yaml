@@ -6,6 +6,8 @@ execute_steps: 16
 dt: 0.05
 seed: 20260921
 workers: 32
+max_tasks_per_worker: 4
+memory_gib: 192
 calibration_demos: [0, 1]
 selection_demos: [2, 3, 4, 5, 6, 7, 8, 9]
 confirmation_demos: [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]

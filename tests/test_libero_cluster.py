@@ -69,6 +69,7 @@ def test_workflow_pins_source_and_requests_one_gpu():
     )["workflow"]
     assert replay["resources"]["default"]["cpu"] >= 32
     assert replay["resources"]["default"]["gpu"] == 1
+    assert replay["resources"]["default"]["memory"] == "192Gi"
     with pytest.raises(ValueError, match="Campaign"):
         module.workflow(
             "a" * 40, "unrelated-run", "libero_10", mode="full", campaign_id="study"

@@ -80,6 +80,14 @@ means testing completed but a measured gap remains. Neither means all the same
 demonstrations succeeded. The result is the best tested choice under this
 protocol, not a proof of a global optimum or statistical equivalence.
 
+Codec tests cover translation, rotation, mixed motion, grip-only transitions,
+dwells, closed paths, and rotation across pi; fractional R/D truncation must
+preserve the original clock and leading holds. Pipeline checks cover action
+normalization, bfloat16 predictions, degenerate predicted rotations/durations,
+and policy forward/backward at every tested M. Simulator controls add actual
+reset repeatability, source-precision sensitivity, dense reconstruction, and
+the legacy object/task binding described above.
+
 Run in the pinned simulator environment:
 
 ```bash
@@ -91,7 +99,9 @@ python -m egomimic.benchmarks.libero.replay \
 For OSMO, render `scripts/benchmarks/launch_libero_osmo.py --replay` with an
 immutable pushed commit and unique run ID. Each isolated workflow requests one
 L40S. The pilot uses eight independent physics workers; the updated refinement
-spec uses 32, with the CPU request derived from that specification. No rendering or policy model
+spec uses 32, with the CPU and memory requests derived from that specification.
+Workers are recycled after four episodes to bound retained simulator allocations;
+the larger refinement requests 192 GiB. No rendering or policy model
 is needed for the replay scores. Raw HDF5 downloads are pinned by revision and
 verified against their LFS SHA-256 hashes. Per-episode results, split/spec,
 source revision, controls, selection, and confirmation are uploaded to the
@@ -101,6 +111,9 @@ used as sweep scratch space.
 Use `--replay-spec libero_arc_replay_refine --calibration-parent PARENT_RUN_ID`
 to reuse a completed float32 calibration and run the larger selection and
 fresh final test. Omitting the parent runs calibration from scratch.
+`--raw-cache /absolute/path` optionally reads already staged demonstrations.
+Every cached file must match the official LFS SHA-256; the cache is never
+modified or silently repaired. This avoids repeating downloads during recovery.
 
 Full training now requires `--arc-replay-run` (or `ARC_REPLAY_RUN`). Before the
 ARC stage, the runner verifies the completed result, suite, split/spec hash,

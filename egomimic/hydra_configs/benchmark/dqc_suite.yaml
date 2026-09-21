@@ -1,0 +1,73 @@
+upstream_dqc_commit: df898256a77f3594b54a7268bd5f89915981da35
+upstream_ogbench_commit: 1d4140997f60c52c6fb0702ec100dc988b18c548
+seeds: [100001, 200002, 300003, 400004, 500005, 600006, 700007, 800008, 900009, 1000010]
+arms: [native_reference, native_window, arc]
+domains:
+  cube-triple:
+    env_name: cube-triple-play-oraclerep-v0
+    dataset: cube-triple-play-100m-v0
+    shards: 100
+    q_agg: min
+    kappa_b: 0.93
+    kappa_d: 0.8
+  cube-quadruple:
+    env_name: cube-quadruple-play-oraclerep-v0
+    dataset: cube-quadruple-play-100m-v0
+    shards: 100
+    q_agg: min
+    kappa_b: 0.93
+    kappa_d: 0.8
+  cube-octuple:
+    env_name: cube-octuple-play-oraclerep-v0
+    dataset: cube-octuple-play-1b-v0
+    shards: 1000
+    generated: true
+    q_agg: min
+    kappa_b: 0.93
+    kappa_d: 0.5
+  humanoidmaze-giant:
+    env_name: humanoidmaze-giant-navigate-oraclerep-v0
+    dataset: humanoidmaze-giant-navigate-v0
+    shards: 1
+    q_agg: mean
+    kappa_b: 0.5
+    kappa_d: 0.8
+    codec:
+      path_mode: control
+      translation_indices: null
+      rotation_indices: []
+      rotation: null
+      action_scale: null
+    calibration_grid:
+      distance: [4.0, 8.0, 16.0, 32.0]
+      rotation: [null]
+  puzzle-4x5:
+    env_name: puzzle-4x5-play-oraclerep-v0
+    dataset: puzzle-4x5-play-v0
+    shards: 1
+    q_agg: mean
+    kappa_b: 0.9
+    kappa_d: 0.5
+  puzzle-4x6:
+    env_name: puzzle-4x6-play-oraclerep-v0
+    dataset: puzzle-4x6-play-1b-v0
+    shards: 1000
+    generated: true
+    q_agg: mean
+    kappa_b: 0.7
+    kappa_d: 0.5
+calibration:
+  seed: 749193
+  windows: 1024
+  physics_windows: 64
+  physics_candidates: 12
+  grid:
+    native_horizon: [5, 10, 25]
+    waypoints: [2, 3, 4, 5, 8, 12, 16]
+    distance: [0.025, 0.05, 0.1, 0.2, 0.4]
+    rotation: [0.1047197551, 0.2094395102, 0.4188790205, 0.8377580410, 1.6755160819]
+  gates:
+    action_rmse_p90: 0.15
+    mean_native_steps: 5.0
+    scalar_compression_ratio: 1.25
+    qpos_rmse_p90: 0.05

@@ -28,6 +28,7 @@ not imply a separate runtime for that task or model.
 | Model graph execution and stage contracts | [pipeline/core.py](egomimic/pipeline/core.py), [pipeline/algo.py](egomimic/pipeline/algo.py) |
 | HPT, flow, ARC, PI and other graph stages | `egomimic/pipeline/stages_*.py` |
 | Neural network implementations | `egomimic/models/`; HPT stems in `models/stems/`, optional PI backend in `models/pi05/` |
+| Goal-conditioned chunked RL and replay calibration | [trainRL.py](egomimic/trainRL.py), [Q_CHUNKING.md](docs/Q_CHUNKING.md); shared graph and Lightning runtime |
 | Shared Lightning training and validation hooks | [pl_utils/pl_model.py](egomimic/pl_utils/pl_model.py), [pl_utils/pl_data_utils.py](egomimic/pl_utils/pl_data_utils.py) |
 | Episode loading, metadata, normalization, bounds and sampling | [rldb/zarr/zarr_dataset_multi.py](egomimic/rldb/zarr/zarr_dataset_multi.py) |
 | Embodiment keymaps and coordinate frames | `egomimic/rldb/embodiment/{human,eva,yam}.py`; see [data guide](egomimic/rldb/AGENTS.md) |

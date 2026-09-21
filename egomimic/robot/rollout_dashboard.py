@@ -114,10 +114,20 @@ class CheckpointBrowser:
         path = self._resolve(relative)
         if path.suffix.lower() not in CHECKPOINT_SUFFIXES or not path.is_file():
             raise ValueError("Selected model must be an existing .ckpt file")
+        # Artifact writers use either generic names shared by a directory or
+        # names derived from the immutable checkpoint run prefix. Support both
+        # layouts without ever accepting artifacts outside the selected model's
+        # directory.
+        run_prefix = path.stem.partition("__step-")[0]
         artifacts = {}
         for key, names in {
-            "training_config": ("resolved-config.yaml", "training-config.yaml"),
-            "normalizer_path": ("norm_stats.json",),
+            "training_config": (
+                f"{run_prefix}.resolved-config.yaml",
+                f"{run_prefix}.training-config.yaml",
+                "resolved-config.yaml",
+                "training-config.yaml",
+            ),
+            "normalizer_path": (f"{run_prefix}.norm_stats.json", "norm_stats.json"),
         }.items():
             for name in names:
                 candidate = path.parent / name
@@ -502,7 +512,7 @@ class RolloutDashboard:
             if self.model_browser is None
             else self.model_browser.relative(Path(policy["checkpoint"]))
         )
-        self._model_swap_checkpoint: CheckpointBundle | None = None
+        self._selected_model: CheckpointBundle | None = None
         self._wait_for_start = self.config["wait_for_start"]
         self._status = (
             "Ready — press c to start" if self._wait_for_start else "Starting"
@@ -580,8 +590,8 @@ class RolloutDashboard:
         if self.video_recording_config["enabled"]:
             self._video_record_requested.set()
 
-    def request_model_swap(self, relative: object) -> None:
-        """Queue a checkpoint replacement; rollout owns the actual model load."""
+    def request_model_selection(self, relative: object) -> None:
+        """Queue a selected model; rollout owns the actual model load."""
         if self.model_browser is None:
             return
         try:
@@ -591,16 +601,16 @@ class RolloutDashboard:
         self._start_requested.clear()
         self._paused.clear()
         with self._lock:
-            self._model_swap_checkpoint = bundle
+            self._selected_model = bundle
             self._status = (
-                f"Checkpoint selected: {self.model_browser.relative(bundle.checkpoint)} — "
+                f"Model selected: {self.model_browser.relative(bundle.checkpoint)} — "
                 "control is paused"
             )
 
-    def take_model_swap_request(self) -> CheckpointBundle | None:
-        """Return one validated checkpoint selected by the focused browser tab."""
+    def take_model_selection_request(self) -> CheckpointBundle | None:
+        """Return one validated model selected by the focused browser tab."""
         with self._lock:
-            checkpoint, self._model_swap_checkpoint = self._model_swap_checkpoint, None
+            checkpoint, self._selected_model = self._selected_model, None
         return checkpoint
 
     def set_model_checkpoint(self, bundle: CheckpointBundle) -> None:
@@ -695,9 +705,9 @@ class RolloutDashboard:
                 # treating it as a velocity-limit override or a home reset.
                 return "reconnect"
             with self._lock:
-                if self._model_swap_checkpoint is not None:
+                if self._selected_model is not None:
                     self._velocity_prompt = None
-                    return "model_swap"
+                    return "model_selection"
             if self._restart_requested.is_set():
                 self._restart_requested.clear()
                 return "restart"
@@ -743,12 +753,8 @@ class RolloutDashboard:
         with self._lock:
             if self._paused.is_set():
                 self._status = "Paused — holding current joint positions"
-            else:
-                self._status = (
-                    "Running"
-                    if self._start_requested.is_set()
-                    else "Ready — press c to start"
-                )
+            elif not self._start_requested.is_set():
+                self._status = "Ready — press c to start"
             if self._clients:
                 self._frames = {
                     name: np.ascontiguousarray(frame).copy()
@@ -895,8 +901,8 @@ class RolloutDashboard:
                         self.request_camera_reconnect()
                     if command.get("record_video") is True:
                         self.request_video_recording()
-                    if "swap_model" in command:
-                        self.request_model_swap(command["swap_model"])
+                    if "select_model" in command:
+                        self.request_model_selection(command["select_model"])
                     if type(command.get("paused")) is bool:
                         self.request_pause(command["paused"])
                     if type(command.get("execute_steps")) is int:
@@ -1002,6 +1008,7 @@ class RolloutDashboard:
                         "inference": snapshot["inference"],
                         "video_recording": snapshot["video_recording"],
                         "video_last_saved": snapshot["video_last_saved"],
+                        "checkpoint": snapshot["checkpoint"],
                         "velocity_prompt": snapshot["velocity_prompt"],
                     }
                     for client in tuple(sending):

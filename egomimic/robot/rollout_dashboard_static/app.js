@@ -79,7 +79,15 @@ function updateVideoControls() {
 }
 
 function updateModelControl() {
-  $('swap-model').disabled = !modelBrowserEnabled;
+  $('select-model').disabled = !modelBrowserEnabled;
+}
+
+function updateCurrentModel() {
+  const text = currentCheckpoint
+    ? `Selected model: ${currentCheckpoint}`
+    : 'Selected model: unavailable';
+  $('current-model').textContent = text;
+  $('current-model').title = text;
 }
 
 async function loadModels(path = '.') {
@@ -120,12 +128,12 @@ async function loadModels(path = '.') {
 
 function selectModel(entry) {
   if (!confirm(`Load ${entry.name}? Existing plan actions will be discarded, the robot will hold position, and you must press Start after loading.`)) return;
-  if (!send({swap_model: entry.path})) {
+  if (!send({select_model: entry.path})) {
     reportDisconnected();
     return;
   }
   $('models').close();
-  $('swap-model').disabled = true;
+  $('select-model').disabled = true;
   $('status').textContent = `Loading ${entry.name}; rollout control is paused.`;
   $('status').className = 'starting';
 }
@@ -177,6 +185,7 @@ function configure(message) {
   videoRecording = Boolean(message.video_recording);
   modelBrowserEnabled = Boolean(message.model_browser_enabled);
   currentCheckpoint = message.checkpoint;
+  updateCurrentModel();
   $('execute-steps').value = String(message.execute_steps);
   $('execute-steps').defaultValue = String(message.execute_steps);
   overlayCamera = message.overlay_camera;
@@ -218,6 +227,7 @@ function frame(message) {
   started = Boolean(message.started);
   videoRecording = Boolean(message.video_recording);
   currentCheckpoint = message.checkpoint;
+  updateCurrentModel();
   if (document.activeElement !== $('execute-steps')) {
     $('execute-steps').value = String(message.execute_steps);
     $('execute-steps').defaultValue = String(message.execute_steps);
@@ -346,7 +356,7 @@ $('stop').onclick = stopRollout;
 $('start').onclick = startRollout;
 $('pause').onclick = togglePause;
 $('record-video').onclick = toggleVideoRecording;
-$('swap-model').onclick = () => {
+$('select-model').onclick = () => {
   if (!modelBrowserEnabled) return;
   $('model-current').textContent = currentCheckpoint ? `Current: ${currentCheckpoint}` : 'Current checkpoint unavailable';
   $('models').showModal();
@@ -439,7 +449,7 @@ function connect() {
       // A newer tab owns the dashboard. Reconnecting would only take it back
       // and leave the two tabs fighting over the rollout.
       $('status').textContent = 'A newer tab took over this dashboard; close this one.';
-      for (const id of ['start', 'pause', 'record-video', 'open-videos', 'swap-model', 'execute-steps',
+      for (const id of ['start', 'pause', 'record-video', 'open-videos', 'select-model', 'execute-steps',
                         'restart', 'reconnect-cameras', 'overlay']) $(id).disabled = true;
       return;
     }
@@ -448,7 +458,7 @@ function connect() {
     $('pause').disabled = true;
     $('record-video').disabled = true;
     $('open-videos').disabled = true;
-    $('swap-model').disabled = true;
+    $('select-model').disabled = true;
     $('execute-steps').disabled = true;
     $('restart').disabled = true;
     $('reconnect-cameras').disabled = true;

@@ -99,7 +99,7 @@ def _velocity_decision(view, details):
     decision = choose(details)
     if decision not in {
         "execute",
-        "model_swap",
+        "model_selection",
         "reconnect",
         "resample",
         "restart",
@@ -121,9 +121,9 @@ def _take_video_recording_request(view) -> bool:
     return bool(take()) if callable(take) else False
 
 
-def _take_model_swap_request(view):
-    """Consume one dashboard-picked checkpoint without exposing a command path."""
-    take = getattr(view, "take_model_swap_request", None)
+def _take_model_selection_request(view):
+    """Consume one dashboard-selected model without exposing a command path."""
+    take = getattr(view, "take_model_selection_request", None)
     return take() if callable(take) else None
 
 
@@ -229,7 +229,7 @@ def run_rollout(robot, policy, config, view=None):
             control = view.update(obs)
             if control in ("q", "\x1b"):
                 break
-            bundle = _take_model_swap_request(view)
+            bundle = _take_model_selection_request(view)
             if bundle is not None:
                 # Freeze the current measured pose before the potentially slow
                 # GPU checkpoint load. Old-model chunks are discarded and the
@@ -256,23 +256,17 @@ def run_rollout(robot, policy, config, view=None):
                     )
                     candidate = load_policy(candidate_config)
                     if candidate.action_type != policy.action_type:
-                        raise ValueError(
-                            "Replacement checkpoint changed action representation"
-                        )
+                        raise ValueError("Selected model changed action representation")
                 except Exception as error:
                     _set_view_status(
                         view,
-                        "Checkpoint load failed; previous model remains loaded — press c to retry",
+                        "Model load failed; current model remains loaded — press c to retry",
                     )
-                    print(
-                        f"Could not load requested checkpoint {bundle.checkpoint}: {error}"
-                    )
+                    print(f"Could not load selected model {bundle.checkpoint}: {error}")
                 else:
                     policy, policy_config = candidate, candidate_config
                     _set_model_checkpoint(view, bundle)
-                    _set_view_status(
-                        view, "Checkpoint loaded — press c to start the new model"
-                    )
+                    _set_view_status(view, "Selected model loaded — press c to start")
                 time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                 continue
             if _take_camera_reconnect_request(view):
@@ -471,7 +465,7 @@ def run_rollout(robot, policy, config, view=None):
                     # charging it against the velocity-resample budget.
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
-                if decision == "model_swap":
+                if decision == "model_selection":
                     # The next tick consumes the validated checkpoint request
                     # before another policy target can be considered.
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
@@ -511,6 +505,7 @@ def run_rollout(robot, policy, config, view=None):
             velocity_replans = 0
             ik_rejections = 0
             step += 1
+            _set_view_status(view, "Running")
             time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
     finally:
         finish_video_recording()

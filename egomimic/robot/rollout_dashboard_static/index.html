@@ -14,20 +14,25 @@
           <h1>Rollout monitor</h1>
           <p>Three live cameras. With this browser tab focused, press <kbd>c</kbd> to start, <kbd>Space</kbd> to pause or resume, <kbd>v</kbd> to record a synchronized video, and <kbd>r</kbd> to return YAM to home and then to the ready state. Reconnect cameras pauses control without closing the rollout. The overlay is visual only.</p>
         </div>
-        <div class="actions">
-          <span id="status" class="starting">Connecting…</span>
-          <p id="recording-indicator" class="recording" hidden>● RECORDING VIDEO</p>
-          <button id="start" disabled>Start rollout <kbd>c</kbd></button>
-          <button id="pause" disabled>Pause rollout <kbd>Space</kbd></button>
-          <button id="record-video" disabled>Record video <kbd>v</kbd></button>
-          <button id="swap-model" disabled>Swap model</button>
-          <button id="restart" disabled>Reset YAM home <kbd>r</kbd></button>
-          <button id="reconnect-cameras" disabled>Reconnect RGB cameras</button>
-          <label class="overlay-toggle" for="overlay">
-            <input id="overlay" type="checkbox">
-            Show front action overlay
-          </label>
-          <button id="stop" class="stop">Stop rollout <kbd>q</kbd></button>
+        <div class="rollout-control-panel">
+          <div class="rollout-meta">
+            <span id="status" class="starting">Connecting…</span>
+            <p id="recording-indicator" class="recording" hidden>● RECORDING VIDEO</p>
+          </div>
+          <p id="current-model" class="current-model">Selected model: connecting…</p>
+          <div class="rollout-button-grid">
+            <button id="start" disabled>Start rollout <kbd>c</kbd></button>
+            <button id="pause" disabled>Pause rollout <kbd>Space</kbd></button>
+            <button id="record-video" disabled>Record video <kbd>v</kbd></button>
+            <button id="select-model" disabled>Select model</button>
+            <button id="restart" disabled>Reset YAM home <kbd>r</kbd></button>
+            <button id="reconnect-cameras" disabled>Reconnect RGB cameras</button>
+            <label class="overlay-toggle" for="overlay">
+              <input id="overlay" type="checkbox">
+              Show front action overlay
+            </label>
+            <button id="stop" class="stop">Stop rollout <kbd>q</kbd></button>
+          </div>
         </div>
       </header>
       <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
@@ -82,7 +87,7 @@
       <header>
         <div>
           <p class="eyebrow">LOCAL CHECKPOINT PICKER</p>
-          <h2>Swap rollout model</h2>
+          <h2>Select rollout model</h2>
           <p id="model-current" class="video-meta"></p>
         </div>
         <div class="actions">

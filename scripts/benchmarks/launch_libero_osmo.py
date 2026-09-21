@@ -62,6 +62,8 @@ def workflow(
         "libero_arc_replay",
         "libero_arc_replay_expanded",
         "libero_arc_replay_refine",
+        "libero_arc_replay_stk",
+        "libero_arc_replay_dur",
     }:
         raise ValueError("Unknown checked-in replay specification")
     if raw_cache is not None and not Path(raw_cache).is_absolute():

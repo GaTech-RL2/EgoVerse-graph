@@ -1,0 +1,70 @@
+# Independent translation and rotation clocks; 336 R/D/M settings per mode.
+horizon: 32
+execute_steps: 16
+dt: 0.05
+seed: 20260921
+workers: 16
+max_tasks_per_worker: 4
+memory_gib: 128
+calibration_demos:
+- 0
+- 1
+selection_demos:
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+confirmation_demos:
+- 35
+- 36
+- 37
+- 38
+- 39
+- 40
+- 41
+- 42
+- 43
+- 44
+- 45
+- 46
+- 47
+- 48
+- 49
+rotation_degrees:
+- 12
+- 24
+- 48
+- 96
+- 128
+- 192
+- 384
+- null
+translation_metres:
+- 0.05
+- 0.1
+- 0.2
+- 0.4
+- 0.8
+- 1.6
+- null
+waypoints:
+- 4
+- 8
+- 16
+- 24
+- 32
+- 36
+minimum_execution_coverage: 0.99
+minimum_raw_success: 0.0
+action_dtype: float32
+max_dense_action_mse: 1.0e-12
+max_raw_repeat_state_error: 0.0
+selection_objective: success_then_tokens
+allow_reference_gap: true
+minimum_retention: 0.0
+maximum_success_rate_drop: 1.0
+arc_mode: stk

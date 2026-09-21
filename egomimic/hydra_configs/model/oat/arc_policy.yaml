@@ -11,13 +11,14 @@ pipeline:
       obs_keys: [agentview_rgb, robot0_eye_in_hand_rgb, robot0_eef_pos, robot0_eef_quat, robot0_gripper_qpos, task_uid]
     - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
       operation: encode
+      arc_mode: ${benchmark.arc_mode}
       num_waypoints: ${benchmark.arc_waypoints}
       horizon: ${benchmark.horizon}
       max_translation: ${benchmark.arc_max_translation}
       max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
       action_horizon: ${benchmark.arc_waypoints}
-      action_dim: 11
+      action_dim: ${benchmark.arc_action_dim}
       noise_scheduler: &scheduler
         _target_: egomimic.models.ddim_scheduler.DDIMScheduler
         num_train_timesteps: 100
@@ -25,7 +26,7 @@ pipeline:
         prediction_type: epsilon
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
       action_horizon: ${benchmark.arc_waypoints}
-      action_dim: 11
+      action_dim: ${benchmark.arc_action_dim}
       condition_input_dim: 276
       policy:
         _target_: egomimic.models.diffusion_policy.DiffusionPolicy
@@ -33,7 +34,7 @@ pipeline:
         num_inference_steps: 100
         model:
           _target_: egomimic.models.denoising_nets.ConditionalUnet1D
-          input_dim: 11
+          input_dim: ${benchmark.arc_action_dim}
           cond_dim: 276
           ac_latent_seq: 1
           diffusion_step_embed_dim: 256
@@ -44,6 +45,7 @@ pipeline:
     - _target_: egomimic.pipeline.stages_libero_arc.ArcPredictionName
     - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
       operation: decode
+      arc_mode: ${benchmark.arc_mode}
       num_waypoints: ${benchmark.arc_waypoints}
       horizon: ${benchmark.horizon}
       max_translation: ${benchmark.arc_max_translation}

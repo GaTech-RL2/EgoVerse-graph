@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from egomimic.pipeline.core import Stage
-from egomimic.rldb.zarr.libero_arc import LiberoArcCodec
+from egomimic.rldb.zarr.libero_arc_timed import make_libero_arc_codec
 
 
 class LiberoArcStage(Stage):
@@ -14,10 +14,18 @@ class LiberoArcStage(Stage):
     writes_by_mode = {"inference": ("pred_action",)}
 
     def __init__(
-        self, codec=None, reconstruction=False, operation="encode", **codec_kwargs
+        self,
+        codec=None,
+        reconstruction=False,
+        operation="encode",
+        arc_mode="joint_dur",
+        **codec_kwargs,
     ):
         super().__init__()
-        self.codec = LiberoArcCodec(**codec_kwargs) if codec is None else codec
+        self.codec = (
+            make_libero_arc_codec(arc_mode, **codec_kwargs) if codec is None else codec
+        )
+        self.arc_mode = getattr(self.codec, "mode", "joint_dur")
         self.reconstruction = reconstruction
         if operation not in {"encode", "decode"}:
             raise ValueError("operation must be encode or decode")
@@ -39,9 +47,15 @@ class LiberoArcStage(Stage):
 
     def _token_scale(self, tensor):
         # Fixed physical units, recorded in config; no separately fitted split.
-        scale = tensor.new_ones(11)
+        scale = tensor.new_ones(11 if self.arc_mode == "joint_dur" else 12)
         scale[:3] = self.codec.translation_scale * self.codec.horizon
-        scale[10] = self.codec.dt * self.codec.horizon
+        if self.arc_mode == "joint_dur":
+            scale[10] = self.codec.dt * self.codec.horizon
+        elif self.arc_mode == "dur":
+            scale[[3, 10]] = self.codec.dt * self.codec.horizon
+        else:
+            scale[3] = self.codec.translation_scale / self.codec.dt
+            scale[10] = self.codec.rotation_scale / self.codec.dt
         return scale
 
     def execute(self, batch, *, mode):

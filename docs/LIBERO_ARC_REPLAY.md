@@ -4,8 +4,48 @@ Calibrate the codec before training an ARC policy. This experiment replays
 reconstructed demonstration commands through the pinned LIBERO simulator; its
 success rates are **not trained-policy benchmark scores**.
 
+## STK and DUR comparison
+
+The LIBERO comparison now tests both native timed ARC variants independently.
+`stk` means stacked **velocity** ARC; `dur` stores interval durations. Both use
+separate translation and rotation supports/clocks, following
+`TokenizePlanarArcTimed` and `PlanarArcTimedNativeDecoder` from the obstacle
+campaign at `02db41a01cfdd018785b59c06a1485c2717ad683`. The SE(3) adaptation is
+`LiberoArcTimedCodec`: M×12 rows contain xyz, translation timing, rotation6d,
+rotation timing, and gripper. D caps translation alone; R caps rotation alone.
+Gripper follows the translation clock and is held as a discrete OSC command.
+Velocity timing uses m/s and rad/s; duration timing uses seconds.
+
+[STK](../egomimic/hydra_configs/benchmark/libero_arc_replay_stk.yaml) and
+[DUR](../egomimic/hydra_configs/benchmark/libero_arc_replay_dur.yaml) each test
+the 336-candidate grid below on all five suites, with calibration demos 0–1,
+selection 2–9, and final testing 35–49. Each mode freezes its own R/D/M choice.
+These specs use 16 workers, recycling after four episodes, and 128 GiB memory.
+Use `--replay-spec libero_arc_replay_stk` or `libero_arc_replay_dur` when rendering
+an OSMO workflow. Their corresponding policy recipes are
+`oat/libero_arc_stk_policy` and `oat/libero_arc_dur_policy`.
+
+The earlier LIBERO codec/results are explicitly **`joint_dur`**, a shared-clock
+M×11 baseline. They cannot be reused as STK or independent-clock DUR evidence.
+That codec remains byte-for-byte unchanged. Its M=33 reconstruction still
+serves as the numerical simulator control; a separate `mode_dense` result
+measures each new variant at M=33. Uniform arc sampling can be lossy even at
+that support count. STK also cannot encode a stationary dwell using zero rate;
+its clock loss is measured rather than repaired with unrecorded timing data.
+Coverage uses the shortest active stream clock, with gripper included in the
+translation stream. Training checks both the mode and all codec source files.
+
+Tests cover separate R/D endpoints, clock units and time scaling, duration
+holds, velocity dwell loss, rotation across pi, native normalization and
+bfloat16 inference, and 12-channel policy forward/backward for all tested M.
+An additional read-only comparison against the native planar codec passed 240
+tokenization cases (both modes, six M values, twenty paths); maximum absolute
+difference was 2.98e-8.
+
+## Shared-clock baseline and common replay protocol
+
 `R` is the accumulated SO(3) geodesic rotation horizon in degrees. `D` is the
-accumulated translation horizon in metres. The first budget crossing truncates
+accumulated translation horizon in metres. In `joint_dur`, the first budget crossing truncates
 the command path, including a fractional last control interval. These SE(3)
 physical budgets are explicit; they do not reuse the planar implementation's
 whole-window angular/translation ratio. `rotation_radius=0.05` is the separate

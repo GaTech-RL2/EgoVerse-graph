@@ -38,7 +38,10 @@ from egomimic.benchmarks.libero.cluster import (
     download,
     write_json,
 )
-from egomimic.rldb.zarr.libero_arc import LiberoArcCodec
+from egomimic.rldb.zarr.libero_arc_timed import (
+    codec_source_files,
+    make_libero_arc_codec,
+)
 
 
 def candidate_id(candidate):
@@ -46,7 +49,8 @@ def candidate_id(candidate):
         return "full" if value is None else f"{value:g}"
 
     return (
-        f"R{label(candidate['max_rotation_degrees'])}"
+        (f"{candidate['mode']}_" if "mode" in candidate else "")
+        + f"R{label(candidate['max_rotation_degrees'])}"
         f"_D{label(candidate['max_translation'])}_M{candidate['num_waypoints']}"
     )
 
@@ -61,9 +65,11 @@ def candidates_from_spec(spec):
             "max_translation": distance,
             "num_waypoints": waypoints,
         }
+        if "arc_mode" in spec:
+            candidate["mode"] = spec["arc_mode"]
         if waypoints % 4:
             raise ValueError("Policy UNet requires M to be a multiple of four")
-        LiberoArcCodec(**candidate, horizon=spec["horizon"])
+        make_libero_arc_codec(**candidate, horizon=spec["horizon"])
         candidates[candidate_id(candidate)] = candidate
     return candidates
 
@@ -119,14 +125,18 @@ def reconstruct_episode(actions, candidate, spec):
     actions = np.asarray(actions, dtype=np.float64)
     if actions.ndim != 2 or actions.shape[1] != 7 or not len(actions):
         raise ValueError("Expected a nonempty (T,7) demonstration")
-    codec = LiberoArcCodec(**candidate, horizon=spec["horizon"], dt=spec["dt"])
+    codec = make_libero_arc_codec(**candidate, horizon=spec["horizon"], dt=spec["dt"])
     decoded = np.empty_like(actions)
     covered, windows, durations = 0.0, 0, []
     for start in range(0, len(actions), spec["execute_steps"]):
         window = actions[start : start + codec.horizon]
         window = np.pad(window, ((0, codec.horizon - len(window)), (0, 0)), mode="edge")
         tokens = codec.encode(window)
-        duration = float(tokens[:-1, 10].sum(dtype=np.float64))
+        duration = (
+            float(codec.represented_seconds(tokens))
+            if hasattr(codec, "represented_seconds")
+            else float(tokens[:-1, 10].sum(dtype=np.float64))
+        )
         count = min(spec["execute_steps"], len(actions) - start)
         decoded[start : start + count] = codec.decode(tokens)[:count]
         covered += min(count, duration / codec.dt)
@@ -542,6 +552,14 @@ def load_calibration_parent(client, parent, suite, spec, evidence):
     )
     if runtime["suite"] != suite or data["revision"] != DATA_REVISION:
         raise ValueError("Calibration parent suite or data revision differs")
+    mode = spec.get("arc_mode", "joint_dur")
+    if original_spec.get("arc_mode", "joint_dur") != mode:
+        raise ValueError("Calibration parent ARC mode differs")
+    if mode != "joint_dur" and environment.get("codec_sources") != {
+        path: digest(Path(__file__).parents[3] / path)
+        for path in codec_source_files(mode)
+    }:
+        raise ValueError("Calibration parent uses different codec dependencies")
     for key in ("horizon", "execute_steps", "dt", "action_dtype", "calibration_demos"):
         if original_spec[key] != spec[key]:
             raise ValueError(f"Calibration parent differs in {key}")
@@ -612,6 +630,12 @@ def calibrate(root, suite, spec, evidence, *, calibration_parent=None, client=No
         "max_translation": None,
         "max_rotation_degrees": None,
     }
+    if "arc_mode" in spec:
+        previous["mode"] = spec["arc_mode"]
+        # The existing dense shared-clock codec is the numerical replay control.
+        # Dense mode-specific ARC is also measured; uniform arc allocation and
+        # zero-rate dwell loss make it an approximation even at M=horizon+1.
+        controls["mode_dense"] = {**controls["dense"], "mode": spec["arc_mode"]}
 
     def jobs(demos, candidates, *, offline=False):
         return [
@@ -745,6 +769,7 @@ def select_and_confirm(
         "spec_sha256": digest(evidence / "spec.json"),
         "action_dtype": spec["action_dtype"],
         "objective": spec.get("selection_objective", "tokens_then_success"),
+        "arc_mode": spec.get("arc_mode", "joint_dur"),
     }
     write_json(evidence / "selected-before-confirmation.json", frozen)
     confirmation_candidates = {
@@ -781,6 +806,7 @@ def select_and_confirm(
         "codec_only_not_policy_scores": True,
         "best_tested_not_global_optimum": True,
         "training_overrides": [
+            f"benchmark.arc_mode={spec.get('arc_mode', 'joint_dur')}",
             f"benchmark.arc_waypoints={candidates[selected]['num_waypoints']}",
             f"benchmark.arc_max_translation={candidates[selected]['max_translation'] if candidates[selected]['max_translation'] is not None else 'null'}",
             f"benchmark.arc_max_rotation_degrees={candidates[selected]['max_rotation_degrees'] if candidates[selected]['max_rotation_degrees'] is not None else 'null'}",
@@ -825,6 +851,36 @@ def main():
         },
     )
     write_json(evidence / "spec.json", spec)
+    import importlib.metadata
+
+    mode = spec.get("arc_mode", "joint_dur")
+    write_json(
+        evidence / "environment-audit.json",
+        {
+            "source_commit": commit,
+            "arc_mode": mode,
+            "versions": {
+                name: importlib.metadata.version(name)
+                for name in (
+                    "numpy",
+                    "scipy",
+                    "mujoco",
+                    "robosuite",
+                    "libero",
+                    "torch",
+                    "h5py",
+                    "numba",
+                )
+            },
+            "codec_sha256": digest(
+                Path(__file__).parents[2] / "rldb/zarr/libero_arc.py"
+            ),
+            "codec_sources": {
+                path: digest(Path(__file__).parents[3] / path)
+                for path in codec_source_files(mode)
+            },
+        },
+    )
     write_json(evidence / "status.json", {"state": "STAGING_RAW_DEMONSTRATIONS"})
     uploader.thread.start()
     try:

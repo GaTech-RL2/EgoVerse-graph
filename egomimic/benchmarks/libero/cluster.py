@@ -434,7 +434,7 @@ class CalibrationPending(RuntimeError):
     """An unconfirmed codec must not start a full ARC policy run."""
 
 
-def load_arc_calibration(client, source_run, evidence, *, suite):
+def load_arc_calibration(client, source_run, evidence, *, suite, arc_mode="joint_dur"):
     from botocore.exceptions import ClientError
 
     if not source_run:
@@ -496,6 +496,12 @@ def load_arc_calibration(client, source_run, evidence, *, suite):
     ):
         raise ValueError("Replay specification/selection provenance differs")
     codec, selected = result["codec"], result["candidate_id"]
+    if (
+        spec.get("arc_mode", "joint_dur") != arc_mode
+        or codec.get("mode", "joint_dur") != arc_mode
+        or result.get("arc_mode", "joint_dur") != arc_mode
+    ):
+        raise ValueError("Replay ARC mode differs from requested policy")
     if candidate_id(codec) != selected:
         raise ValueError("Replay candidate configuration differs")
     validate_controls(result["confirmation"], spec)
@@ -517,24 +523,39 @@ def load_arc_calibration(client, source_run, evidence, *, suite):
     subprocess.run(
         ["git", "fetch", "--quiet", "--depth", "1", "origin", revision], check=True
     )
-    path = "egomimic/rldb/zarr/libero_arc.py"
-    original = subprocess.check_output(["git", "show", f"{revision}:{path}"])
-    if hashlib.sha256(original).hexdigest() != digest(
-        Path(__file__).parents[2] / "rldb/zarr/libero_arc.py"
-    ):
-        raise ValueError("ARC codec changed since replay; recalibration required")
+    from egomimic.rldb.zarr.libero_arc_timed import codec_source_files
+
+    paths = (
+        codec_source_files(arc_mode)
+        if arc_mode != "joint_dur"
+        else ["egomimic/rldb/zarr/libero_arc.py"]
+    )
+    hashes = {}
+    for path in paths:
+        original = subprocess.check_output(["git", "show", f"{revision}:{path}"])
+        hashes[path] = hashlib.sha256(original).hexdigest()
+        if hashes[path] != digest(Path(__file__).parents[3] / path):
+            raise ValueError("ARC codec changed since replay; recalibration required")
     overrides = {
         "arc_waypoints": int(codec["num_waypoints"]),
         "arc_max_translation": codec["max_translation"],
         "arc_max_rotation_degrees": codec["max_rotation_degrees"],
     }
+    if arc_mode != "joint_dur":
+        overrides.update(arc_mode=arc_mode, arc_action_dim=12)
     write_json(
-        evidence / "arc-calibration.json",
+        evidence
+        / (
+            "arc-calibration.json"
+            if arc_mode == "joint_dur"
+            else f"arc-{arc_mode}-calibration.json"
+        ),
         {
             "source_run": source_run,
             "runtime": runtime,
             "result": result,
-            "verified_codec_sha256": hashlib.sha256(original).hexdigest(),
+            "verified_codec_sha256": hashes["egomimic/rldb/zarr/libero_arc.py"],
+            "verified_codec_sources": hashes,
             "benchmark_overrides": overrides,
         },
     )

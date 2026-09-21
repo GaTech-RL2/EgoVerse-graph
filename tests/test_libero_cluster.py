@@ -462,10 +462,12 @@ def test_partial_resume_preserves_only_existing_verified_checkpoints(tmp_path, i
         "incomplete",
         "evaluated",
         "unpermitted_gap",
+        "mode",
     ],
 )
+@pytest.mark.parametrize("arc_mode", ["joint_dur", "stk", "dur"])
 def test_arc_training_requires_matching_confirmed_replay(
-    tmp_path, monkeypatch, invalid
+    tmp_path, monkeypatch, invalid, arc_mode
 ):
     import hashlib
     import io
@@ -486,10 +488,13 @@ def test_arc_training_requires_matching_confirmed_replay(
             allow_reference_gap=invalid == "evaluated",
         )
     codec = {"num_waypoints": 16, "max_translation": 0.2, "max_rotation_degrees": 48}
+    if arc_mode != "joint_dur":
+        codec["mode"] = spec["arc_mode"] = arc_mode
     selected = candidate_id(codec)
     result = {
         "confirmed": invalid not in {"pending", "evaluated", "unpermitted_gap"},
         "confirmation_complete": True,
+        "arc_mode": "unmatched" if invalid == "mode" else arc_mode,
         "suite": "libero_10",
         "codec": codec,
         "candidate_id": selected,
@@ -528,7 +533,11 @@ def test_arc_training_requires_matching_confirmed_replay(
     monkeypatch.setattr(
         subprocess,
         "check_output",
-        lambda *args, **kwargs: b"different codec" if invalid == "codec" else content,
+        lambda argv, **kwargs: (
+            b"different codec"
+            if invalid == "codec"
+            else (root / argv[-1].split(":", 1)[1]).read_bytes()
+        ),
     )
 
     class Storage:
@@ -547,21 +556,29 @@ def test_arc_training_requires_matching_confirmed_replay(
 
     if invalid and invalid != "evaluated":
         with pytest.raises((ValueError, CalibrationPending)):
-            load_arc_calibration(Storage(), "replay-run", tmp_path, suite="libero_10")
+            load_arc_calibration(
+                Storage(), "replay-run", tmp_path, suite="libero_10", arc_mode=arc_mode
+            )
         assert not (tmp_path / "arc-calibration.json").exists()
     else:
         overrides = load_arc_calibration(
-            Storage(), "replay-run", tmp_path, suite="libero_10"
+            Storage(), "replay-run", tmp_path, suite="libero_10", arc_mode=arc_mode
         )
-        assert overrides == {
+        expected = {
             "arc_waypoints": 16,
             "arc_max_translation": 0.2,
             "arc_max_rotation_degrees": 48,
         }
+        if arc_mode != "joint_dur":
+            expected.update(arc_mode=arc_mode, arc_action_dim=12)
+        assert overrides == expected
+        receipt = (
+            "arc-calibration.json"
+            if arc_mode == "joint_dur"
+            else f"arc-{arc_mode}-calibration.json"
+        )
         assert (
-            json.loads((tmp_path / "arc-calibration.json").read_text())[
-                "verified_codec_sha256"
-            ]
+            json.loads((tmp_path / receipt).read_text())["verified_codec_sha256"]
             == hashlib.sha256(content).hexdigest()
         )
     with pytest.raises(CalibrationPending, match="requires"):

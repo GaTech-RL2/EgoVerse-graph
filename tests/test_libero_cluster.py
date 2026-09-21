@@ -8,8 +8,10 @@ from hydra import compose, initialize_config_dir
 
 from egomimic.benchmarks.libero.cluster import (
     ArtifactUploader,
+    CalibrationPending,
     digest,
     extract_replay,
+    load_arc_calibration,
     publish_campaign,
     restore_checkpoints,
     training_arguments,
@@ -243,3 +245,166 @@ def test_recovery_verifies_checkpoints_and_complete_training(tmp_path, invalid):
             )
             == 3
         )
+
+
+@pytest.mark.parametrize("invalid", [None, "optimizer", "normalizer", "budget"])
+def test_partial_resume_preserves_only_existing_verified_checkpoints(tmp_path, invalid):
+    import io
+    import shutil
+
+    import torch
+
+    payload = {
+        "global_step": 140,
+        "loops": {"fit_loop": {"epoch_progress": {"current": {"completed": 2}}}},
+        "training_budget": {
+            "global_batch_size": 256 if invalid == "budget" else 1024,
+            "epochs": 5001,
+        },
+        "optimizer_states": [{"state": {}}],
+        "normalizer_state": {},
+    }
+    if invalid == "optimizer":
+        del payload["optimizer_states"]
+    if invalid == "normalizer":
+        del payload["normalizer_state"]
+    source = tmp_path / "partial.ckpt"
+    torch.save(payload, source)
+    runtime = {
+        "suite": "libero_10",
+        "mode": "full",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+    }
+    receipts = {
+        "training/tokenizer/checkpoints/last.ckpt": {
+            "sha256": digest(source),
+            "bytes": source.stat().st_size,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/source-run/checkpoints/partial.ckpt",
+        }
+    }
+
+    class Storage:
+        def get_object(self, Bucket, Key):
+            value = runtime if Key.endswith("runtime.json") else receipts
+            return {"Body": io.BytesIO(json.dumps(value).encode())}
+
+        def download_file(self, bucket, key, destination):
+            shutil.copyfile(source, destination)
+
+    if invalid:
+        with pytest.raises(ValueError, match="Partial checkpoint"):
+            restore_checkpoints(
+                Storage(),
+                "source-run",
+                tmp_path / "evidence",
+                suite="libero_10",
+                mode="full",
+                epochs=5001,
+                allow_partial=True,
+            )
+    else:
+        restored = restore_checkpoints(
+            Storage(),
+            "source-run",
+            tmp_path / "evidence",
+            suite="libero_10",
+            mode="full",
+            epochs=5001,
+            allow_partial=True,
+        )
+        assert set(restored) == {"tokenizer"}
+        assert restored["tokenizer"]["global_step"] == 140
+        assert restored["tokenizer"]["complete"] is False
+        assert not (tmp_path / "evidence/training/oat").exists()
+
+
+@pytest.mark.parametrize(
+    "invalid", [None, "pending", "suite", "protocol", "spec", "codec", "retention"]
+)
+def test_arc_training_requires_matching_confirmed_replay(
+    tmp_path, monkeypatch, invalid
+):
+    import hashlib
+    import io
+    import subprocess
+
+    import yaml
+
+    from egomimic.benchmarks.libero.replay import candidate_id
+
+    root = Path(__file__).parents[1]
+    spec = yaml.safe_load(
+        (root / "egomimic/hydra_configs/benchmark/libero_arc_replay.yaml").read_text()
+    )
+    codec = {"num_waypoints": 16, "max_translation": 0.2, "max_rotation_degrees": 48}
+    selected = candidate_id(codec)
+    result = {
+        "confirmed": invalid != "pending",
+        "suite": "libero_10",
+        "codec": codec,
+        "candidate_id": selected,
+        "selected_before_confirmation": True,
+        "spec_sha256": hashlib.sha256(
+            (json.dumps(spec, indent=2) + "\n").encode()
+        ).hexdigest(),
+        "confirmation": {
+            "raw": {"success_rate": 1},
+            "dense": {"retention": 1},
+            selected: {
+                "retention": 0.9 if invalid == "retention" else 1,
+                "success_rate": 1,
+                "raw_successes": 50,
+                "episodes": 50,
+                "successes": 50,
+                "action_mse": 0.1,
+            },
+        },
+    }
+    runtime = {
+        "suite": "libero_goal" if invalid == "suite" else "libero_10",
+        "source_commit": "a" * 40,
+    }
+    if invalid == "protocol":
+        spec["execute_steps"] = 8
+    if invalid == "spec":
+        result["spec_sha256"] = "wrong"
+    content = (root / "egomimic/rldb/zarr/libero_arc.py").read_bytes()
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda *args, **kwargs: b"different codec" if invalid == "codec" else content,
+    )
+
+    class Storage:
+        def get_object(self, Bucket, Key):
+            value = {
+                "status.json": {"state": "CONFIRMED"},
+                "result.json": result,
+                "runtime.json": runtime,
+                "spec.json": spec,
+            }[Key.rsplit("/", 1)[-1]]
+            return {"Body": io.BytesIO(json.dumps(value).encode())}
+
+    if invalid:
+        with pytest.raises((ValueError, CalibrationPending)):
+            load_arc_calibration(Storage(), "replay-run", tmp_path, suite="libero_10")
+        assert not (tmp_path / "arc-calibration.json").exists()
+    else:
+        overrides = load_arc_calibration(
+            Storage(), "replay-run", tmp_path, suite="libero_10"
+        )
+        assert overrides == {
+            "arc_waypoints": 16,
+            "arc_max_translation": 0.2,
+            "arc_max_rotation_degrees": 48,
+        }
+        assert (
+            json.loads((tmp_path / "arc-calibration.json").read_text())[
+                "verified_codec_sha256"
+            ]
+            == hashlib.sha256(content).hexdigest()
+        )
+    with pytest.raises(CalibrationPending, match="requires"):
+        load_arc_calibration(Storage(), None, tmp_path, suite="libero_10")

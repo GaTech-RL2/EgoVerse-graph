@@ -63,3 +63,19 @@ verified against their LFS SHA-256 hashes. Per-episode results, split/spec,
 source revision, controls, selection, and confirmation are uploaded to the
 run's separate artifact prefix. Existing benchmark worktrees and jobs are not
 used as sweep scratch space.
+
+Full training now requires `--arc-replay-run` (or `ARC_REPLAY_RUN`). Before the
+ARC stage, the runner verifies the confirmed result, suite, split/spec hash,
+32/16 execution cadence, success criteria, and exact codec source bytes. It
+loads R/D/M from that result into both graph stages. Missing or failed
+confirmation leaves the run in `AWAITING_ARC_CALIBRATION` after preserving its
+OAT checkpoints; it cannot start ARC with default parameters.
+
+`--resume-from-run` restores completed and partial training checkpoints from
+immutable artifact receipts, verifies SHA-256, size, suite and the full global
+batch/epoch budget, and resumes optimizer/EMA/normalizer state through the
+shared training entry point. Completed stages are skipped. A partial ARC
+checkpoint must also match the confirmed codec parameters. This allows the
+existing OAT training to move to the gated runner without restarting training
+from random weights. `--evaluate-from-run` remains restricted to completed
+training checkpoints.

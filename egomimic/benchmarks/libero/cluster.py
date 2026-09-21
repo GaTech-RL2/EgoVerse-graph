@@ -314,7 +314,9 @@ def publish_campaign(client, campaign_id, *, commit, epochs):
     return True
 
 
-def restore_checkpoints(client, source_run, evidence, *, suite, mode, epochs):
+def restore_checkpoints(
+    client, source_run, evidence, *, suite, mode, epochs, allow_partial=False
+):
     """Recover completed training checkpoints without reusing partial rollouts."""
     import torch
 
@@ -339,6 +341,8 @@ def restore_checkpoints(client, source_run, evidence, *, suite, mode, epochs):
     restored = {}
     for method in ("tokenizer", "oat", "arc"):
         relative = f"training/{method}/checkpoints/last.ckpt"
+        if allow_partial and relative not in receipts:
+            continue
         receipt = receipts[relative]
         uri = receipt["uri"]
         if not uri.startswith("s3://rldb/" + prefix + "checkpoints/"):
@@ -352,18 +356,134 @@ def restore_checkpoints(client, source_run, evidence, *, suite, mode, epochs):
         completed = payload["loops"]["fit_loop"]["epoch_progress"]["current"][
             "completed"
         ]
-        if completed < runtime["epochs"]:
+        if completed < runtime["epochs"] and not allow_partial:
             raise ValueError("Cannot evaluate an incomplete training checkpoint")
+        if allow_partial and mode == "full":
+            budget = payload.get("training_budget", {})
+            if (
+                budget.get("global_batch_size") != 1024
+                or budget.get("epochs") != epochs
+            ):
+                raise ValueError("Partial checkpoint has incompatible training budget")
+            if not payload.get("optimizer_states") or "normalizer_state" not in payload:
+                raise ValueError(
+                    "Partial checkpoint lacks optimizer or normalization state"
+                )
         restored[method] = {
             **receipt,
             "epochs_completed": completed,
             "global_step": payload["global_step"],
+            "complete": completed >= runtime["epochs"],
         }
+        if method == "arc" and allow_partial:
+            restored[method]["benchmark"] = payload["hyper_parameters"]["config_tree"][
+                "benchmark"
+            ]
         del payload
+    if allow_partial and not restored:
+        raise ValueError("No training checkpoint is available to resume")
     write_json(
         evidence / "recovered-training.json",
         {"source_run": source_run, "runtime": runtime, "checkpoints": restored},
     )
+    return restored
+
+
+class CalibrationPending(RuntimeError):
+    """An unconfirmed codec must not start a full ARC policy run."""
+
+
+def load_arc_calibration(client, source_run, evidence, *, suite):
+    from botocore.exceptions import ClientError
+
+    if not source_run:
+        raise CalibrationPending("ARC requires a confirmed demonstration replay run")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", source_run):
+        raise ValueError("Invalid replay run ID")
+    prefix = f"experiments/arc-oat-20260919/{source_run}/"
+
+    def read(name):
+        return json.loads(
+            client.get_object(Bucket="rldb", Key=prefix + name)["Body"].read()
+        )
+
+    try:
+        status, result, runtime, spec = (
+            read("status.json"),
+            read("result.json"),
+            read("runtime.json"),
+            read("spec.json"),
+        )
+    except ClientError as error:
+        if error.response["Error"]["Code"] in {"NoSuchKey", "404"}:
+            raise CalibrationPending(
+                "Replay confirmation is not available yet"
+            ) from error
+        raise
+    if status.get("state") != "CONFIRMED" or result.get("confirmed") is not True:
+        raise CalibrationPending(
+            "Replay candidate has not passed independent confirmation"
+        )
+    if result.get("suite") != suite or runtime.get("suite") != suite:
+        raise ValueError("Replay calibration suite differs")
+    if (spec.get("horizon"), spec.get("execute_steps"), spec.get("dt")) != (
+        32,
+        16,
+        0.05,
+    ):
+        raise ValueError("Replay execution protocol differs from policy")
+    from egomimic.benchmarks.libero.replay import (
+        candidate_id,
+        rank_candidates,
+        validate_controls,
+        validate_spec,
+    )
+
+    validate_spec(spec)
+    spec_hash = hashlib.sha256((json.dumps(spec, indent=2) + "\n").encode()).hexdigest()
+    if (
+        spec_hash != result.get("spec_sha256")
+        or result.get("selected_before_confirmation") is not True
+    ):
+        raise ValueError("Replay specification/selection provenance differs")
+    codec, selected = result["codec"], result["candidate_id"]
+    if candidate_id(codec) != selected:
+        raise ValueError("Replay candidate configuration differs")
+    validate_controls(result["confirmation"], spec)
+    if selected not in rank_candidates(result["confirmation"], {selected: codec}, spec):
+        raise CalibrationPending(
+            "Replay result does not satisfy its confirmation criteria"
+        )
+    # Training and replay may have different orchestration commits. Verify the
+    # actual codec bytes, including older replay receipts without a source hash.
+    revision = runtime["source_commit"]
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ValueError("Replay source is not pinned")
+    subprocess.run(
+        ["git", "fetch", "--quiet", "--depth", "1", "origin", revision], check=True
+    )
+    path = "egomimic/rldb/zarr/libero_arc.py"
+    original = subprocess.check_output(["git", "show", f"{revision}:{path}"])
+    if hashlib.sha256(original).hexdigest() != digest(
+        Path(__file__).parents[2] / "rldb/zarr/libero_arc.py"
+    ):
+        raise ValueError("ARC codec changed since replay; recalibration required")
+    overrides = {
+        "arc_waypoints": int(codec["num_waypoints"]),
+        "arc_max_translation": codec["max_translation"],
+        "arc_max_rotation_degrees": codec["max_rotation_degrees"],
+    }
+    write_json(
+        evidence / "arc-calibration.json",
+        {
+            "source_run": source_run,
+            "runtime": runtime,
+            "result": result,
+            "verified_codec_sha256": hashlib.sha256(original).hexdigest(),
+            "benchmark_overrides": overrides,
+        },
+    )
+    return overrides
 
 
 def configure_simulator(root):
@@ -401,7 +521,15 @@ def main():
     parser.add_argument(
         "--evaluate-from-run", default=os.environ.get("EVALUATE_FROM_RUN") or None
     )
+    parser.add_argument(
+        "--resume-from-run", default=os.environ.get("RESUME_FROM_RUN") or None
+    )
+    parser.add_argument(
+        "--arc-replay-run", default=os.environ.get("ARC_REPLAY_RUN") or None
+    )
     args = parser.parse_args()
+    if args.evaluate_from_run and args.resume_from_run:
+        raise ValueError("Choose evaluation recovery or training resume")
     if args.campaign_id and (
         args.mode != "full"
         or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,44}", args.campaign_id)
@@ -433,6 +561,8 @@ def main():
             "epochs": 1 if args.mode == "smoke" else args.epochs,
             "global_batch_size": 4 if args.mode == "smoke" else 1024,
             "evaluate_from_run": args.evaluate_from_run,
+            "resume_from_run": args.resume_from_run,
+            "arc_replay_run": args.arc_replay_run,
             "campaign_id": args.campaign_id,
             "artifact_prefix": "s3://rldb/" + uploader.prefix,
         },
@@ -444,22 +574,46 @@ def main():
         write_json(evidence / "status.json", {"state": "STAGING_DATA"})
         dataset = stage_dataset(args.root, args.suite, evidence)
         configure_simulator(args.root)
-        if args.evaluate_from_run:
-            restore_checkpoints(
+        restored = {}
+        if args.evaluate_from_run or args.resume_from_run:
+            restored = restore_checkpoints(
                 uploader.client,
-                args.evaluate_from_run,
+                args.evaluate_from_run or args.resume_from_run,
                 evidence,
                 suite=args.suite,
                 mode=args.mode,
                 epochs=args.epochs,
+                allow_partial=bool(args.resume_from_run),
             )
         for method in () if args.evaluate_from_run else ("tokenizer", "oat", "arc"):
+            overrides = {}
+            if method == "arc" and args.mode == "full":
+                overrides = load_arc_calibration(
+                    uploader.client, args.arc_replay_run, evidence, suite=args.suite
+                )
+                if method in restored and any(
+                    restored[method]["benchmark"].get(key) != value
+                    for key, value in overrides.items()
+                ):
+                    raise ValueError(
+                        "Resumed ARC checkpoint uses different replay parameters"
+                    )
+            if restored.get(method, {}).get("complete"):
+                continue
             write_json(
                 evidence / "status.json", {"state": "TRAINING", "method": method}
             )
             argv = training_arguments(
                 method, args.suite, dataset, evidence, args.mode, args.epochs
             )
+            argv += [
+                f"benchmark.{key}={value if value is not None else 'null'}"
+                for key, value in overrides.items()
+            ]
+            if method in restored:
+                argv.append(
+                    f"ckpt_path={evidence / f'training/{method}/checkpoints/last.ckpt'}"
+                )
             write_json(evidence / f"{method}-arguments.json", argv)
             execute(argv, evidence / f"{method}-training.log")
             checkpoint = evidence / f"training/{method}/checkpoints/last.ckpt"
@@ -551,6 +705,17 @@ def main():
             },
         )
         print("BENCHMARK_RESULT", (evidence / "status.json").read_text(), flush=True)
+    except CalibrationPending as error:
+        write_json(
+            evidence / "status.json",
+            {
+                "state": "AWAITING_ARC_CALIBRATION",
+                "reason": str(error),
+                "training_preserved": True,
+            },
+        )
+        print("ARC_TRAINING_GATED", str(error), flush=True)
+        return
     except BaseException as error:
         write_json(
             evidence / "status.json",

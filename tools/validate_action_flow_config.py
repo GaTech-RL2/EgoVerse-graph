@@ -121,6 +121,7 @@ CANDIDATE_METHODS = {
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
+    "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_deterministic_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,

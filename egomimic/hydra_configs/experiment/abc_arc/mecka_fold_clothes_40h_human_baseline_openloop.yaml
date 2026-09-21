@@ -1,0 +1,40 @@
+# 300M baseline BC on human-bimanual MECKA fold_clothes data.
+defaults:
+  - /experiment/abc_arc/hpt_qwen_300M_knobs
+  - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled
+  - override /data: abc_arc/mecka_fold_clothes_40h_human_baseline
+  - override /evaluator: eval_open_loop_sim
+  - override /logger: wandb
+  - _self_
+name: mecka_fold_clothes_40h_human_baseline_openloop
+description: 300M human_bimanual MECKA fold_clothes baseline open-loop
+launch_params: {gpus_per_node: 2, nodes: 1}
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+abc:
+  arc_velocity_mode: per_waypoint
+  arc_token_rows: 200
+  arc_distance: 0.40
+  arc_rotation_distance: 0.4188790204786391
+  arc_waypoints: 100
+  action_horizon: 100
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+evaluator:
+  action_mode: baseline
+  control_horizon: 100
+  execute_fraction: 0.30
+  limit_val_episodes: 5
+  requires_ordered_validation: true
+logger:
+  wandb:
+    project: abc-yam
+    tags: [hpt, 300m, mecka, human_bimanual, fold_clothes, baseline, open_loop, video]

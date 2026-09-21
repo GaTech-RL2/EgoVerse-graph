@@ -1,0 +1,64 @@
+# Human-bimanual MECKA fold_clothes data, approximately 40 hours.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  human_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
+    image_hw: [360, 640]
+    key_map:
+      _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+      keymap_mode: hybrid_arc_tokenizer_cartesian
+      annotation_key: annotations
+    transform_list:
+      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+      action_mode: hybrid_arc_tokenizer_cartesian
+      coord_frame: eef_frame
+      rotation_mode: euler
+      stride: 1
+      min_distance_unit: 0.40
+      rotation_distance_unit: 0.4188790204786391
+      resampled_vector_length: 100
+      velocity_mode: per_waypoint
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' row['lab'] == 'mecka' row['task'] == 'fold_clothes' row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.2
+    bounds_check: false
+valid_datasets:
+  human_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
+    image_hw: [360, 640]
+    key_map:
+      _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+      keymap_mode: hybrid_arc_tokenizer_cartesian
+      annotation_key: annotations
+    transform_list:
+      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+      action_mode: hybrid_arc_tokenizer_cartesian
+      coord_frame: eef_frame
+      rotation_mode: euler
+      stride: 1
+      min_distance_unit: 0.40
+      rotation_distance_unit: 0.4188790204786391
+      resampled_vector_length: 100
+      velocity_mode: per_waypoint
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' row['lab'] == 'mecka' row['task'] == 'fold_clothes' row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: valid
+    valid_ratio: 0.2
+    bounds_check: false
+train_dataloader_params:
+  human_bimanual: {batch_size: 32, num_workers: 6}
+valid_dataloader_params:
+  human_bimanual: {batch_size: 32, num_workers: 6}

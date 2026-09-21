@@ -38,6 +38,8 @@ benchmark:
   n_action_steps: 16
   tokenizer_checkpoint: null
   arc_waypoints: 16
+  arc_max_translation: null
+  arc_max_rotation_degrees: null
   max_episode_steps: 550
   trials_per_task: 50
   repetitions: 5

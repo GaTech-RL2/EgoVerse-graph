@@ -129,3 +129,49 @@ def test_batch_stage_unnormalizes_once_and_restores_normalized_actions():
     torch.testing.assert_close(
         result["libero_panda"]["pred_action"], normalized, atol=1e-5, rtol=1e-5
     )
+
+
+def test_distance_cap_keeps_original_clock_and_fractional_final_command():
+    codec = LiberoArcCodec(num_waypoints=36, max_translation=0.055)
+    actions = np.zeros((32, 7))
+    actions[:, 0] = 0.2  # 1 cm per control interval.
+    actions[:, 6] = -1
+    tokens = codec.encode(actions)
+    assert tokens[:, 10].sum() == pytest.approx(0.275)
+    decoded = codec.decode(tokens)
+    np.testing.assert_allclose(decoded[:5, 0], 0.2, atol=1e-6)
+    assert decoded[5, 0] == pytest.approx(0.1, abs=1e-6)
+    np.testing.assert_allclose(decoded[6:, :6], 0, atol=1e-6)
+    np.testing.assert_allclose(decoded[:, 6], -1)
+
+
+def test_rotation_horizon_is_degrees_and_works_without_translation():
+    actions = np.zeros((32, 7))
+    actions[:, 5] = np.deg2rad(3) / 0.5
+    codec = LiberoArcCodec(num_waypoints=36, max_rotation_degrees=12)
+    tokens = codec.encode(actions)
+    assert tokens[:, 10].sum() == pytest.approx(4 * codec.dt)
+    decoded = codec.decode(tokens)
+    np.testing.assert_allclose(decoded[:4, :6], actions[:4, :6], atol=2e-6)
+    np.testing.assert_allclose(decoded[4:, :6], 0, atol=2e-6)
+
+
+def test_first_budget_crossing_preserves_leading_hold():
+    actions = np.zeros((32, 7))
+    actions[8:, 0] = 0.2
+    actions[8:, 5] = np.deg2rad(4) / 0.5
+    codec = LiberoArcCodec(
+        num_waypoints=36, max_translation=0.02, max_rotation_degrees=12
+    )
+    tokens = codec.encode(actions)
+    assert tokens[:, 10].sum() == pytest.approx(10 * codec.dt)
+    decoded = codec.decode(tokens)
+    np.testing.assert_allclose(decoded[:10, :6], actions[:10, :6], atol=2e-6)
+    np.testing.assert_allclose(decoded[10:, :6], 0, atol=2e-6)
+
+
+@pytest.mark.parametrize("parameter", ["max_translation", "max_rotation_degrees"])
+@pytest.mark.parametrize("value", [0, -1, np.nan, np.inf])
+def test_invalid_horizon_budgets_rejected(parameter, value):
+    with pytest.raises(ValueError, match="budgets"):
+        LiberoArcCodec(**{parameter: value})

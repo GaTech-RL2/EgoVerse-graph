@@ -17,6 +17,7 @@ def workflow(
     epochs=5001,
     evaluate_from_run=None,
     campaign_id=None,
+    replay=False,
 ):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
@@ -34,6 +35,8 @@ def workflow(
         or run_id != f"{campaign_id}-{suite.replace('_', '-')}"
     ):
         raise ValueError("Campaign requires full mode and matching suite run IDs")
+    if replay and (evaluate_from_run or campaign_id):
+        raise ValueError("Replay calibration is separate from a policy campaign")
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
@@ -43,13 +46,15 @@ def workflow(
                     "cpu": 12,
                     "gpu": 1,
                     "memory": "64Gi",
-                    "storage": "240Gi",
+                    "storage": "128Gi" if replay else "240Gi",
                     "platform": "ovx-l40s",
                 }
             },
             "timeout": {
-                "queue_timeout": "4h" if mode == "smoke" else "2d",
-                "exec_timeout": "4h" if mode == "smoke" else "60d",
+                "queue_timeout": "2d" if replay or mode == "full" else "4h",
+                "exec_timeout": "2d"
+                if replay
+                else ("4h" if mode == "smoke" else "60d"),
             },
             "tasks": [
                 {
@@ -71,6 +76,7 @@ def workflow(
                         "EPOCHS": str(epochs),
                         "EVALUATE_FROM_RUN": evaluate_from_run or "",
                         "CAMPAIGN_ID": campaign_id or "",
+                        "RUN_KIND": "replay" if replay else "benchmark",
                     },
                     "command": ["bash"],
                     "args": ["/tmp/entry.sh"],
@@ -90,6 +96,7 @@ def main():
     parser.add_argument("--epochs", type=int, default=5001)
     parser.add_argument("--evaluate-from-run")
     parser.add_argument("--campaign-id")
+    parser.add_argument("--replay", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     with args.output.open("x") as handle:
@@ -102,6 +109,7 @@ def main():
                 args.epochs,
                 args.evaluate_from_run,
                 args.campaign_id,
+                args.replay,
             ),
             handle,
             sort_keys=False,

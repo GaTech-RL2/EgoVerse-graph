@@ -41,6 +41,13 @@ class LiberoArcCodec:
     A small gripper term gives grip-only motion geometric support. Stationary
     interval endpoints are retained when the waypoint budget permits; timing
     is decoded as a cumulative duration clock, never inverted speed.
+
+    ``max_translation`` (D, metres) and ``max_rotation_degrees`` (R, accumulated
+    SO(3) geodesic degrees) optionally truncate the represented command path
+    at its first budget crossing. R is an angular horizon, distinct from the
+    metric's ``rotation_radius``. Missing budgets retain the full time window.
+    Decoding holds after the represented duration; it never stretches a short
+    path to fill the requested action horizon.
     """
 
     def __init__(
@@ -52,6 +59,8 @@ class LiberoArcCodec:
         rotation_scale=0.5,
         rotation_radius=0.05,
         gripper_radius=0.01,
+        max_translation=None,
+        max_rotation_degrees=None,
     ):
         self.num_waypoints, self.horizon = int(num_waypoints), int(horizon)
         self.dt = float(dt)
@@ -76,6 +85,29 @@ class LiberoArcCodec:
         )
         if not all(np.isfinite(v) and v > 0 for v in values):
             raise ValueError("ARC scales/radii/dt must be finite and positive")
+        for value in (max_translation, max_rotation_degrees):
+            if value is not None and (not np.isfinite(value) or value <= 0):
+                raise ValueError("ARC D/R budgets must be finite and positive or None")
+        self.max_translation = max_translation
+        self.max_rotation_degrees = max_rotation_degrees
+
+    def _window_end(self, time, xyz, rotations):
+        end = time[-1]
+        clocks = (
+            (self.max_translation, np.linalg.norm(np.diff(xyz, axis=0), axis=-1)),
+            (
+                self.max_rotation_degrees,
+                np.rad2deg((rotations[1:] * rotations[:-1].inv()).magnitude()),
+            ),
+        )
+        for budget, increments in clocks:
+            cumulative = np.r_[0.0, np.cumsum(increments)]
+            if budget is not None and budget < cumulative[-1]:
+                # First crossing, including a fractional final control interval.
+                index = int(np.searchsorted(cumulative, budget, side="left"))
+                fraction = (budget - cumulative[index - 1]) / increments[index - 1]
+                end = min(end, time[index - 1] + fraction * self.dt)
+        return end
 
     def _progress(self, xyz, rotations, grip):
         angles = (rotations[1:] * rotations[:-1].inv()).magnitude()
@@ -101,8 +133,17 @@ class LiberoArcCodec:
             )
         rotations = Rotation.from_quat(np.stack([r.as_quat() for r in rotations]))
         grip = np.r_[actions[0, 6], actions[:, 6]]
-        progress = self._progress(xyz, rotations, grip)
         time = np.arange(self.horizon + 1, dtype=np.float64) * self.dt
+        end = self._window_end(time, xyz, rotations)
+        if end < time[-1]:
+            prefix = np.r_[time[time < end - 1e-12], end]
+            xyz = np.stack(
+                [np.interp(prefix, time, xyz[:, i]) for i in range(3)], axis=-1
+            )
+            rotations = Slerp(time, rotations)(prefix)
+            grip = grip[np.searchsorted(time, prefix + 1e-10, side="right") - 1]
+            time = prefix
+        progress = self._progress(xyz, rotations, grip)
         if self.num_waypoints >= len(time):
             selected = np.r_[time, np.repeat(time[-1], self.num_waypoints - len(time))]
         elif progress[-1] <= 1e-12:
@@ -112,7 +153,7 @@ class LiberoArcCodec:
             holds = np.diff(progress) <= 1e-12
             edges = np.flatnonzero(np.diff(np.r_[False, holds, False]))
             changes = np.flatnonzero(np.diff(grip) != 0)
-            required = np.unique(np.r_[0, self.horizon, edges, changes, changes + 1])
+            required = np.unique(np.r_[0, len(time) - 1, edges, changes, changes + 1])
             if len(required) > self.num_waypoints:
                 required = required[
                     np.rint(

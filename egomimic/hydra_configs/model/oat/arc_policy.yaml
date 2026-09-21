@@ -13,6 +13,8 @@ pipeline:
       operation: encode
       num_waypoints: ${benchmark.arc_waypoints}
       horizon: ${benchmark.horizon}
+      max_translation: ${benchmark.arc_max_translation}
+      max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
       action_horizon: ${benchmark.arc_waypoints}
       action_dim: 11
@@ -44,6 +46,8 @@ pipeline:
       operation: decode
       num_waypoints: ${benchmark.arc_waypoints}
       horizon: ${benchmark.horizon}
+      max_translation: ${benchmark.arc_max_translation}
+      max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
 benchmark_protocol:
   suite: ${benchmark.suite}
   horizon: ${benchmark.horizon}

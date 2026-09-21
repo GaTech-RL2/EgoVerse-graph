@@ -38,4 +38,8 @@ git -C "$LIBERO_SOURCE_ROOT" fetch --depth 1 origin 6090ff21837566fed47b7c9061c9
 git -C "$LIBERO_SOURCE_ROOT" checkout --detach FETCH_HEAD
 uv pip install --no-deps -e "$LIBERO_SOURCE_ROOT"
 export LIBERO_CONFIG_PATH=/workspace/libero/config
-python -m egomimic.benchmarks.libero.cluster --root /workspace/libero --suite "$SUITE" --mode "$RUN_MODE" --run-id "$RUN_ID" --epochs "$EPOCHS"
+if [[ "${RUN_KIND:-benchmark}" == replay ]]; then
+    python -m egomimic.benchmarks.libero.replay --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID"
+else
+    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero --suite "$SUITE" --mode "$RUN_MODE" --run-id "$RUN_ID" --epochs "$EPOCHS"
+fi

@@ -33,7 +33,8 @@ checkpoints, performs one four-step rollout on every task in the selected
 suite, checks paired initial-state hashes, and evaluates 16 reconstruction
 windows. These checks are not benchmark performance measurements.
 
-`--mode full` runs the standard 5001-epoch recipe for each of the three models,
+`--mode full` runs the standard 5001-epoch recipe for the OAT tokenizer, OAT
+policy, DUR ARC policy, and STK ARC policy,
 all held-out reconstruction windows, and the complete 50-trial × 5-repetition
 rollout protocol. `--epochs` can set a smaller pilot budget; such a run is not
 the full released training budget. Render a separate workflow per suite from

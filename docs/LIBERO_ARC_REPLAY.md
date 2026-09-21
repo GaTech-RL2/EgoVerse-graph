@@ -4,6 +4,9 @@ Calibrate the codec before training an ARC policy. This experiment replays
 reconstructed demonstration commands through the pinned LIBERO simulator; its
 success rates are **not trained-policy benchmark scores**.
 
+The dated [STK/DUR results and support-count curves](results/libero_arc_timed_replay_20260921.md)
+record completed searches, pending suites, and independently audited evidence.
+
 ## STK and DUR comparison
 
 The LIBERO comparison now tests both native timed ARC variants independently.
@@ -161,7 +164,12 @@ fresh final test. Omitting the parent runs calibration from scratch.
 Every cached file must match the official LFS SHA-256; the cache is never
 modified or silently repaired. This avoids repeating downloads during recovery.
 
-Full training now requires `--arc-replay-run` (or `ARC_REPLAY_RUN`). Before the
+Full training defaults to both independent modes. The OSMO renderer takes
+`--arc-replay-runs-file replays.json`, containing a JSON mapping from `stk` and
+`dur` to their respective replay run IDs. The container runner accepts that
+mapping through `--arc-replay-runs` or `ARC_REPLAY_RUNS_JSON`.
+The legacy `--arc-replay-run` flag applies only to `--arc-modes joint_dur`.
+Before the
 ARC stage, the runner verifies the completed result, suite, split/spec hash,
 32/16 execution cadence, all final episode counts, numerical controls, and
 exact codec source bytes. It loads R/D/M from that result into both graph

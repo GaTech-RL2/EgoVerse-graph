@@ -252,7 +252,9 @@ and observation/action alignment. At control-grid grip
 transitions, float32 clock tolerance prevents a one-frame delay.
 
 Tokenizer-only reconstruction compares OAT prefixes `{1,2,4,8}` against both ARC variants at
-support budgets `{2,4,8,16,33}` on identical held-out chunks. It reports raw
+support budgets `{2,4,8,16,33}` with uncapped R/D on identical held-out chunks.
+This rate/error sweep is separate from the replay-selected settings used by
+the trained ARC policies. It reports raw
 action MSE (the source benchmark), MAE, per-channel-family MSE, gripper sign
 accuracy and integrated translation-command endpoint error. Representation
 sizes are recorded: an OAT token has a 1,000-value vocabulary; an ARC support
@@ -349,7 +351,13 @@ python -m egomimic.benchmarks.libero.campaign \
   --data-root /datasets/arc_oat --output-root /runs/arc_oat --output campaign.json
 ```
 
-For one suite, the training stages are ordinary graph recipes:
+The manual plan contains ARC placeholders; apply each suite/mode's frozen
+replay settings before executing its ARC training command. The OSMO runner
+above performs this verification and substitution automatically.
+
+For one suite, the training stages are ordinary graph recipes. These ARC
+examples use the measured LIBERO-10 selections in the
+[dated replay report](results/libero_arc_timed_replay_20260921.md):
 
 ```sh
 python -m egomimic.trainHydra +experiment=oat/libero_oattok \
@@ -359,9 +367,14 @@ python -m egomimic.trainHydra +experiment=oat/libero_oatpolicy \
   benchmark.suite=libero_10 benchmark.dataset=/datasets/arc_oat/libero_10.zarr \
   benchmark.tokenizer_checkpoint=/runs/tokenizer/checkpoints/last.ckpt \
   hydra.run.dir=/runs/oat
-python -m egomimic.trainHydra +experiment=oat/libero_arc_policy \
+python -m egomimic.trainHydra +experiment=oat/libero_arc_dur_policy \
   benchmark.suite=libero_10 benchmark.dataset=/datasets/arc_oat/libero_10.zarr \
-  hydra.run.dir=/runs/arc
+  benchmark.arc_waypoints=32 benchmark.arc_max_translation=0.8 \
+  benchmark.arc_max_rotation_degrees=192 hydra.run.dir=/runs/arc_dur
+python -m egomimic.trainHydra +experiment=oat/libero_arc_stk_policy \
+  benchmark.suite=libero_10 benchmark.dataset=/datasets/arc_oat/libero_10.zarr \
+  benchmark.arc_waypoints=32 benchmark.arc_max_translation=1.6 \
+  benchmark.arc_max_rotation_degrees=128 hydra.run.dir=/runs/arc_stk
 ```
 
 Checkpoint loading selects EMA explicitly and validates exact state keys.
@@ -378,10 +391,14 @@ python -m egomimic.benchmarks.libero.cli reconstruct \
 python -m egomimic.benchmarks.libero.cli rollout \
   --checkpoint /runs/oat/checkpoints/last.ckpt --output /results/oat/libero_10
 python -m egomimic.benchmarks.libero.cli rollout \
-  --checkpoint /runs/arc/checkpoints/last.ckpt --output /results/arc/libero_10
-# After completing every suite for both methods:
+  --checkpoint /runs/arc_dur/checkpoints/last.ckpt --output /results/arc_dur/libero_10
+python -m egomimic.benchmarks.libero.cli rollout \
+  --checkpoint /runs/arc_stk/checkpoints/last.ckpt --output /results/arc_stk/libero_10
+# After completing every suite for all three policies:
 python -m egomimic.benchmarks.libero.cli compare \
-  --arc-root /results/arc --oat-root /results/oat --output comparison.json
+  --arc-root /results/arc_dur --oat-root /results/oat --output comparison_dur.json
+python -m egomimic.benchmarks.libero.cli compare \
+  --arc-root /results/arc_stk --oat-root /results/oat --output comparison_stk.json
 ```
 
 Use `--tokens K` for OAT closed-loop prefix ablations, in separate result roots;
@@ -390,6 +407,16 @@ ARC support-count policy ablations require training with the selected
 `reconstruct --limit N` are explicitly partial checks.
 
 ## Validation and remaining experiment work
+
+On 2026-09-21, the corrected STK/DUR implementation passed **178 focused tests**
+across targeted invocations, including the pinned upstream parity tests.
+The [L40S smoke receipt](results/libero_arc_timed_gpu_smoke_20260921.json)
+records source `df3f26f2`, all four real training stages, EMA reload,
+ten paired short rollouts per policy, and 16 reconstruction windows. Its STK
+configuration includes the three-axis velocity normalization bound.
+These checks establish the training/evaluation path, not benchmark performance.
+The [replay report](results/libero_arc_timed_replay_20260921.md) records the
+separate R/D/M searches and their measured gaps to raw commands.
 
 Local validation on 2026-09-19: **357 tests passed** across the four new test
 modules and existing pipeline, planar/bimanual ARC, duration bridge, pose,
@@ -411,7 +438,9 @@ available locally:
 source emimic/bin/activate
 OAT_REFERENCE_ROOT=/path/to/pinned/oat OMP_NUM_THREADS=1 python -m pytest \
   tests/test_oat_native.py tests/test_libero_arc.py \
-  tests/test_libero_benchmark.py tests/test_oat_training.py -q
+  tests/test_libero_arc_timed.py tests/test_libero_replay.py \
+  tests/test_libero_cluster.py tests/test_libero_benchmark.py \
+  tests/test_oat_training.py -q
 ```
 
 `tests/test_oat_training.py` runs tokenizer training, frozen-token policy

@@ -8,6 +8,12 @@ The dated [STK/DUR results and support-count curves](results/libero_arc_timed_re
 record all ten completed searches, selected R/D/M, and independently audited
 evidence, including 3,900 final episode records across all five suites.
 
+The [five configurations shared across suites](results/libero_arc_common_configs_20260921.md)
+provide two STK recipes, two DUR recipes, and one R/D/M recipe for both modes.
+These are calibration-ranked sweep choices; validation across the larger
+selection split is incomplete. They do not replace the existing per-suite
+confirmation results or automatically change the running training campaign.
+
 ## STK and DUR comparison
 
 The LIBERO comparison now tests both native timed ARC variants independently.

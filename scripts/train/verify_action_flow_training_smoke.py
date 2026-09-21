@@ -1278,8 +1278,13 @@ def _validate_checkpoint(
         f"checkpoint restored unexpected wrapper {type(restored)!r}",
     )
     if loss_schedule is not None:
+        warmup_owner = (
+            restored.training_behavior
+            if method == STOPGRAD_UNITE_METHOD
+            else restored
+        )
         _require(
-            restored.reconstruction_only_warmup_steps == expected_warmup_steps,
+            warmup_owner.reconstruction_only_warmup_steps == expected_warmup_steps,
             "strict reload lost the reconstruction-only warmup",
         )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())

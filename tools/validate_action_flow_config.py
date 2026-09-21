@@ -104,9 +104,10 @@ GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
 STOPGRAD_UNITE_METHOD = "latent_fm_stopgrad_unite"
 STOPGRAD_UNITE_CONFIG_NAME = "action_flow_usocket_latent_fm_sg_unite_h384_s42"
-STOPGRAD_UNITE_PARITY_CONFIG_NAME = (
-    "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
-)
+STOPGRAD_UNITE_PARITY_CONFIG_NAMES = {
+    "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+    "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_deterministic_s42",
+}
 SCALED_MUON_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
@@ -646,7 +647,7 @@ def _validate_unite_dimensions_and_modules(
         True,
         "independent condition dropout",
     )
-    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+    parity = str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
     _exact(field_stage.flow_clean_gradient_mode, "all_stopgrad", "FM stop-gradient")
     _exact(field_stage.inference_method, "dopri5", "inference method")
     _exact(int(field_stage.num_inference_steps), 50, "Dopri5 output points")
@@ -1028,7 +1029,7 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         _exact(int(trainer.max_steps), 150_000, "trainer maximum steps")
         validation_every = (
             10_000
-            if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+            if str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
             else 30_000
         )
         _exact(int(trainer.val_check_interval), validation_every, "validation cadence")
@@ -1193,7 +1194,7 @@ def _validate_data_and_launch(
     _exact(train_batch, 32, "per-GPU train batch")
     _exact(global_batch, 32, "effective global batch")
     _exact(int(config.planar.batch_size), 32, "declared batch size")
-    parity = str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME
+    parity = str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
     _exact(
         int(config.data.valid_dataloader_params[source].batch_size),
         32 if parity else 16,
@@ -1405,7 +1406,7 @@ def _validate_data_and_launch(
             _exact(int(provenance.inference.steps), 16, "inference sampler steps")
     _exact(
         bool(provenance.inference.classifier_free_guidance),
-        str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME,
+        str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES,
         "canonical classifier-free guidance",
     )
     _exact(
@@ -1551,7 +1552,7 @@ def _validate_data_and_launch(
         )
         _exact(
             int(diagnostics.validation_view.per_rank_batch_size),
-            32 if str(config.name) == STOPGRAD_UNITE_PARITY_CONFIG_NAME else 16,
+            32 if str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES else 16,
             "diagnostic validation batch size",
         )
         _exact(

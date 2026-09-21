@@ -150,12 +150,12 @@ def test_unite_h384_deterministic_profile_keeps_the_parity_recipe():
     assert report["parameters"]["pipeline_total"]["total"] == 97_956_100
     assert report["optimization"]["validation_every_steps"] == 10_000
     assert report["optimization"]["checkpoint_every_steps"] == 30_000
-    assert config.trainer.deterministic is True
-    dataset = config.data.train_datasets.pushshapes_sim_u_socket
-    assert dataset.bounds_check is True
-    assert dataset.bounds_semantics == "legacy_full_vector"
-    assert dataset.fallback_policy == "deterministic_hash"
-    assert int(dataset.fallback_seed) == 42
+    assert config["trainer"]["deterministic"] is True
+    dataset = config["data"]["train_datasets"]["pushshapes_sim_u_socket"]
+    assert dataset["bounds_check"] is True
+    assert dataset["bounds_semantics"] == "legacy_full_vector"
+    assert dataset["fallback_policy"] == "deterministic_hash"
+    assert int(dataset["fallback_seed"]) == 42
 
 
 def test_scaled_h512_usocket_config_passes_the_dedicated_contract():

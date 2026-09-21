@@ -1,3 +1,4 @@
+# @package _global_
 # 300M baseline BC on human-bimanual MECKA fold_clothes data.
 defaults:
   - /experiment/abc_arc/hpt_qwen_300M_knobs

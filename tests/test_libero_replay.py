@@ -8,6 +8,7 @@ import yaml
 from egomimic.benchmarks.libero.replay import (
     candidate_id,
     candidates_from_spec,
+    load_calibration_parent,
     rank_candidates,
     read_demo,
     rebase_demo_xml,
@@ -184,3 +185,93 @@ def test_candidate_names_distinguish_rotation_horizon_and_metric_radius(spec):
     bad["waypoints"] = [33]
     with pytest.raises(ValueError, match="multiple of four"):
         candidates_from_spec(bad)
+
+
+def test_success_first_prefers_more_successes_before_fewer_tokens(spec):
+    summary = {
+        "small": {
+            "retention": 1,
+            "successes": 10,
+            "success_rate": 0.5,
+            "raw_successes": 10,
+            "episodes": 20,
+            "action_mse": 0.01,
+        }
+    }
+    summary["large"] = {**summary["small"], "successes": 11, "success_rate": 0.55}
+    candidates = {"small": {"num_waypoints": 8}, "large": {"num_waypoints": 16}}
+    assert rank_candidates(summary, candidates, spec) == ["small", "large"]
+    spec["selection_objective"] = "success_then_tokens"
+    assert rank_candidates(summary, candidates, spec) == ["large", "small"]
+
+
+@pytest.mark.parametrize(
+    "invalid", [None, "suite", "codec", "dependency", "precision", "incomplete"]
+)
+def test_refinement_reuses_only_compatible_calibration(
+    tmp_path, monkeypatch, spec, invalid
+):
+    import importlib.metadata
+    import io
+    import json
+
+    from egomimic.benchmarks.libero.cluster import DATA_REVISION, digest
+
+    root = Path(__file__).parents[1]
+    candidate = dict(num_waypoints=16, max_translation=None, max_rotation_degrees=None)
+    key = candidate_id(candidate)
+    summary = {
+        "raw": {"success_rate": 1, "episodes": 20},
+        "raw_repeat": {"max_state_l2_vs_raw_mean": 0, "episodes": 20},
+        "dense": {"max_action_mse": 0, "episodes": 20},
+        key: {"episodes": 19 if invalid == "incomplete" else 20},
+    }
+    versions = {
+        name: "1.0.0" for name in ("numpy", "scipy", "mujoco", "robosuite", "libero")
+    }
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda name: "2.0.0" if invalid == "dependency" else "1.0.0",
+    )
+    parent_spec = copy.deepcopy(spec)
+    if invalid == "precision":
+        parent_spec["action_dtype"] = "float64"
+    values = {
+        "runtime.json": {"suite": "libero_goal" if invalid == "suite" else "libero_10"},
+        "spec.json": parent_spec,
+        "environment-audit.json": {
+            "codec_sha256": "wrong"
+            if invalid == "codec"
+            else digest(root / "egomimic/rldb/zarr/libero_arc.py"),
+            "versions": versions,
+        },
+        "data-source.json": {"revision": DATA_REVISION},
+        "screen.json": {
+            "candidates": {key: candidate},
+            "execution_coverage": {key: 1.0},
+        },
+        "calibration.json": summary,
+    }
+    requested = []
+
+    class Storage:
+        def get_object(self, Bucket, Key):
+            name = Key.rsplit("/", 1)[1]
+            requested.append(name)
+            return {"Body": io.BytesIO(json.dumps(values[name]).encode())}
+
+    if invalid:
+        with pytest.raises(ValueError):
+            load_calibration_parent(
+                Storage(), "parent-run", "libero_10", spec, tmp_path
+            )
+    else:
+        eligible, recovered = load_calibration_parent(
+            Storage(), "parent-run", "libero_10", spec, tmp_path
+        )
+        assert eligible == {key: candidate} and recovered == summary
+        assert json.loads((tmp_path / "calibration-parent.json").read_text())[
+            "reused_only_calibration"
+        ]
+    assert not {"selection.json", "confirmation.json", "result.json"} & set(requested)

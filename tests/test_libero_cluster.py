@@ -320,7 +320,19 @@ def test_partial_resume_preserves_only_existing_verified_checkpoints(tmp_path, i
 
 
 @pytest.mark.parametrize(
-    "invalid", [None, "pending", "suite", "protocol", "spec", "codec", "retention"]
+    "invalid",
+    [
+        None,
+        "pending",
+        "suite",
+        "protocol",
+        "spec",
+        "codec",
+        "retention",
+        "incomplete",
+        "evaluated",
+        "unpermitted_gap",
+    ],
 )
 def test_arc_training_requires_matching_confirmed_replay(
     tmp_path, monkeypatch, invalid
@@ -337,10 +349,17 @@ def test_arc_training_requires_matching_confirmed_replay(
     spec = yaml.safe_load(
         (root / "egomimic/hydra_configs/benchmark/libero_arc_replay.yaml").read_text()
     )
+    if invalid in {"evaluated", "unpermitted_gap"}:
+        spec.update(
+            selection_objective="success_then_tokens",
+            maximum_success_rate_drop=1.0,
+            allow_reference_gap=invalid == "evaluated",
+        )
     codec = {"num_waypoints": 16, "max_translation": 0.2, "max_rotation_degrees": 48}
     selected = candidate_id(codec)
     result = {
-        "confirmed": invalid != "pending",
+        "confirmed": invalid not in {"pending", "evaluated", "unpermitted_gap"},
+        "confirmation_complete": True,
         "suite": "libero_10",
         "codec": codec,
         "candidate_id": selected,
@@ -349,12 +368,14 @@ def test_arc_training_requires_matching_confirmed_replay(
             (json.dumps(spec, indent=2) + "\n").encode()
         ).hexdigest(),
         "confirmation": {
-            "raw": {"success_rate": 1},
-            "raw_repeat": {"max_state_l2_vs_raw_mean": 0},
-            "dense": {"retention": 1, "max_action_mse": 0},
+            "raw": {"success_rate": 1, "episodes": 50},
+            "raw_repeat": {"max_state_l2_vs_raw_mean": 0, "episodes": 50},
+            "dense": {"retention": 1, "max_action_mse": 0, "episodes": 50},
             selected: {
                 "retention": 0.9 if invalid == "retention" else 1,
-                "success_rate": 0.9 if invalid == "retention" else 1,
+                "success_rate": 0.9
+                if invalid in {"retention", "evaluated", "unpermitted_gap"}
+                else 1,
                 "raw_successes": 50,
                 "episodes": 50,
                 "successes": 50,
@@ -370,6 +391,8 @@ def test_arc_training_requires_matching_confirmed_replay(
         spec["execute_steps"] = 8
     if invalid == "spec":
         result["spec_sha256"] = "wrong"
+    if invalid == "incomplete":
+        result["confirmation"][selected]["episodes"] = 49
     content = (root / "egomimic/rldb/zarr/libero_arc.py").read_bytes()
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -381,14 +404,18 @@ def test_arc_training_requires_matching_confirmed_replay(
     class Storage:
         def get_object(self, Bucket, Key):
             value = {
-                "status.json": {"state": "CONFIRMED"},
+                "status.json": {
+                    "state": "REPLAY_EVALUATED"
+                    if invalid in {"evaluated", "unpermitted_gap"}
+                    else "CONFIRMED"
+                },
                 "result.json": result,
                 "runtime.json": runtime,
                 "spec.json": spec,
             }[Key.rsplit("/", 1)[-1]]
             return {"Body": io.BytesIO(json.dumps(value).encode())}
 
-    if invalid:
+    if invalid and invalid != "evaluated":
         with pytest.raises((ValueError, CalibrationPending)):
             load_arc_calibration(Storage(), "replay-run", tmp_path, suite="libero_10")
         assert not (tmp_path / "arc-calibration.json").exists()

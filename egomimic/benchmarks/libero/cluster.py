@@ -420,7 +420,15 @@ def load_arc_calibration(client, source_run, evidence, *, suite):
                 "Replay confirmation is not available yet"
             ) from error
         raise
-    if status.get("state") != "CONFIRMED" or result.get("confirmed") is not True:
+    accepts_measured_gap = (
+        status.get("state") == "REPLAY_EVALUATED"
+        and spec.get("allow_reference_gap") is True
+        and spec.get("selection_objective") == "success_then_tokens"
+        and result.get("confirmation_complete") is True
+    )
+    if not accepts_measured_gap and (
+        status.get("state") != "CONFIRMED" or result.get("confirmed") is not True
+    ):
         raise CalibrationPending(
             "Replay candidate has not passed independent confirmation"
         )
@@ -450,6 +458,12 @@ def load_arc_calibration(client, source_run, evidence, *, suite):
     if candidate_id(codec) != selected:
         raise ValueError("Replay candidate configuration differs")
     validate_controls(result["confirmation"], spec)
+    expected_episodes = len(TASKS[suite]) * len(spec["confirmation_demos"])
+    if any(
+        value.get("episodes") != expected_episodes
+        for value in result["confirmation"].values()
+    ):
+        raise ValueError("Replay confirmation has incomplete episode coverage")
     if selected not in rank_candidates(result["confirmation"], {selected: codec}, spec):
         raise CalibrationPending(
             "Replay result does not satisfy its confirmation criteria"

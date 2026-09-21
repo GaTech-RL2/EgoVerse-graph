@@ -21,6 +21,7 @@ def workflow(
     resume_from_run=None,
     arc_replay_run=None,
     replay_spec="libero_arc_replay",
+    calibration_parent=None,
 ):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
@@ -40,12 +41,16 @@ def workflow(
         raise ValueError("Campaign requires full mode and matching suite run IDs")
     if replay and (evaluate_from_run or campaign_id):
         raise ValueError("Replay calibration is separate from a policy campaign")
-    for source in (resume_from_run, arc_replay_run):
+    for source in (resume_from_run, arc_replay_run, calibration_parent):
         if source is not None and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", source):
             raise ValueError("Invalid training/replay source run ID")
     if evaluate_from_run and resume_from_run:
         raise ValueError("Choose evaluation recovery or training resume")
-    if replay_spec not in {"libero_arc_replay", "libero_arc_replay_expanded"}:
+    if replay_spec not in {
+        "libero_arc_replay",
+        "libero_arc_replay_expanded",
+        "libero_arc_replay_refine",
+    }:
         raise ValueError("Unknown checked-in replay specification")
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
@@ -90,6 +95,7 @@ def workflow(
                         "RESUME_FROM_RUN": resume_from_run or "",
                         "ARC_REPLAY_RUN": arc_replay_run or "",
                         "REPLAY_SPEC": replay_spec,
+                        "REPLAY_CALIBRATION_PARENT": calibration_parent or "",
                     },
                     "command": ["bash"],
                     "args": ["/tmp/entry.sh"],
@@ -113,6 +119,7 @@ def main():
     parser.add_argument("--resume-from-run")
     parser.add_argument("--arc-replay-run")
     parser.add_argument("--replay-spec", default="libero_arc_replay")
+    parser.add_argument("--calibration-parent")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     with args.output.open("x") as handle:
@@ -129,6 +136,7 @@ def main():
                 args.resume_from_run,
                 args.arc_replay_run,
                 args.replay_spec,
+                args.calibration_parent,
             ),
             handle,
             sort_keys=False,

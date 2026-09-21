@@ -13,6 +13,7 @@ import itertools
 import json
 import multiprocessing
 import os
+import re
 import subprocess
 import sys
 import time
@@ -87,6 +88,18 @@ def validate_spec(spec):
             raise ValueError(f"Invalid replay threshold {key}")
     if spec.get("action_dtype") != "float32":
         raise ValueError("Replay must use the training dataset's float32 commands")
+    if spec.get("selection_objective", "tokens_then_success") not in {
+        "tokens_then_success",
+        "success_then_tokens",
+    }:
+        raise ValueError("Unknown replay selection objective")
+    if (
+        spec.get("allow_reference_gap", False)
+        and spec.get("selection_objective") != "success_then_tokens"
+    ):
+        raise ValueError(
+            "Accepting a reference gap requires prioritizing replay success"
+        )
     for key in ("max_dense_action_mse", "max_raw_repeat_state_error"):
         if not np.isfinite(spec[key]) or spec[key] < 0:
             raise ValueError(f"Invalid numerical control threshold {key}")
@@ -406,11 +419,20 @@ def rank_candidates(summary, candidates, spec):
         >= value["raw_successes"] / value["episodes"]
         - spec["maximum_success_rate_drop"]
     ]
+    success_first = spec.get("selection_objective") == "success_then_tokens"
     return sorted(
         eligible,
         key=lambda key: (
-            candidates[key]["num_waypoints"],
-            -summary[key]["successes"],
+            (
+                -summary[key]["successes"]
+                if success_first
+                else candidates[key]["num_waypoints"]
+            ),
+            (
+                candidates[key]["num_waypoints"]
+                if success_first
+                else -summary[key]["successes"]
+            ),
             summary[key]["action_mse"],
             key,
         ),
@@ -418,7 +440,10 @@ def rank_candidates(summary, candidates, spec):
 
 
 def validate_controls(summary, spec):
-    if summary["raw"]["success_rate"] < spec["minimum_raw_success"]:
+    if (
+        summary["raw"]["success_rate"] <= 0
+        or summary["raw"]["success_rate"] < spec["minimum_raw_success"]
+    ):
         raise RuntimeError(
             "Raw demonstration replay success is too low; investigate reset/simulator before tuning"
         )
@@ -440,7 +465,74 @@ def validate_controls(summary, spec):
         )
 
 
-def calibrate(root, suite, spec, evidence):
+def load_calibration_parent(client, parent, suite, spec, evidence):
+    """Reuse completed calibration, never earlier confirmation outcomes."""
+    import importlib.metadata
+
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", parent):
+        raise ValueError("Invalid calibration parent run ID")
+    prefix = f"experiments/arc-oat-20260919/{parent}/"
+    receipts = {}
+
+    def read(name):
+        body = client.get_object(Bucket="rldb", Key=prefix + name)["Body"].read()
+        receipts[name] = hashlib.sha256(body).hexdigest()
+        return json.loads(body)
+
+    runtime, original_spec, environment, data = (
+        read("runtime.json"),
+        read("spec.json"),
+        read("environment-audit.json"),
+        read("data-source.json"),
+    )
+    if runtime["suite"] != suite or data["revision"] != DATA_REVISION:
+        raise ValueError("Calibration parent suite or data revision differs")
+    for key in ("horizon", "execute_steps", "dt", "action_dtype", "calibration_demos"):
+        if original_spec[key] != spec[key]:
+            raise ValueError(f"Calibration parent differs in {key}")
+    if environment["codec_sha256"] != digest(
+        Path(__file__).parents[2] / "rldb/zarr/libero_arc.py"
+    ):
+        raise ValueError("Calibration parent uses a different codec")
+    for name in ("numpy", "scipy", "mujoco", "robosuite", "libero"):
+        if environment["versions"][name] != importlib.metadata.version(name):
+            raise ValueError(f"Calibration parent uses a different {name} version")
+    screen, summary = read("screen.json"), read("calibration.json")
+    validate_controls(summary, spec)
+    count = len(TASKS[suite]) * len(spec["calibration_demos"])
+    if any(value["episodes"] != count for value in summary.values()):
+        raise ValueError("Calibration parent is incomplete")
+    allowed = candidates_from_spec(spec)
+    eligible = {
+        key: value
+        for key, value in screen["candidates"].items()
+        if key in allowed
+        and value == allowed[key]
+        and screen["execution_coverage"][key] >= spec["minimum_execution_coverage"]
+        and key in summary
+    }
+    if not eligible:
+        raise ValueError("Calibration parent has no matching evaluated candidates")
+    write_json(
+        evidence / "calibration-parent.json",
+        {
+            "run_id": parent,
+            "runtime": runtime,
+            "spec": original_spec,
+            "environment": environment,
+            "artifact_sha256": receipts,
+            "reused_only_calibration": True,
+        },
+    )
+    write_json(
+        evidence / "screen.json",
+        {**screen, "eligible_for_simulator_replay": list(eligible)},
+    )
+    write_json(evidence / "calibration.json", summary)
+    return eligible, summary
+
+
+def calibrate(root, suite, spec, evidence, *, calibration_parent=None, client=None):
     raw = stage_raw_dataset(root, suite, evidence)
     configure_simulator(root)
     from egomimic.benchmarks.libero.rollout import verify_libero_installation
@@ -474,6 +566,22 @@ def calibrate(root, suite, spec, evidence):
     with ProcessPoolExecutor(
         max_workers=spec["workers"], mp_context=multiprocessing.get_context("spawn")
     ) as pool:
+        if calibration_parent:
+            eligible, summary = load_calibration_parent(
+                client, calibration_parent, suite, spec, evidence
+            )
+            return select_and_confirm(
+                pool,
+                jobs,
+                candidates,
+                eligible,
+                summary,
+                spec,
+                evidence,
+                suite,
+                controls,
+                previous,
+            )
         baseline = run_jobs(
             pool,
             replay_job,
@@ -523,79 +631,102 @@ def calibrate(root, suite, spec, evidence):
         summary = summarize(calibration, {**controls, **eligible})
         write_json(evidence / "calibration.json", summary)
         validate_controls(summary, spec)
-        ranked = rank_candidates(summary, eligible, spec)
-        # Compare the best R/D at each M on the independent selection split.
-        shortlist = {}
-        for key in ranked:
-            if candidates[key]["num_waypoints"] not in {
-                value["num_waypoints"] for value in shortlist.values()
-            }:
-                shortlist[key] = candidates[key]
-        if not shortlist:
-            raise RuntimeError(
-                "No tested candidate matches the raw calibration success criterion"
-            )
-        selection = run_jobs(
+        return select_and_confirm(
             pool,
-            replay_job,
-            jobs(spec["selection_demos"], {**controls, **shortlist}),
+            jobs,
+            candidates,
+            eligible,
+            summary,
+            spec,
             evidence,
-            "selection",
+            suite,
+            controls,
+            previous,
         )
-        summary = summarize(selection, {**controls, **shortlist})
-        write_json(evidence / "selection.json", summary)
-        validate_controls(summary, spec)
-        ranked = rank_candidates(summary, shortlist, spec)
-        if not ranked:
-            raise RuntimeError(
-                "No shortlisted candidate matches the raw selection success criterion"
-            )
-        selected = ranked[0]
-        frozen = {
-            "candidate_id": selected,
-            "codec": candidates[selected],
-            "suite": suite,
-            "selected_before_confirmation": True,
-            "spec_sha256": digest(evidence / "spec.json"),
-            "action_dtype": spec["action_dtype"],
-            "objective": "lowest M matching overall raw success; report paired gains/losses",
-        }
-        write_json(evidence / "selected-before-confirmation.json", frozen)
-        confirmation_candidates = {
-            **controls,
-            "previous_M16": previous,
-            selected: candidates[selected],
-        }
-        confirmation = run_jobs(
-            pool,
-            replay_job,
-            jobs(spec["confirmation_demos"], confirmation_candidates),
-            evidence,
-            "confirmation",
+
+
+def select_and_confirm(
+    pool, jobs, candidates, eligible, summary, spec, evidence, suite, controls, previous
+):
+    ranked = rank_candidates(summary, eligible, spec)
+    # Compare the best R/D at each M on the independent selection split.
+    shortlist = {}
+    for key in ranked:
+        if candidates[key]["num_waypoints"] not in {
+            value["num_waypoints"] for value in shortlist.values()
+        }:
+            shortlist[key] = candidates[key]
+    if not shortlist:
+        raise RuntimeError(
+            "No tested candidate matches the raw calibration success criterion"
         )
-        summary = summarize(confirmation, confirmation_candidates)
-        write_json(evidence / "confirmation.json", summary)
-        validate_controls(summary, spec)
-        confirmed = selected in rank_candidates(
-            summary, {selected: candidates[selected]}, spec
+    selection = run_jobs(
+        pool,
+        replay_job,
+        jobs(spec["selection_demos"], {**controls, **shortlist}),
+        evidence,
+        "selection",
+    )
+    summary = summarize(selection, {**controls, **shortlist})
+    write_json(evidence / "selection.json", summary)
+    validate_controls(summary, spec)
+    ranked = rank_candidates(summary, shortlist, spec)
+    if not ranked:
+        raise RuntimeError(
+            "No shortlisted candidate matches the raw selection success criterion"
         )
-        result = {
-            **frozen,
-            "confirmed": confirmed,
-            "confirmation": summary,
-            "calibration_candidates": len(candidates),
-            "replayed_candidates": len(eligible),
-            "task_count": len(TASKS[suite]),
-            "codec_only_not_policy_scores": True,
-            "best_tested_not_global_optimum": True,
-            "training_overrides": [
-                f"benchmark.arc_waypoints={candidates[selected]['num_waypoints']}",
-                f"benchmark.arc_max_translation={candidates[selected]['max_translation'] if candidates[selected]['max_translation'] is not None else 'null'}",
-                f"benchmark.arc_max_rotation_degrees={candidates[selected]['max_rotation_degrees'] if candidates[selected]['max_rotation_degrees'] is not None else 'null'}",
-            ],
-        }
-        write_json(evidence / "result.json", result)
-        return result
+    selected = ranked[0]
+    frozen = {
+        "candidate_id": selected,
+        "codec": candidates[selected],
+        "suite": suite,
+        "selected_before_confirmation": True,
+        "spec_sha256": digest(evidence / "spec.json"),
+        "action_dtype": spec["action_dtype"],
+        "objective": spec.get("selection_objective", "tokens_then_success"),
+    }
+    write_json(evidence / "selected-before-confirmation.json", frozen)
+    confirmation_candidates = {
+        **controls,
+        "previous_M16": previous,
+        selected: candidates[selected],
+    }
+    confirmation = run_jobs(
+        pool,
+        replay_job,
+        jobs(spec["confirmation_demos"], confirmation_candidates),
+        evidence,
+        "confirmation",
+    )
+    summary = summarize(confirmation, confirmation_candidates)
+    write_json(evidence / "confirmation.json", summary)
+    validate_controls(summary, spec)
+    confirmed = selected in rank_candidates(
+        summary,
+        {selected: candidates[selected]},
+        {**spec, "maximum_success_rate_drop": 0.0},
+    )
+    result = {
+        **frozen,
+        "confirmed": confirmed,
+        "confirmation_complete": True,
+        "matches_raw_success": summary[selected]["successes"]
+        >= summary["raw"]["successes"],
+        "selection_objective": spec.get("selection_objective", "tokens_then_success"),
+        "confirmation": summary,
+        "calibration_candidates": len(candidates),
+        "replayed_candidates": len(eligible),
+        "task_count": len(TASKS[suite]),
+        "codec_only_not_policy_scores": True,
+        "best_tested_not_global_optimum": True,
+        "training_overrides": [
+            f"benchmark.arc_waypoints={candidates[selected]['num_waypoints']}",
+            f"benchmark.arc_max_translation={candidates[selected]['max_translation'] if candidates[selected]['max_translation'] is not None else 'null'}",
+            f"benchmark.arc_max_rotation_degrees={candidates[selected]['max_rotation_degrees'] if candidates[selected]['max_rotation_degrees'] is not None else 'null'}",
+        ],
+    }
+    write_json(evidence / "result.json", result)
+    return result
 
 
 def main():
@@ -603,6 +734,10 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--suite", choices=TASKS, required=True)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument(
+        "--calibration-parent",
+        default=os.environ.get("REPLAY_CALIBRATION_PARENT") or None,
+    )
     parser.add_argument(
         "--spec",
         type=Path,
@@ -632,10 +767,25 @@ def main():
     write_json(evidence / "status.json", {"state": "STAGING_RAW_DEMONSTRATIONS"})
     uploader.thread.start()
     try:
-        result = calibrate(args.root, args.suite, spec, evidence)
+        result = calibrate(
+            args.root,
+            args.suite,
+            spec,
+            evidence,
+            calibration_parent=args.calibration_parent,
+            client=uploader.client,
+        )
         write_json(
             evidence / "status.json",
-            {"state": "CONFIRMED" if result["confirmed"] else "NOT_CONFIRMED"},
+            {
+                "state": "CONFIRMED"
+                if result["confirmed"]
+                else (
+                    "REPLAY_EVALUATED"
+                    if spec.get("allow_reference_gap", False)
+                    else "NOT_CONFIRMED"
+                )
+            },
         )
     except Exception as error:
         write_json(evidence / "status.json", {"state": "FAILED", "error": str(error)})

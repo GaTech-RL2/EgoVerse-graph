@@ -20,12 +20,17 @@ M={4,8,16,24,32,36}: 336 candidates. M values fit the policy UNet. M=36 permits 
 fully sampled 32-command path with padding; the separate dense control uses
 33 supports. The original M=16, uncapped bridge is also tested at confirmation.
 
-For each task, demo IDs 0–1 are calibration, 2–3 are selection, and 10–14 are
-confirmation in the original pilot; the final float32 protocol reserves demo
-IDs **30–34** instead. No confirmation result affects the selected parameters. These
-are codec experiment splits within the official training demonstrations, not
-claims of an unseen policy evaluation dataset. Normal benchmark rollouts use
-the independent benchmark initial states and seeds.
+The float32 pilot uses demo IDs 0–1 for calibration, 2–3 for selection, and
+30–34 for confirmation, per task. The larger
+[refinement specification](../egomimic/hydra_configs/benchmark/libero_arc_replay_refine.yaml)
+reuses only the completed calibration, selects on demos **2–9**, and tests the
+frozen choice on fresh demos **35–49**. This gives 80 selection and 150 final
+episodes per ten-task suite, or 720 and 1,350 for LIBERO-90. A parent calibration
+must match the data revision, codec bytes, execution protocol, precision, and
+simulator/library versions. Its artifact hashes are recorded; its selection
+and confirmation results are never loaded by the refinement selector. These
+are codec experiment splits within the official training demonstrations.
+Normal policy benchmark rollouts use independent initial states and seeds.
 
 Each replay restores the demonstration's saved model XML and initial simulator
 state. Only asset paths are relocated. It then executes actions without state
@@ -33,10 +38,15 @@ injection, corrections, or extra settling steps. Commands are cast to float32,
 matching the released replay, converter, and graph input. Both original source
 commands and their cast values are hashed. Four controls run: float32 raw,
 an actual repeat of that raw simulation (never a cached result), original source
-precision raw, and dense float32 ARC. Raw replay must succeed on at least 80%
-of the split, its repeated simulator states must be identical, and every dense
-episode must have command MSE at most 1e-12. All controls' task outcomes are
-reported, including raw successes lost or gained after a precision change.
+precision raw, and dense float32 ARC. Repeated raw simulator states must be
+identical, and every dense episode must have command MSE at most 1e-12. All
+controls' task outcomes are reported, including raw successes lost or gained
+after a precision change. The pilot required 80% raw success; refinement
+measures that baseline without assuming a particular success rate (zero raw
+successes still stops the run). LIBERO-10's pilot selection baseline was 15/20
+despite deterministic repeated replay. The pinned OAT release also uses
+MuJoCo 3.4.0 and robosuite 1.4.0; changing physics versions to improve this
+baseline would change the comparison.
 
 The pilot exposed numerical sensitivity: on LIBERO-10's kitchen scene 4 drawer
 task, demo 2, identical source actions replayed identically twice, but casting
@@ -53,15 +63,16 @@ they cannot obtain extra replanning opportunities or stretch time. Calibration
 command coverage below 99% screens a candidate out before expensive simulator
 replay; all exclusions and reconstruction metrics remain in the evidence.
 
-Among candidates matching the overall float32 raw calibration success rate,
-the best R/D at each M advances to selection. Selection chooses the lowest M
-with no decrease in overall success rate; ties prefer higher success then lower
-command MSE. Every paired loss and gain is reported; this criterion does not
-claim that the same demonstrations always succeed. Set `minimum_retention=1`
-to request that stricter criterion explicitly. Confirmation checks the frozen
-choice. A failed confirmation is reported as unconfirmed and must not unlock
-ARC training. The result is the best tested choice under this protocol, not a
-proof of a global optimum or statistical equivalence in the population.
+The pilot preferred the lowest M matching aggregate raw success. Refinement
+instead prioritizes **highest replay success, then lowest M**, with command
+MSE as the next tie breaker. The best calibrated R/D at each M advances to the
+larger selection split. All screened candidates can compete regardless of
+their gap to raw; the selector does not change its parameters after final
+testing. Every paired loss and gain is reported. `CONFIRMED` means the frozen
+choice matches aggregate raw success on that final split; `REPLAY_EVALUATED`
+means testing completed but a measured gap remains. Neither means all the same
+demonstrations succeeded. The result is the best tested choice under this
+protocol, not a proof of a global optimum or statistical equivalence.
 
 Run in the pinned simulator environment:
 
@@ -80,12 +91,19 @@ source revision, controls, selection, and confirmation are uploaded to the
 run's separate artifact prefix. Existing benchmark worktrees and jobs are not
 used as sweep scratch space.
 
+Use `--replay-spec libero_arc_replay_refine --calibration-parent PARENT_RUN_ID`
+to reuse a completed float32 calibration and run the larger selection and
+fresh final test. Omitting the parent runs calibration from scratch.
+
 Full training now requires `--arc-replay-run` (or `ARC_REPLAY_RUN`). Before the
-ARC stage, the runner verifies the confirmed result, suite, split/spec hash,
-32/16 execution cadence, success criteria, and exact codec source bytes. It
-loads R/D/M from that result into both graph stages. Missing or failed
-confirmation leaves the run in `AWAITING_ARC_CALIBRATION` after preserving its
-OAT checkpoints; it cannot start ARC with default parameters.
+ARC stage, the runner verifies the completed result, suite, split/spec hash,
+32/16 execution cadence, all final episode counts, numerical controls, and
+exact codec source bytes. It loads R/D/M from that result into both graph
+stages. A measured gap is accepted only when the checked-in protocol explicitly
+prioritizes success and permits reporting that gap. Missing, incomplete, or
+invalid evidence leaves the run in `AWAITING_ARC_CALIBRATION` after preserving
+its OAT checkpoints; it cannot start ARC with default parameters. The replay
+gap remains part of the evidence when reporting subsequent policy scores.
 
 `--resume-from-run` restores completed and partial training checkpoints from
 immutable artifact receipts, verifies SHA-256, size, suite and the full global

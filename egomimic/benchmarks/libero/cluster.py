@@ -630,6 +630,11 @@ def main():
     parser.add_argument("--mode", choices=("smoke", "full"), required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--epochs", type=int, default=5001)
+    parser.add_argument("--arc-only", action="store_true")
+    parser.add_argument("--arc-profile")
+    parser.add_argument(
+        "--oat-reference-run", default=os.environ.get("OAT_REFERENCE_RUN") or None
+    )
     parser.add_argument("--campaign-id", default=os.environ.get("CAMPAIGN_ID") or None)
     parser.add_argument(
         "--campaign-runs",
@@ -657,8 +662,23 @@ def main():
     )
     args = parser.parse_args()
     arc_methods = arc_method_modes(args.arc_modes)
-    methods = ("tokenizer", "oat", *arc_methods)
-    policy_methods = ("oat", *arc_methods)
+    methods = (
+        tuple(arc_methods) if args.arc_only else ("tokenizer", "oat", *arc_methods)
+    )
+    policy_methods = tuple(arc_methods) if args.arc_only else ("oat", *arc_methods)
+    profile_overrides = {}
+    if args.arc_profile:
+        from egomimic.benchmarks.libero.arc_sweep import profile_settings
+
+        if not args.arc_only or len(args.arc_modes) != 1 or args.evaluate_from_run:
+            raise ValueError("A sweep profile requires exactly one ARC-only mode")
+        profile_overrides = profile_settings(args.arc_profile, args.arc_modes[0])
+    if args.arc_only and args.campaign_id:
+        raise ValueError("ARC-only runs cannot publish an ARC/OAT campaign as complete")
+    if args.oat_reference_run and not re.fullmatch(
+        r"[a-z0-9][a-z0-9-]{0,62}", args.oat_reference_run
+    ):
+        raise ValueError("Invalid OAT reference run ID")
     replay_runs = dict(args.arc_replay_runs)
     if args.arc_replay_run:
         if args.arc_modes != ["joint_dur"]:
@@ -713,6 +733,9 @@ def main():
             "arc_replay_run": args.arc_replay_run,
             "arc_modes": args.arc_modes,
             "arc_replay_runs": replay_runs,
+            "arc_only": args.arc_only,
+            "arc_profile": args.arc_profile,
+            "oat_reference_run": args.oat_reference_run,
             "campaign_id": args.campaign_id,
             "campaign_runs": args.campaign_runs,
             "artifact_prefix": "s3://rldb/" + uploader.prefix,
@@ -738,16 +761,22 @@ def main():
                 methods=methods,
             )
         for method in () if args.evaluate_from_run else methods:
-            overrides = {}
+            overrides = dict(profile_overrides)
             if method in arc_methods and args.mode == "full":
                 arc_mode = arc_methods[method]
-                overrides = load_arc_calibration(
+                calibrated = load_arc_calibration(
                     uploader.client,
                     replay_runs.get(arc_mode),
                     evidence,
                     suite=args.suite,
                     arc_mode=arc_mode,
                 )
+                if profile_overrides and any(
+                    profile_overrides.get(key) != value
+                    for key, value in calibrated.items()
+                ):
+                    raise ValueError("Replay result differs from frozen sweep profile")
+                overrides.update(calibrated)
                 if method in restored and any(
                     restored[method]["benchmark"].get(key) != value
                     for key, value in overrides.items()
@@ -826,6 +855,59 @@ def main():
         ]
         if any(row != paired[0] for row in paired[1:]):
             raise RuntimeError("ARC and OAT did not use identical initial states")
+        if args.arc_only:
+            from egomimic.benchmarks.libero.report import (
+                read_run,
+                summarize,
+                validate_full_protocol,
+            )
+
+            results = {}
+            for method, arc_mode in arc_methods.items():
+                protocol, episodes = read_run(evidence / method / args.suite)
+                if args.mode == "full":
+                    validate_full_protocol(protocol)
+                if (
+                    protocol["method"] != "arc"
+                    or protocol["representation"]["mode"] != arc_mode
+                ):
+                    raise ValueError("ARC-only rollout representation differs")
+                if profile_overrides and any(
+                    protocol["representation"].get(key) != profile_overrides[field]
+                    for key, field in {
+                        "waypoints": "arc_waypoints",
+                        "max_translation": "arc_max_translation",
+                        "max_rotation_degrees": "arc_max_rotation_degrees",
+                    }.items()
+                ):
+                    raise ValueError("Rollout checkpoint differs from frozen profile")
+                results[arc_mode] = {
+                    "protocol": protocol,
+                    "metrics": summarize(episodes),
+                }
+            write_json(
+                evidence / "arc-results.json",
+                {
+                    "suite": args.suite,
+                    "profile": args.arc_profile,
+                    "complete_protocol": args.mode == "full",
+                    "variants": results,
+                    "oat_reference_run": args.oat_reference_run,
+                    "paired_oat_comparison_complete": False,
+                },
+            )
+            write_json(
+                evidence / "status.json",
+                {
+                    "state": "ARC_SMOKE_PASSED"
+                    if args.mode == "smoke"
+                    else "ARC_POLICIES_COMPLETE",
+                    "episodes_per_method": len(paired[0]),
+                    "benchmark_performance": args.mode == "full",
+                    "paired_oat_comparison_complete": False,
+                },
+            )
+            return
         argv = [
             sys.executable,
             "-m",

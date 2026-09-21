@@ -14,6 +14,27 @@ These are calibration-ranked sweep choices; validation across the larger
 selection split is incomplete. They do not replace the existing per-suite
 confirmation results or automatically change the running training campaign.
 
+Launch one frozen sweep member with `launch_libero_osmo.py --arc-profile
+stk_1 --arc-modes stk --calibration-parent PARENT_REPLAY_RUN
+--oat-reference-run ORIGINAL_FULL_RUN --mode full` and the normal immutable
+commit, run ID, suite and output arguments. Other profile IDs are `stk_2`,
+`dur_1`, `dur_2`, and `shared`; run `shared` separately in STK and DUR. All six
+mode/profile combinations over five suites give 30 independent L40S workflows.
+Each first reuses its matching audited calibration for the single frozen
+candidate, runs selection demos 2–9, and confirms on fresh demos **10–24**.
+These demos are separate from earlier confirmations. Parameters are fixed
+before testing; failed controls stop the workflow. A completed replay with a
+measured raw gap is allowed under the existing declared protocol.
+
+The workflow then trains only its ARC policy and evaluates all 50 trials per
+task over five repeats. The original OAT jobs provide the shared comparison
+reference; the sweep does not retrain their tokenizer or policy. Its artifacts
+record the exact profile, replay source and intended OAT reference run.
+`ARC_POLICIES_COMPLETE` means ARC policy evaluation finished; paired OAT
+comparisons remain explicitly incomplete until both sets of records exist
+and pass the existing protocol/reset identity checks. Each workflow has
+separate source, data staging, checkpoints and artifact prefixes.
+
 ## STK and DUR comparison
 
 The LIBERO comparison now tests both native timed ARC variants independently.

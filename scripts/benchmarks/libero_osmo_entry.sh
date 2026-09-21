@@ -38,7 +38,10 @@ git -C "$LIBERO_SOURCE_ROOT" fetch --depth 1 origin 6090ff21837566fed47b7c9061c9
 git -C "$LIBERO_SOURCE_ROOT" checkout --detach FETCH_HEAD
 uv pip install --no-deps -e "$LIBERO_SOURCE_ROOT"
 export LIBERO_CONFIG_PATH=/workspace/libero/config
-if [[ "${RUN_KIND:-benchmark}" == replay ]]; then
+if [[ "${RUN_KIND:-benchmark}" == arc_sweep ]]; then
+    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ["ARC_MODES_JSON"]); assert len(modes)==1; print(modes[0])')
+    python -m egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --profile "$ARC_PROFILE" --arc-mode "$ARC_SWEEP_MODE" --mode "$RUN_MODE" --epochs "$EPOCHS"
+elif [[ "${RUN_KIND:-benchmark}" == replay ]]; then
     python -m egomimic.benchmarks.libero.replay --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --spec "egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml"
 else
     python -m egomimic.benchmarks.libero.cluster --root /workspace/libero --suite "$SUITE" --mode "$RUN_MODE" --run-id "$RUN_ID" --epochs "$EPOCHS"

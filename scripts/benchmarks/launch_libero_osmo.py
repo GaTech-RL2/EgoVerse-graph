@@ -28,6 +28,8 @@ def workflow(
     campaign_runs=None,
     arc_modes=None,
     arc_replay_runs=None,
+    arc_profile=None,
+    oat_reference_run=None,
 ):
     arc_modes = list(arc_modes or (["joint_dur"] if arc_replay_run else ["dur", "stk"]))
     arc_method_modes(arc_modes)
@@ -36,6 +38,25 @@ def workflow(
         raise ValueError("Independent modes require mode-specific replay runs")
     if set(arc_replay_runs) - set(arc_modes):
         raise ValueError("Unexpected ARC replay mode")
+    if arc_profile:
+        from egomimic.benchmarks.libero.arc_sweep import profile_settings
+
+        if (
+            len(arc_modes) != 1
+            or replay
+            or campaign_id
+            or evaluate_from_run
+            or arc_replay_runs
+            or arc_replay_run
+        ):
+            raise ValueError("ARC profile requires one standalone policy mode")
+        profile_settings(arc_profile, arc_modes[0])
+        if len(run_id) > 56:
+            raise ValueError("ARC sweep run ID must leave room for -replay")
+        if mode == "full" and (not calibration_parent or not oat_reference_run):
+            raise ValueError(
+                "Full ARC sweep requires calibration and OAT reference runs"
+            )
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Use an immutable 40-character Git commit")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", run_id):
@@ -66,6 +87,7 @@ def workflow(
         resume_from_run,
         arc_replay_run,
         calibration_parent,
+        oat_reference_run,
         *arc_replay_runs.values(),
     ):
         if source is not None and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", source):
@@ -90,16 +112,21 @@ def workflow(
         ).read_text()
     )
     replay_workers = replay_config["workers"]
+    preflight = replay or (arc_profile is not None and mode == "full")
+    if arc_profile:
+        replay_workers = 16
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
             "name": run_id,
             "resources": {
                 "default": {
-                    "cpu": max(12, replay_workers + 4) if replay else 12,
+                    "cpu": max(12, replay_workers + 4) if preflight else 12,
                     "gpu": 1,
-                    "memory": f"{replay_config.get('memory_gib', 64)}Gi"
-                    if replay
+                    "memory": "128Gi"
+                    if arc_profile and preflight
+                    else f"{replay_config.get('memory_gib', 64)}Gi"
+                    if preflight
                     else "64Gi",
                     "storage": "128Gi" if replay else "240Gi",
                     "platform": "ovx-l40s",
@@ -132,7 +159,13 @@ def workflow(
                         "EVALUATE_FROM_RUN": evaluate_from_run or "",
                         "CAMPAIGN_ID": campaign_id or "",
                         "CAMPAIGN_RUNS_JSON": json.dumps(campaign_runs),
-                        "RUN_KIND": "replay" if replay else "benchmark",
+                        "RUN_KIND": "arc_sweep"
+                        if arc_profile
+                        else "replay"
+                        if replay
+                        else "benchmark",
+                        "ARC_PROFILE": arc_profile or "",
+                        "OAT_REFERENCE_RUN": oat_reference_run or "",
                         "RESUME_FROM_RUN": resume_from_run or "",
                         "ARC_REPLAY_RUN": arc_replay_run or "",
                         "ARC_MODES_JSON": json.dumps(arc_modes),
@@ -165,6 +198,8 @@ def main():
     parser.add_argument("--arc-replay-run")
     parser.add_argument("--arc-modes", nargs="+", choices=("joint_dur", "stk", "dur"))
     parser.add_argument("--arc-replay-runs-file", type=Path)
+    parser.add_argument("--arc-profile")
+    parser.add_argument("--oat-reference-run")
     parser.add_argument("--replay-spec", default="libero_arc_replay")
     parser.add_argument("--calibration-parent")
     parser.add_argument("--raw-cache")
@@ -193,6 +228,8 @@ def main():
                 json.loads(args.arc_replay_runs_file.read_text())
                 if args.arc_replay_runs_file
                 else None,
+                args.arc_profile,
+                args.oat_reference_run,
             ),
             handle,
             sort_keys=False,

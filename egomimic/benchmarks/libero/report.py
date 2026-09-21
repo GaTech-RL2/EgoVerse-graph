@@ -82,6 +82,27 @@ def summarize(records):
     }
 
 
+def validate_full_protocol(protocol):
+    """Require the released evaluation protocol, including every task and seed."""
+    expected = [asdict(spec) for spec in rollout_plan(protocol["suite"])]
+    if protocol["plan"] != expected or protocol["max_episode_steps"] != 550:
+        raise ValueError(
+            "Full benchmark requires 50 trials/task, five repeats, seed 1000 and 550 steps"
+        )
+    defaults = {
+        "horizon": 32,
+        "n_obs_steps": 2,
+        "n_action_steps": 16,
+        "oat_commit": OAT_COMMIT,
+        "libero_commit": LIBERO_COMMIT,
+        "use_ema": True,
+    }
+    if any(protocol[field] != value for field, value in defaults.items()):
+        raise ValueError(
+            "Full benchmark requires the released control protocol and EMA checkpoints"
+        )
+
+
 def compare_runs(arc_directory, oat_directory, *, require_full=True, arc_mode=None):
     arc_protocol, arc = read_run(arc_directory)
     oat_protocol, oat = read_run(oat_directory)
@@ -110,23 +131,7 @@ def compare_runs(arc_directory, oat_directory, *, require_full=True, arc_mode=No
         raise ValueError("ARC representation mode differs from requested comparison")
     suite = arc_protocol["suite"]
     if require_full:
-        expected = [asdict(spec) for spec in rollout_plan(suite)]
-        if arc_protocol["plan"] != expected or arc_protocol["max_episode_steps"] != 550:
-            raise ValueError(
-                "Full benchmark requires 50 trials/task, five repeats, seed 1000 and 550 steps"
-            )
-        defaults = {
-            "horizon": 32,
-            "n_obs_steps": 2,
-            "n_action_steps": 16,
-            "oat_commit": OAT_COMMIT,
-            "libero_commit": LIBERO_COMMIT,
-            "use_ema": True,
-        }
-        if any(arc_protocol[field] != value for field, value in defaults.items()):
-            raise ValueError(
-                "Full benchmark requires the released control protocol and EMA checkpoints"
-            )
+        validate_full_protocol(arc_protocol)
     if set(arc) != set(oat):
         raise ValueError("Paired rollout identities differ")
     for key in arc:

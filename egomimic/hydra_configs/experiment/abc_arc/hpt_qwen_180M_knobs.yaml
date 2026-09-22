@@ -1,0 +1,29 @@
+# @package _global_
+# Language-conditioned HPT180 knobs shared by stationery ARC/non-ARC runs.
+#
+# Pulled in via defaults so the four runs cannot drift on embed width, trunk
+# depth, or the Qwen checkpoint. action_horizon is NOT here: baseline uses
+# 100, arc uses ${abc.arc_token_rows}.
+hpt:
+  # Verified rollout bundle: h640t8_d384x10
+  # (yam_rl2_hptflow_rollout.yaml SHA-256:
+  #  b57bd1972dc8d044c121a68feeffd4700017bf8cfad748a5dc395e32f6f8b6e2).
+  # Preserve the 300M pair's trunk depth; the flow head owns the d384x10
+  # dimensions below in the model definitions.
+  embed_dim: 640
+  num_blocks: 19
+  num_heads: 8
+  action_dim: 14
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: 8
+      crossattn_dim_head: 80
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: ${hpt.embed_dim}
+  qwen:
+    model_name: Qwen/Qwen3-Embedding-0.6B
+    max_length: 128
+    sampling_mode: random
+    default_prompt: ""

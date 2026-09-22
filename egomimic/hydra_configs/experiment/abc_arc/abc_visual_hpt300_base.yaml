@@ -1,0 +1,63 @@
+# @package _global_
+# Shared visual-only HPT300M family and training contract.
+defaults:
+  - override /model: abc_arc/hpt_yam_visual
+  - override /data: abc_arc/abc_visual
+  - override /evaluator: eval_open_loop_sim
+  - override /logger: wandb
+  - _self_
+launch_params: {gpus_per_node: 2, nodes: 1}
+hpt:
+  embed_dim: 840
+  num_blocks: 19
+  num_heads: 10
+  action_dim: 14
+  action_horizon: 100
+  flow_blocks: 6
+  flow_hidden_dim: 320
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: ${hpt.num_heads}
+      crossattn_dim_head: 84
+      crossattn_modality_dropout: 0.1
+    modality_embed_dim: ${hpt.embed_dim}
+abc:
+  action_mode: cartesian
+  action_horizon: 100
+  arc_distance: 0.40
+  arc_rotation_distance: null
+  arc_waypoints: 100
+  arc_token_rows: 200
+  arc_velocity_mode: per_waypoint
+  task_predicate: ???
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  strategy: ddp_find_unused_parameters_true
+  precision: 32-true
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+norm_stats: {sample_frac: 0.20}
+evaluator:
+  action_mode: baseline
+  ground_truth_action_key: actions_cartesian
+  control_horizon: 100
+  control_dt: 0.03333333333333333
+  execute_fraction: 0.30
+  arc_execution_cap_mode: waypoints
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  velocity_mode: per_waypoint
+  limit_val_episodes: 16
+  requires_ordered_validation: true
+logger:
+  wandb:
+    project: abc-yam
+    tags: [hpt300m, abc, visual_only, no_language, open_loop, video]

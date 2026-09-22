@@ -1,0 +1,19 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/abc_multitask4_hpt300_baseline_visual_openloop
+  - _self_
+name: abc_multitask4_hpt300_hybrid_visual_openloop
+description: HPT300M ABC four-task visual-only hybrid ARC measured-D M100 R24deg
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+  # Deliberately unresolved until the training-split 100-frame study finishes.
+  arc_distance: ???
+  arc_rotation_distance: 0.4188790204786391
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+logger:
+  wandb:
+    tags: [hpt300m, abc, multitask4, visual_only, no_language, hybrid, M100, R24deg, per_waypoint, open_loop, video]

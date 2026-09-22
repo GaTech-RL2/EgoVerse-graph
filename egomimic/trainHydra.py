@@ -30,7 +30,11 @@ from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.ema_callback import EMACallback
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.utils.logging_utils import configure_runner_wandb, log_hyperparameters
+from egomimic.utils.logging_utils import (
+    configure_runner_wandb,
+    log_hyperparameters,
+    persist_wandb_run_identity,
+)
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.slurm_requeue import SaveOnlySignalCheckpoint
 from egomimic.utils.utils import extras, task_wrapper
@@ -656,6 +660,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     trainer: Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
+    persist_wandb_run_identity(cfg, logger, trainer)
 
     if mode == "train":
         _resolve_training_checkpoint(cfg, trainer)

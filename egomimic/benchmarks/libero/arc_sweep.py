@@ -83,7 +83,12 @@ def main():
     parser.add_argument("--mode", choices=("smoke", "full"), default="full")
     parser.add_argument("--epochs", type=int, default=5001)
     args = parser.parse_args()
-    replay_run = args.run_id + "-replay"
+    resuming = bool(os.environ.get("RESUME_FROM_RUN"))
+    replay_runs = json.loads(os.environ.get("ARC_REPLAY_RUNS_JSON") or "{}")
+    if resuming and args.mode == "full" and set(replay_runs) != {args.arc_mode}:
+        raise ValueError("Resuming a sweep requires its completed mode-specific replay")
+    replay_run = replay_runs.get(args.arc_mode) if resuming else args.run_id + "-replay"
+    replay_run = replay_run or args.run_id + "-replay"
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", replay_run):
         raise ValueError("Sweep run ID is too long or invalid")
     args.root.mkdir(parents=True, exist_ok=True)
@@ -92,7 +97,7 @@ def main():
     # string by PyYAML; safe_dump writes an unambiguous numeric scalar.
     path = args.root / "fixed-replay-spec.yaml"
     path.write_text(yaml.safe_dump(spec, sort_keys=False))
-    if args.mode == "full":
+    if args.mode == "full" and not resuming:
         if not os.environ.get("REPLAY_CALIBRATION_PARENT"):
             raise ValueError("A full sweep requires its audited calibration parent")
         execute(

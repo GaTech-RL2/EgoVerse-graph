@@ -1,4 +1,4 @@
-"""Render a pinned, single-L40S ARC/OAT workflow; submit with the OSMO CLI."""
+"""Render a pinned L40S ARC/OAT workflow; submit with the OSMO CLI."""
 
 import argparse
 import json
@@ -8,7 +8,11 @@ from pathlib import Path
 import yaml
 
 from egomimic.benchmarks.libero.catalog import TASKS
-from egomimic.benchmarks.libero.cluster import arc_method_modes, campaign_sources
+from egomimic.benchmarks.libero.cluster import (
+    arc_method_modes,
+    campaign_sources,
+    training_layout,
+)
 
 
 def workflow(
@@ -30,7 +34,11 @@ def workflow(
     arc_replay_runs=None,
     arc_profile=None,
     oat_reference_run=None,
+    gpus=1,
 ):
+    training_layout(gpus, mode)
+    if replay and gpus != 1:
+        raise ValueError("Demonstration replay uses one GPU allocation")
     arc_modes = list(arc_modes or (["joint_dur"] if arc_replay_run else ["dur", "stk"]))
     arc_method_modes(arc_modes)
     arc_replay_runs = dict(arc_replay_runs or {})
@@ -46,14 +54,24 @@ def workflow(
             or replay
             or campaign_id
             or evaluate_from_run
-            or arc_replay_runs
+            or (arc_replay_runs and not resume_from_run)
             or arc_replay_run
         ):
             raise ValueError("ARC profile requires one standalone policy mode")
         profile_settings(arc_profile, arc_modes[0])
         if len(run_id) > 56:
             raise ValueError("ARC sweep run ID must leave room for -replay")
-        if mode == "full" and (not calibration_parent or not oat_reference_run):
+        if (
+            mode == "full"
+            and resume_from_run
+            and set(arc_replay_runs) != set(arc_modes)
+        ):
+            raise ValueError(
+                "Resuming a sweep requires its completed mode-specific replay"
+            )
+        if mode == "full" and (
+            not oat_reference_run or (not resume_from_run and not calibration_parent)
+        ):
             raise ValueError(
                 "Full ARC sweep requires calibration and OAT reference runs"
             )
@@ -112,22 +130,24 @@ def workflow(
         ).read_text()
     )
     replay_workers = replay_config["workers"]
-    preflight = replay or (arc_profile is not None and mode == "full")
+    preflight = replay or (
+        arc_profile is not None and mode == "full" and not resume_from_run
+    )
     if arc_profile:
         replay_workers = 16
+    memory_gib = replay_config.get("memory_gib", 64) if preflight else 64
+    if arc_profile and mode == "full":
+        memory_gib = max(memory_gib, 128)
+    memory_gib = max(memory_gib, 64 * gpus)
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
             "name": run_id,
             "resources": {
                 "default": {
-                    "cpu": max(12, replay_workers + 4) if preflight else 12,
-                    "gpu": 1,
-                    "memory": "128Gi"
-                    if arc_profile and preflight
-                    else f"{replay_config.get('memory_gib', 64)}Gi"
-                    if preflight
-                    else "64Gi",
+                    "cpu": max(12 * gpus, replay_workers + 4 if preflight else 0),
+                    "gpu": gpus,
+                    "memory": f"{memory_gib}Gi",
                     "storage": "128Gi" if replay else "240Gi",
                     "platform": "ovx-l40s",
                 }
@@ -156,6 +176,7 @@ def workflow(
                         "SUITE": suite,
                         "RUN_MODE": mode,
                         "EPOCHS": str(epochs),
+                        "TRAINING_GPUS": str(gpus),
                         "EVALUATE_FROM_RUN": evaluate_from_run or "",
                         "CAMPAIGN_ID": campaign_id or "",
                         "CAMPAIGN_RUNS_JSON": json.dumps(campaign_runs),
@@ -190,6 +211,7 @@ def main():
     parser.add_argument("--suite", choices=TASKS, default="libero_10")
     parser.add_argument("--mode", choices=("smoke", "full"), default="smoke")
     parser.add_argument("--epochs", type=int, default=5001)
+    parser.add_argument("--gpus", type=int, choices=(1, 2, 4, 8), default=1)
     parser.add_argument("--evaluate-from-run")
     parser.add_argument("--campaign-id")
     parser.add_argument("--campaign-runs-file", type=Path)
@@ -230,6 +252,7 @@ def main():
                 else None,
                 args.arc_profile,
                 args.oat_reference_run,
+                args.gpus,
             ),
             handle,
             sort_keys=False,

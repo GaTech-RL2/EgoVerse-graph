@@ -11,6 +11,7 @@ pipeline:
       obs_keys: [agentview_rgb, robot0_eye_in_hand_rgb, robot0_eef_pos, robot0_eef_quat, robot0_gripper_qpos, task_uid]
     - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
       operation: encode
+      encode_cache_size: ${benchmark.arc_encode_cache_size}
       arc_mode: ${benchmark.arc_mode}
       velocity_norm_bound: ${benchmark.arc_velocity_norm_bound}
       num_waypoints: ${benchmark.arc_waypoints}

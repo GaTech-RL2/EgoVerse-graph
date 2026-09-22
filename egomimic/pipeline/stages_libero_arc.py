@@ -1,5 +1,7 @@
 """LIBERO ARC graph nodes; the shared diffusion stages predict ARC supports."""
 
+from collections import OrderedDict
+
 import numpy as np
 import torch
 
@@ -20,6 +22,7 @@ class LiberoArcStage(Stage):
         operation="encode",
         arc_mode="joint_dur",
         velocity_norm_bound=1.0,
+        encode_cache_size=0,
         **codec_kwargs,
     ):
         super().__init__()
@@ -27,6 +30,12 @@ class LiberoArcStage(Stage):
             make_libero_arc_codec(arc_mode, **codec_kwargs) if codec is None else codec
         )
         self.arc_mode = getattr(self.codec, "mode", "joint_dur")
+        self.encode_cache_size = int(encode_cache_size)
+        if self.encode_cache_size < 0:
+            raise ValueError("ARC encode cache size must be nonnegative")
+        # Derived targets only: no tensors, gradients, RNG or checkpoint state.
+        self._encode_cache = OrderedDict()
+        self._encode_cache_signature = None
         # The config records the rate scale so checkpoints retain their units.
         # Legacy checkpoints omit this argument and retain their original scale.
         self.velocity_norm_bound = float(velocity_norm_bound)
@@ -71,12 +80,7 @@ class LiberoArcStage(Stage):
     def execute(self, batch, *, mode):
         if mode == "train" or self.reconstruction:
             native = (batch["actions"] - self.action_offset) / self.action_scale
-            values = np.stack(
-                [
-                    self.codec.encode(row)
-                    for row in native.detach().float().cpu().numpy()
-                ]
-            )
+            values = self._encode(native.detach().float().cpu().numpy())
             tokens = torch.as_tensor(values, device=native.device, dtype=native.dtype)
             batch["target"] = tokens / self._token_scale(tokens)
         if mode == "inference":
@@ -91,6 +95,44 @@ class LiberoArcStage(Stage):
             actions = torch.as_tensor(decoded, device=tokens.device, dtype=tokens.dtype)
             batch["pred_action"] = actions * self.action_scale + self.action_offset
         return batch
+
+    def _encode(self, actions):
+        if not self.encode_cache_size:
+            return np.stack([self.codec.encode(row) for row in actions])
+        if actions.ndim != 3 or actions.shape[1:] != (self.codec.horizon, 7):
+            raise ValueError("Expected a batch of finite LIBERO action windows")
+        signature = tuple(
+            getattr(self.codec, key, None)
+            for key in (
+                "mode",
+                "horizon",
+                "num_waypoints",
+                "dt",
+                "translation_scale",
+                "rotation_scale",
+                "rotation_radius",
+                "gripper_radius",
+                "max_translation",
+                "max_rotation_degrees",
+            )
+        )
+        if signature != self._encode_cache_signature:
+            self._encode_cache.clear()
+            self._encode_cache_signature = signature
+        values = []
+        for row in actions:
+            # Exact native float32 bytes preserve even sub-quantization changes.
+            key = row.tobytes()
+            if key in self._encode_cache:
+                value = self._encode_cache[key]
+                self._encode_cache.move_to_end(key)
+            else:
+                value = self.codec.encode(row).copy()
+                self._encode_cache[key] = value
+                if len(self._encode_cache) > self.encode_cache_size:
+                    self._encode_cache.popitem(last=False)
+            values.append(value)
+        return np.stack(values)
 
     def forward(self, batch):
         return self.execute(batch, mode="train")

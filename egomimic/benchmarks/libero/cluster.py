@@ -220,7 +220,22 @@ def execute(argv, log):
             raise RuntimeError(f"Command failed; see {log}")
 
 
-def training_arguments(method, suite, dataset, evidence, mode, epochs):
+def training_layout(gpus, mode):
+    """Preserve the optimizer batch while distributing microbatches across GPUs."""
+    if gpus not in (1, 2, 4, 8) or mode not in ("full", "smoke"):
+        raise ValueError("Training requires 1, 2, 4 or 8 GPUs and full/smoke mode")
+    microbatch = 4 if mode == "smoke" else min(256, 1024 // gpus)
+    accumulation = 1 if mode == "smoke" else 1024 // (gpus * microbatch)
+    return {
+        "world_size": gpus,
+        "microbatch_size": microbatch,
+        "gradient_accumulation": accumulation,
+        "global_batch_size": gpus * microbatch * accumulation,
+    }
+
+
+def training_arguments(method, suite, dataset, evidence, mode, epochs, *, gpus=1):
+    layout = training_layout(gpus, mode)
     experiment = {
         "tokenizer": "libero_oattok",
         "oat": "libero_oatpolicy",
@@ -240,12 +255,16 @@ def training_arguments(method, suite, dataset, evidence, mode, epochs):
         f"hydra.run.dir={run}",
         f"paths.output_dir={run}",
         "runtime.slurm_requeue_owner=none",
-        "trainer.devices=1",
+        f"trainer.devices={gpus}",
+        f"benchmark.batch_size={layout['microbatch_size']}",
+        f"trainer.accumulate_grad_batches={layout['gradient_accumulation']}",
         "trainer.precision=bf16-mixed",
         f"trainer.max_epochs={epochs}",
         "callbacks.model_checkpoint.save_top_k=1",
         "++trainer.enable_progress_bar=false",
     ]
+    if gpus > 1:
+        args.append("++trainer.strategy=ddp_find_unused_parameters_true")
     if method == "oat":
         args.append(
             f"benchmark.tokenizer_checkpoint={Path(evidence) / 'training/tokenizer/checkpoints/last.ckpt'}"
@@ -630,6 +649,9 @@ def main():
     parser.add_argument("--mode", choices=("smoke", "full"), required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--epochs", type=int, default=5001)
+    parser.add_argument(
+        "--gpus", type=int, default=int(os.environ.get("TRAINING_GPUS", "1"))
+    )
     parser.add_argument("--arc-only", action="store_true")
     parser.add_argument("--arc-profile")
     parser.add_argument(
@@ -661,6 +683,7 @@ def main():
         default=json.loads(os.environ.get("ARC_REPLAY_RUNS_JSON") or "{}"),
     )
     args = parser.parse_args()
+    layout = training_layout(args.gpus, args.mode)
     arc_methods = arc_method_modes(args.arc_modes)
     methods = (
         tuple(arc_methods) if args.arc_only else ("tokenizer", "oat", *arc_methods)
@@ -706,10 +729,10 @@ def main():
         raise ValueError("Campaign requires full mode and matching suite run IDs")
     if (
         not torch.cuda.is_available()
-        or torch.cuda.device_count() != 1
-        or "L40S" not in torch.cuda.get_device_name(0)
+        or torch.cuda.device_count() != args.gpus
+        or any("L40S" not in torch.cuda.get_device_name(i) for i in range(args.gpus))
     ):
-        raise RuntimeError("This workflow requests exactly one L40S GPU")
+        raise RuntimeError(f"This workflow requests exactly {args.gpus} L40S GPUs")
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if commit != os.environ["SOURCE_COMMIT"]:
         raise RuntimeError("Unexpected source revision")
@@ -727,7 +750,8 @@ def main():
             "suite": args.suite,
             "mode": args.mode,
             "epochs": 1 if args.mode == "smoke" else args.epochs,
-            "global_batch_size": 4 if args.mode == "smoke" else 1024,
+            "global_batch_size": layout["global_batch_size"],
+            "training_layout": layout,
             "evaluate_from_run": args.evaluate_from_run,
             "resume_from_run": args.resume_from_run,
             "arc_replay_run": args.arc_replay_run,
@@ -790,7 +814,13 @@ def main():
                 evidence / "status.json", {"state": "TRAINING", "method": method}
             )
             argv = training_arguments(
-                method, args.suite, dataset, evidence, args.mode, args.epochs
+                method,
+                args.suite,
+                dataset,
+                evidence,
+                args.mode,
+                args.epochs,
+                gpus=args.gpus,
             )
             argv += [
                 f"benchmark.{key}={value if value is not None else 'null'}"

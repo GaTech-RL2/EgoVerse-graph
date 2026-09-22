@@ -42,6 +42,7 @@ benchmark:
   arc_action_dim: 11
   # Magnitude bound for three componentwise [-1,1] OSC commands: sqrt(3).
   arc_velocity_norm_bound: 1.7320508075688772
+  arc_encode_cache_size: 262144
   arc_max_translation: null
   arc_max_rotation_degrees: null
   max_episode_steps: 550

@@ -54,6 +54,30 @@ window count and exact update budget to `training-budget.json` and checkpoints.
 For four-GPU training, use batch 256 and accumulation 1; numerical sample/RNG
 ordering can still differ from the upstream Accelerate runtime.
 
+The launcher accepts `--gpus 1`, `2`, `4`, or `8`. It requests all GPUs in one
+worker and uses Lightning DDP, with CPU and memory reservations scaled by the
+GPU count. Full training keeps global batch 1024: two GPUs use microbatch 256
+and accumulation 2; four use microbatch 256 and accumulation 1; eight use
+microbatch 128 and accumulation 1. Runtime and checkpoint receipts record the
+actual layout. Switching GPU counts can change floating-point reduction and
+sample/RNG ordering, while preserving the optimizer, EMA and update budget.
+
+ARC training has a bounded cache of 262144 exact action-window encodings per
+rank. Entries use native float32 action bytes, retain the original codec output,
+and are invalidated if codec settings change. Cached values are derived data
+and are not included in checkpoints. Zarr array handles are also reused within
+data workers. These optimizations preserve target values, normalization,
+episode boundaries and R/D/M settings.
+
+To resume a frozen ARC profile on more GPUs, provide `--resume-from-run` and
+its existing `--arc-replay-runs-file` together with the original profile/mode.
+The completed replay is revalidated against the frozen profile and current
+codec sources; it is not rerun. A replacement must advance from the recovered
+optimizer/EMA state and upload a verified new checkpoint before retiring its
+predecessor. LIBERO-90 is deferred at the user's request as of September 22;
+its seven paused jobs retain their R2 checkpoints and replay evidence. Results
+for the other four suites must not be labeled the complete 130-task suite.
+
 The initial `arc-oat-full-20260920-v1` submissions used effective batch 256 and
 were cancelled when this mismatch was identified. They must not be
 reported as the released training setup. Corrected submissions use the budget

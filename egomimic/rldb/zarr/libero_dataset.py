@@ -106,7 +106,13 @@ class _ReplayEpisode(torch.utils.data.Dataset):
         if not 0 <= idx < len(self):
             raise IndexError(idx)
         if self._arrays is None:
-            self._arrays = zarr.open_group(self.path, mode="r")["data"]
+            group = zarr.open_group(self.path, mode="r")["data"]
+            # Opening an array reparses its Zarr metadata. Reuse handles within
+            # each worker; __getstate__ discards them before process spawning.
+            self._arrays = {
+                info["zarr_key"]: group[info["zarr_key"]]
+                for info in self.key_map.values()
+            }
         result = {}
         for key, info in self.key_map.items():
             horizon = int(info["horizon"])

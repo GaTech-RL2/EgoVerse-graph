@@ -810,6 +810,15 @@ def main():
         execute(["uv", "pip", "freeze"], evidence / "environment.txt")
         write_json(evidence / "status.json", {"state": "STAGING_DATA"})
         dataset = stage_dataset(args.root, args.suite, evidence)
+        if not args.evaluate_from_run:
+            from egomimic.rldb.zarr.decoded_replay import prepare_decoded_replay
+            from egomimic.rldb.zarr.libero_dataset import keymap
+
+            write_json(evidence / "status.json", {"state": "PREPARING_REPLAY_CACHE"})
+            cache = prepare_decoded_replay(
+                dataset, [info["zarr_key"] for info in keymap().values()]
+            )
+            write_json(evidence / "decoded-replay-cache.json", cache.manifest)
         configure_simulator(args.root)
         restored = {}
         if args.evaluate_from_run or args.resume_from_run:

@@ -56,10 +56,23 @@ def validation_mask(n_episodes, val_ratio=0.1, seed=42):
 
 
 class LiberoReplayResolver:
-    def __init__(self, folder_path, key_map, suite):
+    def __init__(self, folder_path, key_map, suite, decoded_cache=False):
         self.folder_path = str(folder_path)
         self.key_map = dict(key_map)
         self.suite = suite
+        self.decoded_cache = bool(decoded_cache)
+        self._decoded = None
+
+    def open_arrays(self):
+        keys = {info["zarr_key"] for info in self.key_map.values()}
+        if self.decoded_cache:
+            if self._decoded is None:
+                from egomimic.rldb.zarr.decoded_replay import prepare_decoded_replay
+
+                self._decoded = prepare_decoded_replay(self.folder_path, keys)
+            return self._decoded.open()
+        data = zarr.open_group(self.folder_path, mode="r")["data"]
+        return {key: data[key] for key in keys}
 
     def resolve(self):
         group = zarr.open_group(self.folder_path, mode="r")
@@ -73,6 +86,8 @@ class LiberoReplayResolver:
             if data[info["zarr_key"]].shape[0] != ends[-1]:
                 raise ValueError("Replay array lengths differ")
         validate_task_coverage(np.unique(data["task_uid"][:]), self.suite)
+        if self.decoded_cache:
+            self.open_arrays()
         return {
             f"episode_{index:06d}": _ReplayEpisode(
                 self.folder_path,
@@ -80,6 +95,7 @@ class LiberoReplayResolver:
                 int(end),
                 self.key_map,
                 index,
+                decoded=self._decoded,
             )
             for index, (start, end) in enumerate(zip(np.r_[0, ends[:-1]], ends))
         }
@@ -88,11 +104,12 @@ class LiberoReplayResolver:
 class _ReplayEpisode(torch.utils.data.Dataset):
     embodiment = "libero_panda"
 
-    def __init__(self, path, start, end, key_map, index):
+    def __init__(self, path, start, end, key_map, index, decoded=None):
         self.path, self.start, self.end = path, start, end
         self.key_map = key_map
         self.episode_path = Path(path) / f"episode_{index:06d}"
         self._arrays = None
+        self._decoded = decoded
 
     def __len__(self):
         return self.end - self.start
@@ -106,13 +123,15 @@ class _ReplayEpisode(torch.utils.data.Dataset):
         if not 0 <= idx < len(self):
             raise IndexError(idx)
         if self._arrays is None:
-            group = zarr.open_group(self.path, mode="r")["data"]
-            # Opening an array reparses its Zarr metadata. Reuse handles within
-            # each worker; __getstate__ discards them before process spawning.
-            self._arrays = {
-                info["zarr_key"]: group[info["zarr_key"]]
-                for info in self.key_map.values()
-            }
+            if self._decoded is not None:
+                self._arrays = self._decoded.open()
+            else:
+                group = zarr.open_group(self.path, mode="r")["data"]
+                # Reuse handles for the uncached reference path.
+                self._arrays = {
+                    info["zarr_key"]: group[info["zarr_key"]]
+                    for info in self.key_map.values()
+                }
         result = {}
         for key, info in self.key_map.items():
             horizon = int(info["horizon"])
@@ -122,7 +141,9 @@ class _ReplayEpisode(torch.utils.data.Dataset):
             )
             indices = np.clip(idx + offsets, 0, len(self) - 1) + self.start
             array = self._arrays[info["zarr_key"]]
-            values = np.asarray(array.oindex[indices])
+            values = np.asarray(
+                array[indices] if self._decoded is not None else array.oindex[indices]
+            )
             if not np.isfinite(values).all():
                 raise ValueError(f"Non-finite {key} in {self.episode_path}")
             result[key] = torch.from_numpy(np.ascontiguousarray(values)).float()
@@ -202,10 +223,12 @@ class LiberoNormalizer(LiberoDataset):
                 "LIBERO fits exact channel limits; use its saved normalizer_state for evaluation"
             )
         group = zarr.open_group(dataset.resolver.folder_path, mode="r")
+        arrays = dataset.resolver.open_arrays()
         digest = hashlib.sha256(np.asarray(group["meta/episode_ends"][:]).tobytes())
         # Hash actions and task identity in replay order, independent of path/horizon.
         for key in ("action", "task_uid"):
-            array = group["data"][key]
+            # Tokenizer keymaps omit task_uid but its identity is still hashed.
+            array = arrays[key] if key in arrays else group["data"][key]
             for start in range(0, array.shape[0], 4096):
                 digest.update(
                     np.ascontiguousarray(array[start : start + 4096]).tobytes()
@@ -219,7 +242,7 @@ class LiberoNormalizer(LiberoDataset):
         stats = self.norm_stats.setdefault(EMBODIMENT, {})
         observation_digest = hashlib.sha256()
         for key, info in dataset.resolver.key_map.items():
-            array = group["data"][info["zarr_key"]]
+            array = arrays[info["zarr_key"]]
             if key != "actions":
                 observation_digest.update(key.encode())
             low = np.full(array.shape[-1], np.inf, dtype=np.float32)

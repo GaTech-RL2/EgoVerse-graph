@@ -32,6 +32,7 @@ trainer:
 benchmark:
   suite: libero10
   dataset: ???
+  decoded_replay_cache: true
   batch_size: 256
   horizon: 32
   n_obs_steps: 2

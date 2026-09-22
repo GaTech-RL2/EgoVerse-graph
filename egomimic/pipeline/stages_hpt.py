@@ -252,7 +252,9 @@ class HPTStemStage(Stage):
         # actually uses (ee_pose) is still linted.
         reads = list(self.shared_keys)
         if self.domain_keys:
-            common = set.intersection(*(set(keys) for keys in self.domain_keys.values()))
+            common = set.intersection(
+                *(set(keys) for keys in self.domain_keys.values())
+            )
             reads.extend(sorted(common))
             reads.append(self.selector_key)
         self.reads = tuple(dict.fromkeys(reads))
@@ -435,4 +437,28 @@ class HPTTrunkStage(Stage):
         else:
             condition = out[:, -1]
         batch["condition"] = condition
+        return batch
+
+
+class DualHPTTrunkStage(Stage):
+    """Run independent HPT trunks for shape and clock conditioning.
+
+    Observation stems remain shared, while each output receives its own
+    transformer trunk and learned pooling token.
+    """
+
+    reads = ("hpt/tokens",)
+    writes = ("condition_shape", "condition_clock")
+
+    def __init__(self, shape_trunk: HPTTrunkStage, clock_trunk: HPTTrunkStage):
+        super().__init__()
+        self.shape_trunk = shape_trunk
+        self.clock_trunk = clock_trunk
+        self.reads = tuple(dict.fromkeys((*shape_trunk.reads, *clock_trunk.reads)))
+
+    def forward(self, batch: dict) -> dict:
+        shape_batch = self.shape_trunk(dict(batch))
+        clock_batch = self.clock_trunk(dict(batch))
+        batch["condition_shape"] = shape_batch["condition"]
+        batch["condition_clock"] = clock_batch["condition"]
         return batch

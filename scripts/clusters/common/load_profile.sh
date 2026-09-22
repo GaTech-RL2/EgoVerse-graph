@@ -7,7 +7,7 @@ fi
 
 profile=${1:?usage: source scripts/clusters/common/load_profile.sh PROFILE}
 case "$profile" in
-  skynet|ice|phoenix) ;;
+  skynet|ice|phoenix|lambda) ;;
   *)
     echo "unsupported EgoVerse cluster profile: $profile" >&2
     return 2
@@ -34,3 +34,9 @@ export EGOVERSE_CLUSTER_PROFILE
 export PUSHSHAPES_DATA_ROOT
 export EGOVERSE_RUN_ROOT
 export EGOVERSE_SOURCE_ROOT
+
+for variable in EGOVERSE_ABC_DATASET_DIR EGOVERSE_DATASET_DIR; do
+  if [[ -n "${!variable:-}" ]]; then
+    export "$variable"
+  fi
+done

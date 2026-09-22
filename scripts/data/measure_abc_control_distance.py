@@ -8,9 +8,12 @@ episode contribute equally, so weighting matches uniform control-frame draws.
 import argparse
 import hashlib
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from urllib.parse import urlparse
 
+import boto3
 import numpy as np
 import zarr
 
@@ -49,6 +52,14 @@ def main():
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()
     df = episode_table_to_df(create_default_engine())
+    numeric_cache = args.output.parent / "distance-numeric-cache"
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=os.environ["R2_ENDPOINT_URL"],
+        aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+        aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+        region_name="auto",
+    )
     df = df[(df.lab == "abc") & (df.embodiment == "yam_bimanual") & df.task.isin(TASKS)]
     df = df[~df.is_deleted.fillna(False) & df.zarr_processed_path.fillna("").ne("")]
     rows = {r["episode_hash"]: r for r in df.to_dict("records")}
@@ -77,9 +88,29 @@ def main():
     def measure(key):
         row = rows[key]
         path = args.root / key
-        store = zarr.open_group(
-            str(path) if path.is_dir() else row["zarr_processed_path"], mode="r"
-        )
+        if not path.is_dir():
+            path = numeric_cache / key
+            parsed = urlparse(row["zarr_processed_path"])
+            prefix = parsed.path.lstrip("/").rstrip("/") + "/"
+            for page in s3.get_paginator("list_objects_v2").paginate(
+                Bucket=parsed.netloc, Prefix=prefix
+            ):
+                for obj in page.get("Contents", []):
+                    relative = obj["Key"][len(prefix) :]
+                    if relative not in (
+                        "zarr.json",
+                        ".zattrs",
+                        ".zgroup",
+                        ".zmetadata",
+                    ) and not relative.startswith(
+                        ("left.cmd_ee_pose/", "right.cmd_ee_pose/")
+                    ):
+                        continue
+                    target = path / relative
+                    if not target.is_file() or target.stat().st_size != obj["Size"]:
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        s3.download_file(parsed.netloc, obj["Key"], str(target))
+        store = zarr.open_group(str(path), mode="r")
         n = int(store.attrs["total_frames"])
         fps = float(store.attrs["fps"])
         indices = control_frame_indices(n, fps, 30)

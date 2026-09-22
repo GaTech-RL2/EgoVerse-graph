@@ -1,0 +1,8 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/abc_visual_hpt300_base
+  - _self_
+name: abc_multitask4_hpt300_baseline_visual_openloop
+description: HPT300M ABC four-task visual-only baseline 100-frame chunks
+abc:
+  task_predicate: "row['task'] in ['fold and stack the towels', 'take the fake fruits out of the plastic bag', 'sort the stationery into containers', 'insert the wireless bluetooth earbuds into the charging case']"

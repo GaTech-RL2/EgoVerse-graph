@@ -388,6 +388,45 @@ def publish_campaign(
     return True
 
 
+def arc_checkpoint_settings(config, *, suite):
+    """Read codec parameters from the resolved graph saved by ModelWrapper."""
+    model = config["model"]
+    protocol = model["benchmark_protocol"]
+    if protocol.get("suite") != suite or tuple(
+        protocol.get(k) for k in ("horizon", "n_obs_steps", "n_action_steps")
+    ) != (32, 2, 16):
+        raise ValueError("Resumed ARC checkpoint uses a different control protocol")
+    stages = model["pipeline"]["stages"]
+    codecs = [
+        stage
+        for stage in stages
+        if stage.get("_target_") == "egomimic.pipeline.stages_libero_arc.LiberoArcStage"
+    ]
+    if len(codecs) != 2 or {stage.get("operation") for stage in codecs} != {
+        "encode",
+        "decode",
+    }:
+        raise ValueError("Resumed ARC checkpoint lacks matching encode/decode stages")
+    settings = []
+    for stage in codecs:
+        arc_mode = stage.get("arc_mode", "joint_dur")
+        if arc_mode not in ("joint_dur", "stk", "dur") or stage["horizon"] != 32:
+            raise ValueError("Resumed ARC checkpoint has incompatible codec settings")
+        settings.append(
+            {
+                "arc_mode": arc_mode,
+                "arc_action_dim": 11 if arc_mode == "joint_dur" else 12,
+                "arc_waypoints": stage["num_waypoints"],
+                "arc_max_translation": stage["max_translation"],
+                "arc_max_rotation_degrees": stage["max_rotation_degrees"],
+                "arc_velocity_norm_bound": stage.get("velocity_norm_bound", 1.0),
+            }
+        )
+    if settings[0] != settings[1]:
+        raise ValueError("Resumed ARC checkpoint encode/decode parameters differ")
+    return settings[0]
+
+
 def restore_checkpoints(
     client,
     source_run,
@@ -458,9 +497,9 @@ def restore_checkpoints(
             "complete": completed >= runtime["epochs"],
         }
         if method.startswith("arc") and allow_partial:
-            restored[method]["benchmark"] = payload["hyper_parameters"]["config_tree"][
-                "benchmark"
-            ]
+            restored[method]["benchmark"] = arc_checkpoint_settings(
+                payload["hyper_parameters"]["config_tree"], suite=suite
+            )
         del payload
     if allow_partial and not restored:
         raise ValueError("No training checkpoint is available to resume")

@@ -13,7 +13,13 @@ import pytest
 import torch
 from hydra import compose, initialize_config_dir
 
-from egomimic.benchmarks.libero.cluster import training_arguments, training_layout
+from egomimic.benchmarks.libero.cluster import (
+    arc_checkpoint_settings,
+    digest,
+    restore_checkpoints,
+    training_arguments,
+    training_layout,
+)
 from egomimic.pipeline.stages_libero_arc import LiberoArcStage
 
 
@@ -214,3 +220,72 @@ def test_resume_changes_world_size_without_resetting_optimizer_or_ema(tmp_path):
     assert budget["world_size"] == budget["gradient_accumulation"] == 2
     assert budget["global_batch_size"] == 8
     assert budget["optimizer_steps_per_epoch"] == 11
+
+
+@pytest.mark.parametrize("method", ["arc", "arc_stk", "arc_dur"])
+def test_arc_resume_reads_actual_saved_graph_config(tmp_path, method):
+    import io
+    import shutil
+
+    from egomimic.trainHydra import _build_model_config_tree
+
+    args = training_arguments(method, "libero_10", tmp_path, tmp_path, "full", 5001)
+    with initialize_config_dir(
+        version_base=None,
+        config_dir=str(Path(__file__).parents[1] / "egomimic/hydra_configs"),
+    ):
+        cfg = compose(config_name="train_zarr_cartesian", overrides=args[3:])
+    config = _build_model_config_tree(cfg)
+    assert "benchmark" not in config  # Actual trainHydra checkpoint format.
+    source = tmp_path / "source.ckpt"
+    torch.save(
+        {
+            "global_step": 140,
+            "loops": {"fit_loop": {"epoch_progress": {"current": {"completed": 2}}}},
+            "training_budget": {"global_batch_size": 1024, "epochs": 5001},
+            "optimizer_states": [{"state": {}}],
+            "normalizer_state": {},
+            "hyper_parameters": {"config_tree": config},
+        },
+        source,
+    )
+    runtime = {
+        "suite": "libero_10",
+        "mode": "full",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+    }
+    receipts = {
+        f"training/{method}/checkpoints/last.ckpt": {
+            "sha256": digest(source),
+            "bytes": source.stat().st_size,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/source/checkpoints/last.ckpt",
+        }
+    }
+
+    class Storage:
+        def get_object(self, Bucket, Key):
+            value = runtime if Key.endswith("runtime.json") else receipts
+            return {"Body": io.BytesIO(json.dumps(value).encode())}
+
+        def download_file(self, bucket, key, destination):
+            shutil.copyfile(source, destination)
+
+    restored = restore_checkpoints(
+        Storage(),
+        "source",
+        tmp_path / "evidence",
+        suite="libero_10",
+        mode="full",
+        epochs=5001,
+        allow_partial=True,
+        methods=[method],
+    )[method]
+    assert restored["global_step"] == 140
+    for key, value in restored["benchmark"].items():
+        assert value == cfg.benchmark[key]
+    with pytest.raises(ValueError, match="protocol"):
+        arc_checkpoint_settings(config, suite="libero_spatial")
+    config.model.pipeline.stages[-1].num_waypoints += 1
+    with pytest.raises(ValueError, match="parameters differ"):
+        arc_checkpoint_settings(config, suite="libero_10")

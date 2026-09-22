@@ -1,0 +1,13 @@
+# Cluster configuration only; application changes belong below this branch.
+name: sky2
+application_branch: canonical/run-resume
+application_commit: 3050d4ec85ef6d81db47d76ae90fc505279ccdcc
+canonical_checkout: /coc/flash7/acheluva3/EgoVerse-graph
+run_root: /coc/flash7/acheluva3/egoverse-runs
+tmux: egoverse:sky2-agent
+account: rl2-lab
+submitit_config: submitit_skynet
+manager_host_profile: agent-config/sky2.yaml
+manager_stack_profile: stacks/sky2.yaml
+require_explicit_launch_preflight: true
+preserve_normal_hydra_log_layout: true

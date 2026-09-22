@@ -72,7 +72,10 @@ episode boundaries and R/D/M settings.
 To resume a frozen ARC profile on more GPUs, provide `--resume-from-run` and
 its existing `--arc-replay-runs-file` together with the original profile/mode.
 The completed replay is revalidated against the frozen profile and current
-codec sources; it is not rerun. A replacement must advance from the recovered
+codec sources; it is not rerun. Resume compatibility is checked against the
+resolved encoder and decoder settings saved in the graph checkpoint, including
+the control protocol; it does not require a top-level Hydra benchmark section.
+A replacement must advance from the recovered
 optimizer/EMA state and upload a verified new checkpoint before retiring its
 predecessor. LIBERO-90 is deferred at the user's request as of September 22;
 its seven paused jobs retain their R2 checkpoints and replay evidence. Results

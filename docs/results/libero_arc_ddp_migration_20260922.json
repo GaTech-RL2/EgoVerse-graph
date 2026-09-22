@@ -1,0 +1,2826 @@
+{
+  "snapshot_at": "2026-09-22T18:18:15.334399+00:00",
+  "training_snapshot_at": "2026-09-22T18:17:52.347704+00:00",
+  "deferred_suites": [
+    "libero_90"
+  ],
+  "submitted_workers": 28,
+  "gpus_per_worker": 2,
+  "requested_gpus": 56,
+  "scheduler_counts": {
+    "RUNNING": 26,
+    "PENDING": 2
+  },
+  "advanced_workers": 6,
+  "verified_retired_predecessors": 2,
+  "migration_complete": false,
+  "handoff_policy": "A bounded local controller checks all submitted replacements every 45 seconds and retires only predecessors with verified advancing replacement checkpoints. Unverified predecessors remain running.",
+  "epochs": 5001,
+  "global_batch_size": 1024,
+  "microbatch_size": 256,
+  "gradient_accumulation": 2,
+  "full_policy_scores_available": false,
+  "complete_130_task_benchmark": false,
+  "source_commits": [
+    "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+    "8a0b0b6e17e1c4034a61d8d1b822fe6cb38a0e72"
+  ],
+  "validation": {
+    "focused_tests": 144,
+    "actual_cpu_ddp_resume": true,
+    "description": "141 performance/training/benchmark checks plus three actual-format ARC checkpoint resume regressions; 70 cluster checks also rerun after the fix."
+  },
+  "throughput_caveat": "Short simultaneous samples from uploaded optimizer/EMA counters, including warmup; different nodes and shared load, not a controlled scaling study or completion-time guarantee.",
+  "throughput_samples": [
+    {
+      "run_id": "arc-five-ddp2-20260922-stk1-libero-spatial",
+      "method": "arc_stk",
+      "observed_start": "2026-09-22T18:09:16.610214+00:00",
+      "observed_end": "2026-09-22T18:17:52.347704+00:00",
+      "interval_seconds": 515.73749,
+      "two_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T18:09:03+00:00",
+          "2026-09-22T18:17:37+00:00"
+        ],
+        "ema_updates": [
+          14610.0,
+          14950.0
+        ],
+        "updates_per_second": 0.6614785992217899
+      },
+      "one_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T18:08:17+00:00",
+          "2026-09-22T18:17:32+00:00"
+        ],
+        "ema_updates": [
+          15100.0,
+          15220.0
+        ],
+        "updates_per_second": 0.21621621621621623
+      },
+      "observed_speedup": 3.059338521400778
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur1-libero-10",
+      "method": "arc_dur",
+      "observed_start": "2026-09-22T18:12:43.402639+00:00",
+      "observed_end": "2026-09-22T18:17:52.347704+00:00",
+      "interval_seconds": 308.945065,
+      "two_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T18:12:35+00:00",
+          "2026-09-22T18:17:38+00:00"
+        ],
+        "ema_updates": [
+          10920.0,
+          11050.0
+        ],
+        "updates_per_second": 0.429042904290429
+      },
+      "one_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T18:11:59+00:00",
+          "2026-09-22T18:17:00+00:00"
+        ],
+        "ema_updates": [
+          11090.0,
+          11140.0
+        ],
+        "updates_per_second": 0.16611295681063123
+      },
+      "observed_speedup": 2.5828382838283828
+    },
+    {
+      "run_id": "arc-oat-ddp-20260922-libero-spatial",
+      "method": "oat",
+      "observed_start": "2026-09-22T17:59:05.972507+00:00",
+      "observed_end": "2026-09-22T18:06:43.792852+00:00",
+      "interval_seconds": 457.820345,
+      "two_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T17:58:40+00:00",
+          "2026-09-22T18:06:28+00:00"
+        ],
+        "ema_updates": [
+          12690.0,
+          12990.0
+        ],
+        "updates_per_second": 0.6410256410256411
+      },
+      "one_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T17:58:12+00:00",
+          "2026-09-22T18:05:45+00:00"
+        ],
+        "ema_updates": [
+          12820.0,
+          12920.0
+        ],
+        "updates_per_second": 0.22075055187637968
+      },
+      "observed_speedup": 2.903846153846154
+    },
+    {
+      "run_id": "arc-oat-ddp2-20260922-libero-object",
+      "method": "oat",
+      "observed_start": "2026-09-22T18:11:51.572248+00:00",
+      "observed_end": "2026-09-22T18:17:52.347704+00:00",
+      "interval_seconds": 360.775456,
+      "two_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T18:11:47+00:00",
+          "2026-09-22T18:17:50+00:00"
+        ],
+        "ema_updates": [
+          7820.0,
+          8060.0
+        ],
+        "updates_per_second": 0.6611570247933884
+      },
+      "one_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T18:11:31+00:00",
+          "2026-09-22T18:17:04+00:00"
+        ],
+        "ema_updates": [
+          8380.0,
+          8450.0
+        ],
+        "updates_per_second": 0.21021021021021022
+      },
+      "observed_speedup": 3.145218417945691
+    },
+    {
+      "run_id": "arc-oat-ddp2-20260922-libero-goal",
+      "method": "oat",
+      "observed_start": "2026-09-22T18:10:09.537561+00:00",
+      "observed_end": "2026-09-22T18:17:52.347704+00:00",
+      "interval_seconds": 462.810143,
+      "two_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T18:09:58+00:00",
+          "2026-09-22T18:17:32+00:00"
+        ],
+        "ema_updates": [
+          12330.0,
+          12630.0
+        ],
+        "updates_per_second": 0.6607929515418502
+      },
+      "one_gpu": {
+        "csv_uploaded_at": [
+          "2026-09-22T18:10:06+00:00",
+          "2026-09-22T18:17:24+00:00"
+        ],
+        "ema_updates": [
+          12810.0,
+          12900.0
+        ],
+        "updates_per_second": 0.2054794520547945
+      },
+      "observed_speedup": 3.2158590308370045
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "arc-five-ddp2-20260922-stk1-libero-spatial",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_spatial",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-spatial-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-stk1-libero-spatial",
+      "predecessor_workflow": "arc-five-v2-20260921-stk1-libero-spatial-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": true,
+      "workflow": "arc-five-ddp2-20260922-stk1-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-spatial-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:55:59.007507",
+        "start_time": "2026-09-22T17:56:11.048848",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:11.437706",
+        "start_time": "2026-09-21T22:12:20.294182",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-spatial",
+        "predecessor": "arc-five-v2-20260921-stk1-libero-spatial-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_spatial",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-stk1-libero-spatial",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk1-libero-spatial-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_1",
+          "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-stk1-libero-spatial/": "2026-09-22T18:17:32+00:00",
+          "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/": "2026-09-22T18:17:37+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "281",
+          "log/ema_decay": "0.9992702007293701",
+          "log/ema_num_updates": "15220.0",
+          "step": "15219",
+          "Train/loss": "0.009022929705679417",
+          "Train/source_0_loss": "0.009022929705679417",
+          "Train/source_0_loss_diffusion_noise": "0.009022929705679417"
+        },
+        "method": "arc_stk",
+        "budget": {
+          "train_examples": 55861,
+          "microbatch_size": 256,
+          "world_size": 2,
+          "gradient_accumulation": 2,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 108,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "restored": {
+          "sha256": "b3ce6c619dbcc1d1bddbce791d0b7f6bd132176c4621c589ded56b8be54a92be",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-stk1-libero-spatial/checkpoints/b3ce6c619dbcc1d1bddbce791d0b7f6bd132176c4621c589ded56b8be54a92be/last.ckpt",
+          "epochs_completed": 269,
+          "global_step": 14580,
+          "complete": false,
+          "benchmark": {
+            "arc_mode": "stk",
+            "arc_action_dim": 12,
+            "arc_waypoints": 36,
+            "arc_max_translation": 1.6,
+            "arc_max_rotation_degrees": 192,
+            "arc_velocity_norm_bound": 1.7320508075688772
+          }
+        },
+        "current": {
+          "sha256": "b3ce6c619dbcc1d1bddbce791d0b7f6bd132176c4621c589ded56b8be54a92be",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/checkpoints/b3ce6c619dbcc1d1bddbce791d0b7f6bd132176c4621c589ded56b8be54a92be/last.ckpt"
+        },
+        "ema_updates": 14950.0,
+        "metrics": {
+          "epoch": "276",
+          "log/ema_decay": "0.9992603063583374",
+          "log/ema_num_updates": "14950.0",
+          "step": "14957",
+          "Train/loss": "0.00938659068197012",
+          "Train/source_0_loss": "0.00938659068197012",
+          "Train/source_0_loss_diffusion_noise": "0.00938659068197012"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-stk1-libero-object",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_object",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-object",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-object-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-stk1-libero-object",
+      "predecessor_workflow": "arc-five-v2-20260921-stk1-libero-object-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-stk1-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-object-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:48.974155",
+        "start_time": "2026-09-22T18:09:59.973082",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:14.573006",
+        "start_time": "2026-09-21T22:12:24.394788",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-object",
+        "predecessor": "arc-five-v2-20260921-stk1-libero-object-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_object",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-stk1-libero-object",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk1-libero-object-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_1",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-object",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-object/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-stk1-libero-object/": "2026-09-22T18:17:37+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "259",
+          "log/ema_decay": "0.9993240833282471",
+          "log/ema_num_updates": "16860.0",
+          "step": "16859",
+          "Train/loss": "0.006578057073056698",
+          "Train/source_0_loss": "0.006578057073056698",
+          "Train/source_0_loss_diffusion_noise": "0.006578057073056698"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-stk1-libero-goal",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_goal",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-goal-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-stk1-libero-goal",
+      "predecessor_workflow": "arc-five-v2-20260921-stk1-libero-goal-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-stk1-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-goal-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:51.562410",
+        "start_time": "2026-09-22T18:10:04.404720",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:18.041169",
+        "start_time": "2026-09-21T22:12:28.881588",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-goal",
+        "predecessor": "arc-five-v2-20260921-stk1-libero-goal-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_goal",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-stk1-libero-goal",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk1-libero-goal-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_1",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-goal/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-stk1-libero-goal/": "2026-09-22T18:17:33+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "295",
+          "log/ema_decay": "0.9993146657943726",
+          "log/ema_num_updates": "16550.0",
+          "step": "16549",
+          "Train/loss": "0.008655521087348461",
+          "Train/source_0_loss": "0.008655521087348461",
+          "Train/source_0_loss_diffusion_noise": "0.008655521087348461"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-stk1-libero-10",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "suite": "libero_10",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-10",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-10-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-stk1-libero-10",
+      "predecessor_workflow": "arc-five-v2-20260921-stk1-libero-10-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-stk1-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-10-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:54.209738",
+        "start_time": "2026-09-22T18:10:04.914979",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:21.046003",
+        "start_time": "2026-09-21T22:12:32.472069",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-10",
+        "predecessor": "arc-five-v2-20260921-stk1-libero-10-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_10",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-stk1-libero-10",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk1-libero-10-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_1",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-10/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-stk1-libero-10/": "2026-09-22T18:17:08+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "89",
+          "log/ema_decay": "0.9990586638450623",
+          "log/ema_num_updates": "10840.0",
+          "step": "10839",
+          "Train/loss": "0.011685973964631557",
+          "Train/source_0_loss": "0.011685973964631557",
+          "Train/source_0_loss_diffusion_noise": "0.011685973964631557"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-stk2-libero-spatial",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_spatial",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-spatial-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-stk2-libero-spatial",
+      "predecessor_workflow": "arc-five-v2-20260921-stk2-libero-spatial-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-stk2-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-spatial-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:57.052868",
+        "start_time": "2026-09-22T18:10:08.023026",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:28.883823",
+        "start_time": "2026-09-21T22:17:38.566648",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-stk2-libero-spatial",
+        "predecessor": "arc-five-v2-20260921-stk2-libero-spatial-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_spatial",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-stk2-libero-spatial",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk2-libero-spatial-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_2",
+          "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk2-libero-spatial/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-stk2-libero-spatial/": "2026-09-22T18:17:46+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "293",
+          "log/ema_decay": "0.9992920756340027",
+          "log/ema_num_updates": "15850.0",
+          "step": "15849",
+          "Train/loss": "0.008621212095022202",
+          "Train/source_0_loss": "0.008621212095022202",
+          "Train/source_0_loss_diffusion_noise": "0.008621212095022202"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-stk2-libero-object",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_object",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-object",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-object-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-stk2-libero-object",
+      "predecessor_workflow": "arc-five-v2-20260921-stk2-libero-object-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-stk2-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-object-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:59.560246",
+        "start_time": "2026-09-22T18:10:08.246640",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:34.341414",
+        "start_time": "2026-09-21T22:12:44.282315",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-stk2-libero-object",
+        "predecessor": "arc-five-v2-20260921-stk2-libero-object-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_object",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-stk2-libero-object",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk2-libero-object-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_2",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-object",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk2-libero-object/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-stk2-libero-object/": "2026-09-22T18:17:44+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "250",
+          "log/ema_decay": "0.9993067383766174",
+          "log/ema_num_updates": "16300.0",
+          "step": "16299",
+          "Train/loss": "0.006912639830261469",
+          "Train/source_0_loss": "0.006912639830261469",
+          "Train/source_0_loss_diffusion_noise": "0.006912639830261469"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-stk2-libero-goal",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_goal",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-goal-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-stk2-libero-goal",
+      "predecessor_workflow": "arc-five-v2-20260921-stk2-libero-goal-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-stk2-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-goal-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:06.034887",
+        "start_time": "2026-09-22T18:10:14.562385",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:36.906618",
+        "start_time": "2026-09-21T22:12:48.291103",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-stk2-libero-goal",
+        "predecessor": "arc-five-v2-20260921-stk2-libero-goal-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_goal",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-stk2-libero-goal",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk2-libero-goal-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_2",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk2-libero-goal/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-stk2-libero-goal/": "2026-09-22T18:17:48+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "284",
+          "log/ema_decay": "0.9992950558662415",
+          "log/ema_num_updates": "15940.0",
+          "step": "15939",
+          "Train/loss": "0.008782542310655117",
+          "Train/source_0_loss": "0.008782542310655117",
+          "Train/source_0_loss_diffusion_noise": "0.008782542310655117"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-stk2-libero-10",
+      "profile": "stk_2",
+      "arc_mode": "stk",
+      "suite": "libero_10",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-stk-20260921-libero-10",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-10-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-stk2-libero-10",
+      "predecessor_workflow": "arc-five-v2-20260921-stk2-libero-10-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-stk2-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-10-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:09.027891",
+        "start_time": "2026-09-22T18:10:21.590595",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:39.637687",
+        "start_time": "2026-09-21T22:12:53.275076",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-stk2-libero-10",
+        "predecessor": "arc-five-v2-20260921-stk2-libero-10-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_10",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-stk2-libero-10",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk2-libero-10-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_2",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk2-libero-10/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-stk2-libero-10/": "2026-09-22T18:16:55+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "92",
+          "log/ema_decay": "0.9990808367729187",
+          "log/ema_num_updates": "11190.0",
+          "step": "11189",
+          "Train/loss": "0.012033432722091675",
+          "Train/source_0_loss": "0.012033432722091675",
+          "Train/source_0_loss_diffusion_noise": "0.012033432722091675"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur1-libero-spatial",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_spatial",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-spatial-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-dur1-libero-spatial",
+      "predecessor_workflow": "arc-five-v2-20260921-dur1-libero-spatial-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-dur1-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-spatial-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:12.048473",
+        "start_time": "2026-09-22T18:16:10.380643",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:45.813593",
+        "start_time": "2026-09-21T22:18:07.783952",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-dur1-libero-spatial",
+        "predecessor": "arc-five-v2-20260921-dur1-libero-spatial-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur1-libero-object",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_object",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-object",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-object-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-dur1-libero-object",
+      "predecessor_workflow": "arc-five-v2-20260921-dur1-libero-object-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-dur1-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-object-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:17.006061",
+        "start_time": "2026-09-22T18:15:54.641807",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:49.388879",
+        "start_time": "2026-09-21T22:18:07.326557",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-dur1-libero-object",
+        "predecessor": "arc-five-v2-20260921-dur1-libero-object-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur1-libero-goal",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_goal",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-goal-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-dur1-libero-goal",
+      "predecessor_workflow": "arc-five-v2-20260921-dur1-libero-goal-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-dur1-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-goal-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:19.506116",
+        "start_time": "2026-09-22T18:15:49.742679",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:52.759081",
+        "start_time": "2026-09-21T22:18:10.458718",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-dur1-libero-goal",
+        "predecessor": "arc-five-v2-20260921-dur1-libero-goal-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur1-libero-10",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "suite": "libero_10",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "calibration_parent": "arc-replay-dur-20260921-libero-10",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-10-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-dur1-libero-10",
+      "predecessor_workflow": "arc-five-v2-20260921-dur1-libero-10-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": true,
+      "workflow": "arc-five-ddp2-20260922-dur1-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-10-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:56:03.476097",
+        "start_time": "2026-09-22T17:56:13.406355",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:12:56.038931",
+        "start_time": "2026-09-21T22:18:05.579036",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-dur1-libero-10",
+        "predecessor": "arc-five-v2-20260921-dur1-libero-10-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_10",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-dur1-libero-10",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-five-v2-20260921-dur1-libero-10-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "dur_1",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-10/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_dur"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-dur1-libero-10/": "2026-09-22T18:17:00+00:00",
+          "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-10/": "2026-09-22T18:17:38+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "92",
+          "log/ema_decay": "0.9990777373313904",
+          "log/ema_num_updates": "11140.0",
+          "step": "11139",
+          "Train/loss": "0.013604969717562199",
+          "Train/source_0_loss": "0.013604969717562199",
+          "Train/source_0_loss_diffusion_noise": "0.013604969717562199"
+        },
+        "method": "arc_dur",
+        "budget": {
+          "train_examples": 124087,
+          "microbatch_size": 256,
+          "world_size": 2,
+          "gradient_accumulation": 2,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 242,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "restored": {
+          "sha256": "af681489260527601998ad323b82269d63b79cd938a5a77ccbacbd2b7479026d",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-dur1-libero-10/checkpoints/af681489260527601998ad323b82269d63b79cd938a5a77ccbacbd2b7479026d/last.ckpt",
+          "epochs_completed": 89,
+          "global_step": 10890,
+          "complete": false,
+          "benchmark": {
+            "arc_mode": "dur",
+            "arc_action_dim": 12,
+            "arc_waypoints": 24,
+            "arc_max_translation": 1.6,
+            "arc_max_rotation_degrees": 192,
+            "arc_velocity_norm_bound": 1.7320508075688772
+          }
+        },
+        "current": {
+          "sha256": "af681489260527601998ad323b82269d63b79cd938a5a77ccbacbd2b7479026d",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-10/checkpoints/af681489260527601998ad323b82269d63b79cd938a5a77ccbacbd2b7479026d/last.ckpt"
+        },
+        "ema_updates": 11050.0,
+        "metrics": {
+          "epoch": "91",
+          "log/ema_decay": "0.9990720748901367",
+          "log/ema_num_updates": "11050.0",
+          "step": "11049",
+          "Train/loss": "0.013558438047766685",
+          "Train/source_0_loss": "0.013558438047766685",
+          "Train/source_0_loss_diffusion_noise": "0.013558438047766685"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur2-libero-spatial",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_spatial",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-spatial-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-dur2-libero-spatial",
+      "predecessor_workflow": "arc-five-v2-20260921-dur2-libero-spatial-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-dur2-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-spatial-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:22.621142",
+        "start_time": "2026-09-22T18:10:32.842552",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:03.687506",
+        "start_time": "2026-09-21T22:13:19.398642",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-dur2-libero-spatial",
+        "predecessor": "arc-five-v2-20260921-dur2-libero-spatial-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_spatial",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-dur2-libero-spatial",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-five-v2-20260921-dur2-libero-spatial-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "dur_2",
+          "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur2-libero-spatial/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_dur"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-dur2-libero-spatial/": "2026-09-22T18:17:23+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "301",
+          "log/ema_decay": "0.9993067383766174",
+          "log/ema_num_updates": "16300.0",
+          "step": "16299",
+          "Train/loss": "0.007389937061816454",
+          "Train/source_0_loss": "0.007389937061816454",
+          "Train/source_0_loss_diffusion_noise": "0.007389937061816454"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur2-libero-object",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_object",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-object",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-object-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-dur2-libero-object",
+      "predecessor_workflow": "arc-five-v2-20260921-dur2-libero-object-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-dur2-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-object-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:26.838199",
+        "start_time": "2026-09-22T18:16:48.462338",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:06.949221",
+        "start_time": "2026-09-21T22:18:26.594661",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-dur2-libero-object",
+        "predecessor": "arc-five-v2-20260921-dur2-libero-object-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur2-libero-goal",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_goal",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-goal-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-dur2-libero-goal",
+      "predecessor_workflow": "arc-five-v2-20260921-dur2-libero-goal-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-dur2-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-goal-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:32.004906",
+        "start_time": "2026-09-22T18:10:43.338277",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:10.620021",
+        "start_time": "2026-09-21T22:13:26.598311",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-dur2-libero-goal",
+        "predecessor": "arc-five-v2-20260921-dur2-libero-goal-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_goal",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-v2-20260921-dur2-libero-goal",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-five-v2-20260921-dur2-libero-goal-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "dur_2",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur2-libero-goal/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_dur"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-five-v2-20260921-dur2-libero-goal/": "2026-09-22T18:17:25+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "284",
+          "log/ema_decay": "0.9992940425872803",
+          "log/ema_num_updates": "15910.0",
+          "step": "15909",
+          "Train/loss": "0.008197459392249584",
+          "Train/source_0_loss": "0.008197459392249584",
+          "Train/source_0_loss_diffusion_noise": "0.008197459392249584"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-dur2-libero-10",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "suite": "libero_10",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "calibration_parent": "arc-replay-dur-20260921-libero-10",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-dur2-libero-10-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-dur2-libero-10",
+      "predecessor_workflow": "arc-five-v2-20260921-dur2-libero-10-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-dur2-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-10-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:36.877329",
+        "start_time": "2026-09-22T18:16:47.498736",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:12.957285",
+        "start_time": "2026-09-21T22:13:27.774620",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-dur2-libero-10",
+        "predecessor": "arc-five-v2-20260921-dur2-libero-10-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-shared-stk-libero-spatial",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_spatial",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-spatial-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-shared-stk-libero-spatial",
+      "predecessor_workflow": "arc-five-v2-20260921-shared-stk-libero-spatial-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-shared-stk-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-spatial-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:40.574437",
+        "start_time": "2026-09-22T18:15:55.278457",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:17.984778",
+        "start_time": "2026-09-21T22:13:30.223167",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-shared-stk-libero-spatial",
+        "predecessor": "arc-five-v2-20260921-shared-stk-libero-spatial-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-shared-stk-libero-object",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_object",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-object",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-object-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-shared-stk-libero-object",
+      "predecessor_workflow": "arc-five-v2-20260921-shared-stk-libero-object-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-shared-stk-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-object-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:43.958079",
+        "start_time": "2026-09-22T18:16:08.369101",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:20.509368",
+        "start_time": "2026-09-21T22:18:12.850528",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-shared-stk-libero-object",
+        "predecessor": "arc-five-v2-20260921-shared-stk-libero-object-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-shared-stk-libero-goal",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_goal",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-goal-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-shared-stk-libero-goal",
+      "predecessor_workflow": "arc-five-v2-20260921-shared-stk-libero-goal-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-shared-stk-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-goal-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:46.652305",
+        "start_time": "2026-09-22T18:16:56.066601",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:23.248575",
+        "start_time": "2026-09-21T22:13:32.203462",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-shared-stk-libero-goal",
+        "predecessor": "arc-five-v2-20260921-shared-stk-libero-goal-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-shared-stk-libero-10",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "suite": "libero_10",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-stk-20260921-libero-10",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-shared-stk-libero-10-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-shared-stk-libero-10",
+      "predecessor_workflow": "arc-five-v2-20260921-shared-stk-libero-10-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-shared-stk-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-10-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:49.590804",
+        "start_time": "2026-09-22T18:16:20.354536",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:26.936995",
+        "start_time": "2026-09-21T22:13:36.510835",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-shared-stk-libero-10",
+        "predecessor": "arc-five-v2-20260921-shared-stk-libero-10-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-shared-dur-libero-spatial",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_spatial",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-spatial",
+      "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-spatial-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-shared-dur-libero-spatial",
+      "predecessor_workflow": "arc-five-v2-20260921-shared-dur-libero-spatial-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-shared-dur-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-spatial-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:53.278461",
+        "start_time": "2026-09-22T18:16:20.994556",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:33.321148",
+        "start_time": "2026-09-21T22:13:43.085338",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-shared-dur-libero-spatial",
+        "predecessor": "arc-five-v2-20260921-shared-dur-libero-spatial-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-shared-dur-libero-object",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_object",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-object",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-object",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-object-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-shared-dur-libero-object",
+      "predecessor_workflow": "arc-five-v2-20260921-shared-dur-libero-object-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-shared-dur-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-object-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:57.836339",
+        "start_time": "2026-09-22T18:16:26.408483",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:36.056010",
+        "start_time": "2026-09-21T22:13:46.963179",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-shared-dur-libero-object",
+        "predecessor": "arc-five-v2-20260921-shared-dur-libero-object-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-shared-dur-libero-goal",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_goal",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-goal",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-goal-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-shared-dur-libero-goal",
+      "predecessor_workflow": "arc-five-v2-20260921-shared-dur-libero-goal-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-shared-dur-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-goal-1",
+      "scheduler": {
+        "status": "PENDING",
+        "submit_time": "2026-09-22T18:11:03.202746",
+        "start_time": null,
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:38.496491",
+        "start_time": "2026-09-21T22:13:51.145731",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-shared-dur-libero-goal",
+        "predecessor": "arc-five-v2-20260921-shared-dur-libero-goal-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-five-ddp2-20260922-shared-dur-libero-10",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "suite": "libero_10",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "calibration_parent": "arc-replay-dur-20260921-libero-10",
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+      "replay_run_id": "arc-five-v2-20260921-shared-dur-libero-10-replay",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "resume_from_run": "arc-five-v2-20260921-shared-dur-libero-10",
+      "predecessor_workflow": "arc-five-v2-20260921-shared-dur-libero-10-1",
+      "gpus": 2,
+      "kind": "arc",
+      "pilot": false,
+      "workflow": "arc-five-ddp2-20260922-shared-dur-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-10-1",
+      "scheduler": {
+        "status": "PENDING",
+        "submit_time": "2026-09-22T18:11:11.106213",
+        "start_time": null,
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T22:13:41.331599",
+        "start_time": "2026-09-21T22:13:51.514428",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-five-ddp2-20260922-shared-dur-libero-10",
+        "predecessor": "arc-five-v2-20260921-shared-dur-libero-10-1",
+        "ready": false,
+        "runtime": null,
+        "status": null
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-oat-ddp-20260922-libero-spatial",
+      "source_commit": "8a0b0b6e17e1c4034a61d8d1b822fe6cb38a0e72",
+      "suite": "libero_spatial",
+      "resume_from_run": "arc-oat-full-20260921-v6-libero-spatial",
+      "predecessor_workflow": "arc-oat-full-20260921-v6-libero-spatial-1",
+      "gpus": 2,
+      "kind": "oat",
+      "pilot": true,
+      "workflow": "arc-oat-ddp-20260922-libero-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp-20260922-libero-spatial-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:39:06.809089",
+        "start_time": "2026-09-22T17:39:15.598480",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp-20260922-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T20:18:37.217475",
+        "start_time": "2026-09-21T20:18:45.081014",
+        "end_time": "2026-09-22T18:06:48.522644",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-full-20260921-v6-libero-spatial-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-oat-ddp-20260922-libero-spatial",
+        "predecessor": "arc-oat-full-20260921-v6-libero-spatial-1",
+        "ready": true,
+        "runtime": {
+          "source_commit": "8a0b0b6e17e1c4034a61d8d1b822fe6cb38a0e72",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_spatial",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-oat-full-20260921-v6-libero-spatial",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur",
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-replay-dur-20260921-libero-spatial",
+            "stk": "arc-replay-stk-20260921-libero-spatial"
+          },
+          "arc_only": false,
+          "arc_profile": null,
+          "oat_reference_run": null,
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp-20260922-libero-spatial/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "oat"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-spatial/": "2026-09-22T18:06:45+00:00",
+          "experiments/arc-oat-20260919/arc-oat-ddp-20260922-libero-spatial/": "2026-09-22T18:17:34+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "239",
+          "log/ema_decay": "0.9991752505302429",
+          "log/ema_num_updates": "12930.0",
+          "step": "12929",
+          "Train/loss": "3.1023855209350586",
+          "Train/source_0_loss": "3.1023855209350586",
+          "Train/source_0_loss_oat_token_ce": "3.1023855209350586"
+        },
+        "method": "oat",
+        "budget": {
+          "train_examples": 55861,
+          "microbatch_size": 256,
+          "world_size": 2,
+          "gradient_accumulation": 2,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 108,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "restored": {
+          "sha256": "2cbffdc5b8bf3767814f42b3f869d534f4dd3a655d71830b2a79a4696d1f2b31",
+          "bytes": 485724544,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-spatial/checkpoints/2cbffdc5b8bf3767814f42b3f869d534f4dd3a655d71830b2a79a4696d1f2b31/last.ckpt",
+          "epochs_completed": 229,
+          "global_step": 12420,
+          "complete": false
+        },
+        "current": {
+          "sha256": "7d4adad26fae0e8872e912d04b6f95e2ed13f4322f883a6e3fb73a3aade8c297",
+          "bytes": 485724544,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp-20260922-libero-spatial/checkpoints/7d4adad26fae0e8872e912d04b6f95e2ed13f4322f883a6e3fb73a3aade8c297/last.ckpt"
+        },
+        "ema_updates": 13440.0,
+        "metrics": {
+          "epoch": "248",
+          "log/ema_decay": "0.999198853969574",
+          "log/ema_num_updates": "13440.0",
+          "step": "13439",
+          "Train/loss": "3.0555522441864014",
+          "Train/source_0_loss": "3.0555522441864014",
+          "Train/source_0_loss_oat_token_ce": "3.0555522441864014"
+        },
+        "remote_checkpoint_verified": true,
+        "checkpoint_uploaded_at": "2026-09-22T18:05:57+00:00"
+      },
+      "retirement": {
+        "at": "2026-09-22T18:06:48.506172+00:00",
+        "predecessor": "arc-oat-full-20260921-v6-libero-spatial-1",
+        "successor": "arc-oat-ddp-20260922-libero-spatial-1",
+        "proof": {
+          "run_id": "arc-oat-ddp-20260922-libero-spatial",
+          "predecessor": "arc-oat-full-20260921-v6-libero-spatial-1",
+          "ready": true,
+          "runtime": {
+            "source_commit": "8a0b0b6e17e1c4034a61d8d1b822fe6cb38a0e72",
+            "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+            "torch": "2.7.1+cu126",
+            "cuda": "12.6",
+            "gpu": "NVIDIA L40S",
+            "suite": "libero_spatial",
+            "mode": "full",
+            "epochs": 5001,
+            "global_batch_size": 1024,
+            "training_layout": {
+              "world_size": 2,
+              "microbatch_size": 256,
+              "gradient_accumulation": 2,
+              "global_batch_size": 1024
+            },
+            "evaluate_from_run": null,
+            "resume_from_run": "arc-oat-full-20260921-v6-libero-spatial",
+            "arc_replay_run": null,
+            "arc_modes": [
+              "dur",
+              "stk"
+            ],
+            "arc_replay_runs": {
+              "dur": "arc-replay-dur-20260921-libero-spatial",
+              "stk": "arc-replay-stk-20260921-libero-spatial"
+            },
+            "arc_only": false,
+            "arc_profile": null,
+            "oat_reference_run": null,
+            "campaign_id": null,
+            "campaign_runs": null,
+            "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp-20260922-libero-spatial/"
+          },
+          "status": {
+            "state": "TRAINING",
+            "method": "oat"
+          },
+          "metrics_uploaded_at": {
+            "experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-spatial/": "2026-09-22T18:05:45+00:00",
+            "experiments/arc-oat-20260919/arc-oat-ddp-20260922-libero-spatial/": "2026-09-22T18:06:28+00:00"
+          },
+          "predecessor_metrics": {
+            "epoch": "239",
+            "log/ema_decay": "0.9991747736930847",
+            "log/ema_num_updates": "12920.0",
+            "step": "12919",
+            "Train/loss": "3.1023855209350586",
+            "Train/source_0_loss": "3.1023855209350586",
+            "Train/source_0_loss_oat_token_ce": "3.1023855209350586"
+          },
+          "method": "oat",
+          "budget": {
+            "train_examples": 55861,
+            "microbatch_size": 256,
+            "world_size": 2,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024,
+            "optimizer_steps_per_epoch": 54,
+            "microbatches_per_epoch": 108,
+            "epochs": 5001,
+            "total_optimizer_steps": 270054,
+            "dropped_examples_per_epoch": 565
+          },
+          "restored": {
+            "sha256": "2cbffdc5b8bf3767814f42b3f869d534f4dd3a655d71830b2a79a4696d1f2b31",
+            "bytes": 485724544,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-spatial/checkpoints/2cbffdc5b8bf3767814f42b3f869d534f4dd3a655d71830b2a79a4696d1f2b31/last.ckpt",
+            "epochs_completed": 229,
+            "global_step": 12420,
+            "complete": false
+          },
+          "current": {
+            "sha256": "7d4adad26fae0e8872e912d04b6f95e2ed13f4322f883a6e3fb73a3aade8c297",
+            "bytes": 485724544,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp-20260922-libero-spatial/checkpoints/7d4adad26fae0e8872e912d04b6f95e2ed13f4322f883a6e3fb73a3aade8c297/last.ckpt"
+          },
+          "ema_updates": 12990.0,
+          "metrics": {
+            "epoch": "240",
+            "log/ema_decay": "0.9991781115531921",
+            "log/ema_num_updates": "12990.0",
+            "step": "12989",
+            "Train/loss": "3.096064329147339",
+            "Train/source_0_loss": "3.096064329147339",
+            "Train/source_0_loss_oat_token_ce": "3.096064329147339"
+          },
+          "remote_checkpoint_verified": true,
+          "checkpoint_uploaded_at": "2026-09-22T18:05:57+00:00"
+        },
+        "returncode": 0,
+        "stdout": "Cancel job for workflow arc-oat-full-20260921-v6-libero-spatial-1 is submitted!\n"
+      }
+    },
+    {
+      "run_id": "arc-oat-ddp2-20260922-libero-object",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "suite": "libero_object",
+      "resume_from_run": "arc-oat-full-20260921-v6-libero-object",
+      "predecessor_workflow": "arc-oat-full-20260921-v6-libero-object-1",
+      "gpus": 2,
+      "kind": "oat",
+      "pilot": false,
+      "workflow": "arc-oat-ddp2-20260922-libero-object-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-object-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:57:16.621970",
+        "start_time": "2026-09-22T17:57:27.050565",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T20:18:40.809317",
+        "start_time": "2026-09-21T20:18:50.507364",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-full-20260921-v6-libero-object-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-oat-ddp2-20260922-libero-object",
+        "predecessor": "arc-oat-full-20260921-v6-libero-object-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_object",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-oat-full-20260921-v6-libero-object",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur",
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-replay-dur-20260921-libero-object",
+            "stk": "arc-replay-stk-20260921-libero-object"
+          },
+          "arc_only": false,
+          "arc_profile": null,
+          "oat_reference_run": null,
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-object/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "oat"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-object/": "2026-09-22T18:17:04+00:00",
+          "experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-object/": "2026-09-22T18:17:50+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "129",
+          "log/ema_decay": "0.9988652467727661",
+          "log/ema_num_updates": "8450.0",
+          "step": "8449",
+          "Train/loss": "3.5881030559539795",
+          "Train/source_0_loss": "3.5881030559539795",
+          "Train/source_0_loss_oat_token_ce": "3.5881030559539795"
+        },
+        "method": "oat",
+        "budget": {
+          "train_examples": 66940,
+          "microbatch_size": 256,
+          "world_size": 2,
+          "gradient_accumulation": 2,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 65,
+          "microbatches_per_epoch": 130,
+          "epochs": 5001,
+          "total_optimizer_steps": 325065,
+          "dropped_examples_per_epoch": 380
+        },
+        "restored": {
+          "sha256": "acb69c63733dc8b4d2a2d9952413b4f16650b0e89bc6d4cee7c7f90af24f6673",
+          "bytes": 485724544,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-object/checkpoints/acb69c63733dc8b4d2a2d9952413b4f16650b0e89bc6d4cee7c7f90af24f6673/last.ckpt",
+          "epochs_completed": 119,
+          "global_step": 7800,
+          "complete": false
+        },
+        "current": {
+          "sha256": "acb69c63733dc8b4d2a2d9952413b4f16650b0e89bc6d4cee7c7f90af24f6673",
+          "bytes": 485724544,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-object/checkpoints/acb69c63733dc8b4d2a2d9952413b4f16650b0e89bc6d4cee7c7f90af24f6673/last.ckpt"
+        },
+        "ema_updates": 8060.0,
+        "metrics": {
+          "epoch": "123",
+          "log/ema_decay": "0.9988242983818054",
+          "log/ema_num_updates": "8060.0",
+          "step": "8059",
+          "Train/loss": "3.627223491668701",
+          "Train/source_0_loss": "3.627223491668701",
+          "Train/source_0_loss_oat_token_ce": "3.627223491668701"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-oat-ddp2-20260922-libero-goal",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "suite": "libero_goal",
+      "resume_from_run": "arc-oat-full-20260921-v6-libero-goal",
+      "predecessor_workflow": "arc-oat-full-20260921-v6-libero-goal-1",
+      "gpus": 2,
+      "kind": "oat",
+      "pilot": false,
+      "workflow": "arc-oat-ddp2-20260922-libero-goal-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-goal-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:57:19.416676",
+        "start_time": "2026-09-22T17:57:31.230620",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-21T20:18:44.563673",
+        "start_time": "2026-09-21T20:18:53.390973",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-full-20260921-v6-libero-goal-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-oat-ddp2-20260922-libero-goal",
+        "predecessor": "arc-oat-full-20260921-v6-libero-goal-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_goal",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-oat-full-20260921-v6-libero-goal",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur",
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-replay-dur-20260921-libero-goal",
+            "stk": "arc-replay-stk-20260921-libero-goal"
+          },
+          "arc_only": false,
+          "arc_profile": null,
+          "oat_reference_run": null,
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-goal/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "oat"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-goal/": "2026-09-22T18:17:24+00:00",
+          "experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-goal/": "2026-09-22T18:17:32+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "230",
+          "log/ema_decay": "0.9991738200187683",
+          "log/ema_num_updates": "12900.0",
+          "step": "12899",
+          "Train/loss": "2.798504590988159",
+          "Train/source_0_loss": "2.798504590988159",
+          "Train/source_0_loss_oat_token_ce": "2.798504590988159"
+        },
+        "method": "oat",
+        "budget": {
+          "train_examples": 57763,
+          "microbatch_size": 256,
+          "world_size": 2,
+          "gradient_accumulation": 2,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 112,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        },
+        "restored": {
+          "sha256": "11d30ff53b72583962adc850a43c85e41f48bf68d7d348874b9121102058c4cb",
+          "bytes": 485724544,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-goal/checkpoints/11d30ff53b72583962adc850a43c85e41f48bf68d7d348874b9121102058c4cb/last.ckpt",
+          "epochs_completed": 219,
+          "global_step": 12320,
+          "complete": false
+        },
+        "current": {
+          "sha256": "11d30ff53b72583962adc850a43c85e41f48bf68d7d348874b9121102058c4cb",
+          "bytes": 485724544,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-goal/checkpoints/11d30ff53b72583962adc850a43c85e41f48bf68d7d348874b9121102058c4cb/last.ckpt"
+        },
+        "ema_updates": 12630.0,
+        "metrics": {
+          "epoch": "225",
+          "log/ema_decay": "0.9991605877876282",
+          "log/ema_num_updates": "12630.0",
+          "step": "12629",
+          "Train/loss": "2.820953369140625",
+          "Train/source_0_loss": "2.820953369140625",
+          "Train/source_0_loss_oat_token_ce": "2.820953369140625"
+        }
+      },
+      "retirement": null
+    },
+    {
+      "run_id": "arc-oat-ddp2-20260922-libero-10",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "suite": "libero_10",
+      "resume_from_run": "arc-oat-full-20260921-v6-libero-10",
+      "predecessor_workflow": "arc-oat-full-20260921-v6-libero-10-1",
+      "gpus": 2,
+      "kind": "oat",
+      "pilot": false,
+      "workflow": "arc-oat-ddp2-20260922-libero-10-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-10-1",
+      "scheduler": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:57:22.742362",
+        "start_time": "2026-09-22T17:57:34.698073",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "predecessor_scheduler": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T20:18:31.755042",
+        "start_time": "2026-09-21T20:18:42.044860",
+        "end_time": "2026-09-22T18:05:53.734424",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-full-20260921-v6-libero-10-1",
+        "pool": "groot-l40s-01"
+      },
+      "training_proof": {
+        "run_id": "arc-oat-ddp2-20260922-libero-10",
+        "predecessor": "arc-oat-full-20260921-v6-libero-10-1",
+        "ready": true,
+        "runtime": {
+          "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_10",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-oat-full-20260921-v6-libero-10",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur",
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-replay-dur-20260921-libero-10",
+            "stk": "arc-replay-stk-20260921-libero-10"
+          },
+          "arc_only": false,
+          "arc_profile": null,
+          "oat_reference_run": null,
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-10/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "tokenizer"
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-10/": "2026-09-22T18:05:45+00:00",
+          "experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-10/": "2026-09-22T18:17:41+00:00"
+        },
+        "predecessor_metrics": {
+          "epoch": "3333",
+          "log/ema_decay": "0.9998999834060669",
+          "log/ema_num_updates": "403300.0",
+          "step": "403299",
+          "Train/loss": "0.01056225411593914",
+          "Train/source_0_loss": "0.01056225411593914",
+          "Train/source_0_loss_oat_reconstruction": "0.01056225411593914"
+        },
+        "method": "tokenizer",
+        "budget": {
+          "train_examples": 124087,
+          "microbatch_size": 256,
+          "world_size": 2,
+          "gradient_accumulation": 2,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 242,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "restored": {
+          "sha256": "fca02f0d518fafa6d10403d8de1fdf7429cb21d7a8fe5b730e254d36208e690f",
+          "bytes": 93032533,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-10/checkpoints/fca02f0d518fafa6d10403d8de1fdf7429cb21d7a8fe5b730e254d36208e690f/last.ckpt",
+          "epochs_completed": 3319,
+          "global_step": 401720,
+          "complete": false
+        },
+        "current": {
+          "sha256": "d12b18dac2458f32eca231d06c66397a77b9f4afff26ee9aad978fb5a4c58260",
+          "bytes": 93032533,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-10/checkpoints/d12b18dac2458f32eca231d06c66397a77b9f4afff26ee9aad978fb5a4c58260/last.ckpt"
+        },
+        "ema_updates": 409790.0,
+        "metrics": {
+          "epoch": "3386",
+          "log/ema_decay": "0.9998999834060669",
+          "log/ema_num_updates": "409790.0",
+          "step": "409789",
+          "Train/loss": "0.010612241923809052",
+          "Train/source_0_loss": "0.010612241923809052",
+          "Train/source_0_loss_oat_reconstruction": "0.010612241923809052"
+        },
+        "remote_checkpoint_verified": true,
+        "checkpoint_uploaded_at": "2026-09-22T18:16:40+00:00"
+      },
+      "retirement": {
+        "at": "2026-09-22T18:05:53.848531+00:00",
+        "predecessor": "arc-oat-full-20260921-v6-libero-10-1",
+        "successor": "arc-oat-ddp2-20260922-libero-10-1",
+        "proof": {
+          "run_id": "arc-oat-ddp2-20260922-libero-10",
+          "predecessor": "arc-oat-full-20260921-v6-libero-10-1",
+          "ready": true,
+          "runtime": {
+            "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+            "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+            "torch": "2.7.1+cu126",
+            "cuda": "12.6",
+            "gpu": "NVIDIA L40S",
+            "suite": "libero_10",
+            "mode": "full",
+            "epochs": 5001,
+            "global_batch_size": 1024,
+            "training_layout": {
+              "world_size": 2,
+              "microbatch_size": 256,
+              "gradient_accumulation": 2,
+              "global_batch_size": 1024
+            },
+            "evaluate_from_run": null,
+            "resume_from_run": "arc-oat-full-20260921-v6-libero-10",
+            "arc_replay_run": null,
+            "arc_modes": [
+              "dur",
+              "stk"
+            ],
+            "arc_replay_runs": {
+              "dur": "arc-replay-dur-20260921-libero-10",
+              "stk": "arc-replay-stk-20260921-libero-10"
+            },
+            "arc_only": false,
+            "arc_profile": null,
+            "oat_reference_run": null,
+            "campaign_id": null,
+            "campaign_runs": null,
+            "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-10/"
+          },
+          "status": {
+            "state": "TRAINING",
+            "method": "tokenizer"
+          },
+          "metrics_uploaded_at": {
+            "experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-10/": "2026-09-22T18:05:45+00:00",
+            "experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-10/": "2026-09-22T18:05:38+00:00"
+          },
+          "predecessor_metrics": {
+            "epoch": "3333",
+            "log/ema_decay": "0.9998999834060669",
+            "log/ema_num_updates": "403300.0",
+            "step": "403299",
+            "Train/loss": "0.01056225411593914",
+            "Train/source_0_loss": "0.01056225411593914",
+            "Train/source_0_loss_oat_reconstruction": "0.01056225411593914"
+          },
+          "method": "tokenizer",
+          "budget": {
+            "train_examples": 124087,
+            "microbatch_size": 256,
+            "world_size": 2,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024,
+            "optimizer_steps_per_epoch": 121,
+            "microbatches_per_epoch": 242,
+            "epochs": 5001,
+            "total_optimizer_steps": 605121,
+            "dropped_examples_per_epoch": 183
+          },
+          "restored": {
+            "sha256": "fca02f0d518fafa6d10403d8de1fdf7429cb21d7a8fe5b730e254d36208e690f",
+            "bytes": 93032533,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-10/checkpoints/fca02f0d518fafa6d10403d8de1fdf7429cb21d7a8fe5b730e254d36208e690f/last.ckpt",
+            "epochs_completed": 3319,
+            "global_step": 401720,
+            "complete": false
+          },
+          "current": {
+            "sha256": "16139f90705d66fb948766805d106308302d6c2da54b5ae53d6b71a942d7dbc3",
+            "bytes": 93032533,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-10/checkpoints/16139f90705d66fb948766805d106308302d6c2da54b5ae53d6b71a942d7dbc3/last.ckpt"
+          },
+          "ema_updates": 403610.0,
+          "metrics": {
+            "epoch": "3335",
+            "log/ema_decay": "0.9998999834060669",
+            "log/ema_num_updates": "403610.0",
+            "step": "403609",
+            "Train/loss": "0.010584842413663864",
+            "Train/source_0_loss": "0.010584842413663864",
+            "Train/source_0_loss_oat_reconstruction": "0.010584842413663864"
+          },
+          "remote_checkpoint_verified": true,
+          "checkpoint_uploaded_at": "2026-09-22T18:04:37+00:00"
+        },
+        "returncode": 0,
+        "stdout": "Cancel job for workflow arc-oat-full-20260921-v6-libero-10-1 is submitted!\n"
+      }
+    }
+  ],
+  "paused_libero_90": {
+    "at": "2026-09-22T17:23:04.803773+00:00",
+    "reason": "User requested deferring LIBERO-90",
+    "runs": [
+      {
+        "run_id": "arc-five-v2-20260921-stk1-libero-90",
+        "workflow": "arc-five-v2-20260921-stk1-libero-90-1",
+        "runtime": {
+          "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_90",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "evaluate_from_run": null,
+          "resume_from_run": null,
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk1-libero-90-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_1",
+          "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-stk1-libero-90/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "checkpoint": {
+          "sha256": "0b0c6de58fe9e0884b68256d6ff6f3d6521fd2d6088f2ee58b287d759d7cdd3e",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-stk1-libero-90/checkpoints/0b0c6de58fe9e0884b68256d6ff6f3d6521fd2d6088f2ee58b287d759d7cdd3e/last.ckpt"
+        },
+        "checkpoint_uploaded_at": "2026-09-22T11:55:16+00:00",
+        "durable_checkpoint_verified": true
+      },
+      {
+        "run_id": "arc-five-v2-20260921-stk2-libero-90",
+        "workflow": "arc-five-v2-20260921-stk2-libero-90-1",
+        "runtime": {
+          "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_90",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "evaluate_from_run": null,
+          "resume_from_run": null,
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk2-libero-90-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_2",
+          "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-stk2-libero-90/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "checkpoint": {
+          "sha256": "01c96eb10def87ecb9f30f4773d141c4fa15b40acb406716d590cd8903ef3145",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-stk2-libero-90/checkpoints/01c96eb10def87ecb9f30f4773d141c4fa15b40acb406716d590cd8903ef3145/last.ckpt"
+        },
+        "checkpoint_uploaded_at": "2026-09-22T11:53:16+00:00",
+        "durable_checkpoint_verified": true
+      },
+      {
+        "run_id": "arc-five-v2-20260921-dur1-libero-90",
+        "workflow": "arc-five-v2-20260921-dur1-libero-90-1",
+        "runtime": {
+          "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_90",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "evaluate_from_run": null,
+          "resume_from_run": null,
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-five-v2-20260921-dur1-libero-90-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "dur_1",
+          "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-dur1-libero-90/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_dur"
+        },
+        "checkpoint": {
+          "sha256": "0d4e1a5c42606ca87445f794fef2c68a31850d9723712ec9399d3a34371f4795",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-dur1-libero-90/checkpoints/0d4e1a5c42606ca87445f794fef2c68a31850d9723712ec9399d3a34371f4795/last.ckpt"
+        },
+        "checkpoint_uploaded_at": "2026-09-22T11:21:17+00:00",
+        "durable_checkpoint_verified": true
+      },
+      {
+        "run_id": "arc-five-v2-20260921-dur2-libero-90",
+        "workflow": "arc-five-v2-20260921-dur2-libero-90-1",
+        "runtime": {
+          "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_90",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "evaluate_from_run": null,
+          "resume_from_run": null,
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-five-v2-20260921-dur2-libero-90-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "dur_2",
+          "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-dur2-libero-90/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_dur"
+        },
+        "checkpoint": {
+          "sha256": "fd9f790b743129175dc124a06516149f37b8cef4f062159bf8b20eff92e4e9df",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-dur2-libero-90/checkpoints/fd9f790b743129175dc124a06516149f37b8cef4f062159bf8b20eff92e4e9df/last.ckpt"
+        },
+        "checkpoint_uploaded_at": "2026-09-22T11:36:04+00:00",
+        "durable_checkpoint_verified": true
+      },
+      {
+        "run_id": "arc-five-v2-20260921-shared-stk-libero-90",
+        "workflow": "arc-five-v2-20260921-shared-stk-libero-90-1",
+        "runtime": {
+          "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_90",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "evaluate_from_run": null,
+          "resume_from_run": null,
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-shared-stk-libero-90-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "shared",
+          "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-shared-stk-libero-90/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "checkpoint": {
+          "sha256": "711a46a52841bee2eb9a3c1e09537bee7f26a5ae97984606616ef4c7c6334c73",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-shared-stk-libero-90/checkpoints/711a46a52841bee2eb9a3c1e09537bee7f26a5ae97984606616ef4c7c6334c73/last.ckpt"
+        },
+        "checkpoint_uploaded_at": "2026-09-22T11:39:57+00:00",
+        "durable_checkpoint_verified": true
+      },
+      {
+        "run_id": "arc-five-v2-20260921-shared-dur-libero-90",
+        "workflow": "arc-five-v2-20260921-shared-dur-libero-90-1",
+        "runtime": {
+          "source_commit": "60b54d22252cdc4cb53d7fb5b097558f4f7c0ac7",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_90",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "evaluate_from_run": null,
+          "resume_from_run": null,
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-five-v2-20260921-shared-dur-libero-90-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "shared",
+          "oat_reference_run": "arc-oat-full-20260921-v6-libero-90",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-shared-dur-libero-90/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_dur"
+        },
+        "checkpoint": {
+          "sha256": "8c4a067c35ce19aa4f0b0a972932d963ea9c8468f746a2f42af68cb10827d595",
+          "bytes": 1004453704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-v2-20260921-shared-dur-libero-90/checkpoints/8c4a067c35ce19aa4f0b0a972932d963ea9c8468f746a2f42af68cb10827d595/last.ckpt"
+        },
+        "checkpoint_uploaded_at": "2026-09-22T11:45:55+00:00",
+        "durable_checkpoint_verified": true
+      },
+      {
+        "run_id": "arc-oat-full-20260921-v6-libero-90",
+        "workflow": "arc-oat-full-20260921-v6-libero-90-1",
+        "runtime": {
+          "source_commit": "df3f26f261aa1746bbc5f824c130c8dcfd13318a",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_90",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-oat-full-20260920-v2-libero-90",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur",
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-replay-dur-20260921-libero-90",
+            "stk": "arc-replay-stk-20260921-libero-90"
+          },
+          "campaign_id": "arc-oat-full-20260921-v6",
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-90/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "tokenizer"
+        },
+        "checkpoint": {
+          "sha256": "a137d5d151d0da72730000891fdf47bfa22e0dc4f4656b737965775f829b8442",
+          "bytes": 93032533,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-full-20260921-v6-libero-90/checkpoints/a137d5d151d0da72730000891fdf47bfa22e0dc4f4656b737965775f829b8442/last.ckpt"
+        },
+        "checkpoint_uploaded_at": "2026-09-22T17:20:56+00:00",
+        "durable_checkpoint_verified": true
+      }
+    ]
+  },
+  "initial_arc_pilots": {
+    "status": "FAILED before training during checkpoint config validation",
+    "source_commit": "8a0b0b6e17e1c4034a61d8d1b822fe6cb38a0e72",
+    "predecessors_preserved": true,
+    "fix_source": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00"
+  }
+}

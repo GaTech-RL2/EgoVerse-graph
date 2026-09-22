@@ -109,16 +109,32 @@ class Yam(Embodiment):
     # this only when the episode's metadata reports a D405 top camera.
     TOP_CAMERA_D405 = np.array(
         [
-            [-0.000003673, -0.866026618,  0.499997896, -0.166494880],
-            [-1.000000000,  0.000003181, -0.000001837, -0.263749126],
-            [ 0.000000000, -0.499997896, -0.866026618,  0.967579819],
-            [ 0.000000000,  0.000000000,  0.000000000,  1.000000000]
+            [-0.000003673, -0.866026618, 0.499997896, -0.166494880],
+            [-1.000000000, 0.000003181, -0.000001837, -0.263749126],
+            [0.000000000, -0.499997896, -0.866026618, 0.967579819],
+            [0.000000000, 0.000000000, 0.000000000, 1.000000000],
         ]
     )
     EXTRINSICS = {"front_1": TOP_CAMERA_D405}
 
-    ACTION_HORIZON = 45
-    # Wider raw window for arc so per-arm arc length has room to reach D.
+    # Baseline YAM is a time-indexed 100-frame target.  The old 45-frame
+    # window was interpolated to 100 rows, which changed the source samples
+    # before the model saw them.  Keep the source horizon and model horizon
+    # identical for the baseline.
+    ACTION_HORIZON = 100
+    # ARC no longer has a fixed source horizon.  The loader reads the shortest
+    # prefix (up to this bounded fallback) whose cumulative arm travel reaches
+    # ARC_DISTANCE.  ARC_TOK_ACTION_HORIZON remains as a compatibility name
+    # for callers that use it as the token/model horizon; it is not a raw
+    # source-frame count anymore.
+    ARC_DISTANCE = 0.40
+    # ARC reads a bounded 600-frame native source buffer, then cuts the
+    # shortest prefix satisfying the distance target.  This is deliberately a
+    # source-read buffer, not the model/token horizon.
+    ARC_SOURCE_BUFFER_FRAMES = 600
+    # Compatibility alias for older callers; this is a read buffer, never
+    # the resolved per-sample ARC horizon.
+    ARC_MAX_SOURCE_FRAMES = ARC_SOURCE_BUFFER_FRAMES
     ARC_TOK_ACTION_HORIZON = 200
 
     @staticmethod
@@ -139,8 +155,8 @@ class Yam(Embodiment):
         ] = "euler",
         # Arc-tokenizer args, only consulted when
         # action_mode="arc_tokenizer_cartesian".
-        min_distance_unit: float = 0.60,
-        resampled_vector_length: int = 20,
+        min_distance_unit: float = 0.40,
+        resampled_vector_length: int = 100,
         chunk_length: int | None = None,
         # How the arc token carries timing; see
         # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
@@ -169,17 +185,20 @@ class Yam(Embodiment):
         """
         if action_mode not in ("cartesian", "arc_tokenizer_cartesian"):
             raise ValueError(f"unknown action_mode {action_mode!r}")
-        # Rows the raw window is interpolated to before anything else runs.
-        # Arc defaults to the raw window itself, i.e. NO resampling: the
-        # tokenizer is what selects the frames covering D and resamples those
-        # to M. Interpolating to 100 first would decimate the yam window 2x, and
-        # arc length measured on a decimated path is systematically short.
-        if chunk_length is None:
-            chunk_length = (
-                Yam.ARC_TOK_ACTION_HORIZON
-                if action_mode == "arc_tokenizer_cartesian"
-                else 100
-            )
+        # ``None`` is meaningful here: it keeps the loader's source window
+        # intact.  Baseline callers get a 100-frame window from the keymap;
+        # ARC callers get a variable-length, distance-resolved window.  The
+        # ARC tokenizer then performs the only resampling (100 equal-distance
+        # waypoints), so no time interpolation/decimation occurs beforehand.
+        if action_mode == "arc_tokenizer_cartesian":
+            # A caller-supplied legacy chunk length must not reintroduce
+            # time interpolation before distance tokenization.
+            chunk_length = None
+        else:
+            # Baseline YAM's source and model horizons are both 100. Ignore a
+            # legacy 45-row override rather than interpolating it into a new
+            # 100-row sequence.
+            chunk_length = Yam.ACTION_HORIZON
         if coord_frame == "camframe":
             transform_list = _build_yam_bimanual_camframe_transform_list(
                 rotation_mode=rotation_mode,
@@ -199,7 +218,10 @@ class Yam(Embodiment):
         else:
             raise ValueError(f"unknown coord_frame {coord_frame!r}")
         if action_mode == "arc_tokenizer_cartesian":
-            from egomimic.rldb.embodiment.eva import _append_arc_tokenizer
+            from egomimic.rldb.embodiment.eva import (
+                UNTOKENIZED_ACTION_KEY,
+                _append_arc_tokenizer,
+            )
 
             return _append_arc_tokenizer(
                 transform_list,
@@ -207,6 +229,12 @@ class Yam(Embodiment):
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 velocity_mode=velocity_mode,
+                # Keep a fixed 100-step native-cadence GT copy for evaluator
+                # metrics/videos. The source window itself is variable, but
+                # the control horizon is always 100 steps; repeat-last at an
+                # episode tail follows the loader's normal convention.
+                preserve_action_key=UNTOKENIZED_ACTION_KEY,
+                preserve_action_rows=Yam.ACTION_HORIZON,
             )
         return transform_list
 
@@ -239,7 +267,9 @@ class Yam(Embodiment):
             ),
             **kwargs,
         )
-        texts = _flatten_annotations(batch.get(annotation_key) if annotation_key else None)
+        texts = _flatten_annotations(
+            batch.get(annotation_key) if annotation_key else None
+        )
         if texts:
             vis = _viz_annotations(image=vis, annotations=texts)
         return vis
@@ -303,14 +333,21 @@ class Yam(Embodiment):
             right_wrist_key = "observations.images.right_wrist_img"
             left_wrist_key = "observations.images.left_wrist_img"
 
-        # Arc-tokenizer mode needs a wider raw window so per-arm arc length can
-        # reach ``min_distance_unit`` (D) before the padded tail kicks in.
-        # 200 raw frames is ~6.7s at 30fps.
-        horizon = (
-            cls.ARC_TOK_ACTION_HORIZON
-            if keymap_mode == "arc_tokenizer_cartesian"
-            else cls.ACTION_HORIZON
-        )
+        if keymap_mode == "arc_tokenizer_cartesian":
+            # The dataset resolver recognizes this declarative horizon and
+            # resolves it per sample by reading just enough source pose frames
+            # for both arms to accumulate ARC_DISTANCE. ``source_buffer_frames``
+            # is a safety bound for stationary/short episodes, not a target
+            # length.
+            horizon = {
+                "type": "arc_distance",
+                "distance": cls.ARC_DISTANCE,
+                "source_buffer_frames": cls.ARC_SOURCE_BUFFER_FRAMES,
+                "pose_zarr_keys": ["left.cmd_ee_pose", "right.cmd_ee_pose"],
+                "require_all_arms": True,
+            }
+        else:
+            horizon = cls.ACTION_HORIZON
 
         return {
             front_key: {"key_type": "camera_keys", "zarr_key": "images.front_1"},
@@ -375,7 +412,7 @@ def _build_yam_bimanual_eef_frame_transform_list(
     right_cmd_wristframe: str = "right.cmd_ee_pose_wristframe",
     actions_key: str = "actions_cartesian",
     obs_key: str = "observations.state.ee_pose",
-    chunk_length: int = 100,
+    chunk_length: int | None = 100,
     stride: int = 1,
     rotation_mode: Literal["euler", "quat", "6D"] = "euler",
 ) -> list[Transform]:
@@ -581,7 +618,7 @@ def _build_yam_bimanual_camframe_transform_list(
     right_obs_camframe: str = "right.obs_ee_pose_camframe",
     actions_key: str = "actions_cartesian",
     obs_key: str = "observations.state.ee_pose",
-    chunk_length: int = 100,
+    chunk_length: int | None = 100,
     stride: int = 1,
     rotation_mode: Literal["euler", "quat", "6D"] = "euler",
     to_camera_frame: bool = True,

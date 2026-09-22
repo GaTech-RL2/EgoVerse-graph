@@ -1,0 +1,27 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/abc_visual_hpt300_base
+  - _self_
+name: abc_towels_hpt180_hybrid_visual_openloop
+description: HPT180 ABC towels visual-only hybrid D40 M100 R24deg
+abc:
+  task_predicate: "row['task'] == 'fold and stack the towels'"
+  action_mode: hybrid_arc_tokenizer_cartesian
+  arc_distance: 0.40
+  arc_rotation_distance: 0.4188790204786391
+hpt:
+  embed_dim: 640
+  num_heads: 8
+  action_horizon: ${abc.arc_token_rows}
+  flow_blocks: 10
+  flow_hidden_dim: 384
+  stem_specs:
+    cross_attn:
+      crossattn_dim_head: 80
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+  limit_val_episodes: 4
+logger:
+  wandb:
+    tags: [hpt180, abc, towels, visual_only, no_language, hybrid, D40, M100, R24deg, per_waypoint, open_loop, video]

@@ -19,7 +19,7 @@ name: abc_lang_mecka_fold_multitask_cotrain_baseline
 description: qwen_pooled_baseline
 
 paths:
-  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+  dataset_dir: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
 
 launch_params:
   gpus_per_node: 2

@@ -11,11 +11,10 @@ chunk the loader preserved -- so an arc run and a time-indexed baseline land on
 comparable charts:
 
 ``arcmatch``
-    Re-tokenize prediction and ground truth onto a shared per-arm span
-    ``min(L_gt, L_pred, D)`` (``D`` optional via ``min_distance_unit``) and
-    score the waypoints. Predictions may be time-indexed chunks or ARC
-    waypoint polylines. Travel is divided out, so this measures path SHAPE
-    alone. Reported with and without the velocity row.
+    Re-tokenize prediction and ground truth onto a shared combined-arm span
+    ``min(L_gt, L_pred, D)``. Each interval contributes left-arm plus right-arm
+    EEF translation. Travel is divided out, so this measures path SHAPE alone.
+    Reported with and without the velocity row.
 
 ``dtw``
     Warp the prediction against the ground-truth chunk. Elastic in time, so
@@ -96,8 +95,29 @@ def arm_travel(traj: np.ndarray) -> np.ndarray:
     )
 
 
-def match_spans(pred_ti: np.ndarray, gt_ti: np.ndarray) -> np.ndarray:
-    """Per-arm matched span: the shorter of the two travelled distances.
+def combined_cumulative_distance(traj: np.ndarray) -> np.ndarray:
+    """Cumulative bimanual EEF travel in metres.
+
+    A frame interval contributes the left-arm translation plus the right-arm
+    translation.  This is the physical distance represented by ``D`` for a
+    bimanual ARC evaluation; ``D=0.4`` therefore means 0.4 m across both arms
+    together, not 0.4 m for each arm.
+    """
+
+    traj = _validate(traj, "combined_cumulative_distance input")
+    left_step = np.linalg.norm(np.diff(traj[:, 0:3], axis=0), axis=-1)
+    right_step = np.linalg.norm(np.diff(traj[:, 7:10], axis=0), axis=-1)
+    return np.concatenate(([0.0], np.cumsum(left_step + right_step)))
+
+
+def combined_travel(traj: np.ndarray) -> float:
+    """Total translational EEF travel summed across both arms, in metres."""
+
+    return float(combined_cumulative_distance(traj)[-1])
+
+
+def match_spans(pred_ti: np.ndarray, gt_ti: np.ndarray) -> float:
+    """Joint matched span: the shorter combined-arm travelled distance.
 
     Whichever side travels less sets the window, so both are re-tokenized over
     a stretch of motion they both actually cover. Without the cut, a prediction
@@ -106,31 +126,29 @@ def match_spans(pred_ti: np.ndarray, gt_ti: np.ndarray) -> np.ndarray:
     Prefer :func:`shared_spans` when a codec distance ``D`` is known -- that is
     the production fair window ``min(L_gt, L_pred, D)``.
     """
-    return np.minimum(arm_travel(pred_ti), arm_travel(gt_ti))
+    return min(combined_travel(pred_ti), combined_travel(gt_ti))
 
 
 def shared_spans(
     pred_ti: np.ndarray, gt_ti: np.ndarray, min_distance_unit: float
-) -> np.ndarray:
-    """Per-arm shared distance: ``min(L_gt, L_pred, D)``.
+) -> float:
+    """Combined-arm shared distance: ``min(L_gt, L_pred, D)``.
 
     ``D`` is the arc codec span (``min_distance_unit``). Clamping by ``D`` keeps
     baseline and ARC on the same physical window instead of letting a long
     time-indexed chunk set a span the ARC head never predicted over.
     """
-    return np.minimum(match_spans(pred_ti, gt_ti), float(min_distance_unit))
+    return min(match_spans(pred_ti, gt_ti), float(min_distance_unit))
 
 
 def tokenize_span(
-    traj: np.ndarray, spans: np.ndarray, num_points: int, dt: float
+    traj: np.ndarray, span: float, num_points: int, dt: float
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Tokenize a time-indexed chunk over a caller-supplied PER-ARM span.
+    """Tokenize a time-indexed chunk over a combined-arm distance span.
 
-    The real tokenizer with its distance freed rather than pinned to D. Each
-    arm is resampled to ``num_points`` samples uniform in ITS OWN arc length
-    over ``[0, span_arm]``, using the same interpolators the data pipeline uses
-    (linear on xyz and gripper, slerp on rotation), so these are the waypoints
-    it would have produced had D been ``span_arm``.
+    Both arms use one cumulative coordinate whose interval increments are
+    ``||delta_left_xyz|| + ||delta_right_xyz||``. Resampling every channel at
+    the same combined-distance targets preserves bimanual time alignment.
 
     The velocity row is recomputed here rather than read off a model output, so
     a time-indexed run -- which predicts no velocity token at all -- still has
@@ -143,13 +161,24 @@ def tokenize_span(
         raise ValueError("num_points must be at least two")
     if dt <= 0:
         raise ValueError("dt must be positive")
+    if not np.isfinite(span) or span < 0:
+        raise ValueError("span must be finite and nonnegative")
     waypoints = np.zeros((num_points, BIMANUAL_DIM), dtype=np.float64)
     velocity = np.zeros(BIMANUAL_DIM, dtype=np.float64)
+    cumulative = combined_cumulative_distance(traj)
+    end_s = float(min(span, cumulative[-1]))
+    start_i, end_i = _dist_interval_indices(cumulative, 0.0, end_s)
+    duration = max(end_i - start_i, 1) * dt
     for arm, (pos, ypr, grip) in enumerate(_arm_views(traj)):
-        cum = cumulative_arc_length(pos)
-        end_s = float(min(spans[arm], cum[-1]))
         p, y, g = resample_by_distance(
-            pos, ypr, grip, cum, 0.0, end_s, num_points, start_idx=0
+            pos,
+            ypr,
+            grip,
+            cumulative,
+            0.0,
+            end_s,
+            num_points,
+            start_idx=0,
         )
         offset = arm * 7
         waypoints[:, offset : offset + 3] = p
@@ -158,8 +187,6 @@ def tokenize_span(
         # duration = source steps the span covers, times dt. Falling back to one
         # step keeps a stationary arm's velocity finite and zero rather than
         # NaN, which is how the tokenizer handles the same case.
-        start_i, end_i = _dist_interval_indices(cum, 0.0, end_s)
-        duration = max(end_i - start_i, 1) * dt
         velocity[offset : offset + 3] = (p[-1] - p[0]) / duration
         velocity[offset + 3 : offset + 6] = (y[-1] - y[0]) / duration
         velocity[offset + 6] = (g[-1, 0] - g[0, 0]) / duration
@@ -167,17 +194,12 @@ def tokenize_span(
 
 
 def clip_to_distance(traj: np.ndarray, distance: float) -> np.ndarray:
-    """Truncate a chunk at the first row where EITHER arm passes ``distance``.
-
-    Both arms keep the same row count because warping runs on whole rows.
-    """
+    """Truncate when cumulative translation across both arms passes distance."""
     traj = _validate(traj, "clip_to_distance input")
-    ends = []
-    for pos, _, _ in _arm_views(traj):
-        cum = cumulative_arc_length(pos)
-        over = np.nonzero(cum > distance)[0]
-        ends.append(int(over[0]) + 1 if len(over) else len(traj))
-    return traj[: max(2, min(ends))]
+    cumulative = combined_cumulative_distance(traj)
+    over = np.nonzero(cumulative > distance)[0]
+    end = int(over[0]) + 1 if len(over) else len(traj)
+    return traj[: max(2, end)]
 
 
 # -- dynamic time warping ---------------------------------------------------
@@ -301,7 +323,7 @@ def arcmatch_metrics(
     lever_m: float,
     min_distance_unit: float | None = None,
 ) -> dict[str, float]:
-    """Re-tokenize both sides onto a shared per-arm span, then score waypoints.
+    """Re-tokenize both sides onto one shared combined-arm distance span.
 
     Shared span is ``min(L_gt, L_pred)``, and when ``min_distance_unit`` (D) is
     set also ``min(..., D)``. Predictions may be time-indexed chunks **or** ARC
@@ -321,9 +343,8 @@ def arcmatch_metrics(
             span = match_spans(pred, gt)
         else:
             span = shared_spans(pred, gt, min_distance_unit)
-        # Idle arms get span 0; tokenize_span keeps them finite/constant. Drop
-        # only non-finite spans or samples where EVERY arm is idle.
-        if not np.all(np.isfinite(span)) or np.all(span <= 0):
+        # A sample with no combined bimanual travel has no ARC geometry.
+        if not np.isfinite(span) or span <= 0:
             continue
         pw, pv = tokenize_span(pred, span, num_points, dt)
         gw, gv = tokenize_span(gt, span, num_points, dt)
@@ -332,7 +353,7 @@ def arcmatch_metrics(
         pred_v.append(pv)
         gt_v.append(gv)
         spans.append(span)
-        ratios.append(arm_travel(pred) / np.maximum(arm_travel(gt), 1e-6))
+        ratios.append(combined_travel(pred) / max(combined_travel(gt), 1e-6))
     if not pred_w:
         return {}
     pred_w, gt_w = np.stack(pred_w), np.stack(gt_w)

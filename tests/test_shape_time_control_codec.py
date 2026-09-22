@@ -105,6 +105,20 @@ def test_codec_projection_happens_before_critic_ranking_without_global_clipping(
     assert torch.equal(seen[0], torch.full((6, 4), 1.5))
 
 
+def test_direct_control_anchor_survives_arbitrary_predicted_clock_and_extent():
+    c = codec(dim=3, waypoints=16, path_mode="control")
+    z = torch.randn(3, c.encoded_dim, generator=torch.Generator().manual_seed(51))
+    z[:, c.factor_slices["duration"]] = (torch.tensor([1.,5.,25.])/5).log()[:,None]
+    expected = z[:, c.factor_slices["anchor"]].clamp(-1,1)
+    decoded, tau = c.decode(z)
+    torch.testing.assert_close(decoded[:,0],expected,rtol=0,atol=0)
+    assert tau.tolist() == [1,5,25]
+    canonical = c.project_latent(z)
+    assert canonical[0,c.factor_slices["shape"]].count_nonzero() == 0
+    assert canonical[0,c.factor_slices["extent"]].count_nonzero() == 0
+    assert torch.equal(canonical[0,c.factor_slices["clock"]],torch.full((25,),-1.))
+
+
 def test_new_codec_graph_training_keeps_native_td_and_has_finite_gradients():
     c = codec(waypoints=16)
     stage = QChunkingStage(c, observation_dim=3, goal_dim=1, action_dim=2,

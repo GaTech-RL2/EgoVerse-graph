@@ -1,5 +1,5 @@
 # New checkpoint format. Preserve earlier duration-ARC experiments unchanged.
-# M controls shape resolution; the clock and total duration have separate heads.
+# M controls shape resolution; clock and total duration are separate factors.
 base_recipe: dqc.yaml
 suite_recipe: dqc_suite.yaml
 codec_overrides:
@@ -12,6 +12,7 @@ codec_overrides:
 protocol:
   name: dqc_fixed_td_shape_time_median5
   target_median_native_steps: 5
+  reference_policy_native_steps: 5
   teacher_native_steps: 25
   time_unit: native_environment_step
   inference_execution: full_decoded_chunk_until_environment_done

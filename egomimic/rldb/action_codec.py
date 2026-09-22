@@ -202,12 +202,16 @@ class ShapeTimeControlChunkCodec(ControlChunkCodec):
 
     def _clock_weights(self, latent, lengths):
         valid = torch.arange(self.native_horizon, device=latent.device)[None] < lengths[:, None]
+        if self.path_mode == "control":
+            # The initial control is predicted by the anchor. Progress cannot
+            # move away from it before the first native control is executed.
+            valid[:, 0] = False
         weights = ((latent[:, self.factor_slices["clock"]] + 1) / 2).clamp(0, 1).square() * valid
         total = weights.sum(1, keepdim=True)
         # A stationary path has no identifiable geometric clock. Its canonical
         # clock is uniform, and its zero extent still yields stationary controls.
         return torch.where(total > 1e-12, weights / total.clamp_min(1e-12),
-                           valid.to(latent.dtype) / lengths[:, None])
+                           valid.to(latent.dtype) / valid.sum(1, keepdim=True).clamp_min(1))
 
     def project_latent(self, latent):
         """Apply codec bounds before Q ranking; canonicalize ignored padding."""
@@ -215,6 +219,9 @@ class ShapeTimeControlChunkCodec(ControlChunkCodec):
             return latent.clamp(-1, 1)
         lengths = self._lengths(latent)
         extent = latent[:, self.factor_slices["extent"]].clamp(0, self.max_log_extent)
+        if self.path_mode == "control":
+            # One native control has an anchor but no subsequent geometric path.
+            extent = torch.where(lengths[:, None] > 1, extent, torch.zeros_like(extent))
         shape = latent[:, self.factor_slices["shape"]].clamp(-1, 1).reshape(-1, self.waypoints, self.action_dim)
         shape = torch.where(extent[:, None] > 0, shape, torch.zeros_like(shape))
         parts = [shape.flatten(1), extent, 2 * self._clock_weights(latent, lengths).sqrt() - 1,

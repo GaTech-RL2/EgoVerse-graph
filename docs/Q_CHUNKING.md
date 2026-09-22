@@ -243,6 +243,42 @@ prefix causality, native-cap invariance, per-factor bounds, duration independenc
 from M, critic projection and graph gradients. Previous trained weights cannot
 be loaded into this format to fix an existing policy; train fresh checkpoints.
 
+## Table 7 reference and stricter M selection
+
+`hydra_configs/benchmark/dqc_table7.yaml` records each selected paper tuple
+`(h, ha, kappa_b, kappa_d)`. Apply the domain's `ha` to the native-reference
+codec and to `protocol.reference_policy_native_steps`; it is 1 for Humanoid
+and Puzzle 4x6 and 5 for the other domains. The fixed teacher remains 25.
+The short reference actor must actually predict/execute that many actions;
+changing an evaluation label or truncating a differently trained actor is not
+the same reference. The shape/time median-five recipe also explicitly records
+its reference horizon, required by the real-data TD audit.
+
+For the paired spatial-window controls, fit the replay median to the domain's
+`ha`. Their individual durations remain variable. Freeze D/R and sample indices
+before sweeping M; changing M cannot shorten the motion window to hide error.
+The Table 7 recipe sweeps M3 through M8192 in bounded CPU batches and measures
+p50/p90/p95/p99/max native RMSE, first-action errors, channel errors, maximum
+absolute control error, exact duration recovery, and paired physics replay.
+It selects the smallest M passing every configured fidelity gate, without a
+scalar compression objective. Physics can be evaluated for all M, including
+candidates failing the control-error gates. Cache keys retain exact decoded
+controls rather than rounding away small differences.
+
+The stricter recipe requires p99 native and first-action RMSE <=0.001,
+maximum absolute native error <=0.01, physics qpos p90 <=0.001 and maximum
+qpos error <=0.01. These are replay acceptance thresholds, not guarantees of
+policy success. `exclude_indices` excludes entire previously sampled windows
+including endpoint states for confirmation. If confirmation fails and guides
+another choice of M, preserve that failure and use a new disjoint set before
+claiming confirmation. Log native/native repeatability and native/recorded
+drift when inspecting sensitive contact cases.
+
+For direct controls, the first decoded control is always the separate anchor,
+even with a noisy predicted clock. A one-action direct-control chunk has no
+subsequent geometric path; its shape/extent/clock are canonicalized before Q
+ranking. Delta actions continue to describe integrated commanded motion.
+
 ## Separate variable-duration TD comparison
 
 `hydra_configs/benchmark/smdp_comparison.yaml` specifies a fresh two-arm

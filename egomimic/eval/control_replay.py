@@ -36,10 +36,10 @@ def duration_statistics(lengths, cap):
 def median_spatial_budgets(codec, actions, target, rotation_multipliers):
     """Fit spatial thresholds, not a fixed temporal window, using replay only.
 
-    Five-action path medians set relative distance/rotation scales. A common
-    multiplier then brackets the median crossing between actions five and six.
-    This avoids rounding the median to 4.5 when half the paths end below the
-    exact five-action median. Individual paths retain their own durations.
+    Path medians at the requested native horizon set relative distance/rotation
+    scales. A common multiplier brackets that horizon and the next action.
+    Individual paths retain their own durations, including when the target is
+    one native action (the minimum executable duration).
     """
     if int(target) != target or not 1 <= target < codec.native_horizon:
         raise ValueError("duration target must be an integer below the native cap")
@@ -79,10 +79,15 @@ def passes_trace_gates(row, cfg):
     match = cfg.get("duration_matching")
     if match:
         passes = passes and abs(row["native_steps_p50"] - match.target_native_steps) <= match.tolerance
+    for key in ("action_rmse_p99", "action_rmse_max", "action_max_abs", "first_action_rmse_p99"):
+        if key in cfg.gates:
+            passes = passes and row[key] <= cfg.gates[key]
     return bool(passes)
 
 
 def candidate_rank(row, cfg):
+    if cfg.get("selection_objective") == "smallest_faithful":
+        return (row["codec"]["waypoints"], row["action_rmse_p99"], row["action_rmse_mean"])
     if cfg.get("selection_objective") == "fidelity":
         return (row["action_rmse_p90"], row["action_rmse_mean"])
     match = cfg.get("duration_matching")
@@ -92,6 +97,56 @@ def candidate_rank(row, cfg):
         return (abs(row["native_steps_p50"] - match.target_native_steps), row["encoded_scalars"],
                 abs(row["mean_native_steps"] - match.target_native_steps), row["action_rmse_p90"])
     return (-row["scalar_compression_ratio"], row["action_rmse_p90"])
+
+
+def reconstruction_statistics(original, decoded, lengths):
+    """Native-control errors only over each represented prefix, including tails."""
+    mask = torch.arange(decoded.shape[1], device=decoded.device)[None] < lengths[:, None]
+    error = (decoded - original[:, :decoded.shape[1]]) * mask[..., None]
+    rms = (error.square().mean(-1).sum(1) / lengths).sqrt()
+    channels = (error.square().sum(1) / lengths[:, None]).sqrt()
+    first = error[:, 0].square().mean(-1).sqrt()
+    result = {"action_rmse_mean": float(rms.mean()), "action_rmse_max": float(rms.max()),
+              "action_max_abs": float(error.abs().max()),
+              "first_action_rmse_max": float(first.max()),
+              "action_channel_rmse_p90": channels.quantile(.9, dim=0).tolist(),
+              "action_channel_max_abs": error.abs().flatten(0, 1).amax(0).tolist()}
+    for label, values in (("action_rmse", rms), ("first_action_rmse", first)):
+        for p in (50, 90, 95, 99):
+            result[f"{label}_p{p}"] = float(values.quantile(p / 100))
+    return result
+
+
+def reconstruct(codec, actions, batch_size):
+    """Bound memory while testing large geometric resolutions."""
+    recovered, durations = [], []
+    for batch in actions.split(batch_size):
+        latent, lengths = codec.encode(batch)
+        decoded, decoded_lengths = codec.decode(latent)
+        if not torch.equal(lengths, decoded_lengths):
+            raise AssertionError("round-trip changed native execution duration")
+        recovered.append(decoded)
+        durations.append(lengths)
+    return torch.cat(recovered), torch.cat(durations)
+
+
+def passes_physics_gates(physics, cfg):
+    return all(physics[key] <= cfg.gates[key] for key in
+               ("qpos_rmse_p90", "qpos_rmse_p99", "qpos_rmse_max") if key in cfg.gates)
+
+
+def sample_window_indices(raw, horizon, seed, windows, excluded=()):
+    """Sample complete windows, excluding overlap with any supplied window."""
+    final = np.flatnonzero(raw["terminals"])
+    starts = np.r_[0, final[:-1] + 1]
+    valid = np.concatenate([np.arange(start, end - horizon + 1) for start, end in zip(starts, final)])
+    if len(excluded):
+        # Include both the native actions and their endpoint observation.
+        overlap = np.asarray(excluded, dtype=np.int64)[:, None] + np.arange(-horizon, horizon + 1)
+        valid = np.setdiff1d(valid, overlap.ravel())
+    if not len(valid):
+        raise ValueError("validation file has no complete unused calibration windows")
+    return np.random.RandomState(seed).choice(valid, size=min(windows, len(valid)), replace=False)
 
 
 def _restore(env, raw, index, seed):
@@ -135,6 +190,8 @@ def physics_replay(env, raw, indices, original, decoded, lengths, preview_dir=No
                 fps=env.metadata.get("render_fps", 30))
     return {"rows": rows,
             "qpos_rmse_p90": float(np.percentile([r["qpos_rmse"] for r in rows], 90)),
+            "qpos_rmse_p99": float(np.percentile([r["qpos_rmse"] for r in rows], 99)),
+            "qpos_rmse_max": max(r["qpos_rmse"] for r in rows),
             "native_recorded_qpos_rmse_p90": float(np.percentile([r["native_recorded_qpos_rmse"] for r in rows], 90))}
 
 
@@ -142,14 +199,8 @@ def calibrate(cfg):
     import ogbench
     torch.set_num_threads(1)
     raw = dict(np.load(cfg.validation_path))
-    final = np.flatnonzero(raw["terminals"])
-    starts = np.r_[0, final[:-1] + 1]
     max_horizon = max(cfg.grid.native_horizon)
-    valid = np.concatenate([np.arange(start, end - max_horizon + 1) for start, end in zip(starts, final)])
-    if not len(valid):
-        raise ValueError("validation file has no complete calibration windows")
-    rng = np.random.RandomState(cfg.seed)
-    indices = rng.choice(valid, size=min(cfg.windows, len(valid)), replace=False)
+    indices = sample_window_indices(raw, max_horizon, cfg.seed, cfg.windows, cfg.get("exclude_indices", ()))
     actions = torch.from_numpy(raw["actions"][indices[:, None] + np.arange(max_horizon)].astype(np.float32))
     cfg.codec.action_dim = int(actions.shape[-1])
     candidates = []
@@ -168,20 +219,10 @@ def calibrate(cfg):
         choice = {**dict(zip(grid, values)), **budget}
         spec = OmegaConf.merge(cfg.codec, choice, {"kind": "arc", "action_dim": actions.shape[-1]})
         codec = hydra.utils.instantiate(spec)
-        latent, lengths = codec.encode(actions)
-        recovered, decoded_lengths = codec.decode(latent)
-        if not torch.equal(lengths, decoded_lengths):
-            raise AssertionError("round-trip changed native execution duration")
-        mask = torch.arange(codec.native_horizon)[None] < lengths[:, None]
-        error = recovered - actions[:, :codec.native_horizon]
-        rms = ((error.square().mean(-1) * mask).sum(1) / lengths).sqrt()
-        channel_rms = ((error.square() * mask[..., None]).sum(1) / lengths[:, None]).sqrt()
-        first_rms = error[:, 0].square().mean(-1).sqrt()
+        recovered, lengths = reconstruct(codec, actions, cfg.get("replay_batch_size", len(actions)))
         compression = float(lengths.float().mean() * actions.shape[-1] / codec.encoded_dim)
         row = {"codec": OmegaConf.to_container(spec, resolve=True),
-               "action_rmse_mean": float(rms.mean()), "action_rmse_p90": float(torch.quantile(rms, .9)),
-               "action_channel_rmse_p90": torch.quantile(channel_rms, .9, dim=0).tolist(),
-               "first_action_rmse_p90": float(torch.quantile(first_rms, .9)),
+               **reconstruction_statistics(actions, recovered, lengths),
                **duration_statistics(lengths, codec.native_horizon),
                "encoded_scalars": codec.encoded_dim,
                "median_scalar_compression_ratio": float(lengths.float().quantile(.5) * actions.shape[-1] / codec.encoded_dim),
@@ -199,14 +240,15 @@ def calibrate(cfg):
     with ExitStack() as stack:
         stack.callback(env.close)
         stack.enter_context(evaluation_action_space(env))
-        for row in eligible:
+        sweep_all = cfg.get("physics_all_candidates", False)
+        physics_rows = sorted(candidates, key=lambda r: candidate_rank(r, cfg)) if sweep_all else eligible
+        for row in physics_rows:
             codec = hydra.utils.instantiate(row["codec"])
             count = min(cfg.physics_windows, len(actions))
-            latent, lengths = codec.encode(actions[:count])
-            recovered, _ = codec.decode(latent)
+            recovered, lengths = reconstruct(codec, actions[:count], cfg.get("replay_batch_size", count))
             fingerprint = hashlib.sha256(lengths.numpy().tobytes())
             for index, length in enumerate(lengths):
-                fingerprint.update(np.round(recovered[index, :int(length)].numpy(), 5).tobytes())
+                fingerprint.update(recovered[index, :int(length)].numpy().tobytes())
             key = fingerprint.hexdigest()
             if key not in physics_cache:
                 if len(physics_cache) >= cfg.physics_candidates:
@@ -215,11 +257,13 @@ def calibrate(cfg):
                                                    recovered.numpy(), lengths.numpy())
             physics = physics_cache[key]
             row["physics"] = physics
-            if physics["qpos_rmse_p90"] <= cfg.gates.qpos_rmse_p90:
+            row["passes_physics_gates"] = passes_physics_gates(physics, cfg)
+            if selected is None and row["passes_trace_gates"] and row["passes_physics_gates"]:
                 selected = row
                 physics_replay(env, raw, indices[:3], actions[:3].numpy(),
                                recovered[:3].numpy(), lengths[:3].numpy(), output / "previews")
-                break
+                if not sweep_all:
+                    break
     report = {"status": "PASS" if selected else "NO_CANDIDATE_PASSED",
               "compression_achieved": bool(selected and selected["scalar_compression_ratio"] > 1),
               "env_name": cfg.env_name, "source_validation_sha256": sha256_file(cfg.validation_path),

@@ -8,6 +8,7 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 from egomimic.rldb.embodiment.yam import Yam
+from egomimic.trainHydra import _instantiate_model_wrapper
 from scripts.data.measure_abc_control_distance import TASKS, window_distances
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,8 +21,6 @@ EXPERIMENTS = [
 
 def config(name):
     overrides = [f"+experiment=abc_arc/{name}", "hydra/launcher=submitit_pace_h100"]
-    if "multitask4_hpt300_hybrid" in name:
-        overrides += ["abc.arc_distance=0.57"]
     with initialize_config_dir(
         version_base=None, config_dir=str(ROOT / "egomimic/hydra_configs")
     ):
@@ -82,7 +81,7 @@ def test_visual_config_contract(name, hybrid, width, episodes, monkeypatch):
 
 @pytest.mark.parametrize("name,hybrid,width,episodes", EXPERIMENTS)
 def test_visual_model_instantiates_without_text_encoder(name, hybrid, width, episodes):
-    model = hydra.utils.instantiate(config(name).model)
+    model = _instantiate_model_wrapper(config(name))
     count = sum(p.numel() for p in model.parameters())
     print(f"{name}: total_parameters={count}", flush=True)
     assert 100_000_000 < count < 350_000_000

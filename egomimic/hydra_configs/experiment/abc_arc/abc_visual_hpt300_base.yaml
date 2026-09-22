@@ -22,7 +22,7 @@ hpt:
       crossattn_heads: ${hpt.num_heads}
       crossattn_dim_head: 84
       crossattn_modality_dropout: 0.1
-    modality_embed_dim: ${hpt.embed_dim}
+      modality_embed_dim: ${hpt.embed_dim}
 abc:
   action_mode: cartesian
   action_horizon: 100

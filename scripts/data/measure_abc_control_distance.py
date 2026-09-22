@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import zarr
 
+from egomimic.rldb.zarr.control_rate import control_frame_indices
 from egomimic.rldb.zarr.zarr_dataset_multi import split_dataset_names
 from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
 
@@ -80,15 +81,17 @@ def main():
             str(path) if path.is_dir() else row["zarr_processed_path"], mode="r"
         )
         n = int(store.attrs["total_frames"])
-        fps = float(store.attrs.get("fps", 30))
-        if abs(fps - 30) > 1e-6 or n < 100:
-            raise ValueError(f"{key}: fps={fps}, frames={n}")
-        left = np.asarray(store["left.cmd_ee_pose"][:n, :3])
-        right = np.asarray(store["right.cmd_ee_pose"][:n, :3])
+        fps = float(store.attrs["fps"])
+        indices = control_frame_indices(n, fps, 30)
+        if len(indices) < 100:
+            raise ValueError(f"{key}: fewer than 100 control frames")
+        left = np.asarray(store["left.cmd_ee_pose"][:n, :3])[indices]
+        right = np.asarray(store["right.cmd_ee_pose"][:n, :3])[indices]
         dist = window_distances(left, right)
         return {
             "episode": key,
             "task": row["task"],
+            "source_fps": fps,
             "windows": len(dist),
             "sum_m": float(dist.sum()),
             "sum_squared_m": float(np.square(dist).sum()),
@@ -117,7 +120,7 @@ def main():
     count = sum(row["windows"] for row in results)
     mean = sum(row["sum_m"] for row in results) / count
     report = {
-        "definition": "sum of left and right EEF XYZ path lengths; 100 poses / 99 intervals; complete sliding windows",
+        "definition": "sum of left and right EEF XYZ path lengths; nearest-frame 30Hz resampling; 100 poses / 99 intervals; complete sliding windows",
         "lab": "abc",
         "tasks": TASKS,
         "seed": 42,

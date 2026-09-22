@@ -19,7 +19,7 @@ are not claimed by this offline runner.
 
 ## Comparison
 
-- **native_reference**: published DQC with policy horizon 5, critic horizon 25,
+- **native_reference**: five-action DQC with policy horizon 5, critic horizon 25,
   batch 4096, width 1024 x 4, two Q heads, flow 10 steps, best of 32, gamma .999,
   Adam 3e-4, one million optimizer updates, 50 episodes per evaluation task.
 - **native_window**: retain every native control within a bounded spatial
@@ -32,7 +32,15 @@ are not claimed by this offline runner.
 
 Do not attribute a difference between ARC and native_reference solely to the
 tokenizer: their chunk boundaries also differ. Report the matched native_window
-comparison alongside the published reference.
+comparison alongside the fixed five-action reference.
+
+The paper's selected configuration (arXiv:2512.10926, Table 7) uses policy
+horizon **5** for Cube triple/quadruple/octuple and Puzzle 4x5, but **1** for
+Humanoid giant and Puzzle 4x6. All six use critic horizon **25**. The existing
+all-horizon-5 baseline is one of the paper's ablations, not its selected
+configuration for every task. These are native environment actions executed
+before replanning; they are not ARC waypoint counts. Keep that distinction in
+result labels and include the selected reference in future per-domain studies.
 
 The manipulation action space is relative XYZ (0.05m/unit), yaw (0.3rad/unit),
 and relative gripper opening. ARC integrates the relative commands, samples
@@ -173,6 +181,67 @@ goals; `Train/TD/nonterminal_backup_horizon/mean` verifies 25 for the fixed
 variant. The real-data backup audit now supports both modes and checks all
 three fixed-DQC representations against independently indexed native targets.
 Older jobs, calibration reports and results remain separate.
+
+## Shape and time factorization
+
+`ShapeTimeControlChunkCodec` is a separate, incompatible ARC checkpoint format.
+It addresses two weaknesses of the earlier representation: geometry was
+scaled by the native cap, and total duration summed M predicted timing values.
+Increasing M therefore changed timing sensitivity as well as shape resolution.
+The original `ControlChunkCodec` and earlier recipes retain their behavior.
+
+For delta actions, define the commanded path `q[0]=0`,
+`q[t+1]=q[t]+a[t]`. Uniform geometric supports describe this path independently
+of its timestamps. Each channel has a separate displacement extent, so a large
+gripper or yaw coordinate does not shrink the translation targets. For direct
+controls such as torques, geometry describes a curve in control space and has
+a separate initial control anchor. This is not measured Cartesian motion.
+The geometry metric is explicitly configured with `geometry_units`; the new
+recipe uses equal units in the normalized native control space, while its
+spatial window still uses the frozen physical D/R thresholds.
+
+The factor layout is:
+
+| Factor | Scalars | Representation |
+| --- | --- | --- |
+| Geometry | M x action_dim | Per-channel normalized curve supports at uniform arc progress |
+| Extents | action_dim | Log-scaled per-channel displacement amplitudes |
+| Clock | native cap | Square-root-coded progress increments at native control boundaries |
+| Duration | 1 | Log of total native steps relative to a configured reference |
+| Initial anchor, direct controls only | action_dim | First native control |
+
+The decoder sums nonnegative clock increments into monotonic arc progress,
+interpolates the geometric curve, and differentiates the commanded delta path
+back into native actions. Zero progress increments preserve holds. Entirely
+stationary paths use zero extent and a canonical uniform clock. Execution
+starts at decoded index zero and lasts the separately predicted duration,
+subject to the environment's termination and native cap. M never specifies
+the number of environment steps executed. Clock padding is masked after that
+duration and canonicalized before Q ranking.
+
+No global [-1,1] clamp is applied to log extent/duration coordinates. The codec
+projects each factor into its own valid domain before the critic ranks actor
+samples. Actor flow matching gives each factor equal total loss weight by
+default; increasing M cannot silently reduce duration/clock supervision. The
+fixed native 25-step critic, reward endpoint, discount, and target updates are
+unchanged. This remains an approximate finite-M path representation: sharp
+corners can be smoothed, and inconsistent predicted geometry/timing can lead
+to native-control clipping. Replay fidelity and learned-policy scores must
+both be measured; neither is implied by this factorization.
+
+`hydra_configs/benchmark/dqc_shape_time.yaml` defines a fresh fidelity sweep.
+Freeze the old median-five D/R, validation hash and sampled indices; merge its
+`codec_overrides` into that selected codec and fill `geometry_units` from the
+environment's `action_scale` (ones for direct controls). The grid increases M
+without changing the represented windows. Selection minimizes native-control
+reconstruction error, with no compression requirement, and retains the action
+and physics gates. Reports include per-channel and first-control errors.
+Do not interpret the lowest-error tested M as the optimal learned-policy size.
+
+Focused tests cover independent retiming, holds, synchronized rotation/grip,
+prefix causality, native-cap invariance, per-factor bounds, duration independence
+from M, critic projection and graph gradients. Previous trained weights cannot
+be loaded into this format to fix an existing policy; train fresh checkpoints.
 
 ## Separate variable-duration TD comparison
 

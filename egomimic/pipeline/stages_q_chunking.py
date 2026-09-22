@@ -38,7 +38,8 @@ class QChunkingStage(Stage):
             targets = batch
             if self.backup_mode == "policy_window":
                 targets = {**batch, **goal_window_targets(batch, lengths, self.agent.discount)}
-            losses = self.agent.losses(targets, actions, metrics=metrics)
+            losses = self.agent.losses(targets, actions, metrics=metrics,
+                                       policy_weights=getattr(self.codec, "actor_loss_weights", None))
             batch.update({"loss/" + name: value for name, value in losses.items()})
             if metrics is not None:
                 batch.update({"log/DQC/" + name: value for name, value in metrics.items()})
@@ -64,6 +65,7 @@ class QChunkingStage(Stage):
                     batch["log/SMDP/goal_terminal_fraction"] = (1 - targets["high_value_masks"]).mean()
         else:
             latent = self.agent.sample(batch["observations"], batch["goals"],
-                                       generator=batch.get("generator"))
+                                       generator=batch.get("generator"),
+                                       action_projection=getattr(self.codec, "project_latent", None))
             batch["pred_action"], batch["action_lengths"] = self.codec.decode(latent)
         return batch

@@ -137,3 +137,144 @@ class ControlChunkCodec(nn.Module):
         actions = (torch.diff(decoded, dim=1) * self.native_horizon
                    if self.path_mode == "delta" else decoded[:, 1:])
         return actions.clamp(-1, 1), lengths
+
+
+class ShapeTimeControlChunkCodec(ControlChunkCodec):
+    """Factor a commanded control path into geometry, extent, clock and duration.
+
+    Shape supports are uniform in geometric arc progress, independent of native
+    timestamps. A separate clock gives progress at each native control boundary;
+    zero clock increments preserve holds. Total duration is one scalar, not the
+    sum of M noisy interval predictions. M changes only geometric resolution.
+
+    Delta controls integrate to a commanded displacement path. Direct controls
+    describe a path in control space, with a separate initial control anchor;
+    they are not mislabeled as Cartesian motion. Native/native_window retain
+    their original contracts for comparison. This is a new checkpoint format.
+    """
+    def __init__(self, *args, geometry_units=None, extent_reference=1.,
+                 duration_reference=1., factor_loss_weights=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if (not math.isfinite(extent_reference) or extent_reference <= 0
+                or not math.isfinite(duration_reference) or duration_reference <= 0):
+            raise ValueError("extent and duration references must be finite and positive")
+        units = torch.tensor(geometry_units or [1.] * self.action_dim)
+        if units.numel() != self.action_dim or not bool(torch.isfinite(units).all() and (units > 0).all()):
+            raise ValueError("geometry_units needs one finite positive physical unit per channel")
+        self.register_buffer("path_metric", self.action_scale / units)
+        self.extent_reference, self.duration_reference = float(extent_reference), float(duration_reference)
+        max_extent = self.native_horizon if self.path_mode == "delta" else (2 if self.native_horizon > 1 else 0)
+        self.max_log_extent = math.log1p(max_extent / self.extent_reference)
+        factors = {"shape": self.waypoints * self.action_dim, "extent": self.action_dim,
+                   "clock": self.native_horizon, "duration": 1}
+        if self.path_mode == "control":
+            factors["anchor"] = self.action_dim
+        self.factor_slices = {}
+        offset = 0
+        for name, size in factors.items():
+            self.factor_slices[name] = slice(offset, offset + size)
+            offset += size
+        weights = dict(factor_loss_weights or {name: 1. for name in factors})
+        if set(weights) != set(factors) or any(not math.isfinite(v) or v <= 0 for v in weights.values()):
+            raise ValueError("factor_loss_weights must positively weight every representation factor")
+        # Mean weight one retains the actor loss's overall scale. Increasing M
+        # cannot silently reduce the relative supervision of clock or duration.
+        scalar_weights = torch.cat([torch.full((size,), weights[name] / size) for name, size in factors.items()])
+        scalar_weights *= len(scalar_weights) / sum(weights.values())
+        self.register_buffer("factor_weights", scalar_weights)
+
+    @property
+    def encoded_dim(self):
+        if self.kind != "arc":
+            return super().encoded_dim
+        return self.waypoints * self.action_dim + self.action_dim + self.native_horizon + 1 + (
+            self.action_dim if self.path_mode == "control" else 0)
+
+    @property
+    def actor_loss_weights(self):
+        return self.factor_weights if self.kind == "arc" else None
+
+    def _lengths(self, latent):
+        code = latent[:, self.factor_slices["duration"]].squeeze(-1)
+        code = code.clamp(math.log(1 / self.duration_reference),
+                          math.log(self.native_horizon / self.duration_reference))
+        return (code.exp() * self.duration_reference).round().long().clamp(1, self.native_horizon)
+
+    def _clock_weights(self, latent, lengths):
+        valid = torch.arange(self.native_horizon, device=latent.device)[None] < lengths[:, None]
+        weights = ((latent[:, self.factor_slices["clock"]] + 1) / 2).clamp(0, 1).square() * valid
+        total = weights.sum(1, keepdim=True)
+        # A stationary path has no identifiable geometric clock. Its canonical
+        # clock is uniform, and its zero extent still yields stationary controls.
+        return torch.where(total > 1e-12, weights / total.clamp_min(1e-12),
+                           valid.to(latent.dtype) / lengths[:, None])
+
+    def project_latent(self, latent):
+        """Apply codec bounds before Q ranking; canonicalize ignored padding."""
+        if self.kind != "arc":
+            return latent.clamp(-1, 1)
+        lengths = self._lengths(latent)
+        extent = latent[:, self.factor_slices["extent"]].clamp(0, self.max_log_extent)
+        shape = latent[:, self.factor_slices["shape"]].clamp(-1, 1).reshape(-1, self.waypoints, self.action_dim)
+        shape = torch.where(extent[:, None] > 0, shape, torch.zeros_like(shape))
+        parts = [shape.flatten(1), extent, 2 * self._clock_weights(latent, lengths).sqrt() - 1,
+                 (lengths.to(latent.dtype) / self.duration_reference).log()[:, None]]
+        if self.path_mode == "control":
+            parts.append(latent[:, self.factor_slices["anchor"]].clamp(-1, 1))
+        return torch.cat(parts, -1)
+
+    def encode(self, actions, *, lengths=None):
+        if self.kind != "arc":
+            if lengths is not None:
+                raise ValueError("explicit lengths are only supported for ARC reference replay")
+            return super().encode(actions)
+        actions = actions[:, :self.native_horizon]
+        if actions.shape[1:] != (self.native_horizon, self.action_dim):
+            raise ValueError("codec needs a complete native action window")
+        if lengths is None:
+            lengths = self.window_lengths(actions)
+        elif (lengths.shape != (len(actions),) or lengths.dtype != torch.long
+              or bool(((lengths < 1) | (lengths > self.native_horizon)).any())):
+            raise ValueError("explicit native lengths must be int64 in [1, native_horizon]")
+        anchor = torch.zeros_like(actions[:, :1]) if self.path_mode == "delta" else actions[:, :1]
+        path = (torch.cat([anchor, actions.cumsum(1)], 1) if self.path_mode == "delta"
+                else torch.cat([anchor, actions], 1))
+        native_t = torch.arange(self.native_horizon + 1, device=actions.device)[None].expand(len(actions), -1)
+        index = torch.minimum(native_t, lengths[:, None])
+        path = path.gather(1, index[..., None].expand(-1, -1, self.action_dim))
+        relative = path - anchor
+        weighted = relative * self.path_metric
+        steps = torch.diff(weighted, dim=1).norm(dim=-1)
+        travel = steps.sum(1, keepdim=True)
+        progress = torch.cat([torch.zeros_like(steps[:, :1]), steps.cumsum(1)], 1) / travel.clamp_min(1e-12)
+        knots = torch.arange(1, self.waypoints + 1, device=actions.device, dtype=actions.dtype)[None] / self.waypoints
+        # Per-channel extents prevent a large grip/yaw coordinate from shrinking
+        # the translation targets. Extents belong to shape, not to speed or cap.
+        extent = relative.abs().amax(1)
+        shape = interpolate(progress, relative, knots.expand(len(actions), -1)) / extent[:, None].clamp_min(1e-12)
+        valid = torch.arange(self.native_horizon, device=actions.device)[None] < lengths[:, None]
+        clock = torch.where(travel > 1e-12, steps / travel.clamp_min(1e-12),
+                            valid.to(actions.dtype) / lengths[:, None])
+        parts = [shape.flatten(1), torch.log1p(extent / self.extent_reference),
+                 2 * clock.sqrt() - 1, (lengths.to(actions.dtype) / self.duration_reference).log()[:, None]]
+        if self.path_mode == "control":
+            parts.append(anchor[:, 0])
+        return self.project_latent(torch.cat(parts, -1)), lengths
+
+    def decode(self, latent):
+        if self.kind != "arc":
+            return super().decode(latent)
+        latent = self.project_latent(latent)
+        lengths = self._lengths(latent)
+        shape = latent[:, self.factor_slices["shape"]].reshape(-1, self.waypoints, self.action_dim)
+        shape = torch.cat([torch.zeros_like(shape[:, :1]), shape], 1)
+        extent = latent[:, self.factor_slices["extent"]].expm1() * self.extent_reference
+        weights = self._clock_weights(latent, lengths)
+        progress = torch.cat([torch.zeros_like(weights[:, :1]), weights.cumsum(1)], 1).clamp(0, 1)
+        knots = torch.linspace(0, 1, self.waypoints + 1, device=latent.device, dtype=latent.dtype)[None].expand(len(latent), -1)
+        path = interpolate(knots, shape, progress) * extent[:, None]
+        if self.path_mode == "delta":
+            actions = torch.diff(path, dim=1)
+        else:
+            actions = path[:, 1:] + latent[:, self.factor_slices["anchor"]][:, None]
+        return actions.clamp(-1, 1), lengths

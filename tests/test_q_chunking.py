@@ -183,7 +183,7 @@ def tiny_rl_config():
         "steps": 4, "log_interval": 2, "checkpoint_interval": 2, "eval_interval": 0})
 
 
-@pytest.mark.parametrize("backup_codec", [None, "native_window", "arc"])
+@pytest.mark.parametrize("backup_codec", [None, "native_window", "arc", "shape_time"])
 def test_lightning_checkpoint_resume_preserves_optimizer_and_flow_rng(tmp_path, tiny_rl_config, backup_codec):
     import lightning as L
     from types import SimpleNamespace
@@ -197,7 +197,9 @@ def test_lightning_checkpoint_resume_preserves_optimizer_and_flow_rng(tmp_path, 
         data.include_future_observations = True
         stage = cfg.model.pipeline.stages[0]
         stage.backup_mode, stage.use_chunk_critic = "policy_window", False
-        stage.codec.kind = backup_codec
+        stage.codec.kind = "arc" if backup_codec == "shape_time" else backup_codec
+        if backup_codec == "shape_time":
+            stage.codec._target_ = "egomimic.rldb.action_codec.ShapeTimeControlChunkCodec"
     batch = {"ogbench": data.sample(4, np.random.RandomState(12))}
 
     def fit(directory, steps, resume=None, start=0):

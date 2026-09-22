@@ -112,7 +112,7 @@ class DecoupledQChunking(nn.Module):
                 metrics[f"{name}/ensemble_std"] = q.std(dim=0, unbiased=False).mean()
         return metrics
 
-    def losses(self, batch, policy_actions, *, noise=None, times=None, metrics=None):
+    def losses(self, batch, policy_actions, *, noise=None, times=None, metrics=None, policy_weights=None):
         """Return only optimization losses; optionally fill detached diagnostics."""
         obs, goals = batch["observations"], batch["high_value_goals"]
         native = batch["high_value_action_chunks"].flatten(1)
@@ -150,7 +150,10 @@ class DecoupledQChunking(nn.Module):
         times = torch.rand_like(policy_actions[:, :1]) if times is None else times
         mixed = (1 - times) * noise + times * policy_actions
         prediction = self.actor_bc(obs, mixed, times)
-        result["actor_bc"] = ((prediction - (policy_actions - noise)).square().mean(-1) * valid).mean()
+        actor_errors = (prediction - (policy_actions - noise)).square()
+        if policy_weights is not None:
+            actor_errors = actor_errors * policy_weights
+        result["actor_bc"] = (actor_errors.mean(-1) * valid).mean()
         if metrics is not None:
             metrics.update(self.prediction_metrics(action_q=action_q,
                 chunk_q=policy_target if self.chunk_critic is not None else None,
@@ -158,7 +161,7 @@ class DecoupledQChunking(nn.Module):
         return result
 
     @torch.no_grad()
-    def sample(self, observations, goals, *, generator=None):
+    def sample(self, observations, goals, *, generator=None, action_projection=None):
         batch_size = observations.shape[0]
         obs = observations[:, None].expand(-1, self.best_of_n, -1).flatten(0, 1)
         goal = goals[:, None].expand(-1, self.best_of_n, -1).flatten(0, 1)
@@ -167,7 +170,7 @@ class DecoupledQChunking(nn.Module):
         for step in range(self.flow_steps):
             t = torch.full_like(actions[:, :1], step / self.flow_steps)
             actions = actions + self.actor_bc(obs, actions, t) / self.flow_steps
-        actions = actions.clamp(-1, 1)
+        actions = actions.clamp(-1, 1) if action_projection is None else action_projection(actions)
         scores = self.aggregate(self.action_critic(obs, goal, actions)).view(batch_size, self.best_of_n)
         actions = actions.view(batch_size, self.best_of_n, self.policy_dim)
         return actions[torch.arange(batch_size, device=actions.device), scores.argmax(-1)]

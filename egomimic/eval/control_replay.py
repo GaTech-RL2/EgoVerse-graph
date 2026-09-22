@@ -75,7 +75,7 @@ def median_spatial_budgets(codec, actions, target, rotation_multipliers):
 def passes_trace_gates(row, cfg):
     passes = (row["action_rmse_p90"] <= cfg.gates.action_rmse_p90
         and row["mean_native_steps"] >= cfg.gates.mean_native_steps
-        and row["scalar_compression_ratio"] >= cfg.gates.scalar_compression_ratio)
+        and row["scalar_compression_ratio"] >= cfg.gates.get("scalar_compression_ratio", 0.))
     match = cfg.get("duration_matching")
     if match:
         passes = passes and abs(row["native_steps_p50"] - match.target_native_steps) <= match.tolerance
@@ -83,6 +83,8 @@ def passes_trace_gates(row, cfg):
 
 
 def candidate_rank(row, cfg):
+    if cfg.get("selection_objective") == "fidelity":
+        return (row["action_rmse_p90"], row["action_rmse_mean"])
     match = cfg.get("duration_matching")
     if match:
         # At matched duration prefer fewer scalars, then a mean near the
@@ -173,9 +175,13 @@ def calibrate(cfg):
         mask = torch.arange(codec.native_horizon)[None] < lengths[:, None]
         error = recovered - actions[:, :codec.native_horizon]
         rms = ((error.square().mean(-1) * mask).sum(1) / lengths).sqrt()
+        channel_rms = ((error.square() * mask[..., None]).sum(1) / lengths[:, None]).sqrt()
+        first_rms = error[:, 0].square().mean(-1).sqrt()
         compression = float(lengths.float().mean() * actions.shape[-1] / codec.encoded_dim)
         row = {"codec": OmegaConf.to_container(spec, resolve=True),
                "action_rmse_mean": float(rms.mean()), "action_rmse_p90": float(torch.quantile(rms, .9)),
+               "action_channel_rmse_p90": torch.quantile(channel_rms, .9, dim=0).tolist(),
+               "first_action_rmse_p90": float(torch.quantile(first_rms, .9)),
                **duration_statistics(lengths, codec.native_horizon),
                "encoded_scalars": codec.encoded_dim,
                "median_scalar_compression_ratio": float(lengths.float().quantile(.5) * actions.shape[-1] / codec.encoded_dim),

@@ -143,13 +143,17 @@ def workflow(
     if arc_profile and mode == "full":
         memory_gib = max(memory_gib, 128)
     memory_gib = max(memory_gib, 64 * gpus)
+    # Eight-H100 nodes in the supported pool expose 94 allocatable CPU cores.
+    cpu_per_gpu = 10 if gpu_type == "H100" else 12
     entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
     return {
         "workflow": {
             "name": run_id,
             "resources": {
                 "default": {
-                    "cpu": max(12 * gpus, replay_workers + 4 if preflight else 0),
+                    "cpu": max(
+                        cpu_per_gpu * gpus, replay_workers + 4 if preflight else 0
+                    ),
                     "gpu": gpus,
                     "memory": f"{memory_gib}Gi",
                     "storage": "128Gi" if replay else "240Gi",

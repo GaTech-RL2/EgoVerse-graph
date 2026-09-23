@@ -87,6 +87,7 @@ def test_workflow_pins_source_and_requests_one_gpu():
     )["workflow"]
     assert h100["resources"]["default"]["platform"] == "dgx-h100"
     assert h100["resources"]["default"]["gpu"] == 8
+    assert h100["resources"]["default"]["cpu"] == 80
     h100_env = h100["tasks"][0]["environment"]
     assert h100_env["BENCHMARK_GPU_TYPE"] == "H100"
     assert h100_env["TRAINING_GPUS"] == "8"

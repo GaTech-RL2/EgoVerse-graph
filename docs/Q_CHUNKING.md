@@ -508,10 +508,74 @@ valid controls and duration are preserved exactly, as are encoded replay inputs;
 only candidate ranking can change. Fixed-length native behavior and all ARC
 geometry, timing, interpolation and projection behavior remain unchanged.
 
-This is a contract correction, not a demonstrated recovery of ARC performance.
-The scores above remain the historical results of the original policy. A
-separate frozen-checkpoint comparison will reproduce every original outcome,
-then evaluate the corrected native-window ranking on the same three checkpoints
-and 250-reset bank, without training. It also audits current ARC/native/reference
-candidate predictions on shared held-out states. Artifacts belong under
+The completed OSMO comparison `dqc-cube-q-ranking-20260923-v1-1` reproduced
+every original outcome and reset hash across all three checkpoints and the
+250-reset bank before evaluating the correction, without training:
+
+| Native-window inference | Seed 100001 | Seed 200002 | Seed 300003 | Mean |
+| --- | ---: | ---: | ---: | ---: |
+| Original Q inputs | 31.2% | 21.6% | 36.0% | 29.6% |
+| Canonical Q inputs | 28.8% | 24.0% | 35.2% | 29.3% |
+
+The correction changes the winning candidate on 11.1–14.6% of the same 512
+held-out states per checkpoint while preserving every candidate's executed
+prefix exactly. It does **not** recover performance. Across 750 rollouts it
+loses 91 original successes and gains 89. ARC and fixed-native rankings are
+unchanged. Similar held-out Q/V values and critic losses do not imply similar
+closed-loop behavior; actor losses across representations are not comparable.
+These scores remain separate from the original policy results above. Artifacts
+are under
 `s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-q-ranking-v1/`.
+
+### Frozen component diagnostics
+
+OSMO workflow `dqc-cube-components-20260923-v1-1` isolated remaining causes on
+the frozen seed-100001 checkpoints and the first ten previously evaluated
+resets per goal. All eight 50-rollout controls completed, reproducing every
+native/ARC identity outcome. Raw rows and reset hashes were verified:
+
+| Diagnostic policy | Successes / 50 | SR |
+| --- | ---: | ---: |
+| Standard DQC identity | 42 | 84% |
+| Native actor/Q, ARC round trip at five steps | 43 | 86% |
+| Native actor/Q, ARC round trip after spatial cutoff | 46 | 92% |
+| Native actor, ARC Q, decoded spatial prefix | 44 | 88% |
+| Native actor, native-window Q, native spatial prefix | 45 | 90% |
+| Learned ARC identity | 15 | 30% |
+| Learned ARC, execution capped at five | 17 | 34% |
+| Learned native-window, execution capped at five | 17 | 34% |
+
+The unchanged M56 codec and learned ARC Q can support strong behavior when
+supplied with reference-actor proposals. Capping execution alone does not
+recover the learned ARC policy. This narrows the failure to proposal generation
+and how Q ranks those proposals, without establishing that either component
+alone is the cause. This small development screen does not show an ARC win.
+
+The reference actor supplies five-action proposals, so spatial-prefix controls
+cannot represent longer windows. This distribution change is explicit, and
+the reference-Q spatial-prefix arm controls for it. The execution-cap arms
+also change protocol. These are diagnostic interventions, not learned ARC
+benchmark wins, and they do not replace full-trajectory replay gates. The
+unused fresh confirmation bank remains untouched. Source, script, checkpoint,
+config, reset, CPU semantic checks and GPU sampling-parity receipts accompany
+the results under
+`s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-components-v1/`.
+
+The next frozen-checkpoint workflow,
+`dqc-cube-actor-sampling-20260923-v2-1`, tests 50 actor-flow steps instead of 10
+for all three model types, pure ARC/native-window critic substitutions, and
+ARC execution-based Q inputs. The latter generates the usual candidates `z`,
+decodes native actions `a` and duration `tau`, scores `Q(s, E(a, tau))`, and
+executes the original `a`. It does not decode the re-encoded representation.
+The candidates, durations, M/D/R and path interpolation remain unchanged.
+
+A CPU fixture demonstrates the input ambiguity: changing an unvisited M56
+geometry support changes the direct Q input by 0.9143 while native controls
+and duration remain bit-identical. Re-encoding the executed controls removes
+that difference. Whether this materially improves learned-policy SR remains
+an empirical question. V1 stopped before rollout because GPU checks found
+up to 1.82e-6 differences between batched candidate decoding and the original
+single-candidate decoder. V2 uses the original single-candidate decoding shape
+for each proposal; exact GPU sampler/RNG/decoded-action checks pass. Failed
+checks remain under `cube-actor-sampling-v1/`; new results are separate under
+`s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-actor-sampling-v2/`.

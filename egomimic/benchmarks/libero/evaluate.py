@@ -6,11 +6,14 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import time
+from dataclasses import asdict
 from pathlib import Path
 
-from egomimic.benchmarks.libero.catalog import TASKS
+from egomimic.benchmarks.libero.catalog import TASK_IDS, TASKS
 from egomimic.benchmarks.libero.cluster import (
     ArtifactUploader,
     configure_simulator,
@@ -115,6 +118,135 @@ def restore_policy(client, request, root, evidence):
     return path
 
 
+def merge_repetitions(directories, output):
+    """Require exactly the original five repetitions, seeds, policy and protocol."""
+    from egomimic.benchmarks.libero.report import read_run, validate_full_protocol
+    from egomimic.benchmarks.libero.rollout import rollout_plan
+
+    if len(directories) != 5:
+        raise ValueError("Full parallel evaluation requires five repetitions")
+    reference, all_records, videos = None, {}, []
+    for index, directory in enumerate(directories):
+        protocol, records = read_run(directory)
+        if protocol.pop("evaluation_repetition", None) != index:
+            raise ValueError("Unexpected evaluation repetition")
+        expected = [
+            asdict(s) for s in rollout_plan(protocol["suite"], repetition_index=index)
+        ]
+        if protocol.pop("plan") != expected:
+            raise ValueError("Repetition task/seed plan differs from the full protocol")
+        if reference is None:
+            reference = protocol
+        elif protocol != reference:
+            raise ValueError("Repetitions use different checkpoints or protocols")
+        if all_records.keys() & records.keys():
+            raise ValueError("Duplicate evaluation episodes")
+        for record in records.values():
+            if "video" in record:
+                name = record["video"]
+                if Path(name).name != name:
+                    raise ValueError("Invalid repetition video path")
+                source = Path(directory) / name
+                if not source.is_file():
+                    raise FileNotFoundError(source)
+                record["video"] = f"repetition_{index}_{name}"
+                videos.append((source, record["video"]))
+        all_records.update(records)
+    combined = {
+        **reference,
+        "plan": [asdict(s) for s in rollout_plan(reference["suite"])],
+        "evaluation_workers": 5,
+    }
+    validate_full_protocol(combined)
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=False)
+    write_json(output / "protocol.json", combined)
+    ordered = sorted(
+        all_records.values(),
+        key=lambda r: (TASK_IDS[r["task"]][2], r["repetition"], r["trial"]),
+    )
+    with (output / "episodes.jsonl").open("x") as handle:
+        for record in ordered:
+            handle.write(json.dumps(record) + "\n")
+    for source, name in videos:
+        shutil.copyfile(source, output / name)
+    read_run(output)
+
+
+def parallel_rollouts(checkpoint, evidence, method, suite):
+    """Overlap independent simulator repetitions on one GPU and reserved CPUs."""
+    processes, directories = [], []
+    try:
+        for index in range(5):
+            output = evidence / "repetitions" / str(index) / method / suite
+            directories.append(output)
+            command = [
+                sys.executable,
+                "-m",
+                "egomimic.benchmarks.libero.cli",
+                "rollout",
+                "--checkpoint",
+                str(checkpoint),
+                "--output",
+                str(output),
+                "--repetition-index",
+                str(index),
+            ]
+            with (evidence / f"{method}-repetition-{index}.log").open("w") as log:
+                processes.append(
+                    subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
+                )
+        last_counts = None
+        next_report = 0
+        while True:
+            codes = [process.poll() for process in processes]
+            if any(code is not None and code != 0 for code in codes):
+                raise RuntimeError(f"Evaluation repetition failed: {codes}")
+            if time.monotonic() >= next_report:
+                counts = []
+                for directory in directories:
+                    path = directory / "episodes.jsonl"
+                    counts.append(
+                        path.read_bytes().count(b"\n") if path.exists() else 0
+                    )
+                if counts != last_counts:
+                    write_json(
+                        evidence / "evaluation-progress.json",
+                        {
+                            "episodes": sum(counts),
+                            "planned": 250 * len(TASKS[suite]),
+                            "per_repetition": counts,
+                            "workers": 5,
+                        },
+                    )
+                    print("EVALUATION_PROGRESS " + json.dumps(counts), flush=True)
+                    last_counts = counts
+                next_report = time.monotonic() + 30
+            if all(code == 0 for code in codes):
+                break
+            time.sleep(1)
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                process.terminate()
+        for process in processes:
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+    merge_repetitions(directories, evidence / method / suite)
+    write_json(
+        evidence / "evaluation-progress.json",
+        {
+            "episodes": 250 * len(TASKS[suite]),
+            "planned": 250 * len(TASKS[suite]),
+            "per_repetition": [50 * len(TASKS[suite])] * 5,
+            "workers": 5,
+        },
+    )
+
+
 def main():
     from egomimic.benchmarks.libero.cluster import validate_gpu_allocation
 
@@ -122,6 +254,12 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--request", type=Path, required=True)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        choices=(1, 5),
+        default=int(os.environ.get("EVALUATION_WORKERS", "1")),
+    )
     args = parser.parse_args()
     request = json.loads(args.request.read_text())
     validate_request(request)
@@ -143,6 +281,7 @@ def main():
             "run_kind": "policy_evaluation",
             "evaluate_from_run": request["source_run"],
             "gpu_type": os.environ.get("BENCHMARK_GPU_TYPE", "L40S"),
+            "evaluation_workers": args.workers,
         },
     )
     uploader.thread.start()
@@ -154,19 +293,22 @@ def main():
         method, suite = request["method"], request["suite"]
         write_json(evidence / "status.json", {"state": "ROLLOUTS", "method": method})
         output = evidence / method / suite
-        execute(
-            [
-                sys.executable,
-                "-m",
-                "egomimic.benchmarks.libero.cli",
-                "rollout",
-                "--checkpoint",
-                str(checkpoint),
-                "--output",
-                str(output),
-            ],
-            evidence / f"{method}-rollout.log",
-        )
+        if args.workers == 5:
+            parallel_rollouts(checkpoint, evidence, method, suite)
+        else:
+            execute(
+                [
+                    sys.executable,
+                    "-m",
+                    "egomimic.benchmarks.libero.cli",
+                    "rollout",
+                    "--checkpoint",
+                    str(checkpoint),
+                    "--output",
+                    str(output),
+                ],
+                evidence / f"{method}-rollout.log",
+            )
         from egomimic.benchmarks.libero.report import (
             read_run,
             summarize,

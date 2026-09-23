@@ -162,3 +162,105 @@ def test_evaluation_routes_directly_to_native_rollouts_on_one_gpu(checkpoint):
     branch = entry.split("== policy_evaluation ]]; then")[1].split("elif")[0]
     assert "egomimic.benchmarks.libero.evaluate" in branch
     assert "trainHydra" not in branch and "stage_dataset" not in branch
+
+
+def test_parallel_repetitions_keep_every_original_seed_once():
+    from egomimic.benchmarks.libero.rollout import rollout_plan
+
+    complete = rollout_plan("libero_spatial")
+    shards = [rollout_plan("libero_spatial", repetition_index=i) for i in range(5)]
+    assert [entry for shard in shards for entry in shard] == complete
+    assert all(len(shard) == 500 for shard in shards)
+    with pytest.raises(ValueError, match="outside"):
+        rollout_plan("libero_spatial", repetition_index=5)
+
+
+@pytest.mark.parametrize(
+    "invalid", [None, "missing", "duplicate", "checkpoint", "repetition", "seed"]
+)
+def test_parallel_merge_requires_complete_identical_policy_protocol(tmp_path, invalid):
+    from dataclasses import asdict
+
+    from egomimic.benchmarks.libero.catalog import LIBERO_COMMIT, OAT_COMMIT
+    from egomimic.benchmarks.libero.evaluate import merge_repetitions
+    from egomimic.benchmarks.libero.report import (
+        read_run,
+        summarize,
+        validate_full_protocol,
+    )
+    from egomimic.benchmarks.libero.rollout import rollout_plan
+
+    directories = []
+    for index in range(5):
+        directory = tmp_path / str(index)
+        directory.mkdir()
+        directories.append(directory)
+        plan = [
+            asdict(s) for s in rollout_plan("libero_spatial", repetition_index=index)
+        ]
+        protocol = {
+            "plan": plan,
+            "suite": "libero_spatial",
+            "horizon": 32,
+            "n_obs_steps": 2,
+            "n_action_steps": 16,
+            "max_episode_steps": 550,
+            "oat_commit": OAT_COMMIT,
+            "libero_commit": LIBERO_COMMIT,
+            "use_ema": True,
+            "checkpoint_sha256": "a" * 64,
+            "evaluation_repetition": index,
+        }
+        if index == 2 and invalid == "checkpoint":
+            protocol["checkpoint_sha256"] = "b" * 64
+        if index == 2 and invalid == "repetition":
+            protocol["evaluation_repetition"] = 1
+        if index == 2 and invalid == "seed":
+            plan[0]["seed"] += 1
+        records = [
+            {
+                **s,
+                "success": True,
+                "steps": 1,
+                "initial_state_sha256": str(s["seed"]),
+                "inference_seconds": [0.01],
+            }
+            for s in plan
+        ]
+        if index == 2 and invalid == "missing":
+            records.pop()
+        if index == 2 and invalid == "duplicate":
+            records.append(records[0])
+        if index == 0:
+            (directory / "rollout_000000.mp4").write_bytes(b"video")
+            records[0]["video"] = "rollout_000000.mp4"
+        (directory / "protocol.json").write_text(json.dumps(protocol))
+        (directory / "episodes.jsonl").write_text(
+            "".join(json.dumps(r) + "\n" for r in records)
+        )
+    output = tmp_path / "combined"
+    if invalid:
+        with pytest.raises(ValueError):
+            merge_repetitions(directories, output)
+        assert not output.exists()
+    else:
+        merge_repetitions(directories, output)
+        protocol, records = read_run(output)
+        validate_full_protocol(protocol)
+        result = summarize(records)
+        assert result["episodes"] == 2500 and result["mean_success_rate"] == 1
+        assert len(result["per_task_success"]) == 10
+        assert len(result["per_repetition_success"]) == 5
+        assert (output / "repetition_0_rollout_000000.mp4").read_bytes() == b"video"
+
+
+def test_parallel_workflow_reserves_cpus_and_still_uses_one_gpu(checkpoint):
+    _, _, request = checkpoint
+    result = evaluation_workflow("b" * 40, "parallel-evaluation", request, workers=5)[
+        "workflow"
+    ]
+    assert result["resources"]["default"]["gpu"] == 1
+    assert result["resources"]["default"]["cpu"] == 24
+    assert result["tasks"][0]["environment"]["EVALUATION_WORKERS"] == "5"
+    with pytest.raises(ValueError):
+        evaluation_workflow("b" * 40, "invalid-workers", request, workers=8)

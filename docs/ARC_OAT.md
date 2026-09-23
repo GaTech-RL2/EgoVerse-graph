@@ -190,6 +190,16 @@ evaluation-source commits are recorded separately. Allocate this worker when
 the final checkpoint is ready; standalone ARC profiles already begin their
 rollouts immediately after their one training stage.
 
+For simulator-heavy evaluation, `evaluation_workflow(..., workers=5)` reserves
+24 CPU cores and one GPU, and runs the five existing evaluation repetitions
+in separate processes. Each retains its original 50 trials per task and seeds;
+the total remains 2,500 episodes for a ten-task suite. The coordinator reports
+completed episode counts, preserves each repetition's records, and validates
+all seeds, tasks, checkpoint hashes and protocol fields before merging. Videos
+retain the original first-20-trials selection. Policy inference and the 32-step
+prediction / 16-step execution loop are unchanged. Inference latency is measured
+under concurrent load and must be distinguished from a single-worker timing.
+
 The current timed STK/DUR LIBERO policy has a 40,345,612-parameter action
 denoiser and a 22,394,248-parameter observation encoder: 62,739,860 parameters
 total, of which 72 are fixed normalization parameters. ARC encoding/decoding

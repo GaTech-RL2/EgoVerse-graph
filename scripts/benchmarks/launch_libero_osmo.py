@@ -213,14 +213,19 @@ def workflow(
     }
 
 
-def evaluation_workflow(commit, run_id, request, *, gpu_type="L40S"):
+def evaluation_workflow(commit, run_id, request, *, gpu_type="L40S", workers=1):
     """Allocate one evaluation GPU only after a final policy checkpoint is ready."""
     from egomimic.benchmarks.libero.evaluate import validate_request
 
     validate_request(request)
+    if workers not in (1, 5):
+        raise ValueError("Evaluation uses one worker or five independent repetitions")
     result = workflow(commit, run_id, request["suite"], mode="full", gpu_type=gpu_type)
     task = result["workflow"]["tasks"][0]
     task["environment"]["RUN_KIND"] = "policy_evaluation"
+    task["environment"]["EVALUATION_WORKERS"] = str(workers)
+    if workers == 5:
+        result["workflow"]["resources"]["default"]["cpu"] = 24
     task["files"].append(
         {
             "path": "/tmp/evaluation-request.json",

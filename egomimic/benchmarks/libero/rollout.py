@@ -30,9 +30,13 @@ class RolloutSpec:
     seed: int
 
 
-def rollout_plan(suite, trials_per_task=50, repetitions=5, start_seed=1000):
+def rollout_plan(
+    suite, trials_per_task=50, repetitions=5, start_seed=1000, *, repetition_index=None
+):
     if min(trials_per_task, repetitions) < 1:
         raise ValueError("Positive trial and repetition counts are required")
+    if repetition_index is not None and not 0 <= repetition_index < repetitions:
+        raise ValueError("Evaluation repetition is outside the protocol")
     tasks = get_tasks(suite)
     return [
         RolloutSpec(
@@ -46,6 +50,7 @@ def rollout_plan(suite, trials_per_task=50, repetitions=5, start_seed=1000):
         for repetition in range(repetitions)
         for trial in range(trials_per_task)
         for task_index, task in enumerate(tasks)
+        if repetition_index is None or repetition == repetition_index
     ]
 
 
@@ -322,6 +327,21 @@ def run_rollouts(
                 handle.write(json.dumps(record) + "\n")
                 handle.flush()
                 records.append(record)
+                print(
+                    "ROLLOUT_EPISODE "
+                    + json.dumps(
+                        {
+                            "task": spec.task,
+                            "repetition": spec.repetition,
+                            "trial": spec.trial,
+                            "success": bool(success),
+                            "steps": steps,
+                            "completed": len(records),
+                            "planned": len(plan),
+                        }
+                    ),
+                    flush=True,
+                )
     finally:
         if env is not None:
             env.close()

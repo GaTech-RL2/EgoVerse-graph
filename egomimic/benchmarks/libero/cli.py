@@ -151,6 +151,7 @@ def main():
     rollout.add_argument("--tokens", type=int)
     rollout.add_argument("--trials-per-task", type=int, default=50)
     rollout.add_argument("--repetitions", type=int, default=5)
+    rollout.add_argument("--repetition-index", type=int)
     rollout.add_argument("--start-seed", type=int, default=1000)
     rollout.add_argument("--max-episode-steps", type=int, default=550)
     rollout.add_argument("--video-trials", type=int, default=20)
@@ -260,6 +261,8 @@ def main():
                     rotation_radius=codec.rotation_radius,
                     gripper_radius=codec.gripper_radius,
                 )
+        if args.repetition_index is not None:
+            metadata["evaluation_repetition"] = args.repetition_index
         run_rollouts(
             policy,
             rollout_plan(
@@ -267,10 +270,11 @@ def main():
                 args.trials_per_task,
                 args.repetitions,
                 args.start_seed,
+                repetition_index=args.repetition_index,
             ),
             args.output,
             max_episode_steps=args.max_episode_steps,
-            video_trials=args.video_trials,
+            video_trials=args.video_trials if args.repetition_index in (None, 0) else 0,
             metadata=metadata,
         )
         return

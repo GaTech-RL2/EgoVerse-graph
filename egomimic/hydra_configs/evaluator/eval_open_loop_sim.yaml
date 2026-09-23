@@ -51,6 +51,11 @@ results_path: ${paths.output_dir}/open_loop_sim.json
 trajectory_snapshot_path: null
 # Video-only checkpoint sweeps skip episode scoring and scalar/JSON metrics.
 video_only: false
+distance_dtw_enabled: true
+# Exact global alignment: fail explicitly at the bound, never silently drop
+# GT frames or clip slower predictions to the recorded episode's clock.
+dtw_max_cells: 50000000
+dtw_max_prediction_steps: 30000
 require_episode_start: true
 # Episode-level limit. The datamodule uses this to retain complete episodes,
 # not an arbitrary prefix of validation batches. null evaluates every episode.

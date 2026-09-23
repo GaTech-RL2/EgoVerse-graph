@@ -175,6 +175,31 @@ training budget, and starts fresh paired rollouts/reconstruction. It does not
 repeat training or reuse partially written rollout results. Recovery provenance
 records both the training source revision and current evaluation revision.
 
+To evaluate one completed policy without waiting for the remaining stages in a
+combined training workflow, use `evaluation_workflow(commit, run_id, request)`
+from `scripts.benchmarks.launch_libero_osmo`. The request pins `source_run`,
+`source_commit`, `suite`, `method`, `epochs` (5001), `total_optimizer_steps`, and
+the final checkpoint receipt (`uri`, `sha256`, `bytes`). This requests one GPU
+and invokes `egomimic.benchmarks.libero.evaluate`. It downloads only that
+immutable checkpoint, checks the complete epoch/optimizer/EMA budget, and runs
+the existing EMA rollout command: 50 trials per task, five repetitions, seed
+1000, and 550 maximum steps. Simulator assets are required; demonstration
+downloads and training are not. The worker streams episode records and writes
+`scores.json` only after validating the complete protocol. Training-source and
+evaluation-source commits are recorded separately. Allocate this worker when
+the final checkpoint is ready; standalone ARC profiles already begin their
+rollouts immediately after their one training stage.
+
+The current timed STK/DUR LIBERO policy has a 40,345,612-parameter action
+denoiser and a 22,394,248-parameter observation encoder: 62,739,860 parameters
+total, of which 72 are fixed normalization parameters. ARC encoding/decoding
+adds no learned parameters. The native OAT checkpoint has the same observation
+encoder, a 5,022,976-parameter autoregressive predictor, and a 5,812,497-parameter
+tokenizer frozen during policy training: 33,229,721 parameters total. Counts
+come from deduplicated checkpoint parameter names, exclude optimizer/EMA
+copies, and agree with the loaded ARC rollout model. These recipes differ in
+model capacity; their comparison is not parameter matched.
+
 Native factory hooks preserve OAT normalizers' device when loading CPU-mapped
 checkpoints into an accelerator model, including Lightning resume. Upstream's
 normalizer load method replaces its parameter dictionaries, so moving the

@@ -492,3 +492,26 @@ named `hybrid` or `carry` decoder mode is invoked by this DQC implementation.
 Search results, compute receipts, scripts, configs and numerical trajectories
 are under
 `s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-mdr-sr-search-v1/`.
+
+### Native-window Q input consistency
+
+The frozen native-window pilots above ranked actor candidates after clipping,
+but their Q inputs could still contain nonzero controls after the predicted
+duration and continuous duration codes between the integer execution lengths.
+Replay training supplies zero padding and discrete duration codes. Thus Q could
+rank two encodings differently even though they execute identical actions.
+
+`ControlChunkCodec.project_latent` now zeroes unused native-window controls and
+uses the decoded integer duration before Q ranking. `ShapeTimeControlChunkCodec`
+delegates its native/native-window cases to this projection. Each candidate's
+valid controls and duration are preserved exactly, as are encoded replay inputs;
+only candidate ranking can change. Fixed-length native behavior and all ARC
+geometry, timing, interpolation and projection behavior remain unchanged.
+
+This is a contract correction, not a demonstrated recovery of ARC performance.
+The scores above remain the historical results of the original policy. A
+separate frozen-checkpoint comparison will reproduce every original outcome,
+then evaluate the corrected native-window ranking on the same three checkpoints
+and 250-reset bank, without training. It also audits current ARC/native/reference
+candidate predictions on shared held-out states. Artifacts belong under
+`s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-q-ranking-v1/`.

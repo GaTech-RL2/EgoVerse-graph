@@ -78,6 +78,21 @@ class ControlChunkCodec(nn.Module):
             return torch.full((len(actions),), self.native_horizon, device=actions.device, dtype=torch.long)
         return (self.spatial_clock(actions) <= 1).sum(1).clamp(1, self.native_horizon)
 
+    def project_latent(self, latent):
+        """Give Q the same native-window representation used in replay training.
+
+        Padding and fractional duration codes cannot affect the executed action
+        sequence. Remove these aliases before ranking actor candidates; the
+        valid controls and their decoded integer duration remain unchanged.
+        """
+        latent = latent.clamp(-1, 1)
+        if self.kind != "native_window":
+            return latent
+        actions, lengths = self.decode(latent)
+        valid = torch.arange(self.native_horizon, device=latent.device)[None] < lengths[:, None]
+        return torch.cat([(actions * valid[..., None]).flatten(1),
+                          2 * lengths[:, None] / self.native_horizon - 1], -1)
+
     def encode(self, actions):
         actions = actions[:, :self.native_horizon]
         if actions.shape[1:] != (self.native_horizon, self.action_dim):
@@ -216,7 +231,7 @@ class ShapeTimeControlChunkCodec(ControlChunkCodec):
     def project_latent(self, latent):
         """Apply codec bounds before Q ranking; canonicalize ignored padding."""
         if self.kind != "arc":
-            return latent.clamp(-1, 1)
+            return super().project_latent(latent)
         lengths = self._lengths(latent)
         extent = latent[:, self.factor_slices["extent"]].clamp(0, self.max_log_extent)
         if self.path_mode == "control":

@@ -6,7 +6,7 @@ from omegaconf import OmegaConf
 from egomimic.eval.control_replay import candidate_rank, passes_trace_gates
 from egomimic.models.q_chunking import DecoupledQChunking
 from egomimic.pipeline.stages_q_chunking import QChunkingStage
-from egomimic.rldb.action_codec import ShapeTimeControlChunkCodec
+from egomimic.rldb.action_codec import ControlChunkCodec, ShapeTimeControlChunkCodec
 
 
 def codec(dim=2, horizon=25, **kwargs):
@@ -103,6 +103,38 @@ def test_codec_projection_happens_before_critic_ranking_without_global_clipping(
     handle.remove()
     assert torch.equal(output, torch.full((2, 4), 1.5))
     assert torch.equal(seen[0], torch.full((6, 4), 1.5))
+
+
+@pytest.mark.parametrize("codec_type", [ControlChunkCodec, ShapeTimeControlChunkCodec])
+def test_native_window_equivalent_actions_have_one_critic_representation(codec_type):
+    c = codec_type(2, 25, kind="native_window", distance=100.)
+    lengths = torch.tensor([1, 5, 25])
+    latents = torch.randn(3, c.encoded_dim, generator=torch.Generator().manual_seed(715)).clamp(-1, 1)
+    latents[:, -1] = 2 * lengths / c.native_horizon - 1
+    equivalent = latents.clone()
+    for i, length in enumerate(lengths):
+        equivalent[i, int(length) * c.action_dim:-1] = .75
+    # Different continuous codes decode to the same integer native duration.
+    equivalent[:, -1] += .01
+    before, original_lengths = c.decode(equivalent)
+    assert torch.equal(original_lengths, lengths)
+    project = getattr(c, "project_latent", lambda z: z.clamp(-1, 1))
+    canonical = project(latents)
+    same = project(equivalent)
+    torch.testing.assert_close(canonical, same, rtol=0, atol=0)
+    after, after_lengths = c.decode(same)
+    assert torch.equal(after_lengths, lengths)
+    for i, length in enumerate(lengths):
+        torch.testing.assert_close(before[i, :length], after[i, :length], rtol=0, atol=0)
+    torch.testing.assert_close(project(same), same, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("codec_type", [ControlChunkCodec, ShapeTimeControlChunkCodec])
+def test_native_window_projection_preserves_training_examples(codec_type):
+    c = codec_type(2, 25, kind="native_window", distance=.5)
+    actions = torch.randn(128, 25, 2, generator=torch.Generator().manual_seed(811)).clamp(-1, 1)
+    encoded, _ = c.encode(actions)
+    torch.testing.assert_close(c.project_latent(encoded), encoded, rtol=0, atol=0)
 
 
 def test_direct_control_anchor_survives_arbitrary_predicted_clock_and_extent():

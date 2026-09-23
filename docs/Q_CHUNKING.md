@@ -339,3 +339,42 @@ the hosted 100M substitutes must not be labeled as 1B reproductions.
 `scripts/data_download/generate_goal_data.py` runs the pinned upstream generator
 in isolated processes with explicit NumPy/reset seeds and immutable shard
 receipts. Data generation and reduced smoke jobs are separate from final RL.
+
+## Fixed-interpolation Cube M/D/R pilot
+
+`hydra_configs/benchmark/dqc_cube_mdr.yaml` varies only M, translation distance
+and rotation budget in the existing `ShapeTimeControlChunkCodec`. The codec,
+uniform interpolation, geometry metric and native cap 25 remain unchanged.
+Distance and rotation proposals preserve a calibration median of five native
+actions; testing the threshold interval between the fifth and sixth actions
+explores D/R without changing that median into a fixed execution length.
+
+The selected pilot is M56, D = 0.18813843364466518 metres of cumulative commanded
+translation, R = 1.5359093226505232 radians (88.0011 degrees). Native execution is
+the entire decoded variable-duration chunk, starting at index 0. M is geometric
+resolution, not the number of environment actions executed. M96 also passed
+the physical-motion confirmation and is retained as an unlaunched alternative.
+
+This pilot uses a declared **physical-motion** criterion, not the previous
+near-exact action/qpos criterion. Native and decoded actions are replayed from
+identical states. Measure cube and effector displacement and gripper opening
+after every native step. The recipe records explicit tail and maximum limits;
+also retain raw cube orientation and mixed-unit qpos errors. Cube's published
+goal uses object XYZ, but orientation differences can affect later contacts,
+so positional fidelity does not imply closed-loop success.
+
+On the previously unused shard 003 confirmation (2048 control windows and 256
+paired physics replays), M56 had p99 action RMSE 0.01155 and maximum absolute
+control error 0.06235. Cube trajectory error was p99 2.211 mm / max 4.833 mm;
+effector error p99 0.897 mm / max 1.311 mm. Gripper opening error was p99 1.133% /
+max 1.514% of range. Raw cube orientation error reached 13.43 degrees. This
+does **not** pass the old strict action or mixed-coordinate qpos gates. The
+earlier failed M/D/R combinations and all gate definitions remain evidence.
+
+Train fresh ARC and matched native-window pilots for three shared seeds on
+Cube quadruple 100M; reuse the existing matching standard DQC references.
+Keep the Table 7 h25/ha5 reference, kappa_b=.93, kappa_d=.8, batch 4096 and 1M
+updates. Compare the fixed final checkpoint across all five goal tasks with 50
+rollouts each, identical reset banks and source/config/data receipts. Treat
+three-seed results as development evidence; a robust improvement needs wider
+seed confirmation. Neither passing replay nor submitting training is a win.

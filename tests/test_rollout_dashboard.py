@@ -339,11 +339,28 @@ def test_checkpoint_browser_lists_only_rooted_checkpoint_candidates(tmp_path):
         browser.resolve_bundle("../outside.ckpt")
 
 
-def test_dashboard_model_swap_reaches_only_rollout_loop(tmp_path):
+def test_checkpoint_browser_accepts_checkpoint_prefixed_artifacts(tmp_path):
+    checkpoint = tmp_path / "towels_rl2_time__step-120000__sha256-abcd.ckpt"
+    checkpoint.write_bytes(b"weights")
+    training_config = tmp_path / "towels_rl2_time.resolved-config.yaml"
+    training_config.write_text("model: {}\n")
+    normalizer = tmp_path / "towels_rl2_time.norm_stats.json"
+    normalizer.write_text("{}\n")
+
+    bundle = CheckpointBrowser(tmp_path).resolve_bundle(checkpoint.name)
+
+    assert bundle.checkpoint == checkpoint.resolve()
+    assert bundle.training_config == training_config.resolve()
+    assert bundle.normalizer_path == normalizer.resolve()
+
+
+def test_dashboard_model_selection_reaches_only_rollout_loop(tmp_path):
     root = tmp_path / "models"
     root.mkdir()
     checkpoint = root / "next.ckpt"
     checkpoint.write_bytes(b"weights")
+    selected_checkpoint = root / "selected.ckpt"
+    selected_checkpoint.write_bytes(b"new weights")
     training_config = root / "resolved-config.yaml"
     training_config.write_text("model: {}\n")
     normalizer = root / "norm_stats.json"
@@ -363,7 +380,7 @@ def test_dashboard_model_swap_reaches_only_rollout_loop(tmp_path):
         },
     )
 
-    async def request_model_swap():
+    async def request_model_selection():
         from aiohttp import ClientSession
 
         async with ClientSession() as session:
@@ -371,16 +388,26 @@ def test_dashboard_model_swap_reaches_only_rollout_loop(tmp_path):
                 config = await ws.receive_json()
                 assert config["model_browser_enabled"] is True
                 assert config["checkpoint"] == "next.ckpt"
-                await ws.send_json({"swap_model": "next.ckpt"})
+                await ws.send_json({"select_model": "selected.ckpt"})
                 deadline = time.monotonic() + 1.0
-                while dashboard._model_swap_checkpoint is None:
+                while dashboard._selected_model is None:
                     if time.monotonic() >= deadline:
-                        pytest.fail("model swap did not reach dashboard")
+                        pytest.fail("model selection did not reach dashboard")
                     await asyncio.sleep(0.01)
+                bundle = dashboard.take_model_selection_request()
+                dashboard.set_model_checkpoint(bundle)
+                while time.monotonic() < deadline:
+                    message = await asyncio.wait_for(ws.receive_json(), timeout=0.25)
+                    if (
+                        message.get("type") == "frame"
+                        and message.get("checkpoint") == "selected.ckpt"
+                    ):
+                        return bundle
+                pytest.fail("selected model was absent from dashboard frame state")
 
     try:
-        asyncio.run(request_model_swap())
-        assert dashboard.take_model_swap_request().checkpoint == checkpoint.resolve()
+        bundle = asyncio.run(request_model_selection())
+        assert bundle.checkpoint == selected_checkpoint.resolve()
         assert not dashboard._start_requested.is_set()
     finally:
         dashboard.close()
@@ -544,7 +571,14 @@ def test_dashboard_uses_space_for_pause_and_places_resample_below_cameras():
     assert "event.key === 'v'" in javascript
     assert 'id="recording-indicator"' in html
     assert 'id="open-videos"' in html
-    assert 'id="swap-model"' in html
+    assert 'id="select-model"' in html
+    assert 'id="current-model"' in html
+    assert "updateCurrentModel" in javascript
+    assert 'class="rollout-control-panel"' in html
+    assert 'class="rollout-button-grid"' in html
+    assert ".rollout-button-grid { display: grid;" in (static / "style.css").read_text()
+    assert ".recording[hidden]" in (static / "style.css").read_text()
+    assert "?v=6" in html
     assert "/api/checkpoints" in javascript
     assert "event.key === 'p'" not in javascript
 
@@ -664,13 +698,13 @@ class CameraRecoveryView(GatedView):
         return next(self.reconnect_requests)
 
 
-class ModelSwapView(GatedView):
+class ModelSelectionView(GatedView):
     def __init__(self, controls, checkpoint):
         super().__init__(controls)
         self.checkpoints = iter((checkpoint, None, None))
         self.loaded = []
 
-    def take_model_swap_request(self):
+    def take_model_selection_request(self):
         return next(self.checkpoints)
 
     def set_model_checkpoint(self, checkpoint):
@@ -801,7 +835,9 @@ def test_rollout_camera_reconnect_preserves_process_and_requires_c(monkeypatch):
     assert any("Reconnecting RGB cameras" in status for status in view.statuses)
 
 
-def test_rollout_model_swap_holds_and_requires_a_fresh_start(monkeypatch, tmp_path):
+def test_rollout_model_selection_holds_and_requires_a_fresh_start(
+    monkeypatch, tmp_path
+):
     monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
     checkpoint = tmp_path / "next.ckpt"
     checkpoint.write_bytes(b"weights")
@@ -811,7 +847,7 @@ def test_rollout_model_swap_holds_and_requires_a_fresh_start(monkeypatch, tmp_pa
     normalizer.write_text("{}\n")
     bundle = CheckpointBrowser(tmp_path).resolve_bundle("next.ckpt")
     robot = FakeRobot()
-    view = ModelSwapView([None, "c", "q"], bundle)
+    view = ModelSelectionView([None, "c", "q"], bundle)
     target = np.zeros((1, 14), dtype=float)
     target[:, [6, 13]] = 0.5
     replacement = SimpleNamespace(action_type="joints", predict=lambda _obs: target)

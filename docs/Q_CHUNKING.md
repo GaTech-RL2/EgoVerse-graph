@@ -477,7 +477,8 @@ points, averaging +2.3 points. Three seeds do not establish a robust advantage;
 ARC still trails standard DQC by 58.9 points on average. Native-window failure
 also means codec reconstruction error alone cannot explain the learned-policy
 gap. No replacement M/D/R configuration has passed the declared replay gates,
-and no replacement training run has been launched.
+at that stage no replacement training run had been launched. The later
+bounded-window investigation below remains exploratory.
 
 Timing in this Cube codec is **native-step geometric progress**, not a single
 average velocity or a per-waypoint velocity. The clock stores
@@ -561,8 +562,8 @@ config, reset, CPU semantic checks and GPU sampling-parity receipts accompany
 the results under
 `s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-components-v1/`.
 
-The next frozen-checkpoint workflow,
-`dqc-cube-actor-sampling-20260923-v2-1`, tests 50 actor-flow steps instead of 10
+The completed frozen-checkpoint workflow,
+`dqc-cube-actor-sampling-20260923-v2-1`, tested 50 actor-flow steps instead of 10
 for all three model types, pure ARC/native-window critic substitutions, and
 ARC execution-based Q inputs. The latter generates the usual candidates `z`,
 decodes native actions `a` and duration `tau`, scores `Q(s, E(a, tau))`, and
@@ -572,10 +573,76 @@ The candidates, durations, M/D/R and path interpolation remain unchanged.
 A CPU fixture demonstrates the input ambiguity: changing an unvisited M56
 geometry support changes the direct Q input by 0.9143 while native controls
 and duration remain bit-identical. Re-encoding the executed controls removes
-that difference. Whether this materially improves learned-policy SR remains
-an empirical question. V1 stopped before rollout because GPU checks found
+that difference. However, this correction did not recover learned-policy SR.
+V1 stopped before rollout because GPU checks found
 up to 1.82e-6 differences between batched candidate decoding and the original
 single-candidate decoder. V2 uses the original single-candidate decoding shape
 for each proposal; exact GPU sampler/RNG/decoded-action checks pass. Failed
 checks remain under `cube-actor-sampling-v1/`; new results are separate under
 `s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-actor-sampling-v2/`.
+
+All six variants completed on the same 50 development resets. Raw rows,
+archive hashes, and reset hashes were independently checked:
+
+| Frozen intervention | Successes / 50 | SR |
+| --- | ---: | ---: |
+| Standard DQC, 50 flow steps | 48 | 96% |
+| ARC, 50 flow steps | 16 | 32% |
+| Native-window, 50 flow steps | 20 | 40% |
+| ARC proposals, native-window Q | 23 | 46% |
+| Native-window proposals, ARC Q | 13 | 26% |
+| ARC proposals, Q on re-encoded executed actions | 14 | 28% |
+
+The critic swaps preserve every candidate's executed controls and duration;
+only ranking changes. Native-window Q improves ARC on this screen, but the
+result remains far below the reference. More flow steps and execution-based
+Q inputs do not solve the failure. None is an accepted benchmark remedy.
+
+### Smaller representation investigation
+
+The next investigation reduces the native cap and waypoint count while
+retaining the same physical distance/rotation budgets and piecewise-linear
+interpolation. Cap selection used 16,384 source-pinned validation windows,
+without policy scores: among caps retaining median five, cap eight gives the
+mean closest to five (4.96094). This shortens 19.34% of the old windows and
+reduces native-window padding from 77.91% to 37.99%. Eight is a native action
+cap; D remains a distance, 0.1881384336m, and R remains 88.001 degrees.
+
+OSMO `dqc-cube-small-m-20260923-v1-1` screened M8/16/32/56 after the frozen
+reference actor/Q selects a five-action proposal, versus its exact raw spatial
+prefix. It uses the same 50 development resets and single-candidate decoding.
+The declared closed-loop gate allows at most four percentage points overall
+loss and ten points loss per goal relative to that raw-prefix control. These
+are exploratory training-selection gates, separate from the failed
+full-trajectory open-loop gates. Short-window reconstruction and physics are
+also measured for up to eight actions; the reference actor can only test up
+to five. The fresh confirmation reset bank remains unused.
+
+All 250 rollout rows and reset hashes were verified. The exact raw spatial
+prefix scored 45/50 (90%), M8 46/50 (92%), M16 47/50 (94%), M32 48/50 (96%)
+and M56 48/50 (96%). The predeclared smallest-passing-M rule selects M8.
+These remain reference-actor/Q controls, not learned ARC successes.
+
+Short-window replay retains a material tradeoff: M8's action RMSE p99 is
+0.0582, maximum absolute control error 0.2993, and it fails the earlier
+control and physical-motion gates. M16 passes motion gates but fails control
+error limits. M32 passes both on the first bank, but its p90 action RMSE
+0.0100016 misses the 0.01 limit on a second bank without shared native
+windows; that bank has mean duration 4.9238 and median four. M56 meets the
+control and motion limits on both banks, but also misses the second bank's
+exact median-five rule. These failures remain recorded and are not called
+replay-equivalence passes.
+
+`dqc_cube_bounded.yaml` defines an exploratory fresh-step-zero pilot: native
+spatial-window control, selected ARC M8, and an additional ARC M32 arm to
+separate representation size from geometric fidelity. All use native cap8,
+the same D/R, unchanged interpolation, the original native25 TD teacher,
+seed100001, 1M updates, batch4096, and five goals with 50 rollouts per goal at
+each 100k updates. Policy dimensions are 41 for native-window, 54 for M8,
+and 174 for M32, versus 126 and 311 in the old native-window/M56 runs.
+M32 is an added diagnostic arm, not the predeclared winner. Recovery and a
+multi-seed performance advantage have not been demonstrated.
+
+Selection, raw action traces, fixed preview videos, simulator diagnostics and
+GPU parity receipts are under
+`s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-small-m-v1/`.

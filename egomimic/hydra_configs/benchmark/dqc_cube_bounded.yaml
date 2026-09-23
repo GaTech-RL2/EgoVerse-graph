@@ -1,0 +1,46 @@
+# Exploratory recovery after the frozen proposal/critic component diagnostics.
+# M is selected by the recorded closed-loop codec screen, not by RL results.
+# The native cap reduces variable-window padding. D/R and interpolation stay
+# unchanged. Earlier full-trajectory open-loop acceptance has NOT been met.
+domain: cube-quadruple
+reference_recipe: dqc.yaml
+codec_screen:
+  native_horizon: 8
+  waypoints: [8, 16, 32, 56]
+  distance: 0.18813843364466518
+  rotation: 1.5359093226505232
+  episodes_per_goal: 10
+  max_overall_sr_drop: 0.04
+  max_goal_sr_drop: 0.1
+  selection: smallest_passing_M
+  control: raw_spatial_prefix_of_frozen_reference_policy
+  fresh_confirmation_bank_used: false
+training:
+  seeds: [100001]
+  arms:
+    native_window: {kind: native_window, waypoints: selected}
+    arc: {kind: arc, waypoints: selected}
+    arc_m32: {kind: arc, waypoints: 32}
+  additional_arc_purpose: separate_smaller_actor_representation_from_geometric_fidelity
+  steps: 1000000
+  batch_size: 4096
+  eval_interval: 100000
+  eval_episodes: 50
+  video_episodes: 1
+  eval_seed_start: 2000000
+  backup_horizon: 25
+  backup_mode: fixed
+  resume: null
+  selection_metric: fixed_final_step_mean_over_all_five_goal_tasks
+  exploratory_single_seed_pilot: true
+  claim_requires_independent_training_seeds: true
+smoke:
+  steps: 100
+  log_interval: 10
+  checkpoint_interval: 50
+  eval_interval: 100
+  eval_episodes: 2
+  eval_task_ids: [1]
+  video_episodes: 1
+  audit_samples: 1024
+  audit_seed: 749195

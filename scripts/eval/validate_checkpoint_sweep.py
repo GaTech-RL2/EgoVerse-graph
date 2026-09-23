@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -15,7 +16,40 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from egomimic.utils.hydra_override import encode_hydra_string_override
+from egomimic.eval.distance_budget_dtw import METRIC_VERSION  # noqa: E402
+from egomimic.utils.hydra_override import encode_hydra_string_override  # noqa: E402
+
+
+def completion_signature(command: list[str], checkpoint: Checkpoint) -> str:
+    """Old MSE outputs and differently configured sweeps are not cache hits."""
+    identity = {
+        "metric_version": METRIC_VERSION,
+        "command": command,
+        "checkpoint": asdict(checkpoint),
+        "source_commit": subprocess.check_output(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"], text=True
+        ).strip(),
+        "checkpoint_mtime_ns": Path(checkpoint.path).stat().st_mtime_ns,
+    }
+    return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+
+
+def completed_evaluation(marker: Path, result: Path, signature: str) -> bool:
+    if not marker.is_file() or not result.is_file():
+        return False
+    try:
+        payload = json.loads(result.read_text())
+        version_matches = payload.get("distance_dtw_enabled") is False or (
+            payload.get("distance_dtw_enabled") is True
+            and payload.get("distance_dtw_metric_version") == METRIC_VERSION
+        )
+        return (
+            version_matches
+            and json.loads(marker.read_text()).get("signature") == signature
+        )
+    except (OSError, ValueError):
+        return False
+
 
 _STEP_PATTERNS = (
     re.compile(r"(?:^|[-_])step[=_-]?(\d+)(?:[-_.]|$)", re.IGNORECASE),
@@ -106,6 +140,7 @@ def validation_command(
         "eval_logger_enabled=true",
         "trainer.limit_val_batches=1.0",
         "evaluator=eval_open_loop_sim",
+        "evaluator.distance_dtw_enabled=true",
         f"evaluator.action_mode={action_mode}",
         f"evaluator.execute_fraction={execute_fraction}",
         f"evaluator.arc_execution_cap_mode={arc_execution_cap_mode}",
@@ -267,15 +302,45 @@ def main(argv: list[str] | None = None) -> int:
             if args.video_only
             else result_path
         )
-        if args.resume and completion_path.is_file():
+        signature = completion_signature(command, checkpoint)
+        metric_marker = checkpoint_output / "evaluation_complete.json"
+        if args.resume and (
+            (args.video_only and completion_path.is_file())
+            or (
+                not args.video_only
+                and completed_evaluation(metric_marker, result_path, signature)
+            )
+        ):
             print(
-                f"skip completed checkpoint step={checkpoint.step}: "
-                f"{completion_path}"
+                f"skip completed checkpoint step={checkpoint.step}: {completion_path}"
             )
             continue
         print(json.dumps(command))
         if args.execute:
+            if not args.video_only:
+                metric_marker.unlink(missing_ok=True)
             _run_and_tee(command, checkpoint_output / "validation.log")
+            if not args.video_only:
+                # A successful subprocess without its result is not a completed sweep item.
+                result = json.loads(result_path.read_text(encoding="utf-8"))
+                dtw_requested = next(
+                    (
+                        item.split("=", 1)[1].lower() != "false"
+                        for item in reversed(command)
+                        if item.startswith("evaluator.distance_dtw_enabled=")
+                    ),
+                    True,
+                )
+                if dtw_requested and (
+                    not result.get("distance_dtw_enabled")
+                    or result.get("distance_dtw_metric_version") != METRIC_VERSION
+                ):
+                    raise RuntimeError(
+                        "Validation output has a stale distance-DTW metric version"
+                    )
+                metric_marker.write_text(
+                    json.dumps({"signature": signature}) + "\n", encoding="utf-8"
+                )
             if args.video_only:
                 completion_path.write_text(
                     json.dumps({"checkpoint_step": checkpoint.step}) + "\n",

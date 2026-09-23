@@ -6,6 +6,7 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
+    StoreBimanualMetricFrame,
     RotateLocalFrame,
     KeypointsToGripper,
     InsertGripperChannels,
@@ -1178,6 +1179,8 @@ def _build_human_cartesian_eef_frame_transform_list(
             keys_to_delete.append(target_world_ypr)
 
     transform_list: list[Transform] = [
+        *([StoreBimanualMetricFrame(left_obs_pose, right_obs_pose)]
+          if rotation_mode == "euler" else []),
         ActionChunkCoordinateFrameTransform(
             target_world=target_world,
             chunk_world=left_action_world,

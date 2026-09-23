@@ -36,6 +36,10 @@ from egomimic.eval.bimanual_cartesian_eval import (
     overlay_annotation_fields,
 )
 from egomimic.eval.video import EvalVideo
+from egomimic.eval.distance_budget_dtw import (
+    METRIC_FRAME_KEY, METRIC_VERSION, score_distance_dtw_episode,
+    summarize_distance_dtw,
+)
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     bimanual_arc_token_rows,
@@ -515,6 +519,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         results_path: str | None = None,
         trajectory_snapshot_path: str | None = None,
         video_only: bool = False,
+        distance_dtw_enabled: bool = False,
+        dtw_max_cells: int = 50_000_000,
+        dtw_max_prediction_steps: int = 30_000,
         require_episode_start: bool = True,
         limit_val_episodes: int | None = None,
         requires_ordered_validation: bool = True,
@@ -588,6 +595,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             raise ValueError("trajectory_snapshot_path must end in .npz")
         self._trajectory_snapshot_written = False
         self.video_only = bool(video_only)
+        self.distance_dtw_enabled = bool(distance_dtw_enabled)
+        self.dtw_max_cells = int(dtw_max_cells)
+        self.dtw_max_prediction_steps = int(dtw_max_prediction_steps)
+        if self.dtw_max_cells < 1 or self.dtw_max_prediction_steps < 1:
+            raise ValueError("DTW resource limits must be positive")
         self.require_episode_start = bool(require_episode_start)
         self.limit_val_episodes = (
             None if limit_val_episodes is None else int(limit_val_episodes)
@@ -1105,6 +1117,18 @@ class OpenLoopSimEval(BimanualCartesianEval):
             source_batch[target_key], target_key, embodiment_id
         )
         target_native = target_value.detach().cpu().numpy()
+        metric_anchors = None
+        if getattr(self, "distance_dtw_enabled", False):
+            if METRIC_FRAME_KEY not in source_batch:
+                raise ValueError(
+                    f"Distance DTW needs {METRIC_FRAME_KEY} from updated EEF transforms"
+                )
+            metric_anchors = source_batch[METRIC_FRAME_KEY]
+            if isinstance(metric_anchors, torch.Tensor):
+                metric_anchors = metric_anchors.detach().cpu().numpy()
+            metric_anchors = np.asarray(metric_anchors)
+            if metric_anchors.shape != (batch_size, 2, 4, 4):
+                raise ValueError("DTW anchors must have shape (B,2,4,4)")
         if target_native.ndim != 3 or target_native.shape[0] != batch_size:
             raise ValueError(
                 f"open_loop_sim ground truth {target_key!r} must be batched, got "
@@ -1130,6 +1154,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     # control-frame stride at episode replay time.
                     "prediction": np.asarray(prediction_value, dtype=np.float32),
                     "ground_truth": np.asarray(target_native[index], dtype=np.float32),
+                    **({METRIC_FRAME_KEY: metric_anchors[index].copy()}
+                       if metric_anchors is not None else {}),
                 }
             )
 
@@ -1251,6 +1277,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
             "segment_control_steps": segment_control_steps,
             "coverage": executed / max(episode_length, 1),
             "metrics": {key: sq[key] / max(denominators[key], 1) for key in sq},
+            **({"distance_dtw": score_distance_dtw_episode(self, records)}
+               if getattr(self, "distance_dtw_enabled", False) else {}),
         }
 
     @staticmethod
@@ -1279,6 +1307,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         return {
             "episodes": len(episodes),
             "executed_control_steps": total_steps,
+            **({"distance_dtw": summarize_distance_dtw(episodes)}
+               if "distance_dtw" in episodes[0] else {}),
             "segments": total_segments,
             "coverage": float(np.mean([item["coverage"] for item in episodes])),
             "micro": micro,
@@ -1336,6 +1366,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
         results.update(
             {
                 "execute_fraction": self.execute_fraction,
+                "distance_dtw_enabled": getattr(self, "distance_dtw_enabled", False),
+                "distance_dtw_metric_version": (
+                    METRIC_VERSION if getattr(self, "distance_dtw_enabled", False) else None
+                ),
                 "execute_control_steps": (
                     self.execute_steps if self.action_mode != "arc" else None
                 ),
@@ -1385,6 +1419,15 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 if group == DEFAULT_VALID_GROUP
                 else f"Valid_{group}/open_loop_sim"
             )
+            if "distance_dtw" in summary:
+                dtw = summary["distance_dtw"]
+                for name, key in {
+                    "XYZ_MSE": "xyz_mse", "Episode_XYZ_MSE": "episode_xyz_mse",
+                    "GT_Frames": "gt_frames", "Predicted_Samples": "predicted_samples",
+                    "Segments": "segments", "GT_Coverage": "gt_coverage",
+                    "Prediction_Coverage": "prediction_coverage", "Duration_Ratio": "duration_ratio",
+                }.items():
+                    metrics[f"{prefix}/Distance_DTW/{name}"] = dtw[key]
             metrics.update(
                 {
                     f"{prefix}/MSE": summary["micro"]["mse"],

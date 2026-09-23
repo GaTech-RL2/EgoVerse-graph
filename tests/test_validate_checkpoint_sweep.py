@@ -5,9 +5,33 @@ import torch
 
 from scripts.eval.validate_checkpoint_sweep import (
     Checkpoint,
+    completion_signature,
+    completed_evaluation,
     discover_checkpoints,
     validation_command,
 )
+
+
+def test_resume_does_not_reuse_legacy_metrics_or_different_commands(tmp_path):
+    import json
+    checkpoint_path = tmp_path / "step=100.ckpt"
+    checkpoint_path.write_bytes(b"weights")
+    checkpoint = Checkpoint(str(checkpoint_path), 100, 7)
+    result = tmp_path / "open_loop_sim.json"
+    result.write_text('{"micro": {"mse": 1}}')
+    marker = tmp_path / "evaluation_complete.json"
+    signature = completion_signature(["python", "eval", "cap=0.3"], checkpoint)
+    assert not completed_evaluation(marker, result, signature)
+    marker.write_text(json.dumps({"signature": signature}))
+    assert not completed_evaluation(marker, result, signature)
+    from egomimic.eval.distance_budget_dtw import METRIC_VERSION
+    result.write_text(json.dumps({"distance_dtw_enabled": True,
+                                  "distance_dtw_metric_version": METRIC_VERSION}))
+    assert completed_evaluation(marker, result, signature)
+    changed = completion_signature(["python", "eval", "cap=0.5"], checkpoint)
+    assert not completed_evaluation(marker, result, changed)
+    marker.write_text("broken")
+    assert not completed_evaluation(marker, result, signature)
 
 
 def test_discovers_numbered_checkpoints_in_global_step_order(tmp_path):

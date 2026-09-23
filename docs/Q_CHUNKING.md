@@ -417,3 +417,70 @@ The archive SHA-256 is
 The training pilots do not establish replay preservation or a performance win;
 future M/D/R acceptance needs a full-trajectory replay-success check using a
 separate development bank before final evaluation.
+
+### Expanded M/D/R search and numerical replay controls
+
+The 2026-09-23 search found **no accepted replacement configuration**. The
+original 250 trajectories above are now development data. A fixed first-five
+per-goal subset contains 25 trajectories and 21 native successes. Test 98
+median-five settings: M16/32/56/96/128/256/512 crossed with 14 translation/yaw
+budget choices. The best retains 17/21 native successes. An 18-setting extension
+with shorter budgets, M1024/M4096 and a one-action numerical control also fails
+the declared gates. Shorter budgets change the duration comparison; large M
+and single-action controls are diagnostics, not recommended RL settings.
+
+The gates were declared before this search: at least 98% retention of native
+successes, at most two percentage points overall SR loss, and at most four
+points loss in any goal. They are tolerance gates, not exact-equivalence claims.
+All candidate outcomes, including failures, remain recorded. A fresh 250-trace
+bank from the frozen standard DQC checkpoint, seed start 7100000, is ready for
+future confirmation and has not been used to select ARC configurations.
+
+OSMO workflow `dqc-cube-replay-numerical-20260923-v1-1` then tested whether
+full-trajectory open-loop SR can reliably distinguish very small codec errors
+from numerical sensitivity. On the same 25 development trajectories:
+
+| Diagnostic | Native successes retained | Maximum action error |
+| --- | ---: | ---: |
+| Copied native actions | 21/21 | 0 |
+| Native actions shifted up one float32 increment | 18/21 | 5.96e-8 |
+| Native actions shifted down one float32 increment | 17/21 | 5.96e-8 |
+| Native actions shifted one increment in seeded random directions | 18/21 | 5.96e-8 |
+| One-action ARC, existing float32 computation | 17/21 | 5.96e-8 |
+| One-action ARC, float64 arithmetic then cast back to float32 | 21/21 | 0 |
+| Existing M56 / D0.188138m / R88.001 degrees | 16/21 | 0.04265 |
+| M512 with the same D/R | 17/21 | 0.004934 |
+
+Both zero-error controls reproduce every simulator trajectory bit for bit.
+The one-action float32 failures eventually show 30–38cm maximum cube position
+divergence, despite action errors no larger than one float32 increment. Thus
+the losses are not simply just-missed success thresholds at the original
+cutoff. This is evidence of numerical sensitivity in long open-loop replay;
+it does not invalidate the native reference or establish a learned ARC win.
+It also does not show how much of the full 250-trace M56 gap is attributable
+to roundoff. Float64 here is a diagnostic only. The production codec and
+piecewise-linear interpolation remain byte-identical, with codec SHA-256
+`57b9ed420252ab434360204979cc80e8adc0d63545abc197da1a90599d32b17e`.
+
+Learned-policy results remain separate. The three standard DQC references at
+1M updates score 91.2%, 90.8%, and 90.4%. The first completed ARC pilot, seed
+300003, scores 30.4%, versus 36.0% for its matched native-window control and
+90.4% for its standard DQC reference. Each score uses five goals and 50
+rollouts per goal. At the shared 900k checkpoint, ARC's three seeds score
+21.2%/30.8%/32.0%, versus native-window 28.8%/28.8%/31.6%. These results do not
+establish an advantage for ARC. Native-window failure also means codec
+reconstruction error alone cannot explain the learned-policy gap.
+
+Timing in this Cube codec is **native-step geometric progress**, not a single
+average velocity or a per-waypoint velocity. The clock stores
+`2*sqrt(normalized_progress_increment)-1`; total duration stores `log(tau/5)`.
+Progress uses the commanded five-channel XYZ/yaw/gripper path in normalized
+control units, not measured Cartesian motion. Decoding emits relative native
+controls at 20Hz and preserves zero-progress holds. Window selection uses
+`max(cumulative_translation/D, cumulative_abs_yaw/R) <= 1`, with a minimum of
+one action. There is no residual plan or time carried between chunks, and no
+named `hybrid` or `carry` decoder mode is invoked by this DQC implementation.
+
+Search results, compute receipts, scripts, configs and numerical trajectories
+are under
+`s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-mdr-sr-search-v1/`.

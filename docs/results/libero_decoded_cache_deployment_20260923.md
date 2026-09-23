@@ -1,9 +1,9 @@
 # Decoded LIBERO replay cache: implementation verified, rollout awaiting capacity
 
-Later update: the queued ARC resumes started and now have verified optimizer
-advances and new checkpoints. See the [04:06 UTC rollout status](libero_cache_rollout_status_20260923.md)
-for measured pilot speedups and the active bounded rollout. The state below
-records the earlier quota-blocked attempts.
+Later update: see the [current rollout status](libero_cache_rollout_status_20260923.md)
+for verified checkpoint handoffs, measured training rates, the expanded GPU
+allocation and deadline estimates. The state below records the earlier
+quota-blocked attempts.
 
 Implementation source: `d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9`.
 

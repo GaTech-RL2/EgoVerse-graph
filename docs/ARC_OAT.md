@@ -69,15 +69,31 @@ and are not included in checkpoints. Zarr array handles are also reused within
 data workers. These optimizations preserve target values, normalization,
 episode boundaries and R/D/M settings.
 
+LIBERO recipes also enable `benchmark.decoded_replay_cache=true`. The replay is
+decoded once into immutable NumPy files alongside the source Zarr directory,
+under `<dataset>.decoded/`. Both ranks and all data workers use read-only
+memory mappings, so resident image pages are shared rather than copied into
+each worker. Images retain their original uint8 values until sample conversion;
+episode padding, splits, float conversion, normalization and ARC targets are
+unchanged. The cluster records array shapes, dtypes and decoded SHA256 hashes
+in `decoded-replay-cache.json`. Preparation uses a process lock and atomic
+publication, and source-file changes select a new cache. This needs additional
+local storage approximately equal to the uncompressed replay. Set the benchmark
+option to false when comparing the original per-sample Zarr path directly.
+The [loader profile](results/libero_loader_profile_20260922.md) separates data
+access measurements from end-to-end training throughput.
+
 To resume a frozen ARC profile on more GPUs, provide `--resume-from-run` and
 its existing `--arc-replay-runs-file` together with the original profile/mode.
 The completed replay is revalidated against the frozen profile and current
 codec sources; it is not rerun. Resume compatibility is checked against the
 resolved encoder and decoder settings saved in the graph checkpoint, including
 the control protocol; it does not require a top-level Hydra benchmark section.
-A replacement must advance from the recovered
-optimizer/EMA state and upload a verified new checkpoint before retiring its
-predecessor. LIBERO-90 is deferred at the user's request as of September 22;
+A replacement must advance from the recovered optimizer/EMA state and upload
+a verified new checkpoint before its migration is marked complete. With spare
+GPU quota, keep its predecessor running until that verification. At exhausted
+quota, verify and retain the predecessor's durable checkpoint before releasing
+its allocation for a rolling replacement. LIBERO-90 is deferred at the user's request as of September 22;
 its seven paused jobs retain their R2 checkpoints and replay evidence. Results
 for the other four suites must not be labeled the complete 130-task suite.
 

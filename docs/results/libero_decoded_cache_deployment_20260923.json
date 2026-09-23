@@ -1,0 +1,612 @@
+{
+  "implementation_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+  "deployment_complete": false,
+  "end_to_end_speedup_verified": false,
+  "validation": {
+    "local": {
+      "passed": 103
+    },
+    "cluster_initial": {
+      "passed": 102,
+      "failed": 1,
+      "failure": "Existing test_checkpoint_snapshots_are_content_addressed_and_receipted intermittent rapid same-size file rewrite"
+    },
+    "cluster_targeted_retry": {
+      "passed": 1
+    },
+    "real_data_parity": {
+      "libero_spatial": {
+        "at": "2026-09-22T23:50:35Z",
+        "run_id": "arc-oat-ddp-20260922-libero-spatial",
+        "suite": "libero_spatial",
+        "source_commit": "8a0b0b6e17e1c4034a61d8d1b822fe6cb38a0e72",
+        "episodes": 500,
+        "normalized_samples": 1128,
+        "normalized_batches": 35,
+        "batch_size": 32,
+        "seconds": 20.35035097808577,
+        "cache_hashes": {
+          "action": "ab507ec4ab1b7791e5233dec9dcdeef073fb4897bbf8ed08d9cc6826b06e7fb9",
+          "agentview_rgb": "6ca1b592bd4cd30fc761ba425202fa8f8217dc76a5f3e5aacdb42a7b2ff0214a",
+          "robot0_eef_pos": "76a0163a44c21e27146d41d36222e7e4f1adaae0aa5b1f0ae97e46d64e8b61bc",
+          "robot0_eef_quat": "9d47e1a03aa02cad9fbd0eb56cc1ffcedcb4d32cf3c20d1a1cbc9fdbb69aa0e6",
+          "robot0_eye_in_hand_rgb": "1e8e6a9a48d8ee1bc7087b1061ee0df80abf0aa619163915dafab439bdfd7b9c",
+          "robot0_gripper_qpos": "8819a57aed78bea0195bd07d31710454401ad4af6258bf3dacdec9fb8d6d23e3",
+          "task_uid": "a004a41b935e315683f22784f449128b573043f4aea5ff572d880b5f498d25fe"
+        },
+        "checkpoint_global_step": 25920,
+        "benchmark_data_context": {
+          "dataset_sha256": "feed1ee7cc45e267e448006e9393da5ad183106872ac923320fcac0dca9e9b5c",
+          "suite": "libero_spatial",
+          "split_seed": 42,
+          "val_ratio": 0.1,
+          "action_scale": [
+            1.0666667222976685,
+            1.0666667222976685,
+            1.0666667222976685,
+            5.185184955596924,
+            2.8411972522735596,
+            2.721088409423828,
+            1.0
+          ],
+          "action_offset": [
+            0.0,
+            0.0,
+            0.0,
+            -0.022222280502319336,
+            0.044139981269836426,
+            -0.020408153533935547,
+            0.0
+          ]
+        },
+        "passed": true,
+        "validation_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9"
+      },
+      "libero_10": {
+        "at": "2026-09-22T23:57:19Z",
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-10",
+        "suite": "libero_10",
+        "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+        "episodes": 500,
+        "normalized_samples": 1128,
+        "normalized_batches": 35,
+        "batch_size": 32,
+        "seconds": 26.98023720900528,
+        "cache_hashes": {
+          "action": "7f582c0d68b9df0cd4dbd1b0cfdb7d2ff0a7665d8fbcf6dca16e12a9b7a6ac06",
+          "agentview_rgb": "0cfede3c3e4a90305b365ee45de32a712e3eb41367424eb90dc3fb7a595f2151",
+          "robot0_eef_pos": "989ba5d4bba2df6b56cb3d1c288b0f3daae8a121ebb557dd48d49fadcefea654",
+          "robot0_eef_quat": "0dc637bf1d40fa48d8d73f63794bd1d9ba3ea1eb841efdbace8c20c28440b602",
+          "robot0_eye_in_hand_rgb": "a1f8e215f035d3d67ed900202614eb9255c72707c21677a301f6e13c5ea869b8",
+          "robot0_gripper_qpos": "d80e627e1e5479217e09f90a46f8ecb9459ca0274f390786bca2ef78c7cefb85",
+          "task_uid": "39c0e9cecae434555e867466b578cd4caf35b27c2bfd859521ed25988333fea6"
+        },
+        "checkpoint_global_step": 16940,
+        "benchmark_data_context": {
+          "dataset_sha256": "3ed2b86cf97eaa27045af81e6d6c4834c8659d15eda69a2394d835e602014e1d",
+          "suite": "libero_10",
+          "split_seed": 42,
+          "val_ratio": 0.1,
+          "action_scale": [
+            1.0666667222976685,
+            1.0666667222976685,
+            1.0666667222976685,
+            3.5375869274139404,
+            2.962963104248047,
+            2.6936025619506836,
+            1.0
+          ],
+          "action_offset": [
+            0.0,
+            0.0,
+            0.0,
+            -0.16361337900161743,
+            -0.0952380895614624,
+            -0.010101020336151123,
+            0.0
+          ]
+        },
+        "passed": true,
+        "validation_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9"
+      }
+    }
+  },
+  "scheduler": {
+    "at": "2026-09-23T00:26:32.522906+00:00",
+    "successors": {
+      "arc-five-cache-20260922-stk1-libero-spatial-5": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-23T00:04:02.231016",
+        "start_time": "2026-09-23T00:04:16.783413",
+        "end_time": "2026-09-23T00:07:29.742243",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-cache-20260922-stk1-libero-spatial-5",
+        "pool": "groot-l40s-03",
+        "priority": "NORMAL"
+      },
+      "arc-five-cache-20260922-dur1-libero-10-4": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-23T00:04:13.958428",
+        "start_time": "2026-09-23T00:04:26.215232",
+        "end_time": "2026-09-23T00:07:20.332087",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-cache-20260922-dur1-libero-10-4",
+        "pool": "groot-l40s-03",
+        "priority": "NORMAL"
+      },
+      "arc-oat-cache-20260922-libero-spatial-4": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-23T00:04:23.006516",
+        "start_time": null,
+        "end_time": "2026-09-23T00:07:22.686672",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-cache-20260922-libero-spatial-4",
+        "pool": "groot-l40s-03",
+        "priority": "NORMAL"
+      }
+    },
+    "predecessors": {
+      "arc-five-ddp2-20260922-stk1-libero-spatial-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-22T17:55:59.007507",
+        "start_time": "2026-09-22T17:56:11.048848",
+        "end_time": "2026-09-22T23:39:08.006441",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-spatial-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-stk1-libero-object-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:48.974155",
+        "start_time": "2026-09-22T18:09:59.973082",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-object-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-stk1-libero-goal-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:51.562410",
+        "start_time": "2026-09-22T18:10:04.404720",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-goal-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-stk1-libero-10-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:54.209738",
+        "start_time": "2026-09-22T18:10:04.914979",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-10-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-stk2-libero-spatial-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:57.052868",
+        "start_time": "2026-09-22T18:10:08.023026",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-spatial-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-stk2-libero-object-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:09:59.560246",
+        "start_time": "2026-09-22T18:10:08.246640",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-object-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-stk2-libero-goal-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:06.034887",
+        "start_time": "2026-09-22T18:10:14.562385",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-goal-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-stk2-libero-10-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:09.027891",
+        "start_time": "2026-09-22T18:10:21.590595",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk2-libero-10-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-dur1-libero-spatial-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:12.048473",
+        "start_time": "2026-09-22T18:16:10.380643",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-spatial-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-dur1-libero-object-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:17.006061",
+        "start_time": "2026-09-22T18:15:54.641807",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-object-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-dur1-libero-goal-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:19.506116",
+        "start_time": "2026-09-22T18:15:49.742679",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-goal-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-dur1-libero-10-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-22T17:56:03.476097",
+        "start_time": "2026-09-22T17:56:13.406355",
+        "end_time": "2026-09-22T23:48:01.946388",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur1-libero-10-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-dur2-libero-spatial-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:22.621142",
+        "start_time": "2026-09-22T18:10:32.842552",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-spatial-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-dur2-libero-object-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:26.838199",
+        "start_time": "2026-09-22T18:16:48.462338",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-object-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-dur2-libero-goal-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:32.004906",
+        "start_time": "2026-09-22T18:10:43.338277",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-goal-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-dur2-libero-10-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:36.877329",
+        "start_time": "2026-09-22T18:16:47.498736",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-dur2-libero-10-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-shared-stk-libero-spatial-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:40.574437",
+        "start_time": "2026-09-22T18:15:55.278457",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-spatial-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-shared-stk-libero-object-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:43.958079",
+        "start_time": "2026-09-22T18:16:08.369101",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-object-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-shared-stk-libero-goal-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:46.652305",
+        "start_time": "2026-09-22T18:16:56.066601",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-goal-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-shared-stk-libero-10-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:49.590804",
+        "start_time": "2026-09-22T18:16:20.354536",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-stk-libero-10-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-shared-dur-libero-spatial-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:53.278461",
+        "start_time": "2026-09-22T18:16:20.994556",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-spatial-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-shared-dur-libero-object-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:10:57.836339",
+        "start_time": "2026-09-22T18:16:26.408483",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-object-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-shared-dur-libero-goal-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:11:03.202746",
+        "start_time": "2026-09-22T18:20:02.443684",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-goal-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-ddp2-20260922-shared-dur-libero-10-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T18:11:11.106213",
+        "start_time": "2026-09-22T18:20:02.386530",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-shared-dur-libero-10-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-oat-ddp-20260922-libero-spatial-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:39:06.809089",
+        "start_time": "2026-09-22T17:39:15.598480",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp-20260922-libero-spatial-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-oat-ddp2-20260922-libero-object-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:57:16.621970",
+        "start_time": "2026-09-22T17:57:27.050565",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-object-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-oat-ddp2-20260922-libero-goal-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:57:19.416676",
+        "start_time": "2026-09-22T17:57:31.230620",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-goal-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-oat-ddp2-20260922-libero-10-1": {
+        "status": "RUNNING",
+        "submit_time": "2026-09-22T17:57:22.742362",
+        "start_time": "2026-09-22T17:57:34.698073",
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-10-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      }
+    },
+    "paused_90": {
+      "arc-five-v2-20260921-stk1-libero-90-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T22:12:24.417022",
+        "start_time": "2026-09-21T22:18:03.090676",
+        "end_time": "2026-09-22T17:23:49.299621",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk1-libero-90-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-v2-20260921-stk2-libero-90-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T22:12:42.734341",
+        "start_time": "2026-09-21T22:12:54.794731",
+        "end_time": "2026-09-22T17:23:50.180445",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-stk2-libero-90-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-v2-20260921-dur1-libero-90-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T22:12:59.669073",
+        "start_time": "2026-09-21T22:18:12.919132",
+        "end_time": "2026-09-22T17:23:51.108000",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur1-libero-90-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-v2-20260921-dur2-libero-90-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T22:13:15.530981",
+        "start_time": "2026-09-21T22:13:27.834341",
+        "end_time": "2026-09-22T17:23:51.913338",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-dur2-libero-90-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-v2-20260921-shared-stk-libero-90-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T22:13:30.374536",
+        "start_time": "2026-09-21T22:18:48.450698",
+        "end_time": "2026-09-22T17:23:52.842524",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-stk-libero-90-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-five-v2-20260921-shared-dur-libero-90-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T22:13:44.025571",
+        "start_time": "2026-09-21T22:13:54.234821",
+        "end_time": "2026-09-22T17:23:53.658400",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-v2-20260921-shared-dur-libero-90-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-oat-full-20260921-v6-libero-90-1": {
+        "status": "FAILED_CANCELED",
+        "submit_time": "2026-09-21T20:18:49.836180",
+        "start_time": "2026-09-21T20:18:59.118427",
+        "end_time": "2026-09-22T17:23:54.442712",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-full-20260921-v6-libero-90-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      }
+    },
+    "queued_recoveries": {
+      "arc-cache-resume-20260923-stk1-spatial-1": {
+        "status": "PENDING",
+        "submit_time": "2026-09-23T00:16:24.688240",
+        "start_time": null,
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache-resume-20260923-stk1-spatial-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      },
+      "arc-cache-resume-20260923-dur1-10-1": {
+        "status": "PENDING",
+        "submit_time": "2026-09-23T00:16:28.869872",
+        "start_time": null,
+        "end_time": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache-resume-20260923-dur1-10-1",
+        "pool": "groot-l40s-01",
+        "priority": "NORMAL"
+      }
+    }
+  },
+  "pilot_cancellations": [
+    {
+      "name": "arc-five-cache-20260922-dur1-libero-10-4",
+      "status": "FAILED_CANCELED",
+      "cancelled_by": "groot-idle-job-shutdown",
+      "start_time": "2026-09-23T00:04:26.215232",
+      "end_time": "2026-09-23T00:07:20.332087",
+      "pool": "groot-l40s-03"
+    },
+    {
+      "name": "arc-oat-cache-20260922-libero-spatial-4",
+      "status": "FAILED_CANCELED",
+      "cancelled_by": "groot-idle-job-shutdown",
+      "start_time": null,
+      "end_time": "2026-09-23T00:07:22.686672",
+      "pool": "groot-l40s-03"
+    },
+    {
+      "name": "arc-five-cache-20260922-stk1-libero-spatial-5",
+      "status": "FAILED_CANCELED",
+      "cancelled_by": "groot-idle-job-shutdown",
+      "start_time": "2026-09-23T00:04:16.783413",
+      "end_time": "2026-09-23T00:07:29.742243",
+      "pool": "groot-l40s-03"
+    }
+  ],
+  "queued_recoveries": [
+    {
+      "run_id": "arc-cache-resume-20260923-stk1-spatial",
+      "workflow": "arc-cache-resume-20260923-stk1-spatial-1",
+      "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+      "suite": "libero_spatial",
+      "resume_from_run": "arc-five-ddp2-20260922-stk1-libero-spatial",
+      "predecessor_workflow": "arc-five-ddp2-20260922-stk1-libero-spatial-1",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "gpus": 2,
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache-resume-20260923-stk1-spatial-1"
+    },
+    {
+      "run_id": "arc-cache-resume-20260923-dur1-10",
+      "workflow": "arc-cache-resume-20260923-dur1-10-1",
+      "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+      "suite": "libero_10",
+      "resume_from_run": "arc-five-ddp2-20260922-dur1-libero-10",
+      "predecessor_workflow": "arc-five-ddp2-20260922-dur1-libero-10-1",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "gpus": 2,
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache-resume-20260923-dur1-10-1"
+    }
+  ],
+  "capacity_releases": [
+    {
+      "at": "2026-09-22T23:39:05.361959+00:00",
+      "run": "arc-five-ddp2-20260922-stk1-libero-spatial",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "suite": "libero_spatial",
+      "method": "arc_stk",
+      "receipt": {
+        "sha256": "67834e7aaf21cb4f9824d418998aa662acdb8f66188e711796b842c9850cc5a5",
+        "bytes": 1004453896,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/checkpoints/67834e7aaf21cb4f9824d418998aa662acdb8f66188e711796b842c9850cc5a5/last.ckpt"
+      },
+      "checkpoint_uploaded_at": "2026-09-22T23:28:07+00:00",
+      "budget": {
+        "train_examples": 55861,
+        "microbatch_size": 256,
+        "world_size": 2,
+        "gradient_accumulation": 2,
+        "global_batch_size": 1024,
+        "optimizer_steps_per_epoch": 54,
+        "microbatches_per_epoch": 108,
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "dropped_examples_per_epoch": 565
+      },
+      "latest_ema": "27460.0",
+      "latest_epoch": "508",
+      "verified": true
+    },
+    {
+      "at": "2026-09-22T23:47:58.975477+00:00",
+      "run": "arc-five-ddp2-20260922-dur1-libero-10",
+      "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+      "suite": "libero_10",
+      "method": "arc_dur",
+      "receipt": {
+        "sha256": "fe41334dc439eebe91513a62aa9e312ad097f3e2f351127ea6a8e1ff91f352c7",
+        "bytes": 1004453896,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-10/checkpoints/fe41334dc439eebe91513a62aa9e312ad097f3e2f351127ea6a8e1ff91f352c7/last.ckpt"
+      },
+      "checkpoint_uploaded_at": "2026-09-22T23:23:05+00:00",
+      "budget": {
+        "train_examples": 124087,
+        "microbatch_size": 256,
+        "world_size": 2,
+        "gradient_accumulation": 2,
+        "global_batch_size": 1024,
+        "optimizer_steps_per_epoch": 121,
+        "microbatches_per_epoch": 242,
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "dropped_examples_per_epoch": 183
+      },
+      "latest_ema": "18750.0",
+      "latest_epoch": "154",
+      "verified": true
+    }
+  ],
+  "automatic_controller_running": false
+}

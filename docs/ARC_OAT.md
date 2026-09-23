@@ -191,7 +191,7 @@ the final checkpoint is ready; standalone ARC profiles already begin their
 rollouts immediately after their one training stage.
 
 For simulator-heavy evaluation, `evaluation_workflow(..., workers=5)` reserves
-24 CPU cores and one GPU, and runs the five existing evaluation repetitions
+15 CPU cores and one L40S GPU, and runs the five existing evaluation repetitions
 in separate processes. Each retains its original 50 trials per task and seeds;
 the total remains 2,500 episodes for a ten-task suite. The coordinator reports
 completed episode counts, preserves each repetition's records, and validates

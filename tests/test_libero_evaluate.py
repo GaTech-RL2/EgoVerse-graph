@@ -260,7 +260,7 @@ def test_parallel_workflow_reserves_cpus_and_still_uses_one_gpu(checkpoint):
         "workflow"
     ]
     assert result["resources"]["default"]["gpu"] == 1
-    assert result["resources"]["default"]["cpu"] == 24
+    assert result["resources"]["default"]["cpu"] == 15
     assert result["tasks"][0]["environment"]["EVALUATION_WORKERS"] == "5"
     with pytest.raises(ValueError):
         evaluation_workflow("b" * 40, "invalid-workers", request, workers=8)

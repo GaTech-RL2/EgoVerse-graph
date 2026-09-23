@@ -225,7 +225,10 @@ def evaluation_workflow(commit, run_id, request, *, gpu_type="L40S", workers=1):
     task["environment"]["RUN_KIND"] = "policy_evaluation"
     task["environment"]["EVALUATION_WORKERS"] = str(workers)
     if workers == 5:
-        result["workflow"]["resources"]["default"]["cpu"] = 24
+        # Pool03 permits at most floor(127 / 8) cores per allocated L40S.
+        result["workflow"]["resources"]["default"]["cpu"] = (
+            15 if gpu_type == "L40S" else 10
+        )
     task["files"].append(
         {
             "path": "/tmp/evaluation-request.json",

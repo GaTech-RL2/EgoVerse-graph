@@ -476,8 +476,8 @@ ARC's paired differences from native-window are +3.6, +8.8 and -5.6 percentage
 points, averaging +2.3 points. Three seeds do not establish a robust advantage;
 ARC still trails standard DQC by 58.9 points on average. Native-window failure
 also means codec reconstruction error alone cannot explain the learned-policy
-gap. No replacement M/D/R configuration has passed the declared replay gates,
-at that stage no replacement training run had been launched. The later
+gap. No replacement M/D/R configuration has passed the declared replay gates.
+At that stage no replacement training run had been launched. The later
 bounded-window investigation below remains exploratory.
 
 Timing in this Cube codec is **native-step geometric progress**, not a single
@@ -642,6 +642,13 @@ each 100k updates. Policy dimensions are 41 for native-window, 54 for M8,
 and 174 for M32, versus 126 and 311 in the old native-window/M56 runs.
 M32 is an added diagnostic arm, not the predeclared winner. Recovery and a
 multi-seed performance advantage have not been demonstrated.
+
+OSMO workflow `dqc-cube-bounded-20260923-v1-1` was submitted to `groot-l40-04`
+with source `222dcdd38444b8382a4b01de596e8b07e85cf013`. Each full training task
+depends on all three 100-update GPU smoke tasks and native-time target audits.
+It uses one L40 per arm. Checkpoints, resolved configs, normalizer and data
+hashes, Q/V metrics and periodic rollouts are preserved under
+`s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-bounded-v1/`.
 
 Selection, raw action traces, fixed preview videos, simulator diagnostics and
 GPU parity receipts are under

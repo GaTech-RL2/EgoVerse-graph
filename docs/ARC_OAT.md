@@ -5,13 +5,16 @@ This port targets **EgoVerse-graph**, using `PipelineAlgo`, `ModelWrapper`,
 released implementation of Chaoqi Liu's Ordered Action Tokenization. The
 archived repository now links to Praxis; Praxis is not used in this port.
 
-## L40S launch through OSMO
+## GPU launch through OSMO
 
 The launch setup follows the other EgoVerse agent's working OSMO recipe:
 `groot-l40s-03`, the NVIDIA PyTorch 25.06 image, immutable Git source,
 `egoverse-github` credentials, and R2 checkpoints using the existing
 `grabber-arc-r2-20260916` credential. It does not use the Slurm launcher.
-The container checks that its allocated GPU is actually an L40S.
+L40S is the default. `--gpu-type H100` selects the `dgx-h100` platform;
+submit that workflow to an authorized H100 pool. Before staging data, the
+container verifies every allocated GPU against the requested family and count.
+The selected family is recorded in `runtime.json`.
 
 From a clean, **pushed** source revision, render and inspect a workflow:
 
@@ -24,6 +27,12 @@ python -m scripts.benchmarks.launch_libero_osmo \
 osmo workflow submit /tmp/libero-osmo.yaml --pool groot-l40s-03 --dry-run
 osmo workflow submit /tmp/libero-osmo.yaml --pool groot-l40s-03
 ```
+
+Use `--gpus 2`, `4`, or `8` to distribute the same full global batch of 1,024.
+Eight GPUs use microbatch 128 with one accumulation step. Accelerator selection
+does not change the model, data, precision, optimizer budget or replay settings.
+Checkpoint resumes retain optimizer and EMA state across these layouts; verify
+advancing counters and a newly uploaded checkpoint before retiring a predecessor.
 
 Use a lowercase, unique run ID. The workflow refuses existing R2 output at
 `s3://rldb/experiments/arc-oat-20260919/<run-id>/`. It requests one GPU, 12 CPU

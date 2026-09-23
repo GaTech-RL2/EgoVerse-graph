@@ -17,6 +17,7 @@ from egomimic.benchmarks.libero.cluster import (
     restore_checkpoints,
     stage_dataset,
     training_arguments,
+    validate_gpu_allocation,
 )
 
 
@@ -66,6 +67,8 @@ def test_workflow_pins_source_and_requests_one_gpu():
     spec.loader.exec_module(module)
     workflow = module.workflow("a" * 40, "libero-smoke-test", "libero_10")["workflow"]
     assert workflow["resources"]["default"]["gpu"] == 1
+    assert workflow["resources"]["default"]["platform"] == "ovx-l40s"
+    assert workflow["tasks"][0]["environment"]["BENCHMARK_GPU_TYPE"] == "L40S"
     assert workflow["tasks"][0]["environment"]["SOURCE_COMMIT"] == "a" * 40
     assert json.loads(workflow["tasks"][0]["environment"]["ARC_MODES_JSON"]) == [
         "dur",
@@ -73,6 +76,24 @@ def test_workflow_pins_source_and_requests_one_gpu():
     ]
     with pytest.raises(ValueError, match="immutable"):
         module.workflow("main", "libero-smoke-test", "libero_10")
+    h100 = module.workflow(
+        "a" * 40,
+        "h100-resume",
+        "libero_10",
+        mode="full",
+        resume_from_run="prior-run",
+        gpus=8,
+        gpu_type="H100",
+    )["workflow"]
+    assert h100["resources"]["default"]["platform"] == "dgx-h100"
+    assert h100["resources"]["default"]["gpu"] == 8
+    h100_env = h100["tasks"][0]["environment"]
+    assert h100_env["BENCHMARK_GPU_TYPE"] == "H100"
+    assert h100_env["TRAINING_GPUS"] == "8"
+    assert h100_env["EPOCHS"] == "5001"
+    assert h100_env["RESUME_FROM_RUN"] == "prior-run"
+    with pytest.raises(ValueError, match="GPU type"):
+        module.workflow("a" * 40, "invalid-gpu", "libero_10", gpu_type="A100")
     full = module.workflow(
         "a" * 40, "study-libero-10", "libero_10", mode="full", campaign_id="study"
     )["workflow"]
@@ -137,6 +158,33 @@ def test_workflow_pins_source_and_requests_one_gpu():
             arc_modes=["dur", "stk"],
             arc_replay_run="legacy-run",
         )
+
+
+@pytest.mark.parametrize(
+    "devices,gpu_type,error",
+    [
+        (["NVIDIA L40S"] * 8, "L40S", None),
+        (["NVIDIA H100 80GB HBM3"] * 8, "H100", None),
+        (["NVIDIA L40S"] * 8, "H100", RuntimeError),
+        (["NVIDIA H100 80GB HBM3"] * 7, "H100", RuntimeError),
+        (["NVIDIA H100 80GB HBM3"] * 7 + ["NVIDIA L40S"], "H100", RuntimeError),
+        ([], "H100", RuntimeError),
+        (["NVIDIA A100"] * 8, "A100", ValueError),
+    ],
+)
+def test_gpu_allocation_rejects_missing_mixed_or_wrong_devices(
+    monkeypatch, devices, gpu_type, error
+):
+    import torch
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: bool(devices))
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: len(devices))
+    monkeypatch.setattr(torch.cuda, "get_device_name", devices.__getitem__)
+    if error:
+        with pytest.raises(error):
+            validate_gpu_allocation(8, gpu_type)
+    else:
+        validate_gpu_allocation(8, gpu_type)
 
 
 @pytest.mark.parametrize(

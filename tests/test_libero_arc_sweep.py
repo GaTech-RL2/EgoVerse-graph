@@ -127,18 +127,25 @@ def test_policy_launch_follows_replay_and_stops_on_preflight_failure(
 
 
 @pytest.mark.parametrize(
-    "run_mode,bad_replay", [("smoke", False), ("full", False), ("full", True)]
+    "run_mode,bad_replay,gpu_type",
+    [
+        ("smoke", False, "L40S"),
+        ("full", False, "L40S"),
+        ("full", True, "L40S"),
+        ("full", False, "H100"),
+    ],
 )
 def test_arc_only_never_trains_oat_and_checks_frozen_profile(
-    tmp_path, monkeypatch, run_mode, bad_replay
+    tmp_path, monkeypatch, run_mode, bad_replay, gpu_type
 ):
     import torch
 
     from egomimic.benchmarks.libero import cluster
     from egomimic.benchmarks.libero.rollout import rollout_plan, run_rollouts
-    from tests.test_libero_benchmark import FakeEnvironment, FakePolicy
+    from tests.test_libero_benchmark import FakeEnvironment, FakePolicy, make_replay
 
     monkeypatch.setenv("SOURCE_COMMIT", "a" * 40)
+    monkeypatch.setenv("BENCHMARK_GPU_TYPE", gpu_type)
     for name in (
         "CAMPAIGN_ID",
         "CAMPAIGN_RUNS_JSON",
@@ -151,7 +158,7 @@ def test_arc_only_never_trains_oat_and_checks_frozen_profile(
     monkeypatch.setenv("ARC_REPLAY_RUNS_JSON", '{"stk":"verified-replay"}')
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
-    monkeypatch.setattr(torch.cuda, "get_device_name", lambda _: "L40S")
+    monkeypatch.setattr(torch.cuda, "get_device_name", lambda _: gpu_type)
     monkeypatch.setattr(cluster.subprocess, "check_output", lambda *a, **k: "a" * 40)
 
     def no_op(*a, **k):
@@ -169,7 +176,9 @@ def test_arc_only_never_trains_oat_and_checks_frozen_profile(
         upload = no_op
 
     monkeypatch.setattr(cluster, "ArtifactUploader", Uploader)
-    monkeypatch.setattr(cluster, "stage_dataset", lambda *a: tmp_path / "data.zarr")
+    replay_path = tmp_path / "data.zarr"
+    make_replay(replay_path, suite="libero_10")
+    monkeypatch.setattr(cluster, "stage_dataset", lambda *a: replay_path)
     monkeypatch.setattr(cluster, "configure_simulator", no_op)
     settings = profile_settings("stk_1", "stk")
     monkeypatch.setattr(

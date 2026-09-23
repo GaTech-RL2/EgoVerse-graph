@@ -1,4 +1,4 @@
-"""Run native LIBERO training/evaluation in an isolated OSMO L40S container."""
+"""Run native LIBERO training/evaluation in an isolated OSMO GPU container."""
 
 from __future__ import annotations
 
@@ -24,6 +24,21 @@ REPLAY_REPO = "chaoqi-liu/libero10_N500.zarr"
 REPLAY_REVISION = "685b2b764e525ad33ab36d7315adbcab07494251"
 REPLAY_NAME = "libero10_N500.zarr.zip"
 REPLAY_SHA256 = "176de6aed271a76a5d6afc43af1ef6562614e86e9b08aaae5eb4c337538a0550"
+GPU_PLATFORMS = {"L40S": "ovx-l40s", "H100": "dgx-h100"}
+
+
+def validate_gpu_allocation(gpus, gpu_type):
+    """Reject a different count or accelerator family before staging any data."""
+    import torch
+
+    if gpu_type not in GPU_PLATFORMS:
+        raise ValueError(f"Unsupported GPU type: {gpu_type}")
+    if (
+        not torch.cuda.is_available()
+        or torch.cuda.device_count() != gpus
+        or any(gpu_type not in torch.cuda.get_device_name(i) for i in range(gpus))
+    ):
+        raise RuntimeError(f"This workflow requests exactly {gpus} {gpu_type} GPUs")
 
 
 def digest(path):
@@ -691,6 +706,11 @@ def main():
     parser.add_argument(
         "--gpus", type=int, default=int(os.environ.get("TRAINING_GPUS", "1"))
     )
+    parser.add_argument(
+        "--gpu-type",
+        choices=tuple(GPU_PLATFORMS),
+        default=os.environ.get("BENCHMARK_GPU_TYPE", "L40S"),
+    )
     parser.add_argument("--arc-only", action="store_true")
     parser.add_argument("--arc-profile")
     parser.add_argument(
@@ -766,12 +786,7 @@ def main():
         or os.environ["SOURCE_COMMIT"] != expected_run["source_commit"]
     ):
         raise ValueError("Campaign requires full mode and matching suite run IDs")
-    if (
-        not torch.cuda.is_available()
-        or torch.cuda.device_count() != args.gpus
-        or any("L40S" not in torch.cuda.get_device_name(i) for i in range(args.gpus))
-    ):
-        raise RuntimeError(f"This workflow requests exactly {args.gpus} L40S GPUs")
+    validate_gpu_allocation(args.gpus, args.gpu_type)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if commit != os.environ["SOURCE_COMMIT"]:
         raise RuntimeError("Unexpected source revision")
@@ -786,6 +801,7 @@ def main():
             "torch": torch.__version__,
             "cuda": torch.version.cuda,
             "gpu": torch.cuda.get_device_name(0),
+            "gpu_type": args.gpu_type,
             "suite": args.suite,
             "mode": args.mode,
             "epochs": 1 if args.mode == "smoke" else args.epochs,

@@ -1,4 +1,4 @@
-"""Render a pinned L40S ARC/OAT workflow; submit with the OSMO CLI."""
+"""Render a pinned ARC/OAT GPU workflow; submit with the OSMO CLI."""
 
 import argparse
 import json
@@ -9,6 +9,7 @@ import yaml
 
 from egomimic.benchmarks.libero.catalog import TASKS
 from egomimic.benchmarks.libero.cluster import (
+    GPU_PLATFORMS,
     arc_method_modes,
     campaign_sources,
     training_layout,
@@ -35,8 +36,11 @@ def workflow(
     arc_profile=None,
     oat_reference_run=None,
     gpus=1,
+    gpu_type="L40S",
 ):
     training_layout(gpus, mode)
+    if gpu_type not in GPU_PLATFORMS:
+        raise ValueError(f"Unsupported GPU type: {gpu_type}")
     if replay and gpus != 1:
         raise ValueError("Demonstration replay uses one GPU allocation")
     arc_modes = list(arc_modes or (["joint_dur"] if arc_replay_run else ["dur", "stk"]))
@@ -149,7 +153,7 @@ def workflow(
                     "gpu": gpus,
                     "memory": f"{memory_gib}Gi",
                     "storage": "128Gi" if replay else "240Gi",
-                    "platform": "ovx-l40s",
+                    "platform": GPU_PLATFORMS[gpu_type],
                 }
             },
             "timeout": {
@@ -177,6 +181,7 @@ def workflow(
                         "RUN_MODE": mode,
                         "EPOCHS": str(epochs),
                         "TRAINING_GPUS": str(gpus),
+                        "BENCHMARK_GPU_TYPE": gpu_type,
                         "EVALUATE_FROM_RUN": evaluate_from_run or "",
                         "CAMPAIGN_ID": campaign_id or "",
                         "CAMPAIGN_RUNS_JSON": json.dumps(campaign_runs),
@@ -212,6 +217,7 @@ def main():
     parser.add_argument("--mode", choices=("smoke", "full"), default="smoke")
     parser.add_argument("--epochs", type=int, default=5001)
     parser.add_argument("--gpus", type=int, choices=(1, 2, 4, 8), default=1)
+    parser.add_argument("--gpu-type", choices=tuple(GPU_PLATFORMS), default="L40S")
     parser.add_argument("--evaluate-from-run")
     parser.add_argument("--campaign-id")
     parser.add_argument("--campaign-runs-file", type=Path)
@@ -253,6 +259,7 @@ def main():
                 args.arc_profile,
                 args.oat_reference_run,
                 args.gpus,
+                args.gpu_type,
             ),
             handle,
             sort_keys=False,

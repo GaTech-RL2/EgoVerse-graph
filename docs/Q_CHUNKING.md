@@ -378,3 +378,42 @@ updates. Compare the fixed final checkpoint across all five goal tasks with 50
 rollouts each, identical reset banks and source/config/data receipts. Treat
 three-seed results as development evidence; a robust improvement needs wider
 seed confirmation. Neither passing replay nor submitting training is a win.
+
+### Full-trajectory replay success audit
+
+The M56 pilot **fails to preserve full-trajectory replay success**, despite the
+short-chunk physical-motion checks above. Freeze M/D/R and replay every trace
+from standard DQC seed 100001's final evaluation at 1M updates: five goals with 50
+rollouts each, including failed reference rollouts. Encode/decode consecutive
+spatial chunks using the existing interpolation, preserving the original
+native action budget. The final chunk is capped at the remaining recorded
+actions. Never reset the simulator between chunks or add actions after the
+recorded trace ends.
+
+OSMO workflow `dqc-cube-mdr-replay-sr-20260922-v1-1` completed this audit with
+identical full simulator states and success targets for each replay pair.
+Native replay matched every recorded reset hash and success/failure outcome.
+
+| Cube goal | Native replay | ARC M56 replay |
+| --- | ---: | ---: |
+| 1 | 50/50 (100%) | 48/50 (96%) |
+| 2 | 50/50 (100%) | 44/50 (88%) |
+| 3 | 49/50 (98%) | 26/50 (52%) |
+| 4 | 33/50 (66%) | 5/50 (10%) |
+| 5 | 46/50 (92%) | 44/50 (88%) |
+| All goals | 228/250 (91.2%) | 167/250 (66.8%) |
+
+ARC retained 166/228 native successes (72.8%), losing 62 and gaining 1. This is
+open-loop replay of recorded actions, **not learned ARC policy SR**. The
+reference traces stop at first success or timeout; no extra time is granted
+to reconstructed actions. The earlier local macOS audit had 16 native replay
+disagreements and is retained as a diagnostic; use the OSMO result above.
+
+Evidence, including per-rollout outcomes, configs, source hashes, recorded
+actions and replay states, is stored under
+`s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-mdr-v1/replay-sr-audit/`.
+The archive SHA-256 is
+`edbeffb30d73ec99380b32713f3cf73d1a98634edc1c5131e4ff793a233ed753`.
+The training pilots do not establish replay preservation or a performance win;
+future M/D/R acceptance needs a full-trajectory replay-success check using a
+separate development bank before final evaluation.

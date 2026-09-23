@@ -1,0 +1,1391 @@
+{
+  "at": "2026-09-23T04:06:22.956624+00:00",
+  "deployment_complete": false,
+  "implementation_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+  "original_progress": {
+    "at": "2026-09-23T03:55:11.787523+00:00",
+    "baseline_at": "2026-09-22T22:20:16.669394+00:00",
+    "records": [
+      {
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-spatial",
+        "suite": "libero_spatial",
+        "kind": "arc",
+        "scheduler_status": "FAILED_CANCELED",
+        "method": "arc_stk",
+        "updates": 27460.0,
+        "total": 270054,
+        "percent": 10.168336703029764,
+        "epoch": 508
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-object",
+        "suite": "libero_object",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 38240.0,
+        "total": 325065,
+        "percent": 11.76380108593666,
+        "epoch": 588,
+        "updates_per_second": 0.634754945819664,
+        "remaining_days": 5.229945537501088,
+        "sample_hours": 5.588333333333333
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-goal",
+        "suite": "libero_goal",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 39040.0,
+        "total": 280056,
+        "percent": 13.940069129031336,
+        "epoch": 697,
+        "updates_per_second": 0.6789109551540491,
+        "remaining_days": 4.108840807266211,
+        "sample_hours": 5.5808333333333335
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-stk1-libero-10",
+        "suite": "libero_10",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 23590.0,
+        "total": 605121,
+        "percent": 3.8983938749440195,
+        "epoch": 194,
+        "updates_per_second": 0.40775733465937347,
+        "remaining_days": 16.506589332091234,
+        "sample_hours": 5.586111111111111
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-stk2-libero-spatial",
+        "suite": "libero_spatial",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 38370.0,
+        "total": 270054,
+        "percent": 14.208269457219668,
+        "epoch": 710,
+        "updates_per_second": 0.6632780186375642,
+        "remaining_days": 4.042841316053093,
+        "sample_hours": 5.574166666666667
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-stk2-libero-object",
+        "suite": "libero_object",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 39040.0,
+        "total": 325065,
+        "percent": 12.009905711165459,
+        "epoch": 600,
+        "updates_per_second": 0.6677621750821632,
+        "remaining_days": 4.957565223920788,
+        "sample_hours": 5.578333333333333
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-stk2-libero-goal",
+        "suite": "libero_goal",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 38600.0,
+        "total": 280056,
+        "percent": 13.782957694175451,
+        "epoch": 689,
+        "updates_per_second": 0.671574967664909,
+        "remaining_days": 4.161307023319615,
+        "sample_hours": 5.583888888888889
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-stk2-libero-10",
+        "suite": "libero_10",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 24030.0,
+        "total": 605121,
+        "percent": 3.971106605125256,
+        "epoch": 198,
+        "updates_per_second": 0.38630027877339707,
+        "remaining_days": 17.41026514175258,
+        "sample_hours": 5.58
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-dur1-libero-spatial",
+        "suite": "libero_spatial",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 37670.0,
+        "total": 270054,
+        "percent": 13.949062039443962,
+        "epoch": 697,
+        "updates_per_second": 0.6472314810208447,
+        "remaining_days": 4.1555914823355256,
+        "sample_hours": 5.583611111111111
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-dur1-libero-object",
+        "suite": "libero_object",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 38430.0,
+        "total": 325065,
+        "percent": 11.8222509344285,
+        "epoch": 591,
+        "updates_per_second": 0.6868213965534415,
+        "remaining_days": 4.830272817460318,
+        "sample_hours": 5.577222222222222
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-dur1-libero-goal",
+        "suite": "libero_goal",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 39420.0,
+        "total": 280056,
+        "percent": 14.075756277315966,
+        "epoch": 703,
+        "updates_per_second": 0.6676284761952141,
+        "remaining_days": 4.171689776867031,
+        "sample_hours": 5.583611111111111
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-dur1-libero-10",
+        "suite": "libero_10",
+        "kind": "arc",
+        "scheduler_status": "FAILED_CANCELED",
+        "method": "arc_dur",
+        "updates": 18750.0,
+        "total": 605121,
+        "percent": 3.0985538429504182,
+        "epoch": 154
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-dur2-libero-spatial",
+        "suite": "libero_spatial",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 38720.0,
+        "total": 270054,
+        "percent": 14.337873166107519,
+        "epoch": 717,
+        "updates_per_second": 0.6612927302582475,
+        "remaining_days": 4.048852693127665,
+        "sample_hours": 5.5825
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-dur2-libero-object",
+        "suite": "libero_object",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 37900.0,
+        "total": 325065,
+        "percent": 11.659206620214418,
+        "epoch": 583,
+        "updates_per_second": 0.6659366912203862,
+        "remaining_days": 4.99096839879865,
+        "sample_hours": 5.581111111111111
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-dur2-libero-goal",
+        "suite": "libero_goal",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 38850.0,
+        "total": 280056,
+        "percent": 13.872225554889022,
+        "epoch": 693,
+        "updates_per_second": 0.6821689986555793,
+        "remaining_days": 4.092440607258719,
+        "sample_hours": 5.578611111111111
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-dur2-libero-10",
+        "suite": "libero_10",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 24240.0,
+        "total": 605121,
+        "percent": 4.0058104081663,
+        "epoch": 200,
+        "updates_per_second": 0.39832702648874724,
+        "remaining_days": 16.87849248263889,
+        "sample_hours": 5.578888888888889
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-shared-stk-libero-spatial",
+        "suite": "libero_spatial",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 39240.0,
+        "total": 270054,
+        "percent": 14.530427247883756,
+        "epoch": 726,
+        "updates_per_second": 0.6525959480312609,
+        "remaining_days": 4.09358706775998,
+        "sample_hours": 5.580277777777778
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-shared-stk-libero-object",
+        "suite": "libero_object",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 38190.0,
+        "total": 325065,
+        "percent": 11.748419546859859,
+        "epoch": 587,
+        "updates_per_second": 0.6517412935323383,
+        "remaining_days": 5.094525286259541,
+        "sample_hours": 5.583333333333333
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-shared-stk-libero-goal",
+        "suite": "libero_goal",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 38260.0,
+        "total": 280056,
+        "percent": 13.661553403604993,
+        "epoch": 683,
+        "updates_per_second": 0.6612309833946505,
+        "remaining_days": 4.232355840991367,
+        "sample_hours": 5.5872222222222225
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-shared-stk-libero-10",
+        "suite": "libero_10",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_stk",
+        "updates": 24370.0,
+        "total": 605121,
+        "percent": 4.027293714810757,
+        "epoch": 201,
+        "updates_per_second": 0.404699089053711,
+        "remaining_days": 16.60901957627215,
+        "sample_hours": 5.580277777777778
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-shared-dur-libero-spatial",
+        "suite": "libero_spatial",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 38050.0,
+        "total": 270054,
+        "percent": 14.089774637665059,
+        "epoch": 704,
+        "updates_per_second": 0.6437319526038037,
+        "remaining_days": 4.171350312222509,
+        "sample_hours": 5.579444444444444
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-shared-dur-libero-object",
+        "suite": "libero_object",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 37630.0,
+        "total": 325065,
+        "percent": 11.576146309199698,
+        "epoch": 578,
+        "updates_per_second": 0.6506695872952656,
+        "remaining_days": 5.112877636267676,
+        "sample_hours": 5.579722222222222
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-shared-dur-libero-goal",
+        "suite": "libero_goal",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 37720.0,
+        "total": 280056,
+        "percent": 13.468734824463679,
+        "epoch": 673,
+        "updates_per_second": 0.6517950505402579,
+        "remaining_days": 4.3032158843335315,
+        "sample_hours": 5.578611111111111
+      },
+      {
+        "run_id": "arc-five-ddp2-20260922-shared-dur-libero-10",
+        "suite": "libero_10",
+        "kind": "arc",
+        "scheduler_status": "RUNNING",
+        "method": "arc_dur",
+        "updates": 24910.0,
+        "total": 605121,
+        "percent": 4.116532065487729,
+        "epoch": 205,
+        "updates_per_second": 0.41826420355524574,
+        "remaining_days": 16.055414342206788,
+        "sample_hours": 5.578611111111111
+      },
+      {
+        "run_id": "arc-oat-ddp-20260922-libero-spatial",
+        "suite": "libero_spatial",
+        "kind": "oat",
+        "scheduler_status": "RUNNING",
+        "method": "oat",
+        "updates": 35210.0,
+        "total": 270054,
+        "percent": 13.038133114117917,
+        "epoch": 652,
+        "updates_per_second": 0.6275817448862788,
+        "remaining_days": 4.331072205333803,
+        "sample_hours": 5.581388888888889
+      },
+      {
+        "run_id": "arc-oat-ddp2-20260922-libero-object",
+        "suite": "libero_object",
+        "kind": "oat",
+        "scheduler_status": "RUNNING",
+        "method": "oat",
+        "updates": 30230.0,
+        "total": 325065,
+        "percent": 9.299678525833295,
+        "epoch": 465,
+        "updates_per_second": 0.6297804708453363,
+        "remaining_days": 5.418462920974997,
+        "sample_hours": 5.592777777777778
+      },
+      {
+        "run_id": "arc-oat-ddp2-20260922-libero-goal",
+        "suite": "libero_goal",
+        "kind": "oat",
+        "scheduler_status": "RUNNING",
+        "method": "oat",
+        "updates": 34750.0,
+        "total": 280056,
+        "percent": 12.408232639186448,
+        "epoch": 620,
+        "updates_per_second": 0.6294471811713191,
+        "remaining_days": 4.510608514492754,
+        "sample_hours": 5.5825
+      },
+      {
+        "run_id": "arc-oat-ddp2-20260922-libero-10",
+        "suite": "libero_10",
+        "kind": "oat",
+        "scheduler_status": "RUNNING",
+        "method": "oat",
+        "updates": 4230.0,
+        "total": 605121,
+        "percent": 0.6990337469696143,
+        "epoch": 34
+      }
+    ],
+    "summary": [
+      {
+        "kind": "arc",
+        "suite": "libero_object",
+        "count": 6,
+        "percent": [
+          11.576146309199698,
+          12.009905711165459
+        ],
+        "updates": [
+          37630.0,
+          39040.0
+        ],
+        "epoch": [
+          578,
+          600
+        ],
+        "updates_per_second": [
+          0.634754945819664,
+          0.6868213965534415
+        ],
+        "remaining_days": [
+          4.830272817460318,
+          5.229945537501088
+        ]
+      },
+      {
+        "kind": "arc",
+        "suite": "libero_goal",
+        "count": 6,
+        "percent": [
+          13.468734824463679,
+          14.075756277315966
+        ],
+        "updates": [
+          37720.0,
+          39420.0
+        ],
+        "epoch": [
+          673,
+          703
+        ],
+        "updates_per_second": [
+          0.6517950505402579,
+          0.6821689986555793
+        ],
+        "remaining_days": [
+          4.092440607258719,
+          4.3032158843335315
+        ]
+      },
+      {
+        "kind": "arc",
+        "suite": "libero_10",
+        "count": 5,
+        "percent": [
+          3.8983938749440195,
+          4.116532065487729
+        ],
+        "updates": [
+          23590.0,
+          24910.0
+        ],
+        "epoch": [
+          194,
+          205
+        ],
+        "updates_per_second": [
+          0.38630027877339707,
+          0.41826420355524574
+        ],
+        "remaining_days": [
+          16.055414342206788,
+          17.41026514175258
+        ]
+      },
+      {
+        "kind": "arc",
+        "suite": "libero_spatial",
+        "count": 5,
+        "percent": [
+          13.949062039443962,
+          14.530427247883756
+        ],
+        "updates": [
+          37670.0,
+          39240.0
+        ],
+        "epoch": [
+          697,
+          726
+        ],
+        "updates_per_second": [
+          0.6437319526038037,
+          0.6632780186375642
+        ],
+        "remaining_days": [
+          4.042841316053093,
+          4.171350312222509
+        ]
+      },
+      {
+        "kind": "oat",
+        "suite": "libero_spatial",
+        "count": 1,
+        "percent": [
+          13.038133114117917,
+          13.038133114117917
+        ],
+        "updates": [
+          35210.0,
+          35210.0
+        ],
+        "epoch": [
+          652,
+          652
+        ],
+        "updates_per_second": [
+          0.6275817448862788,
+          0.6275817448862788
+        ],
+        "remaining_days": [
+          4.331072205333803,
+          4.331072205333803
+        ]
+      },
+      {
+        "kind": "oat",
+        "suite": "libero_object",
+        "count": 1,
+        "percent": [
+          9.299678525833295,
+          9.299678525833295
+        ],
+        "updates": [
+          30230.0,
+          30230.0
+        ],
+        "epoch": [
+          465,
+          465
+        ],
+        "updates_per_second": [
+          0.6297804708453363,
+          0.6297804708453363
+        ],
+        "remaining_days": [
+          5.418462920974997,
+          5.418462920974997
+        ]
+      },
+      {
+        "kind": "oat",
+        "suite": "libero_goal",
+        "count": 1,
+        "percent": [
+          12.408232639186448,
+          12.408232639186448
+        ],
+        "updates": [
+          34750.0,
+          34750.0
+        ],
+        "epoch": [
+          620,
+          620
+        ],
+        "updates_per_second": [
+          0.6294471811713191,
+          0.6294471811713191
+        ],
+        "remaining_days": [
+          4.510608514492754,
+          4.510608514492754
+        ]
+      },
+      {
+        "kind": "oat",
+        "suite": "libero_10",
+        "count": 1,
+        "percent": [
+          0.6990337469696143,
+          0.6990337469696143
+        ],
+        "updates": [
+          4230.0,
+          4230.0
+        ],
+        "epoch": [
+          34,
+          34
+        ]
+      }
+    ]
+  },
+  "cache_pilots": {
+    "at": "2026-09-23T04:06:22.956624+00:00",
+    "runs": [
+      {
+        "run_id": "arc-cache-resume-20260923-stk1-spatial",
+        "predecessor": "arc-five-ddp2-20260922-stk1-libero-spatial-1",
+        "ready": true,
+        "runtime": {
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_spatial",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-ddp2-20260922-stk1-libero-spatial",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk1-libero-spatial-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_1",
+          "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-cache-resume-20260923-stk1-spatial/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "cache": {
+          "identity": {
+            "version": 1,
+            "source": "/workspace/libero/data/libero_spatial.zarr",
+            "signature": "478568227316a08100f33658995abb36f4699405a829e26a6482de8eb49dc84a",
+            "keys": [
+              "action",
+              "agentview_rgb",
+              "robot0_eef_pos",
+              "robot0_eef_quat",
+              "robot0_eye_in_hand_rgb",
+              "robot0_gripper_qpos",
+              "task_uid"
+            ]
+          },
+          "arrays": {
+            "action": {
+              "file": "bd938c688f49b77c7fc537c6b9222e2c97ebddd63076b87f2feaec66fb9c05d0.npy",
+              "shape": [
+                62250,
+                7
+              ],
+              "dtype": "<f4",
+              "file_bytes": 1743128,
+              "decoded_sha256": "ab507ec4ab1b7791e5233dec9dcdeef073fb4897bbf8ed08d9cc6826b06e7fb9"
+            },
+            "agentview_rgb": {
+              "file": "0b330617fe6902ce9ca1070a88a44abea56a68ec40d19008418a73cc56a0fed9.npy",
+              "shape": [
+                62250,
+                128,
+                128,
+                3
+              ],
+              "dtype": "|u1",
+              "file_bytes": 3059712128,
+              "decoded_sha256": "6ca1b592bd4cd30fc761ba425202fa8f8217dc76a5f3e5aacdb42a7b2ff0214a"
+            },
+            "robot0_eef_pos": {
+              "file": "9435cf32c2be276399b86d64485c6515cd1fb3d516c904a37c9754864222c143.npy",
+              "shape": [
+                62250,
+                3
+              ],
+              "dtype": "<f4",
+              "file_bytes": 747128,
+              "decoded_sha256": "76a0163a44c21e27146d41d36222e7e4f1adaae0aa5b1f0ae97e46d64e8b61bc"
+            },
+            "robot0_eef_quat": {
+              "file": "4d258cbc9770c997bbd0b92a1ef40b23289e7e0fa5eb93e3adbb531e0ea6b944.npy",
+              "shape": [
+                62250,
+                4
+              ],
+              "dtype": "<f4",
+              "file_bytes": 996128,
+              "decoded_sha256": "9d47e1a03aa02cad9fbd0eb56cc1ffcedcb4d32cf3c20d1a1cbc9fdbb69aa0e6"
+            },
+            "robot0_eye_in_hand_rgb": {
+              "file": "e2d0664b1cd12f3dc67801c2036b7a2da45c5aa8c59d425edff3ca9c9196f39f.npy",
+              "shape": [
+                62250,
+                128,
+                128,
+                3
+              ],
+              "dtype": "|u1",
+              "file_bytes": 3059712128,
+              "decoded_sha256": "1e8e6a9a48d8ee1bc7087b1061ee0df80abf0aa619163915dafab439bdfd7b9c"
+            },
+            "robot0_gripper_qpos": {
+              "file": "921ffd16ccc7cd514a607069131119ab4d214ecf26e972e043417f5522876ee5.npy",
+              "shape": [
+                62250,
+                2
+              ],
+              "dtype": "<f4",
+              "file_bytes": 498128,
+              "decoded_sha256": "8819a57aed78bea0195bd07d31710454401ad4af6258bf3dacdec9fb8d6d23e3"
+            },
+            "task_uid": {
+              "file": "3286c262c88a1f5f1541da8ff56adab60367ebaf74431279f23645b10c1f4721.npy",
+              "shape": [
+                62250,
+                1
+              ],
+              "dtype": "<i8",
+              "file_bytes": 498128,
+              "decoded_sha256": "a004a41b935e315683f22784f449128b573043f4aea5ff572d880b5f498d25fe"
+            }
+          }
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-cache-resume-20260923-stk1-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T04:06:13+00:00",
+          "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-22T23:38:44+00:00"
+        },
+        "method": "arc_stk",
+        "metrics": {
+          "epoch": "579",
+          "log/ema_decay": "0.9995752573013306",
+          "log/ema_num_updates": "31320.0",
+          "step": "31319",
+          "Train/loss": "0.004695876967161894",
+          "Train/source_0_loss": "0.004695876967161894",
+          "Train/source_0_loss_diffusion_noise": "0.004695876967161894"
+        },
+        "predecessor_metrics": {
+          "epoch": "508",
+          "log/ema_decay": "0.9995312094688416",
+          "log/ema_num_updates": "27460.0",
+          "step": "27459",
+          "Train/loss": "0.005264187231659889",
+          "Train/source_0_loss": "0.005264187231659889",
+          "Train/source_0_loss_diffusion_noise": "0.005264187231659889"
+        },
+        "ema_updates": 31320.0,
+        "predecessor_ema_updates": 27460.0,
+        "budget": {
+          "train_examples": 55861,
+          "microbatch_size": 256,
+          "world_size": 2,
+          "gradient_accumulation": 2,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 108,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "restored": {
+          "sha256": "67834e7aaf21cb4f9824d418998aa662acdb8f66188e711796b842c9850cc5a5",
+          "bytes": 1004453896,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/checkpoints/67834e7aaf21cb4f9824d418998aa662acdb8f66188e711796b842c9850cc5a5/last.ckpt",
+          "epochs_completed": 499,
+          "global_step": 27000,
+          "complete": false,
+          "benchmark": {
+            "arc_mode": "stk",
+            "arc_action_dim": 12,
+            "arc_waypoints": 36,
+            "arc_max_translation": 1.6,
+            "arc_max_rotation_degrees": 192,
+            "arc_velocity_norm_bound": 1.7320508075688772
+          }
+        },
+        "current": {
+          "sha256": "f046c53162139172ebbc7877b65e264806f136874026d91a8e952e3c776cf13b",
+          "bytes": 1004453896,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-resume-20260923-stk1-spatial/checkpoints/f046c53162139172ebbc7877b65e264806f136874026d91a8e952e3c776cf13b/last.ckpt"
+        },
+        "recovered": {
+          "source_run": "arc-five-ddp2-20260922-stk1-libero-spatial",
+          "runtime": {
+            "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+            "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+            "torch": "2.7.1+cu126",
+            "cuda": "12.6",
+            "gpu": "NVIDIA L40S",
+            "suite": "libero_spatial",
+            "mode": "full",
+            "epochs": 5001,
+            "global_batch_size": 1024,
+            "training_layout": {
+              "world_size": 2,
+              "microbatch_size": 256,
+              "gradient_accumulation": 2,
+              "global_batch_size": 1024
+            },
+            "evaluate_from_run": null,
+            "resume_from_run": "arc-five-v2-20260921-stk1-libero-spatial",
+            "arc_replay_run": null,
+            "arc_modes": [
+              "stk"
+            ],
+            "arc_replay_runs": {
+              "stk": "arc-five-v2-20260921-stk1-libero-spatial-replay"
+            },
+            "arc_only": true,
+            "arc_profile": "stk_1",
+            "oat_reference_run": "arc-oat-ddp-20260922-libero-spatial",
+            "campaign_id": null,
+            "campaign_runs": null,
+            "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/"
+          },
+          "checkpoints": {
+            "arc_stk": {
+              "sha256": "67834e7aaf21cb4f9824d418998aa662acdb8f66188e711796b842c9850cc5a5",
+              "bytes": 1004453896,
+              "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/checkpoints/67834e7aaf21cb4f9824d418998aa662acdb8f66188e711796b842c9850cc5a5/last.ckpt",
+              "epochs_completed": 499,
+              "global_step": 27000,
+              "complete": false,
+              "benchmark": {
+                "arc_mode": "stk",
+                "arc_action_dim": 12,
+                "arc_waypoints": 36,
+                "arc_max_translation": 1.6,
+                "arc_max_rotation_degrees": 192,
+                "arc_velocity_norm_bound": 1.7320508075688772
+              }
+            }
+          }
+        },
+        "remote_checkpoint_verified": true,
+        "checkpoint_uploaded_at": "2026-09-23T04:04:41+00:00"
+      },
+      {
+        "run_id": "arc-cache-resume-20260923-dur1-10",
+        "predecessor": "arc-five-ddp2-20260922-dur1-libero-10-1",
+        "ready": true,
+        "runtime": {
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_10",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-five-ddp2-20260922-dur1-libero-10",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-five-v2-20260921-dur1-libero-10-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "dur_1",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-cache-resume-20260923-dur1-10/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_dur"
+        },
+        "cache": {
+          "identity": {
+            "version": 1,
+            "source": "/workspace/libero/data/released/libero10_N500.zarr",
+            "signature": "124bfe65b430516ba6cd8e2b4c85e770f8792af8f30df2ff0ec2b4538fa42237",
+            "keys": [
+              "action",
+              "agentview_rgb",
+              "robot0_eef_pos",
+              "robot0_eef_quat",
+              "robot0_eye_in_hand_rgb",
+              "robot0_gripper_qpos",
+              "task_uid"
+            ]
+          },
+          "arrays": {
+            "action": {
+              "file": "bd938c688f49b77c7fc537c6b9222e2c97ebddd63076b87f2feaec66fb9c05d0.npy",
+              "shape": [
+                138090,
+                7
+              ],
+              "dtype": "<f4",
+              "file_bytes": 3866648,
+              "decoded_sha256": "7f582c0d68b9df0cd4dbd1b0cfdb7d2ff0a7665d8fbcf6dca16e12a9b7a6ac06"
+            },
+            "agentview_rgb": {
+              "file": "0b330617fe6902ce9ca1070a88a44abea56a68ec40d19008418a73cc56a0fed9.npy",
+              "shape": [
+                138090,
+                128,
+                128,
+                3
+              ],
+              "dtype": "|u1",
+              "file_bytes": 6787399808,
+              "decoded_sha256": "0cfede3c3e4a90305b365ee45de32a712e3eb41367424eb90dc3fb7a595f2151"
+            },
+            "robot0_eef_pos": {
+              "file": "9435cf32c2be276399b86d64485c6515cd1fb3d516c904a37c9754864222c143.npy",
+              "shape": [
+                138090,
+                3
+              ],
+              "dtype": "<f4",
+              "file_bytes": 1657208,
+              "decoded_sha256": "989ba5d4bba2df6b56cb3d1c288b0f3daae8a121ebb557dd48d49fadcefea654"
+            },
+            "robot0_eef_quat": {
+              "file": "4d258cbc9770c997bbd0b92a1ef40b23289e7e0fa5eb93e3adbb531e0ea6b944.npy",
+              "shape": [
+                138090,
+                4
+              ],
+              "dtype": "<f4",
+              "file_bytes": 2209568,
+              "decoded_sha256": "0dc637bf1d40fa48d8d73f63794bd1d9ba3ea1eb841efdbace8c20c28440b602"
+            },
+            "robot0_eye_in_hand_rgb": {
+              "file": "e2d0664b1cd12f3dc67801c2036b7a2da45c5aa8c59d425edff3ca9c9196f39f.npy",
+              "shape": [
+                138090,
+                128,
+                128,
+                3
+              ],
+              "dtype": "|u1",
+              "file_bytes": 6787399808,
+              "decoded_sha256": "a1f8e215f035d3d67ed900202614eb9255c72707c21677a301f6e13c5ea869b8"
+            },
+            "robot0_gripper_qpos": {
+              "file": "921ffd16ccc7cd514a607069131119ab4d214ecf26e972e043417f5522876ee5.npy",
+              "shape": [
+                138090,
+                2
+              ],
+              "dtype": "<f4",
+              "file_bytes": 1104848,
+              "decoded_sha256": "d80e627e1e5479217e09f90a46f8ecb9459ca0274f390786bca2ef78c7cefb85"
+            },
+            "task_uid": {
+              "file": "3286c262c88a1f5f1541da8ff56adab60367ebaf74431279f23645b10c1f4721.npy",
+              "shape": [
+                138090,
+                1
+              ],
+              "dtype": "<i8",
+              "file_bytes": 1104848,
+              "decoded_sha256": "39c0e9cecae434555e867466b578cd4caf35b27c2bfd859521ed25988333fea6"
+            }
+          }
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-cache-resume-20260923-dur1-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T04:05:52+00:00",
+          "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-22T23:47:47+00:00"
+        },
+        "method": "arc_dur",
+        "metrics": {
+          "epoch": "162",
+          "log/ema_decay": "0.9993983507156372",
+          "log/ema_num_updates": "19690.0",
+          "step": "19689",
+          "Train/loss": "0.010198644362390041",
+          "Train/source_0_loss": "0.010198644362390041",
+          "Train/source_0_loss_diffusion_noise": "0.010198644362390041"
+        },
+        "predecessor_metrics": {
+          "epoch": "154",
+          "log/ema_decay": "0.9993758797645569",
+          "log/ema_num_updates": "18750.0",
+          "step": "18754",
+          "Train/loss": "0.010601009242236614",
+          "Train/source_0_loss": "0.010601009242236614",
+          "Train/source_0_loss_diffusion_noise": "0.010601009242236614"
+        },
+        "ema_updates": 19690.0,
+        "predecessor_ema_updates": 18750.0,
+        "budget": {
+          "train_examples": 124087,
+          "microbatch_size": 256,
+          "world_size": 2,
+          "gradient_accumulation": 2,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 242,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "restored": {
+          "sha256": "fe41334dc439eebe91513a62aa9e312ad097f3e2f351127ea6a8e1ff91f352c7",
+          "bytes": 1004453896,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-10/checkpoints/fe41334dc439eebe91513a62aa9e312ad097f3e2f351127ea6a8e1ff91f352c7/last.ckpt",
+          "epochs_completed": 149,
+          "global_step": 18150,
+          "complete": false,
+          "benchmark": {
+            "arc_mode": "dur",
+            "arc_action_dim": 12,
+            "arc_waypoints": 24,
+            "arc_max_translation": 1.6,
+            "arc_max_rotation_degrees": 192,
+            "arc_velocity_norm_bound": 1.7320508075688772
+          }
+        },
+        "current": {
+          "sha256": "0fb67ee9a4914df82db1d8d8015195c60586e1add110cf4168e0bfab2315ceaf",
+          "bytes": 1004453896,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-resume-20260923-dur1-10/checkpoints/0fb67ee9a4914df82db1d8d8015195c60586e1add110cf4168e0bfab2315ceaf/last.ckpt"
+        },
+        "recovered": {
+          "source_run": "arc-five-ddp2-20260922-dur1-libero-10",
+          "runtime": {
+            "source_commit": "18f50419d49b9dc07b9e6dc5d76dd3ce77063c00",
+            "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+            "torch": "2.7.1+cu126",
+            "cuda": "12.6",
+            "gpu": "NVIDIA L40S",
+            "suite": "libero_10",
+            "mode": "full",
+            "epochs": 5001,
+            "global_batch_size": 1024,
+            "training_layout": {
+              "world_size": 2,
+              "microbatch_size": 256,
+              "gradient_accumulation": 2,
+              "global_batch_size": 1024
+            },
+            "evaluate_from_run": null,
+            "resume_from_run": "arc-five-v2-20260921-dur1-libero-10",
+            "arc_replay_run": null,
+            "arc_modes": [
+              "dur"
+            ],
+            "arc_replay_runs": {
+              "dur": "arc-five-v2-20260921-dur1-libero-10-replay"
+            },
+            "arc_only": true,
+            "arc_profile": "dur_1",
+            "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+            "campaign_id": null,
+            "campaign_runs": null,
+            "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-10/"
+          },
+          "checkpoints": {
+            "arc_dur": {
+              "sha256": "fe41334dc439eebe91513a62aa9e312ad097f3e2f351127ea6a8e1ff91f352c7",
+              "bytes": 1004453896,
+              "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-10/checkpoints/fe41334dc439eebe91513a62aa9e312ad097f3e2f351127ea6a8e1ff91f352c7/last.ckpt",
+              "epochs_completed": 149,
+              "global_step": 18150,
+              "complete": false,
+              "benchmark": {
+                "arc_mode": "dur",
+                "arc_action_dim": 12,
+                "arc_waypoints": 24,
+                "arc_max_translation": 1.6,
+                "arc_max_rotation_degrees": 192,
+                "arc_velocity_norm_bound": 1.7320508075688772
+              }
+            }
+          }
+        },
+        "remote_checkpoint_verified": true,
+        "checkpoint_uploaded_at": "2026-09-23T04:05:20+00:00"
+      },
+      {
+        "run_id": "arc-cache-oat-20260923-spatial",
+        "predecessor": "arc-oat-ddp-20260922-libero-spatial-1",
+        "ready": false,
+        "runtime": {
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA L40S",
+          "suite": "libero_spatial",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 2,
+            "microbatch_size": 256,
+            "gradient_accumulation": 2,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-oat-ddp-20260922-libero-spatial",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "dur",
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "dur": "arc-replay-dur-20260921-libero-spatial",
+            "stk": "arc-replay-stk-20260921-libero-spatial"
+          },
+          "arc_only": false,
+          "arc_profile": null,
+          "oat_reference_run": null,
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-cache-oat-20260923-spatial/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "oat"
+        },
+        "cache": {
+          "identity": {
+            "version": 1,
+            "source": "/workspace/libero/data/libero_spatial.zarr",
+            "signature": "b84b14ae1936b959aea638ed1ae9cfc49247de50b0ba59ba102d38d5b1fe7f3c",
+            "keys": [
+              "action",
+              "agentview_rgb",
+              "robot0_eef_pos",
+              "robot0_eef_quat",
+              "robot0_eye_in_hand_rgb",
+              "robot0_gripper_qpos",
+              "task_uid"
+            ]
+          },
+          "arrays": {
+            "action": {
+              "file": "bd938c688f49b77c7fc537c6b9222e2c97ebddd63076b87f2feaec66fb9c05d0.npy",
+              "shape": [
+                62250,
+                7
+              ],
+              "dtype": "<f4",
+              "file_bytes": 1743128,
+              "decoded_sha256": "ab507ec4ab1b7791e5233dec9dcdeef073fb4897bbf8ed08d9cc6826b06e7fb9"
+            },
+            "agentview_rgb": {
+              "file": "0b330617fe6902ce9ca1070a88a44abea56a68ec40d19008418a73cc56a0fed9.npy",
+              "shape": [
+                62250,
+                128,
+                128,
+                3
+              ],
+              "dtype": "|u1",
+              "file_bytes": 3059712128,
+              "decoded_sha256": "6ca1b592bd4cd30fc761ba425202fa8f8217dc76a5f3e5aacdb42a7b2ff0214a"
+            },
+            "robot0_eef_pos": {
+              "file": "9435cf32c2be276399b86d64485c6515cd1fb3d516c904a37c9754864222c143.npy",
+              "shape": [
+                62250,
+                3
+              ],
+              "dtype": "<f4",
+              "file_bytes": 747128,
+              "decoded_sha256": "76a0163a44c21e27146d41d36222e7e4f1adaae0aa5b1f0ae97e46d64e8b61bc"
+            },
+            "robot0_eef_quat": {
+              "file": "4d258cbc9770c997bbd0b92a1ef40b23289e7e0fa5eb93e3adbb531e0ea6b944.npy",
+              "shape": [
+                62250,
+                4
+              ],
+              "dtype": "<f4",
+              "file_bytes": 996128,
+              "decoded_sha256": "9d47e1a03aa02cad9fbd0eb56cc1ffcedcb4d32cf3c20d1a1cbc9fdbb69aa0e6"
+            },
+            "robot0_eye_in_hand_rgb": {
+              "file": "e2d0664b1cd12f3dc67801c2036b7a2da45c5aa8c59d425edff3ca9c9196f39f.npy",
+              "shape": [
+                62250,
+                128,
+                128,
+                3
+              ],
+              "dtype": "|u1",
+              "file_bytes": 3059712128,
+              "decoded_sha256": "1e8e6a9a48d8ee1bc7087b1061ee0df80abf0aa619163915dafab439bdfd7b9c"
+            },
+            "robot0_gripper_qpos": {
+              "file": "921ffd16ccc7cd514a607069131119ab4d214ecf26e972e043417f5522876ee5.npy",
+              "shape": [
+                62250,
+                2
+              ],
+              "dtype": "<f4",
+              "file_bytes": 498128,
+              "decoded_sha256": "8819a57aed78bea0195bd07d31710454401ad4af6258bf3dacdec9fb8d6d23e3"
+            },
+            "task_uid": {
+              "file": "3286c262c88a1f5f1541da8ff56adab60367ebaf74431279f23645b10c1f4721.npy",
+              "shape": [
+                62250,
+                1
+              ],
+              "dtype": "<i8",
+              "file_bytes": 498128,
+              "decoded_sha256": "a004a41b935e315683f22784f449128b573043f4aea5ff572d880b5f498d25fe"
+            }
+          }
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-oat-ddp-20260922-libero-spatial/training/oat/metrics/version_0/metrics.csv": "2026-09-23T04:06:15+00:00"
+        },
+        "method": "oat",
+        "metrics": {},
+        "predecessor_metrics": {
+          "epoch": "659",
+          "log/ema_decay": "0.999614417552948",
+          "log/ema_num_updates": "35630.0",
+          "step": "35629",
+          "Train/loss": "1.8985694646835327",
+          "Train/source_0_loss": "1.8985694646835327",
+          "Train/source_0_loss_oat_token_ce": "1.8985694646835327"
+        },
+        "ema_updates": 0.0,
+        "predecessor_ema_updates": 35630.0,
+        "budget": null
+      }
+    ]
+  },
+  "measured_pilot_rates": {
+    "at": "2026-09-23T04:06:22.956624+00:00",
+    "runs": {
+      "arc-cache-resume-20260923-stk1-spatial": {
+        "seconds": 635.0,
+        "start_updates": 28620.0,
+        "end_updates": 31320.0,
+        "updates_per_second": 4.251968503937008,
+        "old_updates_per_second": 0.6478919094904769,
+        "speedup": 6.562774502433428
+      },
+      "arc-cache-resume-20260923-dur1-10": {
+        "seconds": 388.0,
+        "start_updates": 18300.0,
+        "end_updates": 19690.0,
+        "updates_per_second": 3.582474226804124,
+        "old_updates_per_second": 0.38824678495848935,
+        "speedup": 9.22731202316886
+      }
+    }
+  },
+  "controller": {
+    "at": "2026-09-23T04:06:24.041997+00:00",
+    "pilot_gate_passed": false,
+    "apply": true,
+    "submitted": 3,
+    "ready": 2,
+    "retired": 0,
+    "pilot_rates": {
+      "arc-cache-resume-20260923-dur1-10": {
+        "seconds": 388.0,
+        "start_updates": 18300.0,
+        "end_updates": 19690.0,
+        "updates_per_second": 3.582474226804124,
+        "old_updates_per_second": 0.38824678495848935,
+        "speedup": 9.22731202316886
+      },
+      "arc-cache-resume-20260923-stk1-spatial": {
+        "seconds": 635.0,
+        "start_updates": 28620.0,
+        "end_updates": 31320.0,
+        "updates_per_second": 4.251968503937008,
+        "old_updates_per_second": 0.6478919094904769,
+        "speedup": 6.562774502433428
+      }
+    }
+  },
+  "controller_launch": {
+    "pid": 56782,
+    "started": "2026-09-23T04:06:19.740376+00:00",
+    "command": [
+      "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/emimic/bin/python",
+      "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-cache-rollout-20260923/controller.py",
+      "--apply",
+      "--watch",
+      "--hours",
+      "4"
+    ],
+    "log": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-cache-rollout-20260923/controller.log"
+  },
+  "parity": [
+    {
+      "at": "2026-09-23T03:58:30Z",
+      "run_id": "arc-cache-resume-20260923-stk1-spatial",
+      "suite": "libero_spatial",
+      "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+      "episodes": 500,
+      "normalized_samples": 1128,
+      "normalized_batches": 35,
+      "batch_size": 32,
+      "seconds": 22.63541660597548,
+      "cache_hashes": {
+        "action": "ab507ec4ab1b7791e5233dec9dcdeef073fb4897bbf8ed08d9cc6826b06e7fb9",
+        "agentview_rgb": "6ca1b592bd4cd30fc761ba425202fa8f8217dc76a5f3e5aacdb42a7b2ff0214a",
+        "robot0_eef_pos": "76a0163a44c21e27146d41d36222e7e4f1adaae0aa5b1f0ae97e46d64e8b61bc",
+        "robot0_eef_quat": "9d47e1a03aa02cad9fbd0eb56cc1ffcedcb4d32cf3c20d1a1cbc9fdbb69aa0e6",
+        "robot0_eye_in_hand_rgb": "1e8e6a9a48d8ee1bc7087b1061ee0df80abf0aa619163915dafab439bdfd7b9c",
+        "robot0_gripper_qpos": "8819a57aed78bea0195bd07d31710454401ad4af6258bf3dacdec9fb8d6d23e3",
+        "task_uid": "a004a41b935e315683f22784f449128b573043f4aea5ff572d880b5f498d25fe"
+      },
+      "checkpoint_global_step": 29160,
+      "benchmark_data_context": {
+        "dataset_sha256": "feed1ee7cc45e267e448006e9393da5ad183106872ac923320fcac0dca9e9b5c",
+        "suite": "libero_spatial",
+        "split_seed": 42,
+        "val_ratio": 0.1,
+        "action_scale": [
+          1.0666667222976685,
+          1.0666667222976685,
+          1.0666667222976685,
+          5.185184955596924,
+          2.8411972522735596,
+          2.721088409423828,
+          1.0
+        ],
+        "action_offset": [
+          0.0,
+          0.0,
+          0.0,
+          -0.022222280502319336,
+          0.044139981269836426,
+          -0.020408153533935547,
+          0.0
+        ]
+      },
+      "passed": true
+    },
+    {
+      "at": "2026-09-23T04:00:46Z",
+      "run_id": "arc-cache-resume-20260923-dur1-10",
+      "suite": "libero_10",
+      "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+      "episodes": 500,
+      "normalized_samples": 1128,
+      "normalized_batches": 35,
+      "batch_size": 32,
+      "seconds": 26.76709987700451,
+      "cache_hashes": {
+        "action": "7f582c0d68b9df0cd4dbd1b0cfdb7d2ff0a7665d8fbcf6dca16e12a9b7a6ac06",
+        "agentview_rgb": "0cfede3c3e4a90305b365ee45de32a712e3eb41367424eb90dc3fb7a595f2151",
+        "robot0_eef_pos": "989ba5d4bba2df6b56cb3d1c288b0f3daae8a121ebb557dd48d49fadcefea654",
+        "robot0_eef_quat": "0dc637bf1d40fa48d8d73f63794bd1d9ba3ea1eb841efdbace8c20c28440b602",
+        "robot0_eye_in_hand_rgb": "a1f8e215f035d3d67ed900202614eb9255c72707c21677a301f6e13c5ea869b8",
+        "robot0_gripper_qpos": "d80e627e1e5479217e09f90a46f8ecb9459ca0274f390786bca2ef78c7cefb85",
+        "task_uid": "39c0e9cecae434555e867466b578cd4caf35b27c2bfd859521ed25988333fea6"
+      },
+      "checkpoint_global_step": 18150,
+      "benchmark_data_context": {
+        "dataset_sha256": "3ed2b86cf97eaa27045af81e6d6c4834c8659d15eda69a2394d835e602014e1d",
+        "suite": "libero_10",
+        "split_seed": 42,
+        "val_ratio": 0.1,
+        "action_scale": [
+          1.0666667222976685,
+          1.0666667222976685,
+          1.0666667222976685,
+          3.5375869274139404,
+          2.962963104248047,
+          2.6936025619506836,
+          1.0
+        ],
+        "action_offset": [
+          0.0,
+          0.0,
+          0.0,
+          -0.16361337900161743,
+          -0.0952380895614624,
+          -0.010101020336151123,
+          0.0
+        ]
+      },
+      "passed": true
+    }
+  ]
+}

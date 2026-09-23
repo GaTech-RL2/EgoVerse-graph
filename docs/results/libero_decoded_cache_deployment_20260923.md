@@ -1,5 +1,10 @@
 # Decoded LIBERO replay cache: implementation verified, rollout awaiting capacity
 
+Later update: the queued ARC resumes started and now have verified optimizer
+advances and new checkpoints. See the [04:06 UTC rollout status](libero_cache_rollout_status_20260923.md)
+for measured pilot speedups and the active bounded rollout. The state below
+records the earlier quota-blocked attempts.
+
 Implementation source: `d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9`.
 
 The loader now decodes replay arrays once into immutable NumPy files and shares

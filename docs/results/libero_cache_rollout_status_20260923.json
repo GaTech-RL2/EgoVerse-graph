@@ -1,8 +1,9 @@
 {
-  "snapshot_at": "2026-09-23T17:21:02.971507+00:00",
-  "scheduler_snapshot_at": "2026-09-23T17:21:32.474788+00:00",
+  "snapshot_at": "2026-09-23T20:08:49.129928+00:00",
+  "scheduler_snapshot_at": "2026-09-23T20:09:06.307095+00:00",
   "loader_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
   "training_source_commits": [
+    "c609eb366b28a7aa1acb398b81273b4822c62743",
     "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9"
   ],
   "arc_migration_complete": true,
@@ -11,6 +12,8 @@
   "running_arc_jobs": 24,
   "verified_arc_jobs": 24,
   "migrated_arc_jobs": 24,
+  "arc_training_finished": 1,
+  "completed_arc_workflows": 0,
   "epochs": 5001,
   "global_batch_size": 1024,
   "deferred_suites": [
@@ -60,41 +63,45 @@
       "suite": "libero_spatial",
       "title": "Spatial",
       "runs": 6,
-      "measured_runs": 6,
-      "minimum_progress_percent": 78.63612462692646,
-      "maximum_progress_percent": 85.58288342331534,
-      "earliest_finish": "2026-09-23T19:55:54.772697+00:00",
-      "latest_finish": "2026-09-23T21:17:19.549508+00:00"
+      "measured_runs": 5,
+      "training_finished": 1,
+      "minimum_progress_percent": 93.78124375124975,
+      "maximum_progress_percent": 100,
+      "earliest_finish": "2026-09-23T20:56:18.610231+00:00",
+      "latest_finish": "2026-09-23T21:16:53.473328+00:00"
     },
     {
       "suite": "libero_object",
       "title": "Object",
       "runs": 6,
       "measured_runs": 6,
-      "minimum_progress_percent": 68.5862827434513,
-      "maximum_progress_percent": 69.98600279944012,
-      "earliest_finish": "2026-09-23T23:42:26.505956+00:00",
-      "latest_finish": "2026-09-24T00:03:05.036081+00:00"
+      "training_finished": 0,
+      "minimum_progress_percent": 81.57137803208589,
+      "maximum_progress_percent": 83.16798178825773,
+      "earliest_finish": "2026-09-23T23:40:21.525148+00:00",
+      "latest_finish": "2026-09-24T00:01:48.320966+00:00"
     },
     {
       "suite": "libero_goal",
       "title": "Goal",
       "runs": 6,
       "measured_runs": 6,
-      "minimum_progress_percent": 77.72374096609249,
-      "maximum_progress_percent": 80.56960036564115,
-      "earliest_finish": "2026-09-23T20:53:09.262578+00:00",
-      "latest_finish": "2026-09-23T21:30:34.621824+00:00"
+      "training_finished": 0,
+      "minimum_progress_percent": 92.78144371125775,
+      "maximum_progress_percent": 95.92367240837547,
+      "earliest_finish": "2026-09-23T20:53:39.455072+00:00",
+      "latest_finish": "2026-09-23T21:29:33.317735+00:00"
     },
     {
       "suite": "libero_10",
       "title": "LIBERO-10",
       "runs": 6,
       "measured_runs": 6,
-      "minimum_progress_percent": 10.84080704520253,
-      "maximum_progress_percent": 59.773169333075536,
-      "earliest_finish": "2026-09-24T02:00:56.586054+00:00",
-      "latest_finish": "2026-09-24T13:19:04.743467+00:00"
+      "training_finished": 0,
+      "minimum_progress_percent": 28.36788014297967,
+      "maximum_progress_percent": 72.7176878673852,
+      "earliest_finish": "2026-09-24T02:04:39.700948+00:00",
+      "latest_finish": "2026-09-24T07:16:38.311223+00:00"
     }
   ],
   "h100_recovery": {
@@ -151,7 +158,7 @@
       ]
     },
     "scheduler-audit": {
-      "at": "2026-09-23T17:22:01.017599+00:00",
+      "at": "2026-09-23T17:34:12.259078+00:00",
       "workflows": {
         "arc-h1008b-20260923-stk1-10-1": {
           "name": "arc-h1008b-20260923-stk1-10-1",
@@ -170,12 +177,12 @@
       }
     },
     "latest-proof": {
-      "at": "2026-09-23T17:22:05.382764+00:00",
+      "at": "2026-09-23T20:08:49.129928+00:00",
       "runs": [
         {
           "run_id": "arc-h1008b-20260923-stk1-10",
           "predecessor": "arc-cache8-20260923-stk1-10-1",
-          "ready": false,
+          "ready": true,
           "runtime": {
             "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
             "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
@@ -306,30 +313,30 @@
             }
           },
           "metrics_uploaded_at": {
-            "experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:21:41+00:00",
-            "experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:22:02+00:00"
+            "experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:07+00:00",
+            "experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:33:52+00:00"
           },
           "method": "arc_stk",
           "metrics": {
-            "epoch": "529",
-            "log/ema_decay": "0.9997515082359314",
-            "log/ema_num_updates": "64010.0",
-            "step": "64009",
-            "Train/loss": "0.003721756860613823",
-            "Train/source_0_loss": "0.003721756860613823",
-            "Train/source_0_loss_diffusion_noise": "0.003721756860613823"
+            "epoch": "1418",
+            "log/ema_decay": "0.9998814463615417",
+            "log/ema_num_updates": "171660.0",
+            "step": "171659",
+            "Train/loss": "0.0018807492451742291",
+            "Train/source_0_loss": "0.0018807492451742291",
+            "Train/source_0_loss_diffusion_noise": "0.0018807492451742291"
           },
           "predecessor_metrics": {
-            "epoch": "548",
-            "log/ema_decay": "0.9997581243515015",
-            "log/ema_num_updates": "66360.0",
-            "step": "66359",
-            "Train/loss": "0.003551007714122534",
-            "Train/source_0_loss": "0.003551007714122534",
-            "Train/source_0_loss_diffusion_noise": "0.003551007714122534"
+            "epoch": "592",
+            "log/ema_decay": "0.9997718334197998",
+            "log/ema_num_updates": "71730.0",
+            "step": "71729",
+            "Train/loss": "0.0033585301134735346",
+            "Train/source_0_loss": "0.0033585301134735346",
+            "Train/source_0_loss_diffusion_noise": "0.0033585301134735346"
           },
-          "ema_updates": 64010.0,
-          "predecessor_ema_updates": 66360.0,
+          "ema_updates": 171660.0,
+          "predecessor_ema_updates": 71730.0,
           "budget": {
             "train_examples": 124087,
             "microbatch_size": 128,
@@ -343,6 +350,8 @@
             "dropped_examples_per_epoch": 183
           },
           "finite_training_loss": true,
+          "training_finished": false,
+          "training_budget_complete": false,
           "restored": {
             "sha256": "a0b8017d039e712a819c2da1d3e6cddc94a519a869f442de70bfb6e34ef25743",
             "bytes": 1004453896,
@@ -360,9 +369,9 @@
             }
           },
           "current": {
-            "sha256": "ed275a620cae1f81d5dbad3f1a9f4d88a7fc2df58d2e9b92f0bdd88781749434",
+            "sha256": "fa6bb5ef1a8bff1e71021758a6946f74c50386ce9e0911f14aa8d3e7414f0d33",
             "bytes": 1004453896,
-            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/checkpoints/ed275a620cae1f81d5dbad3f1a9f4d88a7fc2df58d2e9b92f0bdd88781749434/last.ckpt"
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/checkpoints/fa6bb5ef1a8bff1e71021758a6946f74c50386ce9e0911f14aa8d3e7414f0d33/last.ckpt"
           },
           "recovered": {
             "source_run": "arc-cache8-20260923-stk1-10",
@@ -416,19 +425,317 @@
                 }
               }
             }
-          }
+          },
+          "remote_checkpoint_verified": true,
+          "checkpoint_uploaded_at": "2026-09-23T20:07:35+00:00"
         }
       ]
     },
     "rate": {
-      "at": "2026-09-23T17:22:07.698797+00:00",
-      "sample_seconds": 1557.0,
-      "updates_per_second": 9.845857418111754,
-      "optimizer_updates": 64010.0,
-      "predecessor_updates_per_second": 7.67279644895371,
-      "remaining_training_hours": 15.266177919112849,
-      "projected_training_finish": "2026-09-24T08:38:05.939295+00:00",
+      "at": "2026-09-23T17:34:16.502312+00:00",
+      "sample_seconds": 2297.0,
+      "updates_per_second": 10.121898127993035,
+      "optimizer_updates": 71930.0,
+      "predecessor_updates_per_second": 7.6388281591604725,
+      "remaining_training_hours": 14.63249375149343,
+      "projected_training_finish": "2026-09-24T08:12:13.479809+00:00",
       "meets_provisional_cutoff": false
+    },
+    "migration-complete": {
+      "at": "2026-09-23T17:34:23.282524+00:00",
+      "run": {
+        "run_id": "arc-h1008b-20260923-stk1-10",
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-arc-deadline-20260923/h100/arc-h1008b-20260923-stk1-10.yaml",
+        "profile": "stk_1",
+        "arc_mode": "stk",
+        "suite": "libero_10",
+        "R": 192,
+        "D": 1.6,
+        "M": 36,
+        "calibration_parent": "arc-replay-stk-20260921-libero-10",
+        "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+        "replay_run_id": "arc-five-v2-20260921-stk1-libero-10-replay",
+        "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+        "resume_from_run": "arc-cache8-20260923-stk1-10",
+        "predecessor_workflow": "arc-cache8-20260923-stk1-10-1",
+        "gpus": 8,
+        "kind": "arc",
+        "pilot": true,
+        "predecessor_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "already_submitted": false,
+        "pool": "groot-h100-02",
+        "priority": "NORMAL",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "decoded_replay_cache": true,
+        "submission_directory": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-arc-deadline-20260923/h100",
+        "workflow_sha256": "6d78ba91f19b8f29611d94380cc49480e6419f438398f702cfca4dcb5b458fab",
+        "replaces_canceled_workflow": "arc-cache4-20260923-stk1-10-1",
+        "loader_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "gpu_type": "H100"
+      },
+      "scheduler": {
+        "arc-h1008b-20260923-stk1-10-1": "RUNNING",
+        "arc-cache8-20260923-stk1-10-1": "FAILED_CANCELED"
+      },
+      "proof": {
+        "run_id": "arc-h1008b-20260923-stk1-10",
+        "predecessor": "arc-cache8-20260923-stk1-10-1",
+        "ready": true,
+        "runtime": {
+          "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+          "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+          "torch": "2.7.1+cu126",
+          "cuda": "12.6",
+          "gpu": "NVIDIA H100 80GB HBM3",
+          "gpu_type": "H100",
+          "suite": "libero_10",
+          "mode": "full",
+          "epochs": 5001,
+          "global_batch_size": 1024,
+          "training_layout": {
+            "world_size": 8,
+            "microbatch_size": 128,
+            "gradient_accumulation": 1,
+            "global_batch_size": 1024
+          },
+          "evaluate_from_run": null,
+          "resume_from_run": "arc-cache8-20260923-stk1-10",
+          "arc_replay_run": null,
+          "arc_modes": [
+            "stk"
+          ],
+          "arc_replay_runs": {
+            "stk": "arc-five-v2-20260921-stk1-libero-10-replay"
+          },
+          "arc_only": true,
+          "arc_profile": "stk_1",
+          "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+          "campaign_id": null,
+          "campaign_runs": null,
+          "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/"
+        },
+        "status": {
+          "state": "TRAINING",
+          "method": "arc_stk"
+        },
+        "cache": {
+          "identity": {
+            "version": 1,
+            "source": "/workspace/libero/data/released/libero10_N500.zarr",
+            "signature": "8cf218ff104fabaa97ee4cbbcf1a5378bd3253d1d9ad6f16dd0c7889d9810f5b",
+            "keys": [
+              "action",
+              "agentview_rgb",
+              "robot0_eef_pos",
+              "robot0_eef_quat",
+              "robot0_eye_in_hand_rgb",
+              "robot0_gripper_qpos",
+              "task_uid"
+            ]
+          },
+          "arrays": {
+            "action": {
+              "file": "bd938c688f49b77c7fc537c6b9222e2c97ebddd63076b87f2feaec66fb9c05d0.npy",
+              "shape": [
+                138090,
+                7
+              ],
+              "dtype": "<f4",
+              "file_bytes": 3866648,
+              "decoded_sha256": "7f582c0d68b9df0cd4dbd1b0cfdb7d2ff0a7665d8fbcf6dca16e12a9b7a6ac06"
+            },
+            "agentview_rgb": {
+              "file": "0b330617fe6902ce9ca1070a88a44abea56a68ec40d19008418a73cc56a0fed9.npy",
+              "shape": [
+                138090,
+                128,
+                128,
+                3
+              ],
+              "dtype": "|u1",
+              "file_bytes": 6787399808,
+              "decoded_sha256": "0cfede3c3e4a90305b365ee45de32a712e3eb41367424eb90dc3fb7a595f2151"
+            },
+            "robot0_eef_pos": {
+              "file": "9435cf32c2be276399b86d64485c6515cd1fb3d516c904a37c9754864222c143.npy",
+              "shape": [
+                138090,
+                3
+              ],
+              "dtype": "<f4",
+              "file_bytes": 1657208,
+              "decoded_sha256": "989ba5d4bba2df6b56cb3d1c288b0f3daae8a121ebb557dd48d49fadcefea654"
+            },
+            "robot0_eef_quat": {
+              "file": "4d258cbc9770c997bbd0b92a1ef40b23289e7e0fa5eb93e3adbb531e0ea6b944.npy",
+              "shape": [
+                138090,
+                4
+              ],
+              "dtype": "<f4",
+              "file_bytes": 2209568,
+              "decoded_sha256": "0dc637bf1d40fa48d8d73f63794bd1d9ba3ea1eb841efdbace8c20c28440b602"
+            },
+            "robot0_eye_in_hand_rgb": {
+              "file": "e2d0664b1cd12f3dc67801c2036b7a2da45c5aa8c59d425edff3ca9c9196f39f.npy",
+              "shape": [
+                138090,
+                128,
+                128,
+                3
+              ],
+              "dtype": "|u1",
+              "file_bytes": 6787399808,
+              "decoded_sha256": "a1f8e215f035d3d67ed900202614eb9255c72707c21677a301f6e13c5ea869b8"
+            },
+            "robot0_gripper_qpos": {
+              "file": "921ffd16ccc7cd514a607069131119ab4d214ecf26e972e043417f5522876ee5.npy",
+              "shape": [
+                138090,
+                2
+              ],
+              "dtype": "<f4",
+              "file_bytes": 1104848,
+              "decoded_sha256": "d80e627e1e5479217e09f90a46f8ecb9459ca0274f390786bca2ef78c7cefb85"
+            },
+            "task_uid": {
+              "file": "3286c262c88a1f5f1541da8ff56adab60367ebaf74431279f23645b10c1f4721.npy",
+              "shape": [
+                138090,
+                1
+              ],
+              "dtype": "<i8",
+              "file_bytes": 1104848,
+              "decoded_sha256": "39c0e9cecae434555e867466b578cd4caf35b27c2bfd859521ed25988333fea6"
+            }
+          }
+        },
+        "metrics_uploaded_at": {
+          "experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:34:01+00:00",
+          "experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:33:52+00:00"
+        },
+        "method": "arc_stk",
+        "metrics": {
+          "epoch": "594",
+          "log/ema_decay": "0.999772310256958",
+          "log/ema_num_updates": "71930.0",
+          "step": "71929",
+          "Train/loss": "0.003467265982180834",
+          "Train/source_0_loss": "0.003467265982180834",
+          "Train/source_0_loss_diffusion_noise": "0.003467265982180834"
+        },
+        "predecessor_metrics": {
+          "epoch": "592",
+          "log/ema_decay": "0.9997718334197998",
+          "log/ema_num_updates": "71730.0",
+          "step": "71729",
+          "Train/loss": "0.0033585301134735346",
+          "Train/source_0_loss": "0.0033585301134735346",
+          "Train/source_0_loss_diffusion_noise": "0.0033585301134735346"
+        },
+        "ema_updates": 71930.0,
+        "predecessor_ema_updates": 71730.0,
+        "budget": {
+          "train_examples": 124087,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 121,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "finite_training_loss": true,
+        "restored": {
+          "sha256": "a0b8017d039e712a819c2da1d3e6cddc94a519a869f442de70bfb6e34ef25743",
+          "bytes": 1004453896,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/checkpoints/a0b8017d039e712a819c2da1d3e6cddc94a519a869f442de70bfb6e34ef25743/last.ckpt",
+          "epochs_completed": 399,
+          "global_step": 48400,
+          "complete": false,
+          "benchmark": {
+            "arc_mode": "stk",
+            "arc_action_dim": 12,
+            "arc_waypoints": 36,
+            "arc_max_translation": 1.6,
+            "arc_max_rotation_degrees": 192,
+            "arc_velocity_norm_bound": 1.7320508075688772
+          }
+        },
+        "current": {
+          "sha256": "e5b8cdec819f5e3f494caff8195a18fd03054a2ad85a4677721d8c1b342cbf60",
+          "bytes": 1004453896,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/checkpoints/e5b8cdec819f5e3f494caff8195a18fd03054a2ad85a4677721d8c1b342cbf60/last.ckpt"
+        },
+        "recovered": {
+          "source_run": "arc-cache8-20260923-stk1-10",
+          "runtime": {
+            "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+            "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+            "torch": "2.7.1+cu126",
+            "cuda": "12.6",
+            "gpu": "NVIDIA L40S",
+            "suite": "libero_10",
+            "mode": "full",
+            "epochs": 5001,
+            "global_batch_size": 1024,
+            "training_layout": {
+              "world_size": 8,
+              "microbatch_size": 128,
+              "gradient_accumulation": 1,
+              "global_batch_size": 1024
+            },
+            "evaluate_from_run": null,
+            "resume_from_run": "arc-five-ddp2-20260922-stk1-libero-10",
+            "arc_replay_run": null,
+            "arc_modes": [
+              "stk"
+            ],
+            "arc_replay_runs": {
+              "stk": "arc-five-v2-20260921-stk1-libero-10-replay"
+            },
+            "arc_only": true,
+            "arc_profile": "stk_1",
+            "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
+            "campaign_id": null,
+            "campaign_runs": null,
+            "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/"
+          },
+          "checkpoints": {
+            "arc_stk": {
+              "sha256": "a0b8017d039e712a819c2da1d3e6cddc94a519a869f442de70bfb6e34ef25743",
+              "bytes": 1004453896,
+              "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/checkpoints/a0b8017d039e712a819c2da1d3e6cddc94a519a869f442de70bfb6e34ef25743/last.ckpt",
+              "epochs_completed": 399,
+              "global_step": 48400,
+              "complete": false,
+              "benchmark": {
+                "arc_mode": "stk",
+                "arc_action_dim": 12,
+                "arc_waypoints": 36,
+                "arc_max_translation": 1.6,
+                "arc_max_rotation_degrees": 192,
+                "arc_velocity_norm_bound": 1.7320508075688772
+              }
+            }
+          }
+        },
+        "remote_checkpoint_verified": true,
+        "checkpoint_uploaded_at": "2026-09-23T17:31:59+00:00"
+      },
+      "rate": {
+        "at": "2026-09-23T17:34:16.502312+00:00",
+        "sample_seconds": 2297.0,
+        "updates_per_second": 10.121898127993035,
+        "optimizer_updates": 71930.0,
+        "predecessor_updates_per_second": 7.6388281591604725,
+        "remaining_training_hours": 14.63249375149343,
+        "projected_training_finish": "2026-09-24T08:12:13.479809+00:00",
+        "meets_provisional_cutoff": false
+      }
     },
     "renderer-check": {
       "at": "2026-09-23T16:46:39.329881+00:00",
@@ -437,22 +744,36 @@
       "stdout": "{\"shape\": [32, 32, 3], \"dtype\": \"uint8\", \"maximum\": 255}\n",
       "stderr": ""
     },
+    "current_rate": {
+      "sample_seconds": 880.0,
+      "updates_per_second": 10.818181818181818,
+      "rate_kind": "recent_10_to_20_minutes",
+      "observed_start": "2026-09-23T19:53:27+00:00",
+      "observed_end": "2026-09-23T20:08:07+00:00",
+      "start_optimizer_updates": 162140.0,
+      "average_since_first_updates_per_second": 10.654076063415056,
+      "optimizer_updates": 171660.0,
+      "remaining_training_hours": 11.129950980392156,
+      "projected_training_finish": "2026-09-24T07:16:38.311223+00:00",
+      "meets_provisional_cutoff": false
+    },
     "recent_rate": {
-      "at": "2026-09-23T17:22:54.367858+00:00",
-      "observed_start": "2026-09-23T17:10:45+00:00",
-      "observed_end": "2026-09-23T17:21:41+00:00",
-      "sample_seconds": 656.0,
-      "start_optimizer_updates": 56870.0,
-      "optimizer_updates": 64010.0,
-      "updates_per_second": 10.884146341463415,
-      "predecessor_ema_updates": 66360.0,
-      "required_updates_per_second_for_cutoff": 11.050832519240878,
-      "projected_training_finish": "2026-09-24T07:11:29.888306+00:00",
+      "at": "2026-09-23T20:13:06.100504+00:00",
+      "observed_start": "2026-09-23T19:53:27+00:00",
+      "observed_end": "2026-09-23T20:08:07+00:00",
+      "sample_seconds": 880.0,
+      "start_optimizer_updates": 162140.0,
+      "optimizer_updates": 171660.0,
+      "updates_per_second": 10.818181818181818,
+      "predecessor_ema_updates": 71730.0,
+      "required_updates_per_second_for_cutoff": 11.184964755475507,
+      "projected_training_finish": "2026-09-24T07:20:53.924033+00:00",
       "meets_provisional_cutoff": false
     }
   },
   "arc_gpus_by_family": {
-    "L40S": 64
+    "L40S": 56,
+    "H100": 8
   },
   "h100_cpu_validation": {
     "focused_checks_passed": 108,
@@ -594,328 +915,475 @@
       }
     ]
   },
+  "oat_h100_recovery": {
+    "at": "2026-09-23T19:59:10.473194+00:00",
+    "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+    "loader_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+    "capacity": {
+      "quota_used": "1544",
+      "quota_free": "264",
+      "quota_limit": "1808",
+      "total_usage": "1792",
+      "total_capacity": "1816",
+      "total_free": "24"
+    },
+    "runtime_files_changed": [
+      "egomimic/benchmarks/libero/cluster.py",
+      "scripts/benchmarks/launch_libero_osmo.py"
+    ],
+    "canceled_predecessors": {
+      "arc-cache-oat4-20260923-object-1": {
+        "name": "arc-cache-oat4-20260923-object-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "start_time": "2026-09-23T16:27:00.450600",
+        "end_time": "2026-09-23T18:32:34.838573",
+        "pool": "groot-l40s-03"
+      },
+      "arc-cache-oat4-20260923-goal-1": {
+        "name": "arc-cache-oat4-20260923-goal-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "start_time": "2026-09-23T16:27:03.438331",
+        "end_time": "2026-09-23T18:32:25.814550",
+        "pool": "groot-l40s-03"
+      },
+      "arc-cache-oat3-20260923-10-1": {
+        "name": "arc-cache-oat3-20260923-10-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "start_time": "2026-09-23T16:18:12.594614",
+        "end_time": "2026-09-23T18:32:37.087330",
+        "pool": "groot-l40s-03"
+      }
+    },
+    "reason": "Restore externally canceled OAT policies on available H100 capacity; preserve full budgets and checkpoints",
+    "runs": [
+      {
+        "run_id": "arc-oat-h1008-20260923-object",
+        "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+        "suite": "libero_object",
+        "resume_from_run": "arc-cache-oat4-20260923-object",
+        "predecessor_workflow": "arc-cache-oat4-20260923-object-1",
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-arc-deadline-20260923/oat-h100/arc-oat-h1008-20260923-object.yaml",
+        "gpus": 8,
+        "kind": "oat",
+        "pilot": false,
+        "predecessor_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "oat_reference_run": null,
+        "already_submitted": false,
+        "pool": "groot-h100-02",
+        "priority": "NORMAL",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "decoded_replay_cache": true,
+        "workflow_sha256": "e3edc1a3e46a044bea9dd2cfa3b711b61ed7bbb50f4d6121e6950bd9b9cf6864",
+        "submission_directory": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-arc-deadline-20260923/oat-h100",
+        "replaces_queued_workflow": "arc-cache-oat-20260923-object-1",
+        "replaces_failed_workflow": "arc-cache-oat3-20260923-object-1",
+        "removed_pool_local_cache": "/mnt/lfs/home/rpunamiya/egoverse-arc-replay-20260921-timed-object-raw",
+        "loader_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "gpu_type": "H100",
+        "original_reference_run": "arc-oat-ddp2-20260922-libero-object",
+        "replaces_quota_canceled_workflow": "arc-cache-oat4-20260923-object-1"
+      },
+      {
+        "run_id": "arc-oat-h1008-20260923-goal",
+        "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+        "suite": "libero_goal",
+        "resume_from_run": "arc-cache-oat4-20260923-goal",
+        "predecessor_workflow": "arc-cache-oat4-20260923-goal-1",
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-arc-deadline-20260923/oat-h100/arc-oat-h1008-20260923-goal.yaml",
+        "gpus": 8,
+        "kind": "oat",
+        "pilot": false,
+        "predecessor_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "oat_reference_run": null,
+        "already_submitted": false,
+        "pool": "groot-h100-02",
+        "priority": "NORMAL",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "decoded_replay_cache": true,
+        "workflow_sha256": "2cc269e4786f40e17c29911471bd93367ec476d9678681d2ca07de700c268b1d",
+        "submission_directory": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-arc-deadline-20260923/oat-h100",
+        "replaces_queued_workflow": "arc-cache-oat-20260923-goal-1",
+        "replaces_failed_workflow": "arc-cache-oat3-20260923-goal-1",
+        "removed_pool_local_cache": "/mnt/lfs/home/rpunamiya/egoverse-arc-replay-20260921-timed-goal-raw",
+        "loader_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "gpu_type": "H100",
+        "original_reference_run": "arc-oat-ddp2-20260922-libero-goal",
+        "replaces_quota_canceled_workflow": "arc-cache-oat4-20260923-goal-1"
+      },
+      {
+        "run_id": "arc-oat-h1008-20260923-10",
+        "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+        "suite": "libero_10",
+        "resume_from_run": "arc-cache-oat3-20260923-10",
+        "predecessor_workflow": "arc-cache-oat3-20260923-10-1",
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-arc-deadline-20260923/oat-h100/arc-oat-h1008-20260923-10.yaml",
+        "gpus": 8,
+        "kind": "oat",
+        "pilot": false,
+        "predecessor_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "oat_reference_run": null,
+        "already_submitted": false,
+        "pool": "groot-h100-02",
+        "priority": "NORMAL",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "decoded_replay_cache": true,
+        "workflow_sha256": "9628a73e42821ffdbd7020649e8c1f06ed878607d70103044b7dcc186922933c",
+        "submission_directory": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-arc-deadline-20260923/oat-h100",
+        "replaces_queued_workflow": "arc-cache-oat-20260923-10-1",
+        "loader_source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "gpu_type": "H100",
+        "original_reference_run": "arc-oat-ddp2-20260922-libero-10",
+        "replaces_quota_canceled_workflow": "arc-cache-oat3-20260923-10-1"
+      }
+    ]
+  },
   "oat_reference_resume_aliases": {
-    "at": "2026-09-23T16:26:54.021162+00:00",
+    "at": "2026-09-23T20:11:09.448964+00:00",
     "aliases": {
       "arc-oat-ddp-20260922-libero-spatial": "arc-cache-oat-20260923-spatial",
-      "arc-oat-ddp2-20260922-libero-object": "arc-cache-oat4-20260923-object",
-      "arc-oat-ddp2-20260922-libero-goal": "arc-cache-oat4-20260923-goal",
-      "arc-oat-ddp2-20260922-libero-10": "arc-cache-oat3-20260923-10"
+      "arc-oat-ddp2-20260922-libero-object": "arc-oat-h1008-20260923-object",
+      "arc-oat-ddp2-20260922-libero-goal": "arc-oat-h1008-20260923-goal",
+      "arc-oat-ddp2-20260922-libero-10": "arc-oat-h1008-20260923-10",
+      "arc-cache-oat4-20260923-object": "arc-oat-h1008-20260923-object",
+      "arc-cache-oat4-20260923-goal": "arc-oat-h1008-20260923-goal",
+      "arc-cache-oat3-20260923-10": "arc-oat-h1008-20260923-10",
+      "arc-cache-oat-20260923-object": "arc-oat-h1008-20260923-object",
+      "arc-cache-oat3-20260923-object": "arc-oat-h1008-20260923-object",
+      "arc-cache-oat-20260923-goal": "arc-oat-h1008-20260923-goal",
+      "arc-cache-oat3-20260923-goal": "arc-oat-h1008-20260923-goal",
+      "arc-cache-oat-20260923-10": "arc-oat-h1008-20260923-10"
+    },
+    "arc_reference_audit": {
+      "at": "2026-09-23T20:11:09.449075+00:00",
+      "arc_runs": 24,
+      "resolved": {
+        "arc-oat-ddp-20260922-libero-spatial": "arc-cache-oat-20260923-spatial",
+        "arc-cache-oat-20260923-object": "arc-oat-h1008-20260923-object",
+        "arc-cache-oat-20260923-goal": "arc-oat-h1008-20260923-goal",
+        "arc-cache-oat-20260923-spatial": "arc-cache-oat-20260923-spatial",
+        "arc-oat-ddp2-20260922-libero-10": "arc-oat-h1008-20260923-10"
+      }
     }
   },
   "rates": {
-    "at": "2026-09-23T17:21:02.971507+00:00",
+    "at": "2026-09-23T20:08:49.129928+00:00",
     "runs": {
       "arc-cache-resume-20260923-stk1-spatial": {
-        "sample_seconds": 44392.0,
-        "updates_per_second": 4.191295728960173,
+        "sample_seconds": 53713.0,
+        "updates_per_second": 4.188743879507754,
         "rate_kind": "since_first_advancing_observation",
         "observed_start": "2026-09-23T05:00:27+00:00",
-        "observed_end": "2026-09-23T17:20:19+00:00",
+        "observed_end": "2026-09-23T19:55:40+00:00",
         "start_optimizer_updates": 45060.0,
-        "average_since_first_updates_per_second": 4.191295728960173,
-        "optimizer_updates": 231120.0,
-        "remaining_training_hours": 2.5803476297968397,
-        "projected_training_finish": "2026-09-23T19:55:54.772697+00:00",
+        "average_since_first_updates_per_second": 4.188743879507754,
+        "optimizer_updates": 270050.0,
+        "remaining_training_hours": 0.0002652611721014761,
+        "projected_training_finish": "2026-09-23T20:08:51.442183+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-stk1-object": {
-        "sample_seconds": 5002.0,
-        "updates_per_second": 4.248300679728109,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:31+00:00",
-        "observed_end": "2026-09-23T17:20:53+00:00",
-        "start_optimizer_updates": 202800.0,
-        "average_since_first_updates_per_second": 4.248300679728109,
-        "optimizer_updates": 224050.0,
-        "remaining_training_hours": 6.604928496732026,
-        "projected_training_finish": "2026-09-23T23:57:23.263855+00:00",
+        "sample_seconds": 894.0,
+        "updates_per_second": 4.205816554809844,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:21+00:00",
+        "observed_end": "2026-09-23T20:08:15+00:00",
+        "start_optimizer_updates": 262540.0,
+        "average_since_first_updates_per_second": 4.220951874501463,
+        "optimizer_updates": 266300.0,
+        "remaining_training_hours": 3.8811990248226946,
+        "projected_training_finish": "2026-09-24T00:01:42.803768+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-stk1-goal": {
-        "sample_seconds": 4975.0,
-        "updates_per_second": 4.205025125628141,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:57+00:00",
-        "observed_end": "2026-09-23T17:20:52+00:00",
-        "start_optimizer_updates": 197680.0,
-        "average_since_first_updates_per_second": 4.205025125628141,
-        "optimizer_updates": 218600.0,
-        "remaining_training_hours": 4.059693010410028,
-        "projected_training_finish": "2026-09-23T21:24:40.416123+00:00",
+        "sample_seconds": 890.0,
+        "updates_per_second": 4.292134831460674,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:44+00:00",
+        "observed_end": "2026-09-23T20:08:34+00:00",
+        "start_optimizer_updates": 257300.0,
+        "average_since_first_updates_per_second": 4.21892664760258,
+        "optimizer_updates": 261120.0,
+        "remaining_training_hours": 1.225497382198953,
+        "projected_training_finish": "2026-09-23T21:22:22.277876+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-stk2-spatial": {
-        "sample_seconds": 4998.0,
-        "updates_per_second": 4.161664665866347,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:36+00:00",
-        "observed_end": "2026-09-23T17:20:54+00:00",
-        "start_optimizer_updates": 192190.0,
-        "average_since_first_updates_per_second": 4.161664665866347,
-        "optimizer_updates": 212990.0,
-        "remaining_training_hours": 3.808839102564102,
-        "projected_training_finish": "2026-09-23T21:09:37.342072+00:00",
+        "sample_seconds": 898.0,
+        "updates_per_second": 4.187082405345212,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:39+00:00",
+        "observed_end": "2026-09-23T20:08:37+00:00",
+        "start_optimizer_updates": 251100.0,
+        "average_since_first_updates_per_second": 4.161078281654604,
+        "optimizer_updates": 254860.0,
+        "remaining_training_hours": 1.0079943853427895,
+        "projected_training_finish": "2026-09-23T21:09:19.267107+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-stk2-object": {
-        "sample_seconds": 4971.0,
-        "updates_per_second": 4.2426071213035605,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:43+00:00",
-        "observed_end": "2026-09-23T17:20:34+00:00",
-        "start_optimizer_updates": 204370.0,
-        "average_since_first_updates_per_second": 4.2426071213035605,
-        "optimizer_updates": 225460.0,
-        "remaining_training_hours": 6.521474830093251,
-        "projected_training_finish": "2026-09-23T23:52:22.830709+00:00",
+        "sample_seconds": 905.0,
+        "updates_per_second": 4.30939226519337,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:00+00:00",
+        "observed_end": "2026-09-23T20:08:05+00:00",
+        "start_optimizer_updates": 264550.0,
+        "average_since_first_updates_per_second": 4.265743576088403,
+        "optimizer_updates": 268450.0,
+        "remaining_training_hours": 3.649328703703704,
+        "projected_training_finish": "2026-09-23T23:47:48.070673+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-stk2-goal": {
-        "sample_seconds": 4958.0,
-        "updates_per_second": 4.306171843485276,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:52+00:00",
-        "observed_end": "2026-09-23T17:20:30+00:00",
-        "start_optimizer_updates": 196890.0,
-        "average_since_first_updates_per_second": 4.306171843485276,
-        "optimizer_updates": 218240.0,
-        "remaining_training_hours": 3.987558261774655,
-        "projected_training_finish": "2026-09-23T21:20:20.731079+00:00",
+        "sample_seconds": 899.0,
+        "updates_per_second": 4.2602892102335925,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:39+00:00",
+        "observed_end": "2026-09-23T20:08:38+00:00",
+        "start_optimizer_updates": 257570.0,
+        "average_since_first_updates_per_second": 4.287518277282999,
+        "optimizer_updates": 261400.0,
+        "remaining_training_hours": 1.2164015085581665,
+        "projected_training_finish": "2026-09-23T21:21:49.532790+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache4-20260923-stk2-10": {
-        "sample_seconds": 5006.0,
-        "updates_per_second": 7.826608070315621,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:30+00:00",
-        "observed_end": "2026-09-23T17:20:56+00:00",
-        "start_optimizer_updates": 296400.0,
-        "average_since_first_updates_per_second": 7.826608070315621,
-        "optimizer_updates": 335580.0,
-        "remaining_training_hours": 9.566404670750382,
-        "projected_training_finish": "2026-09-24T02:55:04.578167+00:00",
+        "sample_seconds": 885.0,
+        "updates_per_second": 7.762711864406779,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:33+00:00",
+        "observed_end": "2026-09-23T20:08:18+00:00",
+        "start_optimizer_updates": 407770.0,
+        "average_since_first_updates_per_second": 7.8575225943647,
+        "optimizer_updates": 414640.0,
+        "remaining_training_hours": 6.816095948568656,
+        "projected_training_finish": "2026-09-24T02:57:48.432791+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-dur1-spatial": {
-        "sample_seconds": 4990.0,
-        "updates_per_second": 4.202404809619239,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:40+00:00",
-        "observed_end": "2026-09-23T17:20:50+00:00",
-        "start_optimizer_updates": 194930.0,
-        "average_since_first_updates_per_second": 4.202404809619239,
-        "optimizer_updates": 215900.0,
-        "remaining_training_hours": 3.579564192232289,
-        "projected_training_finish": "2026-09-23T20:55:51.952462+00:00",
+        "sample_seconds": 907.0,
+        "updates_per_second": 4.200661521499449,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:10+00:00",
+        "observed_end": "2026-09-23T20:08:17+00:00",
+        "start_optimizer_updates": 254280.0,
+        "average_since_first_updates_per_second": 4.200305912083527,
+        "optimizer_updates": 258090.0,
+        "remaining_training_hours": 0.7911452318460193,
+        "projected_training_finish": "2026-09-23T20:56:18.610231+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-dur1-object": {
-        "sample_seconds": 4939.0,
-        "updates_per_second": 4.264021056894108,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:08+00:00",
-        "observed_end": "2026-09-23T17:20:27+00:00",
-        "start_optimizer_updates": 206440.0,
-        "average_since_first_updates_per_second": 4.264021056894108,
-        "optimizer_updates": 227500.0,
-        "remaining_training_hours": 6.355829046639232,
-        "projected_training_finish": "2026-09-23T23:42:26.505956+00:00",
+        "sample_seconds": 887.0,
+        "updates_per_second": 4.272829763246899,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:47+00:00",
+        "observed_end": "2026-09-23T20:08:34+00:00",
+        "start_optimizer_updates": 266460.0,
+        "average_since_first_updates_per_second": 4.246639158791428,
+        "optimizer_updates": 270250.0,
+        "remaining_training_hours": 3.5635374523600123,
+        "projected_training_finish": "2026-09-23T23:42:39.222242+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-dur1-goal": {
-        "sample_seconds": 4929.0,
-        "updates_per_second": 4.276729559748428,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:03+00:00",
-        "observed_end": "2026-09-23T17:20:12+00:00",
-        "start_optimizer_updates": 204560.0,
-        "average_since_first_updates_per_second": 4.276729559748428,
-        "optimizer_updates": 225640.0,
-        "remaining_training_hours": 3.534372549019608,
-        "projected_training_finish": "2026-09-23T20:53:09.262578+00:00",
+        "sample_seconds": 888.0,
+        "updates_per_second": 4.245495495495495,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:36+00:00",
+        "observed_end": "2026-09-23T20:08:24+00:00",
+        "start_optimizer_updates": 264870.0,
+        "average_since_first_updates_per_second": 4.26602756141402,
+        "optimizer_updates": 268640.0,
+        "remaining_training_hours": 0.7469354553492485,
+        "projected_training_finish": "2026-09-23T20:53:39.455072+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache4-20260923-dur1-10": {
-        "sample_seconds": 4964.0,
-        "updates_per_second": 7.804190169218372,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:35+00:00",
-        "observed_end": "2026-09-23T17:20:19+00:00",
-        "start_optimizer_updates": 322960.0,
-        "average_since_first_updates_per_second": 7.804190169218372,
-        "optimizer_updates": 361700.0,
-        "remaining_training_hours": 8.664184621120862,
-        "projected_training_finish": "2026-09-24T02:00:56.586054+00:00",
+        "sample_seconds": 891.0,
+        "updates_per_second": 7.732884399551066,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:30+00:00",
+        "observed_end": "2026-09-23T20:08:21+00:00",
+        "start_optimizer_updates": 433140.0,
+        "average_since_first_updates_per_second": 7.780805529708893,
+        "optimizer_updates": 440030.0,
+        "remaining_training_hours": 5.930337082728593,
+        "projected_training_finish": "2026-09-24T02:04:39.700948+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-dur2-spatial": {
-        "sample_seconds": 4981.0,
-        "updates_per_second": 4.147761493675969,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:27+00:00",
-        "observed_end": "2026-09-23T17:20:28+00:00",
-        "start_optimizer_updates": 194400.0,
-        "average_since_first_updates_per_second": 4.147761493675969,
-        "optimizer_updates": 215060.0,
-        "remaining_training_hours": 3.6829772238356457,
-        "projected_training_finish": "2026-09-23T21:02:04.239444+00:00",
+        "sample_seconds": 901.0,
+        "updates_per_second": 4.261931187569368,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:20+00:00",
+        "observed_end": "2026-09-23T20:08:21+00:00",
+        "start_optimizer_updates": 253570.0,
+        "average_since_first_updates_per_second": 4.1855985120233825,
+        "optimizer_updates": 257410.0,
+        "remaining_training_hours": 0.8240917245370369,
+        "projected_training_finish": "2026-09-23T20:58:17.217677+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-dur2-object": {
-        "sample_seconds": 4938.0,
-        "updates_per_second": 4.258809234507898,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:54+00:00",
-        "observed_end": "2026-09-23T17:20:12+00:00",
-        "start_optimizer_updates": 206430.0,
-        "average_since_first_updates_per_second": 4.258809234507898,
-        "optimizer_updates": 227460.0,
-        "remaining_training_hours": 6.366216119828816,
-        "projected_training_finish": "2026-09-23T23:43:03.899486+00:00",
+        "sample_seconds": 893.0,
+        "updates_per_second": 4.311310190369541,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:39+00:00",
+        "observed_end": "2026-09-23T20:08:32+00:00",
+        "start_optimizer_updates": 266500.0,
+        "average_since_first_updates_per_second": 4.250565234738662,
+        "optimizer_updates": 270350.0,
+        "remaining_training_hours": 3.525288239538239,
+        "projected_training_finish": "2026-09-23T23:40:21.525148+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-dur2-goal": {
-        "sample_seconds": 4970.0,
-        "updates_per_second": 4.267605633802817,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:48+00:00",
-        "observed_end": "2026-09-23T17:20:38+00:00",
-        "start_optimizer_updates": 197970.0,
-        "average_since_first_updates_per_second": 4.267605633802817,
-        "optimizer_updates": 219180.0,
-        "remaining_training_hours": 3.9624092409240923,
-        "projected_training_finish": "2026-09-23T21:18:50.194739+00:00",
+        "sample_seconds": 930.0,
+        "updates_per_second": 4.247311827956989,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:02+00:00",
+        "observed_end": "2026-09-23T20:08:32+00:00",
+        "start_optimizer_updates": 258130.0,
+        "average_since_first_updates_per_second": 4.261499601169902,
+        "optimizer_updates": 262080.0,
+        "remaining_training_hours": 1.175645569620253,
+        "projected_training_finish": "2026-09-23T21:19:22.811556+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache4-20260923-dur2-10": {
-        "sample_seconds": 4951.0,
-        "updates_per_second": 7.703494243587154,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:06+00:00",
-        "observed_end": "2026-09-23T17:20:37+00:00",
-        "start_optimizer_updates": 300490.0,
-        "average_since_first_updates_per_second": 7.703494243587154,
-        "optimizer_updates": 338630.0,
-        "remaining_training_hours": 9.609311753481327,
-        "projected_training_finish": "2026-09-24T02:57:39.043800+00:00",
+        "sample_seconds": 874.0,
+        "updates_per_second": 7.803203661327231,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:20+00:00",
+        "observed_end": "2026-09-23T20:07:54+00:00",
+        "start_optimizer_updates": 409420.0,
+        "average_since_first_updates_per_second": 7.722844942620763,
+        "optimizer_updates": 416240.0,
+        "remaining_training_hours": 6.723769713261649,
+        "projected_training_finish": "2026-09-24T02:52:16.058490+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-shared-stk-spatial": {
-        "sample_seconds": 4961.0,
-        "updates_per_second": 4.172545857689982,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:09+00:00",
-        "observed_end": "2026-09-23T17:20:50+00:00",
-        "start_optimizer_updates": 193630.0,
-        "average_since_first_updates_per_second": 4.172545857689982,
-        "optimizer_updates": 214330.0,
-        "remaining_training_hours": 3.709698926462695,
-        "projected_training_finish": "2026-09-23T21:03:40.437639+00:00",
+        "sample_seconds": 928.0,
+        "updates_per_second": 4.073275862068965,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:52:56+00:00",
+        "observed_end": "2026-09-23T20:08:24+00:00",
+        "start_optimizer_updates": 252180.0,
+        "average_since_first_updates_per_second": 4.151182151182152,
+        "optimizer_updates": 255960.0,
+        "remaining_training_hours": 0.9611428571428572,
+        "projected_training_finish": "2026-09-23T21:06:30.601829+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-shared-stk-object": {
-        "sample_seconds": 4972.0,
-        "updates_per_second": 4.259855189058729,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:51+00:00",
-        "observed_end": "2026-09-23T17:20:43+00:00",
-        "start_optimizer_updates": 203240.0,
-        "average_since_first_updates_per_second": 4.259855189058729,
-        "optimizer_updates": 224420.0,
-        "remaining_training_hours": 6.562886108488092,
-        "projected_training_finish": "2026-09-23T23:54:51.911509+00:00",
+        "sample_seconds": 875.0,
+        "updates_per_second": 4.228571428571429,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:35+00:00",
+        "observed_end": "2026-09-23T20:08:10+00:00",
+        "start_optimizer_updates": 263440.0,
+        "average_since_first_updates_per_second": 4.2546108262867035,
+        "optimizer_updates": 267140.0,
+        "remaining_training_hours": 3.8051332582582584,
+        "projected_training_finish": "2026-09-23T23:57:08.967290+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-shared-stk-goal": {
-        "sample_seconds": 4962.0,
-        "updates_per_second": 4.163643692059654,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:59+00:00",
-        "observed_end": "2026-09-23T17:20:41+00:00",
-        "start_optimizer_updates": 197070.0,
-        "average_since_first_updates_per_second": 4.163643692059654,
-        "optimizer_updates": 217730.0,
-        "remaining_training_hours": 4.158083414004517,
-        "projected_training_finish": "2026-09-23T21:30:34.621824+00:00",
+        "sample_seconds": 923.0,
+        "updates_per_second": 4.268689057421452,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:21+00:00",
+        "observed_end": "2026-09-23T20:08:44+00:00",
+        "start_optimizer_updates": 256460.0,
+        "average_since_first_updates_per_second": 4.209371884346959,
+        "optimizer_updates": 260400.0,
+        "remaining_training_hours": 1.2790812182741118,
+        "projected_training_finish": "2026-09-23T21:25:35.179963+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache4-20260923-shared-stk-10": {
-        "sample_seconds": 4921.0,
-        "updates_per_second": 7.7992277992278,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:06+00:00",
-        "observed_end": "2026-09-23T17:20:07+00:00",
-        "start_optimizer_updates": 295530.0,
-        "average_since_first_updates_per_second": 7.7992277992278,
-        "optimizer_updates": 333910.0,
-        "remaining_training_hours": 9.659467684268426,
-        "projected_training_finish": "2026-09-24T03:00:39.605220+00:00",
+        "sample_seconds": 849.0,
+        "updates_per_second": 7.656065959952886,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:42+00:00",
+        "observed_end": "2026-09-23T20:07:51+00:00",
+        "start_optimizer_updates": 404830.0,
+        "average_since_first_updates_per_second": 7.727727727727728,
+        "optimizer_updates": 411330.0,
+        "remaining_training_hours": 7.031135,
+        "projected_training_finish": "2026-09-24T03:10:42.573595+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-shared-dur-spatial": {
-        "sample_seconds": 4943.0,
-        "updates_per_second": 4.070402589520534,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:09+00:00",
-        "observed_end": "2026-09-23T17:20:32+00:00",
-        "start_optimizer_updates": 192240.0,
-        "average_since_first_updates_per_second": 4.070402589520534,
-        "optimizer_updates": 212360.0,
-        "remaining_training_hours": 3.9372299812237683,
-        "projected_training_finish": "2026-09-23T21:17:19.549508+00:00",
+        "sample_seconds": 919.0,
+        "updates_per_second": 4.11316648531012,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:07+00:00",
+        "observed_end": "2026-09-23T20:08:26+00:00",
+        "start_optimizer_updates": 249480.0,
+        "average_since_first_updates_per_second": 4.063394819204901,
+        "optimizer_updates": 253260.0,
+        "remaining_training_hours": 1.1341626984126982,
+        "projected_training_finish": "2026-09-23T21:16:53.473328+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-shared-dur-object": {
-        "sample_seconds": 4972.0,
-        "updates_per_second": 4.2337087691069994,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:02+00:00",
-        "observed_end": "2026-09-23T17:20:54+00:00",
-        "start_optimizer_updates": 201900.0,
-        "average_since_first_updates_per_second": 4.2337087691069994,
-        "optimizer_updates": 222950.0,
-        "remaining_training_hours": 6.699865135919767,
-        "projected_training_finish": "2026-09-24T00:03:05.036081+00:00",
+        "sample_seconds": 861.0,
+        "updates_per_second": 4.285714285714286,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:48+00:00",
+        "observed_end": "2026-09-23T20:08:09+00:00",
+        "start_optimizer_updates": 261470.0,
+        "average_since_first_updates_per_second": 4.21536616245752,
+        "optimizer_updates": 265160.0,
+        "remaining_training_hours": 3.8827314814814815,
+        "projected_training_finish": "2026-09-24T00:01:48.320966+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache-arc-20260923-shared-dur-goal": {
-        "sample_seconds": 4978.0,
-        "updates_per_second": 4.196464443551627,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:58+00:00",
-        "observed_end": "2026-09-23T17:20:56+00:00",
-        "start_optimizer_updates": 196780.0,
-        "average_since_first_updates_per_second": 4.196464443551627,
-        "optimizer_updates": 217670.0,
-        "remaining_training_hours": 4.129534439657466,
-        "projected_training_finish": "2026-09-23T21:28:51.845590+00:00",
+        "sample_seconds": 860.0,
+        "updates_per_second": 4.174418604651163,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:32+00:00",
+        "observed_end": "2026-09-23T20:07:52+00:00",
+        "start_optimizer_updates": 256250.0,
+        "average_since_first_updates_per_second": 4.205682272909164,
+        "optimizer_updates": 259840.0,
+        "remaining_training_hours": 1.345230578768183,
+        "projected_training_finish": "2026-09-23T21:29:33.317735+00:00",
         "meets_provisional_cutoff": true
       },
       "arc-cache4-20260923-shared-dur-10": {
-        "sample_seconds": 4947.0,
-        "updates_per_second": 7.620780270871235,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:12+00:00",
-        "observed_end": "2026-09-23T17:20:39+00:00",
-        "start_optimizer_updates": 298620.0,
-        "average_since_first_updates_per_second": 7.620780270871235,
-        "optimizer_updates": 336320.0,
-        "remaining_training_hours": 9.797808333333334,
-        "projected_training_finish": "2026-09-24T03:08:57.631624+00:00",
+        "sample_seconds": 896.0,
+        "updates_per_second": 7.700892857142857,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:48+00:00",
+        "observed_end": "2026-09-23T20:08:44+00:00",
+        "start_optimizer_updates": 407350.0,
+        "average_since_first_updates_per_second": 7.692256519425226,
+        "optimizer_updates": 414250.0,
+        "remaining_training_hours": 6.884879871175524,
+        "projected_training_finish": "2026-09-24T03:01:56.055207+00:00",
         "meets_provisional_cutoff": true
       },
-      "arc-cache8-20260923-stk1-10": {
-        "sample_seconds": 3368.0,
-        "updates_per_second": 7.505938242280285,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T16:24:23+00:00",
-        "observed_end": "2026-09-23T17:20:31+00:00",
-        "start_optimizer_updates": 40320.0,
-        "average_since_first_updates_per_second": 7.505938242280285,
-        "optimizer_updates": 65600.0,
-        "remaining_training_hours": 19.966450509845288,
-        "projected_training_finish": "2026-09-24T13:19:04.743467+00:00",
+      "arc-h1008b-20260923-stk1-10": {
+        "sample_seconds": 880.0,
+        "updates_per_second": 10.818181818181818,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:27+00:00",
+        "observed_end": "2026-09-23T20:08:07+00:00",
+        "start_optimizer_updates": 162140.0,
+        "average_since_first_updates_per_second": 10.654076063415056,
+        "optimizer_updates": 171660.0,
+        "remaining_training_hours": 11.129950980392156,
+        "projected_training_finish": "2026-09-24T07:16:38.311223+00:00",
         "meets_provisional_cutoff": false
       }
     },
@@ -958,25 +1426,25 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:58:29.847345+00:00",
-      "progress_percent": 85.58288342331534,
+      "progress_percent": 100,
       "training_proof": {
         "run_id": "arc-cache-resume-20260923-stk1-spatial",
         "ready": true,
         "status": {
-          "state": "TRAINING",
+          "state": "ROLLOUTS",
           "method": "arc_stk"
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "4279",
+          "epoch": "5000",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "231120.0",
-          "step": "231119",
-          "Train/loss": "0.0011154828825965524",
-          "Train/source_0_loss": "0.0011154828825965524",
-          "Train/source_0_loss_diffusion_noise": "0.0011154828825965524"
+          "log/ema_num_updates": "270050.0",
+          "step": "270053",
+          "Train/loss": "0.000948762521147728",
+          "Train/source_0_loss": "0.000948762521147728",
+          "Train/source_0_loss_diffusion_noise": "0.000948762521147728"
         },
-        "ema_updates": 231120.0,
+        "ema_updates": 270050.0,
         "predecessor_ema_updates": 27460.0,
         "budget": {
           "train_examples": 55861,
@@ -1007,13 +1475,15 @@
           }
         },
         "current": {
-          "sha256": "d5549f1c9135a139c74c36b984ad10cd6e042522d54c95e8414e9c377383e107",
+          "sha256": "6fc753c458190cca577a0ae63f0a65fdc18b9b54c036d8d462ac05f21538b5d1",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-resume-20260923-stk1-spatial/checkpoints/d5549f1c9135a139c74c36b984ad10cd6e042522d54c95e8414e9c377383e107/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-resume-20260923-stk1-spatial/checkpoints/6fc753c458190cca577a0ae63f0a65fdc18b9b54c036d8d462ac05f21538b5d1/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:16+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T19:55:39+00:00",
         "finite_training_loss": true,
+        "training_finished": true,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -1095,21 +1565,36 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-resume-20260923-stk1-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:19+00:00",
+          "experiments/arc-oat-20260919/arc-cache-resume-20260923-stk1-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T19:55:40+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-22T23:38:44+00:00"
         }
       },
+      "training_completion_proof": {
+        "at": "2026-09-23T20:06:13.111660+00:00",
+        "run_id": "arc-cache-resume-20260923-stk1-spatial",
+        "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+        "checkpoint_sha256": "6fc753c458190cca577a0ae63f0a65fdc18b9b54c036d8d462ac05f21538b5d1",
+        "checkpoint_bytes": 1004453896,
+        "completed_epochs": 5001,
+        "global_step": 270054,
+        "ema_num_updates": 270054,
+        "total_optimizer_steps": 270054,
+        "status": {
+          "state": "ROLLOUTS",
+          "method": "arc_stk"
+        }
+      },
       "rate": {
-        "sample_seconds": 44392.0,
-        "updates_per_second": 4.191295728960173,
+        "sample_seconds": 53713.0,
+        "updates_per_second": 4.188743879507754,
         "rate_kind": "since_first_advancing_observation",
         "observed_start": "2026-09-23T05:00:27+00:00",
-        "observed_end": "2026-09-23T17:20:19+00:00",
+        "observed_end": "2026-09-23T19:55:40+00:00",
         "start_optimizer_updates": 45060.0,
-        "average_since_first_updates_per_second": 4.191295728960173,
-        "optimizer_updates": 231120.0,
-        "remaining_training_hours": 2.5803476297968397,
-        "projected_training_finish": "2026-09-23T19:55:54.772697+00:00",
+        "average_since_first_updates_per_second": 4.188743879507754,
+        "optimizer_updates": 270050.0,
+        "remaining_training_hours": 0.0002652611721014761,
+        "projected_training_finish": "2026-09-23T20:08:51.442183+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
@@ -1153,7 +1638,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:58:37.337405+00:00",
-      "progress_percent": 68.92467660314091,
+      "progress_percent": 81.92207712303693,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-stk1-object",
         "ready": true,
@@ -1163,15 +1648,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "3446",
+          "epoch": "4096",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "224050.0",
-          "step": "224049",
-          "Train/loss": "0.0008196976850740612",
-          "Train/source_0_loss": "0.0008196976850740612",
-          "Train/source_0_loss_diffusion_noise": "0.0008196976850740612"
+          "log/ema_num_updates": "266300.0",
+          "step": "266304",
+          "Train/loss": "0.0007390771061182022",
+          "Train/source_0_loss": "0.0007390771061182022",
+          "Train/source_0_loss_diffusion_noise": "0.0007390771061182022"
         },
-        "ema_updates": 224050.0,
+        "ema_updates": 266300.0,
         "predecessor_ema_updates": 66360.0,
         "budget": {
           "train_examples": 66940,
@@ -1202,13 +1687,15 @@
           }
         },
         "current": {
-          "sha256": "2f72e3d5d88b81a72533256f800abcd7f83e000d3f332efb82f2b6e95320b787",
+          "sha256": "ef563e56a658ca94da554300f8693954faa3e000a99374607968e37dc84cc714",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk1-object/checkpoints/2f72e3d5d88b81a72533256f800abcd7f83e000d3f332efb82f2b6e95320b787/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk1-object/checkpoints/ef563e56a658ca94da554300f8693954faa3e000a99374607968e37dc84cc714/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:51+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:11+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -1290,26 +1777,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk1-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:53+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk1-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:15+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T15:58:23+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 5002.0,
-        "updates_per_second": 4.248300679728109,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:31+00:00",
-        "observed_end": "2026-09-23T17:20:53+00:00",
-        "start_optimizer_updates": 202800.0,
-        "average_since_first_updates_per_second": 4.248300679728109,
-        "optimizer_updates": 224050.0,
-        "remaining_training_hours": 6.604928496732026,
-        "projected_training_finish": "2026-09-23T23:57:23.263855+00:00",
+        "sample_seconds": 894.0,
+        "updates_per_second": 4.205816554809844,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:21+00:00",
+        "observed_end": "2026-09-23T20:08:15+00:00",
+        "start_optimizer_updates": 262540.0,
+        "average_since_first_updates_per_second": 4.220951874501463,
+        "optimizer_updates": 266300.0,
+        "remaining_training_hours": 3.8811990248226946,
+        "projected_training_finish": "2026-09-24T00:01:42.803768+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 202800.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:31+00:00"
+        "ema_updates": 262540.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:21+00:00"
       }
     },
     {
@@ -1348,7 +1836,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:58:42.122124+00:00",
-      "progress_percent": 78.05581740794698,
+      "progress_percent": 93.23849515811123,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-stk1-goal",
         "ready": true,
@@ -1358,15 +1846,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "3903",
+          "epoch": "4662",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "218600.0",
-          "step": "218599",
-          "Train/loss": "0.0011280839098617435",
-          "Train/source_0_loss": "0.0011280839098617435",
-          "Train/source_0_loss_diffusion_noise": "0.0011280839098617435"
+          "log/ema_num_updates": "261120.0",
+          "step": "261119",
+          "Train/loss": "0.0010277138790115714",
+          "Train/source_0_loss": "0.0010277138790115714",
+          "Train/source_0_loss_diffusion_noise": "0.0010277138790115714"
         },
-        "ema_updates": 218600.0,
+        "ema_updates": 261120.0,
         "predecessor_ema_updates": 67880.0,
         "budget": {
           "train_examples": 57763,
@@ -1397,13 +1885,15 @@
           }
         },
         "current": {
-          "sha256": "ef0cf52124e6464de918182d1a492aad6d0e817e563c877692d90bdabde0173b",
+          "sha256": "d5c5ec9ba9965c79fbcb03c3e54ef05ea62f82b2240167e5514e06e62a1ce91a",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk1-goal/checkpoints/ef0cf52124e6464de918182d1a492aad6d0e817e563c877692d90bdabde0173b/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk1-goal/checkpoints/d5c5ec9ba9965c79fbcb03c3e54ef05ea62f82b2240167e5514e06e62a1ce91a/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:51+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:34+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -1485,26 +1975,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk1-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:52+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk1-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:34+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T15:58:31+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4975.0,
-        "updates_per_second": 4.205025125628141,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:57+00:00",
-        "observed_end": "2026-09-23T17:20:52+00:00",
-        "start_optimizer_updates": 197680.0,
-        "average_since_first_updates_per_second": 4.205025125628141,
-        "optimizer_updates": 218600.0,
-        "remaining_training_hours": 4.059693010410028,
-        "projected_training_finish": "2026-09-23T21:24:40.416123+00:00",
+        "sample_seconds": 890.0,
+        "updates_per_second": 4.292134831460674,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:44+00:00",
+        "observed_end": "2026-09-23T20:08:34+00:00",
+        "start_optimizer_updates": 257300.0,
+        "average_since_first_updates_per_second": 4.21892664760258,
+        "optimizer_updates": 261120.0,
+        "remaining_training_hours": 1.225497382198953,
+        "projected_training_finish": "2026-09-23T21:22:22.277876+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 197680.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:57+00:00"
+        "ema_updates": 257300.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:44+00:00"
       }
     },
     {
@@ -1543,7 +2034,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:58:47.467521+00:00",
-      "progress_percent": 78.8694113029246,
+      "progress_percent": 94.37371784902278,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-stk2-spatial",
         "ready": true,
@@ -1553,15 +2044,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "3944",
-          "log/ema_decay": "0.99989914894104",
-          "log/ema_num_updates": "212990.0",
-          "step": "212989",
-          "Train/loss": "0.0010838699527084827",
-          "Train/source_0_loss": "0.0010838699527084827",
-          "Train/source_0_loss_diffusion_noise": "0.0010838699527084827"
+          "epoch": "4719",
+          "log/ema_decay": "0.9998999834060669",
+          "log/ema_num_updates": "254860.0",
+          "step": "254859",
+          "Train/loss": "0.0009918867144733667",
+          "Train/source_0_loss": "0.0009918867144733667",
+          "Train/source_0_loss_diffusion_noise": "0.0009918867144733667"
         },
-        "ema_updates": 212990.0,
+        "ema_updates": 254860.0,
         "predecessor_ema_updates": 66880.0,
         "budget": {
           "train_examples": 55861,
@@ -1592,13 +2083,15 @@
           }
         },
         "current": {
-          "sha256": "b7e031db1dab0e48b7cf0ac2725ccc193971a7473630acf589d4b5e5ec2bfadd",
+          "sha256": "38425d4190cc0450e3d69df82e968e4afd18969475e0e4c0dc57c41bafb16573",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-spatial/checkpoints/b7e031db1dab0e48b7cf0ac2725ccc193971a7473630acf589d4b5e5ec2bfadd/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-spatial/checkpoints/38425d4190cc0450e3d69df82e968e4afd18969475e0e4c0dc57c41bafb16573/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:49+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:34+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -1680,26 +2173,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:54+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:37+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk2-libero-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T15:58:39+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4998.0,
-        "updates_per_second": 4.161664665866347,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:36+00:00",
-        "observed_end": "2026-09-23T17:20:54+00:00",
-        "start_optimizer_updates": 192190.0,
-        "average_since_first_updates_per_second": 4.161664665866347,
-        "optimizer_updates": 212990.0,
-        "remaining_training_hours": 3.808839102564102,
-        "projected_training_finish": "2026-09-23T21:09:37.342072+00:00",
+        "sample_seconds": 898.0,
+        "updates_per_second": 4.187082405345212,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:39+00:00",
+        "observed_end": "2026-09-23T20:08:37+00:00",
+        "start_optimizer_updates": 251100.0,
+        "average_since_first_updates_per_second": 4.161078281654604,
+        "optimizer_updates": 254860.0,
+        "remaining_training_hours": 1.0079943853427895,
+        "projected_training_finish": "2026-09-23T21:09:19.267107+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 192190.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:36+00:00"
+        "ema_updates": 251100.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:39+00:00"
       }
     },
     {
@@ -1738,7 +2232,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:58:51.531503+00:00",
-      "progress_percent": 69.35843600510667,
+      "progress_percent": 82.58348330333934,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-stk2-object",
         "ready": true,
@@ -1748,15 +2242,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "3468",
+          "epoch": "4129",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "225460.0",
-          "step": "225459",
-          "Train/loss": "0.0008334641461260617",
-          "Train/source_0_loss": "0.0008334641461260617",
-          "Train/source_0_loss_diffusion_noise": "0.0008334641461260617"
+          "log/ema_num_updates": "268450.0",
+          "step": "268449",
+          "Train/loss": "0.0007149660377763212",
+          "Train/source_0_loss": "0.0007149660377763212",
+          "Train/source_0_loss_diffusion_noise": "0.0007149660377763212"
         },
-        "ema_updates": 225460.0,
+        "ema_updates": 268450.0,
         "predecessor_ema_updates": 67850.0,
         "budget": {
           "train_examples": 66940,
@@ -1787,13 +2281,15 @@
           }
         },
         "current": {
-          "sha256": "de58f1cae43341d69e8cbfcc275c928c0a3c67f509a5329a268805daa7d03965",
+          "sha256": "237fa181a2d8eccbb20a21f2ca59fdeb90eb9f7421cc706c9ec195d751171229",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-object/checkpoints/de58f1cae43341d69e8cbfcc275c928c0a3c67f509a5329a268805daa7d03965/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-object/checkpoints/237fa181a2d8eccbb20a21f2ca59fdeb90eb9f7421cc706c9ec195d751171229/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:33+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:31+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -1875,26 +2371,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:34+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:05+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk2-libero-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T15:58:45+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4971.0,
-        "updates_per_second": 4.2426071213035605,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:43+00:00",
-        "observed_end": "2026-09-23T17:20:34+00:00",
-        "start_optimizer_updates": 204370.0,
-        "average_since_first_updates_per_second": 4.2426071213035605,
-        "optimizer_updates": 225460.0,
-        "remaining_training_hours": 6.521474830093251,
-        "projected_training_finish": "2026-09-23T23:52:22.830709+00:00",
+        "sample_seconds": 905.0,
+        "updates_per_second": 4.30939226519337,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:00+00:00",
+        "observed_end": "2026-09-23T20:08:05+00:00",
+        "start_optimizer_updates": 264550.0,
+        "average_since_first_updates_per_second": 4.265743576088403,
+        "optimizer_updates": 268450.0,
+        "remaining_training_hours": 3.649328703703704,
+        "projected_training_finish": "2026-09-23T23:47:48.070673+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 204370.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:43+00:00"
+        "ema_updates": 264550.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:00+00:00"
       }
     },
     {
@@ -1933,7 +2430,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:58:57.475982+00:00",
-      "progress_percent": 77.92727168851944,
+      "progress_percent": 93.33847516211044,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-stk2-goal",
         "ready": true,
@@ -1943,15 +2440,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "3897",
+          "epoch": "4667",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "218240.0",
-          "step": "218239",
-          "Train/loss": "0.0011496111983433366",
-          "Train/source_0_loss": "0.0011496111983433366",
-          "Train/source_0_loss_diffusion_noise": "0.0011496111983433366"
+          "log/ema_num_updates": "261400.0",
+          "step": "261399",
+          "Train/loss": "0.0009796174708753824",
+          "Train/source_0_loss": "0.0009796174708753824",
+          "Train/source_0_loss_diffusion_noise": "0.0009796174708753824"
         },
-        "ema_updates": 218240.0,
+        "ema_updates": 261400.0,
         "predecessor_ema_updates": 67360.0,
         "budget": {
           "train_examples": 57763,
@@ -1982,13 +2479,15 @@
           }
         },
         "current": {
-          "sha256": "f78603b3c830172b2b1f141e432c18d9495b684edcb918ab500cfbe797fa0ff6",
+          "sha256": "084f3457e3bda4288e23e2bd8bcb5935d9987b792bd958c9dc0a8944a5a5fc98",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-goal/checkpoints/f78603b3c830172b2b1f141e432c18d9495b684edcb918ab500cfbe797fa0ff6/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-goal/checkpoints/084f3457e3bda4288e23e2bd8bcb5935d9987b792bd958c9dc0a8944a5a5fc98/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:58+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:36+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -2070,26 +2569,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:30+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:38+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk2-libero-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T15:58:41+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4958.0,
-        "updates_per_second": 4.306171843485276,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:52+00:00",
-        "observed_end": "2026-09-23T17:20:30+00:00",
-        "start_optimizer_updates": 196890.0,
-        "average_since_first_updates_per_second": 4.306171843485276,
-        "optimizer_updates": 218240.0,
-        "remaining_training_hours": 3.987558261774655,
-        "projected_training_finish": "2026-09-23T21:20:20.731079+00:00",
+        "sample_seconds": 899.0,
+        "updates_per_second": 4.2602892102335925,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:39+00:00",
+        "observed_end": "2026-09-23T20:08:38+00:00",
+        "start_optimizer_updates": 257570.0,
+        "average_since_first_updates_per_second": 4.287518277282999,
+        "optimizer_updates": 261400.0,
+        "remaining_training_hours": 1.2164015085581665,
+        "projected_training_finish": "2026-09-23T21:21:49.532790+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 196890.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:52+00:00"
+        "ema_updates": 257570.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:39+00:00"
       }
     },
     {
@@ -2128,7 +2628,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:05.936613+00:00",
-      "progress_percent": 55.456677259589405,
+      "progress_percent": 68.52183282351794,
       "training_proof": {
         "run_id": "arc-cache4-20260923-stk2-10",
         "ready": true,
@@ -2138,15 +2638,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "2773",
+          "epoch": "3426",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "335580.0",
-          "step": "335579",
-          "Train/loss": "0.0011992246145382524",
-          "Train/source_0_loss": "0.0011992246145382524",
-          "Train/source_0_loss_diffusion_noise": "0.0011992246145382524"
+          "log/ema_num_updates": "414640.0",
+          "step": "414639",
+          "Train/loss": "0.001029007020406425",
+          "Train/source_0_loss": "0.001029007020406425",
+          "Train/source_0_loss_diffusion_noise": "0.001029007020406425"
         },
-        "ema_updates": 335580.0,
+        "ema_updates": 414640.0,
         "predecessor_ema_updates": 41040.0,
         "budget": {
           "train_examples": 124087,
@@ -2177,13 +2677,15 @@
           }
         },
         "current": {
-          "sha256": "3762bbd4c04f9b09d298841bd5e4f3daf21058726930aa90dbc12bb03317cf82",
+          "sha256": "3ab87c215f3fc8350eb3f6e5fe60f9ea89b698b6005faa181678b9826f27137e",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-stk2-10/checkpoints/3762bbd4c04f9b09d298841bd5e4f3daf21058726930aa90dbc12bb03317cf82/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-stk2-10/checkpoints/3ab87c215f3fc8350eb3f6e5fe60f9ea89b698b6005faa181678b9826f27137e/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:20+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:47+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -2265,26 +2767,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache4-20260923-stk2-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:56+00:00",
+          "experiments/arc-oat-20260919/arc-cache4-20260923-stk2-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:18+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk2-libero-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T15:58:41+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 5006.0,
-        "updates_per_second": 7.826608070315621,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:30+00:00",
-        "observed_end": "2026-09-23T17:20:56+00:00",
-        "start_optimizer_updates": 296400.0,
-        "average_since_first_updates_per_second": 7.826608070315621,
-        "optimizer_updates": 335580.0,
-        "remaining_training_hours": 9.566404670750382,
-        "projected_training_finish": "2026-09-24T02:55:04.578167+00:00",
+        "sample_seconds": 885.0,
+        "updates_per_second": 7.762711864406779,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:33+00:00",
+        "observed_end": "2026-09-23T20:08:18+00:00",
+        "start_optimizer_updates": 407770.0,
+        "average_since_first_updates_per_second": 7.8575225943647,
+        "optimizer_updates": 414640.0,
+        "remaining_training_hours": 6.816095948568656,
+        "projected_training_finish": "2026-09-24T02:57:48.432791+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 296400.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:30+00:00"
+        "ema_updates": 407770.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:33+00:00"
       }
     },
     {
@@ -2323,7 +2826,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:11.139666+00:00",
-      "progress_percent": 79.94697356824932,
+      "progress_percent": 95.56977493390211,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-dur1-spatial",
         "ready": true,
@@ -2333,15 +2836,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "3998",
+          "epoch": "4779",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "215900.0",
-          "step": "215899",
-          "Train/loss": "0.0011125578312203288",
-          "Train/source_0_loss": "0.0011125578312203288",
-          "Train/source_0_loss_diffusion_noise": "0.0011125578312203288"
+          "log/ema_num_updates": "258090.0",
+          "step": "258089",
+          "Train/loss": "0.0010075413156300783",
+          "Train/source_0_loss": "0.0010075413156300783",
+          "Train/source_0_loss_diffusion_noise": "0.0010075413156300783"
         },
-        "ema_updates": 215900.0,
+        "ema_updates": 258090.0,
         "predecessor_ema_updates": 66120.0,
         "budget": {
           "train_examples": 55861,
@@ -2372,13 +2875,15 @@
           }
         },
         "current": {
-          "sha256": "df40e186d13a097b4e7f349960c2008e4230822bee2922224a3752854ea1869c",
+          "sha256": "12493fb41e215d4498c3303e07e8feec3b7dd6d2a6e82d08b7952d7c234f4b8b",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-spatial/checkpoints/df40e186d13a097b4e7f349960c2008e4230822bee2922224a3752854ea1869c/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-spatial/checkpoints/12493fb41e215d4498c3303e07e8feec3b7dd6d2a6e82d08b7952d7c234f4b8b/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:48+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:15+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -2460,26 +2965,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:50+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:17+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T15:58:47+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4990.0,
-        "updates_per_second": 4.202404809619239,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:40+00:00",
-        "observed_end": "2026-09-23T17:20:50+00:00",
-        "start_optimizer_updates": 194930.0,
-        "average_since_first_updates_per_second": 4.202404809619239,
-        "optimizer_updates": 215900.0,
-        "remaining_training_hours": 3.579564192232289,
-        "projected_training_finish": "2026-09-23T20:55:51.952462+00:00",
+        "sample_seconds": 907.0,
+        "updates_per_second": 4.200661521499449,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:10+00:00",
+        "observed_end": "2026-09-23T20:08:17+00:00",
+        "start_optimizer_updates": 254280.0,
+        "average_since_first_updates_per_second": 4.200305912083527,
+        "optimizer_updates": 258090.0,
+        "remaining_training_hours": 0.7911452318460193,
+        "projected_training_finish": "2026-09-23T20:56:18.610231+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 194930.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:40+00:00"
+        "ema_updates": 254280.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:10+00:00"
       }
     },
     {
@@ -2518,7 +3024,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:16.170618+00:00",
-      "progress_percent": 69.98600279944012,
+      "progress_percent": 83.13721871010414,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-dur1-object",
         "ready": true,
@@ -2528,15 +3034,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "3499",
+          "epoch": "4157",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "227500.0",
-          "step": "227499",
-          "Train/loss": "0.0008824573014862835",
-          "Train/source_0_loss": "0.0008824573014862835",
-          "Train/source_0_loss_diffusion_noise": "0.0008824573014862835"
+          "log/ema_num_updates": "270250.0",
+          "step": "270249",
+          "Train/loss": "0.0007805894128978252",
+          "Train/source_0_loss": "0.0007805894128978252",
+          "Train/source_0_loss_diffusion_noise": "0.0007805894128978252"
         },
-        "ema_updates": 227500.0,
+        "ema_updates": 270250.0,
         "predecessor_ema_updates": 66690.0,
         "budget": {
           "train_examples": 66940,
@@ -2567,13 +3073,15 @@
           }
         },
         "current": {
-          "sha256": "740951eec54fc068037478daa8330ce6bcc8be4ddda3a8278ea29dfa091138b3",
+          "sha256": "775aeb3f86b1837a66a755078b0cbad52b70c7a44f0b2bf47c1dee407a29db9c",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-object/checkpoints/740951eec54fc068037478daa8330ce6bcc8be4ddda3a8278ea29dfa091138b3/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-object/checkpoints/775aeb3f86b1837a66a755078b0cbad52b70c7a44f0b2bf47c1dee407a29db9c/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:54+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:32+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -2655,26 +3163,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:27+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:34+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T15:58:49+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4939.0,
-        "updates_per_second": 4.264021056894108,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:08+00:00",
-        "observed_end": "2026-09-23T17:20:27+00:00",
-        "start_optimizer_updates": 206440.0,
-        "average_since_first_updates_per_second": 4.264021056894108,
-        "optimizer_updates": 227500.0,
-        "remaining_training_hours": 6.355829046639232,
-        "projected_training_finish": "2026-09-23T23:42:26.505956+00:00",
+        "sample_seconds": 887.0,
+        "updates_per_second": 4.272829763246899,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:47+00:00",
+        "observed_end": "2026-09-23T20:08:34+00:00",
+        "start_optimizer_updates": 266460.0,
+        "average_since_first_updates_per_second": 4.246639158791428,
+        "optimizer_updates": 270250.0,
+        "remaining_training_hours": 3.5635374523600123,
+        "projected_training_finish": "2026-09-23T23:42:39.222242+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 206440.0,
-        "metrics_uploaded_at": "2026-09-23T15:58:08+00:00"
+        "ema_updates": 266460.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:47+00:00"
       }
     },
     {
@@ -2713,7 +3222,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:21.788841+00:00",
-      "progress_percent": 80.56960036564115,
+      "progress_percent": 95.92367240837547,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-dur1-goal",
         "ready": true,
@@ -2723,15 +3232,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "4029",
+          "epoch": "4797",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "225640.0",
-          "step": "225639",
-          "Train/loss": "0.001205821754410863",
-          "Train/source_0_loss": "0.001205821754410863",
-          "Train/source_0_loss_diffusion_noise": "0.001205821754410863"
+          "log/ema_num_updates": "268640.0",
+          "step": "268639",
+          "Train/loss": "0.0010453491704538465",
+          "Train/source_0_loss": "0.0010453491704538465",
+          "Train/source_0_loss_diffusion_noise": "0.0010453491704538465"
         },
-        "ema_updates": 225640.0,
+        "ema_updates": 268640.0,
         "predecessor_ema_updates": 68630.0,
         "budget": {
           "train_examples": 57763,
@@ -2762,13 +3271,15 @@
           }
         },
         "current": {
-          "sha256": "434a8868f8f60b0e32fed0a97c921ebab4342349309e3258b085d3995686d3eb",
+          "sha256": "f4befbfcacca97c5abb891ee6be6655650fe409379b4963f6c3b82d55487d683",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-goal/checkpoints/434a8868f8f60b0e32fed0a97c921ebab4342349309e3258b085d3995686d3eb/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-goal/checkpoints/f4befbfcacca97c5abb891ee6be6655650fe409379b4963f6c3b82d55487d683/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:09+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:48+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -2850,26 +3361,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:12+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:24+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur1-libero-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T15:58:52+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4929.0,
-        "updates_per_second": 4.276729559748428,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:03+00:00",
-        "observed_end": "2026-09-23T17:20:12+00:00",
-        "start_optimizer_updates": 204560.0,
-        "average_since_first_updates_per_second": 4.276729559748428,
-        "optimizer_updates": 225640.0,
-        "remaining_training_hours": 3.534372549019608,
-        "projected_training_finish": "2026-09-23T20:53:09.262578+00:00",
+        "sample_seconds": 888.0,
+        "updates_per_second": 4.245495495495495,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:36+00:00",
+        "observed_end": "2026-09-23T20:08:24+00:00",
+        "start_optimizer_updates": 264870.0,
+        "average_since_first_updates_per_second": 4.26602756141402,
+        "optimizer_updates": 268640.0,
+        "remaining_training_hours": 0.7469354553492485,
+        "projected_training_finish": "2026-09-23T20:53:39.455072+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 204560.0,
-        "metrics_uploaded_at": "2026-09-23T15:58:03+00:00"
+        "ema_updates": 264870.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:36+00:00"
       }
     },
     {
@@ -2908,7 +3420,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:28.269453+00:00",
-      "progress_percent": 59.773169333075536,
+      "progress_percent": 72.7176878673852,
       "training_proof": {
         "run_id": "arc-cache4-20260923-dur1-10",
         "ready": true,
@@ -2918,15 +3430,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "2989",
+          "epoch": "3636",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "361700.0",
-          "step": "361699",
-          "Train/loss": "0.001219509867951274",
-          "Train/source_0_loss": "0.001219509867951274",
-          "Train/source_0_loss_diffusion_noise": "0.001219509867951274"
+          "log/ema_num_updates": "440030.0",
+          "step": "440029",
+          "Train/loss": "0.0010903294896706939",
+          "Train/source_0_loss": "0.0010903294896706939",
+          "Train/source_0_loss_diffusion_noise": "0.0010903294896706939"
         },
-        "ema_updates": 361700.0,
+        "ema_updates": 440030.0,
         "predecessor_ema_updates": 208310.0,
         "budget": {
           "train_examples": 124087,
@@ -2957,13 +3469,15 @@
           }
         },
         "current": {
-          "sha256": "55ee697b116b9ba6f7d23629c8f9831409694b77785465fd93b6002ad3921831",
+          "sha256": "ff3c2ced7219be333689ace721684dab426821e4a24b00632bd80f0ed75c60ff",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-dur1-10/checkpoints/55ee697b116b9ba6f7d23629c8f9831409694b77785465fd93b6002ad3921831/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-dur1-10/checkpoints/ff3c2ced7219be333689ace721684dab426821e4a24b00632bd80f0ed75c60ff/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:47+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:18+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -3045,26 +3559,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache4-20260923-dur1-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:19+00:00",
+          "experiments/arc-oat-20260919/arc-cache4-20260923-dur1-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:21+00:00",
           "experiments/arc-oat-20260919/arc-cache-resume-20260923-dur1-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T15:59:01+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4964.0,
-        "updates_per_second": 7.804190169218372,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:35+00:00",
-        "observed_end": "2026-09-23T17:20:19+00:00",
-        "start_optimizer_updates": 322960.0,
-        "average_since_first_updates_per_second": 7.804190169218372,
-        "optimizer_updates": 361700.0,
-        "remaining_training_hours": 8.664184621120862,
-        "projected_training_finish": "2026-09-24T02:00:56.586054+00:00",
+        "sample_seconds": 891.0,
+        "updates_per_second": 7.732884399551066,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:30+00:00",
+        "observed_end": "2026-09-23T20:08:21+00:00",
+        "start_optimizer_updates": 433140.0,
+        "average_since_first_updates_per_second": 7.780805529708893,
+        "optimizer_updates": 440030.0,
+        "remaining_training_hours": 5.930337082728593,
+        "projected_training_finish": "2026-09-24T02:04:39.700948+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 322960.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:35+00:00"
+        "ema_updates": 433140.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:30+00:00"
       }
     },
     {
@@ -3103,7 +3618,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:33.967870+00:00",
-      "progress_percent": 79.63592466691847,
+      "progress_percent": 95.31797344234857,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-dur2-spatial",
         "ready": true,
@@ -3113,15 +3628,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "3982",
-          "log/ema_decay": "0.9998998641967773",
-          "log/ema_num_updates": "215060.0",
-          "step": "215059",
-          "Train/loss": "0.0009730262099765241",
-          "Train/source_0_loss": "0.0009730262099765241",
-          "Train/source_0_loss_diffusion_noise": "0.0009730262099765241"
+          "epoch": "4766",
+          "log/ema_decay": "0.9998999834060669",
+          "log/ema_num_updates": "257410.0",
+          "step": "257417",
+          "Train/loss": "0.0008153222152031958",
+          "Train/source_0_loss": "0.0008153222152031958",
+          "Train/source_0_loss_diffusion_noise": "0.0008153222152031958"
         },
-        "ema_updates": 215060.0,
+        "ema_updates": 257410.0,
         "predecessor_ema_updates": 67370.0,
         "budget": {
           "train_examples": 55861,
@@ -3152,13 +3667,15 @@
           }
         },
         "current": {
-          "sha256": "6bc2c4592d969806ce6b8f6bc69ceb5cfe89c74ecb353e00db7afb1838fcd3da",
+          "sha256": "f102a9c7250415a7f18d95186a0809d34d60abe050cf9aa618b6b1aa24532c4f",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-spatial/checkpoints/6bc2c4592d969806ce6b8f6bc69ceb5cfe89c74ecb353e00db7afb1838fcd3da/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-spatial/checkpoints/f102a9c7250415a7f18d95186a0809d34d60abe050cf9aa618b6b1aa24532c4f/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:20:27+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:48+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -3240,26 +3757,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:28+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:21+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur2-libero-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T15:59:11+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4981.0,
-        "updates_per_second": 4.147761493675969,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:27+00:00",
-        "observed_end": "2026-09-23T17:20:28+00:00",
-        "start_optimizer_updates": 194400.0,
-        "average_since_first_updates_per_second": 4.147761493675969,
-        "optimizer_updates": 215060.0,
-        "remaining_training_hours": 3.6829772238356457,
-        "projected_training_finish": "2026-09-23T21:02:04.239444+00:00",
+        "sample_seconds": 901.0,
+        "updates_per_second": 4.261931187569368,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:20+00:00",
+        "observed_end": "2026-09-23T20:08:21+00:00",
+        "start_optimizer_updates": 253570.0,
+        "average_since_first_updates_per_second": 4.1855985120233825,
+        "optimizer_updates": 257410.0,
+        "remaining_training_hours": 0.8240917245370369,
+        "projected_training_finish": "2026-09-23T20:58:17.217677+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 194400.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:27+00:00"
+        "ema_updates": 253570.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:20+00:00"
       }
     },
     {
@@ -3298,7 +3816,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:40.541035+00:00",
-      "progress_percent": 69.97369756817868,
+      "progress_percent": 83.16798178825773,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-dur2-object",
         "ready": true,
@@ -3308,15 +3826,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "3499",
+          "epoch": "4159",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "227460.0",
-          "step": "227459",
-          "Train/loss": "0.0007761744782328606",
-          "Train/source_0_loss": "0.0007761744782328606",
-          "Train/source_0_loss_diffusion_noise": "0.0007761744782328606"
+          "log/ema_num_updates": "270350.0",
+          "step": "270349",
+          "Train/loss": "0.0006380616687238216",
+          "Train/source_0_loss": "0.0006380616687238216",
+          "Train/source_0_loss_diffusion_noise": "0.0006380616687238216"
         },
-        "ema_updates": 227460.0,
+        "ema_updates": 270350.0,
         "predecessor_ema_updates": 65650.0,
         "budget": {
           "train_examples": 66940,
@@ -3347,13 +3865,15 @@
           }
         },
         "current": {
-          "sha256": "a64b3ec47782bcb3dc25fb664f514e98107730bc7e0492310daf5a2afeffa05d",
+          "sha256": "d8cd76fab643b0ce7c8058d73c701fd1775632b0f6a1a3f666b3650b7dd94d96",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-object/checkpoints/a64b3ec47782bcb3dc25fb664f514e98107730bc7e0492310daf5a2afeffa05d/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-object/checkpoints/d8cd76fab643b0ce7c8058d73c701fd1775632b0f6a1a3f666b3650b7dd94d96/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:38+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:59+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -3435,26 +3955,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:12+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:32+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur2-libero-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T15:59:37+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4938.0,
-        "updates_per_second": 4.258809234507898,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:54+00:00",
-        "observed_end": "2026-09-23T17:20:12+00:00",
-        "start_optimizer_updates": 206430.0,
-        "average_since_first_updates_per_second": 4.258809234507898,
-        "optimizer_updates": 227460.0,
-        "remaining_training_hours": 6.366216119828816,
-        "projected_training_finish": "2026-09-23T23:43:03.899486+00:00",
+        "sample_seconds": 893.0,
+        "updates_per_second": 4.311310190369541,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:39+00:00",
+        "observed_end": "2026-09-23T20:08:32+00:00",
+        "start_optimizer_updates": 266500.0,
+        "average_since_first_updates_per_second": 4.250565234738662,
+        "optimizer_updates": 270350.0,
+        "remaining_training_hours": 3.525288239538239,
+        "projected_training_finish": "2026-09-23T23:40:21.525148+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 206430.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:54+00:00"
+        "ema_updates": 266500.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:39+00:00"
       }
     },
     {
@@ -3493,7 +4014,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:48.530061+00:00",
-      "progress_percent": 78.26291884480247,
+      "progress_percent": 93.58128374325135,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-dur2-goal",
         "ready": true,
@@ -3503,15 +4024,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "3913",
+          "epoch": "4679",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "219180.0",
-          "step": "219183",
-          "Train/loss": "0.0010395433055236936",
-          "Train/source_0_loss": "0.0010395433055236936",
-          "Train/source_0_loss_diffusion_noise": "0.0010395433055236936"
+          "log/ema_num_updates": "262080.0",
+          "step": "262079",
+          "Train/loss": "0.0009353601490147412",
+          "Train/source_0_loss": "0.0009353601490147412",
+          "Train/source_0_loss_diffusion_noise": "0.0009353601490147412"
         },
-        "ema_updates": 219180.0,
+        "ema_updates": 262080.0,
         "predecessor_ema_updates": 67530.0,
         "budget": {
           "train_examples": 57763,
@@ -3542,13 +4063,15 @@
           }
         },
         "current": {
-          "sha256": "542677af3d4ab16391b68b06294eb803c7035a624c52356f1e4a777f068bd9da",
+          "sha256": "b46cbfe17a374e93efb4611a96b7f1c156a71469d6503b93588ca2272bb803ca",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-goal/checkpoints/542677af3d4ab16391b68b06294eb803c7035a624c52356f1e4a777f068bd9da/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-goal/checkpoints/b46cbfe17a374e93efb4611a96b7f1c156a71469d6503b93588ca2272bb803ca/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:07+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:00+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -3630,26 +4153,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:38+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:32+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur2-libero-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T15:59:39+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4970.0,
-        "updates_per_second": 4.267605633802817,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:48+00:00",
-        "observed_end": "2026-09-23T17:20:38+00:00",
-        "start_optimizer_updates": 197970.0,
-        "average_since_first_updates_per_second": 4.267605633802817,
-        "optimizer_updates": 219180.0,
-        "remaining_training_hours": 3.9624092409240923,
-        "projected_training_finish": "2026-09-23T21:18:50.194739+00:00",
+        "sample_seconds": 930.0,
+        "updates_per_second": 4.247311827956989,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:02+00:00",
+        "observed_end": "2026-09-23T20:08:32+00:00",
+        "start_optimizer_updates": 258130.0,
+        "average_since_first_updates_per_second": 4.261499601169902,
+        "optimizer_updates": 262080.0,
+        "remaining_training_hours": 1.175645569620253,
+        "projected_training_finish": "2026-09-23T21:19:22.811556+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 197970.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:48+00:00"
+        "ema_updates": 258130.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:02+00:00"
       }
     },
     {
@@ -3688,7 +4212,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T15:59:56.772440+00:00",
-      "progress_percent": 55.96070868470934,
+      "progress_percent": 68.7862427514497,
       "training_proof": {
         "run_id": "arc-cache4-20260923-dur2-10",
         "ready": true,
@@ -3698,15 +4222,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "2798",
+          "epoch": "3439",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "338630.0",
-          "step": "338629",
-          "Train/loss": "0.0011260613100603223",
-          "Train/source_0_loss": "0.0011260613100603223",
-          "Train/source_0_loss_diffusion_noise": "0.0011260613100603223"
+          "log/ema_num_updates": "416240.0",
+          "step": "416239",
+          "Train/loss": "0.0009554237476550043",
+          "Train/source_0_loss": "0.0009554237476550043",
+          "Train/source_0_loss_diffusion_noise": "0.0009554237476550043"
         },
-        "ema_updates": 338630.0,
+        "ema_updates": 416240.0,
         "predecessor_ema_updates": 41390.0,
         "budget": {
           "train_examples": 124087,
@@ -3737,13 +4261,15 @@
           }
         },
         "current": {
-          "sha256": "ff5ea0704b407801408c0f11135a4c494b7b5e6676e977bae4f1c014e3bab943",
+          "sha256": "0f254bd47ede0fb8c5c4cca6eac55c9af769d8848dae3828775ed874ec484a3c",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-dur2-10/checkpoints/ff5ea0704b407801408c0f11135a4c494b7b5e6676e977bae4f1c014e3bab943/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-dur2-10/checkpoints/0f254bd47ede0fb8c5c4cca6eac55c9af769d8848dae3828775ed874ec484a3c/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:02+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:22+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -3825,26 +4351,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache4-20260923-dur2-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:37+00:00",
+          "experiments/arc-oat-20260919/arc-cache4-20260923-dur2-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:07:54+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-dur2-libero-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T15:59:44+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4951.0,
-        "updates_per_second": 7.703494243587154,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:06+00:00",
-        "observed_end": "2026-09-23T17:20:37+00:00",
-        "start_optimizer_updates": 300490.0,
-        "average_since_first_updates_per_second": 7.703494243587154,
-        "optimizer_updates": 338630.0,
-        "remaining_training_hours": 9.609311753481327,
-        "projected_training_finish": "2026-09-24T02:57:39.043800+00:00",
+        "sample_seconds": 874.0,
+        "updates_per_second": 7.803203661327231,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:20+00:00",
+        "observed_end": "2026-09-23T20:07:54+00:00",
+        "start_optimizer_updates": 409420.0,
+        "average_since_first_updates_per_second": 7.722844942620763,
+        "optimizer_updates": 416240.0,
+        "remaining_training_hours": 6.723769713261649,
+        "projected_training_finish": "2026-09-24T02:52:16.058490+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 300490.0,
-        "metrics_uploaded_at": "2026-09-23T15:58:06+00:00"
+        "ema_updates": 409420.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:20+00:00"
       }
     },
     {
@@ -3883,7 +4410,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T16:00:05.133087+00:00",
-      "progress_percent": 79.36560835980951,
+      "progress_percent": 94.78104379124176,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-shared-stk-spatial",
         "ready": true,
@@ -3893,15 +4420,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "3969",
-          "log/ema_decay": "0.9998996257781982",
-          "log/ema_num_updates": "214330.0",
-          "step": "214329",
-          "Train/loss": "0.0011012927861884236",
-          "Train/source_0_loss": "0.0011012927861884236",
-          "Train/source_0_loss_diffusion_noise": "0.0011012927861884236"
+          "epoch": "4739",
+          "log/ema_decay": "0.9998999834060669",
+          "log/ema_num_updates": "255960.0",
+          "step": "255959",
+          "Train/loss": "0.000991271692328155",
+          "Train/source_0_loss": "0.000991271692328155",
+          "Train/source_0_loss_diffusion_noise": "0.000991271692328155"
         },
-        "ema_updates": 214330.0,
+        "ema_updates": 255960.0,
         "predecessor_ema_updates": 68010.0,
         "budget": {
           "train_examples": 55861,
@@ -3932,13 +4459,15 @@
           }
         },
         "current": {
-          "sha256": "9f7cb4202cae0220cb35f1fb8950c1347610451a2e618ecbddd5dfb2b6de87cd",
+          "sha256": "51a3d2e4ce40580e1b454102e7c77dbc593d847834aa3d3c336f0d6d00e626d1",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-spatial/checkpoints/9f7cb4202cae0220cb35f1fb8950c1347610451a2e618ecbddd5dfb2b6de87cd/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-spatial/checkpoints/51a3d2e4ce40580e1b454102e7c77dbc593d847834aa3d3c336f0d6d00e626d1/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:48+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:51+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -4020,26 +4549,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:50+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:24+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-shared-stk-libero-spatial/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T15:59:52+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4961.0,
-        "updates_per_second": 4.172545857689982,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:09+00:00",
-        "observed_end": "2026-09-23T17:20:50+00:00",
-        "start_optimizer_updates": 193630.0,
-        "average_since_first_updates_per_second": 4.172545857689982,
-        "optimizer_updates": 214330.0,
-        "remaining_training_hours": 3.709698926462695,
-        "projected_training_finish": "2026-09-23T21:03:40.437639+00:00",
+        "sample_seconds": 928.0,
+        "updates_per_second": 4.073275862068965,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:52:56+00:00",
+        "observed_end": "2026-09-23T20:08:24+00:00",
+        "start_optimizer_updates": 252180.0,
+        "average_since_first_updates_per_second": 4.151182151182152,
+        "optimizer_updates": 255960.0,
+        "remaining_training_hours": 0.9611428571428572,
+        "projected_training_finish": "2026-09-23T21:06:30.601829+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 193630.0,
-        "metrics_uploaded_at": "2026-09-23T15:58:09+00:00"
+        "ema_updates": 252180.0,
+        "metrics_uploaded_at": "2026-09-23T19:52:56+00:00"
       }
     },
     {
@@ -4078,7 +4608,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T16:00:12.228376+00:00",
-      "progress_percent": 69.03849999230923,
+      "progress_percent": 82.18048697952717,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-shared-stk-object",
         "ready": true,
@@ -4088,15 +4618,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "3452",
+          "epoch": "4109",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "224420.0",
-          "step": "224419",
-          "Train/loss": "0.0008201401797123253",
-          "Train/source_0_loss": "0.0008201401797123253",
-          "Train/source_0_loss_diffusion_noise": "0.0008201401797123253"
+          "log/ema_num_updates": "267140.0",
+          "step": "267139",
+          "Train/loss": "0.0007044925005175173",
+          "Train/source_0_loss": "0.0007044925005175173",
+          "Train/source_0_loss_diffusion_noise": "0.0007044925005175173"
         },
-        "ema_updates": 224420.0,
+        "ema_updates": 267140.0,
         "predecessor_ema_updates": 67270.0,
         "budget": {
           "train_examples": 66940,
@@ -4127,13 +4657,15 @@
           }
         },
         "current": {
-          "sha256": "c4e0e78744b2d592ac3f5c4e66541ae0cbb75e49105b7cb5ff77cd0d4d77dc13",
+          "sha256": "ce9c8d0b3232d0f334912de44fc9cd004426ec38e9db16ef62276f73ce6d5ad8",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-object/checkpoints/c4e0e78744b2d592ac3f5c4e66541ae0cbb75e49105b7cb5ff77cd0d4d77dc13/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-object/checkpoints/ce9c8d0b3232d0f334912de44fc9cd004426ec38e9db16ef62276f73ce6d5ad8/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:10+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:37+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -4215,26 +4747,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:43+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:10+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-shared-stk-libero-object/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T16:00:03+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4972.0,
-        "updates_per_second": 4.259855189058729,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:51+00:00",
-        "observed_end": "2026-09-23T17:20:43+00:00",
-        "start_optimizer_updates": 203240.0,
-        "average_since_first_updates_per_second": 4.259855189058729,
-        "optimizer_updates": 224420.0,
-        "remaining_training_hours": 6.562886108488092,
-        "projected_training_finish": "2026-09-23T23:54:51.911509+00:00",
+        "sample_seconds": 875.0,
+        "updates_per_second": 4.228571428571429,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:35+00:00",
+        "observed_end": "2026-09-23T20:08:10+00:00",
+        "start_optimizer_updates": 263440.0,
+        "average_since_first_updates_per_second": 4.2546108262867035,
+        "optimizer_updates": 267140.0,
+        "remaining_training_hours": 3.8051332582582584,
+        "projected_training_finish": "2026-09-23T23:57:08.967290+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 203240.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:51+00:00"
+        "ema_updates": 263440.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:35+00:00"
       }
     },
     {
@@ -4273,7 +4806,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T16:00:19.083278+00:00",
-      "progress_percent": 77.74516525266375,
+      "progress_percent": 92.98140371925615,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-shared-stk-goal",
         "ready": true,
@@ -4283,15 +4816,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "3888",
+          "epoch": "4649",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "217730.0",
-          "step": "217729",
-          "Train/loss": "0.00121441506780684",
-          "Train/source_0_loss": "0.00121441506780684",
-          "Train/source_0_loss_diffusion_noise": "0.00121441506780684"
+          "log/ema_num_updates": "260400.0",
+          "step": "260399",
+          "Train/loss": "0.0010593762854114175",
+          "Train/source_0_loss": "0.0010593762854114175",
+          "Train/source_0_loss_diffusion_noise": "0.0010593762854114175"
         },
-        "ema_updates": 217730.0,
+        "ema_updates": 260400.0,
         "predecessor_ema_updates": 67350.0,
         "budget": {
           "train_examples": 57763,
@@ -4322,13 +4855,15 @@
           }
         },
         "current": {
-          "sha256": "8387629092371a7633190728093acd5a3040a77773e7da30990cd0223ee8ec37",
+          "sha256": "a56d9c098b00bcc7c22d84b6afbbaf5804978bd12f7a2cacf435a402a9ac385a",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-goal/checkpoints/8387629092371a7633190728093acd5a3040a77773e7da30990cd0223ee8ec37/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-goal/checkpoints/a56d9c098b00bcc7c22d84b6afbbaf5804978bd12f7a2cacf435a402a9ac385a/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:38+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:11+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -4410,26 +4945,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:41+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:44+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-shared-stk-libero-goal/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T16:00:03+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4962.0,
-        "updates_per_second": 4.163643692059654,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:59+00:00",
-        "observed_end": "2026-09-23T17:20:41+00:00",
-        "start_optimizer_updates": 197070.0,
-        "average_since_first_updates_per_second": 4.163643692059654,
-        "optimizer_updates": 217730.0,
-        "remaining_training_hours": 4.158083414004517,
-        "projected_training_finish": "2026-09-23T21:30:34.621824+00:00",
+        "sample_seconds": 923.0,
+        "updates_per_second": 4.268689057421452,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:21+00:00",
+        "observed_end": "2026-09-23T20:08:44+00:00",
+        "start_optimizer_updates": 256460.0,
+        "average_since_first_updates_per_second": 4.209371884346959,
+        "optimizer_updates": 260400.0,
+        "remaining_training_hours": 1.2790812182741118,
+        "projected_training_finish": "2026-09-23T21:25:35.179963+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 197070.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:59+00:00"
+        "ema_updates": 256460.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:21+00:00"
       }
     },
     {
@@ -4468,7 +5004,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T16:00:26.864060+00:00",
-      "progress_percent": 55.18069939731062,
+      "progress_percent": 67.9748347851091,
       "training_proof": {
         "run_id": "arc-cache4-20260923-shared-stk-10",
         "ready": true,
@@ -4478,15 +5014,15 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "2759",
+          "epoch": "3399",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "333910.0",
-          "step": "333909",
-          "Train/loss": "0.0012206813553348184",
-          "Train/source_0_loss": "0.0012206813553348184",
-          "Train/source_0_loss_diffusion_noise": "0.0012206813553348184"
+          "log/ema_num_updates": "411330.0",
+          "step": "411329",
+          "Train/loss": "0.0010882236529141665",
+          "Train/source_0_loss": "0.0010882236529141665",
+          "Train/source_0_loss_diffusion_noise": "0.0010882236529141665"
         },
-        "ema_updates": 333910.0,
+        "ema_updates": 411330.0,
         "predecessor_ema_updates": 41120.0,
         "budget": {
           "train_examples": 124087,
@@ -4517,13 +5053,15 @@
           }
         },
         "current": {
-          "sha256": "aae9ccb207c297a4e7de15f5261a880180cf509142cce187605234b3a360c8ba",
+          "sha256": "6d60321cadf4cd368f0cf7abfd7f7d1a7a100cf9999f194b84eae2eb86d50941",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-shared-stk-10/checkpoints/aae9ccb207c297a4e7de15f5261a880180cf509142cce187605234b3a360c8ba/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-shared-stk-10/checkpoints/6d60321cadf4cd368f0cf7abfd7f7d1a7a100cf9999f194b84eae2eb86d50941/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:32+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:19+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -4605,26 +5143,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache4-20260923-shared-stk-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:07+00:00",
+          "experiments/arc-oat-20260919/arc-cache4-20260923-shared-stk-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:07:51+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-shared-stk-libero-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T16:00:14+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4921.0,
-        "updates_per_second": 7.7992277992278,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:06+00:00",
-        "observed_end": "2026-09-23T17:20:07+00:00",
-        "start_optimizer_updates": 295530.0,
-        "average_since_first_updates_per_second": 7.7992277992278,
-        "optimizer_updates": 333910.0,
-        "remaining_training_hours": 9.659467684268426,
-        "projected_training_finish": "2026-09-24T03:00:39.605220+00:00",
+        "sample_seconds": 849.0,
+        "updates_per_second": 7.656065959952886,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:42+00:00",
+        "observed_end": "2026-09-23T20:07:51+00:00",
+        "start_optimizer_updates": 404830.0,
+        "average_since_first_updates_per_second": 7.727727727727728,
+        "optimizer_updates": 411330.0,
+        "remaining_training_hours": 7.031135,
+        "projected_training_finish": "2026-09-24T03:10:42.573595+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 295530.0,
-        "metrics_uploaded_at": "2026-09-23T15:58:06+00:00"
+        "ema_updates": 404830.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:42+00:00"
       }
     },
     {
@@ -4663,7 +5202,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T16:00:34.750466+00:00",
-      "progress_percent": 78.63612462692646,
+      "progress_percent": 93.78124375124975,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-shared-dur-spatial",
         "ready": true,
@@ -4673,15 +5212,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "3932",
-          "log/ema_decay": "0.9998989105224609",
-          "log/ema_num_updates": "212360.0",
-          "step": "212359",
-          "Train/loss": "0.0009932873072102666",
-          "Train/source_0_loss": "0.0009932873072102666",
-          "Train/source_0_loss_diffusion_noise": "0.0009932873072102666"
+          "epoch": "4689",
+          "log/ema_decay": "0.9998999834060669",
+          "log/ema_num_updates": "253260.0",
+          "step": "253259",
+          "Train/loss": "0.0008493977948091924",
+          "Train/source_0_loss": "0.0008493977948091924",
+          "Train/source_0_loss_diffusion_noise": "0.0008493977948091924"
         },
-        "ema_updates": 212360.0,
+        "ema_updates": 253260.0,
         "predecessor_ema_updates": 66320.0,
         "budget": {
           "train_examples": 55861,
@@ -4712,13 +5251,15 @@
           }
         },
         "current": {
-          "sha256": "9e50092469ebf2cf97aae3c4be450d865c6e4e95090053b201e84c0d2d68bd80",
+          "sha256": "d09a16ec1e8f4457511516890a5e8e784327303d856c248ac12bfb850a838678",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-spatial/checkpoints/9e50092469ebf2cf97aae3c4be450d865c6e4e95090053b201e84c0d2d68bd80/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-spatial/checkpoints/d09a16ec1e8f4457511516890a5e8e784327303d856c248ac12bfb850a838678/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:30+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:51+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -4800,26 +5341,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:32+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:26+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-shared-dur-libero-spatial/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T16:00:08+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4943.0,
-        "updates_per_second": 4.070402589520534,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:09+00:00",
-        "observed_end": "2026-09-23T17:20:32+00:00",
-        "start_optimizer_updates": 192240.0,
-        "average_since_first_updates_per_second": 4.070402589520534,
-        "optimizer_updates": 212360.0,
-        "remaining_training_hours": 3.9372299812237683,
-        "projected_training_finish": "2026-09-23T21:17:19.549508+00:00",
+        "sample_seconds": 919.0,
+        "updates_per_second": 4.11316648531012,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:07+00:00",
+        "observed_end": "2026-09-23T20:08:26+00:00",
+        "start_optimizer_updates": 249480.0,
+        "average_since_first_updates_per_second": 4.063394819204901,
+        "optimizer_updates": 253260.0,
+        "remaining_training_hours": 1.1341626984126982,
+        "projected_training_finish": "2026-09-23T21:16:53.473328+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 192240.0,
-        "metrics_uploaded_at": "2026-09-23T15:58:09+00:00"
+        "ema_updates": 249480.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:07+00:00"
       }
     },
     {
@@ -4858,7 +5400,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T16:00:38.663896+00:00",
-      "progress_percent": 68.5862827434513,
+      "progress_percent": 81.57137803208589,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-shared-dur-object",
         "ready": true,
@@ -4868,15 +5410,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "3429",
+          "epoch": "4079",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "222950.0",
-          "step": "222949",
-          "Train/loss": "0.000799209694378078",
-          "Train/source_0_loss": "0.000799209694378078",
-          "Train/source_0_loss_diffusion_noise": "0.000799209694378078"
+          "log/ema_num_updates": "265160.0",
+          "step": "265159",
+          "Train/loss": "0.0006754979258403182",
+          "Train/source_0_loss": "0.0006754979258403182",
+          "Train/source_0_loss_diffusion_noise": "0.0006754979258403182"
         },
-        "ema_updates": 222950.0,
+        "ema_updates": 265160.0,
         "predecessor_ema_updates": 66420.0,
         "budget": {
           "train_examples": 66940,
@@ -4907,13 +5449,15 @@
           }
         },
         "current": {
-          "sha256": "dbcd1b726a77444fbe28c2cffb59dc5577e8c92ad8e943d32ac340a97d87157a",
+          "sha256": "9db61a9698f0c32ef7d589ae00e709157e354ec2c8f8f43e5abc05fa61add249",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-object/checkpoints/dbcd1b726a77444fbe28c2cffb59dc5577e8c92ad8e943d32ac340a97d87157a/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-object/checkpoints/9db61a9698f0c32ef7d589ae00e709157e354ec2c8f8f43e5abc05fa61add249/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:18:51+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:34+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -4995,26 +5539,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:54+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:09+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-shared-dur-libero-object/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T16:00:34+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4972.0,
-        "updates_per_second": 4.2337087691069994,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:02+00:00",
-        "observed_end": "2026-09-23T17:20:54+00:00",
-        "start_optimizer_updates": 201900.0,
-        "average_since_first_updates_per_second": 4.2337087691069994,
-        "optimizer_updates": 222950.0,
-        "remaining_training_hours": 6.699865135919767,
-        "projected_training_finish": "2026-09-24T00:03:05.036081+00:00",
+        "sample_seconds": 861.0,
+        "updates_per_second": 4.285714285714286,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:48+00:00",
+        "observed_end": "2026-09-23T20:08:09+00:00",
+        "start_optimizer_updates": 261470.0,
+        "average_since_first_updates_per_second": 4.21536616245752,
+        "optimizer_updates": 265160.0,
+        "remaining_training_hours": 3.8827314814814815,
+        "projected_training_finish": "2026-09-24T00:01:48.320966+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 201900.0,
-        "metrics_uploaded_at": "2026-09-23T15:58:02+00:00"
+        "ema_updates": 261470.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:48+00:00"
       }
     },
     {
@@ -5053,7 +5598,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T16:00:43.011535+00:00",
-      "progress_percent": 77.72374096609249,
+      "progress_percent": 92.78144371125775,
       "training_proof": {
         "run_id": "arc-cache-arc-20260923-shared-dur-goal",
         "ready": true,
@@ -5063,15 +5608,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "3886",
+          "epoch": "4639",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "217670.0",
-          "step": "217671",
-          "Train/loss": "0.0010249916231259704",
-          "Train/source_0_loss": "0.0010249916231259704",
-          "Train/source_0_loss_diffusion_noise": "0.0010249916231259704"
+          "log/ema_num_updates": "259840.0",
+          "step": "259839",
+          "Train/loss": "0.0009418350527994335",
+          "Train/source_0_loss": "0.0009418350527994335",
+          "Train/source_0_loss_diffusion_noise": "0.0009418350527994335"
         },
-        "ema_updates": 217670.0,
+        "ema_updates": 259840.0,
         "predecessor_ema_updates": 66240.0,
         "budget": {
           "train_examples": 57763,
@@ -5102,13 +5647,15 @@
           }
         },
         "current": {
-          "sha256": "25734af79906ad02d4c5712e38d4e672820dbbb9151af7ae58d3fa35fea705c3",
+          "sha256": "cabb30cc697164cd67e47e11f980c0b0a66617b4833db3515462d777e6d8a392",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-goal/checkpoints/25734af79906ad02d4c5712e38d4e672820dbbb9151af7ae58d3fa35fea705c3/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-goal/checkpoints/cabb30cc697164cd67e47e11f980c0b0a66617b4833db3515462d777e6d8a392/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:20:24+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:14+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -5190,26 +5737,27 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:56+00:00",
+          "experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:07:52+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-shared-dur-libero-goal/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T16:00:15+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4978.0,
-        "updates_per_second": 4.196464443551627,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:57:58+00:00",
-        "observed_end": "2026-09-23T17:20:56+00:00",
-        "start_optimizer_updates": 196780.0,
-        "average_since_first_updates_per_second": 4.196464443551627,
-        "optimizer_updates": 217670.0,
-        "remaining_training_hours": 4.129534439657466,
-        "projected_training_finish": "2026-09-23T21:28:51.845590+00:00",
+        "sample_seconds": 860.0,
+        "updates_per_second": 4.174418604651163,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:32+00:00",
+        "observed_end": "2026-09-23T20:07:52+00:00",
+        "start_optimizer_updates": 256250.0,
+        "average_since_first_updates_per_second": 4.205682272909164,
+        "optimizer_updates": 259840.0,
+        "remaining_training_hours": 1.345230578768183,
+        "projected_training_finish": "2026-09-23T21:29:33.317735+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 196780.0,
-        "metrics_uploaded_at": "2026-09-23T15:57:58+00:00"
+        "ema_updates": 256250.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:32+00:00"
       }
     },
     {
@@ -5248,7 +5796,7 @@
       },
       "migrated": true,
       "retired_at": "2026-09-23T16:00:50.494813+00:00",
-      "progress_percent": 55.578966851257846,
+      "progress_percent": 68.45738290358457,
       "training_proof": {
         "run_id": "arc-cache4-20260923-shared-dur-10",
         "ready": true,
@@ -5258,15 +5806,15 @@
         },
         "method": "arc_dur",
         "metrics": {
-          "epoch": "2779",
+          "epoch": "3423",
           "log/ema_decay": "0.9998999834060669",
-          "log/ema_num_updates": "336320.0",
-          "step": "336319",
-          "Train/loss": "0.0011263417545706034",
-          "Train/source_0_loss": "0.0011263417545706034",
-          "Train/source_0_loss_diffusion_noise": "0.0011263417545706034"
+          "log/ema_num_updates": "414250.0",
+          "step": "414249",
+          "Train/loss": "0.0009669336141087115",
+          "Train/source_0_loss": "0.0009669336141087115",
+          "Train/source_0_loss_diffusion_noise": "0.0009669336141087115"
         },
-        "ema_updates": 336320.0,
+        "ema_updates": 414250.0,
         "predecessor_ema_updates": 43070.0,
         "budget": {
           "train_examples": 124087,
@@ -5297,13 +5845,15 @@
           }
         },
         "current": {
-          "sha256": "bad5d403224e4199282d58ce8acb78ed9028b9ddcd9c339703f69df337ccbfa5",
+          "sha256": "795182479d587e782541eef5c77056c2179ebbeb39b0c2a12b6db29608b340c2",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-shared-dur-10/checkpoints/bad5d403224e4199282d58ce8acb78ed9028b9ddcd9c339703f69df337ccbfa5/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-shared-dur-10/checkpoints/795182479d587e782541eef5c77056c2179ebbeb39b0c2a12b6db29608b340c2/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:19:06+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:06:04+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -5385,67 +5935,68 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache4-20260923-shared-dur-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T17:20:39+00:00",
+          "experiments/arc-oat-20260919/arc-cache4-20260923-shared-dur-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T20:08:44+00:00",
           "experiments/arc-oat-20260919/arc-five-ddp2-20260922-shared-dur-libero-10/training/arc_dur/metrics/version_0/metrics.csv": "2026-09-23T16:00:40+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 4947.0,
-        "updates_per_second": 7.620780270871235,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T15:58:12+00:00",
-        "observed_end": "2026-09-23T17:20:39+00:00",
-        "start_optimizer_updates": 298620.0,
-        "average_since_first_updates_per_second": 7.620780270871235,
-        "optimizer_updates": 336320.0,
-        "remaining_training_hours": 9.797808333333334,
-        "projected_training_finish": "2026-09-24T03:08:57.631624+00:00",
+        "sample_seconds": 896.0,
+        "updates_per_second": 7.700892857142857,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:48+00:00",
+        "observed_end": "2026-09-23T20:08:44+00:00",
+        "start_optimizer_updates": 407350.0,
+        "average_since_first_updates_per_second": 7.692256519425226,
+        "optimizer_updates": 414250.0,
+        "remaining_training_hours": 6.884879871175524,
+        "projected_training_finish": "2026-09-24T03:01:56.055207+00:00",
         "meets_provisional_cutoff": true
       },
       "rate_start": {
-        "ema_updates": 298620.0,
-        "metrics_uploaded_at": "2026-09-23T15:58:12+00:00"
+        "ema_updates": 407350.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:48+00:00"
       }
     },
     {
-      "run_id": "arc-cache8-20260923-stk1-10",
+      "run_id": "arc-h1008b-20260923-stk1-10",
       "suite": "libero_10",
       "profile": "stk_1",
       "arc_mode": "stk",
       "R": 192,
       "D": 1.6,
       "M": 36,
-      "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+      "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
       "gpus": 8,
-      "resume_from_run": "arc-five-ddp2-20260922-stk1-libero-10",
-      "predecessor_workflow": "arc-five-ddp2-20260922-stk1-libero-10-1",
+      "resume_from_run": "arc-cache8-20260923-stk1-10",
+      "predecessor_workflow": "arc-cache8-20260923-stk1-10-1",
       "oat_reference_run": "arc-oat-ddp2-20260922-libero-10",
-      "workflow": "arc-cache8-20260923-stk1-10-1",
-      "gpu_type": "L40S",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache8-20260923-stk1-10-1",
+      "workflow": "arc-h1008b-20260923-stk1-10-1",
+      "gpu_type": "H100",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-h1008b-20260923-stk1-10-1",
       "scheduler": {
-        "name": "arc-cache8-20260923-stk1-10-1",
+        "name": "arc-h1008b-20260923-stk1-10-1",
         "status": "RUNNING",
-        "start_time": "2026-09-23T16:05:16.414645",
+        "start_time": "2026-09-23T16:42:53.650109",
         "end_time": null,
+        "pool": "groot-h100-02",
+        "priority": "NORMAL",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-h1008b-20260923-stk1-10-1"
+      },
+      "predecessor_scheduler": {
+        "name": "arc-cache8-20260923-stk1-10-1",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-09-23T16:05:16.414645",
+        "end_time": "2026-09-23T17:34:20.370607",
         "pool": "groot-l40s-03",
         "priority": "NORMAL",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache8-20260923-stk1-10-1"
       },
-      "predecessor_scheduler": {
-        "name": "arc-five-ddp2-20260922-stk1-libero-10-1",
-        "status": "FAILED_CANCELED",
-        "start_time": "2026-09-22T18:10:04.914979",
-        "end_time": "2026-09-23T16:29:33.822272",
-        "pool": "groot-l40s-01",
-        "priority": "NORMAL",
-        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-five-ddp2-20260922-stk1-libero-10-1"
-      },
       "migrated": true,
-      "retired_at": "2026-09-23T16:29:33.796341+00:00",
-      "progress_percent": 10.84080704520253,
+      "retired_at": "2026-09-23T17:34:20.421214+00:00",
+      "progress_percent": 28.36788014297967,
       "training_proof": {
-        "run_id": "arc-cache8-20260923-stk1-10",
+        "run_id": "arc-h1008b-20260923-stk1-10",
         "ready": true,
         "status": {
           "state": "TRAINING",
@@ -5453,16 +6004,16 @@
         },
         "method": "arc_stk",
         "metrics": {
-          "epoch": "542",
-          "log/ema_decay": "0.9997560381889343",
-          "log/ema_num_updates": "65600.0",
-          "step": "65599",
-          "Train/loss": "0.0037323685828596354",
-          "Train/source_0_loss": "0.0037323685828596354",
-          "Train/source_0_loss_diffusion_noise": "0.0037323685828596354"
+          "epoch": "1418",
+          "log/ema_decay": "0.9998814463615417",
+          "log/ema_num_updates": "171660.0",
+          "step": "171659",
+          "Train/loss": "0.0018807492451742291",
+          "Train/source_0_loss": "0.0018807492451742291",
+          "Train/source_0_loss_diffusion_noise": "0.0018807492451742291"
         },
-        "ema_updates": 65600.0,
-        "predecessor_ema_updates": 41170.0,
+        "ema_updates": 171660.0,
+        "predecessor_ema_updates": 71730.0,
         "budget": {
           "train_examples": 124087,
           "microbatch_size": 128,
@@ -5476,11 +6027,11 @@
           "dropped_examples_per_epoch": 183
         },
         "restored": {
-          "sha256": "68f0e85e6ef7e2f8c28d235b76b33be2de95375cc49e4557716e389537aa3584",
+          "sha256": "a0b8017d039e712a819c2da1d3e6cddc94a519a869f442de70bfb6e34ef25743",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-10/checkpoints/68f0e85e6ef7e2f8c28d235b76b33be2de95375cc49e4557716e389537aa3584/last.ckpt",
-          "epochs_completed": 329,
-          "global_step": 39930,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/checkpoints/a0b8017d039e712a819c2da1d3e6cddc94a519a869f442de70bfb6e34ef25743/last.ckpt",
+          "epochs_completed": 399,
+          "global_step": 48400,
           "complete": false,
           "benchmark": {
             "arc_mode": "stk",
@@ -5492,17 +6043,19 @@
           }
         },
         "current": {
-          "sha256": "342ce77140acf32d2f3bf31fea40f0db224cc312dc1a37f165c277d527fa1fd7",
+          "sha256": "fa6bb5ef1a8bff1e71021758a6946f74c50386ce9e0911f14aa8d3e7414f0d33",
           "bytes": 1004453896,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/checkpoints/342ce77140acf32d2f3bf31fea40f0db224cc312dc1a37f165c277d527fa1fd7/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/checkpoints/fa6bb5ef1a8bff1e71021758a6946f74c50386ce9e0911f14aa8d3e7414f0d33/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:20:31+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:07:35+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
-          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
-          "gpu": "NVIDIA L40S",
-          "gpu_type": null,
+          "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+          "gpu": "NVIDIA H100 80GB HBM3",
+          "gpu_type": "H100",
           "suite": "libero_10",
           "training_layout": {
             "world_size": 8,
@@ -5511,7 +6064,7 @@
             "global_batch_size": 1024
           },
           "epochs": 5001,
-          "resume_from_run": "arc-five-ddp2-20260922-stk1-libero-10",
+          "resume_from_run": "arc-cache8-20260923-stk1-10",
           "arc_modes": [
             "stk"
           ],
@@ -5580,31 +6133,32 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:20:31+00:00",
-          "experiments/arc-oat-20260919/arc-five-ddp2-20260922-stk1-libero-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T16:29:09+00:00"
+          "experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T20:08:07+00:00",
+          "experiments/arc-oat-20260919/arc-cache8-20260923-stk1-10/training/arc_stk/metrics/version_0/metrics.csv": "2026-09-23T17:33:52+00:00"
         }
       },
+      "training_completion_proof": null,
       "rate": {
-        "sample_seconds": 3368.0,
-        "updates_per_second": 7.505938242280285,
-        "rate_kind": "since_first_advancing_observation",
-        "observed_start": "2026-09-23T16:24:23+00:00",
-        "observed_end": "2026-09-23T17:20:31+00:00",
-        "start_optimizer_updates": 40320.0,
-        "average_since_first_updates_per_second": 7.505938242280285,
-        "optimizer_updates": 65600.0,
-        "remaining_training_hours": 19.966450509845288,
-        "projected_training_finish": "2026-09-24T13:19:04.743467+00:00",
+        "sample_seconds": 880.0,
+        "updates_per_second": 10.818181818181818,
+        "rate_kind": "recent_10_to_20_minutes",
+        "observed_start": "2026-09-23T19:53:27+00:00",
+        "observed_end": "2026-09-23T20:08:07+00:00",
+        "start_optimizer_updates": 162140.0,
+        "average_since_first_updates_per_second": 10.654076063415056,
+        "optimizer_updates": 171660.0,
+        "remaining_training_hours": 11.129950980392156,
+        "projected_training_finish": "2026-09-24T07:16:38.311223+00:00",
         "meets_provisional_cutoff": false
       },
       "rate_start": {
-        "ema_updates": 40320.0,
-        "metrics_uploaded_at": "2026-09-23T16:24:23+00:00"
+        "ema_updates": 162140.0,
+        "metrics_uploaded_at": "2026-09-23T19:53:27+00:00"
       }
     }
   ],
   "oat_proof": {
-    "at": "2026-09-23T17:18:24.356805+00:00",
+    "at": "2026-09-23T20:12:58.298399+00:00",
     "runs": [
       {
         "run_id": "arc-cache-oat-20260923-spatial",
@@ -5615,15 +6169,15 @@
         },
         "method": "oat",
         "metrics": {
-          "epoch": "3853",
-          "log/ema_decay": "0.9998973608016968",
-          "log/ema_num_updates": "208100.0",
-          "step": "208099",
-          "Train/loss": "0.7602920532226562",
-          "Train/source_0_loss": "0.7602920532226562",
-          "Train/source_0_loss_oat_token_ce": "0.7602920532226562"
+          "epoch": "4574",
+          "log/ema_decay": "0.9998999834060669",
+          "log/ema_num_updates": "247010.0",
+          "step": "247009",
+          "Train/loss": "0.699045717716217",
+          "Train/source_0_loss": "0.699045717716217",
+          "Train/source_0_loss_oat_token_ce": "0.699045717716217"
         },
-        "ema_updates": 208100.0,
+        "ema_updates": 247010.0,
         "predecessor_ema_updates": 37430.0,
         "budget": {
           "train_examples": 55861,
@@ -5646,13 +6200,15 @@
           "complete": false
         },
         "current": {
-          "sha256": "99e585d220e79f9e43f0cfebe9e143bf3cbbede8dc7793b42972eb406ee56026",
+          "sha256": "e8331cd779ed74cfdda02f8733da841aaab8e52326dc85c8c55d9ef8b0754256",
           "bytes": 485724608,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-oat-20260923-spatial/checkpoints/99e585d220e79f9e43f0cfebe9e143bf3cbbede8dc7793b42972eb406ee56026/last.ckpt"
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-oat-20260923-spatial/checkpoints/e8331cd779ed74cfdda02f8733da841aaab8e52326dc85c8c55d9ef8b0754256/last.ckpt"
         },
         "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:17:40+00:00",
+        "checkpoint_uploaded_at": "2026-09-23T20:12:24+00:00",
         "finite_training_loss": true,
+        "training_finished": false,
+        "training_budget_complete": false,
         "runtime": {
           "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
           "gpu": "NVIDIA L40S",
@@ -5735,203 +6291,82 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-oat-20260923-spatial/training/oat/metrics/version_0/metrics.csv": "2026-09-23T17:18:13+00:00",
+          "experiments/arc-oat-20260919/arc-cache-oat-20260923-spatial/training/oat/metrics/version_0/metrics.csv": "2026-09-23T20:12:56+00:00",
           "experiments/arc-oat-20260919/arc-oat-ddp-20260922-libero-spatial/training/oat/metrics/version_0/metrics.csv": "2026-09-23T04:53:34+00:00"
         }
       },
       {
-        "run_id": "arc-cache-oat4-20260923-object",
-        "ready": true,
+        "run_id": "arc-oat-h1008-20260923-object",
+        "ready": false,
         "status": {
-          "state": "TRAINING",
-          "method": "oat"
+          "state": "PREPARING_REPLAY_CACHE"
         },
-        "method": "oat",
-        "metrics": {
-          "epoch": "611",
-          "log/ema_decay": "0.9996447563171387",
-          "log/ema_num_updates": "39750.0",
-          "step": "39749",
-          "Train/loss": "1.827173113822937",
-          "Train/source_0_loss": "1.827173113822937",
-          "Train/source_0_loss_oat_token_ce": "1.827173113822937"
-        },
-        "ema_updates": 39750.0,
-        "predecessor_ema_updates": 32890.0,
-        "budget": {
-          "train_examples": 66940,
-          "microbatch_size": 256,
-          "world_size": 2,
-          "gradient_accumulation": 2,
-          "global_batch_size": 1024,
-          "optimizer_steps_per_epoch": 65,
-          "microbatches_per_epoch": 130,
-          "epochs": 5001,
-          "total_optimizer_steps": 325065,
-          "dropped_examples_per_epoch": 380
-        },
-        "restored": {
-          "sha256": "869f84e5433c21061677209c97430d2098c19b304611f1bee9f3d71051f473e5",
-          "bytes": 485724544,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-object/checkpoints/869f84e5433c21061677209c97430d2098c19b304611f1bee9f3d71051f473e5/last.ckpt",
-          "epochs_completed": 499,
-          "global_step": 32500,
-          "complete": false
-        },
-        "current": {
-          "sha256": "3d2b8e37783b1db907bbae5cbc9d15f3b66b82d460f83b89b093bca8d5e17e2e",
-          "bytes": 485724544,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-oat4-20260923-object/checkpoints/3d2b8e37783b1db907bbae5cbc9d15f3b66b82d460f83b89b093bca8d5e17e2e/last.ckpt"
-        },
-        "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:15:32+00:00",
-        "finite_training_loss": true,
+        "method": null,
+        "metrics": null,
+        "ema_updates": null,
+        "predecessor_ema_updates": null,
+        "budget": null,
+        "restored": null,
+        "current": null,
+        "remote_checkpoint_verified": null,
+        "checkpoint_uploaded_at": null,
+        "finite_training_loss": null,
+        "training_finished": null,
+        "training_budget_complete": null,
         "runtime": {
-          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
-          "gpu": "NVIDIA L40S",
-          "gpu_type": null,
+          "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+          "gpu": "NVIDIA H100 80GB HBM3",
+          "gpu_type": "H100",
           "suite": "libero_object",
           "training_layout": {
-            "world_size": 2,
-            "microbatch_size": 256,
-            "gradient_accumulation": 2,
+            "world_size": 8,
+            "microbatch_size": 128,
+            "gradient_accumulation": 1,
             "global_batch_size": 1024
           },
           "epochs": 5001,
-          "resume_from_run": "arc-oat-ddp2-20260922-libero-object",
+          "resume_from_run": "arc-cache-oat4-20260923-object",
           "arc_modes": [
             "dur",
             "stk"
           ],
           "arc_profile": null
         },
-        "cache_arrays": {
-          "action": {
-            "dtype": "<f4",
-            "shape": [
-              74507,
-              7
-            ],
-            "decoded_sha256": "7461b9a24f2f22566060e9b453a0712aff52d8adbdf96ee7ec33a885b49d031c"
-          },
-          "agentview_rgb": {
-            "dtype": "|u1",
-            "shape": [
-              74507,
-              128,
-              128,
-              3
-            ],
-            "decoded_sha256": "6e6b31416d9d834b8607685a98084706b0f2f6e31df78edd4841f35a13ac480a"
-          },
-          "robot0_eef_pos": {
-            "dtype": "<f4",
-            "shape": [
-              74507,
-              3
-            ],
-            "decoded_sha256": "14137390b65e8c2d7403366ba0ea03279911f4f40d164dd07ae6610d7cd4dd53"
-          },
-          "robot0_eef_quat": {
-            "dtype": "<f4",
-            "shape": [
-              74507,
-              4
-            ],
-            "decoded_sha256": "5580e94bf9ee9e3315041355aa40f86980c7b3181f4ef42fbed92ffd7630828c"
-          },
-          "robot0_eye_in_hand_rgb": {
-            "dtype": "|u1",
-            "shape": [
-              74507,
-              128,
-              128,
-              3
-            ],
-            "decoded_sha256": "94a93aed8451770633aa589d6f0bfc80c8776b40ba6dd42f6818fd6791711097"
-          },
-          "robot0_gripper_qpos": {
-            "dtype": "<f4",
-            "shape": [
-              74507,
-              2
-            ],
-            "decoded_sha256": "a6b0fd79c68478da4be6bc90d1742f2b04ec839b4d16ffeb34f44a80fbbf23a9"
-          },
-          "task_uid": {
-            "dtype": "<i8",
-            "shape": [
-              74507,
-              1
-            ],
-            "decoded_sha256": "4231e3cabc4c6bb961025a2e5b4bce5d9075b5aa31b4215c48d6f2211fb8ccbb"
-          }
-        },
-        "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-oat4-20260923-object/training/oat/metrics/version_0/metrics.csv": "2026-09-23T17:18:15+00:00",
-          "experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-object/training/oat/metrics/version_0/metrics.csv": "2026-09-23T05:05:30+00:00"
-        }
+        "cache_arrays": {},
+        "metrics_uploaded_at": null
       },
       {
-        "run_id": "arc-cache-oat4-20260923-goal",
-        "ready": true,
+        "run_id": "arc-oat-h1008-20260923-goal",
+        "ready": false,
         "status": {
           "state": "TRAINING",
           "method": "oat"
         },
         "method": "oat",
-        "metrics": {
-          "epoch": "798",
-          "log/ema_decay": "0.9996746778488159",
-          "log/ema_num_updates": "44700.0",
-          "step": "44699",
-          "Train/loss": "1.5239795446395874",
-          "Train/source_0_loss": "1.5239795446395874",
-          "Train/source_0_loss_oat_token_ce": "1.5239795446395874"
-        },
-        "ema_updates": 44700.0,
-        "predecessor_ema_updates": 37490.0,
-        "budget": {
-          "train_examples": 57763,
-          "microbatch_size": 256,
-          "world_size": 2,
-          "gradient_accumulation": 2,
-          "global_batch_size": 1024,
-          "optimizer_steps_per_epoch": 56,
-          "microbatches_per_epoch": 112,
-          "epochs": 5001,
-          "total_optimizer_steps": 280056,
-          "dropped_examples_per_epoch": 419
-        },
-        "restored": {
-          "sha256": "eea578d3057ff3527c5d50885c91117bc7d6c9dd0d35bdcf20b2b052f4d84ab3",
-          "bytes": 485724544,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-goal/checkpoints/eea578d3057ff3527c5d50885c91117bc7d6c9dd0d35bdcf20b2b052f4d84ab3/last.ckpt",
-          "epochs_completed": 659,
-          "global_step": 36960,
-          "complete": false
-        },
-        "current": {
-          "sha256": "bb7cc47c46853c2dd4774bd50d19672d714c34a33811a62325b1a577549af7a5",
-          "bytes": 485724544,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-oat4-20260923-goal/checkpoints/bb7cc47c46853c2dd4774bd50d19672d714c34a33811a62325b1a577549af7a5/last.ckpt"
-        },
-        "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:16:51+00:00",
-        "finite_training_loss": true,
+        "metrics": {},
+        "ema_updates": 0.0,
+        "predecessor_ema_updates": 61170.0,
+        "budget": null,
+        "restored": null,
+        "current": null,
+        "remote_checkpoint_verified": null,
+        "checkpoint_uploaded_at": null,
+        "finite_training_loss": false,
+        "training_finished": null,
+        "training_budget_complete": null,
         "runtime": {
-          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
-          "gpu": "NVIDIA L40S",
-          "gpu_type": null,
+          "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+          "gpu": "NVIDIA H100 80GB HBM3",
+          "gpu_type": "H100",
           "suite": "libero_goal",
           "training_layout": {
-            "world_size": 2,
-            "microbatch_size": 256,
-            "gradient_accumulation": 2,
+            "world_size": 8,
+            "microbatch_size": 128,
+            "gradient_accumulation": 1,
             "global_batch_size": 1024
           },
           "epochs": 5001,
-          "resume_from_run": "arc-oat-ddp2-20260922-libero-goal",
+          "resume_from_run": "arc-cache-oat4-20260923-goal",
           "arc_modes": [
             "dur",
             "stk"
@@ -6001,70 +6436,41 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-oat4-20260923-goal/training/oat/metrics/version_0/metrics.csv": "2026-09-23T17:18:22+00:00",
-          "experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-goal/training/oat/metrics/version_0/metrics.csv": "2026-09-23T05:05:36+00:00"
+          "experiments/arc-oat-20260919/arc-cache-oat4-20260923-goal/training/oat/metrics/version_0/metrics.csv": "2026-09-23T18:32:05+00:00"
         }
       },
       {
-        "run_id": "arc-cache-oat3-20260923-10",
-        "ready": true,
+        "run_id": "arc-oat-h1008-20260923-10",
+        "ready": false,
         "status": {
           "state": "TRAINING",
           "method": "oat"
         },
         "method": "oat",
-        "metrics": {
-          "epoch": "121",
-          "log/ema_decay": "0.9992520809173584",
-          "log/ema_num_updates": "14730.0",
-          "step": "14729",
-          "Train/loss": "3.5895473957061768",
-          "Train/source_0_loss": "3.5895473957061768",
-          "Train/source_0_loss_oat_token_ce": "3.5895473957061768"
-        },
-        "ema_updates": 14730.0,
-        "predecessor_ema_updates": 5900.0,
-        "budget": {
-          "train_examples": 124087,
-          "microbatch_size": 256,
-          "world_size": 2,
-          "gradient_accumulation": 2,
-          "global_batch_size": 1024,
-          "optimizer_steps_per_epoch": 121,
-          "microbatches_per_epoch": 242,
-          "epochs": 5001,
-          "total_optimizer_steps": 605121,
-          "dropped_examples_per_epoch": 183
-        },
-        "restored": {
-          "sha256": "0f871db51fb0da52a013755730463a4c8bcf070fb52d24fbda7966b2cc32a7a0",
-          "bytes": 485724544,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-10/checkpoints/0f871db51fb0da52a013755730463a4c8bcf070fb52d24fbda7966b2cc32a7a0/last.ckpt",
-          "epochs_completed": 39,
-          "global_step": 4840,
-          "complete": false
-        },
-        "current": {
-          "sha256": "477ef365f666fcd568fec148da1920cf0c5d21e32a36634af903b883a17c8de1",
-          "bytes": 485724544,
-          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-oat3-20260923-10/checkpoints/477ef365f666fcd568fec148da1920cf0c5d21e32a36634af903b883a17c8de1/last.ckpt"
-        },
-        "remote_checkpoint_verified": true,
-        "checkpoint_uploaded_at": "2026-09-23T17:17:49+00:00",
-        "finite_training_loss": true,
+        "metrics": {},
+        "ema_updates": 0.0,
+        "predecessor_ema_updates": 31430.0,
+        "budget": null,
+        "restored": null,
+        "current": null,
+        "remote_checkpoint_verified": null,
+        "checkpoint_uploaded_at": null,
+        "finite_training_loss": false,
+        "training_finished": null,
+        "training_budget_complete": null,
         "runtime": {
-          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
-          "gpu": "NVIDIA L40S",
-          "gpu_type": null,
+          "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+          "gpu": "NVIDIA H100 80GB HBM3",
+          "gpu_type": "H100",
           "suite": "libero_10",
           "training_layout": {
-            "world_size": 2,
-            "microbatch_size": 256,
-            "gradient_accumulation": 2,
+            "world_size": 8,
+            "microbatch_size": 128,
+            "gradient_accumulation": 1,
             "global_batch_size": 1024
           },
           "epochs": 5001,
-          "resume_from_run": "arc-oat-ddp2-20260922-libero-10",
+          "resume_from_run": "arc-cache-oat3-20260923-10",
           "arc_modes": [
             "dur",
             "stk"
@@ -6134,14 +6540,13 @@
           }
         },
         "metrics_uploaded_at": {
-          "experiments/arc-oat-20260919/arc-cache-oat3-20260923-10/training/oat/metrics/version_0/metrics.csv": "2026-09-23T17:18:19+00:00",
-          "experiments/arc-oat-20260919/arc-oat-ddp2-20260922-libero-10/training/oat/metrics/version_0/metrics.csv": "2026-09-23T05:05:25+00:00"
+          "experiments/arc-oat-20260919/arc-cache-oat3-20260923-10/training/oat/metrics/version_0/metrics.csv": "2026-09-23T18:32:01+00:00"
         }
       }
     ]
   },
   "companion_scheduler": {
-    "at": "2026-09-23T17:18:21.223956+00:00",
+    "at": "2026-09-23T20:12:54.136133+00:00",
     "workflows": {
       "arc-cache-oat-20260923-10-1": {
         "name": "arc-cache-oat-20260923-10-1",
@@ -6181,11 +6586,11 @@
       },
       "arc-cache-oat3-20260923-10-1": {
         "name": "arc-cache-oat3-20260923-10-1",
-        "status": "RUNNING",
+        "status": "FAILED_CANCELED",
         "start_time": "2026-09-23T16:18:12.594614",
-        "end_time": null,
+        "end_time": "2026-09-23T18:32:37.087330",
         "pool": "groot-l40s-03",
-        "cancelled_by": null,
+        "cancelled_by": "groot-idle-job-shutdown",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache-oat3-20260923-10-1"
       },
       "arc-cache-oat3-20260923-goal-1": {
@@ -6208,20 +6613,20 @@
       },
       "arc-cache-oat4-20260923-goal-1": {
         "name": "arc-cache-oat4-20260923-goal-1",
-        "status": "RUNNING",
+        "status": "FAILED_CANCELED",
         "start_time": "2026-09-23T16:27:03.438331",
-        "end_time": null,
+        "end_time": "2026-09-23T18:32:25.814550",
         "pool": "groot-l40s-03",
-        "cancelled_by": null,
+        "cancelled_by": "groot-idle-job-shutdown",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache-oat4-20260923-goal-1"
       },
       "arc-cache-oat4-20260923-object-1": {
         "name": "arc-cache-oat4-20260923-object-1",
-        "status": "RUNNING",
+        "status": "FAILED_CANCELED",
         "start_time": "2026-09-23T16:27:00.450600",
-        "end_time": null,
+        "end_time": "2026-09-23T18:32:34.838573",
         "pool": "groot-l40s-03",
-        "cancelled_by": null,
+        "cancelled_by": "groot-idle-job-shutdown",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-cache-oat4-20260923-object-1"
       },
       "arc-cache4-20260923-stk1-10-1": {
@@ -6296,33 +6701,6 @@
         "cancelled_by": "rpunamiya@nvidia.com",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp-20260922-libero-spatial-1"
       },
-      "arc-oat-ddp2-20260922-libero-10-1": {
-        "name": "arc-oat-ddp2-20260922-libero-10-1",
-        "status": "FAILED_CANCELED",
-        "start_time": "2026-09-22T17:57:34.698073",
-        "end_time": "2026-09-23T05:05:52.942726",
-        "pool": "groot-l40s-01",
-        "cancelled_by": "rpunamiya@nvidia.com",
-        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-10-1"
-      },
-      "arc-oat-ddp2-20260922-libero-goal-1": {
-        "name": "arc-oat-ddp2-20260922-libero-goal-1",
-        "status": "FAILED_CANCELED",
-        "start_time": "2026-09-22T17:57:31.230620",
-        "end_time": "2026-09-23T05:05:50.838395",
-        "pool": "groot-l40s-01",
-        "cancelled_by": "rpunamiya@nvidia.com",
-        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-goal-1"
-      },
-      "arc-oat-ddp2-20260922-libero-object-1": {
-        "name": "arc-oat-ddp2-20260922-libero-object-1",
-        "status": "FAILED_CANCELED",
-        "start_time": "2026-09-22T17:57:27.050565",
-        "end_time": "2026-09-23T05:05:49.167803",
-        "pool": "groot-l40s-01",
-        "cancelled_by": "rpunamiya@nvidia.com",
-        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-ddp2-20260922-libero-object-1"
-      },
       "arc-oat-full-20260921-v6-libero-90-1": {
         "name": "arc-oat-full-20260921-v6-libero-90-1",
         "status": "FAILED_CANCELED",
@@ -6331,6 +6709,33 @@
         "pool": "groot-l40s-01",
         "cancelled_by": "rpunamiya@nvidia.com",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-full-20260921-v6-libero-90-1"
+      },
+      "arc-oat-h1008-20260923-10-1": {
+        "name": "arc-oat-h1008-20260923-10-1",
+        "status": "RUNNING",
+        "start_time": "2026-09-23T20:01:46.752326",
+        "end_time": null,
+        "pool": "groot-h100-02",
+        "cancelled_by": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-h1008-20260923-10-1"
+      },
+      "arc-oat-h1008-20260923-goal-1": {
+        "name": "arc-oat-h1008-20260923-goal-1",
+        "status": "RUNNING",
+        "start_time": "2026-09-23T20:01:43.874552",
+        "end_time": null,
+        "pool": "groot-h100-02",
+        "cancelled_by": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-h1008-20260923-goal-1"
+      },
+      "arc-oat-h1008-20260923-object-1": {
+        "name": "arc-oat-h1008-20260923-object-1",
+        "status": "RUNNING",
+        "start_time": "2026-09-23T20:01:44.706664",
+        "end_time": null,
+        "pool": "groot-h100-02",
+        "cancelled_by": null,
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-oat-h1008-20260923-object-1"
       }
     }
   }

@@ -462,14 +462,22 @@ to roundoff. Float64 here is a diagnostic only. The production codec and
 piecewise-linear interpolation remain byte-identical, with codec SHA-256
 `57b9ed420252ab434360204979cc80e8adc0d63545abc197da1a90599d32b17e`.
 
-Learned-policy results remain separate. The three standard DQC references at
-1M updates score 91.2%, 90.8%, and 90.4%. The first completed ARC pilot, seed
-300003, scores 30.4%, versus 36.0% for its matched native-window control and
-90.4% for its standard DQC reference. Each score uses five goals and 50
-rollouts per goal. At the shared 900k checkpoint, ARC's three seeds score
-21.2%/30.8%/32.0%, versus native-window 28.8%/28.8%/31.6%. These results do not
-establish an advantage for ARC. Native-window failure also means codec
-reconstruction error alone cannot explain the learned-policy gap.
+Learned-policy results remain separate. All nine final evaluations are complete
+at 1M updates, using five goals and 50 rollouts per goal. The exact same 250
+reset hashes were verified across all models and training seeds.
+
+| Model | Seed 100001 | Seed 200002 | Seed 300003 | Mean |
+| --- | ---: | ---: | ---: | ---: |
+| Standard DQC | 91.2% | 90.8% | 90.4% | 90.8% |
+| Native spatial window | 31.2% | 21.6% | 36.0% | 29.6% |
+| ARC M56 | 34.8% | 30.4% | 30.4% | 31.9% |
+
+ARC's paired differences from native-window are +3.6, +8.8 and -5.6 percentage
+points, averaging +2.3 points. Three seeds do not establish a robust advantage;
+ARC still trails standard DQC by 58.9 points on average. Native-window failure
+also means codec reconstruction error alone cannot explain the learned-policy
+gap. No replacement M/D/R configuration has passed the declared replay gates,
+and no replacement training run has been launched.
 
 Timing in this Cube codec is **native-step geometric progress**, not a single
 average velocity or a per-waypoint velocity. The clock stores

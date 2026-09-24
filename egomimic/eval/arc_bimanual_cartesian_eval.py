@@ -49,6 +49,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         action_horizon: int = 100,
         dt: float = 1.0 / 30.0,
         velocity_mode: str = "mean",
+        translation_horizon_mode: str = "joint",
         arc_metrics: bool = True,
         **kwargs,
     ):
@@ -68,6 +69,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
+        self.translation_horizon_mode = str(translation_horizon_mode)
         self.action_horizon = int(action_horizon)
         # Defaults ON here: an arc run is exactly the case the arc metric
         # families were built for. The base class owns the knobs, and it also
@@ -96,6 +98,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
             dt=float(dt),
             preserve_action_key=None,
             velocity_mode=self.velocity_mode,
+            translation_horizon_mode=self.translation_horizon_mode,
         )
 
     def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:

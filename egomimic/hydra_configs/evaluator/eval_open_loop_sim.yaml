@@ -42,6 +42,7 @@ resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
 # M-based execution requires the per-waypoint velocity layout. Distance mode
 # remains available explicitly and interpolates its terminal waypoint.
 velocity_mode: ${oc.select:abc.arc_velocity_mode,per_waypoint}
+translation_horizon_mode: ${oc.select:abc.arc_translation_horizon_mode,joint}
 
 # Optional post-hoc checkpoint step used for logger x-axis alignment. Training
 # leaves this null and uses trainer.global_step.

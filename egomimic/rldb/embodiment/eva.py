@@ -549,6 +549,7 @@ def _append_arc_tokenizer(
     preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
     preserve_action_rows: int | None = None,
     velocity_mode: str = "mean",
+    translation_horizon_mode: str = "joint",
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
 
@@ -582,6 +583,7 @@ def _append_arc_tokenizer(
         preserve_action_key=preserve_action_key,
         preserve_action_rows=preserve_action_rows,
         velocity_mode=velocity_mode,
+        translation_horizon_mode=translation_horizon_mode,
         **kwargs,
     )
     for i in range(len(transform_list) - 1, -1, -1):

@@ -2039,9 +2039,11 @@ class ZarrDataset(torch.utils.data.Dataset):
         regular repeat-last padding rule handles short tails. ``max_frames``
         is accepted as a legacy spelling.
 
-        ``arc_hybrid`` uses one joint translation clock and one joint rotation
-        clock. Each clock sums the left and right arm increments, and the
-        returned source window covers both requested caps.
+        By default, ``arc_hybrid`` uses one joint translation clock and one
+        joint rotation clock. ``translation_horizon_mode="race"`` instead
+        stops at the first independent arm translation crossing; exact
+        fractional clipping is performed by the tokenizer. Rotation remains a
+        separate shared clock within that retained source window.
         """
         horizon_type = spec.get("type") if isinstance(spec, dict) else None
         if horizon_type not in ("arc_distance", "arc_hybrid"):
@@ -2062,6 +2064,14 @@ class ZarrDataset(torch.utils.data.Dataset):
                     "arc_hybrid horizon requires positive finite rotation_distance, "
                     f"got {rotation_distance!r}"
                 )
+        translation_horizon_mode = str(
+            spec.get("translation_horizon_mode", "joint")
+        )
+        if translation_horizon_mode not in ("joint", "race"):
+            raise ValueError(
+                "translation_horizon_mode must be 'joint' or 'race', got "
+                f"{translation_horizon_mode!r}"
+            )
         max_frames_value = spec.get(
             "source_buffer_frames", spec.get("max_frames", self.total_frames)
         )
@@ -2116,6 +2126,23 @@ class ZarrDataset(torch.utils.data.Dataset):
                 return max(2, available)
 
             left, right = (pose[:common_usable] for pose in pose_arrays)
+            if translation_horizon_mode == "race":
+                arm_cumulative = []
+                for pose in (left, right):
+                    arm_step = np.linalg.norm(np.diff(pose[:, :3], axis=0), axis=1)
+                    arm_cumulative.append(
+                        np.concatenate(([0.0], np.cumsum(arm_step)))
+                    )
+                reached = [
+                    np.flatnonzero(cumulative >= distance)
+                    for cumulative in arm_cumulative
+                ]
+                first_reached = [int(values[0]) for values in reached if len(values)]
+                if not first_reached:
+                    return max(2, available)
+                required = min(first_reached)
+                return max(2, min(available, required + 1))
+
             translation_step = np.linalg.norm(
                 np.diff(left[:, :3], axis=0), axis=1
             ) + np.linalg.norm(np.diff(right[:, :3], axis=0), axis=1)
@@ -2165,6 +2192,9 @@ class ZarrDataset(torch.utils.data.Dataset):
             crossing_indices.append(int(reached[0]) if len(reached) else None)
 
         reached = [i for i in crossing_indices if i is not None]
+        if translation_horizon_mode == "race" and reached:
+            required = min(reached)
+            return max(2, min(available, required + 1))
         require_all = bool(spec.get("require_all_arms", True))
         if (require_all and len(reached) == len(crossing_indices)) or (
             not require_all and reached

@@ -1094,6 +1094,7 @@ ARC_TOK_BIMANUAL_DIM = 2 * ARC_TOK_PER_ARM_DIM  # bimanual total (fourteen)
 # chord IS its arc length. That discrepancy only arises when one rate spans the
 # whole token.
 BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
+BIMANUAL_TRANSLATION_HORIZON_MODES = ("joint", "race")
 
 
 def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
@@ -1103,6 +1104,69 @@ def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
             f"got {velocity_mode!r}"
         )
     return velocity_mode
+
+
+def validate_bimanual_translation_horizon_mode(mode: str) -> str:
+    if mode not in BIMANUAL_TRANSLATION_HORIZON_MODES:
+        raise ValueError(
+            "translation_horizon_mode must be one of "
+            f"{BIMANUAL_TRANSLATION_HORIZON_MODES}, got {mode!r}"
+        )
+    return mode
+
+
+def truncate_bimanual_translation_race(
+    actions: np.ndarray,
+    distance: float,
+    *,
+    epsilon: float = 1e-9,
+) -> np.ndarray:
+    """Cut both arms at the fractional time where either arm first reaches D."""
+    actions = np.asarray(actions, dtype=np.float64)
+    if actions.ndim != 2 or actions.shape[1] != BIMANUAL_CARTESIAN_DIM:
+        raise ValueError(
+            "translation race expects (T, 14) bimanual cartesian actions, "
+            f"got {actions.shape}"
+        )
+    if len(actions) < 2:
+        raise ValueError("translation race requires at least two source rows")
+    distance = float(distance)
+    if not np.isfinite(distance) or distance <= 0.0:
+        raise ValueError(f"translation race distance must be positive, got {distance}")
+
+    crossing_times: list[float] = []
+    for offset in (0, 7):
+        cumulative = cumulative_arc_length(actions[:, offset : offset + 3])
+        if cumulative[-1] + epsilon < distance:
+            continue
+        segment, alpha = _bracket_segment(cumulative, distance)
+        crossing_times.append(float(segment) + float(alpha))
+
+    if not crossing_times:
+        return actions.copy()
+
+    stop_time = min(crossing_times)
+    whole_index = int(np.floor(stop_time))
+    alpha = stop_time - whole_index
+    if alpha <= epsilon:
+        return actions[: whole_index + 1].copy()
+
+    endpoint = np.empty(BIMANUAL_CARTESIAN_DIM, dtype=np.float64)
+    for offset in (0, 7):
+        endpoint[offset : offset + 3] = (
+            (1.0 - alpha) * actions[whole_index, offset : offset + 3]
+            + alpha * actions[whole_index + 1, offset : offset + 3]
+        )
+        endpoint[offset + 3 : offset + 6] = slerp_pair_ypr(
+            actions[whole_index, offset + 3 : offset + 6],
+            actions[whole_index + 1, offset + 3 : offset + 6],
+            np.array([alpha], dtype=np.float64),
+        )[0]
+        endpoint[offset + 6] = (
+            (1.0 - alpha) * actions[whole_index, offset + 6]
+            + alpha * actions[whole_index + 1, offset + 6]
+        )
+    return np.concatenate((actions[: whole_index + 1], endpoint[None]), axis=0)
 
 
 def bimanual_arc_token_rows(
@@ -1117,13 +1181,17 @@ def bimanual_arc_token_rows(
 
 
 class TokenizeBimanualArcLengthCartesian:
-    """Transform: (T, 14) actions_cartesian -> (M+1, 14) arc-tokenized layout.
+    """Transform a time-indexed bimanual Cartesian chunk into an ARC token.
 
     Layout per row (same 14-dim as the canonical bimanual cartesian chunk):
         [L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)]
-    Rows 0..M-1 are the M waypoints uniform in each arm's arc length over
-    the first ``min_distance_unit`` meters of that arm's translational
-    travel. xyz and gripper are linear-interpolated at the M arc-length
+    Rows 0..M-1 are the M waypoints uniform in each arm's retained arc length.
+    With ``translation_horizon_mode="joint"``, the input horizon keeps the
+    configured legacy/joint behavior. With ``translation_horizon_mode="race"``,
+    both arms are cut at the same fractional source timestamp as soon as either
+    arm reaches ``min_distance_unit``. The winner therefore ends exactly at D,
+    while the other arm may end below D. xyz and gripper are linear-interpolated
+    at the M arc-length
     targets; ypr is SLERPed through the resampled rotation sequence (via
     ``slerp_through_ypr``) so orientation is unconditionally supervised.
 
@@ -1155,10 +1223,9 @@ class TokenizeBimanualArcLengthCartesian:
     Args:
         action_key: input batch key holding the (T, 14) chunk.
         output_action_key: where to write the (M+1, 14) tokenized chunk.
-        min_distance_unit: per-arm arc length span of the token, in meters
-            (i.e. the D parameter in the sweep script; the tokenizer covers
-            the first ``min_distance_unit`` meters of each arm's translational
-            travel).
+        min_distance_unit: translation threshold D, in meters. In race mode it
+            is tested independently for each arm and the first crossing wins.
+        translation_horizon_mode: ``"joint"`` or ``"race"``.
         resampled_vector_length: number of waypoints M (the sequence has
             M+1 rows once the velocity token is appended).
         dt: seconds per raw timestep (control period).
@@ -1179,6 +1246,7 @@ class TokenizeBimanualArcLengthCartesian:
         preserve_action_key: str | None = None,
         preserve_action_rows: int | None = None,
         velocity_mode: str = "mean",
+        translation_horizon_mode: str = "joint",
     ):
         self.action_key = action_key
         self.output_action_key = output_action_key
@@ -1197,6 +1265,9 @@ class TokenizeBimanualArcLengthCartesian:
         if self.preserve_action_rows is not None and self.preserve_action_rows <= 0:
             raise ValueError("preserve_action_rows must be positive when provided")
         self.velocity_mode = validate_bimanual_velocity_mode(velocity_mode)
+        self.translation_horizon_mode = validate_bimanual_translation_horizon_mode(
+            translation_horizon_mode
+        )
         if rotation_distance_unit is not None:
             rotation_distance_unit = float(rotation_distance_unit)
             if not np.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0.0:
@@ -1225,6 +1296,12 @@ class TokenizeBimanualArcLengthCartesian:
 
     def transform(self, batch: dict) -> dict:
         raw = np.asarray(batch[self.action_key], dtype=np.float64)
+        if self.translation_horizon_mode == "race":
+            raw = truncate_bimanual_translation_race(
+                raw,
+                self.tokenizer.config.min_distance_unit,
+                epsilon=self.zero_dist_epsilon,
+            )
         if self.preserve_action_key is not None:
             preserved = raw.copy()
             if self.preserve_action_rows is not None:
@@ -1264,7 +1341,10 @@ class TokenizeBimanualArcLengthCartesian:
             [L_xyz, L_ypr, L_grip, R_xyz, R_ypr, R_grip], axis=-1
         )  # (M, 14)
         if self.rotation_distance_unit is not None:
-            waypoints = self._hybrid_waypoints(raw)
+            if self.translation_horizon_mode == "race":
+                waypoints = self._race_hybrid_waypoints(raw, waypoints)
+            else:
+                waypoints = self._hybrid_waypoints(raw)
 
         # Per-arm duration from mean_per_dim xyz vel: duration = chord / speed.
         # Guard for degenerate arms (no motion or below the tokenizer's
@@ -1315,11 +1395,17 @@ class TokenizeBimanualArcLengthCartesian:
             dtype=np.float64,
         )
         if self.velocity_mode == "per_waypoint":
-            velocity_rows = (
-                self._hybrid_per_waypoint_velocity(raw, waypoints)
-                if self.rotation_distance_unit is not None
-                else self._per_waypoint_velocity(raw, waypoints)
-            )
+            if (
+                self.rotation_distance_unit is not None
+                and self.translation_horizon_mode == "race"
+            ):
+                velocity_rows = self._race_hybrid_per_waypoint_velocity(
+                    raw, waypoints
+                )
+            elif self.rotation_distance_unit is not None:
+                velocity_rows = self._hybrid_per_waypoint_velocity(raw, waypoints)
+            else:
+                velocity_rows = self._per_waypoint_velocity(raw, waypoints)
             out = np.concatenate([waypoints, velocity_rows], axis=0)  # (2M, 14)
         elif self.velocity_mode == "duration":
             out = np.concatenate(
@@ -1336,6 +1422,29 @@ class TokenizeBimanualArcLengthCartesian:
             )
         batch[self.output_action_key] = out
         return batch
+
+    def _race_hybrid_waypoints(
+        self, raw: np.ndarray, translation_waypoints: np.ndarray
+    ) -> np.ndarray:
+        """Keep per-arm race translation spans and resample rotation separately."""
+        waypoints = translation_waypoints.copy()
+        rotation_cumulative = cumulative_bimanual_rotation_length(raw)
+        rotation_end = min(
+            self.rotation_distance_unit, float(rotation_cumulative[-1])
+        )
+        rotation_targets = np.linspace(0.0, rotation_end, self.M)
+        for offset in (0, 7):
+            waypoints[:, offset + 3 : offset + 6] = np.stack(
+                [
+                    _interp_ypr_at_s(
+                        raw[:, offset + 3 : offset + 6],
+                        rotation_cumulative,
+                        float(target),
+                    )
+                    for target in rotation_targets
+                ]
+            )
+        return waypoints
 
     def _hybrid_waypoints(self, raw: np.ndarray) -> np.ndarray:
         """Resample joint translation and joint rotation on separate clocks."""
@@ -1431,6 +1540,33 @@ class TokenizeBimanualArcLengthCartesian:
 
             ypr = waypoints[:, offset + 3 : offset + 6]
             rotations = _ypr_to_rotation(ypr)
+            relative = rotations[:-1].inv() * rotations[1:]
+            angular_rate = relative.as_rotvec() / rotation_safe[:, None]
+            rows[:-1, offset + 3 : offset + 6] = angular_rate
+            rows[-1, offset + 3 : offset + 6] = angular_rate[-1]
+        return rows
+
+    def _race_hybrid_per_waypoint_velocity(
+        self, raw: np.ndarray, waypoints: np.ndarray
+    ) -> np.ndarray:
+        """Per-arm translation timing plus the independent shared rotation clock."""
+        rows = self._per_waypoint_velocity(raw, waypoints)
+        dt = self.tokenizer.config.dt
+        rotation_cumulative = cumulative_bimanual_rotation_length(raw)
+        rotation_end = min(
+            self.rotation_distance_unit, float(rotation_cumulative[-1])
+        )
+        rotation_targets = np.linspace(0.0, rotation_end, self.M)
+        rotation_times = np.empty(self.M, dtype=np.float64)
+        for index, angle in enumerate(rotation_targets):
+            frame, alpha = _bracket_segment(rotation_cumulative, float(angle))
+            rotation_times[index] = (frame + alpha) * dt
+        rotation_dt = np.diff(rotation_times)
+        rotation_safe = np.where(
+            rotation_dt > self.zero_dist_epsilon, rotation_dt, np.inf
+        )
+        for offset in (0, 7):
+            rotations = _ypr_to_rotation(waypoints[:, offset + 3 : offset + 6])
             relative = rotations[:-1].inv() * rotations[1:]
             angular_rate = relative.as_rotvec() / rotation_safe[:, None]
             rows[:-1, offset + 3 : offset + 6] = angular_rate
@@ -1616,6 +1752,62 @@ class TokenizeBimanualArcLengthCartesian:
             arms.append(np.concatenate([xyz_t, ypr_t, grip_t], axis=-1))
         return np.concatenate(arms, axis=-1)
 
+    def _translation_arm_durations(
+        self,
+        waypoints: np.ndarray,
+        velocity_rows: np.ndarray,
+        offset: int,
+        action_horizon: int,
+    ) -> np.ndarray:
+        step = np.linalg.norm(
+            np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
+        )
+        rate = np.linalg.norm(
+            velocity_rows[:-1, offset : offset + 3], axis=-1
+        )
+        moving = step > 1e-12
+        usable = rate > 1e-8
+        duration = np.zeros_like(step)
+        np.divide(step, rate, out=duration, where=moving & usable)
+        duration[moving & ~usable] = self.tokenizer.config.dt * (
+            action_horizon + 1
+        )
+        return duration
+
+    def _detokenize_race_hybrid(
+        self,
+        waypoints: np.ndarray,
+        velocity_rows: np.ndarray,
+        action_horizon: int,
+    ) -> np.ndarray:
+        rotation_duration = self._hybrid_clock_durations(
+            waypoints,
+            velocity_rows,
+            rotation=True,
+            action_horizon=action_horizon,
+        )
+        r_lo, _, r_alpha = self._hybrid_clock_indices(
+            rotation_duration, action_horizon
+        )
+        arms = []
+        for offset in (0, 7):
+            translation_duration = self._translation_arm_durations(
+                waypoints, velocity_rows, offset, action_horizon
+            )
+            t_lo, t_hi, t_alpha = self._hybrid_clock_indices(
+                translation_duration, action_horizon
+            )
+            blend = t_alpha[:, None]
+            xyz = waypoints[:, offset : offset + 3]
+            grip = waypoints[:, offset + 6 : offset + 7]
+            xyz_t = xyz[t_lo] + blend * (xyz[t_hi] - xyz[t_lo])
+            grip_t = grip[t_lo] + blend * (grip[t_hi] - grip[t_lo])
+            ypr_t = _slerp_segments_ypr(
+                waypoints[:, offset + 3 : offset + 6], r_lo, r_alpha
+            )
+            arms.append(np.concatenate([xyz_t, ypr_t, grip_t], axis=-1))
+        return np.concatenate(arms, axis=-1)
+
     def detokenize(
         self,
         arc_actions: np.ndarray,
@@ -1669,6 +1861,8 @@ class TokenizeBimanualArcLengthCartesian:
         dt = self.tokenizer.config.dt
         h = int(action_horizon)
         if self.rotation_distance_unit is not None:
+            if self.translation_horizon_mode == "race":
+                return self._detokenize_race_hybrid(waypoints, vel_rows, h)
             return self._detokenize_hybrid(waypoints, vel_rows, h)
 
         arms_out = []

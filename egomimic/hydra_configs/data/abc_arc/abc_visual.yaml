@@ -15,6 +15,7 @@ train_datasets:
         annotation_key: null
         min_distance_unit: ${abc.arc_distance}
         rotation_distance_unit: ${abc.arc_rotation_distance}
+        translation_horizon_mode: ${oc.select:abc.arc_translation_horizon_mode,joint}
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
         action_mode: ${abc.action_mode}
@@ -24,6 +25,7 @@ train_datasets:
         rotation_distance_unit: ${abc.arc_rotation_distance}
         resampled_vector_length: ${abc.arc_waypoints}
         velocity_mode: per_waypoint
+        translation_horizon_mode: ${oc.select:abc.arc_translation_horizon_mode,joint}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

@@ -7,6 +7,7 @@ name: mecka_fold_clothes_40h_human_visual_hybrid_openloop
 description: HPT300M human-bimanual MECKA fold_clothes visual-only hybrid D40 M100 R24deg
 abc:
   action_mode: hybrid_arc_tokenizer_cartesian
+  arc_translation_horizon_mode: race
   arc_rotation_distance: 0.4188790204786391
 hpt:
   action_horizon: ${abc.arc_token_rows}

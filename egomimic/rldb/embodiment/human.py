@@ -420,6 +420,7 @@ class Human(Embodiment):
         # How the arc token carries timing; see
         # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
         velocity_mode: str = "mean",
+        translation_horizon_mode: str = "joint",
         local_frame_rotations: dict | None = None,
         pad_proprio_gripper: bool = False,
         keypoint_gripper: bool = False,
@@ -511,6 +512,7 @@ class Human(Embodiment):
                 rotation_mode=rotation_mode,
                 dt=float(stride) / 30.0,
                 velocity_mode=velocity_mode,
+                translation_horizon_mode=translation_horizon_mode,
             )
         prefix = []
         suffix = []

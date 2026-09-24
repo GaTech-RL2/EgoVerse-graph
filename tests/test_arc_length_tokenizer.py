@@ -31,10 +31,161 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     BimanualArcLengthConfig,
     BimanualArcLengthTokenizer,
     TokenizeBimanualArcLength,
+    TokenizeBimanualArcLengthCartesian,
     VelocityMode,
     cumulative_arc_length,
     velocity_dim,
 )
+
+
+def test_race_mode_cuts_both_arms_when_first_arm_reaches_distance() -> None:
+    """Right wins the race at frame 50; left must stop at its frame-50 pose."""
+    frame = np.arange(101, dtype=np.float64)
+    actions = np.zeros((101, BIMANUAL_CARTESIAN_DIM), dtype=np.float64)
+    actions[:, 0] = 0.004 * frame
+    actions[:, 7] = 0.008 * frame
+
+    tokenizer = TokenizeBimanualArcLengthCartesian(
+        action_key="actions",
+        output_action_key="actions",
+        preserve_action_key="actions_before_tokenization",
+        min_distance_unit=0.40,
+        resampled_vector_length=11,
+        velocity_mode="per_waypoint",
+        translation_horizon_mode="race",
+    )
+    batch = tokenizer.transform({"actions": actions})
+
+    preserved = batch["actions_before_tokenization"]
+    token = batch["actions"]
+    assert preserved.shape == (51, BIMANUAL_CARTESIAN_DIM)
+    assert preserved[-1, 0] == pytest.approx(0.20)
+    assert preserved[-1, 7] == pytest.approx(0.40)
+    assert token.shape == (22, BIMANUAL_CARTESIAN_DIM)
+    assert token[10, 0] == pytest.approx(0.20)
+    assert token[10, 7] == pytest.approx(0.40)
+
+
+def test_race_mode_interpolates_fractional_left_arm_win() -> None:
+    actions = np.zeros((3, BIMANUAL_CARTESIAN_DIM), dtype=np.float64)
+    actions[:, 0] = [0.0, 0.3, 0.6]
+    actions[:, 7] = [0.0, 0.1, 0.2]
+    actions[:, 6] = [0.0, 0.3, 0.6]
+    actions[:, 13] = [0.0, 0.6, 1.2]
+
+    tokenizer = TokenizeBimanualArcLengthCartesian(
+        action_key="actions",
+        output_action_key="actions",
+        preserve_action_key="source",
+        min_distance_unit=0.40,
+        resampled_vector_length=5,
+        velocity_mode="per_waypoint",
+        translation_horizon_mode="race",
+    )
+    source = tokenizer.transform({"actions": actions})["source"]
+
+    assert source.shape == (3, BIMANUAL_CARTESIAN_DIM)
+    assert source[-1, 0] == pytest.approx(0.40)
+    assert source[-1, 7] == pytest.approx(0.40 / 3.0)
+    assert source[-1, 6] == pytest.approx(0.40)
+    assert source[-1, 13] == pytest.approx(0.80)
+
+
+def test_race_mode_handles_simultaneous_crossing() -> None:
+    actions = np.zeros((3, BIMANUAL_CARTESIAN_DIM), dtype=np.float64)
+    actions[:, 0] = actions[:, 7] = [0.0, 0.2, 0.4]
+
+    tokenizer = TokenizeBimanualArcLengthCartesian(
+        action_key="actions",
+        output_action_key="actions",
+        preserve_action_key="source",
+        min_distance_unit=0.30,
+        resampled_vector_length=5,
+        velocity_mode="per_waypoint",
+        translation_horizon_mode="race",
+    )
+    source = tokenizer.transform({"actions": actions})["source"]
+
+    assert source[-1, 0] == pytest.approx(0.30)
+    assert source[-1, 7] == pytest.approx(0.30)
+
+
+def test_race_mode_keeps_full_source_when_neither_arm_reaches_distance() -> None:
+    actions = np.zeros((3, BIMANUAL_CARTESIAN_DIM), dtype=np.float64)
+    actions[:, 0] = [0.0, 0.1, 0.2]
+    actions[:, 7] = [0.0, 0.05, 0.10]
+
+    tokenizer = TokenizeBimanualArcLengthCartesian(
+        action_key="actions",
+        output_action_key="actions",
+        preserve_action_key="source",
+        min_distance_unit=0.40,
+        resampled_vector_length=5,
+        velocity_mode="per_waypoint",
+        translation_horizon_mode="race",
+    )
+    source = tokenizer.transform({"actions": actions})["source"]
+
+    np.testing.assert_array_equal(source, actions)
+
+
+def test_hybrid_race_mode_keeps_independent_arm_translation_spans() -> None:
+    frame = np.arange(101, dtype=np.float64)
+    actions = np.zeros((101, BIMANUAL_CARTESIAN_DIM), dtype=np.float64)
+    actions[:, 0] = 0.004 * frame
+    actions[:, 7] = 0.008 * frame
+    actions[:, 3] = 0.001 * frame
+    actions[:, 10] = 0.001 * frame
+
+    tokenizer = TokenizeBimanualArcLengthCartesian(
+        action_key="actions",
+        output_action_key="actions",
+        min_distance_unit=0.40,
+        rotation_distance_unit=0.05,
+        resampled_vector_length=11,
+        velocity_mode="per_waypoint",
+        translation_horizon_mode="race",
+    )
+    token = tokenizer.transform({"actions": actions})["actions"]
+
+    assert token[10, 0] == pytest.approx(0.20)
+    assert token[10, 7] == pytest.approx(0.40)
+    assert token[10, 3] == pytest.approx(0.025, abs=1e-6)
+    assert token[10, 10] == pytest.approx(0.025, abs=1e-6)
+
+
+def test_hybrid_race_mode_replays_each_arm_until_shared_race_cutoff() -> None:
+    frame = np.arange(101, dtype=np.float64)
+    actions = np.zeros((101, BIMANUAL_CARTESIAN_DIM), dtype=np.float64)
+    actions[:, 0] = 0.004 * frame
+    actions[:, 7] = 0.008 * frame
+    actions[:, 3] = 0.001 * frame
+    actions[:, 10] = 0.001 * frame
+
+    tokenizer = TokenizeBimanualArcLengthCartesian(
+        action_key="actions",
+        output_action_key="actions",
+        min_distance_unit=0.40,
+        rotation_distance_unit=0.05,
+        resampled_vector_length=11,
+        velocity_mode="per_waypoint",
+        translation_horizon_mode="race",
+    )
+    token = tokenizer.transform({"actions": actions})["actions"]
+    decoded = tokenizer.detokenize(token, action_horizon=76)
+
+    assert decoded[25, 0] == pytest.approx(0.10, abs=1e-7)
+    assert decoded[25, 7] == pytest.approx(0.20, abs=1e-7)
+    assert decoded[50, 0] == pytest.approx(0.20, abs=1e-7)
+    assert decoded[50, 7] == pytest.approx(0.40, abs=1e-7)
+    assert decoded[25, 3] == pytest.approx(0.025, abs=1e-6)
+    assert decoded[25, 10] == pytest.approx(0.025, abs=1e-6)
+    assert decoded[50, 3] == pytest.approx(0.025, abs=1e-6)
+    assert decoded[50, 10] == pytest.approx(0.025, abs=1e-6)
+    np.testing.assert_allclose(
+        decoded[50:, [0, 7]],
+        np.repeat(decoded[50:51, [0, 7]], len(decoded) - 50, axis=0),
+    )
 
 T_IN = 40  # source action horizon (time steps)
 DT = 1.0 / 30.0

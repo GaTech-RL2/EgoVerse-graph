@@ -198,6 +198,47 @@ def test_arc_replan_stride_changes_with_predicted_timing():
     assert slow["segments"] == 4
 
 
+def test_open_loop_evaluator_uses_race_timing_for_arc_replanning():
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    actions = np.zeros((51, 14), dtype=np.float64)
+    left_step = np.concatenate((np.full(25, 0.002), np.full(25, 0.006)))
+    right_step = np.concatenate((np.full(25, 0.012), np.full(25, 0.004)))
+    actions[1:, 0] = np.cumsum(left_step)
+    actions[1:, 7] = np.cumsum(right_step)
+    token = TokenizeBimanualArcLengthCartesian(
+        action_key="actions",
+        output_action_key="actions",
+        min_distance_unit=0.40,
+        rotation_distance_unit=np.deg2rad(24.0),
+        resampled_vector_length=11,
+        dt=1.0 / 30.0,
+        velocity_mode="per_waypoint",
+        translation_horizon_mode="race",
+    ).transform({"actions": actions})["actions"]
+
+    evaluator = OpenLoopSimEval.__new__(OpenLoopSimEval)
+    evaluator.execute_fraction = 1.0
+    evaluator.execute_steps = 100
+    evaluator.control_horizon = 100
+    evaluator.control_dt = 1.0 / 30.0
+    evaluator.action_mode = "arc"
+    evaluator.arc_execution_cap_mode = "waypoints"
+    evaluator.resampled_vector_length = 11
+    evaluator.velocity_mode = "per_waypoint"
+    evaluator.min_distance_unit = 0.40
+    evaluator.rotation_distance_unit = np.deg2rad(24.0)
+    evaluator.translation_horizon_mode = "race"
+    evaluator._arc_tokenizer = None
+
+    decoded, steps = evaluator._decode_prediction_with_steps(token, max_steps=100)
+
+    assert steps == 50
+    assert decoded.shape == (50, 14)
+
+
 def test_open_loop_sim_walks_an_episode_in_executed_prefixes():
     evaluator = _baseline_evaluator()
     records = []

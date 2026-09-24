@@ -165,6 +165,7 @@ class Yam(Embodiment):
         # How the arc token carries timing; see
         # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
         velocity_mode: str = "mean",
+        translation_horizon_mode: str = "joint",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -251,6 +252,7 @@ class Yam(Embodiment):
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 velocity_mode=velocity_mode,
+                translation_horizon_mode=translation_horizon_mode,
                 # Keep a fixed 100-step native-cadence GT copy for evaluator
                 # metrics/videos. The source window itself is variable, but
                 # the control horizon is always 100 steps; repeat-last at an
@@ -347,6 +349,7 @@ class Yam(Embodiment):
         camera_keys: dict | None = None,
         min_distance_unit: float | None = None,
         rotation_distance_unit: float | None = None,
+        translation_horizon_mode: str = "joint",
     ):
         """Keep the raw-data read horizon aligned with configured ARC caps."""
         key_map = super().get_keymap(
@@ -366,6 +369,8 @@ class Yam(Embodiment):
                 and horizon.get("type") == "arc_hybrid"
             ):
                 horizon["rotation_distance"] = float(rotation_distance_unit)
+            if horizon.get("type") in ("arc_distance", "arc_hybrid"):
+                horizon["translation_horizon_mode"] = translation_horizon_mode
         return key_map
 
     @classmethod

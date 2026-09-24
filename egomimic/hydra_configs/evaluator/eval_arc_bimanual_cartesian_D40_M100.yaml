@@ -33,6 +33,7 @@ action_horizon: 100
 # MUST match the data config's tokenizer: it sets the token's row count and how
 # detokenize recovers timing.
 velocity_mode: ${abc.arc_velocity_mode}
+translation_horizon_mode: ${oc.select:abc.arc_translation_horizon_mode,joint}
 
 revert_transforms:
   yam_bimanual:

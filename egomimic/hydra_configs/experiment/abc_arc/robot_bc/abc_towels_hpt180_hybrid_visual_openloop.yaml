@@ -7,6 +7,7 @@ description: HPT180 ABC towels visual-only hybrid D40 M100 R24deg
 abc:
   task_predicate: "row['task'] == 'fold and stack the towels'"
   action_mode: hybrid_arc_tokenizer_cartesian
+  arc_translation_horizon_mode: race
   arc_distance: 0.40
   arc_rotation_distance: 0.4188790204786391
 hpt:

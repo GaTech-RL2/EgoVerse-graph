@@ -368,6 +368,7 @@ def arc_prefix_control_steps(
     *,
     rotation_distance_unit: float | None = None,
     arc_execution_cap_mode: str = "waypoints",
+    translation_horizon_mode: str = "joint",
     max_steps: int | None = None,
 ) -> int:
     """Recover the control-frame stride for the configured ARC prefix."""
@@ -380,6 +381,11 @@ def arc_prefix_control_steps(
         or float(rotation_distance_unit) <= 0.0
     ):
         raise ValueError("rotation_distance_unit must be positive and finite")
+    if translation_horizon_mode not in ("joint", "race"):
+        raise ValueError(
+            "translation_horizon_mode must be 'joint' or 'race', got "
+            f"{translation_horizon_mode!r}"
+        )
     partial = arc_execution_prefix(
         token,
         execute_fraction,
@@ -431,10 +437,15 @@ def arc_prefix_control_steps(
                 "independent rotation clock requires velocity_mode='per_waypoint'"
             )
         shared_durations = []
-        for slices, rotation in (
-            ((slice(0, 3), slice(7, 10)), False),
-            ((slice(3, 6), slice(10, 13)), True),
-        ):
+        clock_specs = (
+            (((slice(3, 6), slice(10, 13)), True),)
+            if translation_horizon_mode == "race"
+            else (
+                ((slice(0, 3), slice(7, 10)), False),
+                ((slice(3, 6), slice(10, 13)), True),
+            )
+        )
+        for slices, rotation in clock_specs:
             step_by_arm = []
             rate_by_arm = []
             for value_slice in slices:
@@ -469,7 +480,10 @@ def arc_prefix_control_steps(
                         )
                     )
             shared_durations.append(float(np.sum(interval_durations)))
-        durations = shared_durations
+        if translation_horizon_mode == "race":
+            durations = [max(durations, default=0.0), *shared_durations]
+        else:
+            durations = shared_durations
 
     duration = max(durations, default=0.0)
     if math.isfinite(duration):
@@ -517,6 +531,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 100,
         velocity_mode: str = "per_waypoint",
+        translation_horizon_mode: str = "joint",
         log_step: int | None = None,
         results_path: str | None = None,
         trajectory_snapshot_path: str | None = None,
@@ -570,6 +585,12 @@ class OpenLoopSimEval(BimanualCartesianEval):
         )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
+        if translation_horizon_mode not in ("joint", "race"):
+            raise ValueError(
+                "translation_horizon_mode must be 'joint' or 'race', got "
+                f"{translation_horizon_mode!r}"
+            )
+        self.translation_horizon_mode = translation_horizon_mode
         self.execute_arc_waypoints = (
             executed_arc_waypoints(self.resampled_vector_length, self.execute_fraction)
             if mode == "arc" and self.arc_execution_cap_mode == "waypoints"
@@ -1172,12 +1193,16 @@ class OpenLoopSimEval(BimanualCartesianEval):
             )
 
             rotation_distance_unit = getattr(self, "rotation_distance_unit", None)
+            translation_horizon_mode = getattr(
+                self, "translation_horizon_mode", "joint"
+            )
             self._arc_tokenizer = TokenizeBimanualArcLengthCartesian(
                 min_distance_unit=self.min_distance_unit,
                 rotation_distance_unit=rotation_distance_unit,
                 resampled_vector_length=self.resampled_vector_length,
                 dt=self.control_dt,
                 velocity_mode=self.velocity_mode,
+                translation_horizon_mode=translation_horizon_mode,
             )
         partial = arc_execution_prefix(
             prediction,
@@ -1194,6 +1219,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self.min_distance_unit,
             rotation_distance_unit=getattr(self, "rotation_distance_unit", None),
             arc_execution_cap_mode=self.arc_execution_cap_mode,
+            translation_horizon_mode=getattr(
+                self, "translation_horizon_mode", "joint"
+            ),
             max_steps=max_steps,
         )
         decoded = self._arc_tokenizer.detokenize(partial, action_horizon=steps).astype(

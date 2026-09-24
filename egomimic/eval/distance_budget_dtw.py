@@ -239,6 +239,9 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
             resampled_vector_length=m,
             dt=evaluator.control_dt,
             velocity_mode=evaluator.velocity_mode,
+            translation_horizon_mode=getattr(
+                evaluator, "translation_horizon_mode", "joint"
+            ),
         )
     else:
         anchors = np.arange(0, len(records), evaluator.execute_steps)
@@ -272,6 +275,9 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
                     evaluator, "rotation_distance_unit", None
                 ),
                 arc_execution_cap_mode="waypoints",
+                translation_horizon_mode=getattr(
+                    evaluator, "translation_horizon_mode", "joint"
+                ),
             )
             if n > evaluator.dtw_max_prediction_steps:
                 raise ValueError(

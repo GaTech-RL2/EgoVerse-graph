@@ -6,6 +6,7 @@ name: abc_multitask4_hpt300_hybrid_visual_openloop
 description: HPT300M ABC four-task visual-only hybrid ARC D81 M100 R24deg
 abc:
   action_mode: hybrid_arc_tokenizer_cartesian
+  arc_translation_horizon_mode: race
   # 873 training episodes, 2,574,495 complete 100-frame windows at 30Hz.
   # Mean combined left+right EEF travel = 0.8102208553 m (no validation leakage).
   arc_distance: 0.81

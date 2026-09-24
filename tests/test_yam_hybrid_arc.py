@@ -149,6 +149,31 @@ def test_hybrid_replan_timing_does_not_ignore_a_moving_arm_with_zero_rate():
     assert steps == 77
 
 
+def test_race_replan_timing_uses_each_arms_total_clock() -> None:
+    actions = np.zeros((51, 14), dtype=np.float64)
+    left_step = np.concatenate((np.full(25, 0.002), np.full(25, 0.006)))
+    right_step = np.concatenate((np.full(25, 0.012), np.full(25, 0.004)))
+    actions[1:, 0] = np.cumsum(left_step)
+    actions[1:, 7] = np.cumsum(right_step)
+
+    tokenizer = _hybrid_tokenizer(
+        resampled_vector_length=11,
+        translation_horizon_mode="race",
+    )
+    token = tokenizer.transform({"actions": actions})["actions"]
+    steps = arc_prefix_control_steps(
+        token,
+        1.0,
+        "per_waypoint",
+        1.0 / 30.0,
+        0.40,
+        rotation_distance_unit=math.radians(24.0),
+        translation_horizon_mode="race",
+        max_steps=100,
+    )
+    assert steps == 50
+
+
 def test_hybrid_mode_requires_per_waypoint_velocity():
     with pytest.raises(ValueError, match="velocity_mode='per_waypoint'"):
         _hybrid_tokenizer(velocity_mode="mean")
@@ -216,6 +241,71 @@ def test_hybrid_source_horizon_waits_for_both_clocks_and_both_arms():
     assert horizon == 61
 
 
+def test_race_source_horizon_stops_when_either_arm_reaches_distance():
+    time = np.arange(121, dtype=np.float64) / 30.0
+    left = np.zeros((121, 7), dtype=np.float64)
+    right = np.zeros((121, 7), dtype=np.float64)
+    left[:, 0] = 0.1 * time
+    right[:, 0] = 0.2 * time
+    left[:, 3] = 1.0
+    right[:, 3] = 1.0
+
+    class Reader:
+        def read(self, _ranges):
+            return {
+                "left.cmd_ee_pose": left,
+                "right.cmd_ee_pose": right,
+            }
+
+    dataset = ZarrDataset.__new__(ZarrDataset)
+    dataset.total_frames = len(time)
+    dataset.episode_reader = Reader()
+    horizon = dataset._resolve_dynamic_horizon(
+        0,
+        {
+            "type": "arc_hybrid",
+            "distance": 0.40,
+            "rotation_distance": math.radians(24.0),
+            "translation_horizon_mode": "race",
+            "source_buffer_frames": len(time),
+            "pose_zarr_keys": ["left.cmd_ee_pose", "right.cmd_ee_pose"],
+        },
+    )
+    assert horizon == 61
+
+
+def test_nonhybrid_race_source_horizon_stops_when_either_arm_reaches_distance():
+    time = np.arange(121, dtype=np.float64) / 30.0
+    left = np.zeros((121, 7), dtype=np.float64)
+    right = np.zeros((121, 7), dtype=np.float64)
+    left[:, 0] = 0.12 * time
+    right[:, 0] = 0.24 * time
+
+    class Reader:
+        def read(self, _ranges):
+            return {
+                "left.cmd_ee_pose": left,
+                "right.cmd_ee_pose": right,
+            }
+
+    dataset = ZarrDataset.__new__(ZarrDataset)
+    dataset.total_frames = len(time)
+    dataset.episode_reader = Reader()
+    horizon = dataset._resolve_dynamic_horizon(
+        0,
+        {
+            "type": "arc_distance",
+            "distance": 0.40,
+            "translation_horizon_mode": "race",
+            "source_buffer_frames": len(time),
+            "pose_zarr_keys": ["left.cmd_ee_pose", "right.cmd_ee_pose"],
+            "require_all_arms": True,
+        },
+    )
+
+    assert horizon == 51
+
+
 def test_hybrid_hpt_experiment_wires_one_rotation_cap_everywhere():
     from hydra import compose, initialize_config_dir
 
@@ -235,4 +325,10 @@ def test_hybrid_hpt_experiment_wires_one_rotation_cap_everywhere():
         == pytest.approx(expected)
     )
     assert cfg.abc.arc_velocity_mode == "per_waypoint"
+    assert cfg.abc.arc_translation_horizon_mode == "race"
+    assert cfg.evaluator.translation_horizon_mode == "race"
+    assert (
+        cfg.data.train_datasets.yam_bimanual.resolver.transform_list.translation_horizon_mode
+        == "race"
+    )
     assert cfg.hpt.action_horizon == 200

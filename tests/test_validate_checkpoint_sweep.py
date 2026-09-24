@@ -74,7 +74,7 @@ def test_builds_arc_eval_command_with_checkpoint_step_and_shared_wandb_id(tmp_pa
 
     command = validation_command(
         python="python",
-        experiment="abc_arc/stationery_rl2_hpt_arc_D40_M100_openloop",
+        experiment="abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
         checkpoint=checkpoint,
         output_dir=tmp_path / "results",
         action_mode="arc",
@@ -89,7 +89,7 @@ def test_builds_arc_eval_command_with_checkpoint_step_and_shared_wandb_id(tmp_pa
     assert command[:3] == [
         "python",
         "egomimic/trainHydra.py",
-        "+experiment=abc_arc/stationery_rl2_hpt_arc_D40_M100_openloop",
+        "+experiment=abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
     ]
     assert "mode=eval" in command
     assert "eval_logger_enabled=true" in command
@@ -115,7 +115,7 @@ def test_builds_baseline_eval_command_with_explicit_action_mode(tmp_path):
 
     command = validation_command(
         python="python",
-        experiment="abc_arc/stationery_rl2_hpt_baseline_openloop",
+        experiment="abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
         checkpoint=checkpoint,
         output_dir=tmp_path / "results",
         action_mode="baseline",
@@ -130,7 +130,7 @@ def test_builds_baseline_eval_command_with_explicit_action_mode(tmp_path):
     assert "evaluator.action_mode=baseline" in command
     assert "evaluator.execute_fraction=0.3" in command
     assert "trainer.limit_val_batches=1.0" in command
-    assert "+experiment=abc_arc/stationery_rl2_hpt_baseline_openloop" in command
+    assert "+experiment=abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop" in command
 
 
 def test_builds_video_only_command_without_metric_output(tmp_path):
@@ -142,7 +142,7 @@ def test_builds_video_only_command_without_metric_output(tmp_path):
 
     command = validation_command(
         python="python",
-        experiment="abc_arc/stationery_rl2_hpt_arc_D40_M100_openloop",
+        experiment="abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
         checkpoint=checkpoint,
         output_dir=tmp_path / "output",
         action_mode="arc",

@@ -212,6 +212,9 @@ def load_policy(checkpoint, *, device="cuda", use_ema=True, use_k_tokens=None):
     algo.bind_data_context(normalizer=normalizer)
     strict_load_pipeline_checkpoint(algo, payload, use_ema=use_ema)
     stages = list(algo.pipeline.stages)
+    from egomimic.models.oat.checkpoint import validate_input_representation
+
+    validate_input_representation(stages, payload)
     from egomimic.pipeline.stages_oat import OATPolicyStage
 
     oat = [stage for stage in stages if isinstance(stage, OATPolicyStage)]

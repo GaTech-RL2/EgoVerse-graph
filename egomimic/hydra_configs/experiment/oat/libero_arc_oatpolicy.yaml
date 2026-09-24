@@ -1,0 +1,5 @@
+# @package _global_
+defaults:
+  - /experiment/oat/libero_arc_oat_base
+  - override /model: oat/arc_oat_policy
+  - _self_

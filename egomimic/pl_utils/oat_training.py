@@ -75,6 +75,9 @@ class OATTrainingBehavior(TrainingBehavior):
 
     def configure_optimizers(self):
         from egomimic.pipeline.stages_oat import OATPolicyStage, OATTokenizerStage
+        from egomimic.models.oat.checkpoint import validate_input_representation
+
+        validate_input_representation(self.context.model.pipeline.stages)
 
         for stage in self.context.model.pipeline.stages:
             if isinstance(stage, OATPolicyStage):
@@ -105,6 +108,11 @@ class OATTrainingBehavior(TrainingBehavior):
         )
 
     def on_save_checkpoint(self, checkpoint):
+        from egomimic.models.oat.checkpoint import validate_input_representation
+
+        checkpoint["oat_input_representation"] = validate_input_representation(
+            self.context.model.pipeline.stages
+        )
         stages = [
             stage
             for stage in self.context.model.pipeline.stages
@@ -125,6 +133,9 @@ class OATTrainingBehavior(TrainingBehavior):
                 )
 
     def on_load_checkpoint(self, checkpoint):
+        from egomimic.models.oat.checkpoint import validate_input_representation
+
+        validate_input_representation(self.context.model.pipeline.stages, checkpoint)
         reference = checkpoint.get("normalizer_state", {}).get("benchmark_context")
         for stage in self.context.model.pipeline.stages:
             if hasattr(stage, "normalizer_state"):

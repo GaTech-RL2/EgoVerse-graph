@@ -99,9 +99,9 @@ def make_tokenizer(
     return _preserve_normalizer_devices(tokenizer)
 
 
-def libero_shape_meta(image_size=128):
+def libero_shape_meta(image_size=128, action_dim=7):
     return {
-        "action": {"shape": [7]},
+        "action": {"shape": [action_dim]},
         "obs": {
             "agentview_rgb": {"shape": [image_size, image_size, 3], "type": "rgb"},
             "robot0_eye_in_hand_rgb": {
@@ -155,17 +155,24 @@ def load_tokenizer(checkpoint, *, use_ema=True):
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
     cfg = OmegaConf.create(payload["hyper_parameters"]["config_tree"])
     stage_cfg = cfg.model.pipeline.stages
-    if (
-        len(stage_cfg) != 1
-        or stage_cfg[0]._target_ != "egomimic.pipeline.stages_oat.OATTokenizerStage"
-    ):
+    indices = [
+        i
+        for i, stage in enumerate(stage_cfg)
+        if stage._target_ == "egomimic.pipeline.stages_oat.OATTokenizerStage"
+    ]
+    if len(indices) != 1:
         raise ValueError("Expected a graph OAT tokenizer-training checkpoint")
     algo = instantiate(cfg.model.pipeline, device="cpu")
     strict_load_pipeline_checkpoint(algo, payload, use_ema=use_ema)
-    tokenizer = algo.pipeline.stages[0].tokenizer
+    from egomimic.models.oat.checkpoint import validate_input_representation
+
+    representation = validate_input_representation(algo.pipeline.stages, payload)
+    index = indices[0]
+    tokenizer = algo.pipeline.stages[index].tokenizer
     tokenizer._native_config = OmegaConf.to_container(
-        stage_cfg[0].tokenizer, resolve=True
+        stage_cfg[index].tokenizer, resolve=True
     )
+    tokenizer._training_input_representation = representation
     tokenizer.eval().requires_grad_(False)
     # The dataset fingerprint and affine state accompany the learned weights.
     tokenizer._training_data_context = payload.get("benchmark_data_context")
@@ -190,11 +197,16 @@ def make_policy(
 ):
     from egomimic.models.oat.policy.oatpolicy import OATPolicy
 
-    shape_meta = libero_shape_meta() if shape_meta is None else shape_meta
+    tokenizer = load_tokenizer(tokenizer_checkpoint, use_ema=use_ema)
+    shape_meta = (
+        libero_shape_meta(action_dim=tokenizer.decoder.sample_dim)
+        if shape_meta is None
+        else shape_meta
+    )
     return OATPolicy(
         shape_meta,
         make_obs_encoder(shape_meta),
-        load_tokenizer(tokenizer_checkpoint, use_ema=use_ema),
+        tokenizer,
         n_action_steps=n_action_steps,
         n_obs_steps=n_obs_steps,
         embed_dim=embed_dim,
@@ -224,8 +236,12 @@ def make_policy_from_config(
 
     from egomimic.models.oat.policy.oatpolicy import OATPolicy
 
-    shape_meta = libero_shape_meta() if shape_meta is None else shape_meta
     tokenizer = instantiate(tokenizer_config)
+    shape_meta = (
+        libero_shape_meta(action_dim=tokenizer.decoder.sample_dim)
+        if shape_meta is None
+        else shape_meta
+    )
     tokenizer._native_config = dict(tokenizer_config)
     return OATPolicy(
         shape_meta,

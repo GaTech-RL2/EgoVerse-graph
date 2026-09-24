@@ -29,7 +29,7 @@ def validate_request(request):
         not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", request["source_run"])
         or not re.fullmatch(r"[0-9a-f]{40}", request["source_commit"])
         or request["suite"] not in TASKS
-        or request["method"] not in ("oat", "arc", "arc_stk", "arc_dur")
+        or request["method"] not in ("oat", "arc", "arc_stk", "arc_dur", "arc_oat")
         or request["epochs"] != 5001
         or type(request["total_optimizer_steps"]) is not int
         or request["total_optimizer_steps"] < 1
@@ -77,8 +77,12 @@ def checkpoint_completion(payload, request):
         raise ValueError("Completed checkpoint lacks matching EMA weights")
     if "normalizer_state" not in payload:
         raise ValueError("Evaluation checkpoint lacks its normalization state")
-    if request["method"] == "oat" and not payload.get("oat_tokenizer_config"):
+    if request["method"] in ("oat", "arc_oat") and not payload.get(
+        "oat_tokenizer_config"
+    ):
         raise ValueError("OAT evaluation requires a self-contained tokenizer")
+    if request["method"] == "arc_oat" and not payload.get("oat_input_representation"):
+        raise ValueError("ARC+OAT evaluation requires its saved ARC representation")
     return {"epochs_completed": epochs, "global_step": steps, "ema_num_updates": ema}
 
 
@@ -320,7 +324,7 @@ def main():
         if (
             protocol["checkpoint_sha256"] != request["checkpoint"]["sha256"]
             or protocol["suite"] != suite
-            or protocol["method"] != ("oat" if method == "oat" else "arc")
+            or protocol["method"] != (method if method in ("oat", "arc_oat") else "arc")
         ):
             raise ValueError("Rollout policy differs from the evaluation request")
         write_json(evidence / "scores.json", summarize(records))

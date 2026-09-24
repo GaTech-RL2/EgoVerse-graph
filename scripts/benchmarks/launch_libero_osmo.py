@@ -222,6 +222,41 @@ def workflow(
     }
 
 
+def arc_oat_workflow(
+    commit,
+    run_id,
+    suite,
+    *,
+    arc_mode,
+    profile,
+    replay_run=None,
+    oat_reference_run=None,
+    mode="full",
+    epochs=5001,
+    gpus=4,
+    gpu_type="L40S",
+    resume_from_run=None,
+):
+    if mode == "full" and (epochs != 5001 or not replay_run):
+        raise ValueError("Full ARC+OAT requires 5001 epochs and its audited ARC replay")
+    spec = workflow(
+        commit,
+        run_id,
+        suite,
+        mode=mode,
+        epochs=epochs,
+        arc_modes=[arc_mode],
+        arc_profile=profile,
+        arc_replay_runs={arc_mode: replay_run} if replay_run else {},
+        oat_reference_run=oat_reference_run,
+        gpus=gpus,
+        gpu_type=gpu_type,
+        resume_from_run=resume_from_run,
+    )
+    spec["workflow"]["tasks"][0]["environment"]["RUN_KIND"] = "arc_oat"
+    return spec
+
+
 def evaluation_workflow(commit, run_id, request, *, gpu_type="L40S", workers=1):
     """Allocate one evaluation GPU only after a final policy checkpoint is ready."""
     from egomimic.benchmarks.libero.evaluate import validate_request

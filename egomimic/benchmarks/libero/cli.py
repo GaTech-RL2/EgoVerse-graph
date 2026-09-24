@@ -34,6 +34,25 @@ def reconstruction(args):
     )
     payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     normalizer = LiberoNormalizer(state=payload["normalizer_state"])
+    arc_stages = None
+    if payload.get("oat_input_representation") is not None:
+        from hydra.utils import instantiate
+        from omegaconf import OmegaConf
+        from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
+        from egomimic.models.oat.checkpoint import validate_input_representation
+        from egomimic.pipeline.stages_libero_arc import LiberoArcStage
+
+        config = OmegaConf.create(payload["hyper_parameters"]["config_tree"])
+        graph = instantiate(config.model.pipeline, device=args.device)
+        graph.bind_data_context(normalizer=normalizer)
+        strict_load_pipeline_checkpoint(graph, payload, use_ema=not args.online)
+        validate_input_representation(graph.pipeline.stages, payload)
+        arc_stages = [
+            stage
+            for stage in graph.pipeline.stages
+            if isinstance(stage, LiberoArcStage)
+        ]
+        graph.nets.eval()
     context = normalizer.tokenizer_context()
     if args.suite != context["suite"]:
         raise ValueError(
@@ -66,6 +85,10 @@ def reconstruction(args):
         for mode in args.arc_modes
         for m in args.waypoints
     }
+    if arc_stages:
+        # Isolate the error introduced by learned quantization from ARC itself.
+        codecs = {"arc_only": arc_stages[0].codec}
+    learned_prefix = "arc_oat" if arc_stages else "oat"
     totals, count = {}, 0
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     with torch.inference_mode():
@@ -78,11 +101,22 @@ def reconstruction(args):
             target = normalizer.unnormalize({"actions": normalized}, EMBODIMENT)[
                 "actions"
             ]
-            token_ids = tokenizer.tokenize(normalized)
+            token_input = (
+                arc_stages[0].execute({"actions": normalized}, mode="inference")[
+                    "target"
+                ]
+                if arc_stages
+                else normalized
+            )
+            token_ids = tokenizer.tokenize(token_input)
             predictions = {}
             for k in budgets:
                 decoded = tokenizer.detokenize(token_ids[:, :k])
-                predictions[f"oat_k{k}"] = normalizer.unnormalize(
+                if arc_stages:
+                    decoded = arc_stages[1].execute(
+                        {"pred_arc": decoded}, mode="inference"
+                    )["pred_action"]
+                predictions[f"{learned_prefix}_k{k}"] = normalizer.unnormalize(
                     {"actions": decoded}, EMBODIMENT
                 )["actions"]
             for name, codec in codecs.items():
@@ -100,7 +134,7 @@ def reconstruction(args):
     if count == 0:
         raise ValueError("No held-out samples evaluated")
     sizes = {
-        f"oat_k{k}": {
+        f"{learned_prefix}_k{k}": {
             "discrete_tokens": k,
             "ideal_bits": k * math.log2(tokenizer.quantizer.codebook_size),
         }
@@ -130,6 +164,7 @@ def reconstruction(args):
             for name, result in totals.items()
         },
         "representation_sizes": sizes,
+        "oat_input_representation": payload.get("oat_input_representation"),
     }
 
 
@@ -215,9 +250,9 @@ def main():
             isinstance(stage, LiberoArcStage) and not stage.reconstruction
             for stage in stages
         )
-        if is_oat == is_arc:
-            raise ValueError("Expected one native ARC or OAT policy")
-        method = "oat" if is_oat else "arc"
+        if not (is_oat or is_arc):
+            raise ValueError("Expected a native ARC, OAT or ARC+OAT policy")
+        method = "arc_oat" if is_oat and is_arc else "oat" if is_oat else "arc"
         metadata = {
             **protocol,
             "method": method,
@@ -242,11 +277,11 @@ def main():
                 "codebook_size": model.action_tokenizer.quantizer.codebook_size,
                 "prefix_tokens": args.tokens or model.max_seq_len,
             }
-        else:
+        if is_arc:
             codec = next(
                 stage.codec for stage in stages if isinstance(stage, LiberoArcStage)
             )
-            metadata["representation"] = {
+            arc_representation = {
                 "kind": "SE3 ARC",
                 "mode": getattr(codec, "mode", "joint_dur"),
                 "waypoints": codec.num_waypoints,
@@ -257,10 +292,16 @@ def main():
                 "independent_clocks": hasattr(codec, "mode"),
             }
             if not hasattr(codec, "mode"):
-                metadata["representation"].update(
+                arc_representation.update(
                     rotation_radius=codec.rotation_radius,
                     gripper_radius=codec.gripper_radius,
                 )
+            if is_oat:
+                metadata["representation"].update(
+                    kind="ARC + OAT FSQ", arc=arc_representation
+                )
+            else:
+                metadata["representation"] = arc_representation
         if args.repetition_index is not None:
             metadata["evaluation_repetition"] = args.repetition_index
         run_rollouts(

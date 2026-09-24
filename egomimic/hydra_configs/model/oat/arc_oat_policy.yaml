@@ -1,0 +1,40 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+enable_grad_norm: false
+training_behavior:
+  _target_: egomimic.pl_utils.oat_training.OATTrainingBehavior
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - &arc
+      _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
+      operation: encode
+      encode_cache_size: ${benchmark.arc_encode_cache_size}
+      arc_mode: ${benchmark.arc_mode}
+      velocity_norm_bound: ${benchmark.arc_velocity_norm_bound}
+      num_waypoints: ${benchmark.arc_waypoints}
+      horizon: ${benchmark.horizon}
+      max_translation: ${benchmark.arc_max_translation}
+      max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
+    - _target_: egomimic.pipeline.stages_oat.OATPolicyStage
+      action_key: target
+      prediction_key: pred_arc
+      policy:
+        _target_: egomimic.models.oat.factory.make_policy
+        tokenizer_checkpoint: ${benchmark.tokenizer_checkpoint}
+        n_obs_steps: ${benchmark.n_obs_steps}
+        n_action_steps: ${benchmark.n_action_steps}
+        embed_dim: 256
+        n_layers: 4
+        n_heads: 4
+        dropout: 0.1
+        temperature: 1.0
+        topk: 10
+    - <<: *arc
+      operation: decode
+      encode_cache_size: 0
+benchmark_protocol:
+  suite: ${benchmark.suite}
+  horizon: ${benchmark.horizon}
+  n_obs_steps: ${benchmark.n_obs_steps}
+  n_action_steps: ${benchmark.n_action_steps}
+  action_representation: arc_oat

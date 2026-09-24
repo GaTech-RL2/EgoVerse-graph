@@ -40,6 +40,8 @@ uv pip install --no-deps -e "$LIBERO_SOURCE_ROOT"
 export LIBERO_CONFIG_PATH=/workspace/libero/config
 if [[ "${RUN_KIND:-benchmark}" == policy_evaluation ]]; then
     python -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id "$RUN_ID" --request /tmp/evaluation-request.json
+elif [[ "${RUN_KIND:-benchmark}" == arc_oat ]]; then
+    python -m egomimic.benchmarks.libero.arc_oat --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS"
 elif [[ "${RUN_KIND:-benchmark}" == arc_sweep ]]; then
     ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ["ARC_MODES_JSON"]); assert len(modes)==1; print(modes[0])')
     python -m egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --profile "$ARC_PROFILE" --arc-mode "$ARC_SWEEP_MODE" --mode "$RUN_MODE" --epochs "$EPOCHS"

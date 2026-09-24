@@ -103,7 +103,11 @@ def validate_full_protocol(protocol):
         )
 
 
-def compare_runs(arc_directory, oat_directory, *, require_full=True, arc_mode=None):
+def compare_runs(
+    arc_directory, oat_directory, *, require_full=True, arc_mode=None, arc_method="arc"
+):
+    if arc_method not in ("arc", "arc_oat"):
+        raise ValueError("Expected an ARC or ARC+OAT comparison")
     arc_protocol, arc = read_run(arc_directory)
     oat_protocol, oat = read_run(oat_directory)
     common = (
@@ -122,12 +126,12 @@ def compare_runs(arc_directory, oat_directory, *, require_full=True, arc_mode=No
     for field in common:
         if field not in arc_protocol or arc_protocol[field] != oat_protocol.get(field):
             raise ValueError(f"ARC and OAT protocol mismatch: {field}")
-    if arc_protocol.get("method") != "arc" or oat_protocol.get("method") != "oat":
+    if arc_protocol.get("method") != arc_method or oat_protocol.get("method") != "oat":
         raise ValueError("Comparison requires native ARC and OAT policy records")
-    if (
-        arc_mode is not None
-        and arc_protocol.get("representation", {}).get("mode") != arc_mode
-    ):
+    representation = arc_protocol.get("representation", {})
+    if arc_method == "arc_oat":
+        representation = representation.get("arc", {})
+    if arc_mode is not None and representation.get("mode") != arc_mode:
         raise ValueError("ARC representation mode differs from requested comparison")
     suite = arc_protocol["suite"]
     if require_full:

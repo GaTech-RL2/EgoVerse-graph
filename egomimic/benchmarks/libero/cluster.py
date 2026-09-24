@@ -250,7 +250,16 @@ def training_layout(gpus, mode):
 
 
 def training_arguments(
-    method, suite, dataset, evidence, mode, epochs, *, gpus=1, arc_backbone="unet"
+    method,
+    suite,
+    dataset,
+    evidence,
+    mode,
+    epochs,
+    *,
+    gpus=1,
+    arc_backbone="unet",
+    oat_on_arc=False,
 ):
     if arc_backbone not in {"unet", "oat_dp"}:
         raise ValueError("Unknown ARC backbone")
@@ -264,6 +273,12 @@ def training_arguments(
     }[method]
     if method.startswith("arc") and arc_backbone == "oat_dp":
         experiment = "libero_arc_oat_dp_policy"
+    if oat_on_arc:
+        if method not in {"tokenizer", "oat"} or arc_backbone != "unet":
+            raise ValueError("ARC+OAT trains its tokenizer and autoregressive policy")
+        experiment = {"tokenizer": "libero_arc_oattok", "oat": "libero_arc_oatpolicy"}[
+            method
+        ]
     run = Path(evidence) / "training" / method
     args = [
         sys.executable,

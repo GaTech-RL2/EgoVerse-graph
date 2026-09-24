@@ -23,6 +23,7 @@ class LiberoArcStage(Stage):
         arc_mode="joint_dur",
         velocity_norm_bound=1.0,
         encode_cache_size=0,
+        encode_inference=False,
         **codec_kwargs,
     ):
         super().__init__()
@@ -44,12 +45,41 @@ class LiberoArcStage(Stage):
         self.reconstruction = reconstruction
         if operation not in {"encode", "decode"}:
             raise ValueError("operation must be encode or decode")
-        self.train_only = operation == "encode" and not reconstruction
+        if encode_inference and (operation != "encode" or reconstruction):
+            raise ValueError("encode_inference requires an encode-only stage")
+        self.operation, self.encode_inference = operation, encode_inference
+        self.train_only = (
+            operation == "encode" and not reconstruction and not encode_inference
+        )
         self.inference_only = operation == "decode" or reconstruction
         self.register_buffer("action_scale", torch.ones(7))
         self.register_buffer("action_offset", torch.zeros(7))
         if reconstruction:
             self.reads_by_mode = {"inference": ("actions",)}
+        elif encode_inference:
+            self.reads_by_mode = {"inference": ("actions",)}
+            self.writes_by_mode = {"inference": ("target",)}
+
+    def representation_context(self):
+        """Identify the physical representation a learned tokenizer consumes."""
+        fields = (
+            "num_waypoints",
+            "horizon",
+            "dt",
+            "translation_scale",
+            "rotation_scale",
+            "rotation_radius",
+            "gripper_radius",
+            "max_translation",
+            "max_rotation_degrees",
+        )
+        return {
+            "kind": "libero_arc",
+            "mode": self.arc_mode,
+            **{key: getattr(self.codec, key) for key in fields},
+            "velocity_norm_bound": self.velocity_norm_bound,
+            "token_scale": self._token_scale(torch.ones(1)).tolist(),
+        }
 
     def bind_data_context(self, *, normalizer):
         from egomimic.rldb.zarr.libero_dataset import EMBODIMENT
@@ -78,12 +108,12 @@ class LiberoArcStage(Stage):
         return scale
 
     def execute(self, batch, *, mode):
-        if mode == "train" or self.reconstruction:
+        if mode == "train" or self.reconstruction or self.encode_inference:
             native = (batch["actions"] - self.action_offset) / self.action_scale
             values = self._encode(native.detach().float().cpu().numpy())
             tokens = torch.as_tensor(values, device=native.device, dtype=native.dtype)
             batch["target"] = tokens / self._token_scale(tokens)
-        if mode == "inference":
+        if mode == "inference" and (self.operation == "decode" or self.reconstruction):
             tokens = batch["target"] if self.reconstruction else batch["pred_arc"]
             tokens = tokens * self._token_scale(tokens)
             decoded = np.stack(

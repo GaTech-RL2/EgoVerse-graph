@@ -1,0 +1,7 @@
+# @package _global_
+defaults:
+  - /experiment/oat/libero_arc_oat_base
+  - override /model: oat/arc_tokenizer
+  - _self_
+benchmark:
+  n_obs_steps: 0

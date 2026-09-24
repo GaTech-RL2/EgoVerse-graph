@@ -10,10 +10,19 @@ class OATTokenizerStage(Stage):
     writes = ("loss/oat_reconstruction",)
     writes_by_mode = {"inference": ("pred_action",)}
 
-    def __init__(self, tokenizer, use_k_tokens=None):
+    def __init__(
+        self,
+        tokenizer,
+        use_k_tokens=None,
+        action_key="actions",
+        prediction_key="pred_action",
+    ):
         super().__init__()
         self.tokenizer = tokenizer
         self.use_k_tokens = use_k_tokens
+        self.action_key, self.prediction_key = action_key, prediction_key
+        self.reads = (action_key,)
+        self.writes_by_mode = {"inference": (prediction_key,)}
 
     def bind_data_context(self, *, normalizer):
         self.normalizer_state = normalizer.to_state()
@@ -22,15 +31,17 @@ class OATTokenizerStage(Stage):
     def execute(self, batch, *, mode):
         if mode == "train":
             batch["loss/oat_reconstruction"] = self.tokenizer(
-                {"action": batch["actions"]}
+                {"action": batch[self.action_key]}
             )
         else:
             keep = self.use_k_tokens
             if keep is not None and not 1 <= keep <= self.tokenizer.latent_horizon:
                 raise ValueError("Invalid OAT prefix length")
-            batch["pred_action"] = self.tokenizer.autoencode(
-                batch["actions"],
-                eval_keep_k=None if keep is None else [keep] * len(batch["actions"]),
+            batch[self.prediction_key] = self.tokenizer.autoencode(
+                batch[self.action_key],
+                eval_keep_k=None
+                if keep is None
+                else [keep] * len(batch[self.action_key]),
             )
         return batch
 
@@ -42,12 +53,20 @@ class OATPolicyStage(Stage):
     writes = ("loss/oat_token_ce",)
     writes_by_mode = {"inference": ("pred_action",)}
 
-    def __init__(self, policy, use_k_tokens=None):
+    def __init__(
+        self,
+        policy,
+        use_k_tokens=None,
+        action_key="actions",
+        prediction_key="pred_action",
+    ):
         super().__init__()
         self.policy = policy
         self.use_k_tokens = use_k_tokens
-        self.reads = ("actions", *policy.obs_ports)
+        self.action_key, self.prediction_key = action_key, prediction_key
+        self.reads = (action_key, *policy.obs_ports)
         self.reads_by_mode = {"inference": tuple(policy.obs_ports)}
+        self.writes_by_mode = {"inference": (prediction_key,)}
 
     def bind_data_context(self, *, normalizer):
         self.normalizer_state = normalizer.to_state()
@@ -69,7 +88,7 @@ class OATPolicyStage(Stage):
         if mode == "train":
             self.policy.action_tokenizer.eval()
             batch["loss/oat_token_ce"] = self.policy(
-                {"action": batch["actions"], "obs": obs}
+                {"action": batch[self.action_key], "obs": obs}
             )
         else:
             if (
@@ -77,7 +96,7 @@ class OATPolicyStage(Stage):
                 and not 1 <= self.use_k_tokens <= self.policy.max_seq_len
             ):
                 raise ValueError("Invalid OAT prefix length")
-            batch["pred_action"] = self.policy.predict_action(
+            batch[self.prediction_key] = self.policy.predict_action(
                 obs,
                 use_k_tokens=self.use_k_tokens,
             )["action_pred"]

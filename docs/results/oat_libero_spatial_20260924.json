@@ -1,0 +1,84 @@
+{
+  "at": "2026-09-24T06:16:27.204712+00:00",
+  "artifacts": {
+    "oat/libero_spatial/protocol.json": {
+      "sha256": "dee559367864c3a277be0d7b2f52c3e7aeaa3c93290d9a770b923fa9f37ada86",
+      "bytes": 405996,
+      "modified": "2026-09-24T06:10:22+00:00"
+    },
+    "oat/libero_spatial/episodes.jsonl": {
+      "sha256": "423ec0c43b36334c77d226da732f79d805ff2773189bb00d7c045244a1f1cf31",
+      "bytes": 1687304,
+      "modified": "2026-09-24T06:10:22+00:00"
+    },
+    "scores.json": {
+      "sha256": "affd46833da1096cf2bd529bc243542a56c8a05136894afe6323427ffb67f996",
+      "bytes": 1210,
+      "modified": "2026-09-24T06:10:26+00:00"
+    },
+    "recovered-training.json": {
+      "sha256": "54c5d866c957a35b2b2741ec406d58747699209b68b8012a28c5b0ccddc4fb2e",
+      "bytes": 1621,
+      "modified": "2026-09-24T04:58:32+00:00"
+    }
+  },
+  "scores": {
+    "episodes": 2500,
+    "mean_success_rate": 0.6168,
+    "success_rate_std": 0.010825894882179495,
+    "success_rate_stderr": 0.0048414873747640854,
+    "per_repetition_success": [
+      0.608,
+      0.634,
+      0.614,
+      0.62,
+      0.608
+    ],
+    "per_task_success": {
+      "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.6,
+      "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.896,
+      "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.632,
+      "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.788,
+      "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.472,
+      "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.564,
+      "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.724,
+      "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.124,
+      "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.844,
+      "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.524
+    },
+    "inference_seconds_mean": 0.023386310892057807,
+    "inference_seconds_p95": 0.027721691923215986
+  },
+  "episodes": 2500,
+  "successes": 1542,
+  "full_protocol_verified": true,
+  "protocol": {
+    "suite": "libero_spatial",
+    "method": "oat",
+    "horizon": 32,
+    "n_obs_steps": 2,
+    "n_action_steps": 16,
+    "max_episode_steps": 550,
+    "checkpoint_sha256": "7b9346b2fd1a5b7162206c475a78f9fba865ae444b94801d44f94d69d8f222f5",
+    "use_ema": true,
+    "oat_commit": "1da92695ef12c23b7000a0b1a76cab0aef4750e6",
+    "libero_commit": "6090ff21837566fed47b7c9061c9899f4749d36b",
+    "evaluation_workers": 5
+  },
+  "completion": {
+    "source_run": "arc-cache-oat-20260923-spatial",
+    "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+    "suite": "libero_spatial",
+    "method": "oat",
+    "epochs": 5001,
+    "total_optimizer_steps": 270054,
+    "checkpoint": {
+      "sha256": "7b9346b2fd1a5b7162206c475a78f9fba865ae444b94801d44f94d69d8f222f5",
+      "bytes": 485724608,
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-oat-20260923-spatial/checkpoints/7b9346b2fd1a5b7162206c475a78f9fba865ae444b94801d44f94d69d8f222f5/last.ckpt"
+    },
+    "epochs_completed": 5001,
+    "global_step": 270054,
+    "ema_num_updates": 270054
+  }
+}

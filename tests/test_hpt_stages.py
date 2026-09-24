@@ -1,7 +1,7 @@
 """HPT stems and trunk as graph stages."""
 
-from functools import partial
 import random
+from functools import partial
 
 import pytest
 import torch
@@ -404,9 +404,7 @@ def test_sample_annotation_prompt_takes_first_at_eval():
 def test_sample_annotation_prompt_can_be_seeded():
     item = ["a", "b", "c"]
     rng = random.Random(0)
-    picked = {
-        sample_annotation_prompt(item, training=True, rng=rng) for _ in range(20)
-    }
+    picked = {sample_annotation_prompt(item, training=True, rng=rng) for _ in range(20)}
     assert picked <= set(item)
     assert len(picked) > 1
 

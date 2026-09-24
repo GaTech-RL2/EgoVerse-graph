@@ -56,19 +56,25 @@ LICENSE = "apache-2.0"
 EMBODIMENT = "yam_bimanual"
 
 _local = threading.local()
-_TRANSFER = TransferConfig(multipart_threshold=64 * 1024 * 1024,
-                           multipart_chunksize=64 * 1024 * 1024,
-                           max_concurrency=4, use_threads=True)
+_TRANSFER = TransferConfig(
+    multipart_threshold=64 * 1024 * 1024,
+    multipart_chunksize=64 * 1024 * 1024,
+    max_concurrency=4,
+    use_threads=True,
+)
 
 
 def _s3():
     if not hasattr(_local, "c"):
         ep = os.environ["R2_ENDPOINT_URL"]
         _local.c = boto3.client(
-            "s3", endpoint_url=ep,
+            "s3",
+            endpoint_url=ep,
             aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
             aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
-            aws_session_token=None if _uses_r2_endpoint(ep) else os.environ.get("R2_SESSION_TOKEN"),
+            aws_session_token=None
+            if _uses_r2_endpoint(ep)
+            else os.environ.get("R2_SESSION_TOKEN"),
             region_name="auto",
             config=Config(max_pool_connections=64, retries={"max_attempts": 5}),
         )
@@ -111,13 +117,18 @@ def already_uploaded(zarr_path: Path, bucket: str) -> bool:
 
 def process(job) -> dict:
     zarr_path, bucket, apply_changes, registered, force = job
-    ep_hash = zarr_path.name[:-5] if zarr_path.name.endswith(".zarr") else zarr_path.name
+    ep_hash = (
+        zarr_path.name[:-5] if zarr_path.name.endswith(".zarr") else zarr_path.name
+    )
     rec = {"episode_hash": ep_hash}
     t0 = time.time()
     try:
         attrs = json.loads((zarr_path / "zarr.json").read_text())["attributes"]
-        rec.update(task=attrs["task_name"], frames=int(attrs["total_frames"]),
-                   fps=attrs.get("fps"))
+        rec.update(
+            task=attrs["task_name"],
+            frames=int(attrs["total_frames"]),
+            fps=attrs.get("fps"),
+        )
         rec["extrinsics"] = refresh_extrinsics(zarr_path, apply_changes)
 
         if already_uploaded(zarr_path, bucket) and not force:
@@ -125,10 +136,14 @@ def process(job) -> dict:
             rec["files"] = rec["bytes"] = 0
         else:
             n, b = upload_store(zarr_path, bucket, apply_changes)
-            rec.update(upload="uploaded" if apply_changes else "would_upload",
-                       files=n, bytes=b)
-        rec["sql"] = "already_registered" if ep_hash in registered else (
-            "inserted" if apply_changes else "would_insert")
+            rec.update(
+                upload="uploaded" if apply_changes else "would_upload", files=n, bytes=b
+            )
+        rec["sql"] = (
+            "already_registered"
+            if ep_hash in registered
+            else ("inserted" if apply_changes else "would_insert")
+        )
         rec["status"] = "ok"
     except Exception as exc:
         rec.update(status="failed", error=f"{type(exc).__name__}: {exc}"[:250])
@@ -137,15 +152,20 @@ def process(job) -> dict:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     p = argparse.ArgumentParser()
     p.add_argument("--zarr-dir", required=True)
     p.add_argument("--manifest", required=True)
     p.add_argument("--apply", action="store_true")
     p.add_argument("--force", action="store_true", help="re-upload even if present")
     p.add_argument("--limit", type=int)
-    p.add_argument("--workers", type=int,
-                   default=int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or 8)
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or 8,
+    )
     args = p.parse_args()
 
     load_env()
@@ -160,26 +180,41 @@ def main() -> None:
     hashes = [s.name[:-5] for s in stores]
     with engine.connect() as c:
         registered = {
-            r[0] for r in c.execute(
-                text("select episode_hash from app.episodes where episode_hash = any(:h)"),
-                {"h": hashes})
+            r[0]
+            for r in c.execute(
+                text(
+                    "select episode_hash from app.episodes where episode_hash = any(:h)"
+                ),
+                {"h": hashes},
+            )
         }
-    logger.info("%d stores | %d already in app.episodes | %s | workers=%d",
-                len(stores), len(registered),
-                "APPLY" if args.apply else "DRY RUN", args.workers)
+    logger.info(
+        "%d stores | %d already in app.episodes | %s | workers=%d",
+        len(stores),
+        len(registered),
+        "APPLY" if args.apply else "DRY RUN",
+        args.workers,
+    )
 
     results = []
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = [ex.submit(process, (s, bucket, args.apply, registered, args.force))
-                for s in stores]
+        futs = [
+            ex.submit(process, (s, bucket, args.apply, registered, args.force))
+            for s in stores
+        ]
         for i, f in enumerate(as_completed(futs), 1):
             r = f.result()
             results.append(r)
             if i % 10 == 0 or i == len(futs):
                 gb = sum(x.get("bytes", 0) for x in results) / 1e9
-                logger.info("  %d/%d  ok=%d failed=%d  %.1f GB",
-                            i, len(futs), sum(x["status"] == "ok" for x in results),
-                            sum(x["status"] == "failed" for x in results), gb)
+                logger.info(
+                    "  %d/%d  ok=%d failed=%d  %.1f GB",
+                    i,
+                    len(futs),
+                    sum(x["status"] == "ok" for x in results),
+                    sum(x["status"] == "failed" for x in results),
+                    gb,
+                )
 
     # SQL rows last, single-threaded: one transaction per row, clear failures.
     inserted = 0
@@ -188,29 +223,46 @@ def main() -> None:
             if r["status"] != "ok" or r["sql"] != "inserted":
                 continue
             try:
-                add_episode(engine, TableRow(
-                    episode_hash=r["episode_hash"], operator=OPERATOR, lab=LAB,
-                    task=r["task"], task_description=r["task"],
-                    embodiment=EMBODIMENT, rig_name=RIG_NAME,
-                    num_frames=r["frames"],
-                    zarr_processed_path=f"s3://{bucket}/{PREFIX}/{r['episode_hash']}.zarr",
-                ))
+                add_episode(
+                    engine,
+                    TableRow(
+                        episode_hash=r["episode_hash"],
+                        operator=OPERATOR,
+                        lab=LAB,
+                        task=r["task"],
+                        task_description=r["task"],
+                        embodiment=EMBODIMENT,
+                        rig_name=RIG_NAME,
+                        num_frames=r["frames"],
+                        zarr_processed_path=f"s3://{bucket}/{PREFIX}/{r['episode_hash']}.zarr",
+                    ),
+                )
                 inserted += 1
             except Exception as exc:
                 r["sql"] = f"insert_failed: {type(exc).__name__}: {exc}"[:200]
         if inserted:
             # TableRow has no `license` field, so set it to match the ingest.
             with engine.begin() as c:
-                c.execute(text("update app.episodes set license=:l "
-                               "where lab=:lab and license is null"),
-                          {"l": LICENSE, "lab": LAB})
+                c.execute(
+                    text(
+                        "update app.episodes set license=:l "
+                        "where lab=:lab and license is null"
+                    ),
+                    {"l": LICENSE, "lab": LAB},
+                )
     counts: dict[str, int] = {}
     for r in results:
-        counts[r.get("upload", r["status"])] = counts.get(r.get("upload", r["status"]), 0) + 1
+        counts[r.get("upload", r["status"])] = (
+            counts.get(r.get("upload", r["status"]), 0) + 1
+        )
     manifest = {
-        "applied": args.apply, "bucket": bucket, "prefix": PREFIX,
-        "embodiment": EMBODIMENT, "rig_name": RIG_NAME,
-        "episodes": len(results), "sql_inserted": inserted,
+        "applied": args.apply,
+        "bucket": bucket,
+        "prefix": PREFIX,
+        "embodiment": EMBODIMENT,
+        "rig_name": RIG_NAME,
+        "episodes": len(results),
+        "sql_inserted": inserted,
         "total_bytes": sum(r.get("bytes", 0) for r in results),
         "total_frames": sum(r.get("frames", 0) for r in results),
         "counts": counts,
@@ -218,8 +270,13 @@ def main() -> None:
     }
     Path(args.manifest).parent.mkdir(parents=True, exist_ok=True)
     Path(args.manifest).write_text(json.dumps(manifest, indent=2))
-    logger.info("counts=%s  sql_inserted=%d  %.1f GB  %s frames",
-                counts, inserted, manifest["total_bytes"] / 1e9, f"{manifest['total_frames']:,}")
+    logger.info(
+        "counts=%s  sql_inserted=%d  %.1f GB  %s frames",
+        counts,
+        inserted,
+        manifest["total_bytes"] / 1e9,
+        f"{manifest['total_frames']:,}",
+    )
     logger.info("manifest -> %s", args.manifest)
     for r in results:
         if r["status"] == "failed":

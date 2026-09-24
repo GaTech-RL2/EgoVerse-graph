@@ -413,13 +413,17 @@ class PerEmbodimentTokenizerUniteGenerativeEncoder(ConfigurableUniteGenerativeEn
             in_context_start=in_context_start,
             in_context_len=in_context_len,
         )
-        modules = {str(domain): module for domain, module in dict(tokenization_modules).items()}
+        modules = {
+            str(domain): module for domain, module in dict(tokenization_modules).items()
+        }
         if set(modules) != set(self.domains):
             raise ValueError(
                 "per-embodiment UNITE tokenizers must cover exactly the configured "
                 f"domains {self.domains}, got {tuple(modules)}"
             )
-        identities = [id(module) for module in modules.values()] + [id(denoising_module)]
+        identities = [id(module) for module in modules.values()] + [
+            id(denoising_module)
+        ]
         if len(set(identities)) != len(identities):
             raise ValueError("per-embodiment UNITE requires distinct backbone objects")
         for module in modules.values():
@@ -532,10 +536,19 @@ def build_configurable_unite_generative_encoder(
     """
 
     encoder = _build_unite_generative_encoder(
-        backbone_config, share_encoder_denoiser, action_dims, condition_input_dim,
-        latent_dim, num_latent_tokens, condition_dim, denoiser_hidden_dim,
-        gradient_checkpointing, tokenization_time_max, in_context_start,
-        in_context_len, per_embodiment_tokenizer,
+        backbone_config,
+        share_encoder_denoiser,
+        action_dims,
+        condition_input_dim,
+        latent_dim,
+        num_latent_tokens,
+        condition_dim,
+        denoiser_hidden_dim,
+        gradient_checkpointing,
+        tokenization_time_max,
+        in_context_start,
+        in_context_len,
+        per_embodiment_tokenizer,
     )
     if not bool(latent_norm_affine):
         _pin_tokenization_norms(encoder)
@@ -547,7 +560,10 @@ def _pin_tokenization_norms(encoder: ConfigurableUniteGenerativeEncoder) -> None
     dim = int(encoder.latent_dim)
     if isinstance(encoder, PerEmbodimentTokenizerUniteGenerativeEncoder):
         encoder.tokenization_output_norms = nn.ModuleDict(
-            {domain: nn.LayerNorm(dim, elementwise_affine=False) for domain in encoder.domains}
+            {
+                domain: nn.LayerNorm(dim, elementwise_affine=False)
+                for domain in encoder.domains
+            }
         )
     elif isinstance(encoder, SeparateUniteGenerativeEncoder):
         encoder.output_norm = nn.LayerNorm(dim, elementwise_affine=False)

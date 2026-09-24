@@ -36,9 +36,7 @@ def _matrix(tmp_path, *, variants=("a", "b"), seeds=(42, 43, 44), particles=16):
             (output / "checkpoints").mkdir(parents=True)
             (output / "summary.json").write_text("{}\n")
             checkpoint = (
-                output
-                / "checkpoints"
-                / "epoch-equivalent-000001-global-step-000010.pt"
+                output / "checkpoints" / "epoch-equivalent-000001-global-step-000010.pt"
             )
             checkpoint.write_bytes(f"checkpoint-{variant}-{seed}".encode())
             config = {
@@ -116,13 +114,15 @@ def test_ranks_complete_matrix_and_records_exact_provenance(tmp_path):
         44,
     ]
     assert result["comparison"]["particles"] == 16
-    assert result["comparison"]["dataset"]["sha256"] == hashlib.sha256(
-        dataset.read_bytes()
-    ).hexdigest()
+    assert (
+        result["comparison"]["dataset"]["sha256"]
+        == hashlib.sha256(dataset.read_bytes()).hexdigest()
+    )
     run = next(row for row in result["runs"] if row["run_id"] == "run-a-42")
-    assert run["trajectory"]["sha256"] == hashlib.sha256(
-        trajectories["run-a-42"].read_bytes()
-    ).hexdigest()
+    assert (
+        run["trajectory"]["sha256"]
+        == hashlib.sha256(trajectories["run-a-42"].read_bytes()).hexdigest()
+    )
     assert run["checkpoint"]["global_step"] == 10
     assert len(run["checkpoint"]["sha256"]) == 64
     markdown = output_markdown.read_text()

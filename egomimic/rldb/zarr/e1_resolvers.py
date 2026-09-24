@@ -10,11 +10,16 @@ be routed to the eva domain and normalised with the wrong stats.
 
 from __future__ import annotations
 
-from egomimic.rldb.zarr.zarr_dataset_multi import LocalFolderEpisodeResolver, S3EpisodeResolver
+from egomimic.rldb.zarr.zarr_dataset_multi import (
+    LocalFolderEpisodeResolver,
+    S3EpisodeResolver,
+)
 
 
 class LocalFolderEpisodeResolverWithEmbodimentOverride(LocalFolderEpisodeResolver):
-    def __init__(self, *args, embodiment_override: str | None = None, image_hw=None, **kwargs):
+    def __init__(
+        self, *args, embodiment_override: str | None = None, image_hw=None, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.embodiment_override = embodiment_override
         # The folder resolver drops the base class's image_hw; ABC episodes mix 640x480 with

@@ -8,11 +8,11 @@ README = ROOT / "scripts/ice/README.md"
 def test_dp_ice_launcher_has_one_entrypoint_and_fresh_run_guards():
     text = LAUNCHER.read_text()
     assert "MODE=${MODE:-preflight}" in text
-    assert "case \"$MODE\" in preflight|smoke|full)" in text
+    assert 'case "$MODE" in preflight|smoke|full)' in text
     assert "ckpt_path=null" in text
-    assert "test -z \"${ICE_INITIAL_CHECKPOINT:-}\"" in text
-    assert "test -z \"${ICE_INITIAL_CHECKPOINT_SHA256:-}\"" in text
-    assert "test -z \"${CKPT_PATH:-}\"" in text
+    assert 'test -z "${ICE_INITIAL_CHECKPOINT:-}"' in text
+    assert 'test -z "${ICE_INITIAL_CHECKPOINT_SHA256:-}"' in text
+    assert 'test -z "${CKPT_PATH:-}"' in text
     assert "PASSED_SMOKE_DIR" in text
     assert "trainer.max_steps=$max_steps" in text
     assert "FULL_STEPS=240000" in text

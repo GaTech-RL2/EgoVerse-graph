@@ -14,9 +14,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "scripts" / "ice" / "ice_checkpoint_mirror.py"
-)
+MODULE_PATH = Path(__file__).parents[1] / "scripts" / "ice" / "ice_checkpoint_mirror.py"
 SBATCH_PATH = (
     Path(__file__).parents[1] / "scripts" / "ice" / "ice_checkpoint_mirror.sbatch"
 )
@@ -45,7 +43,9 @@ def make_validator(root: Path) -> Path:
 
 def write_checkpoint(path: Path, step: int, *, valid: bool = True) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps({"global_step": step, "valid": valid, "run_id": "run"}))
+    temporary.write_text(
+        json.dumps({"global_step": step, "valid": valid, "run_id": "run"})
+    )
     os.replace(temporary, path)
 
 
@@ -106,11 +106,15 @@ class CheckpointMetadataTest(unittest.TestCase):
             info = MODULE.stable_valid_info(checkpoint.resolve(), validator)
             self.assertIsNotNone(info)
             self.assertEqual(info.global_step, 7)
-            self.assertEqual(info.sha256, hashlib.sha256(checkpoint.read_bytes()).hexdigest())
+            self.assertEqual(
+                info.sha256, hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+            )
             bad_validator = root / "bad_validator"
             bad_validator.write_text("#!/bin/sh\nprintf 'not-json\\n'\n")
             bad_validator.chmod(0o700)
-            self.assertIsNone(MODULE.stable_valid_info(checkpoint.resolve(), bad_validator))
+            self.assertIsNone(
+                MODULE.stable_valid_info(checkpoint.resolve(), bad_validator)
+            )
 
     def test_specific_absolute_rejects_relative_path(self):
         with self.assertRaisesRegex(SystemExit, "specific absolute"):
@@ -149,11 +153,17 @@ class MirrorSafetyTest(unittest.TestCase):
 
             with (
                 mock.patch.object(MODULE, "mirror_one", side_effect=fake_mirror),
-                mock.patch.object(MODULE, "remote_sha", side_effect=lambda ssh, host, path: remote.get(path)),
+                mock.patch.object(
+                    MODULE,
+                    "remote_sha",
+                    side_effect=lambda ssh, host, path: remote.get(path),
+                ),
                 mock.patch.object(MODULE, "scratch_bytes", return_value=100),
             ):
                 code = MODULE.main(mirror_args(manifest, state, scratch))
-            self.assertEqual(code, 1, "invalid candidates must keep completion unresolved")
+            self.assertEqual(
+                code, 1, "invalid candidates must keep completion unresolved"
+            )
             self.assertTrue(first.exists())
             self.assertTrue(second.exists())
             self.assertTrue(corrupt_a.exists())
@@ -200,15 +210,24 @@ class MirrorSafetyTest(unittest.TestCase):
                 return remote.get(path)
 
             with (
-                mock.patch.object(MODULE, "mirror_one", side_effect=AssertionError("no upload expected")),
+                mock.patch.object(
+                    MODULE,
+                    "mirror_one",
+                    side_effect=AssertionError("no upload expected"),
+                ),
                 mock.patch.object(MODULE, "remote_sha", side_effect=fake_remote_sha),
                 mock.patch.object(MODULE, "scratch_bytes", return_value=100),
             ):
                 code = MODULE.main(mirror_args(manifest, state, scratch))
             self.assertEqual(code, 1)
-            self.assertTrue(checkpoints[0].exists(), "local file was pruned after remote disappeared")
+            self.assertTrue(
+                checkpoints[0].exists(),
+                "local file was pruned after remote disappeared",
+            )
             final_state = json.loads((state / "mirror-state.json").read_text())
-            self.assertFalse(final_state["files"][str(checkpoints[0].resolve())]["remote_verified"])
+            self.assertFalse(
+                final_state["files"][str(checkpoints[0].resolve())]["remote_verified"]
+            )
 
     def test_du_failure_is_recorded_without_uncaught_exit(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -221,7 +240,9 @@ class MirrorSafetyTest(unittest.TestCase):
             validator = make_validator(root)
             manifest = root / "manifest.json"
             write_manifest(manifest, run, validator)
-            with mock.patch.object(MODULE, "scratch_bytes", side_effect=RuntimeError("du failed")):
+            with mock.patch.object(
+                MODULE, "scratch_bytes", side_effect=RuntimeError("du failed")
+            ):
                 code = MODULE.main(mirror_args(manifest, state, scratch))
             self.assertEqual(code, 1)
             pressure = json.loads((state / "storage-pressure.json").read_text())
@@ -247,8 +268,12 @@ class MirrorSafetyTest(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 0, "", "")
 
             with (
-                mock.patch.object(MODULE, "remote_sha", side_effect=lambda *args: next(sha_results)),
-                mock.patch.object(MODULE, "remote_command", side_effect=fake_remote_command),
+                mock.patch.object(
+                    MODULE, "remote_sha", side_effect=lambda *args: next(sha_results)
+                ),
+                mock.patch.object(
+                    MODULE, "remote_command", side_effect=fake_remote_command
+                ),
                 mock.patch.object(MODULE, "run_checked", side_effect=fake_run_checked),
             ):
                 final = MODULE.mirror_one(
@@ -263,7 +288,9 @@ class MirrorSafetyTest(unittest.TestCase):
             self.assertIn(digest, final)
             self.assertEqual(local_commands[0][-1], f"Skynet:{final}.partial")
             self.assertNotRegex(local_commands[0][-1], r"\.partial\.\d+$")
-            self.assertIn(["mv", "-n", "--", f"{final}.partial", final], remote_commands)
+            self.assertIn(
+                ["mv", "-n", "--", f"{final}.partial", final], remote_commands
+            )
 
     def test_completion_sentinel_stops_monitor_after_final_mirror(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -284,7 +311,9 @@ class MirrorSafetyTest(unittest.TestCase):
                         "status": "COMPLETE",
                         "checkpoint": {
                             "global_step": 10,
-                            "sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+                            "sha256": hashlib.sha256(
+                                checkpoint.read_bytes()
+                            ).hexdigest(),
                         },
                     }
                 )
@@ -300,7 +329,11 @@ class MirrorSafetyTest(unittest.TestCase):
 
             with (
                 mock.patch.object(MODULE, "mirror_one", side_effect=fake_mirror),
-                mock.patch.object(MODULE, "remote_sha", side_effect=lambda ssh, host, path: remote.get(path)),
+                mock.patch.object(
+                    MODULE,
+                    "remote_sha",
+                    side_effect=lambda ssh, host, path: remote.get(path),
+                ),
                 mock.patch.object(MODULE, "scratch_bytes", return_value=100),
             ):
                 code = MODULE.main(mirror_args(manifest, state, scratch))

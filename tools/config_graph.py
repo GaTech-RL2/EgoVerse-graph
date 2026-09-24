@@ -82,9 +82,7 @@ def _compose_selected(path: Path, root: Path, overrides: Sequence[str]):
         )
     selected_overrides.extend(overrides)
     with initialize_config_dir(version_base=None, config_dir=str(root.resolve())):
-        return compose(
-            config_name="train_zarr_cartesian", overrides=selected_overrides
-        )
+        return compose(config_name="train_zarr_cartesian", overrides=selected_overrides)
 
 
 def _load_selected(
@@ -233,9 +231,7 @@ def _seed_keys(
     if data is None and _select(config, "train_datasets", "valid_datasets") is not None:
         data = config
     datasets = (
-        None
-        if data is None
-        else _select(data, "train_datasets", "valid_datasets")
+        None if data is None else _select(data, "train_datasets", "valid_datasets")
     )
     if datasets is None:
         return {"<unselected>": []}, "no-selected-data", [], {}
@@ -287,25 +283,20 @@ def _edges(
             ]
             if earlier:
                 producer = max(earlier)
-            elif all(
-                _provided(str(read), seeds) for seeds in seeds_by_source.values()
-            ):
+            elif all(_provided(str(read), seeds) for seeds in seeds_by_source.values()):
                 continue
             else:
                 later = [
                     int(writer["i"])
                     for writer in nodes[index + 1 :]
                     if any(
-                        _matches(str(read), str(key))
-                        for key in writer.get("out", ())
+                        _matches(str(read), str(key)) for key in writer.get("out", ())
                     )
                 ]
                 if not later:
                     continue
                 producer = min(later)
-            edges.append(
-                {"a": producer, "b": index, "k": str(read), "s": "shared"}
-            )
+            edges.append({"a": producer, "b": index, "k": str(read), "s": "shared"})
     return edges
 
 
@@ -394,9 +385,7 @@ def _build_graph(
         raise ValueError(f"mode must be train|inference, got {mode!r}")
     nodes, skipped = _nodes(stage_configs, stages, mode)
     external_reads = _external_reads(nodes)
-    seeds_by_source, seed_source, warnings, details = _seed_keys(
-        config, external_reads
-    )
+    seeds_by_source, seed_source, warnings, details = _seed_keys(config, external_reads)
     graph: dict[str, Any] = {
         "nodes": nodes,
         "edges": _edges(nodes, seeds_by_source),

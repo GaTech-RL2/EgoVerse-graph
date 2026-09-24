@@ -1089,8 +1089,7 @@ class ActionFlowDiagnostics:
             return {}
         if not hasattr(model, "run_diagnostic"):
             raise AttributeError(
-                "Action Flow diagnostics require "
-                "model.run_diagnostic(...)"
+                "Action Flow diagnostics require " "model.run_diagnostic(...)"
             )
         if set(source_labels) != set(batch):
             raise ValueError("Action Flow diagnostic source labels do not match batch")
@@ -1162,8 +1161,12 @@ class ActionFlowDiagnostics:
             metrics[base] = torch.stack(values).mean()
 
         destination = artifact_destination(
-            self.artifact_root, self.artifact_execution,
-            epoch=epoch, global_step=global_step, rank=rank, batch_idx=batch_idx,
+            self.artifact_root,
+            self.artifact_execution,
+            epoch=epoch,
+            global_step=global_step,
+            rank=rank,
+            batch_idx=batch_idx,
         )
         statistics = {
             "latent_covariance": "rows_are_condition_times_horizon_tokens",

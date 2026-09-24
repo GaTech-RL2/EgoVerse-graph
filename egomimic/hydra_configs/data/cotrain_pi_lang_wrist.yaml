@@ -6,7 +6,7 @@ train_datasets:
   eva_bimanual:
     resolver:
       key_map:
-        keymap_mode: cartesian_wristframe_ypr
+        keymap_mode: cartesian
       transform_list:
         action_mode: cartesian
         coord_frame: eef_frame

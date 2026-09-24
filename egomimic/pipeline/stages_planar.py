@@ -312,9 +312,7 @@ class PlanarFlowSampler(Stage):
 
     def forward(self, batch: dict) -> dict:
         """Retain direct-call behavior while graph execution passes mode explicitly."""
-        return self._execute_mode(
-            batch, "train" if self.training else "inference"
-        )
+        return self._execute_mode(batch, "train" if self.training else "inference")
 
 
 class PlanarActionMSELoss(Stage):

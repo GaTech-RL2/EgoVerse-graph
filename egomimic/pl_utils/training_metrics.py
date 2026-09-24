@@ -32,15 +32,11 @@ def distributed_gradient(gradient: torch.Tensor) -> torch.Tensor:
     return value
 
 
-def gradient_norm(
-    gradients: Sequence[torch.Tensor], *, label: str
-) -> torch.Tensor:
+def gradient_norm(gradients: Sequence[torch.Tensor], *, label: str) -> torch.Tensor:
     try:
         values = [distributed_gradient(gradient) for gradient in gradients]
     except RuntimeError as error:
-        raise RuntimeError(
-            f"{label} gradient norm is zero or non-finite"
-        ) from error
+        raise RuntimeError(f"{label} gradient norm is zero or non-finite") from error
     if not values:
         raise RuntimeError(f"{label} received no gradients")
     norm = sum(

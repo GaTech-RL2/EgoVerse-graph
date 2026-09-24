@@ -87,7 +87,9 @@ def get_usocket_rotvec_obs2_transform_list(
     to the chunk that follows the last observed frame.
     """
     return [
-        SliceActionTarget([action_key], start=action_target_offset, horizon=action_horizon),
+        SliceActionTarget(
+            [action_key], start=action_target_offset, horizon=action_horizon
+        ),
         ThetaToRotVec(keys=[action_key], angle_col=2),
         PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
     ]
@@ -182,7 +184,9 @@ def get_planar_arc_length_transform_list(
         raise ValueError("Planar arc tokenization requires exactly one action key")
     if raw_action_horizon is None and action_horizon is None:
         raise ValueError("raw_action_horizon or action_horizon is required")
-    target_horizon = int(action_horizon if raw_action_horizon is None else raw_action_horizon)
+    target_horizon = int(
+        action_horizon if raw_action_horizon is None else raw_action_horizon
+    )
     if target_horizon <= 0:
         raise ValueError("raw_action_horizon must be positive")
     return [
@@ -203,7 +207,7 @@ def get_planar_arc_length_transform_list(
             waypoint_sampling=waypoint_sampling,
             curvature_dense_samples=curvature_dense_samples,
             curvature_floor=curvature_floor,
-        )
+        ),
     ]
 
 

@@ -4,9 +4,7 @@ from pathlib import Path
 
 import pytest
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "scripts" / "ice" / "capture_runtime_lock.py"
-)
+MODULE_PATH = Path(__file__).parents[1] / "scripts" / "ice" / "capture_runtime_lock.py"
 SPEC = importlib.util.spec_from_file_location("capture_runtime_lock", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)

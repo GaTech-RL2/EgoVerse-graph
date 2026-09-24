@@ -91,7 +91,9 @@ def test_points6_to_native4_uses_context_state_for_seed():
     state = np.zeros((2, 6))
     state[:, :3] = control[:, 0, :3]
     transform = ChainGripperPoints6ToNative4(keys=["actions"])
-    out = transform.transform({"actions": degenerate, "state_agent_obj": state})["actions"]
+    out = transform.transform({"actions": degenerate, "state_agent_obj": state})[
+        "actions"
+    ]
     assert out.shape == (2, 16, 4)
     diagnostics = transform.last_projection_diagnostics
     assert diagnostics["degenerate_count"] == 2

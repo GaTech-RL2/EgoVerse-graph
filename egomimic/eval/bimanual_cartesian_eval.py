@@ -557,6 +557,18 @@ class BimanualCartesianEval(EvalVideo):
         if limit is not None and batch_idx >= limit:
             return {}
         result = self._forward_deterministic(batch)
+        return self.evaluate_predictions(batch, result, batch_idx)
+
+    @torch.inference_mode()
+    def evaluate_predictions(self, batch, result, batch_idx=0):
+        """Score a declared prediction result, also usable by diagnostic providers."""
+        group = self._validation_group or DEFAULT_VALID_GROUP
+        options = self.group_options.get(group, {})
+        limit = options.get("limit_batches")
+        if limit is not None and batch_idx >= limit:
+            return {}
+        if tuple(result) != tuple(batch):
+            raise ValueError("Prediction sources must align with the evaluation batch")
 
         metrics: dict[str, torch.Tensor] = {}
         normalized_values: list[torch.Tensor] = []

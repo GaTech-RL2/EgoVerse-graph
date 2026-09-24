@@ -70,7 +70,9 @@ def load_state(path: Path) -> dict[str, Any]:
 
 def read_entry(state_dir: Path, checkpoint: Path) -> dict[str, Any] | None:
     with LockedFile(state_dir / "state.lock"):
-        entry = load_state(state_dir / "mirror-state.json")["files"].get(str(checkpoint))
+        entry = load_state(state_dir / "mirror-state.json")["files"].get(
+            str(checkpoint)
+        )
     return dict(entry) if isinstance(entry, dict) else None
 
 
@@ -96,7 +98,9 @@ def ordered_candidates(row: dict[str, Any], worker_index: int) -> list[Path]:
 
 
 def claim(state_dir: Path, checkpoint: Path) -> LockedFile:
-    return LockedFile(state_dir / "task-locks" / f"{task_key(checkpoint)}.lock", blocking=False)
+    return LockedFile(
+        state_dir / "task-locks" / f"{task_key(checkpoint)}.lock", blocking=False
+    )
 
 
 def process_checkpoint(
@@ -115,7 +119,11 @@ def process_checkpoint(
     if info is None:
         log_event(
             state_dir,
-            {"event": "checkpoint_not_stably_valid", "run_id": row["id"], "path": str(checkpoint)},
+            {
+                "event": "checkpoint_not_stably_valid",
+                "run_id": row["id"],
+                "path": str(checkpoint),
+            },
         )
         return False
 
@@ -147,7 +155,12 @@ def process_checkpoint(
         update_entry(state_dir, checkpoint, entry)
         log_event(
             state_dir,
-            {"event": "mirror_error", "run_id": row["id"], "path": str(checkpoint), "error": str(exc)},
+            {
+                "event": "mirror_error",
+                "run_id": row["id"],
+                "path": str(checkpoint),
+                "error": str(exc),
+            },
         )
         print(f"mirror error for {row['id']}: {exc}", file=sys.stderr, flush=True)
         return False
@@ -189,7 +202,9 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
             ok = False
         else:
             infos.append(info)
-    infos.sort(key=lambda item: (item.global_step, item.mtime_ns, str(item.path)), reverse=True)
+    infos.sort(
+        key=lambda item: (item.global_step, item.mtime_ns, str(item.path)), reverse=True
+    )
     for info in infos[int(row.get("retain_local", 2)) :]:
         with claim(state_dir, info.path) as reservation:
             if reservation is None:
@@ -205,7 +220,8 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
                 current is None
                 or current.sha256 != entry.get("sha256")
                 or not isinstance(remote_path, str)
-                or core.remote_sha(args.ssh, args.remote_host, remote_path) != current.sha256
+                or core.remote_sha(args.ssh, args.remote_host, remote_path)
+                != current.sha256
             ):
                 ok = False
                 continue
@@ -214,7 +230,11 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
             except (FileNotFoundError, OSError):
                 ok = False
                 continue
-            if core.stat_identity(final_stat) != (current.size, current.mtime_ns, current.inode):
+            if core.stat_identity(final_stat) != (
+                current.size,
+                current.mtime_ns,
+                current.inode,
+            ):
                 ok = False
                 continue
             info.path.unlink()
@@ -231,7 +251,9 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
     return ok
 
 
-def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]) -> bool:
+def maintain(
+    args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]
+) -> bool:
     """Publish pressure and completion state; optionally perform guarded pruning."""
     ok = True
     if args.inventory_search_root is not None:
@@ -289,7 +311,9 @@ def maintain(args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any]
         sentinel = row.get("completion_sentinel")
         if sentinel is None:
             return False
-        terminal = core.completion_sentinel_checkpoint(Path(sentinel).expanduser().resolve())
+        terminal = core.completion_sentinel_checkpoint(
+            Path(sentinel).expanduser().resolve()
+        )
         if terminal is None:
             return False
         entries = [
@@ -348,9 +372,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.print_example_manifest:
         print(json.dumps(core.example_manifest(), indent=2))
         return 0
-    required = (args.manifest, args.state_dir, args.scratch_root, args.quota_bytes, args.remote_host)
+    required = (
+        args.manifest,
+        args.state_dir,
+        args.scratch_root,
+        args.quota_bytes,
+        args.remote_host,
+    )
     if any(value is None for value in required):
-        raise SystemExit("manifest, state-dir, scratch-root, quota-bytes, and remote-host are required")
+        raise SystemExit(
+            "manifest, state-dir, scratch-root, quota-bytes, and remote-host are required"
+        )
     if not core.HOST_RE.fullmatch(args.remote_host):
         raise SystemExit("remote-host contains unsupported characters")
     if args.worker_count < 2 or not 0 <= args.worker_index < args.worker_count:
@@ -368,7 +400,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.inventory_search_root = core.specific_absolute(
             args.inventory_search_root, "inventory-search-root"
         )
-        core.contained(args.inventory_search_root, args.scratch_root, "inventory-search-root")
+        core.contained(
+            args.inventory_search_root, args.scratch_root, "inventory-search-root"
+        )
     if not args.scratch_root.is_dir():
         raise SystemExit(f"scratch-root is not a directory: {args.scratch_root}")
     core.contained(args.state_dir, args.scratch_root, "state-dir")
@@ -401,7 +435,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     if not process_checkpoint(args, args.state_dir, row, checkpoint):
                         errors += 1
         if args.worker_index == 0:
-            with LockedFile(args.state_dir / "maintenance.lock", blocking=False) as reservation:
+            with LockedFile(
+                args.state_dir / "maintenance.lock", blocking=False
+            ) as reservation:
                 if reservation is not None and maintain(args, args.state_dir, manifest):
                     return 0
         if args.once:

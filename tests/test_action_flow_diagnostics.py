@@ -397,7 +397,9 @@ def test_action_flow_diagnostics_reject_undefined_zero_target_cosine(tmp_path):
         )
 
 
-def test_action_flow_artifacts_preserve_slurm_attempts_and_same_attempt_refusal(tmp_path, monkeypatch):
+def test_action_flow_artifacts_preserve_slurm_attempts_and_same_attempt_refusal(
+    tmp_path, monkeypatch
+):
     diagnostic = _diagnostic()
     legacy = tmp_path / "action-flow-artifacts/epoch-3-step-41/rank-0-batch-7.pt"
     legacy.parent.mkdir(parents=True)
@@ -412,15 +414,29 @@ def test_action_flow_artifacts_preserve_slurm_attempts_and_same_attempt_refusal(
         evaluator.bind_data_context(normalizer=_IdentityNormalizer())
         evaluator.model = _DiagnosticModel(diagnostic)
         evaluator.trainer = SimpleNamespace(
-            current_epoch=3, global_step=41, global_rank=0, precision="32-true",
+            current_epoch=3,
+            global_step=41,
+            global_rank=0,
+            precision="32-true",
             lightning_module=SimpleNamespace(log_dict=lambda *_args, **_kwargs: None),
         )
         evaluator.on_validation_start()
         evaluator.on_validation_step(_batch(diagnostic["target"]), batch_idx=7)
-        artifact = legacy.parent.parent / f"job-{job_id}-restart-{restart}" / legacy.parent.name / legacy.name
+        artifact = (
+            legacy.parent.parent
+            / f"job-{job_id}-restart-{restart}"
+            / legacy.parent.name
+            / legacy.name
+        )
         payload = torch.load(artifact, map_location="cpu", weights_only=False)
-        assert payload["execution"] == {"slurm_job_id": job_id, "slurm_restart_count": restart}
-        assert payload["identity_sha256"] == evaluator._action_flow_diagnostics.identity_sha256
+        assert payload["execution"] == {
+            "slurm_job_id": job_id,
+            "slurm_restart_count": restart,
+        }
+        assert (
+            payload["identity_sha256"]
+            == evaluator._action_flow_diagnostics.identity_sha256
+        )
         sidecar = json.loads(Path(f"{artifact}.sha256").read_text())
         assert sidecar["sha256"] == hashlib.sha256(artifact.read_bytes()).hexdigest()
         evaluator.on_validation_start()
@@ -512,9 +528,7 @@ def test_action_flow_consumer_matches_real_wrapper_schema(tmp_path):
             ],
             device="cpu",
         ),
-        training_behavior=ActionFlowTrainingBehavior(
-            gradient_telemetry_cadence=0
-        ),
+        training_behavior=ActionFlowTrainingBehavior(gradient_telemetry_cadence=0),
         diagnostic_provider=ActionFlowDiagnosticProvider(),
     )
     wrapper.eval()
@@ -640,7 +654,9 @@ def test_action_flow_diagnostic_config_fails_closed(tmp_path, overrides, match):
 
 @pytest.mark.parametrize("restart", [None, 0, 1])
 def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
-    tmp_path, monkeypatch, restart,
+    tmp_path,
+    monkeypatch,
+    restart,
 ):
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)
     if restart is not None:
@@ -669,7 +685,9 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
                     "layer": torch.stack((feature, feature * 2.0))
                 },
             }
-        } if capability == "unite" else None
+        }
+        if capability == "unite"
+        else None
     )
     evaluator.trainer = SimpleNamespace(
         current_epoch=1,
@@ -688,7 +706,9 @@ def test_existing_latent_diagnostic_native_conversion_uses_decoder_argument(
     assert artifact.is_file()
     payload = torch.load(artifact, map_location="cpu", weights_only=False)
     assert payload["execution"] == (
-        None if restart is None else {"slurm_job_id": "5714540", "slurm_restart_count": restart}
+        None
+        if restart is None
+        else {"slurm_job_id": "5714540", "slurm_restart_count": restart}
     )
     with pytest.raises(FileExistsError, match="refusing to overwrite"):
         evaluator._unite_metrics_and_artifact(batch, batch_idx=0)

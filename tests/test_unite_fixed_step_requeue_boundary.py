@@ -48,9 +48,7 @@ def test_boundary_requires_exactly_five_steps(tmp_path):
         )
 
 
-def test_step_eight_requests_boundary_and_records_all_rank_ack(
-    monkeypatch, tmp_path
-):
+def test_step_eight_requests_boundary_and_records_all_rank_ack(monkeypatch, tmp_path):
     executable = tmp_path / "scancel"
     executable.write_text("#!/bin/sh\n", encoding="utf-8")
     executable.chmod(0o700)

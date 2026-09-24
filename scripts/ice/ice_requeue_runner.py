@@ -30,7 +30,9 @@ from pathlib import Path
 from typing import Any, Sequence
 
 INCOMPLETE_SUFFIXES = (".tmp", ".part", ".partial", ".incomplete")
-STEP_RE = re.compile(r"(?:^|[^A-Za-z])(?:global[_-]?step|step)[=_-]?(\d+)", re.IGNORECASE)
+STEP_RE = re.compile(
+    r"(?:^|[^A-Za-z])(?:global[_-]?step|step)[=_-]?(\d+)", re.IGNORECASE
+)
 IDENTITY_KEYS = (
     "run_id",
     "wandb_run_id",
@@ -100,9 +102,7 @@ def atomic_json(path: Path, payload: dict[str, Any]) -> None:
 def atomic_json_once(path: Path, payload: dict[str, Any]) -> None:
     """Publish a JSON proof exactly once without an overwrite window."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(
-        f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}"
-    )
+    temporary = path.with_name(f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     try:
         descriptor = os.open(temporary, flags, 0o600)
@@ -150,7 +150,9 @@ def checkpoint_candidates(patterns: str | Sequence[str], state_dir: Path) -> lis
         patterns = [patterns]
     unique: set[Path] = set()
     for pattern in patterns:
-        resolved_pattern = pattern if os.path.isabs(pattern) else str(state_dir / pattern)
+        resolved_pattern = (
+            pattern if os.path.isabs(pattern) else str(state_dir / pattern)
+        )
         for raw in glob.glob(resolved_pattern, recursive=True):
             path = Path(raw)
             if path.name.endswith(INCOMPLETE_SUFFIXES):
@@ -170,12 +172,16 @@ def parse_validator_metadata(stdout: str, path: Path) -> dict[str, Any]:
     try:
         metadata = json.loads(lines[-1])
     except json.JSONDecodeError as exc:
-        raise ValueError(f"validator's last non-empty line is not JSON for {path}") from exc
+        raise ValueError(
+            f"validator's last non-empty line is not JSON for {path}"
+        ) from exc
     if not isinstance(metadata, dict):
         raise ValueError(f"validator metadata must be a JSON object for {path}")
     step = metadata.get("global_step")
     if isinstance(step, bool) or not isinstance(step, int) or step < 0:
-        raise ValueError(f"validator metadata requires non-negative integer global_step for {path}")
+        raise ValueError(
+            f"validator metadata requires non-negative integer global_step for {path}"
+        )
     if metadata.get("valid") is False:
         raise ValueError(f"validator metadata marked checkpoint invalid: {path}")
     return metadata
@@ -343,9 +349,7 @@ def checkpoint_observation(info: CheckpointInfo) -> dict[str, Any]:
         "global_step": info.global_step,
         "sha256": info.sha256,
         "metadata_identity": {
-            key: info.metadata[key]
-            for key in IDENTITY_KEYS
-            if key in info.metadata
+            key: info.metadata[key] for key in IDENTITY_KEYS if key in info.metadata
         },
     }
 
@@ -375,7 +379,9 @@ def _validated_observation(raw: Any) -> dict[str, Any]:
     if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
         raise SystemExit("checkpoint observation has invalid sha256")
     identity = raw["metadata_identity"]
-    if not isinstance(identity, dict) or any(key not in IDENTITY_KEYS for key in identity):
+    if not isinstance(identity, dict) or any(
+        key not in IDENTITY_KEYS for key in identity
+    ):
         raise SystemExit("checkpoint observation has invalid metadata identity")
     return raw
 
@@ -404,9 +410,10 @@ def load_checkpoint_observations(
     if high_water is None:
         return {}
     expected_digest = high_water.get("observation_index_sha256")
-    if not isinstance(expected_digest, str) or re.fullmatch(
-        r"[0-9a-f]{64}", expected_digest
-    ) is None:
+    if (
+        not isinstance(expected_digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", expected_digest) is None
+    ):
         return {}
     if not path.is_file():
         return {}
@@ -418,7 +425,9 @@ def load_checkpoint_observations(
     try:
         payload = json.loads(raw_payload)
     except json.JSONDecodeError as exc:
-        raise SystemExit(f"invalid checkpoint observation index: {path}: {exc}") from exc
+        raise SystemExit(
+            f"invalid checkpoint observation index: {path}: {exc}"
+        ) from exc
     if not isinstance(payload, dict) or set(payload) != {
         "schema_version",
         "validation_authority",
@@ -686,7 +695,9 @@ def load_high_water(path: Path) -> dict[str, Any] | None:
     try:
         payload = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
-        raise SystemExit(f"invalid checkpoint high-water record: {path}: {exc}") from exc
+        raise SystemExit(
+            f"invalid checkpoint high-water record: {path}: {exc}"
+        ) from exc
     if payload.get("schema_version") != 1:
         raise SystemExit(f"unsupported checkpoint high-water schema: {path}")
     step = payload.get("global_step")
@@ -720,11 +731,15 @@ def identity_mismatches(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
     ]
 
 
-def enforce_high_water(info: CheckpointInfo | None, high_water: dict[str, Any] | None) -> None:
+def enforce_high_water(
+    info: CheckpointInfo | None, high_water: dict[str, Any] | None
+) -> None:
     if high_water is None:
         return
     if info is None:
-        raise SystemExit("no valid checkpoint remains, but a checkpoint high-water record exists")
+        raise SystemExit(
+            "no valid checkpoint remains, but a checkpoint high-water record exists"
+        )
     prior_step = int(high_water["global_step"])
     if info.global_step < prior_step:
         raise SystemExit(
@@ -736,7 +751,9 @@ def enforce_high_water(info: CheckpointInfo | None, high_water: dict[str, Any] |
         )
     mismatches = identity_mismatches(high_water, info.as_dict())
     if mismatches:
-        raise SystemExit(f"checkpoint identity mismatch for high-water keys: {', '.join(mismatches)}")
+        raise SystemExit(
+            f"checkpoint identity mismatch for high-water keys: {', '.join(mismatches)}"
+        )
 
 
 def write_high_water(
@@ -841,7 +858,9 @@ def validated_completion_sentinel(path: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError) as exc:
         raise SystemExit(f"invalid completion sentinel: {path}: {exc}") from exc
     if payload.get("schema_version") != 1 or payload.get("status") != "COMPLETE":
-        raise SystemExit(f"completion sentinel is not a schema-1 COMPLETE record: {path}")
+        raise SystemExit(
+            f"completion sentinel is not a schema-1 COMPLETE record: {path}"
+        )
     checkpoint = payload.get("checkpoint")
     if not isinstance(checkpoint, dict):
         raise SystemExit(f"completion sentinel lacks checkpoint identity: {path}")
@@ -911,10 +930,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit(
             "runner ownership requires --confirm-child-requeue-disabled; disable framework auto-requeue"
         )
-    if args.checkpoint_forwarding == "slurm-steps" and args.checkpoint_signal != signal.SIGUSR2:
-        raise SystemExit("slurm-step checkpoint forwarding requires --checkpoint-signal USR2")
+    if (
+        args.checkpoint_forwarding == "slurm-steps"
+        and args.checkpoint_signal != signal.SIGUSR2
+    ):
+        raise SystemExit(
+            "slurm-step checkpoint forwarding requires --checkpoint-signal USR2"
+        )
     if args.require_initial_checkpoint and args.initial_checkpoint is None:
-        raise SystemExit("--require-initial-checkpoint requires an exact --initial-checkpoint")
+        raise SystemExit(
+            "--require-initial-checkpoint requires an exact --initial-checkpoint"
+        )
 
     state_dir = absolute_specific(args.state_dir, "state-dir")
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -952,11 +978,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"restart count {restart_count} is outside allowed range 0..{args.max_restarts}"
         )
     if validator is None and (args.require_initial_checkpoint or restart_count > 0):
-        raise SystemExit("validated checkpoint metadata is mandatory for migration and restart")
+        raise SystemExit(
+            "validated checkpoint metadata is mandatory for migration and restart"
+        )
 
     if completion_sentinel is not None and completion_sentinel.exists():
         validated_completion_sentinel(completion_sentinel)
-        print(json.dumps({"status": "ALREADY_COMPLETE", "sentinel": str(completion_sentinel)}))
+        print(
+            json.dumps(
+                {"status": "ALREADY_COMPLETE", "sentinel": str(completion_sentinel)}
+            )
+        )
         return 0
 
     lock_stream = (state_dir / "runner.lock").open("a+")
@@ -964,7 +996,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             fcntl.flock(lock_stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            raise SystemExit("another requeue runner owns this state directory") from exc
+            raise SystemExit(
+                "another requeue runner owns this state directory"
+            ) from exc
 
         scancel = None
         if not args.dry_run:
@@ -977,7 +1011,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         observation_index_path = state_dir / OBSERVATION_INDEX_NAME
         high_water = load_high_water(high_water_path)
         if high_water is not None and validator is None:
-            raise SystemExit("validated checkpoint metadata is mandatory when high-water state exists")
+            raise SystemExit(
+                "validated checkpoint metadata is mandatory when high-water state exists"
+            )
         authority = validation_authority(
             validator,
             allow_unvalidated=args.allow_unvalidated_checkpoints,
@@ -987,9 +1023,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             high_water,
             authority,
         )
-        validation_cache: dict[
-            tuple[str, int, int, int, int, int], CheckpointInfo
-        ] = {}
+        validation_cache: dict[tuple[str, int, int, int, int, int], CheckpointInfo] = {}
         authenticated_high_water = authenticate_high_water(
             high_water,
             validator,
@@ -999,9 +1033,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         initial_checkpoint = None
         if initial_checkpoint_path is not None and initial_checkpoint_path.exists():
             if initial_checkpoint_path.name.endswith(INCOMPLETE_SUFFIXES):
-                raise SystemExit(f"initial checkpoint is incomplete: {initial_checkpoint_path}")
+                raise SystemExit(
+                    f"initial checkpoint is incomplete: {initial_checkpoint_path}"
+                )
             if not initial_checkpoint_path.is_file():
-                raise SystemExit(f"initial checkpoint is not a regular file: {initial_checkpoint_path}")
+                raise SystemExit(
+                    f"initial checkpoint is not a regular file: {initial_checkpoint_path}"
+                )
             initial_checkpoint = stable_checkpoint_info(
                 initial_checkpoint_path.resolve(strict=True),
                 validator,
@@ -1013,7 +1051,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"initial checkpoint failed stable application validation: {initial_checkpoint_path}"
                 )
         elif initial_checkpoint_path is not None and high_water is None:
-            raise SystemExit(f"initial checkpoint is unavailable: {initial_checkpoint_path}")
+            raise SystemExit(
+                f"initial checkpoint is unavailable: {initial_checkpoint_path}"
+            )
 
         # On a new migration state, pin startup to the exact staged checkpoint.
         # Live checkpoint discovery is enabled only after that seed has been
@@ -1042,7 +1082,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         enforce_high_water(checkpoint, high_water)
         if checkpoint is None and (
-            args.require_initial_checkpoint or restart_count > 0 or high_water is not None
+            args.require_initial_checkpoint
+            or restart_count > 0
+            or high_water is not None
         ):
             raise SystemExit(
                 "required resume checkpoint is unavailable; refusing to start or fork tracking identity"
@@ -1056,7 +1098,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 observations=observations,
             )
 
-        attempt_dir = state_dir / "requeue" / f"job-{job_id}-restart-{restart_count:03d}"
+        attempt_dir = (
+            state_dir / "requeue" / f"job-{job_id}-restart-{restart_count:03d}"
+        )
         attempt_dir.mkdir(parents=True, exist_ok=True)
         record: dict[str, Any] = {
             "schema_version": 2,
@@ -1066,7 +1110,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             "initial_checkpoint": (
                 initial_checkpoint.as_dict()
                 if initial_checkpoint is not None
-                else (str(initial_checkpoint_path) if initial_checkpoint_path is not None else None)
+                else (
+                    str(initial_checkpoint_path)
+                    if initial_checkpoint_path is not None
+                    else None
+                )
             ),
             "checkpoint_globs": args.checkpoint_glob,
             "validator": str(validator) if validator else "UNVALIDATED_EXPLICIT_OPT_IN",
@@ -1090,12 +1138,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             {
                 "ICE_RESUME_CHECKPOINT": str(checkpoint.path) if checkpoint else "",
                 "ICE_RESUME_CHECKPOINT_SHA256": checkpoint.sha256 if checkpoint else "",
-                "ICE_RESUME_GLOBAL_STEP": str(checkpoint.global_step) if checkpoint else "",
+                "ICE_RESUME_GLOBAL_STEP": str(checkpoint.global_step)
+                if checkpoint
+                else "",
                 "ICE_RESUME_CHECKPOINT_METADATA_JSON": metadata_json,
                 "ICE_RESTART_COUNT": str(restart_count),
                 "ICE_ATTEMPT_DIR": str(attempt_dir),
                 "ICE_REQUEUE_OWNER": args.requeue_owner,
-                "ICE_CHILD_REQUEUE_DISABLED": "1" if args.requeue_owner == "runner" else "0",
+                "ICE_CHILD_REQUEUE_DISABLED": "1"
+                if args.requeue_owner == "runner"
+                else "0",
             }
         )
         if completion_sentinel is not None:
@@ -1171,7 +1223,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 record.update(
                     {
                         "status": "CHILD_LAUNCH_GATE_FAILED",
-                        "launch_gate_error": launch_gate_error or "unknown launch gate failure",
+                        "launch_gate_error": launch_gate_error
+                        or "unknown launch gate failure",
                         "finished_at_unix": time.time(),
                     }
                 )
@@ -1315,7 +1368,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             if termination_signal is not None:
                 append_event(
                     event_path,
-                    {"event": "signal", "signal": termination_signal.name, "at_unix": time.time()},
+                    {
+                        "event": "signal",
+                        "signal": termination_signal.name,
+                        "at_unix": time.time(),
+                    },
                 )
                 forward_termination(termination_signal)
                 record.update({"status": f"FORWARDED_{termination_signal.name}"})
@@ -1375,7 +1432,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     record.update(
                         {
                             "status": "CHECKPOINT_SIGNAL_FORWARD_FAILED",
-                            "checkpoint_signal_argv": [scancel, "--signal=USR2", job_id],
+                            "checkpoint_signal_argv": [
+                                scancel,
+                                "--signal=USR2",
+                                job_id,
+                            ],
                             "checkpoint_signal_error": str(exc),
                         }
                     )
@@ -1385,7 +1446,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     record.update(
                         {
                             "status": "CHECKPOINT_SIGNAL_FORWARD_FAILED",
-                            "checkpoint_signal_argv": [scancel, "--signal=USR2", job_id],
+                            "checkpoint_signal_argv": [
+                                scancel,
+                                "--signal=USR2",
+                                job_id,
+                            ],
                             "checkpoint_signal_returncode": signal_result.returncode,
                             "checkpoint_signal_stdout": signal_result.stdout,
                             "checkpoint_signal_stderr": signal_result.stderr,
@@ -1521,7 +1586,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     terminal = newest_checkpoint(checkpoint, live_terminal)
                     enforce_high_water(terminal, high_water)
                     if terminal is None:
-                        record.update({"status": "COMPLETE_REFUSED_NO_TERMINAL_CHECKPOINT"})
+                        record.update(
+                            {"status": "COMPLETE_REFUSED_NO_TERMINAL_CHECKPOINT"}
+                        )
                         atomic_json(attempt_dir / "attempt.json", record)
                         return 73
                     high_water = commit_checkpoint_state(
@@ -1544,7 +1611,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                 record.update(
                     {
-                        "status": "COMPLETE" if code == 0 else "CHILD_FAILED_NO_REQUEUE",
+                        "status": "COMPLETE"
+                        if code == 0
+                        else "CHILD_FAILED_NO_REQUEUE",
                         "child_exit_code": code,
                         "finished_at_unix": time.time(),
                     }

@@ -27,5 +27,25 @@ def test_duration_arc_chunk_seam_aligns_previous_unused_tail_to_fresh_head():
 
 def test_duration_arc_chunk_seam_skips_the_initial_or_exhausted_chunk():
     fresh_chunk = np.zeros((40, 3), dtype=np.float32)
-    assert _chunk_seam_event(None, consumed=0, new_chunk=fresh_chunk, timestep=0, embodiment_id=19, episode_index=0) is None
-    assert _chunk_seam_event(fresh_chunk, consumed=40, new_chunk=fresh_chunk, timestep=40, embodiment_id=19, episode_index=0) is None
+    assert (
+        _chunk_seam_event(
+            None,
+            consumed=0,
+            new_chunk=fresh_chunk,
+            timestep=0,
+            embodiment_id=19,
+            episode_index=0,
+        )
+        is None
+    )
+    assert (
+        _chunk_seam_event(
+            fresh_chunk,
+            consumed=40,
+            new_chunk=fresh_chunk,
+            timestep=40,
+            embodiment_id=19,
+            episode_index=0,
+        )
+        is None
+    )

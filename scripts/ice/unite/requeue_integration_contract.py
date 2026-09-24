@@ -106,9 +106,10 @@ def validate_trace(trace: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("restart did not execute exactly three new steps")
     if trace["validation_logged_step"] != plan["validation_logged_step"]:
         raise ValueError("validation ran before all three resumed steps")
-    if terminal_checkpoint_step(str(trace["terminal_checkpoint"])) != plan[
-        "terminal_step"
-    ]:
+    if (
+        terminal_checkpoint_step(str(trace["terminal_checkpoint"]))
+        != plan["terminal_step"]
+    ):
         raise ValueError("terminal checkpoint does not represent step 11")
     if trace["child_complete"] is not True or trace["complete_sentinel"] is not True:
         raise ValueError("integration completion receipts are absent")

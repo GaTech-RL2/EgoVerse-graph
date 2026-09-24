@@ -15,11 +15,12 @@ def test_private_adapters_and_shared_field_receive_expected_gradients():
     model = SyntheticMultiActionAdapterFlow(
         embodiments=["shallow", "steep"], field_width=16, field_depth=2
     )
-    losses = model.losses_for_embodiment(
-        "shallow", torch.randn(8, 3), flow_samples=2
-    )
+    losses = model.losses_for_embodiment("shallow", torch.randn(8, 3), flow_samples=2)
     losses["loss"].backward()
-    assert any(p.grad is not None and bool(p.grad.abs().sum()) for p in model.field.parameters())
+    assert any(
+        p.grad is not None and bool(p.grad.abs().sum())
+        for p in model.field.parameters()
+    )
     assert any(
         p.grad is not None and bool(p.grad.abs().sum())
         for p in model.encoders["shallow"].parameters()
@@ -48,13 +49,9 @@ def test_paraboloid_surface_metric_is_zero_on_surface():
 
     xy = torch.randn(20, 2)
     curvature = 0.5
-    points = torch.cat(
-        [xy, curvature * xy.square().sum(dim=-1, keepdim=True)], dim=-1
-    )
+    points = torch.cat([xy, curvature * xy.square().sum(dim=-1, keepdim=True)], dim=-1)
     torch.testing.assert_close(
-        SyntheticTrajectoryEval.paraboloid_surface_rmse(
-            points, curvature=curvature
-        ),
+        SyntheticTrajectoryEval.paraboloid_surface_rmse(points, curvature=curvature),
         torch.tensor(0.0),
     )
 
@@ -118,7 +115,9 @@ def test_multi_trainer_runs_optimizer_validation_and_immutable_checkpoint(tmp_pa
         ],
         check=True,
     )
-    assert list((output / "checkpoints").glob("epoch-equivalent-*-global-step-000001.pt"))
+    assert list(
+        (output / "checkpoints").glob("epoch-equivalent-*-global-step-000001.pt")
+    )
     summary = json.loads((output / "summary.json").read_text())
     assert set(summary["embodiments"]) == {"shallow", "steep"}
     assert summary["shared_field_parameters"] > 0

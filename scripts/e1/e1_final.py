@@ -5,7 +5,11 @@ Cell-by-cell (spread x seed), plus the M1 slope -- how each row moves from the
 narrow training-tempo spread to the full one. Reads the eval JSONs directly so
 nothing is transcribed by hand.
 """
-import glob, json, os, re, sys
+
+import glob
+import json
+import os
+import re
 from collections import defaultdict
 
 ROOT = os.path.expanduser("~/scratch/runs")
@@ -16,10 +20,14 @@ def val(run, tag, key):
     xs = []
     for ts in TERT:
         try:
-            r = json.load(open(f"{run}/eval_{tag}_{ts}/eval_metrics.json"))["results"][0]
+            r = json.load(open(f"{run}/eval_{tag}_{ts}/eval_metrics.json"))["results"][
+                0
+            ]
         except Exception:
             return None
-        v = next((v for kk, v in r.items() if kk.startswith("Valid/E1/" + key + "/")), None)
+        v = next(
+            (v for kk, v in r.items() if kk.startswith("Valid/E1/" + key + "/")), None
+        )
         if v is None:
             return None
         xs.append(v)
@@ -30,13 +38,19 @@ def tag_of(run):
     p = f"{run}/best.json"
     if os.path.exists(p):
         bj = json.load(open(p))
-        for k in ("rescore_arcmatch_gtspan_paired_mse", "rescore_arcmatch_paired_mse", "rescore"):
+        for k in (
+            "rescore_arcmatch_gtspan_paired_mse",
+            "rescore_arcmatch_paired_mse",
+            "rescore",
+        ):
             if isinstance(bj.get(k), dict) and bj[k].get("selected"):
                 return bj[k]["selected"]
     return "best"
 
 
-SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "time_baseline_snapshot.json")
+SNAPSHOT = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "time_baseline_snapshot.json"
+)
 
 
 def collect(fams, rows):
@@ -44,15 +58,23 @@ def collect(fams, rows):
     # runs/e1_abc (the robot Time baseline) was deleted from scratch on 2026-09-09 15:31 ET.
     # Its per-cell numbers were harvested before that and live in the snapshot beside this
     # script; use them when the directory is gone so the comparison stays reconstructible.
-    if "e1_abc" in fams and "time" in rows and not os.path.isdir(f"{ROOT}/e1_abc") and os.path.exists(SNAPSHOT):
+    if (
+        "e1_abc" in fams
+        and "time" in rows
+        and not os.path.isdir(f"{ROOT}/e1_abc")
+        and os.path.exists(SNAPSHOT)
+    ):
         snap = json.load(open(SNAPSHOT))["time"]
         for k, v in snap.items():
             sp, sd = k.rsplit("_s", 1)
             out["time"][(sp, int(sd))] = v["arcmatch_gtspan_paired_mse"]
-        print("(robot Time baseline read from time_baseline_snapshot.json -- runs/e1_abc is gone)")
+        print(
+            "(robot Time baseline read from time_baseline_snapshot.json -- runs/e1_abc is gone)"
+        )
     for fam in fams:
         for run in glob.glob(f"{ROOT}/{fam}/*/"):
-            run = run.rstrip("/"); name = os.path.basename(run)
+            run = run.rstrip("/")
+            name = os.path.basename(run)
             m = re.match(r"(.+)_(narrow|medium|full)_s(\d+)$", name)
             if not m or m.group(1) not in rows:
                 continue
@@ -71,7 +93,8 @@ def report(title, data, base, arcs):
         d = data.get(row, {})
         vs = [d.get(c) for c in cells]
         if any(v is None for v in vs):
-            print(f"{row:12} incomplete ({sum(v is not None for v in vs)}/6)"); continue
+            print(f"{row:12} incomplete ({sum(v is not None for v in vs)}/6)")
+            continue
         print(hdr.format(row, *[f"{v:.5f}" for v in vs], f"{sum(vs)/6:.5f}"))
     b = data.get(base, {})
     if not b or any(b.get(c) is None for c in cells):
@@ -95,9 +118,17 @@ def report(title, data, base, arcs):
         print(f"  {row:12} {n:.5f} -> {f:.5f}   {100*(f-n)/n:+6.1f} %")
 
 
-report("ROBOT - ABC skirts, 30k, gt span 0.370 m",
-       collect(["e1_abc", "e1_abc_30k"], {"time", "arcdur", "arclogdur", "arcmean", "arcvel"}),
-       "time", ["arcdur", "arclogdur", "arcmean", "arcvel"])
-report("HUMAN - mecka freeform fold, 30k, gt span 0.381 m",
-       collect(["e1_fold"], {"time", "arcmean", "arcvel"}),
-       "time", ["arcmean", "arcvel"])
+report(
+    "ROBOT - ABC skirts, 30k, gt span 0.370 m",
+    collect(
+        ["e1_abc", "e1_abc_30k"], {"time", "arcdur", "arclogdur", "arcmean", "arcvel"}
+    ),
+    "time",
+    ["arcdur", "arclogdur", "arcmean", "arcvel"],
+)
+report(
+    "HUMAN - mecka freeform fold, 30k, gt span 0.381 m",
+    collect(["e1_fold"], {"time", "arcmean", "arcvel"}),
+    "time",
+    ["arcmean", "arcvel"],
+)

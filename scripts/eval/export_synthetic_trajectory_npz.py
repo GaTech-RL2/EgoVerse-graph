@@ -37,16 +37,12 @@ def resolve_device(requested: str) -> torch.device:
 class _EmbodimentTrajectoryView:
     """Expose one private decoder while retaining the checkpoint's shared field."""
 
-    def __init__(
-        self, model: SyntheticMultiActionAdapterFlow, embodiment: str
-    ) -> None:
+    def __init__(self, model: SyntheticMultiActionAdapterFlow, embodiment: str) -> None:
         self.model = model
         self.embodiment = embodiment
 
     def trajectory(self, source: torch.Tensor, *, steps: int) -> torch.Tensor:
-        return self.model.trajectory(
-            source, embodiment=self.embodiment, steps=steps
-        )
+        return self.model.trajectory(source, embodiment=self.embodiment, steps=steps)
 
 
 def main() -> None:
@@ -73,9 +69,7 @@ def main() -> None:
         if architecture == "multi_action_adapter_flow":
             if args.embodiment is None:
                 raise SystemExit("multi-action export requires --embodiment")
-            configured_datasets = config.get(
-                "evaluation_datasets", config["datasets"]
-            )
+            configured_datasets = config.get("evaluation_datasets", config["datasets"])
             if args.embodiment not in configured_datasets:
                 raise SystemExit(f"unknown embodiment: {args.embodiment}")
             dataset = (

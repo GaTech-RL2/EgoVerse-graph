@@ -1,7 +1,8 @@
 import numpy as np
+import scipy
 from scipy.interpolate import interp1d
+from scipy.spatial.transform import Rotation, Slerp
 from scipy.spatial.transform import Rotation as R
-from scipy.spatial.transform import Slerp
 
 
 def xyzw_to_wxyz(xyzw):
@@ -297,10 +298,6 @@ def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = Tru
         left_keypoints = keypoints[..., :63]
         right_keypoints = keypoints[..., 63:]
         return left_keypoints, right_keypoints
-
-
-from scipy.spatial.transform import Rotation
-import scipy
 
 
 # ---- moved from egomimicUtils.py (code unchanged) ----

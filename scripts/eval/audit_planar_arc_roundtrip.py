@@ -52,7 +52,9 @@ def main() -> None:
     if args.output.exists():
         raise FileExistsError(args.output)
     if args.raw_action_horizon <= 1 or args.action_target_offset < 0:
-        raise ValueError("raw horizon must exceed one and target offset must be non-negative")
+        raise ValueError(
+            "raw horizon must exceed one and target offset must be non-negative"
+        )
     if args.waypoints <= 0 or args.token_horizon != 2 * args.waypoints:
         raise ValueError("duration ARC requires exactly two token rows per waypoint")
 
@@ -92,11 +94,15 @@ def main() -> None:
         usable_frames = min(total_frames, len(actions))
         loader_horizon = args.raw_action_horizon + args.action_target_offset
         if usable_frames < loader_horizon:
-            raise ValueError(f"{episode_id} has only {usable_frames} usable action rows")
+            raise ValueError(
+                f"{episode_id} has only {usable_frames} usable action rows"
+            )
         start = (usable_frames - loader_horizon) // 2
         loader_window = actions[start : start + loader_horizon].astype(np.float32)
         if loader_window.shape != (loader_horizon, 3):
-            raise ValueError(f"unexpected native window shape for {episode_id}: {loader_window.shape}")
+            raise ValueError(
+                f"unexpected native window shape for {episode_id}: {loader_window.shape}"
+            )
 
         batch = {"actions": loader_window.copy()}
         for transform in transforms:
@@ -106,10 +112,13 @@ def main() -> None:
             raise ValueError(f"unexpected token shape for {episode_id}: {token.shape}")
         decoded = np.asarray(decoder.decode(token))[0]
         target = loader_window[
-            args.action_target_offset : args.action_target_offset + args.raw_action_horizon
+            args.action_target_offset : args.action_target_offset
+            + args.raw_action_horizon
         ]
         if decoded.shape != target.shape or not np.all(np.isfinite(decoded)):
-            raise ValueError(f"invalid decoded trajectory for {episode_id}: {decoded.shape}")
+            raise ValueError(
+                f"invalid decoded trajectory for {episode_id}: {decoded.shape}"
+            )
         anchor_error = float(np.max(np.abs(decoded[0] - target[0])))
         if anchor_error > args.max_anchor_error:
             raise ValueError(
@@ -141,7 +150,8 @@ def main() -> None:
             "valid_names_sha256": domain["valid_names_sha256"],
         },
         "contract": {
-            "loader_window_horizon": args.raw_action_horizon + args.action_target_offset,
+            "loader_window_horizon": args.raw_action_horizon
+            + args.action_target_offset,
             "action_target_offset": args.action_target_offset,
             "raw_action_horizon": args.raw_action_horizon,
             "token_horizon": args.token_horizon,
@@ -152,7 +162,9 @@ def main() -> None:
         "summary": {
             "anchor_error_max_abs": max(row["anchor_error_max_abs"] for row in rows),
             "xy_rmse_mean": float(np.mean([row["xy_rmse"] for row in rows])),
-            "theta_rmse_rad_mean": float(np.mean([row["theta_rmse_rad"] for row in rows])),
+            "theta_rmse_rad_mean": float(
+                np.mean([row["theta_rmse_rad"] for row in rows])
+            ),
         },
         "episodes": rows,
     }

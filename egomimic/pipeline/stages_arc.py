@@ -306,7 +306,8 @@ class ArcDetokenizeStage(Stage):
         segment_delta = xy[:, 1:] - xy[:, :-1]
         secant = torch.where(
             (segment_span > self.zero_dist_epsilon).unsqueeze(-1),
-            segment_delta / segment_span.clamp_min(self.zero_dist_epsilon).unsqueeze(-1),
+            segment_delta
+            / segment_span.clamp_min(self.zero_dist_epsilon).unsqueeze(-1),
             torch.zeros_like(segment_delta),
         )
         tangent = torch.zeros_like(xy)
@@ -329,8 +330,7 @@ class ArcDetokenizeStage(Stage):
         m0 = torch.gather(tangent, 1, xy_index_lo)
         m1 = torch.gather(tangent, 1, xy_index_hi)
         ds = (
-            torch.gather(cumulative, 1, upper)
-            - torch.gather(cumulative, 1, lower)
+            torch.gather(cumulative, 1, upper) - torch.gather(cumulative, 1, lower)
         ).unsqueeze(-1)
         u = alpha
         u2, u3 = u * u, u * u * u

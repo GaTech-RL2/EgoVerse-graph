@@ -50,13 +50,19 @@ def _regular_files(root: Path) -> list[tuple[bytes, Path]]:
         for name in directory_names:
             candidate = directory_path / name
             if candidate.is_symlink():
-                raise RuntimeError(f"content manifest refuses directory symlink: {candidate}")
+                raise RuntimeError(
+                    f"content manifest refuses directory symlink: {candidate}"
+                )
         for name in file_names:
             candidate = directory_path / name
             if candidate.is_symlink():
-                raise RuntimeError(f"content manifest refuses file symlink: {candidate}")
+                raise RuntimeError(
+                    f"content manifest refuses file symlink: {candidate}"
+                )
             if not candidate.is_file():
-                raise RuntimeError(f"content manifest found a non-regular file: {candidate}")
+                raise RuntimeError(
+                    f"content manifest found a non-regular file: {candidate}"
+                )
             relative = candidate.relative_to(root).as_posix().encode("utf-8")
             files.append((relative, candidate))
     files.sort(key=lambda item: item[0])
@@ -128,7 +134,9 @@ def build_content_manifest(episodes: Mapping[str, Path]) -> dict[str, Any]:
         raise ValueError("content manifest needs at least one episode")
     rows = []
     seen_paths: set[Path] = set()
-    for raw_episode_id in sorted(episodes, key=lambda value: str(value).encode("utf-8")):
+    for raw_episode_id in sorted(
+        episodes, key=lambda value: str(value).encode("utf-8")
+    ):
         episode_id = str(raw_episode_id)
         if not episode_id or "/" in episode_id or "\\" in episode_id:
             raise ValueError(f"invalid episode id: {episode_id!r}")
@@ -156,7 +164,10 @@ def validate_content_manifest(payload: Mapping[str, Any]) -> dict[str, Any]:
 
     if not isinstance(payload, Mapping):
         raise RuntimeError("content manifest root must be an object")
-    if payload.get("schema_version") != SCHEMA_VERSION or payload.get("status") != STATUS:
+    if (
+        payload.get("schema_version") != SCHEMA_VERSION
+        or payload.get("status") != STATUS
+    ):
         raise RuntimeError("content manifest has an unsupported schema or status")
     if payload.get("algorithm") != ALGORITHM:
         raise RuntimeError("content manifest hash algorithm differs")

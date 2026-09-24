@@ -80,11 +80,7 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         effective_warmup_steps = (
             self._requested_reconstruction_only_warmup_steps
             if self._requested_reconstruction_only_warmup_steps is not None
-            else (
-                0
-                if configured_warmup_steps is None
-                else configured_warmup_steps
-            )
+            else (0 if configured_warmup_steps is None else configured_warmup_steps)
         )
         if (
             isinstance(effective_warmup_steps, bool)
@@ -117,7 +113,9 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
                 "flow_samples_per_content", None
             )
         if configured_samples is None:
-            stages = getattr(getattr(self.context.model, "pipeline", None), "stages", ())
+            stages = getattr(
+                getattr(self.context.model, "pipeline", None), "stages", ()
+            )
             configured_samples = next(
                 (
                     stage.samples_per_content
@@ -141,7 +139,9 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         if bool(cfg.model.get("optimizer_named_parameters", False)):
             return {
                 "named_params": tuple(
-                    self.context.nets.named_parameters(prefix="nets", remove_duplicate=True)
+                    self.context.nets.named_parameters(
+                        prefix="nets", remove_duplicate=True
+                    )
                 )
             }
         return super().optimizer_instantiation_kwargs(cfg)
@@ -183,7 +183,11 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
     ) -> bool:
         """Gate the optimizer scalar while retaining raw component telemetry."""
 
-        step = int(self.context.global_step) if optimizer_step is None else int(optimizer_step)
+        step = (
+            int(self.context.global_step)
+            if optimizer_step is None
+            else int(optimizer_step)
+        )
         active = step < self.reconstruction_only_warmup_steps
         if not active:
             return False
@@ -416,7 +420,10 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         for label, component_name in self._gradient_components:
             # An exact-section codec still reports its reconstruction error,
             # but that diagnostic is not a trained objective.
-            if label == "Reconstruction" and self._objective_reconstruction_weight() == 0:
+            if (
+                label == "Reconstruction"
+                and self._objective_reconstruction_weight() == 0
+            ):
                 continue
             active = self._component_gradients(components[component_name], named, label)
             gradients[label] = active
@@ -448,7 +455,10 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
             if not shared:
                 # FM-only endpoint detachment deliberately separates FM from
                 # clean reconstruction. Do not invent a cosine for that pair.
-                if {left, right} != {"FM", "Reconstruction"} or not self._fm_endpoint_detached():
+                if {left, right} != {
+                    "FM",
+                    "Reconstruction",
+                } or not self._fm_endpoint_detached():
                     raise RuntimeError(
                         f"Action Flow {left} and {right} have no shared gradient path"
                     )
@@ -501,9 +511,7 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         for left, right in combinations(routes, 2):
             right_names = {entry["name"] for entry in routes[right]}
             intersection_names[f"{left}__{right}"] = [
-                entry["name"]
-                for entry in routes[left]
-                if entry["name"] in right_names
+                entry["name"] for entry in routes[left] if entry["name"] in right_names
             ]
         manifest_core = {
             "routes": routes,
@@ -578,7 +586,9 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
                 raise RuntimeError(
                     f"released {name} parameter groups have inconsistent learning rates"
                 )
-            rate = torch.tensor(rates.pop(), device=self.context.device, dtype=torch.float32)
+            rate = torch.tensor(
+                rates.pop(), device=self.context.device, dtype=torch.float32
+            )
             self._finite_scalar(rate, f"Optimizer/LR/{name}")
             self.context.log(
                 f"Optimizer/LR/{name}",
@@ -619,9 +629,7 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         self._log_extra_metrics(predictions, optimizer_loss)
         self._log_compute_contract()
         self._log_composite_optimizer_learning_rates()
-        self._log_telemetry(
-            "Schedule/ReconstructionOnly", float(reconstruction_only)
-        )
+        self._log_telemetry("Schedule/ReconstructionOnly", float(reconstruction_only))
         self._log_telemetry(
             "Schedule/EffectiveFlowWeight",
             0.0
@@ -658,9 +666,7 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
             "reconstruction_only_optimizer_steps": (
                 self.reconstruction_only_warmup_steps
             ),
-            "joint_flow_weight": self._objective_weight(
-                "flow_weight", default=1.0
-            ),
+            "joint_flow_weight": self._objective_weight("flow_weight", default=1.0),
             "joint_reconstruction_weight": self._objective_weight(
                 "reconstruction_weight"
             ),

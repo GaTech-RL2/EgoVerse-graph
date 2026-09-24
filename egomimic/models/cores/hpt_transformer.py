@@ -286,7 +286,10 @@ class SimpleTransformer(nn.Module):
         super().__init__()
         self.pre_transformer_layer = pre_transformer_layer
         if drop_path_type == "progressive":
-            dpr = [x.item() for x in torch.linspace(0, drop_path_rate, num_blocks)]
+            dpr = [
+                x.item()
+                for x in torch.linspace(0, drop_path_rate, num_blocks, device="cpu")
+            ]
         elif drop_path_type == "uniform":
             dpr = [drop_path_rate for i in range(num_blocks)]
         else:

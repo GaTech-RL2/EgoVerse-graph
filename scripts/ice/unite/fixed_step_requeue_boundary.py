@@ -62,7 +62,9 @@ class FixedStepRequeueBoundary(Callback):
         ):
             raise TypeError("trigger_global_step must be an integer")
         if trigger_global_step - initial_global_step != 5:
-            raise ValueError("integration boundary must be exactly five optimizer steps")
+            raise ValueError(
+                "integration boundary must be exactly five optimizer steps"
+            )
         if re.fullmatch(r"[1-9][0-9_]*", slurm_job_id) is None:
             raise ValueError("slurm_job_id is invalid")
         scancel_path = Path(scancel)
@@ -75,11 +77,14 @@ class FixedStepRequeueBoundary(Callback):
         record = Path(record_path)
         if not record.is_absolute():
             raise ValueError("record_path must be absolute")
-        if min(
-            scancel_timeout_seconds,
-            signal_ack_timeout_seconds,
-            requeue_wait_timeout_seconds,
-        ) <= 0:
+        if (
+            min(
+                scancel_timeout_seconds,
+                signal_ack_timeout_seconds,
+                requeue_wait_timeout_seconds,
+            )
+            <= 0
+        ):
             raise ValueError("fixed-step boundary timeouts must be positive")
 
         self.initial_global_step = initial_global_step
@@ -93,9 +98,7 @@ class FixedStepRequeueBoundary(Callback):
         self._sent = False
         self._save_callback: SaveOnlySignalCheckpoint | None = None
 
-    def setup(
-        self, trainer: Trainer, _pl_module: LightningModule, stage: str
-    ) -> None:
+    def setup(self, trainer: Trainer, _pl_module: LightningModule, stage: str) -> None:
         if stage != "fit":
             return
         matches = [

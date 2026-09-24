@@ -653,3 +653,26 @@ hashes, Q/V metrics and periodic rollouts are preserved under
 Selection, raw action traces, fixed preview videos, simulator diagnostics and
 GPU parity receipts are under
 `s3://rldb/experiments/qchunk-arc-benchmark-20260921/cube-small-m-v1/`.
+
+The initial bounded workflow was canceled by the OSMO quota service after
+37–40k reported updates. Recovery workflow
+`dqc-cube-bounded-resume-20260924-v1-1` restored the native-window/M8/M32
+checkpoints at 30k/30k/40k respectively, with unchanged source and settings.
+Runtime receipts confirm all three restores. As of 2026-09-24 06:10 UTC,
+the runs remain active at 363k/376k/385k updates. Completed evaluations are:
+
+| Learned pilot, seed100001 | 100k | 200k | 300k |
+| --- | ---: | ---: | ---: |
+| Native-window, cap8 | 16.4% | 27.6% | 30.8% |
+| ARC M8, cap8 | 19.6% | 28.0% | 30.4% |
+| ARC M32, cap8 | 14.4% | 21.6% | 22.4% |
+
+All 2,250 raw rollout rows were checked against their summaries and the same
+250 reset hashes. Each checkpoint evaluates five goals with 50 rollouts each.
+The existing standard DQC seed100001 reference already reached 80.0% at
+250k updates (its evaluation schedule differs). Its four saved evaluations
+and all 1,000 reference rollout rows were also verified against those resets.
+Thus the smaller representation has not recovered performance so far: M8
+tracks the native-window control, and M32 trails both. At 300k, their actual
+native actions per replan average 4.55/4.55/5.03 respectively. The 1M runs
+continue; these intermediate single-seed results establish no ARC advantage.

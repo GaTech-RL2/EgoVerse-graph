@@ -80,5 +80,11 @@
     "epochs_completed": 5001,
     "global_step": 270054,
     "ema_num_updates": 270054
+  },
+  "comparison_with_preempted_partial_run": {
+    "common_episodes": 49,
+    "all_initial_states_match": true,
+    "matching_successes": 33,
+    "matching_steps": 11
   }
 }

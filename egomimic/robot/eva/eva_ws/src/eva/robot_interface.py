@@ -263,7 +263,9 @@ class ARXInterface(Robot_Interface):
                 arm_offset = 7
             joint_positions[arm_offset : arm_offset + 7] = self.get_joints(arm)
             ee_poses[arm_offset : arm_offset + 7] = np.r_[
-                self.forward_kinematics(joint_positions[arm_offset : arm_offset + 6], arm),
+                self.forward_kinematics(
+                    joint_positions[arm_offset : arm_offset + 6], arm
+                ),
                 joint_positions[arm_offset + 6],
             ]
         obs["joint_positions"] = joint_positions

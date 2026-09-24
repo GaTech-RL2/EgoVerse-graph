@@ -74,7 +74,9 @@ class ReleasedUniteTrainingBehavior(TrainingBehavior):
                 "UNITE objective identity disagrees with its action-velocity settings"
             )
         if not enabled and (samples != 0 or weight != 0.0):
-            raise ValueError("Baseline UNITE must disable every action-velocity setting")
+            raise ValueError(
+                "Baseline UNITE must disable every action-velocity setting"
+            )
         return {
             "architecture_id": architecture_id,
             "objective_id": objective_id,
@@ -404,9 +406,7 @@ class ReleasedUniteTrainingBehavior(TrainingBehavior):
         components["TotalLoss"] = (
             components["ReconstructionLoss"]
             + components["FlowLoss"]
-            + components.get(
-                "ActionVelocityLoss", components["FlowLoss"].new_zeros(())
-            )
+            + components.get("ActionVelocityLoss", components["FlowLoss"].new_zeros(()))
         )
         components.move_to_end("TotalLoss", last=False)
         for name, value in components.items():
@@ -420,9 +420,7 @@ class ReleasedUniteTrainingBehavior(TrainingBehavior):
         predictions = self.context.model.forward_training(batch)
         components, count = self._weighted_components(predictions)
         self._unite_topology()
-        logged, global_count = reduce_component_means(
-            components, count, label="UNITE"
-        )
+        logged, global_count = reduce_component_means(components, count, label="UNITE")
         for name, value in logged.items():
             self.context.log(
                 f"Train/UNITE/{name}",

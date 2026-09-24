@@ -16,9 +16,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "scripts" / "ice" / "ice_requeue_runner.py"
-)
+MODULE_PATH = Path(__file__).parents[1] / "scripts" / "ice" / "ice_requeue_runner.py"
 SPEC = importlib.util.spec_from_file_location("ice_requeue_runner", MODULE_PATH)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
@@ -48,7 +46,9 @@ def make_validator(root: Path) -> Path:
     return validator
 
 
-def write_checkpoint(path: Path, step: int, *, valid: bool = True, run_id: str = "run") -> None:
+def write_checkpoint(
+    path: Path, step: int, *, valid: bool = True, run_id: str = "run"
+) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(
         json.dumps(
@@ -67,8 +67,8 @@ def make_signaling_scancel(root: Path) -> Path:
     executable = root / "scancel"
     executable.write_text(
         "#!/bin/sh\n"
-        "printf '%s\\n' \"$*\" > \"$ICE_TEST_SCANCEL_LOG\"\n"
-        "kill -USR2 \"$(cat \"$CHILD_PID_FILE\")\"\n"
+        'printf \'%s\\n\' "$*" > "$ICE_TEST_SCANCEL_LOG"\n'
+        'kill -USR2 "$(cat "$CHILD_PID_FILE")"\n'
     )
     executable.chmod(0o700)
     return executable
@@ -177,10 +177,18 @@ class CheckpointSelectionTest(unittest.TestCase):
 
         baseline = info("/tmp/run/a.ckpt", 10, "a" * 64)
         self.assertFalse(MODULE.is_fresh(None, baseline))
-        self.assertFalse(MODULE.is_fresh(info("/tmp/run/b.ckpt", 9, "b" * 64), baseline))
-        self.assertFalse(MODULE.is_fresh(info("/tmp/run/b.ckpt", 10, "a" * 64), baseline))
-        self.assertFalse(MODULE.is_fresh(info("/tmp/run/a.ckpt", 10, "b" * 64), baseline))
-        self.assertTrue(MODULE.is_fresh(info("/tmp/run/a.ckpt", 11, "a" * 64), baseline))
+        self.assertFalse(
+            MODULE.is_fresh(info("/tmp/run/b.ckpt", 9, "b" * 64), baseline)
+        )
+        self.assertFalse(
+            MODULE.is_fresh(info("/tmp/run/b.ckpt", 10, "a" * 64), baseline)
+        )
+        self.assertFalse(
+            MODULE.is_fresh(info("/tmp/run/a.ckpt", 10, "b" * 64), baseline)
+        )
+        self.assertTrue(
+            MODULE.is_fresh(info("/tmp/run/a.ckpt", 11, "a" * 64), baseline)
+        )
 
     def test_semantic_maximum_same_step_fork_is_rejected(self):
         def info(path: str, digest: str) -> MODULE.CheckpointInfo:
@@ -207,7 +215,9 @@ class CheckpointSelectionTest(unittest.TestCase):
             {"SCANCEL_BATCH": "1", "SCANCEL_FULL": "1", "SLURM_CLUSTERS": "wrong"},
         ):
             with (
-                mock.patch.object(MODULE.subprocess, "run", return_value=completed) as run,
+                mock.patch.object(
+                    MODULE.subprocess, "run", return_value=completed
+                ) as run,
                 mock.patch.object(MODULE.os, "killpg") as killpg,
             ):
                 result = MODULE.forward_checkpoint_to_slurm_steps(
@@ -237,7 +247,9 @@ class RunnerSafetyTest(unittest.TestCase):
             validator = make_validator(root)
             checkpoint_path = root / "step-1.ckpt"
             write_checkpoint(checkpoint_path, 1)
-            checkpoint = MODULE.stable_checkpoint_info(checkpoint_path.resolve(), validator)
+            checkpoint = MODULE.stable_checkpoint_info(
+                checkpoint_path.resolve(), validator
+            )
             self.assertIsNotNone(checkpoint)
             installed: list[signal.Signals] = []
             gate_readers: list[int] = []
@@ -280,8 +292,12 @@ class RunnerSafetyTest(unittest.TestCase):
                     clear=False,
                 ),
                 mock.patch.object(MODULE.signal, "signal", side_effect=install),
-                mock.patch.object(MODULE, "stable_checkpoint_info", side_effect=validate),
-                mock.patch.object(MODULE.subprocess, "Popen", side_effect=spawn) as popen,
+                mock.patch.object(
+                    MODULE, "stable_checkpoint_info", side_effect=validate
+                ),
+                mock.patch.object(
+                    MODULE.subprocess, "Popen", side_effect=spawn
+                ) as popen,
             ):
                 self.assertEqual(MODULE.main(args), 0)
             popen.assert_called_once()
@@ -309,22 +325,19 @@ class RunnerSafetyTest(unittest.TestCase):
             child_started = root / "child-started"
             child = root / "child.py"
             child.write_text(
-                "import os\n"
-                "open(os.environ['CHILD_STARTED'],'w').write('unsafe')\n"
+                "import os\n" "open(os.environ['CHILD_STARTED'],'w').write('unsafe')\n"
             )
             attempt = state / "requeue" / "job-12400-restart-000" / "attempt.json"
             scancel_log = root / "scancel.log"
             fake_scancel = root / "scancel"
             fake_scancel.write_text(
-                "#!/bin/sh\n"
-                "printf '%s\\n' \"$*\" > \"$ICE_TEST_SCANCEL_LOG\"\n"
+                "#!/bin/sh\n" 'printf \'%s\\n\' "$*" > "$ICE_TEST_SCANCEL_LOG"\n'
             )
             fake_scancel.chmod(0o700)
             scontrol_log = root / "scontrol.log"
             fake_scontrol = root / "scontrol"
             fake_scontrol.write_text(
-                "#!/bin/sh\n"
-                "printf '%s\\n' \"$*\" > \"$SCONTROL_LOG\"\n"
+                "#!/bin/sh\n" 'printf \'%s\\n\' "$*" > "$SCONTROL_LOG"\n'
             )
             fake_scontrol.chmod(0o700)
             env = os.environ.copy()
@@ -410,12 +423,16 @@ class RunnerSafetyTest(unittest.TestCase):
             ):
                 self.assertEqual(MODULE.main(args), 0)
                 first = log.read_text().splitlines()
-                self.assertEqual(set(first), {str(path.resolve()) for path in checkpoints})
+                self.assertEqual(
+                    set(first), {str(path.resolve()) for path in checkpoints}
+                )
                 self.assertEqual(len(first), 3)
 
                 log.write_text("")
                 self.assertEqual(MODULE.main(args), 0)
-                self.assertEqual(log.read_text().splitlines(), [str(checkpoints[-1].resolve())])
+                self.assertEqual(
+                    log.read_text().splitlines(), [str(checkpoints[-1].resolve())]
+                )
 
                 newer = root / "step-40.ckpt"
                 write_checkpoint(newer, 40)
@@ -510,7 +527,9 @@ class RunnerSafetyTest(unittest.TestCase):
                 },
                 clear=False,
             ):
-                with self.assertRaisesRegex(SystemExit, "validator changed after validation"):
+                with self.assertRaisesRegex(
+                    SystemExit, "validator changed after validation"
+                ):
                     MODULE.main(args)
             self.assertTrue(marker.is_file())
             self.assertFalse((state / MODULE.OBSERVATION_INDEX_NAME).exists())
@@ -547,7 +566,9 @@ class RunnerSafetyTest(unittest.TestCase):
             ):
                 self.assertEqual(MODULE.main(args), 0)
                 first = json.loads(
-                    (state / "requeue" / "job-dry-run-restart-000" / "attempt.json").read_text()
+                    (
+                        state / "requeue" / "job-dry-run-restart-000" / "attempt.json"
+                    ).read_text()
                 )
                 self.assertEqual(first["checkpoint"]["global_step"], 10)
 
@@ -560,7 +581,9 @@ class RunnerSafetyTest(unittest.TestCase):
                 self.assertEqual(MODULE.main(args), 0)
             self.assertIn(str(higher.resolve()), log.read_text().splitlines())
             final = json.loads(
-                (state / "requeue" / "job-dry-run-restart-000" / "attempt.json").read_text()
+                (
+                    state / "requeue" / "job-dry-run-restart-000" / "attempt.json"
+                ).read_text()
             )
             self.assertEqual(final["checkpoint"]["global_step"], 20)
 
@@ -595,7 +618,9 @@ class RunnerSafetyTest(unittest.TestCase):
             with mock.patch.dict(os.environ, {"SLURM_RESTART_COUNT": "1"}, clear=False):
                 self.assertEqual(MODULE.main(args), 0)
             final = json.loads(
-                (state / "requeue" / "job-dry-run-restart-001" / "attempt.json").read_text()
+                (
+                    state / "requeue" / "job-dry-run-restart-001" / "attempt.json"
+                ).read_text()
             )
             self.assertEqual(final["checkpoint"]["global_step"], 30)
 
@@ -625,7 +650,9 @@ class RunnerSafetyTest(unittest.TestCase):
             args.insert(-2, "--require-initial-checkpoint")
             args.insert(-2, "--dry-run")
             with mock.patch.dict(os.environ, {"SLURM_RESTART_COUNT": "0"}, clear=False):
-                with self.assertRaisesRegex(SystemExit, "requires an exact --initial-checkpoint"):
+                with self.assertRaisesRegex(
+                    SystemExit, "requires an exact --initial-checkpoint"
+                ):
                     MODULE.main(args)
 
     def test_exact_initial_pins_first_attempt_then_live_wins_restart(self):
@@ -654,7 +681,9 @@ class RunnerSafetyTest(unittest.TestCase):
             with mock.patch.dict(os.environ, {"SLURM_RESTART_COUNT": "0"}, clear=False):
                 self.assertEqual(MODULE.main(args), 0)
             first = json.loads(
-                (state / "requeue" / "job-dry-run-restart-000" / "attempt.json").read_text()
+                (
+                    state / "requeue" / "job-dry-run-restart-000" / "attempt.json"
+                ).read_text()
             )
             self.assertEqual(first["checkpoint"]["global_step"], 40_000)
             self.assertEqual(first["checkpoint"]["path"], str(initial.resolve()))
@@ -663,7 +692,9 @@ class RunnerSafetyTest(unittest.TestCase):
             with mock.patch.dict(os.environ, {"SLURM_RESTART_COUNT": "1"}, clear=False):
                 self.assertEqual(MODULE.main(args), 0)
             restarted = json.loads(
-                (state / "requeue" / "job-dry-run-restart-001" / "attempt.json").read_text()
+                (
+                    state / "requeue" / "job-dry-run-restart-001" / "attempt.json"
+                ).read_text()
             )
             self.assertEqual(restarted["checkpoint"]["global_step"], 60_000)
             self.assertEqual(restarted["checkpoint"]["path"], str(newer_live.resolve()))
@@ -681,7 +712,9 @@ class RunnerSafetyTest(unittest.TestCase):
                 initial_checkpoint=root / "staged" / "missing.ckpt",
             )
             args.insert(args.index("--"), "--dry-run")
-            with self.assertRaisesRegex(SystemExit, "initial checkpoint is unavailable"):
+            with self.assertRaisesRegex(
+                SystemExit, "initial checkpoint is unavailable"
+            ):
                 MODULE.main(args)
 
     def test_restart_without_checkpoint_is_always_refused(self):
@@ -757,7 +790,9 @@ class RunnerSafetyTest(unittest.TestCase):
                     str(MODULE_PATH),
                     *args,
                 ]
-                result = subprocess.run(command, text=True, capture_output=True, check=False)
+                result = subprocess.run(
+                    command, text=True, capture_output=True, check=False
+                )
             finally:
                 lock.close()
             self.assertNotEqual(result.returncode, 0)
@@ -780,16 +815,28 @@ class RunnerSafetyTest(unittest.TestCase):
                 "open(os.environ['OUTPUT'],'w').write(json.dumps({k:os.environ[k] for k in keys}))\n"
             )
             env = os.environ.copy()
-            env.update({"SLURM_JOB_ID": "991", "SLURM_RESTART_COUNT": "0", "OUTPUT": str(output)})
+            env.update(
+                {
+                    "SLURM_JOB_ID": "991",
+                    "SLURM_RESTART_COUNT": "0",
+                    "OUTPUT": str(output),
+                }
+            )
             command = [
                 sys.executable,
                 str(MODULE_PATH),
-                *base_args(state, str(root / "*.ckpt"), validator, [sys.executable, str(child)]),
+                *base_args(
+                    state, str(root / "*.ckpt"), validator, [sys.executable, str(child)]
+                ),
             ]
-            result = subprocess.run(command, env=env, text=True, capture_output=True, check=False)
+            result = subprocess.run(
+                command, env=env, text=True, capture_output=True, check=False
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
             exported = json.loads(output.read_text())
-            self.assertEqual(exported["ICE_RESUME_CHECKPOINT"], str(checkpoint.resolve()))
+            self.assertEqual(
+                exported["ICE_RESUME_CHECKPOINT"], str(checkpoint.resolve())
+            )
             self.assertEqual(exported["ICE_RESUME_GLOBAL_STEP"], "12")
             self.assertEqual(
                 exported["ICE_RESUME_CHECKPOINT_SHA256"],
@@ -834,7 +881,9 @@ class RunnerSafetyTest(unittest.TestCase):
             fake_scancel = make_signaling_scancel(root)
             scontrol_log = root / "scontrol.log"
             fake_scontrol = root / "scontrol"
-            fake_scontrol.write_text("#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$SCONTROL_LOG\"\n")
+            fake_scontrol.write_text(
+                '#!/bin/sh\nprintf \'%s\\n\' "$*" > "$SCONTROL_LOG"\n'
+            )
             fake_scontrol.chmod(0o700)
             env = os.environ.copy()
             env.update(
@@ -879,7 +928,11 @@ class RunnerSafetyTest(unittest.TestCase):
             attempt = state / "requeue" / "job-12345-restart-000" / "attempt.json"
             deadline = time.time() + 5
             while time.time() < deadline:
-                if ready.exists() and attempt.exists() and json.loads(attempt.read_text()).get("status") == "RUNNING":
+                if (
+                    ready.exists()
+                    and attempt.exists()
+                    and json.loads(attempt.read_text()).get("status") == "RUNNING"
+                ):
                     break
                 time.sleep(0.02)
             else:
@@ -887,7 +940,9 @@ class RunnerSafetyTest(unittest.TestCase):
                 self.fail("runner/child did not become ready")
             process.send_signal(signal.SIGUSR1)
             time.sleep(0.2)
-            self.assertFalse(scontrol_log.exists(), "runner requeued before post-signal save")
+            self.assertFalse(
+                scontrol_log.exists(), "runner requeued before post-signal save"
+            )
             stdout, stderr = process.communicate(timeout=10)
             self.assertEqual(process.returncode, 0, f"{stdout}\n{stderr}")
             self.assertEqual(resume_seen.read_text(), str(initial.resolve()))
@@ -928,7 +983,7 @@ class RunnerSafetyTest(unittest.TestCase):
             fake_scancel = make_signaling_scancel(root)
             called = root / "scontrol-called"
             fake_scontrol = root / "scontrol"
-            fake_scontrol.write_text("#!/bin/sh\ntouch \"$SCONTROL_CALLED\"\n")
+            fake_scontrol.write_text('#!/bin/sh\ntouch "$SCONTROL_CALLED"\n')
             fake_scontrol.chmod(0o700)
             env = os.environ.copy()
             env.update(
@@ -966,7 +1021,11 @@ class RunnerSafetyTest(unittest.TestCase):
             attempt = state / "requeue" / "job-12348-restart-000" / "attempt.json"
             deadline = time.time() + 5
             while time.time() < deadline:
-                if ready.exists() and attempt.exists() and json.loads(attempt.read_text()).get("status") == "RUNNING":
+                if (
+                    ready.exists()
+                    and attempt.exists()
+                    and json.loads(attempt.read_text()).get("status") == "RUNNING"
+                ):
                     break
                 time.sleep(0.02)
             else:
@@ -1008,7 +1067,7 @@ class RunnerSafetyTest(unittest.TestCase):
             fake_scancel = make_signaling_scancel(root)
             called = root / "scontrol-called"
             fake_scontrol = root / "scontrol"
-            fake_scontrol.write_text("#!/bin/sh\ntouch \"$SCONTROL_CALLED\"\n")
+            fake_scontrol.write_text('#!/bin/sh\ntouch "$SCONTROL_CALLED"\n')
             fake_scontrol.chmod(0o700)
             env = os.environ.copy()
             env.update(
@@ -1094,8 +1153,8 @@ class RunnerSafetyTest(unittest.TestCase):
             fake_scancel = root / "scancel"
             fake_scancel.write_text(
                 "#!/bin/sh\n"
-                "printf '%s\\n' \"$*\" >> \"$ICE_TEST_SCANCEL_LOG\"\n"
-                "kill -USR2 \"$(cat \"$CHILD_PID_FILE\")\"\n"
+                'printf \'%s\\n\' "$*" >> "$ICE_TEST_SCANCEL_LOG"\n'
+                'kill -USR2 "$(cat "$CHILD_PID_FILE")"\n'
             )
             fake_scancel.chmod(0o700)
             env = os.environ.copy()
@@ -1150,10 +1209,14 @@ class RunnerSafetyTest(unittest.TestCase):
                 self.fail("first checkpoint boundary did not complete")
             process.send_signal(signal.SIGUSR1)
             time.sleep(0.2)
-            self.assertEqual(scancel_log.read_text().splitlines(), ["--signal=USR2 12350"])
+            self.assertEqual(
+                scancel_log.read_text().splitlines(), ["--signal=USR2 12350"]
+            )
             process.send_signal(signal.SIGTERM)
             stdout, stderr = process.communicate(timeout=10)
-            self.assertEqual(process.returncode, 128 + signal.SIGTERM, f"{stdout}\n{stderr}")
+            self.assertEqual(
+                process.returncode, 128 + signal.SIGTERM, f"{stdout}\n{stderr}"
+            )
 
     def test_scancel_failure_is_persisted_and_never_requeues(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -1179,15 +1242,15 @@ class RunnerSafetyTest(unittest.TestCase):
             fake_scancel = root / "scancel"
             fake_scancel.write_text(
                 "#!/bin/sh\n"
-                "printf '%s\\n' \"$*\" > \"$ICE_TEST_SCANCEL_LOG\"\n"
-                "kill -TERM \"$(cat \"$CHILD_PID_FILE\")\"\n"
+                'printf \'%s\\n\' "$*" > "$ICE_TEST_SCANCEL_LOG"\n'
+                'kill -TERM "$(cat "$CHILD_PID_FILE")"\n'
                 "echo signal-refused >&2\n"
                 "exit 9\n"
             )
             fake_scancel.chmod(0o700)
             scontrol_called = root / "scontrol-called"
             fake_scontrol = root / "scontrol"
-            fake_scontrol.write_text("#!/bin/sh\ntouch \"$SCONTROL_CALLED\"\n")
+            fake_scontrol.write_text('#!/bin/sh\ntouch "$SCONTROL_CALLED"\n')
             fake_scontrol.chmod(0o700)
             env = os.environ.copy()
             env.update(
@@ -1209,7 +1272,10 @@ class RunnerSafetyTest(unittest.TestCase):
                 initial_checkpoint=initial,
                 scancel=fake_scancel,
             )
-            args[args.index("--") : args.index("--")] = ["--scontrol", str(fake_scontrol)]
+            args[args.index("--") : args.index("--")] = [
+                "--scontrol",
+                str(fake_scontrol),
+            ]
             process = subprocess.Popen(
                 [sys.executable, str(MODULE_PATH), *args],
                 env=env,
@@ -1336,9 +1402,16 @@ class RunnerSafetyTest(unittest.TestCase):
                 "os.replace(t,p)\n"
             )
             env = os.environ.copy()
-            env.update({"SLURM_JOB_ID": "992", "SLURM_RESTART_COUNT": "0", "ROOT": str(root)})
-            args = base_args(state, str(root / "*.ckpt"), validator, [sys.executable, str(child)])
-            args[args.index("--") : args.index("--")] = ["--completion-sentinel", str(sentinel)]
+            env.update(
+                {"SLURM_JOB_ID": "992", "SLURM_RESTART_COUNT": "0", "ROOT": str(root)}
+            )
+            args = base_args(
+                state, str(root / "*.ckpt"), validator, [sys.executable, str(child)]
+            )
+            args[args.index("--") : args.index("--")] = [
+                "--completion-sentinel",
+                str(sentinel),
+            ]
             result = subprocess.run(
                 [sys.executable, str(MODULE_PATH), *args],
                 env=env,

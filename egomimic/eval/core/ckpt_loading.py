@@ -81,7 +81,9 @@ def extract_pipeline_nets_state(checkpoint: dict[str, Any], use_ema: bool = Fals
         return _extract_nets_state(
             checkpoint["ema_state_dict"], source_name="ema_state_dict"
         )
-    return _extract_nets_state(_checkpoint_state_dict(checkpoint), source_name="state_dict")
+    return _extract_nets_state(
+        _checkpoint_state_dict(checkpoint), source_name="state_dict"
+    )
 
 
 def _require_exact_keys(actual, expected, *, label: str) -> None:
@@ -94,7 +96,9 @@ def _require_exact_keys(actual, expected, *, label: str) -> None:
         )
 
 
-def strict_load_pipeline_checkpoint(algo, checkpoint: dict[str, Any], use_ema: bool = False):
+def strict_load_pipeline_checkpoint(
+    algo, checkpoint: dict[str, Any], use_ema: bool = False
+):
     """Strictly load legacy online weights, optionally overlaying legacy EMA."""
     online = extract_pipeline_nets_state(checkpoint)
     expected = algo.nets.state_dict()
@@ -134,7 +138,9 @@ def _legacy_config_tree(hparams: DictConfig) -> DictConfig:
     return config_tree
 
 
-def _assert_model_config_match(config_path: str | Path, embedded: DictConfig) -> DictConfig:
+def _assert_model_config_match(
+    config_path: str | Path, embedded: DictConfig
+) -> DictConfig:
     supplied = OmegaConf.load(str(config_path))
     supplied_model = OmegaConf.select(supplied, "model")
     embedded_model = OmegaConf.select(embedded, "model")
@@ -152,7 +158,9 @@ def _assert_model_config_match(config_path: str | Path, embedded: DictConfig) ->
     expected = OmegaConf.to_container(embedded_context.model, resolve=True)
     actual = OmegaConf.to_container(supplied_model, resolve=True)
     if actual != expected:
-        raise RuntimeError("supplied config model does not exactly match checkpoint model")
+        raise RuntimeError(
+            "supplied config model does not exactly match checkpoint model"
+        )
     return supplied
 
 
@@ -204,8 +212,7 @@ def _strict_contract(
         )
     if waypoint_count != _LEGACY_WAYPOINT_HORIZON:
         raise ValueError(
-            "duration ARC bridge requires 16 waypoints; "
-            f"got {waypoint_count}"
+            "duration ARC bridge requires 16 waypoints; " f"got {waypoint_count}"
         )
     if raw_action_horizon != _LEGACY_RAW_ACTION_HORIZON:
         raise ValueError(
@@ -213,15 +220,17 @@ def _strict_contract(
             f"got {raw_action_horizon}"
         )
     expected_token_horizon = arc_token_rows(waypoint_count, velocity_mode)
-    if action_horizon != expected_token_horizon or action_horizon != _DURATION_ACTION_HORIZON:
+    if (
+        action_horizon != expected_token_horizon
+        or action_horizon != _DURATION_ACTION_HORIZON
+    ):
         raise ValueError(
             "duration ARC bridge requires 32 token rows; "
             f"got velocity_mode={velocity_mode!r}, tokens={action_horizon}"
         )
     if velocity_mode != "duration":
         raise ValueError(
-            "duration ARC bridge refuses non-duration timing; "
-            f"got {velocity_mode!r}"
+            "duration ARC bridge refuses non-duration timing; " f"got {velocity_mode!r}"
         )
     if contract is None:
         raise ValueError("config has no run_provenance.action_contract")
@@ -246,7 +255,10 @@ def _strict_contract(
             )
     if action_chunk_start_index != 0:
         raise ValueError("duration ARC bridge requires action_chunk_start_index=0")
-    if replan_every is not None and not 0 < int(replan_every) <= _LEGACY_RAW_ACTION_HORIZON:
+    if (
+        replan_every is not None
+        and not 0 < int(replan_every) <= _LEGACY_RAW_ACTION_HORIZON
+    ):
         raise ValueError(
             "duration ARC replan_every must be within the decoded 40-step horizon; "
             f"got {replan_every}"
@@ -299,8 +311,12 @@ def _normalizer_from_config(cfg: DictConfig) -> MultiDataset:
         {
             "norm_mode": str(OmegaConf.select(cfg, "norm_stats.norm_mode")),
             "embodiments": [19],
-            "key_types": {19: {"state_agent_obj": "proprio_keys", "actions": "action_keys"}},
-            "zarr_keys": {19: {"state_agent_obj": "state_agent_obj", "actions": "actions"}},
+            "key_types": {
+                19: {"state_agent_obj": "proprio_keys", "actions": "action_keys"}
+            },
+            "zarr_keys": {
+                19: {"state_agent_obj": "state_agent_obj", "actions": "actions"}
+            },
             "norm_stats": {19: stats},
         }
     )
@@ -442,11 +458,12 @@ class _LegacyArcPolicy:
         current = _env_to_zarr_pushshapes_oriented(dict(obs_env), self.device)
         self._history.append(current)
         self._history = self._history[-_LEGACY_OBSERVATION_HORIZON:]
-        history = [self._history[0]] * (_LEGACY_OBSERVATION_HORIZON - len(self._history))
+        history = [self._history[0]] * (
+            _LEGACY_OBSERVATION_HORIZON - len(self._history)
+        )
         history += self._history
         return {
-            key: torch.stack([item[key] for item in history], dim=1)
-            for key in current
+            key: torch.stack([item[key] for item in history], dim=1) for key in current
         }
 
     @torch.inference_mode()
@@ -460,9 +477,14 @@ class _LegacyArcPolicy:
         prediction = self.algo.forward_eval({_LEGACY_EMBODIMENT: normalized})
         result = prediction.get(_LEGACY_EMBODIMENT)
         if not isinstance(result, Mapping) or "pred_action" not in result:
-            raise RuntimeError("legacy PipelineAlgo inference did not produce pred_action")
+            raise RuntimeError(
+                "legacy PipelineAlgo inference did not produce pred_action"
+            )
         tokens = result["pred_action"]
-        if not torch.is_tensor(tokens) or tuple(tokens.shape[-2:]) != (self.token_horizon, 5):
+        if not torch.is_tensor(tokens) or tuple(tokens.shape[-2:]) != (
+            self.token_horizon,
+            5,
+        ):
             raise RuntimeError(
                 "legacy PipelineAlgo returned unexpected arc token shape "
                 f"{getattr(tokens, 'shape', None)}"
@@ -492,7 +514,9 @@ class _LegacyArcPolicy:
             )
         length = decoded_horizon
         if length <= 0 or length > decoded_horizon:
-            raise RuntimeError("duration ARC decoder returned an invalid trajectory length")
+            raise RuntimeError(
+                "duration ARC decoder returned an invalid trajectory length"
+            )
         if not np.all(np.isfinite(value)):
             raise RuntimeError("duration ARC decoder produced non-finite actions")
         chunk = value[0, :length]
@@ -606,7 +630,9 @@ def _rollout_one(args, policy: _LegacyArcPolicy, seed: int, ep_idx: int):
                 chunk_offset = 0
                 chunk_execution_horizon = min(
                     len(action_chunk),
-                    len(action_chunk) if args.replan_every is None else args.replan_every,
+                    len(action_chunk)
+                    if args.replan_every is None
+                    else args.replan_every,
                 )
                 if chunk_execution_horizon <= 0:
                     raise RuntimeError("duration ARC replan horizon must be positive")
@@ -655,7 +681,10 @@ def _validate_runtime_args(args) -> None:
         raise ValueError(f"only-emb must be {expected_id}")
     if args.n_episodes <= 0 or args.max_steps <= 0:
         raise ValueError("n-episodes and max-steps must be positive")
-    if args.replan_every is not None and not 0 < args.replan_every <= _LEGACY_RAW_ACTION_HORIZON:
+    if (
+        args.replan_every is not None
+        and not 0 < args.replan_every <= _LEGACY_RAW_ACTION_HORIZON
+    ):
         raise ValueError(
             "replan-every must be within the decoded 40-step duration horizon; "
             f"got {args.replan_every}"
@@ -663,13 +692,19 @@ def _validate_runtime_args(args) -> None:
     if args.chunk_seam_artifact is not None and args.replan_every is None:
         raise ValueError("chunk-seam-artifact requires replan-every")
     if args.action_chunk_start_index != 0:
-        raise ValueError("the legacy arc bridge only permits action-chunk-start-index=0")
+        raise ValueError(
+            "the legacy arc bridge only permits action-chunk-start-index=0"
+        )
     if args.sampler_inference_steps is not None and args.sampler_inference_steps != 100:
-        raise ValueError("the legacy Paper-DP bridge only permits its recorded 100 sampler steps")
+        raise ValueError(
+            "the legacy Paper-DP bridge only permits its recorded 100 sampler steps"
+        )
     if args.init_mode != "seeds":
         raise ValueError("the canonical bridge requires init-mode=seeds")
     if not args.init_seeds:
-        args.init_seeds = [args.init_seed_base + index for index in range(args.n_episodes)]
+        args.init_seeds = [
+            args.init_seed_base + index for index in range(args.n_episodes)
+        ]
     if len(args.init_seeds) < args.n_episodes:
         raise ValueError("init-seeds must include one seed per requested episode")
 
@@ -678,7 +713,9 @@ def run(args) -> None:
     _validate_runtime_args(args)
     out_dir = Path(args.out_dir)
     if not out_dir.is_dir():
-        raise RuntimeError(f"canonical launcher did not create output directory {out_dir}")
+        raise RuntimeError(
+            f"canonical launcher did not create output directory {out_dir}"
+        )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     algo, normalizer, decoder, _checkpoint, _cfg = _load_legacy_policy(
         ckpt_path=args.ckpt,
@@ -706,7 +743,11 @@ def run(args) -> None:
         videos_dir.mkdir()
     cuda_devices = [device.index or 0] if device.type == "cuda" else []
     for ep_idx, seed in enumerate(args.init_seeds[: args.n_episodes]):
-        rng_context = torch.random.fork_rng(devices=cuda_devices) if args.rng_pairing else nullcontext()
+        rng_context = (
+            torch.random.fork_rng(devices=cuda_devices)
+            if args.rng_pairing
+            else nullcontext()
+        )
         with rng_context:
             if args.rng_pairing:
                 torch.manual_seed(20000 + 97 * ep_idx)
@@ -716,7 +757,9 @@ def run(args) -> None:
                 args, policy, seed, ep_idx
             )
         coverages.append(float(coverage))
-        np.save(out_dir / f"episode_{ep_idx:02d}_actions.npy", np.stack(actions, axis=0))
+        np.save(
+            out_dir / f"episode_{ep_idx:02d}_actions.npy", np.stack(actions, axis=0)
+        )
         video_path = None
         if args.per_episode_videos:
             video_path = videos_dir / f"episode_{ep_idx:02d}.mp4"
@@ -739,7 +782,9 @@ def run(args) -> None:
         from egomimic.eval.diagnostics.trajectory import write_chunk_seam_artifact
 
         if not seam_events:
-            raise RuntimeError("chunk-seam export requested but no replan seam was captured")
+            raise RuntimeError(
+                "chunk-seam export requested but no replan seam was captured"
+            )
         seam_path = write_chunk_seam_artifact(
             seam_events,
             args.chunk_seam_artifact,
@@ -757,7 +802,9 @@ def run(args) -> None:
         f"[sim] emb{args.only_emb} ep_coverages: "
         + ",".join(f"{value:.4f}" for value in coverages)
     )
-    execution_horizon = policy.decoded_horizon if args.replan_every is None else args.replan_every
+    execution_horizon = (
+        policy.decoded_horizon if args.replan_every is None else args.replan_every
+    )
     summary = {
         "bridge": "pipeline_arc_duration_rollout_v1",
         "comparability": "noncanonical_historical_evaluator_bridge",

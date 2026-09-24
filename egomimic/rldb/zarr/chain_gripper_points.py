@@ -301,7 +301,9 @@ def project_point_trajectories(
         initial_previous = None
 
     for trajectory_index, trajectory in enumerate(trajectories):
-        previous = None if initial_previous is None else initial_previous[trajectory_index]
+        previous = (
+            None if initial_previous is None else initial_previous[trajectory_index]
+        )
         for time_index, predicted_points in enumerate(trajectory):
             projection = project_points_to_pose_control(
                 predicted_points,
@@ -323,7 +325,9 @@ def project_point_trajectories(
                 projection_rmse = float(projection.point_rmse)
             controls[trajectory_index, time_index] = control
             point_rmse[trajectory_index, time_index] = projection_rmse
-            wrong_chirality[trajectory_index, time_index] = bool(projection.wrong_chirality)
+            wrong_chirality[trajectory_index, time_index] = bool(
+                projection.wrong_chirality
+            )
             degenerate[trajectory_index, time_index] = is_degenerate
             previous = control
 

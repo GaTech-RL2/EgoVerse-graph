@@ -8,6 +8,7 @@ from egomimic.rldb.zarr.content_manifest import (
     canonical_manifest_bytes,
 )
 
+
 def _tiny_episodes(root: Path) -> dict[str, Path]:
     root.mkdir()
     episodes = {}

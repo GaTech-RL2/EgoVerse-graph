@@ -151,6 +151,65 @@ def test_prediction_requirements_are_preserved_and_conflicts_rejected():
         evaluator.data_requirements()
 
 
+def test_diagnostics_score_the_captured_prediction_through_shared_metrics(tmp_path):
+    from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
+
+    prediction_evaluator = BimanualCartesianEval(
+        viz_every_n_epochs=0, pose_metrics=False
+    )
+    evaluator = TokenDiagnosticsEval(
+        prediction_evaluator=prediction_evaluator, methods=["pca"], save_plots=False
+    )
+    logged, calls = [], []
+    evaluator.trainer = SimpleNamespace(
+        default_root_dir=str(tmp_path),
+        current_epoch=0,
+        global_step=1,
+        global_rank=0,
+        is_global_zero=True,
+        world_size=1,
+        lightning_module=SimpleNamespace(
+            log_dict=lambda values, **kw: logged.append(values)
+        ),
+    )
+    evaluator.bind_data_context(
+        normalizer=SimpleNamespace(
+            unnormalize=lambda values, identity: {k: v * 2 for k, v in values.items()}
+        )
+    )
+    batch = {
+        "opaque": {
+            "embodiment": torch.tensor([7]),
+            "episode_hash": ["episode"],
+            "frame_index": torch.tensor([0]),
+            "actions_cartesian": torch.zeros(1, 4, 14),
+        }
+    }
+
+    def run(capability, values):
+        calls.append(capability)
+        return {
+            "opaque": {
+                "predictions": {"pred_action": torch.ones(1, 4, 14)},
+                "activations": {
+                    "layer": {
+                        "tokens": torch.eye(4)[None],
+                        "mask": torch.ones(1, 4, dtype=torch.bool),
+                    }
+                },
+            }
+        }
+
+    evaluator.model = SimpleNamespace(run_diagnostic=run)
+    evaluator.on_validation_start()
+    metrics = evaluator.on_validation_step(batch, 0)
+    evaluator.on_validation_end()
+    assert calls == ["token_activations"]
+    assert metrics["Valid/MSE"] == 1
+    assert metrics["Valid/Native_MSE"] == 4
+    assert len(logged) == 1
+
+
 def test_archives_preserve_frames_balance_sources_and_rebuild(tmp_path):
     evaluator = TokenDiagnosticsEval(
         methods=["pca"], max_tokens_per_source_layer=6, save_plots=True

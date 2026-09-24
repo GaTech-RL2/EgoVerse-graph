@@ -1,0 +1,15 @@
+{
+  "tree": "9283bdeb8cdbbb28e1380d156e4f0665c9c3d23d",
+  "snapshot": "781377734fbd23d86610737f8a163f09ac430164",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-ci-validation-20260924",
+  "parent": "9bd2bed5a8b089bcc6b0bcdf45aed94c1bfcf2e9",
+  "status": "passed",
+  "tests": 1408,
+  "warnings": 31,
+  "seconds": 187.69,
+  "command": "HF_HUB_OFFLINE=1 WANDB_MODE=disabled pytest tests -q",
+  "log_sha256": "f4c115986566531cc3dc1416819e4bf917adfeb961420fc1205a9030f5488811",
+  "yaml_contexts": 253,
+  "constructor_contexts": 253,
+  "scope": "isolated CI layer; meta constructors and stubbed PI are not real-weight GPU validation"
+}

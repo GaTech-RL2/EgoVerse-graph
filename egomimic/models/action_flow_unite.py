@@ -32,13 +32,16 @@ class UniteActionFlowContentEncoder(nn.Module):
         self.num_latent_tokens = int(num_latent_tokens)
         self.condition_dim = int(condition_dim)
         self.tokenization_time_max = float(tokenization_time_max)
-        if min(
-            self.input_dim,
-            self.action_horizon,
-            self.latent_dim,
-            self.num_latent_tokens,
-            self.condition_dim,
-        ) <= 0:
+        if (
+            min(
+                self.input_dim,
+                self.action_horizon,
+                self.latent_dim,
+                self.num_latent_tokens,
+                self.condition_dim,
+            )
+            <= 0
+        ):
             raise ValueError("UNITE Action Flow encoder dimensions must be positive")
         if not 0.0 <= self.tokenization_time_max <= 1.0:
             raise ValueError("tokenization_time_max must be in [0, 1]")
@@ -169,9 +172,11 @@ class UniteActionFlowVelocityField(nn.Module):
         if drop_mask.dtype != torch.bool or tuple(drop_mask.shape) != (batch_size,):
             raise ValueError("condition drop mask has the wrong shape or dtype")
         shape = (batch_size,) + (1,) * (condition.ndim - 2) + (self.condition_dim,)
-        null = self.null_condition.to(condition).reshape(
-            *((1,) * (condition.ndim - 1)), self.condition_dim
-        ).expand(shape)
+        null = (
+            self.null_condition.to(condition)
+            .reshape(*((1,) * (condition.ndim - 1)), self.condition_dim)
+            .expand(shape)
+        )
         mask = drop_mask.reshape(batch_size, *((1,) * (condition.ndim - 1)))
         return torch.where(mask, null, condition), drop_mask
 

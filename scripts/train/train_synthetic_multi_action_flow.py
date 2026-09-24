@@ -30,9 +30,7 @@ def _load_dataset(path: str | Path, source_key: str) -> dict[str, torch.Tensor]:
     return {
         "source": torch.from_numpy(archive[source_key]).float(),
         "target": torch.from_numpy(archive["target_3d"]).float(),
-        "train_indices": torch.from_numpy(
-            np.flatnonzero(archive["split"] == 0)
-        ).long(),
+        "train_indices": torch.from_numpy(np.flatnonzero(archive["split"] == 0)).long(),
     }
 
 
@@ -47,8 +45,12 @@ def _export_trajectory(
 ) -> torch.Tensor:
     trajectory = model.trajectory(source, embodiment=embodiment, steps=steps)
     expected = (steps + 1, len(target), 3)
-    if tuple(trajectory.shape) != expected or not bool(torch.isfinite(trajectory).all()):
-        raise RuntimeError(f"invalid {embodiment} trajectory: {tuple(trajectory.shape)}")
+    if tuple(trajectory.shape) != expected or not bool(
+        torch.isfinite(trajectory).all()
+    ):
+        raise RuntimeError(
+            f"invalid {embodiment} trajectory: {tuple(trajectory.shape)}"
+        )
     np.savez_compressed(
         output,
         times=torch.linspace(0.0, 1.0, steps + 1).numpy(),
@@ -99,7 +101,9 @@ def main() -> None:
     batch_size = int(config["batch_size_per_embodiment"])
     checkpoint_every = int(config.get("checkpoint_every", 50_000))
     if batch_size <= 1 or checkpoint_every <= 0:
-        raise ValueError("batch size must exceed one and checkpoint cadence be positive")
+        raise ValueError(
+            "batch size must exceed one and checkpoint cadence be positive"
+        )
     log_path = output / "metrics.jsonl"
     for step in range(1, int(config["max_steps"]) + 1):
         per_embodiment = {}
@@ -120,7 +124,9 @@ def main() -> None:
                 clean_gradient_mode=str(config.get("clean_gradient_mode", "full")),
                 noise=noise,
             )
-        total = torch.stack([losses["loss"] for losses in per_embodiment.values()]).mean()
+        total = torch.stack(
+            [losses["loss"] for losses in per_embodiment.values()]
+        ).mean()
         optimizer.zero_grad(set_to_none=True)
         total.backward()
         optimizer.step()
@@ -142,8 +148,10 @@ def main() -> None:
             epoch_equivalent = total_examples // sum(
                 len(dataset["train_indices"]) for dataset in datasets.values()
             )
-            checkpoint = output / "checkpoints" / (
-                f"epoch-equivalent-{epoch_equivalent:06d}-global-step-{step:06d}.pt"
+            checkpoint = (
+                output
+                / "checkpoints"
+                / (f"epoch-equivalent-{epoch_equivalent:06d}-global-step-{step:06d}.pt")
             )
             torch.save(
                 {
@@ -202,9 +210,7 @@ def main() -> None:
                     "curvature": float(config["curvatures"][name]),
                 }
             surface_kind = surface_spec["kind"]
-            singular_values = model.decoder_jacobian_singular_values(
-                name, source[:128]
-            )
+            singular_values = model.decoder_jacobian_singular_values(name, source[:128])
             embodiment_summary = {
                 "surface_spec": surface_spec,
                 "validation_generation_energy_distance": float(

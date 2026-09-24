@@ -44,7 +44,9 @@ DEFAULT_FRAMES_PER_EPISODE = 2861
 
 def _episode_frames(zarr_path: Path) -> int:
     try:
-        return int(zarr.open(str(zarr_path), mode="r", zarr_format=3).attrs["total_frames"])
+        return int(
+            zarr.open(str(zarr_path), mode="r", zarr_format=3).attrs["total_frames"]
+        )
     except Exception:
         return 0
 
@@ -118,21 +120,27 @@ def main() -> None:
     frames = sum(done.values())
     logger.info(
         "already converted: %d episodes / %d frames (target %d)",
-        len(done), frames, args.target_frames,
+        len(done),
+        frames,
+        args.target_frames,
     )
 
     candidates = [
-        e for e in list_episodes(HfApi(), args.split, args.task)
+        e
+        for e in list_episodes(HfApi(), args.split, args.task)
         if e.removeprefix("episode_") not in done
     ]
     logger.info("%d candidate episodes in %s", len(candidates), args.task)
 
-    results = [{"episode": f"episode_{k}", "ok": True, "frames": v} for k, v in done.items()]
+    results = [
+        {"episode": f"episode_{k}", "ok": True, "frames": v} for k, v in done.items()
+    ]
     it = iter(candidates)
     inflight: set = set()
     submitted = 0
 
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
+
         def _window() -> int:
             """How many episodes to keep in flight.
 
@@ -157,8 +165,15 @@ def main() -> None:
                 inflight.add(
                     ex.submit(
                         _process,
-                        (ep, args.split, args.task, str(raw_root), str(zarr_dir),
-                         args.embodiment, args.keep_raw),
+                        (
+                            ep,
+                            args.split,
+                            args.task,
+                            str(raw_root),
+                            str(zarr_dir),
+                            args.embodiment,
+                            args.keep_raw,
+                        ),
                     )
                 )
                 submitted += 1
@@ -174,8 +189,12 @@ def main() -> None:
                     frames += r["frames"]
                     logger.info(
                         "OK   %s  %5d frames  %5.1fs  |  %d/%d frames (%.1f%%)",
-                        r["episode"][:26], r["frames"], r["seconds"],
-                        frames, args.target_frames, 100 * frames / args.target_frames,
+                        r["episode"][:26],
+                        r["frames"],
+                        r["seconds"],
+                        frames,
+                        args.target_frames,
+                        100 * frames / args.target_frames,
                     )
                 else:
                     logger.warning("SKIP %s  %s", r["episode"][:26], r.get("error"))
@@ -201,7 +220,11 @@ def main() -> None:
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     logger.info(
         "DONE %d episodes / %d frames (target %d) from %d attempts -> %s",
-        len(ok), frames, args.target_frames, submitted, out / "manifest.json",
+        len(ok),
+        frames,
+        args.target_frames,
+        submitted,
+        out / "manifest.json",
     )
 
 

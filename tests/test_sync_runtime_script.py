@@ -1,13 +1,8 @@
 import subprocess
 from pathlib import Path
 
-
 SCRIPT = (
-    Path(__file__).parents[1]
-    / "scripts"
-    / "clusters"
-    / "common"
-    / "sync_runtime.sh"
+    Path(__file__).parents[1] / "scripts" / "clusters" / "common" / "sync_runtime.sh"
 )
 
 

@@ -206,7 +206,9 @@ def main() -> None:
         raise FileExistsError(f"refusing to reuse config directory: {args.output_dir}")
     if args.evaluation_particles <= 1:
         raise ValueError("evaluation-particles must exceed one")
-    if args.run_suffix and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.run_suffix):
+    if args.run_suffix and not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._-]*", args.run_suffix
+    ):
         raise ValueError("run-suffix must be a path-safe identifier")
     for label, path in {
         "training dataset": args.training_dataset,

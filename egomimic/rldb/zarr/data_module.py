@@ -136,6 +136,37 @@ class ZarrDataModule(MultiDataModuleWrapper):
         self._loader_options = loader_options
         self.context = None
 
+    def preflight_configuration(self):
+        """Construct local schema/filter components without resolving any episode."""
+        configurations = {
+            f"train/{name}": cfg for name, cfg in self._train_configs.items()
+        }
+        configurations.update(
+            {
+                f"{group}/{name}": cfg
+                for group, members in as_valid_groups(self._valid_configs).items()
+                for name, cfg in members.items()
+            }
+        )
+        records = []
+        for name, config in configurations.items():
+            if config is None:
+                continue
+            config = OmegaConf.create(config)
+            keymap = hydra.utils.instantiate(config.resolver.key_map)
+            transforms = hydra.utils.instantiate(config.resolver.transform_list)
+            hydra.utils.instantiate(config.get("filters"))
+            if not isinstance(keymap, dict) or not isinstance(
+                transforms, (list, tuple)
+            ):
+                raise TypeError(
+                    f"Source {name} must declare a mapping keymap and transform sequence"
+                )
+            records.append(
+                {"source": name, "keys": sorted(keymap), "transforms": len(transforms)}
+            )
+        return records
+
     @resolve_once()
     def prepare_context(
         self, *, mode, normalization, normalizer=None, restored_state=None

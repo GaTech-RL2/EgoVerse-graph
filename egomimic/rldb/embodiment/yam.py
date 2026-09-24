@@ -109,10 +109,10 @@ class Yam(Embodiment):
     # this only when the episode's metadata reports a D405 top camera.
     TOP_CAMERA_D405 = np.array(
         [
-            [-0.000003673, -0.866026618,  0.499997896, -0.166494880],
-            [-1.000000000,  0.000003181, -0.000001837, -0.263749126],
-            [ 0.000000000, -0.499997896, -0.866026618,  0.967579819],
-            [ 0.000000000,  0.000000000,  0.000000000,  1.000000000]
+            [-0.000003673, -0.866026618, 0.499997896, -0.166494880],
+            [-1.000000000, 0.000003181, -0.000001837, -0.263749126],
+            [0.000000000, -0.499997896, -0.866026618, 0.967579819],
+            [0.000000000, 0.000000000, 0.000000000, 1.000000000],
         ]
     )
     EXTRINSICS = {"front_1": TOP_CAMERA_D405}
@@ -239,7 +239,9 @@ class Yam(Embodiment):
             ),
             **kwargs,
         )
-        texts = _flatten_annotations(batch.get(annotation_key) if annotation_key else None)
+        texts = _flatten_annotations(
+            batch.get(annotation_key) if annotation_key else None
+        )
         if texts:
             vis = _viz_annotations(image=vis, annotations=texts)
         return vis
@@ -288,20 +290,10 @@ class Yam(Embodiment):
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
-        """Mirrors Eva's keymap: the zarr keys the converter writes are the same.
-
-        Camera key naming differs by algo:
-          "cartesian"    -> dataset-style names (HPT and friends)
-          "cartesian_pi" -> PI/PaliGemma-style names (base_0_rgb, ...)
-        """
-        if keymap_mode == "cartesian_pi":
-            front_key = "base_0_rgb"
-            right_wrist_key = "right_wrist_0_rgb"
-            left_wrist_key = "left_wrist_0_rgb"
-        else:
-            front_key = cls.VIZ_IMAGE_KEY
-            right_wrist_key = "observations.images.right_wrist_img"
-            left_wrist_key = "observations.images.left_wrist_img"
+        """Use canonical dataset names for every model adapter."""
+        front_key = cls.VIZ_IMAGE_KEY
+        right_wrist_key = "observations.images.right_wrist_img"
+        left_wrist_key = "observations.images.left_wrist_img"
 
         # Arc-tokenizer mode needs a wider raw window so per-arm arc length can
         # reach ``min_distance_unit`` (D) before the padded tail kicks in.

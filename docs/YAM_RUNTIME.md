@@ -233,25 +233,31 @@ python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/eva_rollo
 ```
 
 Copy and fill the deployment YAML first. Supply the saved **fully composed**
-training `.hydra/config.yaml`, checkpoint, device, and full normalization cache.
-`trainHydra.py norm_stats_only=true norm_stats.save_cache_dir=...` exports
-`norm_stats/norm_stats.json` with the complete `normalizer_state`; use the same
-training recipe and dataset normalization settings. Old numeric-only caches must
-be exported again. Rollout never instantiates the training datasets.
+training `.hydra/config.yaml`, checkpoint, device, and the training run's
+`data-context.json` as `policy.normalizer_path`. This full context includes
+preprocessing and normalization; a statistics-only cache is insufficient for
+bound deployment. Rollout never instantiates the training datasets.
 
 Every normal `trainHydra.py` training run also writes
 `checkpoints/inference-config.yaml`. Keep it beside the checkpoint when moving a
 bundle. Rollout discovers either that generic name or the immutable
 `<run-prefix>.inference-config.yaml` form automatically. The artifact is bound to
-the exact resolved `model.pipeline` and contains only model semantics; station
+the exact resolved `model.pipeline`, inference declaration and data context;
+station
 camera maps, calibration, prompt, and safety limits stay in the rollout YAML.
-For an older checkpoint, generate the same artifact without opening hardware:
+To verify and re-export a sidecar for an already-bound checkpoint:
 
 ```bash
 python -m egomimic.pipeline.inference_config \
   --training-config /path/to/resolved-config.yaml \
+  --checkpoint /path/to/model.ckpt \
+  --data-context /path/to/data-context.json \
   --output /path/beside/checkpoint/inference-config.yaml
 ```
+
+Older unbound checkpoints require their immutable original runtime or an
+explicitly verified migration. Adding a sidecar alone cannot establish their
+preprocessing semantics. See [checkpoint policy](integration/CHECKPOINTS.md).
 
 Inference constructs `PipelineAlgo`, binds its normalizer, strictly restores its
 weights (and EMA only if requested), then runs graph inference. HPT and PI use

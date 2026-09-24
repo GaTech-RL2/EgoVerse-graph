@@ -458,16 +458,32 @@ class ModelWrapper(LightningModule):
     def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         if self.data_context is not None:
             checkpoint["data_context"] = self.data_context.snapshot()
+            config_tree = getattr(self.hparams, "config_tree", None)
+            if config_tree is not None:
+                from egomimic.pipeline.checkpoint_binding import checkpoint_binding
+
+                checkpoint["inference_binding"] = checkpoint_binding(
+                    config_tree, self.data_context
+                )
         self.training_behavior.on_save_checkpoint(checkpoint)
 
     def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         saved = checkpoint.get("data_context")
         if saved is not None and self.data_context is not None:
             current = self.data_context.snapshot()
-            if saved.get("sha256") != current.get("sha256"):
+            from egomimic.pl_utils.data_context import state_fingerprint
+
+            if state_fingerprint(saved) != state_fingerprint(current):
                 raise ValueError(
                     "Resume checkpoint normalization differs from the bound data context"
                 )
+            config_tree = getattr(self.hparams, "config_tree", None)
+            if config_tree is not None:
+                from egomimic.pipeline.checkpoint_binding import (
+                    validate_checkpoint_binding,
+                )
+
+                validate_checkpoint_binding(checkpoint, config_tree, self.data_context)
         self.training_behavior.on_load_checkpoint(checkpoint)
 
     def on_fit_start(self):

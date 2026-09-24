@@ -382,6 +382,26 @@ def test_checkpoint_browser_lists_only_rooted_checkpoint_candidates(tmp_path):
         browser.resolve_bundle("../outside.ckpt")
 
 
+def test_checkpoint_browser_search_matches_anywhere_case_insensitive(tmp_path):
+    root = tmp_path / "models"
+    root.mkdir()
+    checkpoint = root / "hptflow-step-120000-final.ckpt"
+    checkpoint.write_bytes(b"weights")
+    (root / "resolved-config.yaml").write_text("model: {}\n")
+    (root / "norm_stats.json").write_text("{}\n")
+    (root / "unrelated").mkdir()
+    browser = CheckpointBrowser(root)
+
+    assert browser.list_directory(query="STEP-120")["entries"] == [
+        {
+            "type": "checkpoint",
+            "name": checkpoint.name,
+            "path": checkpoint.name,
+        }
+    ]
+    assert browser.list_directory(query="not-present")["entries"] == []
+
+
 def test_checkpoint_browser_accepts_checkpoint_prefixed_artifacts(tmp_path):
     checkpoint = tmp_path / "towels_rl2_time__epoch-1199-step-120000__sha256-abcd.ckpt"
     checkpoint.write_bytes(b"weights")
@@ -647,13 +667,16 @@ def test_dashboard_uses_space_and_places_dynamic_inference_controls_below_camera
     assert 'id="recording-indicator"' in html
     assert 'id="open-videos"' in html
     assert 'id="select-model"' in html
+    assert 'id="model-search"' in html
+    assert "new URLSearchParams({path, query})" in javascript
     assert 'id="current-model"' in html
+    assert html.index('id="current-model"') < html.index('id="status"')
     assert "updateCurrentModel" in javascript
     assert 'class="rollout-control-panel"' in html
     assert 'class="rollout-button-grid"' in html
     assert ".rollout-button-grid { display: grid;" in (static / "style.css").read_text()
     assert ".recording[hidden]" in (static / "style.css").read_text()
-    assert "?v=8" in html
+    assert "?v=9" in html
     assert "inference_override" in javascript
     assert "updateInferenceControls" in javascript
     assert "Apply settings" in javascript

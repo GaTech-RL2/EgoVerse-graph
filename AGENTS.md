@@ -50,6 +50,27 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
 
 ## Component boundaries
 
+- Before changing shared pipeline, training, inference export, normalization,
+  evaluator, or video code, read
+  [docs/GENERIC_PIPELINE_CONTRACT.md](docs/GENERIC_PIPELINE_CONTRACT.md). It is
+  the normative model/data-agnostic architecture contract. Existing violations
+  listed there are migration debt, not precedent.
+- Keep every reusable stage a configured `dict -> dict` transform with complete
+  `reads`/`writes` contracts. Shared runners and orchestration must dispatch on
+  declared capabilities, never concrete stage classes, `_target_` strings,
+  model families, task names, robot names, or dataset internals.
+- Put model inference semantics and intentionally exposed runtime controls in a
+  model-owned YAML contract. A generic exporter may validate and serialize that
+  declaration but must not infer semantics from a hardcoded family whitelist.
+- The DataModule/data adapter owns dataset creation, normalization, collation,
+  sampling, source identity, episode identity, and ordering. Evaluators declare
+  their data requirements and validation-loop overrides through the shared
+  evaluator interface. Do not add new `trainHydra.py` probes for evaluator or
+  dataset-specific attributes.
+- Family-specific codecs, metrics, stages, and robot adapters are valid behind
+  explicit configuration. Do not make shared code know that they were selected.
+  When touching a known exception, move it toward the generic boundary and
+  never add another hardcoded case alongside it.
 - Put task selection, SQL filters, task prompts and experiment-specific numeric
   choices in YAML. Reuse the generic keymap/transform APIs; do not add Python
   modules for individual manipulation tasks.

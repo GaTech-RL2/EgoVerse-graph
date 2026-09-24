@@ -1,0 +1,66 @@
+# New checkpoint format. Preserve earlier duration-ARC experiments unchanged.
+# M controls shape resolution; clock and total duration are separate factors.
+base_recipe: dqc.yaml
+suite_recipe: dqc_suite.yaml
+codec_overrides:
+  _target_: egomimic.rldb.action_codec.ShapeTimeControlChunkCodec
+  duration_reference: 5.0
+  extent_reference: 1.0
+  # Each normalized native-control channel contributes equally to arc progress.
+  # The launcher fills geometry_units from the environment's action_scale.
+  geometry_units: null
+protocol:
+  name: dqc_fixed_td_shape_time_median5
+  target_median_native_steps: 5
+  reference_policy_native_steps: 5
+  teacher_native_steps: 25
+  time_unit: native_environment_step
+  inference_execution: full_decoded_chunk_until_environment_done
+  allocation: uniform_geometric_arc_progress
+  clock: progress_increments_at_native_boundaries
+  total_duration: independent_log_native_steps
+  actor_factor_loss: equal_total_weight_per_factor
+  checkpoint_compatible_with_legacy_arc: false
+  window_source: frozen_median5_calibration
+  selection_uses_policy_evaluation: false
+# Selected DQC settings in arXiv:2512.10926, Table 7. The existing all-ha5
+# baseline is a valid paper ablation, not the selected setting for every task.
+paper_policy_native_steps:
+  cube-triple: 5
+  cube-quadruple: 5
+  cube-octuple: 5
+  humanoidmaze-giant: 1
+  puzzle-4x5: 5
+  puzzle-4x6: 1
+calibration:
+  seed: 749193
+  windows: 1024
+  physics_windows: 64
+  physics_candidates: 5
+  selection_objective: fidelity
+  grid:
+    native_horizon: [25]
+    waypoints: [8, 16, 32, 64, 128]
+  # Distance, rotation and sampled windows are frozen from median5. This sweep
+  # isolates representation/shape resolution instead of lengthening execution.
+  gates:
+    action_rmse_p90: 0.01
+    mean_native_steps: 1.0
+    qpos_rmse_p90: 0.01
+# Explicit follow-up: humanoid M64/128 met the action gate but missed the
+# physics gate. Retain that failed report; extend resolution without relaxing it.
+calibration_followups:
+  humanoidmaze-giant:
+    grid:
+      waypoints: [256, 512]
+smoke:
+  domain: cube-triple
+  steps: 100
+  log_interval: 10
+  checkpoint_interval: 50
+  eval_interval: 100
+  eval_episodes: 2
+  eval_task_ids: [1]
+  video_episodes: 1
+  audit_samples: 1024
+  audit_seed: 749194

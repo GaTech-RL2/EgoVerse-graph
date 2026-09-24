@@ -1,0 +1,86 @@
+# Selected DQC reference: arXiv:2512.10926, Table 7 (printed page 25).
+# Fresh comparisons; never relabel or resume an earlier all-ha5 experiment.
+base_recipe: dqc.yaml
+suite_recipe: dqc_suite.yaml
+arms: [native_reference, native_window, arc]
+domain_protocols:
+  cube-triple: {reference_policy_native_steps: 5, teacher_native_steps: 25, kappa_b: 0.93, kappa_d: 0.8}
+  cube-quadruple: {reference_policy_native_steps: 5, teacher_native_steps: 25, kappa_b: 0.93, kappa_d: 0.8}
+  cube-octuple: {reference_policy_native_steps: 5, teacher_native_steps: 25, kappa_b: 0.93, kappa_d: 0.5}
+  humanoidmaze-giant: {reference_policy_native_steps: 1, teacher_native_steps: 25, kappa_b: 0.5, kappa_d: 0.8}
+  puzzle-4x5: {reference_policy_native_steps: 5, teacher_native_steps: 25, kappa_b: 0.9, kappa_d: 0.5}
+  puzzle-4x6: {reference_policy_native_steps: 1, teacher_native_steps: 25, kappa_b: 0.7, kappa_d: 0.5}
+codec_overrides:
+  _target_: egomimic.rldb.action_codec.ShapeTimeControlChunkCodec
+  # Filled per domain: duration_reference=reference_policy_native_steps and
+  # geometry_units=action_scale (ones for direct-control spaces).
+  duration_reference: ???
+  geometry_units: ???
+  extent_reference: 1.0
+overrides:
+  include_future_observations: false
+  model.pipeline.stages.0.backup_mode: fixed
+  model.pipeline.stages.0.use_chunk_critic: true
+  wandb.group: dqc-table7-fidelity-20260922
+protocol:
+  name: dqc_table7_fixed_td_fidelity_matched
+  reference_policy_native_steps: ???
+  target_median_native_steps: ???
+  teacher_native_steps: 25
+  time_unit: native_environment_step
+  goal_reward_interval: half_open_state_based
+  teacher: original_native_action_chunk_critic
+  optimizer_updates: 1000000
+  batch_size: 4096
+  allocation: uniform_geometric_arc_progress
+  inference_execution: full_decoded_chunk_until_environment_done
+  native_reference_execution: fixed_table7_policy_horizon
+  arc_duration_matching: replay_median_not_fixed_duration
+  selection_uses_policy_evaluation: false
+calibration:
+  seed: 749193
+  windows: 1024
+  replay_batch_size: 64
+  physics_windows: 64
+  physics_candidates: 20
+  physics_all_candidates: true
+  selection_objective: smallest_faithful
+  grid:
+    native_horizon: [25]
+    waypoints: [3, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+  gates:
+    # Absolute error in normalized native control units; no compression gate.
+    action_rmse_p90: 0.001
+    action_rmse_p99: 0.001
+    action_max_abs: 0.01
+    first_action_rmse_p99: 0.001
+    mean_native_steps: 1.0
+    qpos_rmse_p90: 0.001
+    qpos_rmse_max: 0.01
+window_matching:
+  rotation_multipliers: [0.5, 1.0, 2.0, 4.0, 8.0]
+  preserve_existing_windows_when_median_matches: true
+  proposal_selection: closest_mean_duration_then_cap_fraction
+confirmation:
+  seed: 914297
+  windows: 1024
+  physics_windows: 64
+  exclude_calibration_indices: true
+smoke:
+  # Representatives of both Table7 execution horizons with confirmed fidelity.
+  domains: [cube-quadruple, humanoidmaze-giant]
+  steps: 100
+  log_interval: 10
+  checkpoint_interval: 50
+  eval_interval: 100
+  eval_episodes: 2
+  eval_task_ids: [1]
+  video_episodes: 1
+  audit_samples: 1024
+  audit_seed: 749194
+workers_per_arm: 2
+data_gate:
+  generator_sha256: 120e84e88c046175301ce11c12e9fb0d64d3dece4b03855ec445b328f5b9a2fc
+  expected_transitions: 1000000000
+  poll_seconds: 60
+  timeout_seconds: 1641600

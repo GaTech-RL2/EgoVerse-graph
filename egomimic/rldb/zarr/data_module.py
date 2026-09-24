@@ -84,6 +84,38 @@ def load_normalizer(path):
     return normalizer_from_state(state)
 
 
+def load_data_context(path):
+    """Restore a full exported data context without opening a data source."""
+    payload = json.loads(Path(path).read_text())
+    state = payload.get("data_context", payload)
+    if state.get("kind") != "zarr-normalizer-v1" or "normalizer_state" not in state:
+        raise ValueError(
+            "Inference requires a complete exported data_context, not a statistics-only cache"
+        )
+    if state.get("sha256") != _digest(state["normalizer_state"]):
+        raise ValueError("Data context normalizer hash mismatch")
+    owner = normalizer_from_state(state["normalizer_state"])
+    return DataContext(owner, copy.deepcopy(owner.shapes), (), state)
+
+
+def _preprocessing_contract(config, source_fps):
+    """Keep resolver locations and sample selection out of tensor semantics."""
+    config = OmegaConf.create(config)
+    return {
+        "key_map": OmegaConf.to_container(
+            OmegaConf.create(OmegaConf.select(config, "resolver.key_map", default={})),
+            resolve=True,
+        ),
+        "transforms": OmegaConf.to_container(
+            OmegaConf.create(
+                OmegaConf.select(config, "resolver.transform_list", default=[])
+            ),
+            resolve=True,
+        ),
+        "source_fps": source_fps,
+    }
+
+
 class ZarrDataModule(MultiDataModuleWrapper):
     """Configured Zarr adapter; construction is lazy until mode is known."""
 
@@ -213,6 +245,17 @@ class ZarrDataModule(MultiDataModuleWrapper):
         all_datasets = [(f"train/{k}", v) for k, v in train.items()] + [
             (f"{group}/{name}", ds) for group, name, ds in self.iter_valid_datasets()
         ]
+        preprocessing = copy.deepcopy(saved.get("preprocessing", {})) if saved else {}
+        configurations = {
+            f"train/{name}": config for name, config in self._train_configs.items()
+        }
+        configurations.update(
+            {
+                f"{group}/{name}": config
+                for group, members in as_valid_groups(self._valid_configs).items()
+                for name, config in members.items()
+            }
+        )
         for name, dataset in all_datasets:
             dataset.set_norm_stats_from(owner)
             if dataset.norm_stats is not owner.norm_stats:
@@ -223,6 +266,14 @@ class ZarrDataModule(MultiDataModuleWrapper):
                     f"Validation source {name} is absent from the normalization context"
                 )
             identity = int(sample["embodiment"])
+            semantic = _preprocessing_contract(configurations[name], self.source_fps)
+            key = str(identity)
+            if key in preprocessing and preprocessing[key] != semantic:
+                raise ValueError(
+                    f"Saved preprocessing/frame contract differs at {name}"
+                )
+            if saved is None:
+                preprocessing[key] = semantic
             required = {
                 owner.keyname_to_zarr_key(key, identity)
                 for key in owner.norm_stats.get(identity, {})
@@ -245,6 +296,8 @@ class ZarrDataModule(MultiDataModuleWrapper):
             "normalizer_state": state,
             "sha256": _digest(state),
         }
+        if preprocessing:
+            snapshot["preprocessing"] = preprocessing
         self.context = DataContext(
             owner, copy.deepcopy(owner.shapes), tuple(self.valid_group_names), snapshot
         )

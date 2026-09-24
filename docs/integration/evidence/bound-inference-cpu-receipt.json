@@ -1,0 +1,13 @@
+{
+  "tree": "ecf84d0289e7f3e64ec8c0c613d1340676b00e06",
+  "snapshot": "5a8b8216c4a79e4fe68b7b1ef07a84882b15362d",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-bound-validation-20260924",
+  "parent": "5cb26b9e78c65a5b3d91adf45b6b9e9ba8af0871",
+  "status": "passed",
+  "tests": 1404,
+  "warnings": 28,
+  "seconds": 153.15,
+  "command": "HF_HUB_OFFLINE=1 WANDB_MODE=disabled pytest tests -q",
+  "log_sha256": "f9d27c5a8b74d258ddf5be08e6e7d2179140946f8616e9e38fbaf4a3843cd184",
+  "scope": "isolated bound-inference layer; real-weight GPU and assembled destination gates remain open"
+}

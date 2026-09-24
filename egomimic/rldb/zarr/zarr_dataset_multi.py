@@ -1805,6 +1805,37 @@ class MultiDataset(torch.utils.data.Dataset):
             out[zarr_key] = self._apply_norm_one(tensor, stats)
         return out
 
+    def validate_inference_schema(self, schema, *, identity=None, required_keys=()):
+        """Data-owned validation; inference consumers never inspect storage keymaps."""
+        if identity is None:
+            identity = schema.get("embodiment")
+        if identity is None:
+            raise ValueError("Inference requires an explicit normalization identity")
+        identity = int(identity)
+        if identity not in self.embodiments:
+            raise ValueError("Identity is absent from the training normalizer")
+        if "embodiment" in schema and schema["embodiment"] != identity:
+            raise ValueError("Model declaration and normalization identity differ")
+        action_key = schema["action_key"]
+        if "native_shape" in schema and list(
+            self.key_shape(action_key, identity)
+        ) != list(schema["native_shape"]):
+            raise ValueError(
+                "Model native shape differs from the training normalization schema"
+            )
+        for key in (action_key, *required_keys):
+            if (
+                self.zarr_keys[identity].get(key) != key
+                or self.key_types[identity].get(key) not in self.NORMALIZE_KEY_TYPES
+            ):
+                raise ValueError(
+                    f"Inference key must match the normalized training keymap: {key}"
+                )
+            if key not in self.shapes[identity]:
+                raise ValueError(f"Key is absent from the training schema: {key}")
+            if self.norm_mode != "none" and key not in self.norm_stats[identity]:
+                raise ValueError(f"Missing normalization statistics: {key}")
+
     def unnormalize(self, data: dict, embodiment_id: int) -> dict:
         if not self.norm_stats.get(embodiment_id):
             return data

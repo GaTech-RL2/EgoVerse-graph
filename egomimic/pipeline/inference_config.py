@@ -190,7 +190,9 @@ def validate_input_constants(graph, provided):
             )
 
 
-def build_inference_config(training: DictConfig | Mapping[str, Any]) -> dict[str, Any]:
+def build_inference_config(
+    training: DictConfig | Mapping[str, Any], *, data_context=None
+) -> dict[str, Any]:
     """Validate, hash and serialize the declaration; never guess semantics."""
     config = _as_config(training)
     artifact = {
@@ -199,6 +201,10 @@ def build_inference_config(training: DictConfig | Mapping[str, Any]) -> dict[str
         "model_pipeline_sha256": model_pipeline_sha256(config),
         "inference_contract_sha256": inference_contract_sha256(config),
     }
+    if data_context is not None:
+        from egomimic.pipeline.checkpoint_binding import checkpoint_binding
+
+        artifact["checkpoint_binding"] = checkpoint_binding(config, data_context)
     try:
         declaration = _plain_node(config, "model.inference")
         if (
@@ -316,13 +322,20 @@ def find_inference_config(checkpoint: str | Path) -> Path | None:
 
 
 def write_inference_config(
-    training: DictConfig | Mapping[str, Any], path: str | Path
+    training: DictConfig | Mapping[str, Any], path: str | Path, *, data_context=None
 ) -> tuple[Path, dict[str, Any]]:
     """Atomically write one immutable artifact, tolerating identical DDP writers."""
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    artifact = build_inference_config(training)
+    artifact = build_inference_config(training, data_context=data_context)
     payload = OmegaConf.to_yaml(OmegaConf.create(artifact), resolve=True)
+    _write_immutable_text(destination, payload)
+    return destination, artifact
+
+
+def _write_immutable_text(destination, payload):
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(
         f".{destination.name}.{os.getpid()}.{os.urandom(6).hex()}.tmp"
     )
@@ -347,11 +360,12 @@ def write_inference_config(
                 )
     finally:
         temporary.unlink(missing_ok=True)
-    return destination, artifact
 
 
 def export_configured_inference_artifact(
     training: DictConfig | Mapping[str, Any],
+    *,
+    data_context=None,
 ) -> tuple[Path, dict[str, Any]] | None:
     """Apply the global trainHydra inference-config export settings."""
     config = _as_config(training)
@@ -368,19 +382,57 @@ def export_configured_inference_artifact(
     path = settings.get("output_path")
     if not isinstance(path, str) or not path:
         raise ValueError("inference_config.output_path must be a nonempty path")
-    return write_inference_config(config, path)
+    result = write_inference_config(config, path, data_context=data_context)
+    if data_context is not None:
+        from egomimic.pl_utils.data_context import serializable_state
+
+        # Use the same immutable writer semantics as the inference sidecar.
+        context_path = Path(path).with_name("data-context.json")
+        payload = (
+            json.dumps(
+                {"data_context": serializable_state(data_context.snapshot())},
+                sort_keys=True,
+                allow_nan=False,
+                indent=2,
+            )
+            + "\n"
+        )
+        _write_immutable_text(context_path, payload)
+    return result
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate a model-owned inference-config.yaml; opens no hardware."
+        description="Export a declaration or verify a bound checkpoint sidecar; opens no hardware."
     )
     parser.add_argument("--training-config", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument(
+        "--checkpoint", help="Existing bound graph checkpoint to verify"
+    )
+    parser.add_argument("--data-context", help="Complete training data-context.json")
     args = parser.parse_args()
     training = OmegaConf.load(args.training_config)
-    path, artifact = write_inference_config(training, args.output)
-    print(f"Wrote {artifact['status']} inference config: {path}")
+    if bool(args.checkpoint) != bool(args.data_context):
+        parser.error("--checkpoint and --data-context must be supplied together")
+    context = None
+    if args.checkpoint:
+        import torch
+        from hydra.utils import instantiate
+
+        from egomimic.pipeline.checkpoint_binding import validate_checkpoint_binding
+        from egomimic.pl_utils.data_context import DataContext
+
+        context = instantiate(training.data_context_loader, path=args.data_context)
+        if not isinstance(context, DataContext):
+            raise TypeError("data_context_loader must return a complete DataContext")
+        checkpoint = torch.load(
+            args.checkpoint, map_location="cpu", weights_only=False, mmap=True
+        )
+        validate_checkpoint_binding(checkpoint, training, context)
+    path, artifact = write_inference_config(training, args.output, data_context=context)
+    binding = "checkpoint-bound" if context else "unbound declaration; cannot deploy"
+    print(f"Wrote {artifact['status']} inference config ({binding}): {path}")
 
 
 if __name__ == "__main__":

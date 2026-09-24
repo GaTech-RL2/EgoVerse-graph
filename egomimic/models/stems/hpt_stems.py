@@ -167,6 +167,10 @@ class ResNet(PolicyStem):
     ) -> None:
         """ResNet Encoder for Images"""
         super().__init__(**kwargs)
+        from egomimic.pipeline.construction import restoring_parameters
+
+        if restoring_parameters():
+            weights = None
         pretrained_model = getattr(torchvision.models, resnet_model)(weights=weights)
 
         # by default we use a separate image encoder for each view in downstream evaluation

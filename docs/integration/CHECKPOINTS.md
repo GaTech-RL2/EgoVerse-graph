@@ -3,20 +3,47 @@
 Owner: graph integration. The destination runtime is `PipelineAlgo`.
 
 Graph training resumes require a complete, strict state-dictionary match.
-Saved normalizers are restored before model binding; normalization hashes must
-match on resume. Standalone evaluation never recomputes normalization from the
-training corpus. Export the full normalizer schema and statistics if an older
-graph checkpoint predates embedded data contexts.
+Saved data contexts are restored before model binding. Checkpoints from the
+integration runtime bind the resolved pipeline, inference declaration and the
+**entire** data-context snapshot. That snapshot includes normalization mode,
+numeric statistics, schema, and the data adapter's keymap/transform/frame-rate
+configuration. Standalone evaluation never recomputes normalization from the
+training corpus. Moving validation data or selecting different held-out episodes
+is allowed; changing preprocessing under a saved checkpoint is rejected.
 
 Inference artifact schema 2 binds the resolved model pipeline, explicit model
 declaration, normalizer schema, tokenizer and decoder. Schema 1 inferred model
-semantics by class name and is intentionally rejected. To migrate an older
-graph run, add and review the exact model-owned declaration against its saved
-training configuration, then run `python -m egomimic.pipeline.inference_config
---training-config <resolved.yaml> --output <new-sidecar.yaml>`. Preserve the
-original config and sidecar. Do not substitute a current recipe or overwrite
-historical artifacts. Exporting a declaration does not prove a trained codec
-or timing representation compatible.
+semantics by class name and is intentionally rejected. Normal training emits
+`inference-config.yaml` and `data-context.json` next to its checkpoints; keep
+them with the saved **resolved** training configuration. The high-level resume
+and inference loaders reject checkpoints lacking this binding. This is a new
+fail-closed boundary, not a claim of automatic migration for older graph runs.
+Preserve their exact source/environment/config/data context until an explicitly
+verified migration exists. No general converter has been added.
+
+The exporter CLI without checkpoint/context arguments writes an **unbound
+declaration** for review; that file cannot authorize deployment. To re-export a
+sidecar for an already-bound checkpoint, pass `--checkpoint <file.ckpt>` and
+`--data-context <data-context.json>` alongside `--training-config <resolved.yaml>`
+and `--output <new-sidecar.yaml>`. It verifies every binding before writing and
+refuses to overwrite different artifacts. Exporting a declaration does not prove
+a learned codec or timing representation compatible.
+
+`pipeline.inference_session.InferenceSession` consumes already-assembled
+model-facing observation windows and returns canonical tensor action sequences
+without opening hardware or datasets. Use `normalize_inputs=False` only for
+observations already normalized by the training DataModule. The robot policy
+uses the same bound graph loader, adding station camera/frame conversion and
+history buffering. Both paths decode the same declared time grid and expose the
+model's typed sampling/replanning controls.
+
+Strict restoration constructs the architecture while suppressing external
+parameter initialization. It then loads every checkpoint key strictly. HPT
+vision/text and PI constructors honor this scoped policy; tokenizer and model
+configuration resources are still required. This avoids downloading or opening
+obsolete pretraining files just to overwrite their parameters from a checkpoint.
+Fresh training retains its configured initialization, with overlapping
+initialization targets rejected before any parameter is changed.
 
 Historical chunk-mean ARC is diagnostic-only. Its checkpoints remain retained;
 they cannot be made into interval-duration policies by changing a decoder.

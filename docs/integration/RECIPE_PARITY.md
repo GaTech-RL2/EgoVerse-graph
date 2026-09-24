@@ -79,8 +79,36 @@ Empty annotations/default prompts produce the restored once-per-instance warning
 
 The eight-source CPU gate uses the real data adapter, normalization, graph and
 optimizer, with a tiny substituted OpenPI backend. It is not evidence for a
-real-weight PI GPU training run. Attention/latent analysis and its sampling
-modes remain pending until ported and tested.
+real-weight PI GPU training run. A separate two-source optimizer/overlay test
+checks EVA 14D and human 12D normalization together, both source losses, the
+sampled prompt, and actual encoded videos. Resolved optimizer/scheduler fields
+are compared with the pinned source snapshot for every root PI recipe.
+
+The latent path uses an explicitly configured PI attention provider and the
+model-independent `TokenDiagnosticsEval`. It captures first-call prefix and
+action-expert attention keys, scopes hooks to one inference, and restores the
+compiled sampler afterwards. PCA, CPU UMAP, PCA→UMAP, 2D/3D t-SNE, CSV/raw-key
+archives, plots, and standalone rebuilds are retained. Each rank emits an
+explicitly rank-local archive; projections are not advertised as a pooled
+distributed reduction. CPU UMAP replaces the old automatic cuML selection to
+keep this optional environment reproducible; projection coordinates across
+backends are not claimed to be identical.
+
+Latent selections are now `data.selection.mode=random|pairs|custom`, with
+`pair_hashes`, `custom_hashes`, `frames_per_episode`, and `stride` in the data
+YAML. Recorded pair hashes remain unchanged. Exact selections reject missing
+episodes instead of silently returning a subset. The default batch is 16 and
+the retained-token cap is 4,096 per source per layer, replacing the old batch
+of 500 and unbounded retention. Both are explicit configuration knobs. Actual
+episode/frame/token identities are preserved; repeated samples are deduplicated.
+The diagnostic data selection remains a reproduction/visualization dataset,
+not a held-out score split.
+
+Multi-source tests exposed a schema bug: shape inference previously rewrote
+every source with the currently inspected sample's dimensions. It now updates
+only the declared sample identity and rejects conflicting schemas. Subsampled
+datasets delegate normalization to their underlying data instead of adopting
+`MultiDataset`'s class identity without its initialization.
 
 ## Data and time
 

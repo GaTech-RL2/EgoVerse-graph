@@ -64,6 +64,16 @@ data tools, real-weight OSMO gates, fixed-fixture comparisons and destination
 assembly remain open. The parity manifest stays blocked until evidence exists
 for every retained capability.
 
+Published stack: contracts PR #150 (`ee94a8a3`) → HPT PR #151 (`64251fce`).
+The isolated HPT layer passed 1,369 tests; see `evidence/hpt-cpu-receipt.json`.
+The PI layer is on `codex/graph-integration-20260924/03-pi-parity`: retained
+source recipes and schedules, mixed-source shape isolation, explicit diagnostic
+providers, latent sampling/reductions/rebuilds, and hash-verified OpenPI patches.
+Its focused gates pass (48 PI/data/diagnostic cases plus two cotrain/schedule
+cases). The working-tree recursive audit resolves 243/243 YAMLs. Full isolated
+PI-layer validation is next; none of these receipts closes the final GPU or
+assembled-destination gates.
+
 The HPT layer now includes every retained root HPT recipe plus EgoBridge's
 configured cross-source OT/DTW graph. CPU comparisons against pinned original
 methods check loss and gradients, the BC-only detach boundary, independent

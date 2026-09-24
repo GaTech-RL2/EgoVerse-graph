@@ -184,8 +184,16 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 else MultiDataset(**kwargs)
             )
             owner.populate_from_datasets(train)
+            seen_identities = set()
             for name, dataset in train.items():
-                owner.infer_shapes_from_batch(dataset[0])
+                sample = dataset[0]
+                identity = int(sample["embodiment"])
+                if identity in seen_identities:
+                    raise ValueError(
+                        "Combine datasets sharing a normalization identity in one source before fitting statistics"
+                    )
+                seen_identities.add(identity)
+                owner.infer_shapes_from_batch(sample)
                 config = OmegaConf.create(copy.deepcopy(self._train_configs[name]))
                 if OmegaConf.select(config, "resolver.key_map", default=None) is None:
                     raise ValueError(
@@ -195,7 +203,7 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 norm_dataset = hydra.utils.instantiate(config)
                 owner.infer_norm_from_dataset(
                     norm_dataset,
-                    name,
+                    identity,
                     sample_frac=options.get("sample_frac", 1.0),
                     num_workers=options.get("num_workers", 4),
                     precomputed_norm_path=path,
@@ -213,6 +221,15 @@ class ZarrDataModule(MultiDataModuleWrapper):
             if int(sample["embodiment"]) not in owner.embodiments:
                 raise ValueError(
                     f"Validation source {name} is absent from the normalization context"
+                )
+            identity = int(sample["embodiment"])
+            required = {
+                owner.keyname_to_zarr_key(key, identity)
+                for key in owner.norm_stats.get(identity, {})
+            }
+            if missing := required - set(sample):
+                raise ValueError(
+                    f"Saved normalization requires missing keys at {name}: {sorted(missing)}"
                 )
             for key, shape in owner.shapes.get(int(sample["embodiment"]), {}).items():
                 zarr_key = owner.keyname_to_zarr_key(key, int(sample["embodiment"]))

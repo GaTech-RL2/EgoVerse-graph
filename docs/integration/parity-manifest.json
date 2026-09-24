@@ -46,9 +46,20 @@
       "legacy_blob": "bfdc1117cbdc70322b1b24ef3fd17b8718f67def",
       "category": "policy runtime",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/pipeline/stages_pi05.py",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/eval/eval_hpt.py",
@@ -64,18 +75,40 @@
       "legacy_blob": "3717694741581494620af90b8d0760fee4a5d1da",
       "category": "evaluation",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/eval/token_diagnostics.py",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/eval/eval_pi.py",
       "legacy_blob": "720619770135e36dc8f0f6f3a7897ac6e791735e",
       "category": "evaluation",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/eval/bimanual_cartesian_eval.py",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/eval/eval_video.py",
@@ -91,9 +124,20 @@
       "legacy_blob": "dcd078fc2ade5dba9d13ed3aafa5b390b3e58929",
       "category": "evaluation",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/rldb/zarr/selection.py",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/aria_keypoints.yaml",
@@ -176,54 +220,120 @@
       "legacy_blob": "e6ce59979ced994cb470b74b2b00edc4cb8b5b8c",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pi_base.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_lang.yaml",
       "legacy_blob": "6dfdf34e2c0662c1f111f49780ab8c11244a57da",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pi_lang.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_lang_wrist.yaml",
       "legacy_blob": "641e483fa4b6ef3d5ca6bfee153bbdc217a6b892",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pi_lang_wrist.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_latent.yaml",
       "legacy_blob": "b00837624569612c8bb73dda4330b46e5c8dc752",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pi_latent.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_no_lang.yaml",
       "legacy_blob": "452ec91a0dfca0cb146125cc102f2a0a543f4a7e",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pi_no_lang.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_pickplace_qwen.yaml",
       "legacy_blob": "e225b9557bda121c9f498506167460b4b6ebb828",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pi_pickplace_qwen.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pickplace_qwen.yaml",
@@ -287,36 +397,80 @@
       "legacy_blob": "c18e38599a81bdf952601af109d4387c88c22d1b",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/eva_pi.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/eva_pi_lang.yaml",
       "legacy_blob": "7ab7020055277e49357c94b6ba6bed217c4b07e9",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/eva_pi_lang.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/industry_eva_pi.yaml",
       "legacy_blob": "39c88da22d20c48d0bb3c59f0da9a5dd49d384ef",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/industry_eva_pi.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/mecka_scale_cotrain_pi.yaml",
       "legacy_blob": "a2cd7272565e5863fbdc7a0de481f3f4b998e336",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/mecka_scale_cotrain_pi.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/eval_hpt.yaml",
@@ -361,18 +515,40 @@
       "legacy_blob": "f3b464390b78698be659d81240861a796ebb9e35",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/eval_latent.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/eval_pi.yaml",
       "legacy_blob": "97b9c1a1f3e283ddbee6ba229d7cea9b77efd90e",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/eval_pi.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/cartesian.yaml",
@@ -756,63 +932,140 @@
       "legacy_blob": "e94ff5c09588d1d8c48e52134f4d950c1334a6c8",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_base.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_bc_aria.yaml",
       "legacy_blob": "8782b4930422789674e37ea685352b7ef04425ea",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_bc_aria.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_bc_eva.yaml",
       "legacy_blob": "c08fe331ced4f5eb46df19e04be766e7d14d1f33",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_bc_eva.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_bc_mecka.yaml",
       "legacy_blob": "8782b4930422789674e37ea685352b7ef04425ea",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_bc_mecka.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_bc_scale.yaml",
       "legacy_blob": "79ed54e8f27efec09fbdc8c94434b0a95cc5e84f",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_bc_scale.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_cotrain_eva_aria.yaml",
       "legacy_blob": "d9c2695b68dbc7a6f843706a2a739829275cbb13",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_cotrain_eva_aria.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_cotrain_mecka_scale.yaml",
       "legacy_blob": "79ed54e8f27efec09fbdc8c94434b0a95cc5e84f",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_cotrain_mecka_scale.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/train_zarr_keypoint_wrist.yaml",
@@ -902,9 +1155,20 @@
       "legacy_blob": "475ececf7dd77f9d3e4717ce24bc06c87eeb3a63",
       "category": "model component",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/models/pi05/observations.py",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_pi_parity.py",
+        "tests/test_token_diagnostics.py",
+        "tests/test_episode_selection.py",
+        "tests/test_pi05_graph.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/rldb/resolve_memo.py",

@@ -20,14 +20,29 @@ class PI05Stage(Stage):
         policy,
         action_key="actions_cartesian",
         init_weights_ckpt=None,
+        init_weights_sha256=None,
+        init_weights_prefix=None,
         image_key="observations.images.front_img_1",
         state_key="observations.state.ee_pose",
     ):
         super().__init__()
+        if not policy.get("domains") or not policy.get("ac_keys"):
+            raise ValueError(
+                "PI policy is an incomplete base fragment; select a concrete recipe declaring domains and ac_keys"
+            )
+        if init_weights_ckpt and (
+            not init_weights_sha256 or init_weights_prefix is None
+        ):
+            raise ValueError(
+                "PI weights initialization requires an exact SHA-256 and source namespace prefix"
+            )
         self.policy_config = policy
         self.action_key = action_key
         self.image_key = image_key
         self.init_weights_ckpt = init_weights_ckpt
+        self.init_weights_sha256 = init_weights_sha256
+        self.init_weights_prefix = init_weights_prefix
+        self.initialization_receipts = []
         self.backend = None
         self.normalizer = None
         self.reads_by_mode = {
@@ -56,31 +71,30 @@ class PI05Stage(Stage):
         self.policy_nets = backend.nets
         self.normalizer = normalizer
         if self.init_weights_ckpt:
-            self.load_initial_weights(self.init_weights_ckpt)
-
-    def load_initial_weights(self, path):
-        """Weights-only initialization from source PI or graph PI checkpoints.
-
-        A PI action expert always has a 32D output, including across human and
-        robot finetunes. Require the entire backend to match after translating
-        its prefix; missing weights must not silently initialize at random.
-        """
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-        source = checkpoint["state_dict"]
-        prefixes = ["nets.", "nets.pipeline.stages.0.policy_nets."]
-        expected = self.policy_nets.state_dict()
-        candidates = [
-            {k[len(prefix) :]: v for k, v in source.items() if k.startswith(prefix)}
-            for prefix in prefixes
-        ]
-        matching = [
-            candidate for candidate in candidates if set(candidate) == set(expected)
-        ]
-        if len(matching) != 1:
-            raise ValueError(
-                "PI checkpoint does not contain one complete matching policy state"
+            self.load_initial_weights(
+                self.init_weights_ckpt,
+                sha256=self.init_weights_sha256,
+                source_prefix=self.init_weights_prefix,
             )
-        self.policy_nets.load_state_dict(matching[0], strict=True)
+
+    def load_initial_weights(self, path, *, sha256, source_prefix):
+        """Strict declared weights-only transfer, never prefix/shape guessing."""
+        from egomimic.pipeline.core import Pipeline
+        from egomimic.pipeline.initialization import initialize_weights
+
+        self.initialization_receipts = initialize_weights(
+            Pipeline([self], stage_ids={"policy": 0}),
+            [
+                {
+                    "source": path,
+                    "sha256": sha256,
+                    "source_prefix": source_prefix,
+                    "state_dict_path": ["state_dict"],
+                    "stage_id": "policy",
+                    "module_path": "policy_nets",
+                }
+            ],
+        )
 
     def prepare(self, values):
         if self.backend is None:

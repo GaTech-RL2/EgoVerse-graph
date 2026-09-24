@@ -38,3 +38,8 @@ may remove the separately installed distribution. Re-run the source installer
 after synchronization. A failed `uv pip check` for the intentionally excluded
 OpenPI simulation bundle is not proof of a supported full OpenPI installation;
 the supported surface is the tested PI model adapter described here.
+
+The retained EgoBridge recipe uses the optional `alignment` extra, pinning
+GeomLoss 0.3.1 and tslearn 0.8.1 to the audited EgoVerse environment. Add
+`--extra alignment` to the sync command before installing OpenPI. Ordinary
+HPT/PI graphs do not import these backends; the configured alignment stage does.

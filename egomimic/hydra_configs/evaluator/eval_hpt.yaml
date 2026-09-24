@@ -1,0 +1,10 @@
+# Retained command name; all models use the shared graph evaluator.
+defaults:
+  - viz@viz_func: cartesian
+  - _self_
+_target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
+pose_metrics: true
+rkl_samples: 8
+revert_transforms:
+  eva_bimanual: []
+  human_bimanual: []

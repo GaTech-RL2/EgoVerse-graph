@@ -345,6 +345,9 @@ class HPTTrunkStage(Stage):
         selector_aliases: Mapping | None = None,
         action_token_count: int = 1,
         squeeze_action_token: bool = True,
+        representation_block: int | None = None,
+        representation_key: str = "hpt/representation",
+        detach_condition_before_block: int | None = None,
     ):
         super().__init__()
         if token_postprocessing not in self._POOLING:
@@ -360,6 +363,33 @@ class HPTTrunkStage(Stage):
             raise ValueError("action_token_count must be a positive integer")
         self.action_token_count = action_token_count
         self.squeeze_action_token = squeeze_action_token
+        self.representation_block = representation_block
+        self.representation_key = str(representation_key)
+        self.detach_condition_before_block = detach_condition_before_block
+        if representation_block is not None:
+            if type(
+                representation_block
+            ) is not int or not 0 <= representation_block < len(trunk.blocks):
+                raise ValueError(
+                    "representation_block must name a zero-based trunk block"
+                )
+        if detach_condition_before_block is not None:
+            if not callable(getattr(trunk, "resume_from_block", None)):
+                raise TypeError(
+                    "The trunk must support resume_from_block for detached conditioning"
+                )
+            if type(
+                detach_condition_before_block
+            ) is not int or not 1 <= detach_condition_before_block <= len(trunk.blocks):
+                raise ValueError(
+                    "detach_condition_before_block must be in [1, number of blocks]"
+                )
+        self.writes_by_mode = {
+            "train": ("condition", self.representation_key)
+            if representation_block is not None
+            else ("condition",),
+            "inference": ("condition",),
+        }
 
         self.action_token = (
             nn.Parameter(torch.randn(1, action_token_count, self.embed_dim) * 0.02)
@@ -414,7 +444,7 @@ class HPTTrunkStage(Stage):
         index = self.domain_list.index(name)
         return tokens + self.domain_embedding[index]
 
-    def forward(self, batch: dict) -> dict:
+    def execute(self, batch: dict, *, mode: str) -> dict:
         tokens = batch["hpt/tokens"]
         if tokens.ndim != 3:
             raise ValueError(
@@ -446,7 +476,19 @@ class HPTTrunkStage(Stage):
         # SimpleTransformer returns (tokens, per_block_outputs); a plain module
         # may return just the tokens.
         if isinstance(out, tuple):
-            out = out[0]
+            out, blocks = out
+            if mode == "train" and self.representation_block is not None:
+                batch[self.representation_key] = blocks[self.representation_block][
+                    :, : self.action_token_count
+                ]
+            if mode == "train" and self.detach_condition_before_block is not None:
+                out = self.trunk.resume_from_block(
+                    blocks, self.detach_condition_before_block, detach=True
+                )
+        elif mode == "train" and self.representation_block is not None:
+            raise TypeError(
+                "Configured representation capture requires per-block outputs"
+            )
 
         if self.token_postprocessing == "action_token":
             condition = out[:, : self.action_token_count]
@@ -458,3 +500,6 @@ class HPTTrunkStage(Stage):
             condition = out[:, -1]
         batch["condition"] = condition
         return batch
+
+    def forward(self, batch: dict) -> dict:
+        return self.execute(batch, mode="train")

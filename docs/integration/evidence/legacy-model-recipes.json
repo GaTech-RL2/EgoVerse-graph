@@ -1,0 +1,3396 @@
+{
+  "source": "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+  "models": {
+    "egobridge": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian",
+          "eva_bimanual": "actions_cartesian"
+        },
+        "reverse_kl_samples": 8,
+        "6dof": true,
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": null,
+        "domains": [
+          "eva_bimanual",
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          },
+          "eva_bimanual": {
+            "state_joint_positions": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "right_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "left_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": null,
+          "eva_bimanual": null,
+          "shared": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "padding": "zero",
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "eva_bimanual": 14,
+              "human_bimanual": 14
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "right_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "left_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "shared_ac_key": "actions_cartesian",
+        "diffusion": true,
+        "ot": true,
+        "ot_6dof": false,
+        "freeze_repr": false,
+        "warm_start_steps": 0,
+        "ot_warm_start_steps": 0,
+        "temperature": 0.7,
+        "supervised": true,
+        "dtw": true,
+        "lambd": 0.5,
+        "depth": 13
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_bc_flow_aria": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "diffusion": true,
+        "6dof": true,
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian"
+        },
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": "",
+        "reverse_kl_samples": 8,
+        "domains": [
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "human_bimanual": 12
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 12,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0003,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_bc_flow_eva": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "diffusion": true,
+        "6dof": true,
+        "ac_keys": {
+          "eva_bimanual": "actions_cartesian"
+        },
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": "",
+        "reverse_kl_samples": 8,
+        "domains": [
+          "eva_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "eva_bimanual": {
+            "left_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "right_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "eva_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "eva_bimanual": 14
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256
+          },
+          "right_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256
+          },
+          "left_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_bc_flow_human": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "diffusion": true,
+        "6dof": true,
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian"
+        },
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": "",
+        "reverse_kl_samples": 8,
+        "domains": [
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "human_bimanual": 12
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 12,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0003,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_bc_flow_mecka": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "diffusion": true,
+        "6dof": true,
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian"
+        },
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": "",
+        "reverse_kl_samples": 8,
+        "domains": [
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "human_bimanual": 12
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 12,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0003,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_bc_flow_scale": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "diffusion": true,
+        "6dof": true,
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian"
+        },
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 64,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": "",
+        "reverse_kl_samples": 8,
+        "domains": [
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "human_bimanual": 12
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 12,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0003,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_bc_keypoints_base": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_keypoints"
+        },
+        "diffusion": true,
+        "reverse_kl_samples": 8,
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": null,
+        "domains": [
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "head_specs": {
+          "human_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "human_bimanual": 138
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 138,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_keypoints": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 138,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 5e-05,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_bc_pickplace_qwen_pertoken": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "diffusion": true,
+        "6dof": true,
+        "ac_keys": {
+          "eva_bimanual": "actions_cartesian"
+        },
+        "annotation_key": "annotations",
+        "annotation_sampling_mode": "random",
+        "annotation_modality": "annotation",
+        "default_prompt": "",
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": "",
+        "reverse_kl_samples": 8,
+        "domains": [
+          "eva_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1",
+          "annotation"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          },
+          "annotation": {
+            "_target_": "egomimic.models.hpt_nets.QwenPerTokenEncoder",
+            "model_name": "Qwen/Qwen3-Embedding-0.6B",
+            "max_length": 128,
+            "freeze": true,
+            "dtype": "float16",
+            "output_dim": 256,
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "eva_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "eva_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "eva_bimanual": 14
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0002,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "egomimic.utils.scheduler_utils.warmup_then_cosine",
+        "_partial_": true,
+        "warmup_epochs": 100,
+        "total_epochs": 2000,
+        "eta_min": 1e-05
+      },
+      "scheduler_interval": "epoch"
+    },
+    "hpt_bc_pickplace_qwen_pooled": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "diffusion": true,
+        "6dof": true,
+        "ac_keys": {
+          "eva_bimanual": "actions_cartesian"
+        },
+        "annotation_key": "annotations",
+        "annotation_sampling_mode": "random",
+        "annotation_modality": "annotation",
+        "default_prompt": "",
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": "",
+        "reverse_kl_samples": 8,
+        "domains": [
+          "eva_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1",
+          "annotation"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          },
+          "annotation": {
+            "_target_": "egomimic.models.hpt_nets.QwenPooledEncoder",
+            "model_name": "Qwen/Qwen3-Embedding-0.6B",
+            "max_length": 128,
+            "freeze": true,
+            "dtype": "float16",
+            "output_dim": 256,
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "eva_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "eva_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "eva_bimanual": 14
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0002,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "egomimic.utils.scheduler_utils.warmup_then_cosine",
+        "_partial_": true,
+        "warmup_epochs": 100,
+        "total_epochs": 2000,
+        "eta_min": 1e-05
+      },
+      "scheduler_interval": "epoch"
+    },
+    "hpt_cotrain_enc_dec_base": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian",
+          "eva_bimanual": "actions_joints"
+        },
+        "reverse_kl_samples": 8,
+        "6dof": true,
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": null,
+        "domains": [
+          "eva_bimanual",
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          },
+          "eva_bimanual": {
+            "state_joint_positions": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "right_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "left_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": {
+            "_target_": "egomimic.models.hpt_nets.MultiBlockTransformerDecoder",
+            "input_dim": 256,
+            "output_dim": 12,
+            "action_horizon": 100,
+            "latent_token_len": 8,
+            "num_heads": 8,
+            "dim_head": 64,
+            "dropout": 0.1,
+            "num_layers": 8,
+            "final_norm": true
+          },
+          "eva_bimanual": {
+            "_target_": "egomimic.models.hpt_nets.MultiBlockTransformerDecoder",
+            "input_dim": 256,
+            "output_dim": 14,
+            "action_horizon": 100,
+            "latent_token_len": 8,
+            "num_heads": 8,
+            "dim_head": 64,
+            "dropout": 0.1,
+            "num_layers": 8,
+            "final_norm": true
+          },
+          "shared": null
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "right_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "left_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        }
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 5e-05,
+        "weight_decay": 0.0001
+      }
+    },
+    "hpt_cotrain_flow_seperate_head": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian",
+          "eva_bimanual": "actions_joints"
+        },
+        "reverse_kl_samples": 8,
+        "6dof": true,
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": null,
+        "domains": [
+          "eva_bimanual",
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          },
+          "eva_bimanual": {
+            "state_joint_positions": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "right_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "left_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "input_dim": 256,
+            "output_dim": 12,
+            "action_horizon": 100,
+            "latent_token_len": 8,
+            "num_heads": 8,
+            "dim_head": 64,
+            "dropout": 0.1,
+            "num_layers": 8,
+            "final_norm": true,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "human_bimanual": 12
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 12,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          },
+          "eva_bimanual": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "input_dim": 256,
+            "output_dim": 14,
+            "action_horizon": 100,
+            "latent_token_len": 8,
+            "num_heads": 8,
+            "dim_head": 64,
+            "dropout": 0.1,
+            "num_layers": 8,
+            "final_norm": true,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "eva_bimanual": 14
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          },
+          "shared": null
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "right_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "left_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "diffusion": true
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0003,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_cotrain_flow_shared_head": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian",
+          "eva_bimanual": "actions_cartesian"
+        },
+        "reverse_kl_samples": 8,
+        "6dof": true,
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": null,
+        "domains": [
+          "eva_bimanual",
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          },
+          "eva_bimanual": {
+            "state_joint_positions": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "right_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "left_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": null,
+          "eva_bimanual": null,
+          "shared": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "padding": "zero",
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "eva_bimanual": 14,
+              "human_bimanual": 14
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "right_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "left_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "shared_ac_key": "actions_cartesian",
+        "diffusion": true
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_cotrain_mecka_flow_shared_head": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian",
+          "eva_bimanual": "actions_cartesian"
+        },
+        "reverse_kl_samples": 8,
+        "6dof": true,
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": null,
+        "domains": [
+          "eva_bimanual",
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          },
+          "eva_bimanual": {
+            "state_joint_positions": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "right_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "left_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": null,
+          "eva_bimanual": null,
+          "shared": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "padding": "zero",
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "eva_bimanual": 14,
+              "human_bimanual": 14
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "right_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "left_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "shared_ac_key": "actions_cartesian",
+        "diffusion": true
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "hpt_cotrain_scale_flow_shared_head": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.hpt.HPT",
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian",
+          "eva_bimanual": "actions_cartesian"
+        },
+        "reverse_kl_samples": 8,
+        "6dof": true,
+        "trunk": {
+          "embed_dim": 256,
+          "num_blocks": 16,
+          "num_heads": 8,
+          "token_postprocessing": "action_token",
+          "observation_horizon": 1,
+          "action_horizon": 64,
+          "no_trunk": false,
+          "use_domain_embedding": true,
+          "drop_path": 0.1,
+          "weight_init_style": "pytorch"
+        },
+        "multitask": false,
+        "pretrained": false,
+        "pretrained_checkpoint": null,
+        "domains": [
+          "eva_bimanual",
+          "human_bimanual"
+        ],
+        "shared_obs_keys": [
+          "front_img_1"
+        ],
+        "shared_stem_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 256,
+            "output_dim": 256,
+            "widths": [
+              256
+            ],
+            "specs": {
+              "random_horizon_masking": false,
+              "cross_attn": {
+                "crossattn_latent": 16,
+                "crossattn_heads": 8,
+                "crossattn_dim_head": 64,
+                "crossattn_modality_dropout": 0.1,
+                "modality_embed_dim": 256
+              }
+            }
+          }
+        },
+        "stem_specs": {
+          "human_bimanual": {
+            "state_ee_pose": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 12,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          },
+          "eva_bimanual": {
+            "state_joint_positions": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 14,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "right_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            },
+            "left_wrist_img": {
+              "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+              "input_dim": 256,
+              "output_dim": 256,
+              "widths": [
+                256
+              ],
+              "specs": {
+                "random_horizon_masking": false,
+                "cross_attn": {
+                  "crossattn_latent": 16,
+                  "crossattn_heads": 8,
+                  "crossattn_dim_head": 64,
+                  "crossattn_modality_dropout": 0.1,
+                  "modality_embed_dim": 256
+                }
+              }
+            }
+          }
+        },
+        "head_specs": {
+          "human_bimanual": null,
+          "eva_bimanual": null,
+          "shared": {
+            "_target_": "egomimic.models.fm_policy.FMPolicy",
+            "action_horizon": 100,
+            "num_inference_steps": 50,
+            "pooling": null,
+            "padding": "zero",
+            "time_dist": "beta",
+            "infer_ac_dims": {
+              "eva_bimanual": 14,
+              "human_bimanual": 14
+            },
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 256,
+              "hidden_dim": 128,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 4,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4
+            }
+          }
+        },
+        "encoder_specs": {
+          "front_img_1": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "right_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          },
+          "left_wrist_img": {
+            "_target_": "egomimic.models.hpt_nets.ResNet",
+            "output_dim": 256,
+            "num_of_copy": 1
+          }
+        },
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.ColorJitter",
+              "brightness": 0.1,
+              "contrast": 0.1,
+              "saturation": 0.1,
+              "hue": 0.05
+            },
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Normalize",
+              "mean": [
+                0.485,
+                0.456,
+                0.406
+              ],
+              "std": [
+                0.229,
+                0.224,
+                0.225
+              ]
+            }
+          ]
+        },
+        "shared_ac_key": "actions_cartesian",
+        "diffusion": true
+      },
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "scheduler": {
+        "_target_": "torch.optim.lr_scheduler.CosineAnnealingLR",
+        "_partial_": true,
+        "T_max": 1400,
+        "eta_min": 1e-05
+      }
+    },
+    "pi0.5_base": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.pi.PI",
+        "config": {
+          "pytorch_training_precision": "bfloat16",
+          "pytorch_weight_path": "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch",
+          "model": {
+            "pi05": true,
+            "action_dim": 32,
+            "action_horizon": 100,
+            "max_token_len": 180
+          }
+        },
+        "tokenizer_model_name": "google/paligemma-3b-mix-224",
+        "tokenizer_max_length": 128,
+        "sampling_mode": "random",
+        "annotation_key": "annotations",
+        "default_prompt": "",
+        "proprio_in_prompt": true,
+        "embodiment_label": true,
+        "state_num_bins": 256,
+        "control_mode": null,
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        }
+      },
+      "enable_grad_norm": false,
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 3e-05,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-08,
+        "weight_decay": 0.0
+      },
+      "scheduler": {
+        "_target_": "transformers.get_cosine_schedule_with_warmup",
+        "_partial_": true,
+        "num_warmup_steps": 2000,
+        "num_training_steps": 60000,
+        "num_cycles": 0.5
+      },
+      "scheduler_interval": "step"
+    },
+    "pi0.5_bc_aria": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.pi.PI",
+        "config": {
+          "pytorch_training_precision": "bfloat16",
+          "pytorch_weight_path": "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch",
+          "model": {
+            "pi05": true,
+            "action_dim": 32,
+            "action_horizon": 100,
+            "max_token_len": 180
+          }
+        },
+        "tokenizer_model_name": "google/paligemma-3b-mix-224",
+        "tokenizer_max_length": 128,
+        "sampling_mode": "random",
+        "annotation_key": "annotations",
+        "default_prompt": "",
+        "proprio_in_prompt": true,
+        "embodiment_label": true,
+        "state_num_bins": 256,
+        "control_mode": null,
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian"
+        },
+        "domains": [
+          "human_bimanual"
+        ],
+        "action_converters": {
+          "rules": {
+            "HUMAN_BIMANUAL": {
+              "_target_": "egomimic.utils.action_utils.HumanBimanualCartesianEuler"
+            }
+          },
+          "fallback": {
+            "_target_": "egomimic.utils.action_utils.BaseActionConverter"
+          }
+        }
+      },
+      "enable_grad_norm": false,
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 3e-05,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-08,
+        "weight_decay": 0.0
+      },
+      "scheduler": {
+        "_target_": "transformers.get_cosine_schedule_with_warmup",
+        "_partial_": true,
+        "num_warmup_steps": 2000,
+        "num_training_steps": 60000,
+        "num_cycles": 0.5
+      },
+      "scheduler_interval": "step"
+    },
+    "pi0.5_bc_eva": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.pi.PI",
+        "config": {
+          "pytorch_training_precision": "bfloat16",
+          "pytorch_weight_path": "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch",
+          "model": {
+            "pi05": true,
+            "action_dim": 32,
+            "action_horizon": 100,
+            "max_token_len": 180
+          }
+        },
+        "tokenizer_model_name": "google/paligemma-3b-mix-224",
+        "tokenizer_max_length": 128,
+        "sampling_mode": "random",
+        "annotation_key": "annotations",
+        "default_prompt": "",
+        "proprio_in_prompt": true,
+        "embodiment_label": true,
+        "state_num_bins": 256,
+        "control_mode": null,
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "camera_transforms": {},
+        "ac_keys": {
+          "eva_bimanual": "actions_cartesian"
+        },
+        "domains": [
+          "eva_bimanual"
+        ],
+        "action_converters": {
+          "rules": {
+            "EVA_BIMANUAL": {
+              "_target_": "egomimic.utils.action_utils.RobotBimanualCartesianEuler"
+            }
+          },
+          "fallback": {
+            "_target_": "egomimic.utils.action_utils.BaseActionConverter"
+          }
+        }
+      },
+      "enable_grad_norm": false,
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 3e-05,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-08,
+        "weight_decay": 0.0
+      },
+      "scheduler": {
+        "_target_": "transformers.get_cosine_schedule_with_warmup",
+        "_partial_": true,
+        "num_warmup_steps": 2000,
+        "num_training_steps": 60000,
+        "num_cycles": 0.5
+      },
+      "scheduler_interval": "step"
+    },
+    "pi0.5_bc_mecka": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.pi.PI",
+        "config": {
+          "pytorch_training_precision": "bfloat16",
+          "pytorch_weight_path": "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch",
+          "model": {
+            "pi05": true,
+            "action_dim": 32,
+            "action_horizon": 100,
+            "max_token_len": 180
+          }
+        },
+        "tokenizer_model_name": "google/paligemma-3b-mix-224",
+        "tokenizer_max_length": 128,
+        "sampling_mode": "random",
+        "annotation_key": "annotations",
+        "default_prompt": "",
+        "proprio_in_prompt": true,
+        "embodiment_label": true,
+        "state_num_bins": 256,
+        "control_mode": null,
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian"
+        },
+        "domains": [
+          "human_bimanual"
+        ],
+        "action_converters": {
+          "rules": {
+            "HUMAN_BIMANUAL": {
+              "_target_": "egomimic.utils.action_utils.HumanBimanualCartesianEuler"
+            }
+          },
+          "fallback": {
+            "_target_": "egomimic.utils.action_utils.BaseActionConverter"
+          }
+        }
+      },
+      "enable_grad_norm": false,
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 3e-05,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-08,
+        "weight_decay": 0.0
+      },
+      "scheduler": {
+        "_target_": "transformers.get_cosine_schedule_with_warmup",
+        "_partial_": true,
+        "num_warmup_steps": 2000,
+        "num_training_steps": 60000,
+        "num_cycles": 0.5
+      },
+      "scheduler_interval": "step"
+    },
+    "pi0.5_bc_scale": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.pi.PI",
+        "config": {
+          "pytorch_training_precision": "bfloat16",
+          "pytorch_weight_path": "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch",
+          "model": {
+            "pi05": true,
+            "action_dim": 32,
+            "action_horizon": 100,
+            "max_token_len": 180
+          }
+        },
+        "tokenizer_model_name": "google/paligemma-3b-mix-224",
+        "tokenizer_max_length": 128,
+        "sampling_mode": "random",
+        "annotation_key": "annotations",
+        "default_prompt": "",
+        "proprio_in_prompt": true,
+        "embodiment_label": true,
+        "state_num_bins": 256,
+        "control_mode": null,
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian"
+        },
+        "domains": [
+          "human_bimanual"
+        ],
+        "action_converters": {
+          "rules": {
+            "HUMAN_BIMANUAL": {
+              "_target_": "egomimic.utils.action_utils.HumanBimanualCartesianEuler"
+            }
+          },
+          "fallback": {
+            "_target_": "egomimic.utils.action_utils.BaseActionConverter"
+          }
+        }
+      },
+      "enable_grad_norm": false,
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 3e-05,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-08,
+        "weight_decay": 0.0
+      },
+      "scheduler": {
+        "_target_": "transformers.get_cosine_schedule_with_warmup",
+        "_partial_": true,
+        "num_warmup_steps": 2000,
+        "num_training_steps": 60000,
+        "num_cycles": 0.5
+      },
+      "scheduler_interval": "step"
+    },
+    "pi0.5_cotrain_eva_aria": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.pi.PI",
+        "config": {
+          "pytorch_training_precision": "bfloat16",
+          "pytorch_weight_path": "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch",
+          "model": {
+            "pi05": true,
+            "action_dim": 32,
+            "action_horizon": 100,
+            "max_token_len": 180
+          }
+        },
+        "tokenizer_model_name": "google/paligemma-3b-mix-224",
+        "tokenizer_max_length": 128,
+        "sampling_mode": "random",
+        "annotation_key": "annotations",
+        "default_prompt": "",
+        "proprio_in_prompt": true,
+        "embodiment_label": true,
+        "state_num_bins": 256,
+        "control_mode": null,
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "camera_transforms": {},
+        "ac_keys": {
+          "eva_bimanual": "actions_cartesian",
+          "human_bimanual": "actions_cartesian"
+        },
+        "domains": [
+          "eva_bimanual",
+          "human_bimanual"
+        ],
+        "action_converters": {
+          "rules": {
+            "EVA_BIMANUAL": {
+              "_target_": "egomimic.utils.action_utils.RobotBimanualCartesianEuler"
+            },
+            "HUMAN_BIMANUAL": {
+              "_target_": "egomimic.utils.action_utils.HumanBimanualCartesianEuler"
+            }
+          },
+          "fallback": {
+            "_target_": "egomimic.utils.action_utils.BaseActionConverter"
+          }
+        }
+      },
+      "enable_grad_norm": false,
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 3e-05,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-08,
+        "weight_decay": 0.0
+      },
+      "scheduler": {
+        "_target_": "transformers.get_cosine_schedule_with_warmup",
+        "_partial_": true,
+        "num_warmup_steps": 2000,
+        "num_training_steps": 60000,
+        "num_cycles": 0.5
+      },
+      "scheduler_interval": "step"
+    },
+    "pi0.5_cotrain_mecka_scale": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "robomimic_model": {
+        "_target_": "egomimic.algo.pi.PI",
+        "config": {
+          "pytorch_training_precision": "bfloat16",
+          "pytorch_weight_path": "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch",
+          "model": {
+            "pi05": true,
+            "action_dim": 32,
+            "action_horizon": 100,
+            "max_token_len": 180
+          }
+        },
+        "tokenizer_model_name": "google/paligemma-3b-mix-224",
+        "tokenizer_max_length": 128,
+        "sampling_mode": "random",
+        "annotation_key": "annotations",
+        "default_prompt": "",
+        "proprio_in_prompt": true,
+        "embodiment_label": true,
+        "state_num_bins": 256,
+        "control_mode": null,
+        "train_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "eval_image_augs": {
+          "_target_": "torchvision.transforms.Compose",
+          "transforms": [
+            {
+              "_target_": "torchvision.transforms.Resize",
+              "size": 224,
+              "interpolation": 3
+            }
+          ]
+        },
+        "camera_transforms": {},
+        "ac_keys": {
+          "human_bimanual": "actions_cartesian"
+        },
+        "domains": [
+          "human_bimanual"
+        ],
+        "action_converters": {
+          "rules": {
+            "HUMAN_BIMANUAL": {
+              "_target_": "egomimic.utils.action_utils.HumanBimanualCartesianEuler"
+            }
+          },
+          "fallback": {
+            "_target_": "egomimic.utils.action_utils.BaseActionConverter"
+          }
+        }
+      },
+      "enable_grad_norm": false,
+      "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 3e-05,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-08,
+        "weight_decay": 0.0
+      },
+      "scheduler": {
+        "_target_": "transformers.get_cosine_schedule_with_warmup",
+        "_partial_": true,
+        "num_warmup_steps": 2000,
+        "num_training_steps": 60000,
+        "num_cycles": 0.5
+      },
+      "scheduler_interval": "step"
+    }
+  }
+}

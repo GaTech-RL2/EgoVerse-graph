@@ -7,6 +7,7 @@ requested migration away from H100 on September 24. Preserve uploaded
 checkpoints, optimizer/EMA state and existing evaluation artifacts; submit
 replacement jobs under new run IDs. Keep the original global batch and total
 optimizer budget when changing the number of devices.
+See the [verified L40S migration snapshot](results/libero_l40s_migration_20260924.md).
 
 1. **Finish the original ARC versus OAT evaluations.** Complete every fixed
    STK/DUR configuration on Spatial, Object, Goal and LIBERO-10. Close the

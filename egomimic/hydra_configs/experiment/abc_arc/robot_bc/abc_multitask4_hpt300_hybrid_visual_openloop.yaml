@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - /experiment/abc_arc/abc_multitask4_hpt300_baseline_visual_openloop
+  - /experiment/abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop
   - _self_
 name: abc_multitask4_hpt300_hybrid_visual_openloop
 description: HPT300M ABC four-task visual-only hybrid ARC D81 M100 R24deg

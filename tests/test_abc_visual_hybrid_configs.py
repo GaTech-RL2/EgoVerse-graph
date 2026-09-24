@@ -13,15 +13,16 @@ from scripts.data.measure_abc_control_distance import TASKS, window_distances
 
 ROOT = Path(__file__).resolve().parents[1]
 SINGLE_TASK_VISUAL = [
-    ("stationery_rl2_hpt300_visual_baseline_openloop", "yam_bimanual", False),
-    ("stationery_rl2_hpt300_visual_hybrid_openloop", "yam_bimanual", True),
-    ("mecka_fold_clothes_40h_human_visual_baseline_openloop", "human_bimanual", False),
-    ("mecka_fold_clothes_40h_human_visual_hybrid_openloop", "human_bimanual", True),
+    ("robot_bc/stationery_rl2_hpt300_visual_baseline_openloop", "yam_bimanual", False),
+    ("robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop", "yam_bimanual", True),
+    ("human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop", "human_bimanual", False),
+    ("human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop", "human_bimanual", True),
 ]
 EXPERIMENTS = [
-    ("abc_towels_hpt180_hybrid_visual_openloop", True, 640, 4),
-    ("abc_multitask4_hpt300_baseline_visual_openloop", False, 840, 16),
-    ("abc_multitask4_hpt300_hybrid_visual_openloop", True, 840, 16),
+    ("robot_bc/abc_towels_hpt180_baseline_visual_openloop", False, 640, 4),
+    ("robot_bc/abc_towels_hpt180_hybrid_visual_openloop", True, 640, 4),
+    ("robot_bc/abc_multitask4_hpt300_baseline_visual_openloop", False, 840, 16),
+    ("robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop", True, 840, 16),
 ]
 
 

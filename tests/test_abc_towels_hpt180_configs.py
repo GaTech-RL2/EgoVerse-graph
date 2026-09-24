@@ -20,8 +20,8 @@ def _compose(experiment: str):
 @pytest.mark.parametrize(
     ("experiment", "is_arc", "expected_horizon"),
     [
-        ("abc_towels_hpt180_baseline_openloop", False, 100),
-        ("abc_towels_hpt180_arc_D40_M100_openloop", True, 200),
+        ("robot_bc/abc_towels_hpt180_baseline_visual_openloop", False, 100),
+        ("robot_bc/abc_towels_hpt180_hybrid_visual_openloop", True, 200),
     ],
 )
 def test_abc_towel_pair_preserves_hpt180_contract(experiment, is_arc, expected_horizon):
@@ -45,4 +45,6 @@ def test_abc_towel_pair_preserves_hpt180_contract(experiment, is_arc, expected_h
         assert "row['task'] == 'fold and stack the towels'" in expression
 
     transform = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
-    assert transform.action_mode == ("arc_tokenizer_cartesian" if is_arc else "cartesian")
+    assert transform.action_mode == (
+        "hybrid_arc_tokenizer_cartesian" if is_arc else "cartesian"
+    )

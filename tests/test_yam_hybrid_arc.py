@@ -224,7 +224,7 @@ def test_hybrid_hpt_experiment_wires_one_rotation_cap_everywhere():
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg_openloop"
+                "+experiment=abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop"
             ],
         )
     expected = math.radians(24.0)

@@ -16,7 +16,7 @@ def test_lambda_launcher_composes_whole_node_pyxis_contract(monkeypatch):
             config_name="train_zarr_cartesian",
             return_hydra_config=True,
             overrides=[
-                "+experiment=abc_arc/abc_multitask4_hpt300_baseline_visual_openloop",
+                "+experiment=abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop",
                 "hydra/launcher=submitit_lambda_h100",
                 "launch_params.gpus_per_node=8",
             ],

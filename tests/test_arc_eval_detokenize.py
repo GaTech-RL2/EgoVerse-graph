@@ -179,7 +179,7 @@ def _compose(experiment: str):
 
 
 def test_arc_experiment_evaluator_matches_its_data_tokenizer():
-    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
+    cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
     tok = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
     assert cfg.evaluator.min_distance_unit == tok.min_distance_unit
     assert cfg.evaluator.resampled_vector_length == tok.resampled_vector_length
@@ -188,7 +188,7 @@ def test_arc_experiment_evaluator_matches_its_data_tokenizer():
 def test_arc_experiment_model_horizon_matches_the_token_row_count():
     from egomimic.rldb.zarr.arc_length_tokenizer import bimanual_arc_token_rows
 
-    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
+    cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
     tok = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
     # Row count follows the velocity mode, so derive it rather than assume M+1.
     expected_rows = bimanual_arc_token_rows(
@@ -202,8 +202,8 @@ def test_arc_experiment_model_horizon_matches_the_token_row_count():
 
 
 def test_arc_experiment_uses_the_arc_evaluator_not_the_baseline_one():
-    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
-    assert cfg.evaluator._target_.endswith("ArcBimanualCartesianEval")
+    cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
+    assert cfg.evaluator._target_.endswith("OpenLoopSimEval")
 
 
 def test_baseline_shares_the_arc_evaluator_so_the_arms_are_comparable():
@@ -214,18 +214,20 @@ def test_baseline_shares_the_arc_evaluator_so_the_arms_are_comparable():
     through de-interpolation instead -- but the arcmatch settings must be
     identical or the two arms are not measured in the same space.
     """
-    arc = _compose("abc_arc/abc_fstshirt_arc_bc")
-    baseline = _compose("abc_arc/abc_fstshirt_bc")
+    arc = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
+    baseline = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop")
     assert baseline.evaluator._target_ == arc.evaluator._target_
     for field in (
         "min_distance_unit",
+        "rotation_distance_unit",
         "resampled_vector_length",
-        "arcmatch_points",
-        "arc_chunk_rows",
         "velocity_mode",
+        "execute_fraction",
+        "arc_execution_cap_mode",
     ):
         assert baseline.evaluator[field] == arc.evaluator[field], field
-    assert baseline.evaluator.arc_metrics is True
+    assert baseline.evaluator.action_mode == "baseline"
+    assert arc.evaluator.action_mode == "arc"
 
 
 # -- per-waypoint velocity mode ---------------------------------------------
@@ -412,7 +414,7 @@ def test_duration_viz_source_converts_to_pose_rows():
 
 
 def test_experiment_wires_one_velocity_mode_across_data_and_evaluator():
-    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
+    cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
     mode = cfg.abc.arc_velocity_mode
     assert cfg.evaluator.velocity_mode == mode
     for split in ("train_datasets", "valid_datasets"):

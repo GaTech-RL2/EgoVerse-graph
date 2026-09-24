@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - /experiment/abc_arc/mecka_fold_clothes_40h_human_visual_baseline_openloop
+  - /experiment/abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop
   - override /data: abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg
   - _self_
 name: mecka_fold_clothes_40h_human_visual_hybrid_openloop

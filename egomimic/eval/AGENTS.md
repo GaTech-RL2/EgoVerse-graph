@@ -50,3 +50,7 @@ or video infrastructure.
 - Model-specific metrics and diagnostics belong in configured evaluator/provider
   plugins. Shared evaluator lifecycle code dispatches through interfaces, not
   concrete model or stage classes.
+- During the EgoVerse merge-back, preserve retained keypoint visualization and
+  PI latent-analysis behavior as configured evaluator/diagnostic providers with
+  explicit data requirements. Do not reintroduce HPT/PI family dispatch in the
+  shared evaluator base to recover a legacy feature.

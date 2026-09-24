@@ -84,6 +84,33 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
   checkpoint loading. Verify behavior with small CPU fixtures before a cluster
   run; hardware and pretrained-model validation are separate from those tests.
 
+## EgoVerse merge-back
+
+EgoVerse-graph is expected to return to `GaTech-RL2/EgoVerse`. Before any
+merge-back or legacy-runtime deletion, read the integration audit and gates in
+`docs/GENERIC_PIPELINE_CONTRACT.md`.
+
+- The destination must have one canonical graph execution path. Port retained
+  HPT and PI recipes to `ModelWrapper -> PipelineAlgo` YAML, including their
+  model-owned inference contracts, before removing the legacy algo/evaluator
+  path.
+- Preserve old data, conversion, visualization, packaging, robot, and analysis
+  capabilities until a maintained parity manifest marks each one ported,
+  replaced, preserved outside the runtime, or intentionally deprecated.
+- Do not move model-specific naming or semantics into data configs to make a
+  port compose. In particular, datasets emit canonical camera keys and the PI
+  adapter owns OpenPI slot mapping.
+- Run dependency-lock, recursive Hydra composition, wheel/fresh-install,
+  cloud-free import, synthetic train-step, strict checkpoint, evaluator, and
+  scheduled GPU gates on the assembled integration revision. A passing test in
+  either source repository alone is insufficient.
+- Do not bypass an unsolved optional-backend dependency conflict with an
+  unverified resolver override. Record the environment decision and require
+  `uv lock --check` before merge.
+- Make the pipeline-only deletion assertion mandatory in the final cutover
+  layer, not before recipe and feature parity is established and not weakened
+  after cutover.
+
 ## Preserve work and verify the target
 
 Check `git status`, `git worktree list`, and `git remote -v` before making changes.

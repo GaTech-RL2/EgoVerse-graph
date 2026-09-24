@@ -16,4 +16,6 @@ DataModules, normalization binding, or train/eval orchestration, read
 - Existing `MultiDataset`, embodiment-registry, and E1-sampler dependencies are
   documented migration debt. Changes must preserve or reduce that debt, never
   spread it into new shared modules.
-
+- During EgoVerse merge-back, validate every retained HPT/PI/data recipe through
+  this one orchestration path. Temporary compatibility aliases may delegate to
+  it, but a second trainer/model lifecycle is not allowed to survive cutover.

@@ -23,7 +23,10 @@ read `../../docs/GENERIC_PIPELINE_CONTRACT.md`.
 - New ARC stages must preserve per-waypoint or per-segment timing. Chunk-level
   mean timing remains legacy/diagnostic and is not a valid full-trajectory
   rollout contract.
+- Merge-back HPT and PI recipes must be complete graph YAMLs, including a
+  model-owned observation-to-canonical-action inference contract. Do not
+  preserve a legacy model by adding family dispatch to `PipelineAlgo` or the
+  generic inference exporter.
 
 Existing hardcoded cases listed in the architecture document are migration
 debt. Do not use them as examples for new functionality.
-

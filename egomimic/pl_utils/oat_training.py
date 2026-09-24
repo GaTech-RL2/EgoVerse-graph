@@ -134,6 +134,37 @@ class OATTrainingBehavior(TrainingBehavior):
                     )
 
 
+class OATDiffusionTrainingBehavior(OATTrainingBehavior):
+    """Keep the released DP optimizer groups, including its condition encoder."""
+
+    def configure_optimizers(self):
+        from egomimic.models.oat.diffusion import GraphDiffusionTransformer
+        from egomimic.pipeline.stages_diffusion import DiffusionDenoiserStage
+        from egomimic.pipeline.stages_oat import OATObservationStage
+
+        stages = self.context.model.pipeline.stages
+        observations = [s for s in stages if isinstance(s, OATObservationStage)]
+        denoisers = [s for s in stages if isinstance(s, DiffusionDenoiserStage)]
+        if len(observations) != 1 or len(denoisers) != 1:
+            raise ValueError(
+                "Released DP requires one observation encoder and denoiser"
+            )
+        model = denoisers[0].policy.model
+        if not isinstance(model, GraphDiffusionTransformer):
+            raise TypeError("Released DP optimizer requires its diffusion Transformer")
+        groups = model.get_optim_groups(
+            lr=self.learning_rate, weight_decay=self.weight_decay
+        )
+        groups.append(
+            {
+                "params": observations[0].encoder.parameters(),
+                "lr": self.obs_enc_lr,
+                "weight_decay": self.weight_decay,
+            }
+        )
+        return torch.optim.AdamW(groups, betas=self.betas)
+
+
 class OATEMACallback(EMACallback):
     """Use the upstream zero-based EMA update counter with shared checkpoint I/O."""
 

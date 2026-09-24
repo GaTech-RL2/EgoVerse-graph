@@ -34,6 +34,8 @@
     "perception/robomimic_vision_encoder.py": "df8be743faa809682c353f6a3df58adb4e69ec7a86607cf4714fc169c82af22d",
     "perception/state_encoder.py": "1c4b4c2c2cef44dfbcaab43129da94b14e7c4f62da33057895e890f21b20f41f",
     "perception/crop_randomizer.py": "9cdde5cf02b7b8ad4687212aba24af00cf388d1c1a7a2929e1418a3e6bea22d6",
-    "model/common/tensor_util.py": "751b042aa5390ddf1f5b6220a465dfa20dbb9304e3c057f04512d6ee55f4e1b1"
+    "model/common/tensor_util.py": "751b042aa5390ddf1f5b6220a465dfa20dbb9304e3c057f04512d6ee55f4e1b1",
+    "model/diffusion/transformer_for_diffusion.py": "ee6264b1f44d8b54a1fec6279f25df412e45f7dcca3838e6f686f8daa16a2f3f",
+    "model/common/positional_embedding.py": "3c4fe01809286331ae71c526efb0ee6e5a69657b7d0c0231dbb29761008bf13d"
   }
 }

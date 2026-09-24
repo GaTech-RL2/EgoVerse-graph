@@ -37,8 +37,13 @@ def workflow(
     oat_reference_run=None,
     gpus=1,
     gpu_type="L40S",
+    arc_backbone="unet",
 ):
     training_layout(gpus, mode)
+    if arc_backbone not in {"unet", "oat_dp"}:
+        raise ValueError("Unknown ARC backbone")
+    if arc_backbone != "unet" and not arc_profile:
+        raise ValueError("An alternate ARC backbone requires a standalone profile")
     if gpu_type not in GPU_PLATFORMS:
         raise ValueError(f"Unsupported GPU type: {gpu_type}")
     if replay and gpus != 1:
@@ -58,7 +63,6 @@ def workflow(
             or replay
             or campaign_id
             or evaluate_from_run
-            or (arc_replay_runs and not resume_from_run)
             or arc_replay_run
         ):
             raise ValueError("ARC profile requires one standalone policy mode")
@@ -74,7 +78,8 @@ def workflow(
                 "Resuming a sweep requires its completed mode-specific replay"
             )
         if mode == "full" and (
-            not oat_reference_run or (not resume_from_run and not calibration_parent)
+            not oat_reference_run
+            or (not resume_from_run and not calibration_parent and not arc_replay_runs)
         ):
             raise ValueError(
                 "Full ARC sweep requires calibration and OAT reference runs"
@@ -135,7 +140,10 @@ def workflow(
     )
     replay_workers = replay_config["workers"]
     preflight = replay or (
-        arc_profile is not None and mode == "full" and not resume_from_run
+        arc_profile is not None
+        and mode == "full"
+        and not resume_from_run
+        and not arc_replay_runs
     )
     if arc_profile:
         replay_workers = 16
@@ -195,6 +203,7 @@ def workflow(
                         if replay
                         else "benchmark",
                         "ARC_PROFILE": arc_profile or "",
+                        "ARC_BACKBONE": arc_backbone,
                         "OAT_REFERENCE_RUN": oat_reference_run or "",
                         "RESUME_FROM_RUN": resume_from_run or "",
                         "ARC_REPLAY_RUN": arc_replay_run or "",
@@ -258,6 +267,7 @@ def main():
     parser.add_argument("--arc-modes", nargs="+", choices=("joint_dur", "stk", "dur"))
     parser.add_argument("--arc-replay-runs-file", type=Path)
     parser.add_argument("--arc-profile")
+    parser.add_argument("--arc-backbone", choices=("unet", "oat_dp"), default="unet")
     parser.add_argument("--oat-reference-run")
     parser.add_argument("--replay-spec", default="libero_arc_replay")
     parser.add_argument("--calibration-parent")
@@ -291,6 +301,7 @@ def main():
                 args.oat_reference_run,
                 args.gpus,
                 args.gpu_type,
+                args.arc_backbone,
             ),
             handle,
             sort_keys=False,

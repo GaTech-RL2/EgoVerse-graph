@@ -73,6 +73,56 @@ def test_profile_rejects_wrong_mode_and_workflow_omissions():
     assert result["resources"]["default"]["cpu"] == 20
 
 
+def test_fresh_backbone_run_reuses_audited_replay_without_resuming_weights(
+    tmp_path, monkeypatch
+):
+    from egomimic.benchmarks.libero import arc_sweep, cluster
+    from scripts.benchmarks.launch_libero_osmo import workflow
+
+    result = workflow(
+        "a" * 40,
+        "arc-dp-stk1-spatial",
+        "libero_spatial",
+        mode="full",
+        arc_modes=["stk"],
+        arc_profile="stk_1",
+        arc_backbone="oat_dp",
+        arc_replay_runs={"stk": "audited-replay"},
+        oat_reference_run="baseline",
+        gpus=4,
+    )["workflow"]
+    env = result["tasks"][0]["environment"]
+    assert env["ARC_BACKBONE"] == "oat_dp"
+    assert env["RESUME_FROM_RUN"] == ""
+    assert result["resources"]["default"]["gpu"] == 4
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    calls = []
+    monkeypatch.setattr(cluster, "execute", lambda args, log: calls.append(args))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "sweep",
+            "--root",
+            str(tmp_path),
+            "--suite",
+            "libero_spatial",
+            "--run-id",
+            "arc-dp-stk1-spatial",
+            "--profile",
+            "stk_1",
+            "--arc-mode",
+            "stk",
+        ],
+    )
+    arc_sweep.main()
+    assert len(calls) == 1 and calls[0][2].endswith(".cluster")
+    assert json.loads(__import__("os").environ["ARC_REPLAY_RUNS_JSON"]) == {
+        "stk": "audited-replay"
+    }
+
+
 @pytest.mark.parametrize("replay_failure", [False, True])
 def test_policy_launch_follows_replay_and_stops_on_preflight_failure(
     tmp_path, monkeypatch, replay_failure
@@ -127,16 +177,18 @@ def test_policy_launch_follows_replay_and_stops_on_preflight_failure(
 
 
 @pytest.mark.parametrize(
-    "run_mode,bad_replay,gpu_type",
+    "run_mode,bad_replay,gpu_type,backbone",
     [
-        ("smoke", False, "L40S"),
-        ("full", False, "L40S"),
-        ("full", True, "L40S"),
-        ("full", False, "H100"),
+        ("smoke", False, "L40S", "unet"),
+        ("full", False, "L40S", "unet"),
+        ("full", True, "L40S", "unet"),
+        ("full", False, "H100", "unet"),
+        ("smoke", False, "L40S", "oat_dp"),
+        ("full", False, "H100", "oat_dp"),
     ],
 )
 def test_arc_only_never_trains_oat_and_checks_frozen_profile(
-    tmp_path, monkeypatch, run_mode, bad_replay, gpu_type
+    tmp_path, monkeypatch, run_mode, bad_replay, gpu_type, backbone
 ):
     import torch
 
@@ -146,6 +198,7 @@ def test_arc_only_never_trains_oat_and_checks_frozen_profile(
 
     monkeypatch.setenv("SOURCE_COMMIT", "a" * 40)
     monkeypatch.setenv("BENCHMARK_GPU_TYPE", gpu_type)
+    monkeypatch.setenv("ARC_BACKBONE", backbone)
     for name in (
         "CAMPAIGN_ID",
         "CAMPAIGN_RUNS_JSON",
@@ -191,7 +244,12 @@ def test_arc_only_never_trains_oat_and_checks_frozen_profile(
     def execute(argv, log):
         calls.append(argv)
         if "egomimic.trainHydra" in argv:
-            assert "+experiment=oat/libero_arc_stk_policy" in argv
+            expected_recipe = (
+                "libero_arc_oat_dp_policy"
+                if backbone == "oat_dp"
+                else "libero_arc_stk_policy"
+            )
+            assert f"+experiment=oat/{expected_recipe}" in argv
             assert "benchmark.arc_waypoints=36" in argv
             checkpoint = tmp_path / "evidence/training/arc_stk/checkpoints/last.ckpt"
             checkpoint.parent.mkdir(parents=True)
@@ -222,6 +280,15 @@ def test_arc_only_never_trains_oat_and_checks_frozen_profile(
                 },
             )
 
+    from egomimic.benchmarks.libero import evaluate
+
+    parallel_calls = []
+
+    def parallel_rollouts(checkpoint, evidence, method, suite):
+        parallel_calls.append((method, suite))
+        execute(["rollout", "--output", str(evidence / method / suite)], None)
+
+    monkeypatch.setattr(evaluate, "parallel_rollouts", parallel_rollouts)
     monkeypatch.setattr(cluster, "execute", execute)
     monkeypatch.setattr(
         sys,
@@ -247,6 +314,11 @@ def test_arc_only_never_trains_oat_and_checks_frozen_profile(
         assert not any("egomimic.trainHydra" in c for c in calls)
     else:
         cluster.main()
+        assert parallel_calls == (
+            [("arc_stk", "libero_10")]
+            if backbone == "oat_dp" and run_mode == "full"
+            else []
+        )
         assert sum("egomimic.trainHydra" in c for c in calls) == 1
         assert not any("reconstruct" in c for c in calls)
         result = json.loads((tmp_path / "evidence/arc-results.json").read_text())

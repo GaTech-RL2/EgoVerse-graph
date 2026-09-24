@@ -1,5 +1,8 @@
 # Native ARC versus OAT
 
+For ARC runs using OAT's released diffusion Transformer and 10-step sampler,
+see [ARC with the released OAT DP backbone](LIBERO_ARC_OAT_DP.md).
+
 This port targets **EgoVerse-graph**, using `PipelineAlgo`, `ModelWrapper`,
 `MultiDataModuleWrapper`, and `trainHydra` for both methods. OAT is the actual
 released implementation of Chaoqi Liu's Ordered Action Tokenization. The

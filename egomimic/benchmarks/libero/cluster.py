@@ -249,7 +249,11 @@ def training_layout(gpus, mode):
     }
 
 
-def training_arguments(method, suite, dataset, evidence, mode, epochs, *, gpus=1):
+def training_arguments(
+    method, suite, dataset, evidence, mode, epochs, *, gpus=1, arc_backbone="unet"
+):
+    if arc_backbone not in {"unet", "oat_dp"}:
+        raise ValueError("Unknown ARC backbone")
     layout = training_layout(gpus, mode)
     experiment = {
         "tokenizer": "libero_oattok",
@@ -258,6 +262,8 @@ def training_arguments(method, suite, dataset, evidence, mode, epochs, *, gpus=1
         "arc_stk": "libero_arc_stk_policy",
         "arc_dur": "libero_arc_dur_policy",
     }[method]
+    if method.startswith("arc") and arc_backbone == "oat_dp":
+        experiment = "libero_arc_oat_dp_policy"
     run = Path(evidence) / "training" / method
     args = [
         sys.executable,
@@ -714,6 +720,11 @@ def main():
     parser.add_argument("--arc-only", action="store_true")
     parser.add_argument("--arc-profile")
     parser.add_argument(
+        "--arc-backbone",
+        choices=("unet", "oat_dp"),
+        default=os.environ.get("ARC_BACKBONE", "unet"),
+    )
+    parser.add_argument(
         "--oat-reference-run", default=os.environ.get("OAT_REFERENCE_RUN") or None
     )
     parser.add_argument("--campaign-id", default=os.environ.get("CAMPAIGN_ID") or None)
@@ -814,6 +825,10 @@ def main():
             "arc_replay_runs": replay_runs,
             "arc_only": args.arc_only,
             "arc_profile": args.arc_profile,
+            "arc_backbone": args.arc_backbone,
+            "evaluation_workers": 5
+            if args.arc_backbone == "oat_dp" and args.mode == "full"
+            else 1,
             "oat_reference_run": args.oat_reference_run,
             "campaign_id": args.campaign_id,
             "campaign_runs": args.campaign_runs,
@@ -849,6 +864,12 @@ def main():
                 methods=methods,
             )
         for method in () if args.evaluate_from_run else methods:
+            if method in arc_methods and method in restored:
+                previous_backbone = restored[method]["benchmark"].get(
+                    "arc_backbone", "unet"
+                )
+                if previous_backbone != args.arc_backbone:
+                    raise ValueError("Cannot resume ARC with a different backbone")
             overrides = dict(profile_overrides)
             if method in arc_methods and args.mode == "full":
                 arc_mode = arc_methods[method]
@@ -885,6 +906,7 @@ def main():
                 args.mode,
                 args.epochs,
                 gpus=args.gpus,
+                arc_backbone=args.arc_backbone,
             )
             argv += [
                 f"benchmark.{key}={value if value is not None else 'null'}"
@@ -903,6 +925,16 @@ def main():
             write_json(
                 evidence / "status.json", {"state": "ROLLOUTS", "method": method}
             )
+            if args.arc_backbone == "oat_dp" and args.mode == "full":
+                from egomimic.benchmarks.libero.evaluate import parallel_rollouts
+
+                parallel_rollouts(
+                    evidence / f"training/{method}/checkpoints/last.ckpt",
+                    evidence,
+                    method,
+                    args.suite,
+                )
+                continue
             argv = [
                 sys.executable,
                 "-m",

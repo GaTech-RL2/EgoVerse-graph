@@ -6,20 +6,20 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
-    RotateLocalFrame,
-    KeypointsToGripper,
-    InsertGripperChannels,
-    CartesianRot6DToYPR,
-    UnpadGripperZeros,
     ActionChunkCoordinateFrameTransform,
+    CartesianRot6DToYPR,
     ConcatKeys,
     DeleteKeys,
+    InsertGripperChannels,
     InterpolatePose,
+    KeypointsToGripper,
     PadGripperZeros,
     PoseCoordinateFrameTransform,
     Reshape,
+    RotateLocalFrame,
     SplitKeys,
     Transform,
+    UnpadGripperZeros,
     transforms_for_rotation_mode,
 )
 from egomimic.utils.viz_utils import (
@@ -233,13 +233,13 @@ class Human(Embodiment):
         camera_keys: dict | None = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
-        config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
-        (Aria=True). ``norm_mode``/``annotation_key``/``high_annotation_key``
-        behave as in the base (subtask mode splits the single annotation array
-        into a ``level == "low"`` target and a ``level == "high"`` prompt).
+        config: ``has_head_pose`` and ``include_aria_keypoints``
+            (Aria=True). ``norm_mode``/``annotation_key``/``high_annotation_key``
+            behave as in the base (subtask mode splits the single annotation array
+            into a ``level == "low"`` target and a ``level == "high"`` prompt).
         """
         key_map = cls._get_keymap(
-            keymap_mode,
+            cls.canonical_keymap_mode(keymap_mode),
             has_head_pose=has_head_pose,
             include_aria_keypoints=include_aria_keypoints,
             include_grip_keypoints=include_grip_keypoints,

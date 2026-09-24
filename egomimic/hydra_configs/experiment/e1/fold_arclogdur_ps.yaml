@@ -11,6 +11,7 @@ e1:
   chunk_length: 200
   progress_smooth_hz: 3.0
   anchor_sampler:
+    _target_: egomimic.rldb.zarr.e1_anchor_sampler.build_anchor_sampler
     alpha: 0.2
     fc_hz: 3.0
     fs_hz: 30.0

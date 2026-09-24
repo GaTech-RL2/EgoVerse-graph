@@ -11,7 +11,9 @@
 #     toward; applying the Rz(180) here would flip it wrong).
 #   - stride 3 (aria default).
 # Graph port: train_viz is a nested validation group; episode filters retained.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 train_datasets:
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -24,9 +26,9 @@ train_datasets:
         annotation_key: annotations
         include_grip_keypoints: true
         camera_keys:
-          observations.images.front_img_1: base_0_rgb
-          observations.images.left_wrist_img: left_wrist_0_rgb
-          observations.images.right_wrist_img: right_wrist_0_rgb
+          observations.images.front_img_1: observations.images.front_img_1
+          observations.images.left_wrist_img: observations.images.left_wrist_img
+          observations.images.right_wrist_img: observations.images.right_wrist_img
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         keypoint_gripper: true
@@ -56,9 +58,9 @@ valid_datasets:
           annotation_key: annotations
           include_grip_keypoints: true
           camera_keys:
-            observations.images.front_img_1: base_0_rgb
-            observations.images.left_wrist_img: left_wrist_0_rgb
-            observations.images.right_wrist_img: right_wrist_0_rgb
+            observations.images.front_img_1: observations.images.front_img_1
+            observations.images.left_wrist_img: observations.images.left_wrist_img
+            observations.images.right_wrist_img: observations.images.right_wrist_img
         transform_list:
           _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
           keypoint_gripper: true
@@ -87,9 +89,9 @@ valid_datasets:
           annotation_key: annotations
           include_grip_keypoints: true
           camera_keys:
-            observations.images.front_img_1: base_0_rgb
-            observations.images.left_wrist_img: left_wrist_0_rgb
-            observations.images.right_wrist_img: right_wrist_0_rgb
+            observations.images.front_img_1: observations.images.front_img_1
+            observations.images.left_wrist_img: observations.images.left_wrist_img
+            observations.images.right_wrist_img: observations.images.right_wrist_img
         transform_list:
           _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
           keypoint_gripper: true

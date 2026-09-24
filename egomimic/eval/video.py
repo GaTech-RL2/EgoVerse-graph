@@ -1,26 +1,76 @@
 """Shared episode-aware validation video buffering for graph robot models."""
 
 from __future__ import annotations
+
+import hashlib
+import json
+import math
 import os
-from pathlib import Path
+import tempfile
 from collections.abc import Mapping
+from fractions import Fraction
+from pathlib import Path
+
 import numpy as np
 import torch
 import torchvision.io as tvio
-from egomimic.eval.eval import Eval
+
+from egomimic.eval.eval import Eval, EvaluationDataRequirements
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 
 
 class EvalVideo(Eval):
-    def _video_fps(self, source_fps=30):
-        world = max(1, int(getattr(self.trainer, "world_size", 1) or 1))
-        return max(1, round(source_fps / world))
+    def configure_video(
+        self,
+        *,
+        source_fps,
+        sample_id_key,
+        frame_index_key,
+        complete_episodes=False,
+        mode="episode",
+    ):
+        if mode not in {"episode", "chunked"}:
+            raise ValueError("video_mode must be episode or chunked")
+        if complete_episodes and mode != "episode":
+            raise ValueError("Complete-episode videos require video_mode=episode")
+        EvaluationDataRequirements(
+            complete_episodes=complete_episodes,
+            source_fps=source_fps,
+            sample_id_key=sample_id_key,
+            frame_index_key=frame_index_key,
+        )
+        if mode == "episode" and (sample_id_key is None or frame_index_key is None):
+            raise ValueError(
+                "Episode videos require explicit identity and frame-index keys"
+            )
+        self.source_fps = source_fps
+        self.sample_id_key = sample_id_key
+        self.frame_index_key = frame_index_key
+        self.complete_video_episodes = complete_episodes
+        self.video_mode = mode
+
+    def data_requirements(self):
+        if not self.viz_func or self.viz_every_n_epochs <= 0:
+            return EvaluationDataRequirements()
+        if self.complete_video_episodes and self.viz_max_batches is not None:
+            raise ValueError("Complete-episode videos cannot set viz_max_batches")
+        return EvaluationDataRequirements(
+            ordered=True,
+            complete_episodes=self.complete_video_episodes,
+            sample_id_key=self.sample_id_key if self.video_mode == "episode" else None,
+            frame_index_key=self.frame_index_key
+            if self.video_mode == "episode"
+            else None,
+            source_fps=self.source_fps,
+        )
+
+    def _video_fps(self):
+        return self.source_fps
 
     def _should_viz(self, batch_idx=0):
         cadence = self.viz_every_n_epochs
         return (
-            getattr(self.trainer, "is_global_zero", True)
-            and cadence > 0
+            cadence > 0
             and (getattr(self.trainer, "current_epoch", 0) + 1) % cadence == 0
             and (self.viz_max_batches is None or batch_idx < self.viz_max_batches)
         )
@@ -34,6 +84,11 @@ class EvalVideo(Eval):
         self.val_open_episode = {}
         self.val_written = {}
         self._written_paths = []
+        self._frame_records = {}
+        previous = getattr(self, "_video_spool", None)
+        if previous is not None:
+            previous.cleanup()
+        self._video_spool = tempfile.TemporaryDirectory(prefix="egoverse-video-")
         if self.trainer is not None and getattr(self.trainer, "is_global_zero", True):
             os.makedirs(
                 os.path.join(
@@ -44,8 +99,9 @@ class EvalVideo(Eval):
             )
 
     def on_validation_end(self):
-        # Only rank 0 buffered / wrote frames, so only rank 0 has tails to
-        # flush and paths to upload.
+        self._finish_frame_records()
+        # All ranks supplied episode frames; only rank zero writes/uploads files.
+        # The legacy single-rank chunked path may still have a buffered tail.
         if self.trainer is not None and not getattr(
             self.trainer, "is_global_zero", True
         ):
@@ -92,15 +148,42 @@ class EvalVideo(Eval):
         parts.append(str(embodiment_name))
         return os.path.join(*parts)
 
-    def _write_video(self, out_dir, name, frames, *, group, embodiment_name):
+    def _write_video(self, out_dir, name, frames, *, group, embodiment_name, fps=None):
         os.makedirs(out_dir, exist_ok=True)
         path = os.path.join(out_dir, f"{name}.mp4")
         tvio.write_video(
             path,
             torch.stack(list(frames)),
-            fps=self._video_fps(),
+            fps=self._video_fps() if fps is None else fps,
             video_codec="h264",
         )
+        self._written_paths.append((group, embodiment_name, path))
+
+    def _write_episode_stream(
+        self, out_dir, name, frames, *, group, embodiment_name, fps
+    ):
+        """Encode one frame at a time; a whole episode never occupies RAM."""
+        import av
+
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, f"{name}.mp4")
+        with av.open(path, mode="w") as container:
+            stream = None
+            for array in frames:
+                array = np.asarray(array, dtype=np.uint8)
+                if stream is None:
+                    stream = container.add_stream(
+                        "libx264", rate=Fraction(float(fps)).limit_denominator(100000)
+                    )
+                    stream.height, stream.width = array.shape[:2]
+                    stream.pix_fmt = "yuv420p"
+                for packet in stream.encode(
+                    av.VideoFrame.from_ndarray(array, format="rgb24")
+                ):
+                    container.mux(packet)
+            if stream is not None:
+                for packet in stream.encode():
+                    container.mux(packet)
         self._written_paths.append((group, embodiment_name, path))
 
     def _flush_episode(self, buf_key, out_dir):
@@ -172,8 +255,7 @@ class EvalVideo(Eval):
             self.val_image_buffer[buf_key].clear()
             self.val_counter[buf_key] += 1
 
-    @staticmethod
-    def _episode_hashes(source_batch: Mapping, n_images: int):
+    def _episode_hashes(self, source_batch: Mapping, n_images: int):
         """Per-sample ``episode_hash`` for this embodiment's images.
 
         ``episode_hash`` is stamped on every sample by ZarrDataset and falls
@@ -182,13 +264,153 @@ class EvalVideo(Eval):
         fixed-size chunking rather than mislabelling frames.
         """
         hashes = (
-            source_batch.get("episode_hash")
+            source_batch.get(self.sample_id_key)
             if isinstance(source_batch, Mapping)
             else None
         )
         if not isinstance(hashes, (list, tuple)) or len(hashes) < n_images:
             return None
         return [str(h) for h in hashes[:n_images]]
+
+    def _record_video_frames(self, buf_key, frames, source_batch):
+        """Buffer by declared identity/index, independent of loader cycling or rank.
+
+        All ranks contribute at epoch end. Repeated samples (including DDP
+        padding) are deduplicated by their data-owned frame identity.
+        """
+        if self.video_mode == "chunked":
+            if (
+                torch.distributed.is_initialized()
+                and torch.distributed.get_world_size() > 1
+            ):
+                raise ValueError(
+                    "Distributed videos require episode identity and frame indices"
+                )
+            return self._buffer_chunked(
+                buf_key, self._group_video_dir(*buf_key), list(frames)
+            )
+        hashes = self._episode_hashes(source_batch, len(frames))
+        indices = source_batch.get(self.frame_index_key)
+        if hashes is None or indices is None or len(indices) != len(frames):
+            raise ValueError(
+                f"Video batch needs {self.sample_id_key!r} and {self.frame_index_key!r} for every frame"
+            )
+        for frame, episode, index in zip(frames, hashes, indices, strict=True):
+            value = index.item() if torch.is_tensor(index) else index
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, np.integer))
+                or value < 0
+            ):
+                raise ValueError("Video frame indices must be nonnegative integers")
+            key = (*buf_key, episode)
+            records = self._frame_records.setdefault(key, {})
+            if value in records:
+                continue
+            if len(records) >= self.max_episode_frames:
+                if self.complete_video_episodes:
+                    raise ValueError(
+                        f"Complete video exceeds max_episode_frames: {episode!r}"
+                    )
+                continue
+            name = hashlib.sha256(json.dumps([*key, int(value)]).encode()).hexdigest()
+            path = Path(self._video_spool.name) / (name + ".npy")
+            np.save(
+                path, frame.detach().cpu().numpy().astype(np.uint8), allow_pickle=False
+            )
+            records[int(value)] = path
+
+    def _finish_frame_records(self):
+        local = getattr(self, "_frame_records", {})
+        distributed = (
+            torch.distributed.is_available() and torch.distributed.is_initialized()
+        )
+        metadata = {key: tuple(records) for key, records in local.items()}
+        payloads = [metadata]
+        rank = 0
+        if distributed:
+            payloads = [None] * torch.distributed.get_world_size()
+            torch.distributed.all_gather_object(payloads, metadata)
+            rank = torch.distributed.get_rank()
+        merged = {}
+        for payload in payloads:
+            for key, indices in payload.items():
+                merged.setdefault(key, set()).update(indices)
+        errors = []
+        for key, indices in sorted(merged.items()):
+            group, source, episode = key
+            if self.complete_video_episodes and len(indices) > self.max_episode_frames:
+                raise ValueError(
+                    f"Complete video exceeds max_episode_frames: {episode!r}"
+                )
+            indices = sorted(indices)[: self.max_episode_frames]
+            if not indices:
+                continue
+            stride = 1 if len(indices) < 2 else math.gcd(*np.diff(indices).tolist())
+            if self.complete_video_episodes and indices != list(range(len(indices))):
+                raise ValueError(
+                    f"Video episode {episode!r} is incomplete after rank gathering"
+                )
+            records = {}
+            # Only one bounded batch of pixel arrays is communicated at a time.
+            # Other ranks never receive the entire corpus's video frames.
+            for offset in range(0, len(indices), 32):
+                chosen = indices[offset : offset + 32]
+                values = {
+                    i: np.load(local[key][i], allow_pickle=False)
+                    for i in chosen
+                    if i in local.get(key, {})
+                }
+                gathered = [values]
+                if distributed:
+                    gathered = [None] * len(payloads) if rank == 0 else None
+                    torch.distributed.gather_object(values, gathered, dst=0)
+                if rank == 0:
+                    for contribution in gathered:
+                        for index, frame in contribution.items():
+                            if index not in records:
+                                name = hashlib.sha256(
+                                    json.dumps([*key, index, "gathered"]).encode()
+                                ).hexdigest()
+                                path = Path(self._video_spool.name) / (name + ".npy")
+                                np.save(path, frame, allow_pickle=False)
+                                records[index] = path
+            if rank != 0:
+                continue
+
+            def frames():
+                latest = records[indices[0]]
+                for index in range(indices[0], indices[-1] + 1, stride):
+                    latest = records.get(index, latest)
+                    yield np.load(latest, allow_pickle=False)
+
+            name = (
+                episode
+                if Path(episode).name == episode and episode not in {".", ".."}
+                else hashlib.sha256(episode.encode()).hexdigest()
+            )
+            try:
+                self._write_episode_stream(
+                    self._group_video_dir(group, source),
+                    name,
+                    frames(),
+                    group=group,
+                    embodiment_name=source,
+                    fps=self.source_fps / stride,
+                )
+            except Exception as error:
+                # Finish collectives before reporting rank-zero encoding errors.
+                errors.append(f"{episode}: {error}")
+        if distributed:
+            result = [errors]
+            torch.distributed.broadcast_object_list(result, src=0)
+            errors = result[0]
+        self._frame_records = {}
+        spool = getattr(self, "_video_spool", None)
+        if spool is not None:
+            spool.cleanup()
+        if errors:
+            raise RuntimeError("Episode video encoding failed: " + "; ".join(errors))
 
     def _wandb_logger(self):
         """Return the WandbLogger.experiment handle if wandb is configured."""

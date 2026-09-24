@@ -26,6 +26,9 @@ def _baseline_evaluator(execute_steps=2):
     evaluator._arc_tokenizer = None
     evaluator.require_episode_start = True
     evaluator.limit_val_episodes = None
+    evaluator.configure_video(
+        source_fps=30.0, sample_id_key="episode_hash", frame_index_key="frame_index"
+    )
     return evaluator
 
 
@@ -252,9 +255,7 @@ def test_open_loop_video_uploads_only_first_episode_per_panel(monkeypatch):
         ("valid", "human_bimanual", "/tmp/episode-c.mp4"),
         ("nested", "yam_bimanual", "/tmp/episode-d.mp4"),
     ]
-    fake_wandb = SimpleNamespace(
-        Video=lambda path, **kwargs: {"path": path, **kwargs}
-    )
+    fake_wandb = SimpleNamespace(Video=lambda path, **kwargs: {"path": path, **kwargs})
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
 
     OpenLoopSimEval._log_wandb_videos(evaluator)
@@ -268,3 +269,20 @@ def test_open_loop_video_uploads_only_first_episode_per_panel(monkeypatch):
         "Val_video_nested/yam_bimanual",
     ]
     assert payload["Val_video/yam_bimanual"]["path"] == "/tmp/episode-a.mp4"
+
+
+def test_nonzero_rank_finishes_video_collectives_before_return(monkeypatch):
+    evaluator = _baseline_evaluator()
+    evaluator._video_enabled = True
+    monkeypatch.setattr(evaluator, "_all_records", lambda: [])
+    monkeypatch.setattr(
+        evaluator, "_compute_results", lambda records: {"sentinel": True}
+    )
+    calls = []
+    monkeypatch.setattr(
+        EvalVideo, "on_validation_end", lambda self: calls.append("gather")
+    )
+    monkeypatch.setattr(torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(torch.distributed, "get_rank", lambda: 1)
+    assert evaluator.on_validation_end() == {"sentinel": True}
+    assert calls == ["gather"]

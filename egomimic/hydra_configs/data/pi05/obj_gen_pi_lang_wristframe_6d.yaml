@@ -9,7 +9,9 @@
 # Valid datasets inherit the train resolver via `${...}` interpolation in
 # cotrain_pi_base, so overriding the train resolver is sufficient.
 # Graph port: train_viz is a nested validation group; episode filters retained.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 train_datasets:
   eva_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -21,9 +23,9 @@ train_datasets:
         keymap_mode: cartesian
         annotation_key: annotations
         camera_keys:
-          observations.images.front_img_1: base_0_rgb
-          observations.images.left_wrist_img: left_wrist_0_rgb
-          observations.images.right_wrist_img: right_wrist_0_rgb
+          observations.images.front_img_1: observations.images.front_img_1
+          observations.images.left_wrist_img: observations.images.left_wrist_img
+          observations.images.right_wrist_img: observations.images.right_wrist_img
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
         action_mode: cartesian
@@ -86,9 +88,9 @@ train_datasets:
         keymap_mode: cartesian
         annotation_key: annotations
         camera_keys:
-          observations.images.front_img_1: base_0_rgb
-          observations.images.left_wrist_img: left_wrist_0_rgb
-          observations.images.right_wrist_img: right_wrist_0_rgb
+          observations.images.front_img_1: observations.images.front_img_1
+          observations.images.left_wrist_img: observations.images.left_wrist_img
+          observations.images.right_wrist_img: observations.images.right_wrist_img
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         stride: 3
@@ -119,9 +121,9 @@ valid_datasets:
         keymap_mode: cartesian
         annotation_key: annotations
         camera_keys:
-          observations.images.front_img_1: base_0_rgb
-          observations.images.left_wrist_img: left_wrist_0_rgb
-          observations.images.right_wrist_img: right_wrist_0_rgb
+          observations.images.front_img_1: observations.images.front_img_1
+          observations.images.left_wrist_img: observations.images.left_wrist_img
+          observations.images.right_wrist_img: observations.images.right_wrist_img
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
         action_mode: cartesian
@@ -150,9 +152,9 @@ valid_datasets:
         keymap_mode: cartesian
         annotation_key: annotations
         camera_keys:
-          observations.images.front_img_1: base_0_rgb
-          observations.images.left_wrist_img: left_wrist_0_rgb
-          observations.images.right_wrist_img: right_wrist_0_rgb
+          observations.images.front_img_1: observations.images.front_img_1
+          observations.images.left_wrist_img: observations.images.left_wrist_img
+          observations.images.right_wrist_img: observations.images.right_wrist_img
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         stride: 3

@@ -15,7 +15,9 @@
 # to the human data, not to seeing more or less robot data.
 #
 # Its arc twin is abc_fstshirt_arc_bc_D40_M100.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 
 train_datasets:
   yam_bimanual:

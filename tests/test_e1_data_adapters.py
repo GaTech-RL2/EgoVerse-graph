@@ -79,14 +79,17 @@ def test_anchor_sampler_uses_graph_collation_without_changing_config(monkeypatch
     sampler = torch.utils.data.SequentialSampler(dataset)
     monkeypatch.setattr(
         "egomimic.rldb.zarr.e1_anchor_sampler.build_anchor_sampler",
-        lambda actual_dataset, **_kwargs: sampler,
+        lambda dataset, **_kwargs: sampler,
     )
     params = {
         "train": {
             "batch_size": 2,
             "num_workers": 0,
             "shuffle": True,
-            "anchor_sampler": {"alpha": 0.2},
+            "sampler": {
+                "_target_": "egomimic.rldb.zarr.e1_anchor_sampler.build_anchor_sampler",
+                "alpha": 0.2,
+            },
         }
     }
     module = MultiDataModuleWrapper(
@@ -101,4 +104,4 @@ def test_anchor_sampler_uses_graph_collation_without_changing_config(monkeypatch
     assert batch["annotation_keys"] == [["0"], ["1"]]
     torch.testing.assert_close(batch["x"], torch.tensor([[0], [1]]))
     assert params["train"]["shuffle"] is True
-    assert params["train"]["anchor_sampler"] == {"alpha": 0.2}
+    assert params["train"]["sampler"]["alpha"] == 0.2

@@ -45,7 +45,9 @@ def test_rot6d_gram_schmidt_orthonormalises_a_perturbed_input():
     rot6d[:, 3:9] += 1e-3  # a denoiser never emits an exactly orthonormal pair
     rotations = _xyzrot6d_to_matrix(rot6d)[:, :3, :3]
     identity = np.einsum("bij,bkj->bik", rotations, rotations)
-    np.testing.assert_allclose(identity, np.broadcast_to(np.eye(3), (4, 3, 3)), atol=1e-9)
+    np.testing.assert_allclose(
+        identity, np.broadcast_to(np.eye(3), (4, 3, 3)), atol=1e-9
+    )
     np.testing.assert_allclose(np.linalg.det(rotations), np.ones(4), atol=1e-9)
 
 
@@ -58,7 +60,9 @@ def test_rot6d_gram_schmidt_orthonormalises_a_perturbed_input():
     ],
 )
 def test_transforms_for_rotation_mode_selects_and_sizes(rotation_mode, types, width):
-    transforms = transforms_for_rotation_mode(keys=["pose"], rotation_mode=rotation_mode)
+    transforms = transforms_for_rotation_mode(
+        keys=["pose"], rotation_mode=rotation_mode
+    )
     assert tuple(type(t) for t in transforms) == types
 
     batch = {"pose": _random_poses(5, seed=4)}
@@ -131,7 +135,9 @@ def test_human_builds_every_rotation_mode(action_mode, rotation_mode):
     assert (XYZWXYZ_to_XYZRot6D in kinds) == (rotation_mode == "6D")
 
 
-@pytest.mark.parametrize("rotation_mode, pose_dim", [("euler", 6), ("quat", 7), ("6D", 9)])
+@pytest.mark.parametrize(
+    "rotation_mode, pose_dim", [("euler", 6), ("quat", 7), ("6D", 9)]
+)
 def test_human_gripper_padding_matches_the_rotation_width(rotation_mode, pose_dim):
     transforms = Human.get_transform_list(
         action_mode="cartesian_gripper_padded", rotation_mode=rotation_mode

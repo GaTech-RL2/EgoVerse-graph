@@ -11,7 +11,9 @@
 # Identical datasets and episode limits to abc_fstshirt_mecka_freefold_baseline_cotrain
 # -- the ONLY difference is the action space: (M+1, 14) arc-length tokens instead
 # of a time-parameterized chunk. That is what makes the two runs comparable.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 
 train_datasets:
   human_bimanual:

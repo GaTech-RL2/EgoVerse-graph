@@ -86,3 +86,9 @@ scheduler:
   warmup_steps: 500
   warmup_start_factor: 1.0e-8
   eta_min: 0.0
+
+# Model-owned deployment compatibility.
+inference:
+  status: unsupported
+  reason: This simulation recipe has no deployment observation/action adapter. Use
+    its configured simulator evaluator; declare an inference adapter before deployment.

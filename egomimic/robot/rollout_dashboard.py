@@ -230,10 +230,15 @@ class CheckpointBrowser:
             )
         return bundle
 
-    def list_directory(self, relative: object = ".") -> dict:
+    def list_directory(self, relative: object = ".", query: object = "") -> dict:
         directory = self._resolve(relative)
         if not directory.is_dir():
             raise ValueError("Checkpoint browser path is not a directory")
+        if not isinstance(query, str) or len(query) > 200:
+            raise ValueError(
+                "Checkpoint search must be a string of at most 200 characters"
+            )
+        needle = query.strip().casefold()
         entries = []
         try:
             children = tuple(directory.iterdir())
@@ -243,6 +248,8 @@ class CheckpointBrowser:
             children, key=lambda entry: (not entry.is_dir(), entry.name.lower())
         ):
             if child.name.startswith("."):
+                continue
+            if needle and needle not in child.name.casefold():
                 continue
             try:
                 resolved = child.resolve(strict=True)
@@ -1041,7 +1048,8 @@ class RolloutDashboard:
             async def checkpoints(request):
                 try:
                     listing = self.model_browser.list_directory(
-                        request.query.get("path", ".")
+                        request.query.get("path", "."),
+                        request.query.get("query", ""),
                     )
                 except ValueError as error:
                     raise web.HTTPBadRequest(text=str(error)) from error

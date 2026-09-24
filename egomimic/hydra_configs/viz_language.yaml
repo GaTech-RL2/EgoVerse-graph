@@ -1,0 +1,8 @@
+defaults:
+  - paths: default
+  - data: cotrain_pi_lang
+  - evaluator: dataset_video
+  - _self_
+
+output_dir: ./lang_viz_output/${now:%Y%m%d-%H%M%S}
+split: valid

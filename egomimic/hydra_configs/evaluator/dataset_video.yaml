@@ -1,0 +1,22 @@
+_target_: egomimic.eval.dataset_video.DatasetVideo
+source_fps: ${data.source_fps}
+max_episodes: 3
+complete_episodes: true
+sample_every: 50
+max_saved_samples: 12
+artifact_keys: [actions_cartesian, observations.state.ee_pose]
+renderers:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva.Eva.viz_recorded_batch
+    _partial_: true
+    image_key: observations.images.front_img_1
+    action_key: actions_cartesian
+    annotation_key: annotations
+    mode: traj
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human.Human.viz_recorded_batch
+    _partial_: true
+    image_key: observations.images.front_img_1
+    action_key: actions_cartesian
+    annotation_key: annotations
+    mode: traj

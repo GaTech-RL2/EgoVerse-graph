@@ -256,6 +256,71 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 dataset.require_ordered_samples()
         super().configure_evaluation(requirements)
 
+    @resolve_once()
+    def prepare_visualization(self, *, split, requirements):
+        """Open only selected splits in native units, without fitting statistics.
+
+        The preview context is deliberately not a restorable training context.
+        Dataset selection, collation and episode limits stay inside this adapter.
+        """
+        if split not in {"train", "valid", "both"}:
+            raise ValueError("Visualization split must be train, valid, or both")
+        selected, parameters = {}, {}
+        if split in {"train", "both"}:
+            selected["train"] = self._train_configs
+            parameters["train"] = self.train_dataloader_params
+        if split in {"valid", "both"}:
+            groups = as_valid_groups(self._valid_configs)
+            for group, configs in groups.items():
+                name = f"valid/{group}"
+                selected[name] = configs
+                # The data adapter, not the tool entrypoint, owns loader topology.
+                from egomimic.pl_utils.pl_data_utils import _params_for_group
+
+                parameters[name] = _params_for_group(
+                    self.valid_dataloader_params, group, set(configs)
+                )
+        datasets = {
+            group: {
+                name: hydra.utils.instantiate(cfg)
+                for name, cfg in members.items()
+                if cfg is not None
+            }
+            for group, members in selected.items()
+        }
+        options = dict(self._loader_options)
+        options.update(validation_layout="grouped", valid_loader_mode="max_size")
+        super().__init__({}, datasets, {}, parameters, **options)
+        owner = MultiDataset(state={}, norm_mode="quantile")
+        members = {
+            f"{group}/{name}": ds for group, name, ds in self.iter_valid_datasets()
+        }
+        owner.populate_from_datasets(members)
+        for dataset in members.values():
+            dataset.set_norm_stats_from(owner)
+            owner.infer_shapes_from_batch(dataset[0])
+        self.configure_evaluation(requirements)
+        self.context = DataContext(
+            owner,
+            copy.deepcopy(owner.shapes),
+            tuple(self.valid_group_names),
+            {"kind": "zarr-preview-v1", "normalization": "none", "split": split},
+        )
+        return self.context
+
+    def iter_visualization_batches(self):
+        """Yield opaque group names and noncycling, data-collated source batches."""
+        if self.context is None or self.context.state.get("kind") != "zarr-preview-v1":
+            raise RuntimeError(
+                "Call prepare_visualization before iterating preview data"
+            )
+        for group in self.valid_group_names:
+            for batch, _, _ in self._val_loader_for_group(group):
+                yield (
+                    group,
+                    {name: value for name, value in batch.items() if value is not None},
+                )
+
     def frame_counts(self):
         return [
             ("train", name, len(ds)) for name, ds in self.train_datasets.items()

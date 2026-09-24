@@ -20,6 +20,11 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
 - `zarr/e1_resolvers.py`, `zarr/e1_anchor_sampler.py`: metadata overrides and
   configurable anchor sampling used by the tempo recipes.
 - `filters.py`: dataset query builder. Filter values belong in the selected YAML.
+- `zarr/selection.py`: pinned random/paired/custom diagnostic selections and
+  evenly spaced episode sampling; preserve real frame indices.
+- `scripts/viz_language.py`, `scripts/check_data.py` (under `egomimic/`): use
+  the DataModule's preview capabilities without fitting normalization. See
+  [data tools](../../docs/integration/DATA_TOOLS.md).
 
 Transforms produce native values. `MultiDataset` owns normalization; graph
 training/inference consumes normalized values, and evaluation/rollout adapters

@@ -244,9 +244,7 @@ class ActionLatentVFMTrainingBehavior(TrainingBehavior):
 
     def on_validation_epoch_end(self):
         if self._validation_metrics.count:
-            metrics, _ = self._validation_metrics.reduce(
-                label="action-latent VFM"
-            )
+            metrics, _ = self._validation_metrics.reduce(label="action-latent VFM")
             self.context.log_dict(
                 OrderedDict(
                     (f"Valid/ActionLatentVFM/{name}", value)

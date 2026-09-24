@@ -129,7 +129,9 @@ def test_builder_run_suffix_produces_distinct_retry_identities(tmp_path):
         check=True,
     )
     config = json.loads(
-        (output / "gaussian-torus-f-nonlinear-path-seed42-smoke-retry1.json").read_text()
+        (
+            output / "gaussian-torus-f-nonlinear-path-seed42-smoke-retry1.json"
+        ).read_text()
     )
     assert config["wandb"]["id"].endswith("-smoke-retry1")
     assert config["wandb"]["dir"] == str(tmp_path / "experiment" / "wandb")

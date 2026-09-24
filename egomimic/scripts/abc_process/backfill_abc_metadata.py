@@ -169,7 +169,9 @@ def _true_extent(centre: float, declared: int, tol: float = 0.05) -> float:
     return float(declared)
 
 
-def build_metadata(calib: dict, stored_hw: tuple[int, int]) -> tuple[dict, dict | None, str]:
+def build_metadata(
+    calib: dict, stored_hw: tuple[int, int]
+) -> tuple[dict, dict | None, str]:
     """-> (intrinsics, extrinsics|None, station tag). Scales K to the stored size."""
     top = next(
         (t for t in ("/top-camera-info", "/top-left-camera-info") if t in calib), None
@@ -203,10 +205,7 @@ def build_metadata(calib: dict, stored_hw: tuple[int, int]) -> tuple[dict, dict 
     #
     # Tell them apart by aspect: a true resize changes both axes in proportion,
     # while the 848x480 -> 640x480 case here keeps the height, so it is a crop.
-    resize = (
-        true_w and true_h
-        and abs((w / true_w) - (h / true_h)) < 0.01
-    )
+    resize = true_w and true_h and abs((w / true_w) - (h / true_h)) < 0.01
     if resize:
         K[0] *= w / true_w
         K[1] *= h / true_h
@@ -263,14 +262,19 @@ def process(job: tuple) -> dict:
         attrs["embodiment"] = TARGET_EMBODIMENT
         attrs["intrinsics"] = intr
         attrs["extrinsics"] = extr
-        rec.update(station=station, has_extrinsics=extr is not None,
-                   fx=round(intr["front_1"][0][0], 3),
-                   cx=round(intr["front_1"][0][2], 3))
+        rec.update(
+            station=station,
+            has_extrinsics=extr is not None,
+            fx=round(intr["front_1"][0][0], 3),
+            cx=round(intr["front_1"][0][2], 3),
+        )
 
         if apply_changes:
             s3.put_object(
-                Bucket=bucket, Key=key,
-                Body=json.dumps(doc).encode(), ContentType="application/json",
+                Bucket=bucket,
+                Key=key,
+                Body=json.dumps(doc).encode(),
+                ContentType="application/json",
             )
             rec["status"] = "updated"
         else:
@@ -282,7 +286,9 @@ def process(job: tuple) -> dict:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     p = argparse.ArgumentParser()
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--task", action="append", help="exact SQL task name (repeatable)")
@@ -290,7 +296,9 @@ def main() -> None:
     g.add_argument("--all", action="store_true", help="every lab='abc' episode")
     p.add_argument("--manifest", required=True)
     p.add_argument("--apply", action="store_true", help="write; otherwise dry run")
-    p.add_argument("--force", action="store_true", help="redo already-complete episodes")
+    p.add_argument(
+        "--force", action="store_true", help="redo already-complete episodes"
+    )
     p.add_argument("--limit", type=int)
     p.add_argument(
         "--workers",
@@ -323,13 +331,18 @@ def main() -> None:
 
     logger.info(
         "%d episodes across %d tasks | %s | workers=%d",
-        len(df), df.task.nunique(), "APPLY" if args.apply else "DRY RUN", args.workers,
+        len(df),
+        df.task.nunique(),
+        "APPLY" if args.apply else "DRY RUN",
+        args.workers,
     )
     for t, n in df.task.value_counts().items():
         logger.info("    %-46s %5d", t, n)
 
-    jobs = [(r.episode_hash, r.task, bucket, args.apply, args.force)
-            for r in df.itertuples()]
+    jobs = [
+        (r.episode_hash, r.task, bucket, args.apply, args.force)
+        for r in df.itertuples()
+    ]
     results, done = [], 0
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         futs = [ex.submit(process, j) for j in jobs]
@@ -338,9 +351,13 @@ def main() -> None:
             done += 1
             if done % 100 == 0 or done == len(jobs):
                 ok = sum(r["status"] in ("updated", "would_update") for r in results)
-                logger.info("  %d/%d  ok=%d  failed=%d",
-                            done, len(jobs), ok,
-                            sum(r["status"] == "failed" for r in results))
+                logger.info(
+                    "  %d/%d  ok=%d  failed=%d",
+                    done,
+                    len(jobs),
+                    ok,
+                    sum(r["status"] == "failed" for r in results),
+                )
 
     counts: dict[str, int] = {}
     stations: dict[str, int] = {}

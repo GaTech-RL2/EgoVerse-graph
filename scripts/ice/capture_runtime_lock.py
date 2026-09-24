@@ -35,15 +35,11 @@ def sha256(path: pathlib.Path) -> str:
 
 
 def canonical_bytes(payload: Any) -> bytes:
-    return (
-        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
-    ).encode()
+    return (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
 def git(repo: pathlib.Path, *args: str) -> str:
-    return subprocess.check_output(
-        ["git", "-C", str(repo), *args], text=True
-    ).strip()
+    return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
 
 
 def distribution_inventory() -> list[dict[str, str]]:

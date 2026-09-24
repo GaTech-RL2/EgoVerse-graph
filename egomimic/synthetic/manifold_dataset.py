@@ -183,9 +183,7 @@ def generate_gaussian_sphere_cube(
     generator = torch.Generator(device="cpu").manual_seed(int(seed))
     source_latent = torch.randn((count, source_dim), generator=generator, dtype=dtype)
     source_3d = source_latent[:, :3]
-    surface_uniform = 0.5 * (
-        1.0 + torch.erf(source_latent[:, :3] / math.sqrt(2.0))
-    )
+    surface_uniform = 0.5 * (1.0 + torch.erf(source_latent[:, :3] / math.sqrt(2.0)))
 
     sphere_z = 1.0 - 2.0 * surface_uniform[:, 0]
     sphere_phi = 2.0 * math.pi * surface_uniform[:, 1]

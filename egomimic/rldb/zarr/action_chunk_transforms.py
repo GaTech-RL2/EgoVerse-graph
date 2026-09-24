@@ -20,8 +20,6 @@ import torch
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.utils.pose_utils import (
-    _rot6d_to_ypr,
-    _ypr_to_rot6d,
     _interpolate_euler,
     _interpolate_linear,
     _interpolate_quat_wxyz,
@@ -30,9 +28,11 @@ from egomimic.utils.pose_utils import (
     _matrix_to_xyzrot6d,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
+    _rot6d_to_ypr,
     _xyz_to_matrix,
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
+    _ypr_to_rot6d,
     wxyz_to_xyzw,
     xyzw_to_wxyz,
 )

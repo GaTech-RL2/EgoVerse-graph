@@ -30,9 +30,7 @@ def main() -> None:
         print(f"library: {reader.get_header().library}")
         print(f"profile: {reader.get_header().profile}\n")
 
-        counts = (
-            summary.statistics.channel_message_counts if summary.statistics else {}
-        )
+        counts = summary.statistics.channel_message_counts if summary.statistics else {}
         rows = []
         for chan_id, chan in summary.channels.items():
             schema = summary.schemas.get(chan.schema_id)

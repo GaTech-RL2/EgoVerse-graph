@@ -26,9 +26,7 @@ def _compose(row, *extra):
         "action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
     ),
 )
-def test_action_flow_core_rows_compose_with_portable_dataset_root(
-    row, monkeypatch
-):
+def test_action_flow_core_rows_compose_with_portable_dataset_root(row, monkeypatch):
     root = "/verified/cluster/datasets/Tsim_v2"
     monkeypatch.setenv("PUSHSHAPES_DATA_ROOT", root)
 
@@ -38,9 +36,7 @@ def test_action_flow_core_rows_compose_with_portable_dataset_root(
         for dataset in split.values():
             assert str(dataset.resolver.folder_path).startswith(f"{root}/")
     assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
-    assert cfg.model.training_behavior._target_.endswith(
-        "ActionFlowTrainingBehavior"
-    )
+    assert cfg.model.training_behavior._target_.endswith("ActionFlowTrainingBehavior")
     assert cfg.model.action_horizon == 16
     assert cfg.model.flow_samples_per_content == 14
 

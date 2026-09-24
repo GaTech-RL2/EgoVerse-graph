@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
 HANDS = ("left", "right")
 
 
-def episode_frame_speed(path: str, fc_hz: float = 3.0, fs_hz: float = 30.0, pose_key: str = "wrist") -> np.ndarray:
+def episode_frame_speed(
+    path: str, fc_hz: float = 3.0, fs_hz: float = 30.0, pose_key: str = "wrist"
+) -> np.ndarray:
     """Per-frame wrist speed (m/s), max over arms, low-passed at ``fc_hz``."""
     g = zarr.open_group(str(path), mode="r")
     speeds = []
@@ -50,16 +52,24 @@ def episode_frame_speed(path: str, fc_hz: float = 3.0, fs_hz: float = 30.0, pose
     return np.maximum(speeds[0], speeds[1])
 
 
-def anchor_weights(dataset, alpha: float, fc_hz: float, fs_hz: float, pose_key: str) -> np.ndarray:
+def anchor_weights(
+    dataset, alpha: float, fc_hz: float, fs_hz: float, pose_key: str
+) -> np.ndarray:
     """One weight per ``dataset.index_map`` entry (a MultiDataset over leaf episodes)."""
     per_ep: dict[str, np.ndarray] = {}
     for name, leaf in dataset.datasets.items():
         if not hasattr(leaf, "episode_path"):
-            raise TypeError(f"anchor sampler needs leaf episode datasets, got {type(leaf).__name__} for {name}")
+            raise TypeError(
+                f"anchor sampler needs leaf episode datasets, got {type(leaf).__name__} for {name}"
+            )
         v = episode_frame_speed(leaf.episode_path, fc_hz, fs_hz, pose_key)
         n = len(leaf)
-        if len(v) < n:  # keep the two in step if the episode metadata disagrees with the array
-            v = np.concatenate([v, np.full(n - len(v), float(v[-1]) if len(v) else 0.0)])
+        if (
+            len(v) < n
+        ):  # keep the two in step if the episode metadata disagrees with the array
+            v = np.concatenate(
+                [v, np.full(n - len(v), float(v[-1]) if len(v) else 0.0)]
+            )
         per_ep[name] = v[:n]
     v_pool = float(np.mean(np.concatenate(list(per_ep.values()))))
     v_pool = max(v_pool, 1e-6)
@@ -69,17 +79,37 @@ def anchor_weights(dataset, alpha: float, fc_hz: float, fs_hz: float, pose_key: 
     ess = float(w.sum() ** 2 / np.sum(w**2))
     logger.info(
         "anchor sampler: %d episodes, %d frames, v_pool %.3f m/s, alpha %.2f, weight q10/q50/q90 = %.2f/%.2f/%.2f, ESS %.0f (%.0f%%)",
-        len(per_ep), len(w), v_pool, alpha, *np.quantile(w, [0.1, 0.5, 0.9]), ess, 100 * ess / len(w),
+        len(per_ep),
+        len(w),
+        v_pool,
+        alpha,
+        *np.quantile(w, [0.1, 0.5, 0.9]),
+        ess,
+        100 * ess / len(w),
     )
-    print(f"ANCHOR_SAMPLER episodes={len(per_ep)} frames={len(w)} v_pool={v_pool:.3f} alpha={alpha} "
-          f"w_q10={np.quantile(w, .1):.2f} w_q50={np.quantile(w, .5):.2f} w_q90={np.quantile(w, .9):.2f} ess_frac={ess / len(w):.2f}", flush=True)
+    print(
+        f"ANCHOR_SAMPLER episodes={len(per_ep)} frames={len(w)} v_pool={v_pool:.3f} alpha={alpha} "
+        f"w_q10={np.quantile(w, .1):.2f} w_q50={np.quantile(w, .5):.2f} w_q90={np.quantile(w, .9):.2f} ess_frac={ess / len(w):.2f}",
+        flush=True,
+    )
     return w
 
 
-def build_anchor_sampler(dataset, alpha: float = 0.2, fc_hz: float = 3.0, fs_hz: float = 30.0,
-                         pose_key: str = "wrist", num_samples: int | None = None, seed: int = 0) -> WeightedRandomSampler:
+def build_anchor_sampler(
+    dataset,
+    alpha: float = 0.2,
+    fc_hz: float = 3.0,
+    fs_hz: float = 30.0,
+    pose_key: str = "wrist",
+    num_samples: int | None = None,
+    seed: int = 0,
+) -> WeightedRandomSampler:
     w = anchor_weights(dataset, float(alpha), float(fc_hz), float(fs_hz), pose_key)
     gen = torch.Generator()
     gen.manual_seed(int(seed))
-    return WeightedRandomSampler(torch.as_tensor(w, dtype=torch.double), num_samples=int(num_samples or len(w)),
-                                 replacement=True, generator=gen)
+    return WeightedRandomSampler(
+        torch.as_tensor(w, dtype=torch.double),
+        num_samples=int(num_samples or len(w)),
+        replacement=True,
+        generator=gen,
+    )

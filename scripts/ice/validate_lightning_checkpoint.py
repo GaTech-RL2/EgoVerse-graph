@@ -511,7 +511,11 @@ def _normalize_identity(value: Any, *, kind: str, label: str) -> str:
     if not isinstance(value, str):
         raise RuntimeError(f"{label} must be a string")
     result = value.strip()
-    if result != value or not result or any(ord(character) < 32 for character in result):
+    if (
+        result != value
+        or not result
+        or any(ord(character) < 32 for character in result)
+    ):
         raise RuntimeError(f"{label} is empty or non-canonical")
     if kind == "sha256":
         if re.fullmatch(r"[0-9a-fA-F]{64}", result) is None:
@@ -600,9 +604,7 @@ def validate_checkpoint(
     if not isinstance(payload, Mapping):
         raise RuntimeError("checkpoint payload must be a mapping")
 
-    global_step = _exact_nonnegative_integer(
-        payload.get("global_step"), "global_step"
-    )
+    global_step = _exact_nonnegative_integer(payload.get("global_step"), "global_step")
     epoch_value = payload.get("epoch", _MISSING)
     epoch = (
         None

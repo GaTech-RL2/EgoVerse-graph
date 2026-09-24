@@ -319,9 +319,7 @@ def test_planar_evaluator_reuses_first_energy_sample_for_mse(tmp_path):
 
     assert len(predictions) == 32
     assert torch.equal(torch.random.get_rng_state(), state)
-    torch.testing.assert_close(
-        logged["Valid/MSE"], predictions[0].square().mean()
-    )
+    torch.testing.assert_close(logged["Valid/MSE"], predictions[0].square().mean())
     artifact = tmp_path / "epoch-2-step-17/rank-0-batch-0.pt"
     payload = torch.load(artifact, weights_only=True)
     assert payload["deterministic_seed"] == evaluator.seeds[0] == 420042
@@ -373,9 +371,7 @@ def test_planar_evaluator_wraps_native_rotation_error_across_pi():
     )
     evaluator.bind_data_context(normalizer=IdentityNormalizer())
     evaluator.model = SimpleNamespace(
-        forward_eval=lambda _batch: {
-            "opaque-stream": {"pred_action": prediction}
-        }
+        forward_eval=lambda _batch: {"opaque-stream": {"pred_action": prediction}}
     )
     logged = {}
     evaluator.trainer = SimpleNamespace(
@@ -465,8 +461,7 @@ def test_strict_checkpoint_loader_rejects_inexact_or_conflicting_ema_keys():
         (f"nets.{key}", value.clone()) for key, value in expected.items()
     )
     ema = OrderedDict(
-        (f"nets.{key}", value.clone())
-        for key, value in algo.nets.named_parameters()
+        (f"nets.{key}", value.clone()) for key, value in algo.nets.named_parameters()
     )
 
     missing = OrderedDict(ema)
@@ -486,6 +481,7 @@ def test_strict_checkpoint_loader_rejects_inexact_or_conflicting_ema_keys():
             {"state_dict": online, "ema_state_dict": extra},
             use_ema=True,
         )
+
 
 def test_train_eval_pipeline_load_is_strict():
     from egomimic.pipeline.algo import PipelineAlgo

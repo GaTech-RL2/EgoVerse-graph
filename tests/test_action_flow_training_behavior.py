@@ -104,7 +104,9 @@ class _ToyAlgo:
                 "log/action_flow_action_velocity": action_velocity,
                 "log/action_flow_decoded_noise_moments": anchor.new_zeros(()),
                 "log/action_flow_decoded_noise_mean_penalty": anchor.new_zeros(()),
-                "log/action_flow_decoded_noise_covariance_penalty": anchor.new_zeros(()),
+                "log/action_flow_decoded_noise_covariance_penalty": anchor.new_zeros(
+                    ()
+                ),
                 "log/latent_rms": anchor.detach(),
             }
         return results
@@ -159,7 +161,9 @@ class _ActionFlowHead(Stage):
                 "log/action_flow_action_velocity": action_velocity,
                 "log/action_flow_decoded_noise_moments": self.anchor.new_zeros(()),
                 "log/action_flow_decoded_noise_mean_penalty": self.anchor.new_zeros(()),
-                "log/action_flow_decoded_noise_covariance_penalty": self.anchor.new_zeros(()),
+                "log/action_flow_decoded_noise_covariance_penalty": self.anchor.new_zeros(
+                    ()
+                ),
             }
         )
         return batch
@@ -253,9 +257,7 @@ def test_reconstruction_only_warmup_then_joint_objective(monkeypatch):
     warmup_loss = wrapper.training_step(_batch(), batch_idx=0)
     assert float(warmup_loss) == pytest.approx(50.0)
     assert float(logged["Train/ActionFlow/FlowMatchingLoss"][0]) == pytest.approx(4.0)
-    assert float(logged["Train/ActionFlow/ActionVelocityLoss"][0]) == pytest.approx(
-        6.0
-    )
+    assert float(logged["Train/ActionFlow/ActionVelocityLoss"][0]) == pytest.approx(6.0)
     assert float(logged["Train/ActionFlow/Schedule/ReconstructionOnly"][0]) == 1.0
     assert float(logged["Train/ActionFlow/Schedule/EffectiveFlowWeight"][0]) == 0.0
 
@@ -263,9 +265,7 @@ def test_reconstruction_only_warmup_then_joint_objective(monkeypatch):
         wrapper.model.process_batch_for_training(_batch())
     )
     behavior = wrapper.training_behavior
-    assert not behavior._apply_reconstruction_only_warmup(
-        predictions, optimizer_step=2
-    )
+    assert not behavior._apply_reconstruction_only_warmup(predictions, optimizer_step=2)
     _, components, joint_loss, _ = behavior._source_values(predictions)
     assert float(joint_loss) == pytest.approx(60.0)
     assert float(components["TotalLoss"]) == pytest.approx(60.0)
@@ -429,18 +429,19 @@ def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypat
     manifest = wrapper.training_behavior._gradient_route_manifest
     assert manifest is not None
     assert tuple(manifest["routes"]) == ("FM", "Reconstruction", "ActionVelocity")
-    assert manifest["intersections"]["FM__ActionVelocity"] == [
-        "nets.pipeline.anchor"
-    ]
+    assert manifest["intersections"]["FM__ActionVelocity"] == ["nets.pipeline.anchor"]
     core = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
-    assert manifest["manifest_sha256"] == hashlib.sha256(
-        json.dumps(
-            core,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-        ).encode("utf-8")
-    ).hexdigest()
+    assert (
+        manifest["manifest_sha256"]
+        == hashlib.sha256(
+            json.dumps(
+                core,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
     checkpoint = {}
     wrapper.on_save_checkpoint(checkpoint)
     assert checkpoint["action_flow_gradient_route_manifest"] == manifest
@@ -797,9 +798,7 @@ def test_action_flow_diagnostic_decoding_preserves_logical_batch_geometry():
     torch.testing.assert_close(
         result["decoded/fixed_states"][0], result["decoded/reconstruction"]
     )
-    torch.testing.assert_close(
-        result["decoded/trajectory"][0], result["decoded/noise"]
-    )
+    torch.testing.assert_close(result["decoded/trajectory"][0], result["decoded/noise"])
 
 
 def test_action_flow_diagnostic_sample_caps_are_independent():

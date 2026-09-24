@@ -13,7 +13,9 @@ from pathlib import Path
 ICE_DIR = Path(__file__).parents[1] / "scripts" / "ice"
 INVENTORY_PATH = ICE_DIR / "ice_checkpoint_archive_inventory.py"
 sys.path.insert(0, str(ICE_DIR))
-SPEC = importlib.util.spec_from_file_location("ice_checkpoint_archive_inventory", INVENTORY_PATH)
+SPEC = importlib.util.spec_from_file_location(
+    "ice_checkpoint_archive_inventory", INVENTORY_PATH
+)
 INVENTORY = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 sys.modules[SPEC.name] = INVENTORY
@@ -100,7 +102,9 @@ class ArchiveInventoryTest(unittest.TestCase):
                                 "run_id": "archived",
                                 "remote_verified": True,
                                 "global_step": 10,
-                                "sha256": hashlib.sha256(archived_ckpt.read_bytes()).hexdigest(),
+                                "sha256": hashlib.sha256(
+                                    archived_ckpt.read_bytes()
+                                ).hexdigest(),
                             }
                         },
                     }
@@ -122,7 +126,9 @@ class ArchiveInventoryTest(unittest.TestCase):
             )
             self.assertEqual(code, 1)
             report = json.loads(output.read_text())
-            statuses = {Path(row["run_root"]).name: row["status"] for row in report["runs"]}
+            statuses = {
+                Path(row["run_root"]).name: row["status"] for row in report["runs"]
+            }
             self.assertEqual(statuses["archived"], "complete_archived")
             self.assertEqual(statuses["pending"], "complete_needs_transfer")
             self.assertEqual(statuses["unknown"], "unregistered")
@@ -200,7 +206,9 @@ class ArchiveInventoryTest(unittest.TestCase):
                 {"schema_version": 2, "files": {}},
                 4,
             )
-            self.assertEqual(report["runs"][0]["status"], "complete_missing_checkpoints")
+            self.assertEqual(
+                report["runs"][0]["status"], "complete_missing_checkpoints"
+            )
             self.assertEqual(report["attention_required"], [str(run.resolve())])
 
 

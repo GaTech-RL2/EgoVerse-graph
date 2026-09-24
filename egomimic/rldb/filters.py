@@ -73,21 +73,44 @@ class ScaleAnnotationDatasetFilter(DatasetFilter):
         filter_lambdas: Sequence[str] | None = None,
         episode_hashes: Sequence[str] | None = None,
     ) -> None:
-        from egomimic.utils.scale_utils import build_df_from_tasks, get_completed_tasks
-
         self.project_name = project_name
-        self.api_key = os.environ["SCALE_API_KEY"]
-        # Hydra builds this filter once per dataset instantiation; share the
-        # Scale API pull across them inside resolve_once().
-        self.tasks = memoized(
-            ("scale_completed_tasks", project_name),
-            lambda: get_completed_tasks(project_name, self.api_key),
-        )
-        self.df = build_df_from_tasks(self.tasks)
-        self.completed_episode_hashes = frozenset(
-            self.df["SEQUENCE_ID"].unique().tolist()
-        )
+        self._tasks = None
+        self._df = None
+        self._completed_episode_hashes = None
         super().__init__(filter_lambdas, episode_hashes)
+
+    @property
+    def api_key(self):
+        return os.environ["SCALE_API_KEY"]
+
+    @property
+    def tasks(self):
+        from egomimic.utils.scale_utils import get_completed_tasks
+
+        # Hydra builds this filter once per dataset instantiation; share the
+        # Scale API pull across them inside resolve_once(), only at resolution.
+        if self._tasks is None:
+            self._tasks = memoized(
+                ("scale_completed_tasks", self.project_name),
+                lambda: get_completed_tasks(self.project_name, self.api_key),
+            )
+        return self._tasks
+
+    @property
+    def df(self):
+        if self._df is None:
+            from egomimic.utils.scale_utils import build_df_from_tasks
+
+            self._df = build_df_from_tasks(self.tasks)
+        return self._df
+
+    @property
+    def completed_episode_hashes(self):
+        if self._completed_episode_hashes is None:
+            self._completed_episode_hashes = frozenset(
+                self.df["SEQUENCE_ID"].unique().tolist()
+            )
+        return self._completed_episode_hashes
 
     def cache_key(self) -> tuple | None:
         base = super().cache_key()

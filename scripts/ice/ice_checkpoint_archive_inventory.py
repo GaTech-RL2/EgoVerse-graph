@@ -49,7 +49,11 @@ def discover_runs(search_root: Path, max_depth: int) -> dict[Path, list[Path]]:
         ]
         if not checkpoints:
             continue
-        run_root = directory.parent.resolve() if directory.name == "checkpoints" else directory.resolve()
+        run_root = (
+            directory.parent.resolve()
+            if directory.name == "checkpoints"
+            else directory.resolve()
+        )
         discovered.setdefault(run_root, []).extend(checkpoints)
     return {root: sorted(set(paths), key=str) for root, paths in discovered.items()}
 
@@ -86,7 +90,11 @@ def build_inventory(
     for run_root in all_roots:
         row = rows_by_root.get(run_root)
         checkpoints = discovered.get(run_root, [])
-        sentinel = Path(row["completion_sentinel"]) if row and row.get("completion_sentinel") else run_root / "COMPLETE.json"
+        sentinel = (
+            Path(row["completion_sentinel"])
+            if row and row.get("completion_sentinel")
+            else run_root / "COMPLETE.json"
+        )
         terminal = core.completion_sentinel_checkpoint(sentinel)
         complete = terminal is not None
         if row is None:
@@ -112,7 +120,11 @@ def build_inventory(
                 for entry in state["files"].values()
             )
             if not checkpoints:
-                status = "complete_missing_checkpoints" if complete else "registered_no_checkpoints"
+                status = (
+                    "complete_missing_checkpoints"
+                    if complete
+                    else "registered_no_checkpoints"
+                )
             elif complete and verified == len(checkpoints) and terminal_verified:
                 status = "complete_archived"
             elif complete:
@@ -123,7 +135,11 @@ def build_inventory(
                 status = "active_needs_transfer"
 
         counts[status] = counts.get(status, 0) + 1
-        if status in {"unregistered", "complete_needs_transfer", "complete_missing_checkpoints"}:
+        if status in {
+            "unregistered",
+            "complete_needs_transfer",
+            "complete_missing_checkpoints",
+        }:
             attention.append(str(run_root))
         runs.append(
             {
@@ -134,7 +150,9 @@ def build_inventory(
                 "completion_evidence": str(sentinel) if complete else None,
                 "checkpoint_count": len(checkpoints),
                 "remote_verified_count": verified,
-                "terminal_checkpoint_remote_verified": terminal_verified if row else False,
+                "terminal_checkpoint_remote_verified": terminal_verified
+                if row
+                else False,
                 "status": status,
             }
         )
@@ -173,7 +191,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     core.contained(state_dir, search_root, "state-dir")
     core.contained(output, search_root, "output")
     manifest = core.load_manifest(args.manifest.expanduser().resolve())
-    inventory = build_inventory(search_root, manifest, load_state(state_dir), args.max_depth)
+    inventory = build_inventory(
+        search_root, manifest, load_state(state_dir), args.max_depth
+    )
     core.atomic_json(output, inventory)
     print(json.dumps(inventory, sort_keys=True))
     return 1 if args.require_clear and inventory["attention_required"] else 0

@@ -39,9 +39,9 @@ def _assert_snapshot(
     expected_shapes: dict[str, tuple],
 ) -> None:
     name, keys, shapes = snapshots[idx]
-    assert name == expected_name, (
-        f"step {idx}: transform mismatch; expected {expected_name}, got {name}"
-    )
+    assert (
+        name == expected_name
+    ), f"step {idx}: transform mismatch; expected {expected_name}, got {name}"
 
     missing = expected_keys - keys
     extra = keys - expected_keys

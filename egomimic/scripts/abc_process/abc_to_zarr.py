@@ -171,9 +171,7 @@ def _camera_K(topics: dict, video_topic: str) -> np.ndarray | None:
     return np.hstack([K, np.zeros((3, 1))])  # §6.4 wants 3x4
 
 
-def _annotations(
-    path: Path, frame_ts: np.ndarray
-) -> list[tuple[str, int, int]]:
+def _annotations(path: Path, frame_ts: np.ndarray) -> list[tuple[str, int, int]]:
     """annotation.mcap -> [(label, start_frame, end_frame)].
 
     Each message marks where a subtask BEGINS; it runs until the next message,
@@ -256,7 +254,11 @@ def convert_episode(
             n_empty = sum(1 for _, m in entries if len(m.pose) != 16)
             logger.warning(
                 "%s: %s has no EE pose on %d/%d messages, skipping %s",
-                episode_dir.name, topic, n_empty, len(entries), pose_key,
+                episode_dir.name,
+                topic,
+                n_empty,
+                len(entries),
+                pose_key,
             )
 
     for topic, key in GRIPPER_TOPICS.items():
@@ -293,7 +295,9 @@ def convert_episode(
     else:
         logger.warning(
             "%s: top camera is %r on %s, no published extrinsics -- omitting",
-            episode_dir.name, top_cam_type or "unknown", top_topic,
+            episode_dir.name,
+            top_cam_type or "unknown",
+            top_topic,
         )
 
     K = _camera_K(topics, top_topic)
@@ -363,7 +367,11 @@ def main() -> None:
         except Exception:
             failures.append(ep.name)
             logger.error(
-                "[%d/%d] %s failed:\n%s", i, len(episodes), ep.name, traceback.format_exc()
+                "[%d/%d] %s failed:\n%s",
+                i,
+                len(episodes),
+                ep.name,
+                traceback.format_exc(),
             )
 
     logger.info("done: %d ok, %d failed", len(episodes) - len(failures), len(failures))

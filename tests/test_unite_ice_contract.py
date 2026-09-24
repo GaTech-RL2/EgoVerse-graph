@@ -100,4 +100,7 @@ def test_n8_flow42_ablation_is_explicit_and_contract_valid():
     result = validate_unite_config(config, expected_world_size=1)
     assert result["row"]["num_latent_tokens"] == 8
     assert result["flow_steps_per_reconstruction"] == 42
-    assert config.run_provenance.unite_update_schedule.flow_samples_per_reconstruction == 42
+    assert (
+        config.run_provenance.unite_update_schedule.flow_samples_per_reconstruction
+        == 42
+    )

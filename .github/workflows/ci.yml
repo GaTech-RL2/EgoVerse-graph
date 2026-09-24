@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUFF_VERSION: "0.8.6"
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv lock --check
+      - run: uvx ruff@${RUFF_VERSION} check egomimic tests scripts tools
+      - run: uvx ruff@${RUFF_VERSION} format --check egomimic tests scripts tools
+
+  cpu-and-wheel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install the locked model environment
+        run: uv sync --locked --extra pi05 --extra alignment --extra diagnostics
+      - name: Install immutable OpenPI source without changing locked dependencies
+        run: |
+          source .venv/bin/activate
+          python scripts/install_pi05_source.py
+          python -c "from openpi.models_pytorch.pi0_pytorch import PI0Pytorch"
+      - name: Resolve every shipped YAML recursively without fetching data
+        run: |
+          source .venv/bin/activate
+          python scripts/audit_hydra_configs.py --output config-audit.json
+          HF_HUB_OFFLINE=1 python -m scripts.audit_components --output component-audit.json
+      - name: CPU functional and isolated installed-wheel gates
+        env:
+          HF_HUB_OFFLINE: "1"
+          WANDB_MODE: disabled
+        run: |
+          source .venv/bin/activate
+          pytest tests -q
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-config-and-openpi-receipts
+          path: |
+            config-audit.json
+            component-audit.json
+            .venv/pi05-source-receipt.json
+
+# Real-weight/data OSMO GPU receipts are a separate integration gate. A green
+# CPU job does not authorize legacy-runtime removal or claim real PI training.

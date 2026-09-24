@@ -14,9 +14,11 @@ using `mode`, `cartesian_pi`, or `fix_mecka_left_wrist` must migrate to the expl
 
 Use a Linux GPU environment with the source OpenPI fork at
 [`981483dca0fd9acba698fea00aa6e52d56a66c58`](https://github.com/GaTech-RL2/openpi/tree/981483dca0fd9acba698fea00aa6e52d56a66c58).
-The `pi05` extra pins that dependency. Its upstream environment includes CUDA
-JAX and additional workspace dependencies; follow that fork's environment
-setup when preparing a fresh cluster environment. Normal graph configurations
+Install the locked `pi05` extra, then run `python scripts/install_pi05_source.py`
+to install that immutable source without changing locked dependencies. The
+installer also verifies and applies the fork's five Transformers 4.53.2 patches;
+it preserves original files and avoids mutating uv cache hardlinks. See
+[the environment decision](integration/DEPENDENCIES.md). Normal graph configurations
 do not import OpenPI or download model/tokenizer weights.
 
 Activate the project environment before running Python. Request a GPU before
@@ -52,10 +54,13 @@ The PI stage receives normalized data. Its backend produces native decoded
 actions, which the stage normalizes once into graph `pred_action`.
 
 Graph checkpoints load strictly after binding. For weights-only initialization
-from the original PI runtime or another graph PI run, set
-`model.pipeline.stages.0.init_weights_ckpt=/path/to/checkpoint`. This translates
-the policy prefix and requires all policy tensors to match; optimizer and epoch
-state start fresh. Use `ckpt_path` for a full resume of a graph run. Legacy HPT
+from the original PI runtime or another graph PI run, set all three fields:
+`model.pipeline.stages.0.init_weights_ckpt`, `init_weights_sha256`, and
+`init_weights_prefix`. The exact source prefix is `nets.` for the audited
+legacy PI layout and `nets.pipeline.stages.0.policy_nets.` for the single-stage
+graph layout. The loader requires exact keys, shapes, dtypes, and finite values;
+it does not guess a namespace. Optimizer and epoch state start fresh.
+Use `ckpt_path` for a full resume of a graph run. Legacy HPT
 and PI checkpoints are not interchangeable with arbitrary graph models.
 
 HPT and PI use `BimanualCartesianEval` over graph `pred_action`, with shared
@@ -64,7 +69,8 @@ configured on that evaluator; it never inspects PI stages or calls a model backe
 Predictions and targets are unnormalized once. The `train_viz` validation group
 uses the standard `Valid_train_viz/` metric prefix and its own video directory;
 its multi-sample metrics stay off. Other group names work the same way.
-Only rank zero writes videos; playback FPS accounts for distributed sampling.
+Every rank renders its samples; rank zero streams the reassembled video in
+episode/frame order, with playback FPS accounting for the actual frame stride.
 The stationery `rl2yam` calibration intentionally does not geometrically match
 ABC images, as documented in the source recipe.
 
@@ -82,3 +88,24 @@ checkpoint loading and Lightning evaluator binding. All ported config groups
 compose without importing OpenPI. Python and shell source tools pass syntax
 checks. Full pretrained-model training, distributed CUDA execution, real
 dataset access and robot actuation remain cluster validation work.
+
+## Attention and latent analysis
+
+Root `pi0.5_*` recipes declare `PI05AttentionProvider` under
+`model.diagnostic_provider`. Select `data=cotrain_pi_latent evaluator=eval_latent`
+with a cotraining model to capture attention keys through the normal graph.
+Set `data.selection.mode=pairs` for the source-pinned pairs, or `custom` with
+explicit `data.selection.custom_hashes.eva` and `.aria` lists. Install the
+locked `diagnostics` extra for CPU UMAP; PCA and t-SNE use the base environment.
+
+Archives contain raw keys, CSV identities/coordinates, plots, and a projection
+receipt under the run's `latents/` directory. A bounded cap applies per source
+and layer; every distributed rank has its own clearly labeled archive. Rebuild
+projections without loading a model:
+
+```bash
+python -m egomimic.scripts.data_visualization.rebuild_latents \
+  /path/to/archive /path/to/new-output --methods pca umap tsne2d
+```
+
+The source and destination must differ; existing archives are not overwritten.

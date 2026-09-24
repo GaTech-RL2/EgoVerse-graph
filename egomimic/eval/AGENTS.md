@@ -27,3 +27,30 @@ gripper padding affect both actions and proprio; test both sides of the round
 trip. Focused regression tests are `test_shared_robot_components.py`,
 `test_eval_overlay_annotations.py`, `test_wrist6d_roundtrip.py`,
 `test_pi05_graph.py`, and the root ARC/tempo evaluation tests.
+
+## Generic evaluator contract
+
+Read `../../docs/GENERIC_PIPELINE_CONTRACT.md` before changing shared evaluator
+or video infrastructure.
+
+- Evaluators expose data needs through `data_requirements()` and validation-loop
+  settings through `trainer_overrides()`. These are target interface methods;
+  when migrating current code, remove implicit `override_dict` and
+  evaluator-field probing rather than adding more probes.
+- Data requirements describe ordering, complete episodes, sample/frame identity,
+  episode limits, and source frame rate. The DataModule satisfies or rejects
+  them before validation; shared training code must not know the evaluator’s
+  concrete class.
+- Trainer overrides may control evaluation-loop behavior such as batch limits
+  or sanity steps. They must not select devices, nodes, accelerators, or cluster
+  strategy.
+- Shared video code receives episode identity, ordering semantics, and frame
+  rate explicitly. Do not hardcode `episode_hash`, 30 Hz, MultiDataset order,
+  or a particular distributed sampler in a generic video base.
+- Model-specific metrics and diagnostics belong in configured evaluator/provider
+  plugins. Shared evaluator lifecycle code dispatches through interfaces, not
+  concrete model or stage classes.
+- During the EgoVerse merge-back, preserve retained keypoint visualization and
+  PI latent-analysis behavior as configured evaluator/diagnostic providers with
+  explicit data requirements. Do not reintroduce HPT/PI family dispatch in the
+  shared evaluator base to recover a legacy feature.

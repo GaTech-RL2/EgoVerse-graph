@@ -50,6 +50,27 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
 
 ## Component boundaries
 
+- Before changing shared pipeline, training, inference export, normalization,
+  evaluator, or video code, read
+  [docs/GENERIC_PIPELINE_CONTRACT.md](docs/GENERIC_PIPELINE_CONTRACT.md). It is
+  the normative model/data-agnostic architecture contract. Existing violations
+  listed there are migration debt, not precedent.
+- Keep every reusable stage a configured `dict -> dict` transform with complete
+  `reads`/`writes` contracts. Shared runners and orchestration must dispatch on
+  declared capabilities, never concrete stage classes, `_target_` strings,
+  model families, task names, robot names, or dataset internals.
+- Put model inference semantics and intentionally exposed runtime controls in a
+  model-owned YAML contract. A generic exporter may validate and serialize that
+  declaration but must not infer semantics from a hardcoded family whitelist.
+- The DataModule/data adapter owns dataset creation, normalization, collation,
+  sampling, source identity, episode identity, and ordering. Evaluators declare
+  their data requirements and validation-loop overrides through the shared
+  evaluator interface. Do not add new `trainHydra.py` probes for evaluator or
+  dataset-specific attributes.
+- Family-specific codecs, metrics, stages, and robot adapters are valid behind
+  explicit configuration. Do not make shared code know that they were selected.
+  When touching a known exception, move it toward the generic boundary and
+  never add another hardcoded case alongside it.
 - Put task selection, SQL filters, task prompts and experiment-specific numeric
   choices in YAML. Reuse the generic keymap/transform APIs; do not add Python
   modules for individual manipulation tasks.
@@ -62,6 +83,38 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
 - Read the relevant tests before changing normalization, pose conventions or
   checkpoint loading. Verify behavior with small CPU fixtures before a cluster
   run; hardware and pretrained-model validation are separate from those tests.
+
+## EgoVerse merge-back
+
+EgoVerse-graph is expected to return to `GaTech-RL2/EgoVerse`. Before any
+merge-back or legacy-runtime deletion, read the integration audit and gates in
+`docs/GENERIC_PIPELINE_CONTRACT.md`.
+
+- Treat the audit as an evidence-backed handoff rather than a fixed edit script.
+  The successor agent may revise implementation order, interfaces, gap
+  classifications, and test strategy as live code warrants. Record material
+  judgments and update stale findings; preserve the hard genericity, feature
+  parity, compatibility, dependency, and cutover gates.
+- The destination must have one canonical graph execution path. Port retained
+  HPT and PI recipes to `ModelWrapper -> PipelineAlgo` YAML, including their
+  model-owned inference contracts, before removing the legacy algo/evaluator
+  path.
+- Preserve old data, conversion, visualization, packaging, robot, and analysis
+  capabilities until a maintained parity manifest marks each one ported,
+  replaced, preserved outside the runtime, or intentionally deprecated.
+- Do not move model-specific naming or semantics into data configs to make a
+  port compose. In particular, datasets emit canonical camera keys and the PI
+  adapter owns OpenPI slot mapping.
+- Run dependency-lock, recursive Hydra composition, wheel/fresh-install,
+  cloud-free import, synthetic train-step, strict checkpoint, evaluator, and
+  scheduled GPU gates on the assembled integration revision. A passing test in
+  either source repository alone is insufficient.
+- Do not bypass an unsolved optional-backend dependency conflict with an
+  unverified resolver override. Record the environment decision and require
+  `uv lock --check` before merge.
+- Make the pipeline-only deletion assertion mandatory in the final cutover
+  layer, not before recipe and feature parity is established and not weakened
+  after cutover.
 
 ## Preserve work and verify the target
 

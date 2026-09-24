@@ -239,6 +239,20 @@ training `.hydra/config.yaml`, checkpoint, device, and full normalization cache.
 training recipe and dataset normalization settings. Old numeric-only caches must
 be exported again. Rollout never instantiates the training datasets.
 
+Every normal `trainHydra.py` training run also writes
+`checkpoints/inference-config.yaml`. Keep it beside the checkpoint when moving a
+bundle. Rollout discovers either that generic name or the immutable
+`<run-prefix>.inference-config.yaml` form automatically. The artifact is bound to
+the exact resolved `model.pipeline` and contains only model semantics; station
+camera maps, calibration, prompt, and safety limits stay in the rollout YAML.
+For an older checkpoint, generate the same artifact without opening hardware:
+
+```bash
+python -m egomimic.pipeline.inference_config \
+  --training-config /path/to/resolved-config.yaml \
+  --output /path/beside/checkpoint/inference-config.yaml
+```
+
 Inference constructs `PipelineAlgo`, binds its normalizer, strictly restores its
 weights (and EMA only if requested), then runs graph inference. HPT and PI use
 this same path. No previous ModelWrapper policy dispatch remains. The CLI's only
@@ -246,7 +260,7 @@ inference mode is `graph`.
 
 The rollout loop has one model-independent boundary: it passes the current
 camera/proprio observation to `policy.predict()` and receives a canonical
-Cartesian action trajectory. `policy.inference_graph` in the rollout YAML owns
+Cartesian action trajectory. The selected model's `inference-config.yaml` owns
 the rest of inference: optional observation history, checkpoint-stage matching,
 sampler settings, native output shape, ARC decoding, and the final output
 contract. A model with history keeps and resets that history inside the policy;
@@ -254,7 +268,8 @@ the rollout loop does not branch on model family. Profiles fail closed unless
 exactly one checkpoint-declared stage/variant match is found. This keeps Flow,
 ARC-velocity, ARC-duration, and diffusion checkpoints behind the same robot
 interface while preventing a Flow sampler override from being applied to a
-diffusion stage.
+diffusion stage. `policy.inference_graph` remains only as a legacy fallback for
+checkpoint bundles created before the model-owned artifact.
 
 Each matched profile may expose a bounded `overrides` mapping. Those declarations
 are the sole source of runtime controls shown by the dashboard: the UI does not
@@ -278,12 +293,17 @@ when those frames actually coincide.
 
 `action_frame: eef_frame` anchors every predicted pose in a chunk to the measured
 EEF pose at inference time. `model_frame` instead uses the configured calibration.
-Predictions are unnormalized once before decoding/frame reversion. Configure ARC
-decoding in the matching `policy.inference_graph.profiles` entry, for example:
+Predictions are unnormalized once before decoding/frame reversion. A generated
+ARC artifact contains a matching `inference_graph.profiles` entry, for example:
 
 ```yaml
-policy:
-  inference_graph:
+kind: egomimic.graph-inference
+schema_version: 1
+status: ready
+model_pipeline_sha256: <sha256>
+inference_contract_sha256: <sha256>
+inference_graph_sha256: <sha256>
+inference_graph:
     input:
       history_length: 1
     output:

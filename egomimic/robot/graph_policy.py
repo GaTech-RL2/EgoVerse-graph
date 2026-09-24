@@ -15,6 +15,10 @@ from scipy.spatial.transform import Rotation
 
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pipeline.algo import PipelineAlgo
+from egomimic.pipeline.inference_config import (
+    find_inference_config,
+    load_inference_config,
+)
 from egomimic.pipeline.stages_flow import FlowDenoiserStage
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.robot.interface import ARM_OFFSET, pose_matrix, pose_vector
@@ -682,7 +686,14 @@ def load_graph_policy(config):
     strict_load_pipeline_checkpoint(
         graph, checkpoint, use_ema=bool(config.get("use_ema", False))
     )
-    inference_graph = config.get("inference_graph")
+    inference_config_path = config.get("inference_config")
+    if inference_config_path is None:
+        inference_config_path = find_inference_config(config["checkpoint"])
+    inference_graph = (
+        load_inference_config(inference_config_path, training)
+        if inference_config_path is not None
+        else config.get("inference_graph")
+    )
     if inference_graph is not None and not isinstance(inference_graph, Mapping):
         raise TypeError("policy.inference_graph must be a mapping")
     inference_profiles = (

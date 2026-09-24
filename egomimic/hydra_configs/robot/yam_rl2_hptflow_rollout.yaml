@@ -51,9 +51,6 @@ frequency: 30
 max_joint_velocity: 12.0
 # A rejected Cartesian plan sends neither arm and asks HPT-Flow for a fresh one.
 max_velocity_replans: 8
-# HPT-Flow predicts 100 actions; execute 30 before replanning. The dashboard
-# can change this interval for the next resample without editing a live chunk.
-execute_steps: 30
 max_steps: 3000
 camera_timeout: 30.0
 # The dashboard records an operator-started, synchronized three-camera MP4.
@@ -94,18 +91,157 @@ policy:
   kind: graph
   # The environment variables let an operator intentionally select a later
   # immutable bundle. The defaults name the validated current latest checkpoint.
-  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/yam_rl2_stationery_ft_time_h640t8_d384x10_cos2.5k_ft60k_s42_j13308879/resolved-config.yaml}
-  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/yam_rl2_stationery_ft_time_h640t8_d384x10_cos2.5k_ft60k_s42_j13308879/yam_rl2_stationery_ft_time_h640t8_d384x10_cos2.5k_ft60k_s42_j13308879__step-60000__epoch-599__sha256-cb5c36d43c61ce58.ckpt}
-  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/yam_rl2_stationery_ft_time_h640t8_d384x10_cos2.5k_ft60k_s42_j13308879/norm_stats.json}
+  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/yam_mix5050_towels_arcdur_w400_h640t8_d384x10_s42_lambda_20260921_step240000/resolved-config.yaml}
+  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/yam_mix5050_towels_arcdur_w400_h640t8_d384x10_s42_lambda_20260921_step240000/epoch-2399-step-00240000.ckpt}
+  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/yam_mix5050_towels_arcdur_w400_h640t8_d384x10_s42_lambda_20260921_step240000/norm_stats.json}
   device: cuda:0
   use_ema: false
-  # The checkpoint's resolved training config specifies 50 flow-Euler steps.
-  # This deployment-only override uses 10 integrations per fresh plan; it
-  # changes sampler speed/quality but never the restored model weights.
-  num_inference_steps: 10
   # HPT-Flow is stochastic. Reject an invalid whole plan and resample rather
   # than clamping an individual gripper; abort before robot commands if all fail.
   max_valid_samples: 8
+  # The deployment boundary is invariant across model families: one current
+  # three-camera/proprio observation enters and one [100, 14] Cartesian action
+  # trajectory exits. Sampling and native-token decoding stay inside this graph.
+  inference_graph:
+    input:
+      history_length: 1
+    output:
+      representation: cartesian
+      shape: [100, 14]
+    # Only entries under the matched profile's overrides mapping are exposed in
+    # the rollout dashboard; the browser has no model-specific control list.
+    profiles:
+      flow_time:
+        match:
+          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
+          variant: time
+        native_shape: [100, 14]
+        overrides:
+          inference_steps:
+            label: Euler integration steps
+            description: Number of Flow solver steps per prediction; higher values increase inference latency.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Repredict every
+            description: Execute this many actions before requesting a fresh prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+        adapter:
+          decoder: null
+      flow_arcvel:
+        match:
+          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
+          variant: arcvel
+        native_shape: [100, 16]
+        overrides:
+          inference_steps:
+            label: Euler integration steps
+            description: Number of Flow solver steps per prediction; higher values increase inference latency.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Repredict every
+            description: Execute this many actions before requesting a fresh prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+        adapter:
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_profile
+            min_distance_unit: 0.4
+            resampled_vector_length: 100
+            dt: 0.03333333333333333
+            action_horizon: 100
+      flow_arcdur:
+        match:
+          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
+          variant: arcdur
+        native_shape: [100, 16]
+        overrides:
+          inference_steps:
+            label: Euler integration steps
+            description: Number of Flow solver steps per prediction; higher values increase inference latency.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Repredict every
+            description: Execute this many actions before requesting a fresh prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+        adapter:
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_dur
+            min_distance_unit: 0.4
+            resampled_vector_length: 100
+            dt: 0.03333333333333333
+            action_horizon: 100
+      diffusion_time:
+        match:
+          stage_target: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+        native_shape: [100, 14]
+        overrides:
+          inference_steps:
+            label: Diffusion denoising steps
+            description: Number of denoising steps per prediction; higher values increase inference latency.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 100
+            target:
+              kind: stage_attribute
+              attribute_path: policy.num_inference_steps
+          replan_every:
+            label: Repredict every
+            description: Execute this many actions before requesting a fresh prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+        adapter:
+          decoder: null
   adapter:
     _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
     embodiment_id: 7

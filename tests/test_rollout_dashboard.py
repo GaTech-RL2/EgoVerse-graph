@@ -383,18 +383,31 @@ def test_checkpoint_browser_lists_only_rooted_checkpoint_candidates(tmp_path):
 
 
 def test_checkpoint_browser_accepts_checkpoint_prefixed_artifacts(tmp_path):
-    checkpoint = tmp_path / "towels_rl2_time__step-120000__sha256-abcd.ckpt"
+    checkpoint = tmp_path / "towels_rl2_time__epoch-1199-step-120000__sha256-abcd.ckpt"
     checkpoint.write_bytes(b"weights")
     training_config = tmp_path / "towels_rl2_time.resolved-config.yaml"
     training_config.write_text("model: {}\n")
     normalizer = tmp_path / "towels_rl2_time.norm_stats.json"
     normalizer.write_text("{}\n")
+    inference_config = tmp_path / "towels_rl2_time.inference-config.yaml"
+    inference_config.write_text("status: ready\n")
 
     bundle = CheckpointBrowser(tmp_path).resolve_bundle(checkpoint.name)
 
     assert bundle.checkpoint == checkpoint.resolve()
     assert bundle.training_config == training_config.resolve()
     assert bundle.normalizer_path == normalizer.resolve()
+    assert bundle.inference_config == inference_config.resolve()
+    assert (
+        CheckpointBrowser(tmp_path).validate_policy(
+            {
+                "checkpoint": str(checkpoint),
+                "training_config": str(training_config),
+                "normalizer_path": str(normalizer),
+            }
+        )
+        == bundle
+    )
 
 
 def test_dashboard_model_selection_reaches_only_rollout_loop(tmp_path):
@@ -944,6 +957,7 @@ def test_rollout_model_selection_holds_and_requires_a_fresh_start(
                 "checkpoint": "/old/model.ckpt",
                 "training_config": "/old/resolved-config.yaml",
                 "normalizer_path": "/old/norm_stats.json",
+                "inference_config": "/old/inference-config.yaml",
             },
         },
         view=view,

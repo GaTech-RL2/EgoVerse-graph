@@ -22,6 +22,10 @@ from typing import Mapping
 import numpy as np
 import yaml
 
+from egomimic.pipeline.inference_config import (
+    checkpoint_run_prefix,
+    find_inference_config,
+)
 from egomimic.robot.interface import ARM_OFFSET
 from egomimic.robot.rollout_video import (
     list_rollout_videos,
@@ -110,6 +114,7 @@ class CheckpointBundle:
     checkpoint: Path
     training_config: Path
     normalizer_path: Path
+    inference_config: Path | None = None
 
 
 class CheckpointBrowser:
@@ -161,7 +166,7 @@ class CheckpointBrowser:
         # Artifact writers use either generic names shared by a directory or
         # names derived from the immutable checkpoint run prefix. Support both
         # layouts without accepting artifacts outside the selected directory.
-        run_prefix = path.stem.partition("__step-")[0]
+        run_prefix = checkpoint_run_prefix(path)
         artifacts = {}
         for key, names in {
             "training_config": (
@@ -187,6 +192,14 @@ class CheckpointBrowser:
                 raise ValueError(
                     f"Checkpoint bundle is missing {key.replace('_', ' ')} beside {path.name}"
                 )
+        candidate = find_inference_config(path)
+        if candidate is not None:
+            try:
+                self.relative(candidate)
+            except (OSError, ValueError):
+                candidate = None
+            if candidate is not None:
+                artifacts["inference_config"] = candidate
         return CheckpointBundle(checkpoint=path, **artifacts)
 
     def validate_policy(self, policy: Mapping[str, object]) -> CheckpointBundle:
@@ -206,6 +219,21 @@ class CheckpointBrowser:
                 raise ValueError(
                     f"policy.{key} must match the selected checkpoint bundle"
                 )
+        configured_inference = policy.get("inference_config")
+        if bundle.inference_config is not None:
+            if configured_inference is not None and (
+                not isinstance(configured_inference, str)
+                or Path(configured_inference).resolve(strict=True)
+                != bundle.inference_config
+            ):
+                raise ValueError(
+                    "policy.inference_config must match the selected checkpoint bundle"
+                )
+        elif configured_inference is not None:
+            raise ValueError(
+                "policy.inference_config is set, but the selected checkpoint bundle "
+                "has no inference-config.yaml"
+            )
         return bundle
 
     def list_directory(self, relative: object = ".") -> dict:

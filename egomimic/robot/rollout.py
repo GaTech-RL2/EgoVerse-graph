@@ -312,6 +312,11 @@ def run_rollout(robot, policy, config, view=None):
                         training_config=str(bundle.training_config),
                         normalizer_path=str(bundle.normalizer_path),
                     )
+                    candidate_config.pop("inference_config", None)
+                    if bundle.inference_config is not None:
+                        candidate_config["inference_config"] = str(
+                            bundle.inference_config
+                        )
                     candidate = load_policy(candidate_config)
                     if candidate.action_type != policy.action_type:
                         raise ValueError("Selected model changed action representation")

@@ -35,11 +35,13 @@ from egomimic.eval.bimanual_cartesian_eval import (
     BimanualCartesianEval,
     overlay_annotation_fields,
 )
-from egomimic.eval.video import EvalVideo
 from egomimic.eval.distance_budget_dtw import (
-    METRIC_FRAME_KEY, METRIC_VERSION, score_distance_dtw_episode,
+    METRIC_FRAME_KEY,
+    METRIC_VERSION,
+    score_distance_dtw_episode,
     summarize_distance_dtw,
 )
+from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     bimanual_arc_token_rows,
@@ -594,6 +596,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         ):
             raise ValueError("trajectory_snapshot_path must end in .npz")
         self._trajectory_snapshot_written = False
+        self._video_seen_frames = set()
+        self._video_last_frame = {}
         self.video_only = bool(video_only)
         self.distance_dtw_enabled = bool(distance_dtw_enabled)
         self.dtw_max_cells = int(dtw_max_cells)
@@ -665,6 +669,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self._records = []
         self.last_results = None
         self._trajectory_snapshot_written = False
+        self._video_seen_frames = set()
+        self._video_last_frame = {}
         if self.model is not None:
             try:
                 self._metric_device = next(self.model.parameters()).device
@@ -746,6 +752,117 @@ class OpenLoopSimEval(BimanualCartesianEval):
             return torch.from_numpy(np.stack(padded).astype(np.float32, copy=False))
 
         return _pad(pred_values), _pad(gt_values), pred_lengths, gt_lengths
+
+    def _video_fps(self, source_fps=30):
+        """Full-frame video uses the control clock, not the DDP shard rate."""
+        return max(1, round(1.0 / float(getattr(self, "control_dt", 1.0 / source_fps))))
+
+    def _collective_video_enabled(self, batch_idx=0):
+        cadence = self.viz_every_n_epochs
+        return (
+            cadence > 0
+            and (getattr(self.trainer, "current_epoch", 0) + 1) % cadence == 0
+            and (self.viz_max_batches is None or batch_idx < self.viz_max_batches)
+        )
+
+    def _collect_open_loop_video(
+        self, *, source_id, source_batch, prediction, embodiment_id, embodiment_name
+    ):
+        """Gather interleaved DDP frames; only this experiment's rank zero renders.
+
+        Lightning's ordered DistributedSampler assigns index i*world+rank.
+        Interleaving rank batches reconstructs dataset order without assuming
+        episode IDs are lexicographically ordered. Sampler padding is deduplicated.
+        """
+
+        def cpu(value):
+            if isinstance(value, torch.Tensor):
+                return value.detach().cpu()
+            if isinstance(value, dict):
+                return {k: cpu(v) for k, v in value.items()}
+            if isinstance(value, (tuple, list)):
+                return type(value)(cpu(v) for v in value)
+            return value
+
+        # Wrist-camera observations are not used by this front-camera overlay.
+        batch = {
+            k: v
+            for k, v in source_batch.items()
+            if not str(k).startswith("observations.images.") or k == self.image_key
+        }
+        payload = dict(
+            source_id=str(source_id),
+            source_batch=cpu(batch),
+            prediction=cpu(prediction),
+            embodiment_id=embodiment_id,
+            embodiment_name=embodiment_name,
+        )
+        distributed = dist.is_available() and dist.is_initialized()
+        world = dist.get_world_size() if distributed else 1
+        rank = dist.get_rank() if distributed else 0
+        parts = [None] * world
+        if distributed:
+            dist.all_gather_object(parts, payload)
+        else:
+            parts[0] = payload
+        if rank != 0:
+            return
+
+        if not hasattr(self, "_video_seen_frames"):
+            self._video_seen_frames = set()
+            self._video_last_frame = {}
+        for part in parts:
+            if (part["source_id"], part["embodiment_name"]) != (
+                str(source_id),
+                embodiment_name,
+            ):
+                raise RuntimeError(
+                    "Validation ranks disagree on video source/embodiment"
+                )
+        for index in range(max(len(part["prediction"]) for part in parts)):
+            for part in parts:
+                n = len(part["prediction"])
+                if index >= n:
+                    continue
+
+                def one(value):
+                    if (
+                        isinstance(value, (torch.Tensor, np.ndarray))
+                        and value.ndim
+                        and len(value) == n
+                    ):
+                        return value[index : index + 1]
+                    if isinstance(value, (tuple, list)) and len(value) == n:
+                        return value[index : index + 1]
+                    return value
+
+                item = {k: one(v) for k, v in part["source_batch"].items()}
+                episode = str(
+                    self._batch_values(item["episode_hash"], 1, "episode_hash")[0]
+                )
+                frame = int(
+                    self._batch_values(item["frame_index"], 1, "frame_index")[0]
+                )
+                group = self._validation_group or DEFAULT_VALID_GROUP
+                episode_key = (group, str(source_id), episode)
+                key = (*episode_key, frame)
+                if key in self._video_seen_frames:
+                    continue
+                expected = self._video_last_frame.get(episode_key, -1) + 1
+                if frame != expected:
+                    raise RuntimeError(
+                        f"Full-frame video is missing/out of order: {episode_key}, "
+                        f"expected frame {expected}, got {frame}"
+                    )
+                self._maybe_log_open_loop_video(
+                    source_id=source_id,
+                    source_batch=item,
+                    prediction=part["prediction"][index : index + 1],
+                    embodiment_id=embodiment_id,
+                    embodiment_name=embodiment_name,
+                )
+                self._video_seen_frames.add(key)
+                self._video_last_frame[episode_key] = frame
 
     def _maybe_log_open_loop_video(
         self,
@@ -1154,8 +1271,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     # control-frame stride at episode replay time.
                     "prediction": np.asarray(prediction_value, dtype=np.float32),
                     "ground_truth": np.asarray(target_native[index], dtype=np.float32),
-                    **({METRIC_FRAME_KEY: metric_anchors[index].copy()}
-                       if metric_anchors is not None else {}),
+                    **(
+                        {METRIC_FRAME_KEY: metric_anchors[index].copy()}
+                        if metric_anchors is not None
+                        else {}
+                    ),
                 }
             )
 
@@ -1167,9 +1287,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             prediction = result[source_id]["pred_action"]
             if not getattr(self, "video_only", False):
                 self._append_source_records(source_id, source_batch, prediction)
-            if getattr(self, "_video_enabled", False) and self._should_viz(batch_idx):
+            if getattr(
+                self, "_video_enabled", False
+            ) and self._collective_video_enabled(batch_idx):
                 embodiment_id, embodiment_name = self._embodiment(source_batch)
-                self._maybe_log_open_loop_video(
+                self._collect_open_loop_video(
                     source_id=source_id,
                     source_batch=source_batch,
                     prediction=prediction,
@@ -1277,8 +1399,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             "segment_control_steps": segment_control_steps,
             "coverage": executed / max(episode_length, 1),
             "metrics": {key: sq[key] / max(denominators[key], 1) for key in sq},
-            **({"distance_dtw": score_distance_dtw_episode(self, records)}
-               if getattr(self, "distance_dtw_enabled", False) else {}),
+            **(
+                {"distance_dtw": score_distance_dtw_episode(self, records)}
+                if getattr(self, "distance_dtw_enabled", False)
+                else {}
+            ),
         }
 
     @staticmethod
@@ -1307,8 +1432,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
         return {
             "episodes": len(episodes),
             "executed_control_steps": total_steps,
-            **({"distance_dtw": summarize_distance_dtw(episodes)}
-               if "distance_dtw" in episodes[0] else {}),
+            **(
+                {"distance_dtw": summarize_distance_dtw(episodes)}
+                if "distance_dtw" in episodes[0]
+                else {}
+            ),
             "segments": total_segments,
             "coverage": float(np.mean([item["coverage"] for item in episodes])),
             "micro": micro,
@@ -1368,7 +1496,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 "execute_fraction": self.execute_fraction,
                 "distance_dtw_enabled": getattr(self, "distance_dtw_enabled", False),
                 "distance_dtw_metric_version": (
-                    METRIC_VERSION if getattr(self, "distance_dtw_enabled", False) else None
+                    METRIC_VERSION
+                    if getattr(self, "distance_dtw_enabled", False)
+                    else None
                 ),
                 "execute_control_steps": (
                     self.execute_steps if self.action_mode != "arc" else None
@@ -1422,10 +1552,14 @@ class OpenLoopSimEval(BimanualCartesianEval):
             if "distance_dtw" in summary:
                 dtw = summary["distance_dtw"]
                 for name, key in {
-                    "XYZ_MSE": "xyz_mse", "Episode_XYZ_MSE": "episode_xyz_mse",
-                    "GT_Frames": "gt_frames", "Predicted_Samples": "predicted_samples",
-                    "Segments": "segments", "GT_Coverage": "gt_coverage",
-                    "Prediction_Coverage": "prediction_coverage", "Duration_Ratio": "duration_ratio",
+                    "XYZ_MSE": "xyz_mse",
+                    "Episode_XYZ_MSE": "episode_xyz_mse",
+                    "GT_Frames": "gt_frames",
+                    "Predicted_Samples": "predicted_samples",
+                    "Segments": "segments",
+                    "GT_Coverage": "gt_coverage",
+                    "Prediction_Coverage": "prediction_coverage",
+                    "Duration_Ratio": "duration_ratio",
                 }.items():
                     metrics[f"{prefix}/Distance_DTW/{name}"] = dtw[key]
             metrics.update(

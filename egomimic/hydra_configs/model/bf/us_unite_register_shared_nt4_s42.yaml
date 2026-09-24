@@ -4,6 +4,8 @@ training_behavior:
   _target_: egomimic.pl_utils.training_behavior_unite.ReleasedUniteTrainingBehavior
 diagnostic_provider:
   _target_: egomimic.eval.pipeline_diagnostics.ReleasedUniteDiagnosticProvider
+  policy_id: policy
+  prefix_stage_ids: [proprio, observations, target, noise]
 
 share_encoder_denoiser: true
 num_latent_tokens: 4
@@ -15,6 +17,7 @@ flow_steps_per_reconstruction: 14
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids: {proprio: 0, observations: 1, target: 2, noise: 3, policy: 4}
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
       selector_key: embodiment

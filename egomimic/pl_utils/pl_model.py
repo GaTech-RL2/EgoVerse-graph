@@ -10,7 +10,7 @@ import torch
 from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
-from egomimic.eval.pipeline_diagnostics import DiagnosticProvider
+from egomimic.eval.diagnostic_provider import DiagnosticProvider
 from egomimic.pl_utils.training_behavior import TrainingBehavior
 
 

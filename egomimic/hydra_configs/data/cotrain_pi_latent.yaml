@@ -1,0 +1,71 @@
+# Diagnostic/reproduction selections, not a held-out score split.
+# Modes: data.selection.mode=random|pairs|custom. Prompts remain model-owned.
+defaults:
+- cotrain_pi_base
+- _self_
+_target_: egomimic.rldb.zarr.selection.SelectedZarrDataModule
+selection:
+  mode: random
+  pair_hashes:
+    eva:
+    - 2026-04-14-04-01-06-517000
+    - 2026-04-14-03-36-19-145000
+    aria:
+    - 2026-04-14-03-39-11-000000
+    - 2026-04-14-04-03-19-000000
+  custom_hashes:
+    eva: []
+    aria: []
+  frames_per_episode: 128
+  stride: null
+  hashes:
+    random:
+      eva: null
+      aria: null
+    pairs: ${data.selection.pair_hashes}
+    custom: ${data.selection.custom_hashes}
+  shuffle:
+    random: true
+    pairs: false
+    custom: false
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.selection.selected_episodes
+    selection_mode: ${data.selection.mode}
+    episode_hashes: ${data.selection.hashes.${data.selection.mode}.eva}
+    frames_per_episode: ${data.selection.frames_per_episode}
+    stride: ${data.selection.stride}
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      require_annotations: true
+    mode: total
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''task''] == ''pick_place'' and row[''embodiment''] == ''eva_bimanual'''
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.selection.selected_episodes
+    selection_mode: ${data.selection.mode}
+    episode_hashes: ${data.selection.hashes.${data.selection.mode}.aria}
+    frames_per_episode: ${data.selection.frames_per_episode}
+    stride: ${data.selection.stride}
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      require_annotations: true
+    mode: total
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''task''] == ''pick_place'' and row[''embodiment''] == ''human_bimanual'''
+valid_datasets:
+  eva_bimanual: ${data.train_datasets.eva_bimanual}
+  human_bimanual: ${data.train_datasets.human_bimanual}
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 16
+    num_workers: 6
+    shuffle: ${data.selection.shuffle.${data.selection.mode}}
+  human_bimanual:
+    batch_size: 16
+    num_workers: 6
+    shuffle: ${data.selection.shuffle.${data.selection.mode}}

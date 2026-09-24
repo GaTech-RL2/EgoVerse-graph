@@ -13,31 +13,10 @@ from typing import Any
 
 import torch
 
-from egomimic.pipeline.stages_action_latent_vfm import (
-    ActionLatentDecoderStage,
-    ActionLatentEncoderStage,
-    LatentVelocityFieldStage,
-)
-from egomimic.pipeline.stages_unite_released import ReleasedRecipeUniteLatentPolicy
 from egomimic.eval.action_flow_diagnostic_forward import (
     collect_action_flow_diagnostics,
 )
-
-
-class DiagnosticProvider:
-    """Stateless interface for one pipeline diagnostic capability."""
-
-    capability: str
-
-    def run(
-        self,
-        model: Any,
-        batch: Mapping,
-        *,
-        already_processed: bool,
-        **kwargs: Any,
-    ) -> Mapping:
-        raise NotImplementedError
+from egomimic.eval.diagnostic_provider import DiagnosticProvider as DiagnosticProvider
 
 
 class ActionFlowDiagnosticProvider(DiagnosticProvider):
@@ -91,6 +70,14 @@ class ActionFlowDiagnosticProvider(DiagnosticProvider):
 class ActionLatentVFMDiagnosticProvider(DiagnosticProvider):
     capability = "unite"
 
+    def __init__(self, *, encoder_id, velocity_id, decoder_id, prefix_stage_ids):
+        self.encoder_id, self.velocity_id, self.decoder_id = (
+            encoder_id,
+            velocity_id,
+            decoder_id,
+        )
+        self.prefix_stage_ids = tuple(prefix_stage_ids)
+
     @torch.inference_mode()
     def run(
         self,
@@ -100,31 +87,17 @@ class ActionLatentVFMDiagnosticProvider(DiagnosticProvider):
         already_processed: bool,
         raw_noise_levels: tuple[float, ...] | list[float],
     ) -> OrderedDict:
-        del already_processed
-        stages = model.pipeline.stages
-        encoders = [
-            stage for stage in stages if isinstance(stage, ActionLatentEncoderStage)
-        ]
-        velocities = [
-            stage for stage in stages if isinstance(stage, LatentVelocityFieldStage)
-        ]
-        decoders = [
-            stage for stage in stages if isinstance(stage, ActionLatentDecoderStage)
-        ]
-        if tuple(map(len, (encoders, velocities, decoders))) != (1, 1, 1):
-            raise RuntimeError(
-                "action-latent diagnostics require one encoder, velocity field, and decoder"
-            )
-        encoder, velocity, decoder = encoders[0], velocities[0], decoders[0]
+        batch = batch if already_processed else model.process_batch_for_training(batch)
+        encoder = model.pipeline.stage_by_id(self.encoder_id)
+        velocity = model.pipeline.stage_by_id(self.velocity_id)
+        decoder = model.pipeline.stage_by_id(self.decoder_id)
         diagnostics = OrderedDict()
         for source, source_batch in batch.items():
             if not isinstance(source_batch, Mapping):
                 raise TypeError(f"diagnostic source {source!r} must be a mapping")
-            result = dict(source_batch)
-            for stage in stages:
-                if stage is encoder:
-                    break
-                result = stage.execute(result, mode="train")
+            result = model.pipeline.execute_subset(
+                dict(source_batch), self.prefix_stage_ids, mode="train"
+            )
             missing = {"target", "condition", "sampler/noise"} - set(result)
             if missing:
                 raise RuntimeError(
@@ -171,6 +144,9 @@ class ActionLatentVFMDiagnosticProvider(DiagnosticProvider):
 class ReleasedUniteDiagnosticProvider(DiagnosticProvider):
     capability = "unite"
 
+    def __init__(self, *, policy_id, prefix_stage_ids):
+        self.policy_id, self.prefix_stage_ids = policy_id, tuple(prefix_stage_ids)
+
     @torch.inference_mode()
     def run(
         self,
@@ -180,28 +156,17 @@ class ReleasedUniteDiagnosticProvider(DiagnosticProvider):
         already_processed: bool,
         raw_noise_levels: tuple[float, ...] | list[float],
     ) -> OrderedDict:
-        del already_processed
+        batch = batch if already_processed else model.process_batch_for_training(batch)
         if not isinstance(batch, Mapping):
             raise TypeError("UNITE diagnostics input must be a source mapping")
-        stages = model.pipeline.stages
-        policies = [
-            stage for stage in stages if isinstance(stage, ReleasedRecipeUniteLatentPolicy)
-        ]
-        if len(policies) != 1:
-            raise RuntimeError(
-                "Released UNITE diagnostics require exactly one latent policy; "
-                f"found {len(policies)}"
-            )
-        policy = policies[0]
+        policy = model.pipeline.stage_by_id(self.policy_id)
         diagnostics = OrderedDict()
         for source, source_batch in batch.items():
             if not isinstance(source_batch, Mapping):
                 raise TypeError(f"UNITE diagnostic source {source!r} must be a mapping")
-            result = dict(source_batch)
-            for stage in stages:
-                if stage is policy:
-                    break
-                result = stage.execute(result, mode="inference")
+            result = model.pipeline.execute_subset(
+                dict(source_batch), self.prefix_stage_ids, mode="train"
+            )
             required = {"sampler/noise", "condition", "target", "embodiment"}
             missing = required - set(result)
             if missing:

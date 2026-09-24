@@ -3,6 +3,7 @@
 Weights, tokenizer downloads and robot/data access are deliberately unnecessary.
 """
 
+import hashlib
 import importlib
 import sys
 from pathlib import Path
@@ -179,10 +180,17 @@ def test_pi_training_inference_and_strict_checkpoint(tiny_openpi, tmp_path):
         },
         path,
     )
-    stage.load_initial_weights(path)
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    stage.load_initial_weights(path, sha256=digest, source_prefix="nets.")
     torch.save({"state_dict": {}}, path)
-    with pytest.raises(ValueError, match="complete matching"):
-        stage.load_initial_weights(path)
+    with pytest.raises(ValueError, match="hash mismatch"):
+        stage.load_initial_weights(path, sha256=digest, source_prefix="nets.")
+    with pytest.raises(ValueError, match="namespace mismatch"):
+        stage.load_initial_weights(
+            path,
+            sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+            source_prefix="nets.",
+        )
     with pytest.raises(RuntimeError, match="different normalizer"):
         graph.bind_data_context(normalizer=normalizer())
 

@@ -6,5 +6,7 @@ _target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
 pose_metrics: true
 rkl_samples: 8
 revert_transforms:
-  eva_bimanual: []
-  human_bimanual: []
+  eva_bimanual:
+    _target_: builtins.list
+  human_bimanual:
+    _target_: builtins.list

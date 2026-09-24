@@ -1408,12 +1408,16 @@ class MultiDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def _iter_leaves(ds):
-        """Yield non-MultiDataset leaves from possibly nested wrappers."""
-        if isinstance(ds, MultiDataset):
-            for child in ds.datasets.values():
-                yield from MultiDataset._iter_leaves(child)
+        """Walk a declared data capability, including composition wrappers."""
+        leaves = getattr(ds, "normalization_leaves", None)
+        if callable(leaves):
+            yield from leaves()
         else:
             yield ds
+
+    def normalization_leaves(self):
+        for child in self.datasets.values():
+            yield from self._iter_leaves(child)
 
     def populate_from_datasets(self, datasets: dict | None = None) -> None:
         """
@@ -1497,14 +1501,28 @@ class MultiDataset(torch.utils.data.Dataset):
     # ---- shape & norm inference ----
 
     def infer_shapes_from_batch(self, batch: dict) -> None:
-        for emb_id, per_emb in self.zarr_keys.items():
-            for key_name, zarr_key in per_emb.items():
-                if zarr_key in batch:
-                    val = batch[zarr_key]
-                    if hasattr(val, "shape"):
-                        self.shapes.setdefault(emb_id, {})[key_name] = tuple(val.shape)
-                    elif isinstance(val, int):
-                        self.shapes.setdefault(emb_id, {})[key_name] = (1,)
+        if "embodiment" not in batch:
+            raise ValueError(
+                "Shape inference requires the sample's explicit embodiment identity"
+            )
+        emb_id = int(batch["embodiment"])
+        if emb_id not in self.zarr_keys:
+            raise ValueError(f"No normalization schema for sample identity {emb_id}")
+        for key_name, zarr_key in self.zarr_keys[emb_id].items():
+            if zarr_key in batch:
+                val = batch[zarr_key]
+                shape = (
+                    tuple(val.shape)
+                    if hasattr(val, "shape")
+                    else ((1,) if isinstance(val, int) else None)
+                )
+                if shape is not None:
+                    prior = self.shapes.setdefault(emb_id, {}).get(key_name)
+                    if prior is not None and tuple(prior) != shape:
+                        raise ValueError(
+                            f"Conflicting shapes for normalization identity {emb_id}/{key_name}: {prior} != {shape}"
+                        )
+                    self.shapes[emb_id][key_name] = shape
 
     def infer_norm_from_dataset(
         self,
@@ -1932,12 +1950,11 @@ def _strided_indices(n: int, stride: int) -> list[int]:
     return list(range(0, n, stride))
 
 
-class EvenStrideDataset(MultiDataset):
+class EvenStrideDataset(torch.utils.data.Dataset):
     """Wraps a `MultiDataset` to subsample frames per underlying episode.
     Pass exactly one of `frames_per_episode` (K evenly-spaced) or
-    `stride` (every Sth frame). Subclasses `MultiDataset` so trainHydra's
-    isinstance check passes; we skip the parent `__init__` and adopt its
-    class identity only, delegating to `self.base`."""
+    `stride` (every Sth frame). Data capabilities delegate to the underlying
+    dataset; the shared trainer does not require a concrete dataset class."""
 
     def __init__(
         self, base, frames_per_episode: int | None = None, stride: int | None = None
@@ -1947,6 +1964,11 @@ class EvenStrideDataset(MultiDataset):
                 "EvenStrideDataset requires exactly ONE of "
                 "`frames_per_episode` or `stride` to be set "
                 f"(got frames_per_episode={frames_per_episode}, stride={stride})."
+            )
+        value = stride if stride is not None else frames_per_episode
+        if type(value) is not int or value < 1:
+            raise ValueError(
+                "EvenStrideDataset sampling values must be positive integers"
             )
         gibd = getattr(base, "_global_indices_by_dataset", None)
         if gibd is None:
@@ -1999,6 +2021,9 @@ class EvenStrideDataset(MultiDataset):
 
     def episode_length_at(self, index):
         return self.base.episode_length_at(self.indices[index])
+
+    def set_norm_stats_from(self, normalizer):
+        self.base.set_norm_stats_from(normalizer)
 
     def set_data_schematic(self, data_schematic) -> None:
         self.base.set_data_schematic(data_schematic)

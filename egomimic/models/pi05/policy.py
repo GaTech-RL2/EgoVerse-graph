@@ -77,8 +77,15 @@ class PI:
         proprio_keys_for_prompt: list[str] | None = None,
         action_encoding: str = PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
         camera_slot_map: dict[str, str] | None = None,
+        gradient_checkpointing: bool = False,
+        compile_sampler: bool = True,
         **kwargs,
     ):
+        if (
+            type(gradient_checkpointing) is not bool
+            or type(compile_sampler) is not bool
+        ):
+            raise TypeError("PI checkpointing and sampler compilation must be booleans")
         self.nets = nn.ModuleDict()
         self.norm_stats = norm_stats
 
@@ -187,6 +194,14 @@ class PI:
         )
 
         self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg)
+        if gradient_checkpointing:
+            self.model.gradient_checkpointing_enable()
+        if not compile_sampler:
+            self.model.sample_actions = getattr(
+                self.model.sample_actions,
+                "_torchdynamo_orig_callable",
+                self.model.sample_actions,
+            )
 
         from egomimic.pipeline.construction import restoring_parameters
 

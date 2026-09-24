@@ -1,0 +1,17 @@
+{
+  "source_repo": "lerobot/pi05_base",
+  "source_revision": "97bce9467fea3f58ebb4a2546f1487497d49bc20",
+  "expected_keys": 813,
+  "source_keys": 812,
+  "missing": [
+    "paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"
+  ],
+  "unexpected": [],
+  "shape_mismatches": [],
+  "note": "Metadata-only architecture preflight; no weights loaded and no training executed.",
+  "declared_tied_weight_aliases": {
+    "paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight": "paligemma_with_expert.paligemma.lm_head.weight"
+  },
+  "unexplained_missing": [],
+  "metadata_compatibility": "passed"
+}

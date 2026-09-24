@@ -27,6 +27,7 @@ not imply a separate runtime for that task or model.
 | Train/eval entry point, normalizer binding, checkpoint resume | [egomimic/trainHydra.py](egomimic/trainHydra.py) |
 | Model graph execution and stage contracts | [pipeline/core.py](egomimic/pipeline/core.py), [pipeline/algo.py](egomimic/pipeline/algo.py) |
 | Model-owned inference declarations and typed runtime controls | [pipeline/inference_config.py](egomimic/pipeline/inference_config.py), [pipeline/inference_controls.py](egomimic/pipeline/inference_controls.py), `model.inference` in the selected YAML |
+| Bound checkpoint loading and no-hardware sequence inference | [pipeline/inference_session.py](egomimic/pipeline/inference_session.py), [checkpoint policy](docs/integration/CHECKPOINTS.md) |
 | Data construction, normalization restoration and evaluator preflight | [pl_utils/data_context.py](egomimic/pl_utils/data_context.py), [rldb/zarr/data_module.py](egomimic/rldb/zarr/data_module.py) |
 | Strict weights-only initialization and freeze schedules | [pipeline/initialization.py](egomimic/pipeline/initialization.py), [pl_utils/trainability_behavior.py](egomimic/pl_utils/trainability_behavior.py) |
 | HPT, flow, ARC, PI and other graph stages | `egomimic/pipeline/stages_*.py` |

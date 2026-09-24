@@ -10,7 +10,11 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf, open_dict
 
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
-from egomimic.pipeline.inference_config import build_inference_config
+from egomimic.pipeline.inference_config import (
+    build_inference_config,
+    export_configured_inference_artifact,
+)
+from egomimic.pipeline.inference_session import InferenceSession
 from egomimic.pl_utils.pl_model import ModelWrapper
 from tests.fixtures.synthetic_episodes import write_episode
 from tests.test_pi05_graph import tiny_openpi as _tiny_openpi
@@ -101,9 +105,10 @@ def test_two_optimizer_steps_and_strict_roundtrip(
     )
     assert dm.valid_datasets[domain].norm_stats is context.normalizer.norm_stats
     cpu = small_cpu_model(config, family)
-    graph = instantiate(cpu.model.pipeline, device="cpu")
+    wrapper = ModelWrapper(config_tree=cpu)
+    graph = wrapper.model
     context.bind(graph)
-    wrapper = ModelWrapper(pipeline=graph)
+    wrapper.data_context = context
     optimizer = instantiate(config.model.optimizer)(params=wrapper.parameters())
     before = [
         parameter.detach().clone()
@@ -131,9 +136,29 @@ def test_two_optimizer_steps_and_strict_roundtrip(
     assert output.shape == (2, 100, 14 if vendor == "eva" else 12)
     assert torch.isfinite(output).all()
     saved = {"state_dict": wrapper.state_dict()}
+    wrapper.on_save_checkpoint(saved)
     restored = instantiate(cpu.model.pipeline, device="cpu")
     context.bind(restored)
     strict_load_pipeline_checkpoint(restored, saved)
     for name, tensor in graph.nets.state_dict().items():
         torch.testing.assert_close(restored.nets.state_dict()[name], tensor)
     assert build_inference_config(config)["status"] == "ready"
+    with open_dict(cpu):
+        cpu.inference_config.output_path = str(tmp_path / "inference-config.yaml")
+    export_configured_inference_artifact(cpu, data_context=context)
+    checkpoint_path = tmp_path / "model.ckpt"
+    torch.save(saved, checkpoint_path)
+    identity = int(observed[domain]["embodiment"][0])
+    session = InferenceSession.load(
+        cpu,
+        checkpoint_path=checkpoint_path,
+        context_path=tmp_path / "data-context.json",
+        identity=identity,
+        normalize_inputs=False,
+    )
+    controls = session.inference_controls()
+    session.apply_inference_overrides({"inference_steps": 2})
+    actions = session.predict(observed[domain])
+    assert tuple(actions.shape[1:]) == tuple(cpu.model.inference.output.shape)
+    assert torch.isfinite(actions).all()
+    assert session.execution_plan(actions).shape[1] == controls["replan_every"]["value"]

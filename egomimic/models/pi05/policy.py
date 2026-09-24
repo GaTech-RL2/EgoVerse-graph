@@ -188,7 +188,13 @@ class PI:
 
         self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg)
 
-        if self.config.pytorch_weight_path is not None:
+        from egomimic.pipeline.construction import restoring_parameters
+
+        if restoring_parameters():
+            logger.info(
+                "External weight initialization deferred to strict checkpoint restoration"
+            )
+        elif self.config.pytorch_weight_path is not None:
             model_path = os.path.join(
                 self.config.pytorch_weight_path, "model.safetensors"
             )

@@ -106,3 +106,13 @@ def test_trainability_schedule_replays_on_resume_and_preserves_optimizer_members
     assert not any(p.requires_grad for p in graph.nets.parameters())
     behavior.on_load_checkpoint({"global_step": 2})
     assert all(p.requires_grad for p in graph.nets.parameters())
+
+
+def test_overlapping_initializers_fail_atomically(tmp_path):
+    graph = PipelineAlgo([Projection()], device="cpu", stage_ids={"head": 0})
+    before = {k: v.clone() for k, v in graph.nets.state_dict().items()}
+    setting = spec(tmp_path, nn.Linear(3, 2).state_dict())
+    with pytest.raises(ValueError, match="overlap"):
+        initialize_weights(graph.pipeline, [setting, setting])
+    for name, expected in before.items():
+        torch.testing.assert_close(graph.nets.state_dict()[name], expected)

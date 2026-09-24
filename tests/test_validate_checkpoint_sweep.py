@@ -1,12 +1,10 @@
-from pathlib import Path
-
 import pytest
 import torch
 
 from scripts.eval.validate_checkpoint_sweep import (
     Checkpoint,
-    completion_signature,
     completed_evaluation,
+    completion_signature,
     discover_checkpoints,
     validation_command,
 )
@@ -14,6 +12,7 @@ from scripts.eval.validate_checkpoint_sweep import (
 
 def test_resume_does_not_reuse_legacy_metrics_or_different_commands(tmp_path):
     import json
+
     checkpoint_path = tmp_path / "step=100.ckpt"
     checkpoint_path.write_bytes(b"weights")
     checkpoint = Checkpoint(str(checkpoint_path), 100, 7)
@@ -25,8 +24,15 @@ def test_resume_does_not_reuse_legacy_metrics_or_different_commands(tmp_path):
     marker.write_text(json.dumps({"signature": signature}))
     assert not completed_evaluation(marker, result, signature)
     from egomimic.eval.distance_budget_dtw import METRIC_VERSION
-    result.write_text(json.dumps({"distance_dtw_enabled": True,
-                                  "distance_dtw_metric_version": METRIC_VERSION}))
+
+    result.write_text(
+        json.dumps(
+            {
+                "distance_dtw_enabled": True,
+                "distance_dtw_metric_version": METRIC_VERSION,
+            }
+        )
+    )
     assert completed_evaluation(marker, result, signature)
     changed = completion_signature(["python", "eval", "cap=0.5"], checkpoint)
     assert not completed_evaluation(marker, result, changed)
@@ -74,7 +80,7 @@ def test_builds_arc_eval_command_with_checkpoint_step_and_shared_wandb_id(tmp_pa
 
     command = validation_command(
         python="python",
-        experiment="abc_arc/stationery_rl2_hpt_arc_D40_M100_openloop",
+        experiment="abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
         checkpoint=checkpoint,
         output_dir=tmp_path / "results",
         action_mode="arc",
@@ -89,7 +95,7 @@ def test_builds_arc_eval_command_with_checkpoint_step_and_shared_wandb_id(tmp_pa
     assert command[:3] == [
         "python",
         "egomimic/trainHydra.py",
-        "+experiment=abc_arc/stationery_rl2_hpt_arc_D40_M100_openloop",
+        "+experiment=abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
     ]
     assert "mode=eval" in command
     assert "eval_logger_enabled=true" in command
@@ -115,7 +121,7 @@ def test_builds_baseline_eval_command_with_explicit_action_mode(tmp_path):
 
     command = validation_command(
         python="python",
-        experiment="abc_arc/stationery_rl2_hpt_baseline_openloop",
+        experiment="abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
         checkpoint=checkpoint,
         output_dir=tmp_path / "results",
         action_mode="baseline",
@@ -130,7 +136,10 @@ def test_builds_baseline_eval_command_with_explicit_action_mode(tmp_path):
     assert "evaluator.action_mode=baseline" in command
     assert "evaluator.execute_fraction=0.3" in command
     assert "trainer.limit_val_batches=1.0" in command
-    assert "+experiment=abc_arc/stationery_rl2_hpt_baseline_openloop" in command
+    assert (
+        "+experiment=abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop"
+        in command
+    )
 
 
 def test_builds_video_only_command_without_metric_output(tmp_path):
@@ -142,7 +151,7 @@ def test_builds_video_only_command_without_metric_output(tmp_path):
 
     command = validation_command(
         python="python",
-        experiment="abc_arc/stationery_rl2_hpt_arc_D40_M100_openloop",
+        experiment="abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
         checkpoint=checkpoint,
         output_dir=tmp_path / "output",
         action_mode="arc",

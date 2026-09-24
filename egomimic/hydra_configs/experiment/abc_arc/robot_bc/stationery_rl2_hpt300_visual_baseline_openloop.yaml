@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - /experiment/abc_arc/abc_visual_hpt300_base
+  - /experiment/abc_arc/robot_bc/abc_visual_hpt300_base
   - override /data: abc_arc/stationery_rl2_hpt_baseline
   - _self_
 name: stationery_rl2_hpt300_visual_baseline_openloop

@@ -1,0 +1,7 @@
+defaults:
+  - paths: default
+  - data: eva_pi_lang
+  - evaluator: data_fields
+  - _self_
+output_dir: ./data_audit/${now:%Y%m%d-%H%M%S}
+split: train

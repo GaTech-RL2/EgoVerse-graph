@@ -1,0 +1,4 @@
+# Pair with evaluator=eval_hpt_wrist for native wrist-frame predictions.
+defaults:
+  - cotrain_lang
+  - _self_

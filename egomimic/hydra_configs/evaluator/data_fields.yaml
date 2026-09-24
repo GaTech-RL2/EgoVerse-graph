@@ -1,0 +1,14 @@
+_target_: egomimic.eval.data_field_audit.DataFieldAudit
+checks:
+  eva_bimanual:
+    left_pose_zero:
+      key: actions_cartesian
+      condition: all_zero
+      columns: [0, 6]
+    right_pose_zero:
+      key: actions_cartesian
+      condition: all_zero
+      columns: [7, 13]
+    invalid_actions:
+      key: actions_cartesian
+      condition: nonfinite

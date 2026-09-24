@@ -201,6 +201,42 @@ class Embodiment(ABC):
         raise NotImplementedError
 
     @classmethod
+    def viz_recorded_batch(
+        cls,
+        batch,
+        *,
+        image_key,
+        action_key,
+        annotation_key=None,
+        mode="traj",
+        transform_list=None,
+        **kwargs,
+    ):
+        """Render recorded trajectories in a declared frame, with active annotations."""
+        if transform_list is not None:
+            batch = cls.apply_transform(batch, transform_list)
+        images, actions = _to_numpy(batch[image_key]), _to_numpy(batch[action_key])
+        if len(images) != len(actions):
+            raise ValueError("Image and action batch sizes differ")
+        annotations = batch[annotation_key] if annotation_key is not None else None
+        if annotations is not None and len(annotations) != len(images):
+            raise ValueError("Annotation and image batch sizes differ")
+        frames = []
+        for i, (image, action) in enumerate(zip(images, actions, strict=True)):
+            frame = cls.viz(
+                image,
+                action,
+                mode=mode,
+                color="Greens",
+                intrinsics=_intrinsics_from_batch(batch, i),
+                **kwargs,
+            )
+            if annotations is not None:
+                frame = cls.viz(frame, annotations[i], mode="annotations")
+            frames.append(frame)
+        return np.stack(frames)
+
+    @classmethod
     def viz_gt_preds(
         cls,
         predictions,

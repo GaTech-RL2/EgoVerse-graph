@@ -53,22 +53,27 @@ Published draft stack in EgoVerse-graph:
 | PI recipe/diagnostic parity | #152 | `daeaf924` | 1,388 |
 | Recorded-data tools | #153 | `5cb26b9e` | 1,392 |
 | Bound inference | #154 | `9bd2bed5` | 1,404 |
+| Recursive configuration/CI gates | #155 | `09accb58` | 1,408 |
 
 Each layer's tested tree, snapshot and log hash are recorded under `evidence/`.
 The data-tool layer includes real HDF5 conversion, immutable output checks,
 complete annotated video encoding and data preview without a model or fitting
 normalization. The recursive working-tree audit resolves 253/253 shipped YAMLs.
 
-The active branch is `codex/graph-integration-20260924/06-ci-gates`.
+The active branch is `codex/graph-integration-20260924/07-osmo-validation`.
 All 253 YAMLs compose and all 253 constructor contexts pass offline, including
 ready inference dependency plans. The gate caught a stale EVA wrist keymap and
 Scale API access during construction; both are fixed. The layer also finishes
 the shared diagnostic-prediction metric entrypoint and canonical Yam keymap,
 with behavior tests. Ruff enforcement preserves the byte-pinned Yam files.
 See `VALIDATION.md` for the exact scope and substitutions of the CPU gates.
-An isolated full-suite receipt is required before this CI layer is pushed.
+The CI layer passed its isolated suite and is published. The OSMO layer adds
+an explicit real-input matrix and a locally exercised five-update, validation,
+checkpoint and no-hardware strict-reload harness. Source data is read-only;
+public weights/tokenizer files are hash-pinned. GPU execution receipts remain
+required; input metadata and CPU fixtures are not substitutes for them.
 
-Remaining gates: recursive construction/CI, real-weight/data OSMO L40/L40S
+Remaining gates: real-weight/data OSMO L40/L40S
 training and distributed smokes, complete fixed-fixture parity, explicit
 model-versus-data frame compatibility, refreshed destination conflict inventory,
 assembled-tree validation and gated cutover. Public PI weight metadata matches

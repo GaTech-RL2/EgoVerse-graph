@@ -1,0 +1,15 @@
+{
+  "tree": "5834b27f7edc932b55485ee29e14f6fb1ec1b73c",
+  "snapshot": "2ec6abc079ff87caeaa5cb015fce902da6235b5a",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-osmo-validation-20260924",
+  "status": "passed",
+  "parent": "09accb583f598338a6ff9fc8cca0ef7cb45f1a8c",
+  "tests": 1411,
+  "warnings": 36,
+  "seconds": 203.68,
+  "command": "HF_HUB_OFFLINE=1 WANDB_MODE=disabled pytest tests -q",
+  "log_sha256": "77138aa9223e770f849f8cfa6fec671eb7848d4f0a1a74c5af0457db8fd48465",
+  "yaml_contexts": 253,
+  "constructor_contexts": 253,
+  "scope": "isolated OSMO harness CPU gate; real-weight/data GPU execution is separate"
+}

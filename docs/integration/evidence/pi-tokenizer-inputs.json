@@ -1,0 +1,44 @@
+{
+  "repo": "google/paligemma-3b-mix-224",
+  "revision": "d1d8734c9c3ad0ccfeea4afc270faa356c2ba515",
+  "files": [
+    {
+      "file": "added_tokens.json",
+      "sha256": "7d0bad90030d638a4bf89a82e91206e25f1fbe0012f14bca21666a64b643bc49",
+      "bytes": 24
+    },
+    {
+      "file": "config.json",
+      "sha256": "acdf1016c0f752846bd0f3b4289256352b8f81aa8e39f6270220cc6f2fb5c1a7",
+      "bytes": 1028
+    },
+    {
+      "file": "special_tokens_map.json",
+      "sha256": "5ef37093ae4236587b6e8266acb815b46e2db8ce656c66552bfa574d32880405",
+      "bytes": 607
+    },
+    {
+      "file": "tokenizer.json",
+      "sha256": "ef6773c135b77b834de1d13c75a4c98ab7a3684ffd602d1831e1f1bf5467c563",
+      "bytes": 17549604
+    },
+    {
+      "file": "tokenizer.model",
+      "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6",
+      "bytes": 4264023
+    },
+    {
+      "file": "tokenizer_config.json",
+      "sha256": "3259402b1d1802e02417d7bff75a889ec61d359d15be6050a957b307c48edbbe",
+      "bytes": 39968
+    }
+  ],
+  "local_validation": {
+    "tokens": [
+      2,
+      18075,
+      908,
+      7190
+    ]
+  }
+}

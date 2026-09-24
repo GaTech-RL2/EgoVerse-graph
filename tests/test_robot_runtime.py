@@ -591,25 +591,6 @@ def replay_keys():
     }
 
 
-def yam_pipeline_replay_store(tmp_path, padded=5, total=3):
-    import zarr
-
-    store = zarr.open_group(str(tmp_path / "yam_episode.zarr"), mode="w")
-    store.attrs.update(
-        complete=True,
-        committed_samples=total,
-        arm_order=["left", "right"],
-        schema="rl2_yam.episode.v1",
-    )
-    joints = np.zeros((padded, 2, 6))
-    joints[:total, 0, 0] = np.arange(total) * 0.01
-    joints[:total, 1, 0] = np.arange(total) * -0.01
-    grippers = np.full((padded, 2), 0.5)
-    store.create_array("actions/joint_position", data=joints)
-    store.create_array("actions/gripper", data=grippers)
-    return store
-
-
 @pytest.mark.parametrize("robot_factory", [FakeRobot, yam_robot])
 def test_rollout_replays_all_valid_zarr_frames_and_stops_at_eof(
     tmp_path, robot_factory
@@ -619,7 +600,6 @@ def test_rollout_replays_all_valid_zarr_frames_and_stops_at_eof(
     config = dict(
         frequency=30,
         max_steps=50,
-        execute_steps=1,
         max_joint_velocity=1,
         preview={"enabled": False},
     )
@@ -640,7 +620,6 @@ def test_rollout_validates_both_arms_before_commanding():
             dict(
                 frequency=30,
                 max_steps=2,
-                execute_steps=1,
                 max_joint_velocity=1,
                 preview={"enabled": False},
             ),
@@ -928,7 +907,6 @@ def test_rollout_discards_unreachable_plan_and_waits_for_the_next_action():
         dict(
             frequency=30,
             max_steps=2,
-            execute_steps=3,
             max_joint_velocity=10,
             preview={"enabled": False},
         ),

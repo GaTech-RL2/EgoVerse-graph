@@ -4,6 +4,7 @@ import argparse
 import copy
 import time
 from collections import deque
+from collections.abc import Mapping
 
 import numpy as np
 from omegaconf import OmegaConf
@@ -37,9 +38,10 @@ def validate_rollout_config(config):
         value = config.get(name, False)
         if type(value) is not bool:
             raise ValueError(f"{name} must be a boolean")
-    execute_steps = config.get("execute_steps")
-    if type(execute_steps) is not int or not 1 <= execute_steps <= 100:
-        raise ValueError("execute_steps must be an integer in [1, 100]")
+    if "execute_steps" in config:
+        raise ValueError(
+            "execute_steps moved to policy.inference_graph profile overrides"
+        )
     preview = dict(config.get("preview", {}))
     validate_video_recording(config.get("video_recording"))
     policy = config.get("policy")
@@ -64,7 +66,7 @@ def validate_rollout_config(config):
 def create_preview_view(
     camera_res,
     preview,
-    execute_steps=None,
+    inference_controls=None,
     video_recording=None,
     model_browser=None,
     policy=None,
@@ -76,7 +78,7 @@ def create_preview_view(
 
         return RolloutDashboard(
             camera_res,
-            execute_steps=execute_steps,
+            inference_controls=inference_controls,
             video_recording=video_recording,
             model_browser=model_browser,
             policy=policy,
@@ -99,7 +101,7 @@ def _velocity_decision(view, details):
     decision = choose(details)
     if decision not in {
         "execute",
-        "model_swap",
+        "model_selection",
         "reconnect",
         "resample",
         "restart",
@@ -121,9 +123,9 @@ def _take_video_recording_request(view) -> bool:
     return bool(take()) if callable(take) else False
 
 
-def _take_model_swap_request(view):
-    """Consume one dashboard-picked checkpoint without exposing a command path."""
-    take = getattr(view, "take_model_swap_request", None)
+def _take_model_selection_request(view):
+    """Consume one dashboard-selected model without exposing a command path."""
+    take = getattr(view, "take_model_selection_request", None)
     return take() if callable(take) else None
 
 
@@ -133,6 +135,52 @@ def _set_model_checkpoint(view, checkpoint) -> None:
         publish(checkpoint)
 
 
+def _policy_inference_controls(policy):
+    """Read one policy's serializable, explicitly exposed runtime controls."""
+    controls = getattr(policy, "inference_controls", None)
+    if not callable(controls):
+        return {}
+    result = controls()
+    if not isinstance(result, Mapping):
+        raise TypeError("Policy inference_controls() must return a mapping")
+    return result
+
+
+def _set_inference_controls(view, controls) -> None:
+    publish = getattr(view, "set_inference_controls", None)
+    if callable(publish):
+        publish(controls)
+
+
+def _take_inference_override_request(view):
+    take = getattr(view, "take_inference_override_request", None)
+    return take() if callable(take) else None
+
+
+def _apply_inference_overrides(policy, overrides):
+    apply = getattr(policy, "apply_inference_overrides", None)
+    if not callable(apply):
+        raise ValueError("The selected policy exposes no inference overrides")
+    return apply(overrides)
+
+
+def _policy_execution_plan(policy, prediction):
+    """Let the policy choose its executable prefix without model logic here."""
+    select = getattr(policy, "execution_plan", None)
+    actions = np.asarray(select(prediction) if callable(select) else prediction)
+    if (
+        actions.ndim != 2
+        or actions.shape[1] != 14
+        or not len(actions)
+        or len(actions) > len(prediction)
+        or not np.isfinite(actions).all()
+    ):
+        raise ValueError(
+            "Policy execution plan must be a finite nonempty (N, 14) prefix"
+        )
+    return actions
+
+
 def _set_video_recording(view, recording: bool, saved=None) -> None:
     """Publish capture state without letting the dashboard write robot state."""
     set_recording = getattr(view, "set_video_recording", None)
@@ -140,12 +188,18 @@ def _set_video_recording(view, recording: bool, saved=None) -> None:
         set_recording(recording, saved=saved)
 
 
+def _reset_policy_state(policy) -> None:
+    """Reset inference-owned history without exposing model details to rollout."""
+    reset = getattr(policy, "reset", None)
+    if callable(reset):
+        reset()
+
+
 def run_rollout(robot, policy, config, view=None):
     frequency, max_steps = float(config["frequency"]), int(config["max_steps"])
-    execute_steps = config["execute_steps"]
     limit = float(config["max_joint_velocity"]) / frequency
     max_velocity_replans = config.get("max_velocity_replans", 0)
-    if min(frequency, max_steps, execute_steps, limit) <= 0 or not np.isfinite(limit):
+    if min(frequency, max_steps, limit) <= 0 or not np.isfinite(limit):
         raise ValueError("Rollout frequency, step counts and velocity must be positive")
     if type(max_velocity_replans) is not int or not 0 <= max_velocity_replans <= 32:
         raise ValueError("max_velocity_replans must be an integer in [0, 32]")
@@ -156,10 +210,11 @@ def run_rollout(robot, policy, config, view=None):
     waiting_since, velocity_replans = None, 0
     ik_rejections = 0
     paused = False
+    pending_inference_overrides = {}
     view = view or create_preview_view(
         robot.camera_res,
         config["preview"],
-        execute_steps=execute_steps,
+        inference_controls=_policy_inference_controls(policy),
         video_recording=config.get("video_recording"),
         model_browser=config.get("model_browser"),
         policy=policy_config,
@@ -189,6 +244,7 @@ def run_rollout(robot, policy, config, view=None):
         )
         ik_rejections = 0
         paused = False
+        _reset_policy_state(policy)
         clear_plan = getattr(view, "clear_action_plan", None)
         if callable(clear_plan):
             clear_plan()
@@ -218,6 +274,7 @@ def run_rollout(robot, policy, config, view=None):
         return saved
 
     try:
+        _reset_policy_state(policy)
         if reset_on_start:
             _set_view_status(view, "Resetting YAM to configured home")
             robot.set_home()
@@ -229,13 +286,14 @@ def run_rollout(robot, policy, config, view=None):
             control = view.update(obs)
             if control in ("q", "\x1b"):
                 break
-            bundle = _take_model_swap_request(view)
+            bundle = _take_model_selection_request(view)
             if bundle is not None:
                 # Freeze the current measured pose before the potentially slow
                 # GPU checkpoint load. Old-model chunks are discarded and the
                 # operator must explicitly start the new model after it loads.
                 finish_video_recording()
                 queue.clear()
+                pending_inference_overrides.clear()
                 last = np.asarray(obs["joint_positions"], dtype=float).copy()
                 for arm in robot.arms:
                     offset = ARM_OFFSET[arm]
@@ -256,25 +314,56 @@ def run_rollout(robot, policy, config, view=None):
                     )
                     candidate = load_policy(candidate_config)
                     if candidate.action_type != policy.action_type:
-                        raise ValueError(
-                            "Replacement checkpoint changed action representation"
-                        )
+                        raise ValueError("Selected model changed action representation")
                 except Exception as error:
                     _set_view_status(
                         view,
-                        "Checkpoint load failed; previous model remains loaded — press c to retry",
+                        "Model load failed; current model remains loaded — press c to retry",
                     )
-                    print(
-                        f"Could not load requested checkpoint {bundle.checkpoint}: {error}"
-                    )
+                    print(f"Could not load selected model {bundle.checkpoint}: {error}")
                 else:
                     policy, policy_config = candidate, candidate_config
                     _set_model_checkpoint(view, bundle)
-                    _set_view_status(
-                        view, "Checkpoint loaded — press c to start the new model"
-                    )
+                    _set_inference_controls(view, _policy_inference_controls(candidate))
+                    _set_view_status(view, "Selected model loaded — press c to start")
                 time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                 continue
+            overrides = _take_inference_override_request(view)
+            if overrides:
+                pending_inference_overrides.update(overrides)
+            if pending_inference_overrides and (not started or paused or not queue):
+                current_controls = _policy_inference_controls(policy)
+                changed = {
+                    name: value
+                    for name, value in pending_inference_overrides.items()
+                    if current_controls.get(name, {}).get("value") != value
+                }
+                try:
+                    controls = (
+                        _apply_inference_overrides(policy, changed)
+                        if changed
+                        else current_controls
+                    )
+                except (TypeError, ValueError) as error:
+                    print(f"Could not apply inference override: {error}")
+                    _set_view_status(view, f"Inference setting rejected: {error}")
+                    _set_inference_controls(view, _policy_inference_controls(policy))
+                else:
+                    _set_inference_controls(view, controls)
+                    if changed:
+                        suffix = (
+                            "next plan will use them"
+                            if started and not paused
+                            else "they will be used when rollout resumes"
+                        )
+                        _set_view_status(view, f"Inference settings updated — {suffix}")
+                    else:
+                        _set_view_status(view, "Inference settings unchanged")
+                pending_inference_overrides.clear()
+            elif pending_inference_overrides:
+                _set_view_status(
+                    view, "Inference settings queued — applying at next replan"
+                )
             if _take_camera_reconnect_request(view):
                 # Never execute a target sampled before a camera recovery. The
                 # YAM method stops and reopens RGB streams only; it does not
@@ -283,6 +372,7 @@ def run_rollout(robot, policy, config, view=None):
                 last, waiting_since, velocity_replans = None, None, 0
                 ik_rejections = 0
                 started, paused = False, False
+                _reset_policy_state(policy)
                 clear_plan = getattr(view, "clear_action_plan", None)
                 if callable(clear_plan):
                     clear_plan()
@@ -316,6 +406,7 @@ def run_rollout(robot, policy, config, view=None):
             requested_pause = bool(is_paused()) if callable(is_paused) else False
             if requested_pause != paused:
                 queue.clear()
+                _reset_policy_state(policy)
                 clear_plan = getattr(view, "clear_action_plan", None)
                 if callable(clear_plan):
                     clear_plan()
@@ -399,24 +490,10 @@ def run_rollout(robot, policy, config, view=None):
                     # Browser overlays are display-only. The unchanged command queue
                     # below remains the sole source of robot actuation.
                     set_plan(prediction, policy.action_type)
-                # Replay consumes its entire chunk; graph plans replan at the
-                # dashboard-selected interval (or config default).
-                get_execute_steps = getattr(view, "get_execute_steps", None)
-                plan_steps = (
-                    get_execute_steps()
-                    if callable(get_execute_steps)
-                    else execute_steps
-                )
-                if type(plan_steps) is not int or not 1 <= plan_steps <= 100:
-                    raise ValueError(
-                        "Dashboard execute steps must be an integer in [1, 100]"
-                    )
-                count = (
-                    len(prediction)
-                    if policy.action_type == "joints"
-                    else min(plan_steps, len(prediction))
-                )
-                queue.extend(prediction[:count])
+                # Each policy owns its execution/replanning semantics. Replay
+                # returns the full chunk; graph inference returns the profile's
+                # operator-selected executable prefix.
+                queue.extend(_policy_execution_plan(policy, prediction))
             row = queue.popleft()
             commands = {}
             violations = []
@@ -471,7 +548,7 @@ def run_rollout(robot, policy, config, view=None):
                     # charging it against the velocity-resample budget.
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
-                if decision == "model_swap":
+                if decision == "model_selection":
                     # The next tick consumes the validated checkpoint request
                     # before another policy target can be considered.
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
@@ -511,6 +588,7 @@ def run_rollout(robot, policy, config, view=None):
             velocity_replans = 0
             ik_rejections = 0
             step += 1
+            _set_view_status(view, "Running")
             time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
     finally:
         finish_video_recording()

@@ -244,6 +244,29 @@ weights (and EMA only if requested), then runs graph inference. HPT and PI use
 this same path. No previous ModelWrapper policy dispatch remains. The CLI's only
 inference mode is `graph`.
 
+The rollout loop has one model-independent boundary: it passes the current
+camera/proprio observation to `policy.predict()` and receives a canonical
+Cartesian action trajectory. `policy.inference_graph` in the rollout YAML owns
+the rest of inference: optional observation history, checkpoint-stage matching,
+sampler settings, native output shape, ARC decoding, and the final output
+contract. A model with history keeps and resets that history inside the policy;
+the rollout loop does not branch on model family. Profiles fail closed unless
+exactly one checkpoint-declared stage/variant match is found. This keeps Flow,
+ARC-velocity, ARC-duration, and diffusion checkpoints behind the same robot
+interface while preventing a Flow sampler override from being applied to a
+diffusion stage.
+
+Each matched profile may expose a bounded `overrides` mapping. Those declarations
+are the sole source of runtime controls shown by the dashboard: the UI does not
+hard-code Flow, diffusion, or replanning fields. Every control declares its type,
+bounds, default, label, and mutation target. Stage attributes cover values such
+as Euler or diffusion steps; the policy-owned `replan_every` target chooses the
+executable prefix while retaining the full canonical prediction for the action
+overlay. Changing a control discards the old queued prefix and requests a fresh
+plan. Selecting another checkpoint replaces the controls with those from its
+matched profile. Undeclared names, invalid bounds, and private attribute paths
+are rejected.
+
 The current shared graph adapter accepts bimanual Cartesian policies with Euler
 or 6D rotations. Match camera-to-graph key names, resize dimensions, embodiment
 ID (Eva bimanual 6, Yam bimanual 7), prompt and rotation encoding to training.
@@ -255,24 +278,62 @@ when those frames actually coincide.
 
 `action_frame: eef_frame` anchors every predicted pose in a chunk to the measured
 EEF pose at inference time. `model_frame` instead uses the configured calibration.
-Predictions are unnormalized once before decoding/frame reversion. For ARC,
-configure `policy.adapter.decoder`, for example:
+Predictions are unnormalized once before decoding/frame reversion. Configure ARC
+decoding in the matching `policy.inference_graph.profiles` entry, for example:
 
 ```yaml
-decoder:
-  _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
-  token_layout: e1_dur
-  min_distance_unit: 0.4
-  resampled_vector_length: 100
-  dt: 0.03333333333333333
-  action_horizon: 100
+policy:
+  inference_graph:
+    input:
+      history_length: 1
+    output:
+      representation: cartesian
+      shape: [100, 14]
+    profiles:
+      flow_arcdur:
+        match:
+          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
+          variant: arcdur
+        native_shape: [100, 16]
+        overrides:
+          inference_steps:
+            label: Euler integration steps
+            description: Number of Flow solver steps used for each prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Repredict every
+            description: Execute this many actions before requesting a fresh prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+        adapter:
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_dur
+            min_distance_unit: 0.4
+            resampled_vector_length: 100
+            dt: 0.03333333333333333
+            action_horizon: 100
 ```
 
 Use the codec and numbers from training. Supported layouts are `lab`, `e1_dur`,
-`e1_logdur` and `e1_profile`. Decoding precedes IK. A graph plan executes at most
-`execute_steps` before replanning. Both arms' commands must pass the joint step
-limit before either command is sent. Camera loss pauses commands and discards
-the old plan. Quit with q/Escape or Ctrl-C.
+`e1_logdur` and `e1_profile`. Decoding precedes IK. The inference policy returns
+the profile-selected executable prefix; the rollout loop has no model-specific
+replanning parameter. Both arms' commands must pass the joint step limit before
+either command is sent. Camera loss pauses commands and discards the old plan.
+Quit with q/Escape or Ctrl-C.
 
 ## Zarr replay and upload
 

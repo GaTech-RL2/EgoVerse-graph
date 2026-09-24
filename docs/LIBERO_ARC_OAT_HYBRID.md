@@ -1,5 +1,11 @@
 # OAT tokens of ARC action chunks
 
+**Deferred by the September 24 priority update.** Finish the original ARC/OAT
+evaluations, then ARC with OAT's released diffusion policy, before running this
+hybrid. The submitted hybrid workflows were canceled before their GPU tasks
+started. The implementation is retained; real GPU smoke validation remains
+pending. See [experiment priorities](LIBERO_EXPERIMENT_PRIORITIES.md).
+
 This experiment trains the native OAT learned tokenizer on normalized ARC
 supports. Its autoregressive observation policy then predicts those learned
 tokens. The inference path is:
@@ -66,5 +72,5 @@ Tests cover the actual ARC-space loss and gradients, stationary/gripper-only
 chunks, STK/DUR prefix decoding, real shared training with float32/bfloat16,
 EMA resume, inference without target actions, independent checkpoint reload,
 representation mismatches, reconstruction metrics, complete training budgets,
-and rejection of unpaired evaluation states. GPU smoke runs additionally train
-both networks and execute simulator rollouts before full runs are submitted.
+and rejection of unpaired evaluation states. Before full training starts, GPU
+smoke runs must additionally train both networks and execute simulator rollouts.

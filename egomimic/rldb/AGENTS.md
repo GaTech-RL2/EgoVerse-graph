@@ -5,6 +5,9 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
 
 - `zarr/zarr_dataset_multi.py`: episode resolvers, `ZarrDataset`, `MultiDataset`,
   normalization, saved schema, bounds checking and annotation cutoffs.
+- `zarr/data_module.py`: configured data lifecycle, immutable normalization
+  context restoration and source validation. `resolve_memo.py` scopes resolver
+  reuse to one preparation call; it is not a persistent cache of SQL results.
 - `embodiment/human.py`, `eva.py`, `yam.py`: raw keymaps and geometric frame
   conventions. `action_mode`, `coord_frame`, `rotation_mode`, camera mappings,
   local-frame corrections and calibration inputs come from YAML.

@@ -170,7 +170,13 @@ def test_pipeline_algo_is_not_specific_to_control_batches():
 
 def test_pipeline_algo_constructor_and_source_are_route_agnostic():
     parameters = inspect.signature(PipelineAlgo).parameters
-    assert tuple(parameters) == ("stages", "device")
+    assert tuple(parameters) == (
+        "stages",
+        "device",
+        "stage_ids",
+        "initialization",
+        "trainability",
+    )
     with pytest.raises(TypeError):
         PipelineAlgo(stages=[], domains=["anything"])
 

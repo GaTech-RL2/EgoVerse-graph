@@ -1,4 +1,5 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
 
 train_datasets:
   pushshapes_sim_u_socket:

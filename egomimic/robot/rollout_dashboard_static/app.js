@@ -161,10 +161,20 @@ function togglePause() {
 function parsedInferenceDraft(name) {
   const spec = inferenceControls[name];
   const raw = inferenceDrafts[name] ?? '';
-  const value = Number(raw);
-  const valid = Boolean(spec) && raw.trim() !== '' && Number.isInteger(value)
-    && value >= spec.min && value <= spec.max
-    && (value - spec.min) % spec.step === 0;
+  let value = raw, valid = false;
+  if (spec?.type === 'boolean') {
+    valid = raw === 'true' || raw === 'false';
+    value = raw === 'true';
+  } else if (spec?.type === 'enum') {
+    valid = spec.choices.includes(raw);
+  } else if (spec) {
+    value = Number(raw);
+    const steps = spec.step == null ? 0 : (value - spec.min) / spec.step;
+    valid = raw.trim() !== '' && Number.isFinite(value)
+      && (spec.type === 'number' || Number.isInteger(value))
+      && value >= spec.min && value <= spec.max
+      && Math.abs(steps - Math.round(steps)) < 1e-8;
+  }
   return {valid, value, dirty: valid && value !== spec?.value};
 }
 
@@ -223,7 +233,7 @@ function applyInferenceOverrides() {
 }
 
 function setInferenceControlsDisabled(disabled) {
-  for (const input of $('inference-controls').querySelectorAll('input')) {
+  for (const input of $('inference-controls').querySelectorAll('input, select')) {
     input.disabled = disabled;
   }
   const button = $('apply-inference');
@@ -235,7 +245,7 @@ function updateInferenceControls(controls, revision = inferenceControlRevision) 
   inferenceControls = controls && typeof controls === 'object' ? controls : {};
   const entries = Object.entries(inferenceControls);
   const signature = JSON.stringify(entries.map(([name, spec]) => [
-    name, spec.label, spec.description, spec.type, spec.min, spec.max, spec.step,
+    name, spec.label, spec.description, spec.type, spec.min, spec.max, spec.step, spec.choices,
   ]));
   const container = $('inference-controls');
   if (signature !== inferenceControlSignature) {
@@ -250,12 +260,22 @@ function updateInferenceControls(controls, revision = inferenceControlRevision) 
       label.title = spec.description || spec.label;
       label.htmlFor = `inference-${name}`;
       label.append(document.createTextNode(spec.label));
-      const input = document.createElement('input');
+      const discrete = spec.type === 'boolean' || spec.type === 'enum';
+      const input = document.createElement(discrete ? 'select' : 'input');
       input.id = `inference-${name}`;
-      input.type = 'number';
-      input.min = String(spec.min);
-      input.max = String(spec.max);
-      input.step = String(spec.step);
+      if (discrete) {
+        for (const value of spec.type === 'boolean' ? ['true', 'false'] : spec.choices) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          input.append(option);
+        }
+      } else {
+        input.type = 'number';
+        input.min = String(spec.min);
+        input.max = String(spec.max);
+        input.step = spec.step == null ? 'any' : String(spec.step);
+      }
       input.value = String(spec.value);
       input.defaultValue = String(spec.value);
       inferenceDrafts[name] = input.value;

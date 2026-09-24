@@ -1,0 +1,20 @@
+{
+  "scope": "isolated contracts layer; not the assembled EgoVerse destination",
+  "base_commit": "161e3a0c40182ba003434d3adaeaa6cbd12107d8",
+  "tested_tree": "7182a483fbf8d988c4496f316319e48999882d03",
+  "validation_snapshot": "3a45f789fe231ce303654da8c77500cfc1236600",
+  "python": "3.11.14",
+  "command": "source emimic/bin/activate; pytest -q tests",
+  "passed": 1350,
+  "warnings": 10,
+  "duration_seconds": 231.94,
+  "log_sha256": "67ab372fb9136017e0678370cb67868cb93f61a1df719ffb565605bfc161b611",
+  "lock_sha256": "8d4f6d1666482452643b4f1905618bfbc08d1b31b47e9760d2ac7d4e40d86a28",
+  "open_gates": [
+    "retained recipe and diagnostic parity",
+    "fixed-fixture legacy/graph comparisons",
+    "real-weight/data OSMO GPU validation",
+    "assembled EgoVerse destination validation",
+    "legacy-runtime cutover"
+  ]
+}

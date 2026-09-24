@@ -438,7 +438,7 @@ def test_four_rows_compose_with_supported_data_and_evaluator_schema(
     for section in (cfg.data, cfg.evaluator):
         target = get_class(section._target_)
         accepted = set(inspect.signature(target.__init__).parameters)
-        assert set(section) - accepted - {"_target_"} == set()
+        assert set(section) - accepted - {"_target_", "_recursive_"} == set()
 
 
 def test_only_registered_rows_and_no_legacy_or_diagnostic_surface():

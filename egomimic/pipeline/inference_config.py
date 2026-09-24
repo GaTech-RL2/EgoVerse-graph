@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -18,13 +19,10 @@ from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
 
-ARTIFACT_KIND = "egomimic.graph-inference"
-SCHEMA_VERSION = 1
+from egomimic.pipeline.inference_controls import validate_control
 
-ACTION_TARGET = "egomimic.pipeline.stages_io.ActionTargetBuilder"
-FLOW_DENOISER = "egomimic.pipeline.stages_flow.FlowDenoiserStage"
-DIFFUSION_DENOISER = "egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage"
-FUSED_OBS_ENCODER = "egomimic.pipeline.stages_sampler.FusedObsEncoder"
+ARTIFACT_KIND = "egomimic.graph-inference"
+SCHEMA_VERSION = 2
 
 
 def _as_config(config: DictConfig | Mapping[str, Any]) -> DictConfig:
@@ -64,287 +62,172 @@ def model_pipeline_sha256(training: DictConfig | Mapping[str, Any]) -> str:
     return _canonical_sha256(pipeline)
 
 
-def inference_contract_sha256(
-    training: DictConfig | Mapping[str, Any],
-) -> str:
-    """Hash every resolved training field used to derive robot inference."""
+def inference_contract_sha256(training: DictConfig | Mapping[str, Any]) -> str:
+    """Bind only the resolved, explicitly declared model semantics."""
     config = _as_config(training)
-    source = {
-        "pipeline": _plain_node(config, "model.pipeline"),
-        "e1": {
-            name: OmegaConf.select(config, f"e1.{name}", default=None)
-            for name in ("variant", "D", "M", "time_rows")
-        },
-        "evaluator_dt": OmegaConf.select(config, "evaluator.dt", default=None),
-        "defaults": {
-            name: OmegaConf.select(config, f"inference_config.{name}", default=None)
-            for name in (
-                "flow_inference_steps",
-                "diffusion_inference_steps",
-                "max_flow_inference_steps",
-                "replan_every",
-                "action_dt",
-            )
-        },
-    }
-    return _canonical_sha256(source)
+    return _canonical_sha256(
+        {
+            "pipeline": _plain_node(config, "model.pipeline"),
+            "inference": _plain_node(config, "model.inference"),
+        }
+    )
 
 
-def _pipeline_stages(config: DictConfig) -> list[dict[str, Any]]:
-    stages = _plain_node(config, "model.pipeline.stages")
-    if not isinstance(stages, list) or not all(
-        isinstance(stage, dict) for stage in stages
-    ):
-        raise ValueError("model.pipeline.stages must be a list of mappings")
-    return stages
-
-
-def _positive_int(value: Any, label: str) -> int:
+def _positive_int(value, name):
     if type(value) is not int or value <= 0:
-        raise ValueError(f"{label} must be a positive integer")
+        raise ValueError(f"{name} must be a positive integer")
     return value
 
 
-def _positive_float(value: Any, label: str) -> float:
-    if not isinstance(value, (int, float)) or isinstance(value, bool):
-        raise ValueError(f"{label} must be a positive number")
-    result = float(value)
-    if not result > 0:
-        raise ValueError(f"{label} must be a positive number")
-    return result
-
-
-def _unsupported(pipeline_hash: str, contract_hash: str, reason: str) -> dict[str, Any]:
-    return {
-        "kind": ARTIFACT_KIND,
-        "schema_version": SCHEMA_VERSION,
-        "status": "unsupported",
-        "model_pipeline_sha256": pipeline_hash,
-        "inference_contract_sha256": contract_hash,
-        "reason": reason,
-    }
-
-
-def _history_length(stages: list[dict[str, Any]]) -> int:
-    encoders = [stage for stage in stages if stage.get("_target_") == FUSED_OBS_ENCODER]
-    if not encoders:
-        return 1
-    if len(encoders) != 1:
-        raise ValueError("Inference export requires at most one FusedObsEncoder stage")
-    return _positive_int(encoders[0].get("n_obs_steps", 1), "n_obs_steps")
-
-
-def _inference_step_spec(
-    config: DictConfig,
-    stage: Mapping[str, Any],
-    stage_target: str,
-) -> tuple[str, str, int, int, str]:
-    if stage_target == FLOW_DENOISER:
-        configured = OmegaConf.select(
-            config, "inference_config.flow_inference_steps", default=10
-        )
-        default = stage.get("num_inference_steps") if configured is None else configured
-        label = "Euler integration steps"
-        description = (
-            "Number of Flow solver steps per prediction; higher values increase "
-            "inference latency."
-        )
-        attribute_path = "num_inference_steps"
-        maximum = OmegaConf.select(
-            config, "inference_config.max_flow_inference_steps", default=100
-        )
-    else:
-        policy = stage.get("policy")
-        if not isinstance(policy, Mapping):
-            raise ValueError("DiffusionDenoiserStage must define policy")
-        configured = OmegaConf.select(
-            config, "inference_config.diffusion_inference_steps", default=None
-        )
-        default = (
-            policy.get("num_inference_steps") if configured is None else configured
-        )
-        label = "Diffusion denoising steps"
-        description = (
-            "Number of denoising steps per prediction; higher values increase "
-            "inference latency."
-        )
-        attribute_path = "policy.num_inference_steps"
-        scheduler = policy.get("noise_scheduler", {})
-        maximum = (
-            scheduler.get("num_train_timesteps", 100)
-            if isinstance(scheduler, Mapping)
-            else 100
-        )
-    default = _positive_int(default, "inference step default")
-    maximum = _positive_int(maximum, "inference step maximum")
-    if default > maximum:
+def _output_contract(node, name):
+    if not isinstance(node, Mapping):
+        raise ValueError(f"{name} must be a mapping")
+    for key in ("key", "representation"):
+        if not isinstance(node.get(key), str) or not node[key]:
+            raise ValueError(f"{name}.{key} must be a nonempty string")
+    shape = node.get("shape")
+    if not isinstance(shape, list) or len(shape) != 2:
+        raise ValueError(f"{name}.shape must be [horizon, width]")
+    for dimension in shape:
+        _positive_int(dimension, f"{name}.shape")
+    timing = node.get("timing")
+    if not isinstance(timing, Mapping) or not isinstance(timing.get("kind"), str):
+        raise ValueError(f"{name} must declare timing semantics")
+    if timing.get("temporally_resolved") is not True:
         raise ValueError(
-            f"Inference step default {default} exceeds configured maximum {maximum}"
+            f"{name} timing cannot reconstruct intervals; diagnostic-only representations are not deployable"
         )
-    return label, description, default, maximum, attribute_path
+    if "dt" in timing:
+        dt = timing["dt"]
+        if type(dt) not in (int, float) or not math.isfinite(dt) or dt <= 0:
+            raise ValueError(f"{name}.timing.dt must be finite and positive")
 
 
-def _decoder_contract(
-    config: DictConfig,
-    *,
-    variant: str,
-    native_horizon: int,
-    native_dim: int,
-) -> tuple[int, dict[str, Any] | None]:
-    if variant == "time":
-        if native_dim != 14:
+def validate_declared_graph(graph, pipeline):
+    """Validate structure and declared bindings without interpreting families."""
+    if not isinstance(graph, Mapping):
+        raise ValueError("Model must declare model.inference in its YAML")
+    inputs = graph.get("input")
+    if not isinstance(inputs, Mapping):
+        raise ValueError("model.inference.input must be a mapping")
+    _positive_int(inputs.get("history_length"), "input.history_length")
+    keys = inputs.get("keys")
+    if (
+        not isinstance(keys, list)
+        or not keys
+        or any(not isinstance(k, str) or not k for k in keys)
+    ):
+        raise ValueError("input.keys must declare the required observation keys")
+    history_keys = inputs.get("history_keys", keys)
+    if not isinstance(history_keys, list) or not set(history_keys) <= set(keys):
+        raise ValueError("input.history_keys must be a subset of input.keys")
+    constants = inputs.get("constants", {})
+    if not isinstance(constants, Mapping) or not set(constants) <= set(keys):
+        raise ValueError("input.constants must declare values for required input keys")
+    _output_contract(graph.get("native_output"), "native_output")
+    _output_contract(graph.get("output"), "output")
+    compatibility = graph.get("compatibility")
+    if not isinstance(compatibility, Mapping) or not isinstance(
+        compatibility.get("normalizer_schema"), Mapping
+    ):
+        raise ValueError("model.inference.compatibility must declare normalizer_schema")
+    if "tokenizer" not in compatibility:
+        raise ValueError(
+            "model.inference.compatibility must declare tokenizer (null for native actions)"
+        )
+    stages = pipeline.get("stages", [])
+    stage_ids = pipeline.get("stage_ids", {})
+    if not isinstance(stage_ids, Mapping) or any(
+        not isinstance(k, str)
+        or not k
+        or type(v) is not int
+        or not 0 <= v < len(stages)
+        for k, v in stage_ids.items()
+    ):
+        raise ValueError(
+            "pipeline.stage_ids must map stable names to valid stage positions"
+        )
+    profiles = graph.get("profiles")
+    if not isinstance(profiles, Mapping) or len(profiles) != 1:
+        raise ValueError(
+            "model.inference must declare exactly one resolved deployment profile"
+        )
+    for name, profile in profiles.items():
+        if not isinstance(profile, Mapping) or profile.get("stage_id") not in stage_ids:
+            raise ValueError(f"Inference profile {name!r} requires a declared stage_id")
+        if profile.get("native_shape") != graph["native_output"]["shape"]:
             raise ValueError(
-                f"time Cartesian inference requires native width 14, got {native_dim}"
+                f"Inference profile {name!r} native_shape differs from native_output"
             )
-        return native_horizon, None
-    if variant == "arcmean":
-        raise ValueError(
-            "arcmean stores only token-wide mean timing and is not a supported "
-            "closed-loop rollout contract; use arcvel, arcdur, or arclogdur"
-        )
-    layouts = {
-        "arcvel": "e1_profile",
-        "arcdur": "e1_dur",
-        "arclogdur": "e1_logdur",
-    }
-    if variant not in layouts:
-        raise ValueError(f"Unknown E1 action variant {variant!r}")
-    waypoints = _positive_int(OmegaConf.select(config, "e1.M", default=None), "e1.M")
-    if (native_horizon, native_dim) != (waypoints, 16):
-        raise ValueError(
-            f"{variant} requires native shape [{waypoints}, 16], got "
-            f"[{native_horizon}, {native_dim}]"
-        )
-    output_horizon = _positive_int(
-        OmegaConf.select(config, "e1.time_rows", default=None), "e1.time_rows"
-    )
-    distance = _positive_float(OmegaConf.select(config, "e1.D", default=None), "e1.D")
-    dt = OmegaConf.select(config, "inference_config.action_dt", default=None)
-    if dt is None:
-        dt = OmegaConf.select(config, "evaluator.dt", default=None)
-    dt = _positive_float(dt, "ARC action dt")
-    return output_horizon, {
-        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
-        "token_layout": layouts[variant],
-        "min_distance_unit": distance,
-        "resampled_vector_length": waypoints,
-        "dt": dt,
-        "action_horizon": output_horizon,
-    }
+        adapter = profile.get("adapter", {})
+        if not isinstance(adapter, Mapping) or "decoder" not in adapter:
+            raise ValueError(
+                f"Inference profile {name!r} must declare decoder (null for identity)"
+            )
+        if (
+            adapter["decoder"] is None
+            and not adapter.get("_target_")
+            and graph["native_output"]["shape"] != graph["output"]["shape"]
+        ):
+            raise ValueError(
+                "Nonidentity native/canonical shapes require a configured decoder"
+            )
+        controls = profile.get("overrides", {})
+        if not isinstance(controls, Mapping):
+            raise ValueError(f"Inference profile {name!r} overrides must be a mapping")
+        for control, spec in controls.items():
+            validate_control(control, spec, stage_ids=stage_ids)
+    return dict(graph)
 
 
-def build_inference_config(
-    training: DictConfig | Mapping[str, Any],
-) -> dict[str, Any]:
-    """Derive a fail-closed inference artifact from one resolved training config."""
+def validate_input_constants(graph, provided):
+    """Check the selected input profile before weights or hardware are opened."""
+    for key, expected in graph.get("input", {}).get("constants", {}).items():
+        if key not in provided or provided[key] != expected:
+            raise ValueError(
+                f"Inference input profile requires {key}={expected!r}; "
+                f"adapter declares {provided.get(key)!r}"
+            )
+
+
+def build_inference_config(training: DictConfig | Mapping[str, Any]) -> dict[str, Any]:
+    """Validate, hash and serialize the declaration; never guess semantics."""
     config = _as_config(training)
-    pipeline_hash = model_pipeline_sha256(config)
-    contract_hash = inference_contract_sha256(config)
-    try:
-        stages = _pipeline_stages(config)
-        action_targets = [
-            stage for stage in stages if stage.get("_target_") == ACTION_TARGET
-        ]
-        if len(action_targets) != 1:
-            raise ValueError(
-                "rollout export requires exactly one ActionTargetBuilder stage"
-            )
-        action_key = action_targets[0].get("action_key")
-        if action_key != "actions_cartesian":
-            raise ValueError(
-                "robot rollout export supports only actions_cartesian; "
-                f"model uses {action_key!r}"
-            )
-        denoisers = [
-            stage
-            for stage in stages
-            if stage.get("_target_") in {FLOW_DENOISER, DIFFUSION_DENOISER}
-        ]
-        if len(denoisers) != 1:
-            raise ValueError(
-                "rollout export requires exactly one FlowDenoiserStage or "
-                "DiffusionDenoiserStage"
-            )
-        stage = denoisers[0]
-        stage_target = str(stage["_target_"])
-        family = "flow" if stage_target == FLOW_DENOISER else "diffusion"
-        native_horizon = _positive_int(
-            stage.get("action_horizon"), "denoiser action_horizon"
-        )
-        native_dim = _positive_int(stage.get("action_dim"), "denoiser action_dim")
-        declared_variant = OmegaConf.select(config, "e1.variant", default=None)
-        variant = "time" if declared_variant is None else str(declared_variant)
-        output_horizon, decoder = _decoder_contract(
-            config,
-            variant=variant,
-            native_horizon=native_horizon,
-            native_dim=native_dim,
-        )
-        history_length = _history_length(stages)
-        label, description, steps, max_steps, attribute_path = _inference_step_spec(
-            config, stage, stage_target
-        )
-        replan_default = _positive_int(
-            OmegaConf.select(config, "inference_config.replan_every", default=30),
-            "inference_config.replan_every",
-        )
-        replan_default = min(replan_default, output_horizon)
-        match: dict[str, Any] = {"stage_target": stage_target}
-        if declared_variant is not None:
-            match["variant"] = variant
-        profile = {
-            "match": match,
-            "native_shape": [native_horizon, native_dim],
-            "overrides": {
-                "inference_steps": {
-                    "label": label,
-                    "description": description,
-                    "type": "integer",
-                    "min": 1,
-                    "max": max_steps,
-                    "step": 1,
-                    "default": steps,
-                    "target": {
-                        "kind": "stage_attribute",
-                        "attribute_path": attribute_path,
-                    },
-                },
-                "replan_every": {
-                    "label": "Repredict every",
-                    "description": (
-                        "Execute this many actions before requesting a fresh prediction."
-                    ),
-                    "type": "integer",
-                    "min": 1,
-                    "max": output_horizon,
-                    "step": 1,
-                    "default": replan_default,
-                    "target": {
-                        "kind": "policy_attribute",
-                        "attribute_path": "replan_every",
-                    },
-                },
-            },
-            "adapter": {"decoder": decoder},
-        }
-        graph = {
-            "input": {"history_length": history_length},
-            "output": {
-                "representation": "cartesian",
-                "shape": [output_horizon, 14],
-            },
-            "profiles": {f"{family}_{variant}": profile},
-        }
-    except (KeyError, TypeError, ValueError) as error:
-        return _unsupported(pipeline_hash, contract_hash, str(error))
-    return {
+    artifact = {
         "kind": ARTIFACT_KIND,
         "schema_version": SCHEMA_VERSION,
+        "model_pipeline_sha256": model_pipeline_sha256(config),
+        "inference_contract_sha256": inference_contract_sha256(config),
+    }
+    try:
+        declaration = _plain_node(config, "model.inference")
+        if (
+            isinstance(declaration, Mapping)
+            and declaration.get("status") == "unsupported"
+        ):
+            reason = declaration.get("reason")
+            if not isinstance(reason, str) or not reason:
+                raise ValueError(
+                    "Nondeployable models must declare an actionable reason"
+                )
+            raise ValueError(reason)
+        graph = validate_declared_graph(
+            declaration, _plain_node(config, "model.pipeline")
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        return {**artifact, "status": "unsupported", "reason": str(error)}
+    return {
+        **artifact,
         "status": "ready",
-        "model_pipeline_sha256": pipeline_hash,
-        "inference_contract_sha256": contract_hash,
-        "inference_graph_sha256": _canonical_sha256(graph),
         "inference_graph": graph,
+        "inference_graph_sha256": _canonical_sha256(graph),
+        "normalizer_schema_sha256": _canonical_sha256(
+            graph["compatibility"]["normalizer_schema"]
+        ),
+        "tokenizer_sha256": _canonical_sha256(graph["compatibility"]["tokenizer"]),
+        "decoder_sha256": _canonical_sha256(
+            [profile["adapter"]["decoder"] for profile in graph["profiles"].values()]
+        ),
     }
 
 
@@ -378,6 +261,21 @@ def validate_inference_config(
         raise ValueError("Inference config must contain an inference_graph mapping")
     if artifact.get("inference_graph_sha256") != _canonical_sha256(graph):
         raise ValueError("Inference graph content hash does not match the artifact")
+    expected = build_inference_config(training)
+    if expected["status"] != "ready":
+        raise ValueError(
+            f"Selected model contract is not deployable: {expected['reason']}"
+        )
+    for field in (
+        "inference_graph_sha256",
+        "normalizer_schema_sha256",
+        "tokenizer_sha256",
+        "decoder_sha256",
+    ):
+        if artifact.get(field) != expected[field]:
+            raise ValueError(
+                f"Inference artifact {field} differs from the model declaration"
+            )
     return dict(graph)
 
 

@@ -5,7 +5,9 @@
 # this data does (640x480 / 640x360 / 1280x720 / 848x480). All 26 were verified
 # through the real viz func first -- drawn-vs-expected 2.4-3.4 px on every one.
 
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 
 train_datasets:
   human_bimanual:

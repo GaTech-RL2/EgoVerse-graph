@@ -34,6 +34,7 @@ from egomimic.eval.bimanual_cartesian_eval import (
     BimanualCartesianEval,
     overlay_annotation_fields,
 )
+from egomimic.eval.eval import EvaluationDataRequirements
 from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
@@ -109,6 +110,19 @@ class OpenLoopSimEval(BimanualCartesianEval):
     episode MP4s are kept on disk, while only the first MP4 for each
     validation-group/embodiment pair is uploaded to W&B per validation loop.
     """
+
+    def data_requirements(self):
+        return EvaluationDataRequirements(
+            ordered=True,
+            complete_episodes=True,
+            max_episodes=self.limit_val_episodes,
+            sample_id_key="episode_hash",
+            frame_index_key="frame_index",
+            source_fps=1.0 / self.control_dt,
+        )
+
+    def trainer_overrides(self):
+        return {"limit_val_batches": 1.0, "num_sanity_val_steps": 0}
 
     def __init__(
         self,
@@ -250,9 +264,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         cannot silently show a different trajectory from the reported score.
         """
 
-        if not getattr(self, "_video_enabled", False) or not getattr(
-            self.trainer, "is_global_zero", True
-        ):
+        if not getattr(self, "_video_enabled", False):
             return
         viz_partial = self.viz_func.get(embodiment_name)
         if viz_partial is None or self.obs_pose_key not in source_batch:
@@ -263,9 +275,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             else self.action_key
         )
         pred_native = self._decoded_video_predictions(prediction, embodiment_id)
-        gt_native = self._native_key(
-            source_batch[target_key], target_key, embodiment_id
-        ).detach().cpu()
+        gt_native = (
+            self._native_key(source_batch[target_key], target_key, embodiment_id)
+            .detach()
+            .cpu()
+        )
         if gt_native.ndim != 3 or gt_native.shape[0] != pred_native.shape[0]:
             raise ValueError(
                 "open_loop_sim video ground truth must be batched as (B, T, 14), "
@@ -273,9 +287,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             )
         gt_native = gt_native[:, : self.execute_steps].to(dtype=pred_native.dtype)
 
-        obs_pose_native = self._native_pose(
-            source_batch[self.obs_pose_key], embodiment_id
-        ).detach().cpu()
+        obs_pose_native = (
+            self._native_pose(source_batch[self.obs_pose_key], embodiment_id)
+            .detach()
+            .cpu()
+        )
         if obs_pose_native.ndim == 3 and obs_pose_native.shape[1] == 1:
             obs_pose_native = obs_pose_native.squeeze(1)
         pred_camframe = self._revert_to_camframe(
@@ -308,11 +324,17 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if "intrinsics" in source_batch:
             flat_batch["intrinsics"] = source_batch["intrinsics"].detach().cpu()
         flat_batch.update(
-            overlay_annotation_fields(viz_partial, {**source_batch, "source": source_id})
+            overlay_annotation_fields(
+                viz_partial, {**source_batch, "source": source_id}
+            )
         )
         try:
             frames = viz_partial(predictions=flat_predictions, batch=flat_batch)
         except Exception as exc:  # noqa: BLE001 -- overlays are best effort
+            if self.complete_video_episodes:
+                raise RuntimeError(
+                    f"Complete-episode overlay failed for {embodiment_name}"
+                ) from exc
             print(
                 f"[OpenLoopSimEval] skipped {embodiment_name} overlay: {exc}",
                 flush=True,
@@ -324,16 +346,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if frames.ndim == 3:
             frames = frames[None]
         frame_tensor = torch.from_numpy(frames)
-        hashes = [
-            str(value)
-            for value in self._batch_values(
-                source_batch["episode_hash"], int(frame_tensor.shape[0]), "episode_hash"
-            )
-        ]
         group = self._validation_group or DEFAULT_VALID_GROUP
         buf_key = (group, embodiment_name)
-        out_dir = self._group_video_dir(group, embodiment_name)
-        self._buffer_per_episode(buf_key, out_dir, list(frame_tensor), hashes)
+        self._record_video_frames(buf_key, frame_tensor, source_batch)
 
     def _log_wandb_videos(self) -> None:
         """Upload only the first episode MP4 for each val loop/panel."""
@@ -753,17 +768,16 @@ class OpenLoopSimEval(BimanualCartesianEval):
         records = self._all_records()
         results = self._compute_results(records)
         self.last_results = results
+        # Every rank participates in episode/frame gathering before rank-zero
+        # logging. Returning early here would strand rank zero in a collective.
+        if getattr(self, "_video_enabled", False):
+            EvalVideo.on_validation_end(self)
         if dist.is_available() and dist.is_initialized() and dist.get_rank() != 0:
             return results
         if self.trainer is not None and not getattr(
             self.trainer, "is_global_zero", True
         ):
             return results
-        # Flush episode buffers and upload the first MP4 per panel after all
-        # validation frames have arrived.  This must happen before returning
-        # on the rank-zero path; otherwise the last episode never gets a file.
-        if getattr(self, "_video_enabled", False):
-            EvalVideo.on_validation_end(self)
         # This hook is called from LightningModule.on_validation_end(). Calling
         # LightningModule.log_dict() here recursively enters Lightning's
         # validation-hook guard and raises ``MisconfigurationException``.

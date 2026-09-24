@@ -45,7 +45,9 @@ def _module(valid_datasets, valid_params=None):
 
 
 def test_flat_valid_datasets_become_the_default_group():
-    assert as_valid_groups({_SOURCE_A: "ds"}) == {DEFAULT_VALID_GROUP: {_SOURCE_A: "ds"}}
+    assert as_valid_groups({_SOURCE_A: "ds"}) == {
+        DEFAULT_VALID_GROUP: {_SOURCE_A: "ds"}
+    }
 
 
 def test_grouped_valid_datasets_keep_their_labels_and_order():
@@ -54,18 +56,22 @@ def test_grouped_valid_datasets_keep_their_labels_and_order():
 
 
 def test_mixing_group_keys_with_source_keys_is_rejected():
-    with pytest.raises(ValueError, match="mixes embodiment keys"):
+    with pytest.raises(ValueError, match="mixes dataset leaves"):
         as_valid_groups({_SOURCE_A: "ds", "newtask": {_SOURCE_B: "ds"}})
 
 
-def test_a_group_of_non_source_keys_is_rejected():
-    with pytest.raises(ValueError, match="non-embodiment keys"):
+def test_extra_group_nesting_is_rejected():
+    with pytest.raises(ValueError, match="nested groups"):
         as_valid_groups({"newtask": {"deeper": {_SOURCE_A: "ds"}}})
 
 
-def test_a_group_whose_members_are_not_a_mapping_is_rejected():
+def test_source_names_are_opaque_and_explicit_grouped_shape_is_checked():
+    dataset = _Tiny()
+    assert as_valid_groups({"unregistered_source": dataset}) == {
+        DEFAULT_VALID_GROUP: {"unregistered_source": dataset}
+    }
     with pytest.raises(ValueError, match="must map source -> dataset"):
-        as_valid_groups({"newtask": 5})
+        as_valid_groups({"newtask": 5}, layout="grouped")
 
 
 def test_empty_valid_datasets_yields_no_groups():
@@ -128,9 +134,7 @@ def test_source_keyed_params_are_shared_by_every_group():
 
 
 def test_a_group_missing_dataloader_params_names_the_group_it_failed_in():
-    module = _module(
-        {"newtask": {_SOURCE_B: _Tiny()}}, valid_params=_params(_SOURCE_A)
-    )
+    module = _module({"newtask": {_SOURCE_B: _Tiny()}}, valid_params=_params(_SOURCE_A))
     with pytest.raises(ValueError, match="in val group 'newtask'"):
         module.val_dataloader()
 

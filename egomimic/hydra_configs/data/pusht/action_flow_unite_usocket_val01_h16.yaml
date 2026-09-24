@@ -1,4 +1,5 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
 
 # Hardened Action Flow data contract using the released UNITE U-Socket view:
 # one image, 4-D agent proprioception, and 4-D rotvec action targets.

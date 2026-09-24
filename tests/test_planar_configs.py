@@ -134,6 +134,11 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
         assert cfg.model.pipeline.stages[3].action_dim == 5
         assert OmegaConf.to_container(cfg.run_provenance.action_contract) == {
             "observation_alignment": "pre_step",
+            **(
+                {"representation": "x_y_cos_theta_sin_theta"}
+                if row == "usocket_dp_paper"
+                else {}
+            ),
             "observation_horizon": 2,
             "training_action_target_offset": 1,
             "prediction_horizon": 16,
@@ -208,14 +213,21 @@ def test_standard_dp_clean_cotrain_composes_both_domains_without_obstacles():
     assert cfg.model.pipeline.stages[3].action_dim == 5
 
 
-def test_diffusion_mse_is_visible_during_long_training_epochs():
-    model_wrapper = (
-        Path(__file__).parents[1] / "egomimic" / "pl_utils" / "pl_model.py"
-    ).read_text()
-    aggregate = model_wrapper.index('"Train/MSE",')
-    per_source = model_wrapper.index('f"Train/MSE/{source}",')
-    assert "on_step=True" in model_wrapper[aggregate : aggregate + 220]
-    assert "on_step=True" in model_wrapper[per_source : per_source + 220]
+def test_diffusion_mse_is_visible_during_long_training_epochs(monkeypatch):
+    import torch
+
+    from egomimic.pl_utils.pl_model import ModelWrapper
+    from tests.test_model_wrapper_metrics import _MetricPipeline
+
+    wrapper = ModelWrapper(pipeline=_MetricPipeline(), train_log_on_step=True)
+    logged = {}
+    monkeypatch.setattr(
+        wrapper, "log", lambda key, value, **kw: logged.setdefault(key, kw)
+    )
+    wrapper.training_step({"source": {"metric": torch.tensor(2.0)}}, 0)
+    for key in ("Train/MSE", "Train/MSE/source"):
+        assert logged[key]["on_step"] is True
+        assert logged[key]["on_epoch"] is False
 
 
 def test_duration_arc_explicitly_separates_raw_and_token_horizons():

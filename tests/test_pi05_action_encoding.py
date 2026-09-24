@@ -1,5 +1,5 @@
-import torch
 import pytest
+import torch
 
 from egomimic.utils.action_encoding import (
     BaseActionConverter,

@@ -78,31 +78,25 @@ def _validate_inference_controls(controls: Mapping[str, object] | None) -> dict:
         ):
             raise ValueError("Inference controls must have safe named mappings")
         label, description = spec.get("label"), spec.get("description", "")
-        minimum, maximum = spec.get("min"), spec.get("max")
-        step, value = spec.get("step"), spec.get("value")
-        if (
-            spec.get("type") != "integer"
-            or not isinstance(label, str)
-            or not label
-            or not isinstance(description, str)
-            or type(minimum) is not int
-            or type(maximum) is not int
-            or type(step) is not int
-            or type(value) is not int
-            or minimum > maximum
-            or step <= 0
-            or not minimum <= value <= maximum
-            or (value - minimum) % step
-        ):
+        from egomimic.pipeline.inference_controls import validate_control_value
+
+        if not isinstance(label, str) or not label or not isinstance(description, str):
             raise ValueError(f"Inference control {name!r} has an invalid schema")
+        validate_control_value(name, spec, spec.get("value"))
         result[name] = {
-            "label": label,
-            "description": description,
-            "type": "integer",
-            "min": minimum,
-            "max": maximum,
-            "step": step,
-            "value": value,
+            key: deepcopy(value)
+            for key, value in spec.items()
+            if key
+            in {
+                "label",
+                "description",
+                "type",
+                "min",
+                "max",
+                "step",
+                "choices",
+                "value",
+            }
         }
     return result
 
@@ -732,19 +726,21 @@ class RolloutDashboard:
 
     def request_inference_overrides(self, overrides: object) -> bool:
         """Atomically queue values explicitly exposed by the selected profile."""
+        from egomimic.pipeline.inference_controls import validate_control_value
+
         if not isinstance(overrides, Mapping) or not overrides:
             return False
         with self._lock:
             validated = {}
             for name, value in overrides.items():
-                if not isinstance(name, str) or type(value) is not int:
+                if not isinstance(name, str):
                     return False
                 spec = self._inference_controls.get(name)
-                if (
-                    spec is None
-                    or not spec["min"] <= value <= spec["max"]
-                    or (value - spec["min"]) % spec["step"]
-                ):
+                if spec is None:
+                    return False
+                try:
+                    validate_control_value(name, spec, value)
+                except (ValueError, TypeError):
                     return False
                 validated[name] = value
             self._pending_inference_overrides.update(validated)
@@ -754,7 +750,7 @@ class RolloutDashboard:
         """Compatibility wrapper for callers submitting one declared value."""
         self.request_inference_overrides({name: value})
 
-    def take_inference_override_request(self) -> dict[str, int] | None:
+    def take_inference_override_request(self) -> dict[str, object] | None:
         """Consume the latest validated UI values on the rollout thread."""
         with self._lock:
             if not self._pending_inference_overrides:

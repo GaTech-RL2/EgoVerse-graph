@@ -2,7 +2,7 @@ viz_func:
   eva_bimanual:
     _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
     _partial_: true
-    image_key: base_0_rgb
+    image_key: observations.images.front_img_1
     action_key: actions_cartesian
     mode: traj
     annotation_key: sampled_prompt
@@ -22,7 +22,7 @@ viz_func:
   human_bimanual:
     _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
     _partial_: true
-    image_key: base_0_rgb
+    image_key: observations.images.front_img_1
     action_key: actions_cartesian
     mode: traj
     annotation_key: sampled_prompt
@@ -34,7 +34,7 @@ revert_transforms:
     _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
   human_bimanual:
     _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_wristframe_transform_list
-image_key: base_0_rgb
+image_key: observations.images.front_img_1
 pose_metrics: true
 rkl_samples: ${model.pipeline.stages.0.policy.config.reverse_kl_samples}
 group_options:

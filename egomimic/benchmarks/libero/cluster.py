@@ -460,6 +460,11 @@ def arc_checkpoint_settings(config, *, suite):
         )
     if settings[0] != settings[1]:
         raise ValueError("Resumed ARC checkpoint encode/decode parameters differ")
+    if "arc_backbone" in protocol:
+        backbone = protocol["arc_backbone"]
+        if backbone not in {"unet", "oat_dp"}:
+            raise ValueError("Resumed ARC checkpoint has an unknown backbone")
+        settings[0]["arc_backbone"] = backbone
     return settings[0]
 
 

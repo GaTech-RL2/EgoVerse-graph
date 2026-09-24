@@ -2,6 +2,12 @@
 
 User-directed order, September 24, 2026:
 
+**GPU allocation:** use L40S for training, recovery and evaluation. The user
+requested migration away from H100 on September 24. Preserve uploaded
+checkpoints, optimizer/EMA state and existing evaluation artifacts; submit
+replacement jobs under new run IDs. Keep the original global batch and total
+optimizer budget when changing the number of devices.
+
 1. **Finish the original ARC versus OAT evaluations.** Complete every fixed
    STK/DUR configuration on Spatial, Object, Goal and LIBERO-10. Close the
    initial-state pairing discrepancies on Spatial and LIBERO-10, investigate

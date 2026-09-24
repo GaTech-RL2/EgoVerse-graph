@@ -223,13 +223,22 @@ def test_resume_changes_world_size_without_resetting_optimizer_or_ema(tmp_path):
 
 
 @pytest.mark.parametrize("method", ["arc", "arc_stk", "arc_dur"])
-def test_arc_resume_reads_actual_saved_graph_config(tmp_path, method):
+@pytest.mark.parametrize("backbone", ["unet", "oat_dp"])
+def test_arc_resume_reads_actual_saved_graph_config(tmp_path, method, backbone):
     import io
     import shutil
 
     from egomimic.trainHydra import _build_model_config_tree
 
-    args = training_arguments(method, "libero_10", tmp_path, tmp_path, "full", 5001)
+    args = training_arguments(
+        method,
+        "libero_10",
+        tmp_path,
+        tmp_path,
+        "full",
+        5001,
+        arc_backbone=backbone,
+    )
     with initialize_config_dir(
         version_base=None,
         config_dir=str(Path(__file__).parents[1] / "egomimic/hydra_configs"),
@@ -282,10 +291,18 @@ def test_arc_resume_reads_actual_saved_graph_config(tmp_path, method):
         methods=[method],
     )[method]
     assert restored["global_step"] == 140
+    assert restored["benchmark"].get("arc_backbone", "unet") == backbone
     for key, value in restored["benchmark"].items():
         assert value == cfg.benchmark[key]
     with pytest.raises(ValueError, match="protocol"):
         arc_checkpoint_settings(config, suite="libero_spatial")
+    from omegaconf import open_dict
+
+    with open_dict(config.model.benchmark_protocol):
+        config.model.benchmark_protocol.arc_backbone = "unknown"
+    with pytest.raises(ValueError, match="unknown backbone"):
+        arc_checkpoint_settings(config, suite="libero_10")
+    config.model.benchmark_protocol.arc_backbone = backbone
     config.model.pipeline.stages[-1].num_waypoints += 1
     with pytest.raises(ValueError, match="parameters differ"):
         arc_checkpoint_settings(config, suite="libero_10")

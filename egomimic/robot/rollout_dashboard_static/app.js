@@ -14,6 +14,8 @@ let selectedVideo;
 let modelBrowserEnabled = false;
 let currentCheckpoint;
 let modelDirectory = '.';
+let modelLoadRevision = 0;
+let modelSearchTimer;
 let inferenceControls = {};
 let inferenceControlSignature = '';
 let inferenceControlRevision = 0;
@@ -96,14 +98,17 @@ function updateCurrentModel() {
   $('current-model').title = text;
 }
 
-async function loadModels(path = '.') {
+async function loadModels(path = '.', query = $('model-search').value) {
   if (!modelBrowserEnabled) return;
+  const revision = ++modelLoadRevision;
   const list = $('model-list');
   list.textContent = 'Loading…';
   try {
-    const response = await fetch(`/api/checkpoints?path=${encodeURIComponent(path)}`, {cache: 'no-store'});
+    const parameters = new URLSearchParams({path, query});
+    const response = await fetch(`/api/checkpoints?${parameters}`, {cache: 'no-store'});
     if (!response.ok) throw Error(`Could not load checkpoint directory (${response.status})`);
     const listing = await response.json();
+    if (revision !== modelLoadRevision) return;
     modelDirectory = listing.path;
     $('model-path').textContent = `Folder: ${listing.path}`;
     $('model-up').disabled = listing.parent === null;
@@ -119,15 +124,27 @@ async function loadModels(path = '.') {
       name.textContent = entry.name;
       row.append(kind, name);
       if (entry.type === 'directory') {
-        row.onclick = () => loadModels(entry.path);
+        row.onclick = () => {
+          $('model-search').value = '';
+          loadModels(entry.path, '');
+        };
       } else {
         row.onclick = () => selectModel(entry);
       }
       list.append(row);
     }
-    if (!listing.entries.length) list.textContent = 'No folders or .ckpt files here.';
-    $('model-up').onclick = () => listing.parent !== null && loadModels(listing.parent);
+    if (!listing.entries.length) {
+      list.textContent = query.trim()
+        ? 'No folders or .ckpt files contain that text.'
+        : 'No folders or .ckpt files here.';
+    }
+    $('model-up').onclick = () => {
+      if (listing.parent === null) return;
+      $('model-search').value = '';
+      loadModels(listing.parent, '');
+    };
   } catch (error) {
+    if (revision !== modelLoadRevision) return;
     list.textContent = error.message;
   }
 }
@@ -510,8 +527,10 @@ $('record-video').onclick = toggleVideoRecording;
 $('select-model').onclick = () => {
   if (!modelBrowserEnabled) return;
   $('model-current').textContent = currentCheckpoint ? `Current: ${currentCheckpoint}` : 'Current checkpoint unavailable';
+  $('model-search').value = '';
   $('models').showModal();
-  loadModels(modelDirectory);
+  loadModels(modelDirectory, '');
+  $('model-search').focus();
 };
 $('open-videos').onclick = () => {
   $('videos').showModal();
@@ -523,6 +542,10 @@ $('close-videos').onclick = () => {
   $('videos').close();
 };
 $('model-refresh').onclick = () => loadModels(modelDirectory);
+$('model-search').oninput = () => {
+  clearTimeout(modelSearchTimer);
+  modelSearchTimer = setTimeout(() => loadModels(modelDirectory), 120);
+};
 $('model-close').onclick = () => $('models').close();
 $('restart').onclick = restartRollout;
 $('reconnect-cameras').onclick = reconnectCameras;

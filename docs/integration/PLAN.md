@@ -64,6 +64,14 @@ data tools, real-weight OSMO gates, fixed-fixture comparisons and destination
 assembly remain open. The parity manifest stays blocked until evidence exists
 for every retained capability.
 
+The HPT layer now includes every retained root HPT recipe plus EgoBridge's
+configured cross-source OT/DTW graph. CPU comparisons against pinned original
+methods check loss and gradients, the BC-only detach boundary, independent
+feature passes and checkpointed warm starts. Pooled/per-token language tests
+run two optimizer steps and encode actual annotation-overlay videos with a
+substituted text backend. Real-weight GPU and assembled-destination gates remain
+open. Draft PR #150 contains the contracts base; subsequent layers build on it.
+
 The isolated first contracts layer passed **1,350 tests** on tree
 `7182a483fbf8d988c4496f316319e48999882d03`; see
 `evidence/contracts-cpu-receipt.json`. Subsequent changes in that layer only add

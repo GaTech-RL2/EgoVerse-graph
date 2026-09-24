@@ -140,6 +140,14 @@ class Pipeline(Stage):
             raise ValueError(f"Pipeline does not declare stage_id {stage_id!r}")
         return self.stages[self.stage_ids[stage_id]]
 
+    def execute_subset(self, batch: dict, stage_ids: Sequence[str], *, mode: str):
+        """Rerun a declared subgraph using the same registered parameters."""
+        if not stage_ids or len(set(stage_ids)) != len(stage_ids):
+            raise ValueError("A subgraph needs nonempty unique stage identifiers")
+        selected = [self.stage_by_id(name) for name in stage_ids]
+        # This view does not own an independent model, optimizer or checkpoint.
+        return Pipeline(selected).execute(batch, mode=mode)
+
     def forward(self, batch: dict, mode: str = "train") -> dict:
         return self.execute(batch, mode=mode)
 

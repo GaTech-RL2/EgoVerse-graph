@@ -26,6 +26,8 @@ class PipelineAlgo:
         stage_ids=None,
         initialization=None,
         trainability=None,
+        loss_pipeline: Pipeline | None = None,
+        training_passes=None,
     ):
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -33,6 +35,18 @@ class PipelineAlgo:
         self.nets = nn.ModuleDict(
             {"pipeline": Pipeline(list(stages), stage_ids=stage_ids)}
         )
+        if loss_pipeline is not None:
+            self.nets["loss_pipeline"] = loss_pipeline
+        self.training_passes = dict(training_passes or {})
+        for name, spec in self.training_passes.items():
+            if not isinstance(name, str) or not name or "/" in name:
+                raise ValueError("Training pass names must be nonempty path components")
+            if not spec.get("outputs") or not spec.get("stage_ids"):
+                raise ValueError(
+                    "Training passes require explicit stage_ids and outputs"
+                )
+            for stage_id in spec["stage_ids"]:
+                self.pipeline.stage_by_id(stage_id)
         from egomimic.pipeline.initialization import (
             configure_trainability,
             initialize_weights,
@@ -48,6 +62,8 @@ class PipelineAlgo:
 
     def bind_data_context(self, *, normalizer):
         self.pipeline.bind_data_context(normalizer=normalizer)
+        if "loss_pipeline" in self.nets:
+            self.nets["loss_pipeline"].bind_data_context(normalizer=normalizer)
         self.nets.to(self.device)
 
     def _move_value(self, value):
@@ -93,7 +109,20 @@ class PipelineAlgo:
         )
 
     def forward_training(self, batch: Mapping) -> OrderedDict:
-        return self._execute(batch, mode="train")
+        results = self._execute(batch, mode="train")
+        for name, spec in self.training_passes.items():
+            for source, value in batch.items():
+                extra = self.pipeline.execute_subset(
+                    dict(value), spec["stage_ids"], mode="train"
+                )
+                for output_name, key in spec["outputs"].items():
+                    destination = f"pass/{name}/{output_name}"
+                    if destination in results[source]:
+                        raise ValueError(
+                            f"Training pass output collides at {destination}"
+                        )
+                    results[source][destination] = extra[key]
+        return results
 
     @torch.inference_mode()
     def forward_eval(self, batch: Mapping) -> OrderedDict:
@@ -122,7 +151,36 @@ class PipelineAlgo:
                 if value.ndim == 0:
                     diagnostics[f"source_{index}_{key.replace('/', '_')}"] = value
 
-        losses = OrderedDict(loss=torch.stack(per_source).mean())
+        source_losses = torch.stack(per_source)
+        total = source_losses.mean()
+        if "loss_pipeline" in self.nets:
+            # Source names remain opaque. Only the configured loss graph knows
+            # which feature keys to compare across those sources.
+            names = [str(source) for source in predictions]
+            if len(set(names)) != len(names) or any("/" in name for name in names):
+                raise ValueError(
+                    "Loss graph source names must be unique path components"
+                )
+            combined = {
+                f"source/{source}/{key}": value
+                for source, result in predictions.items()
+                for key, value in result.items()
+            }
+            combined.update(
+                (f"input/{source}/{key}", value)
+                for source, values in batch.items()
+                for key, value in values.items()
+            )
+            combined["source_losses"] = source_losses
+            combined["source_count"] = len(per_source)
+            result = self.nets["loss_pipeline"].execute(combined, mode="train")
+            total = sum_losses(result)
+            diagnostics.update(
+                (key.replace("/", "_"), value)
+                for key, value in result.items()
+                if key.startswith("log/") and torch.is_tensor(value) and value.ndim == 0
+            )
+        losses = OrderedDict(loss=total)
         losses.update(diagnostics)
         return losses
 

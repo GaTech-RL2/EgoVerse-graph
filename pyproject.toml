@@ -64,6 +64,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+alignment = ["geomloss==0.3.1", "tslearn==0.8.1"]
 robot = ["pure-python-adb"]
 aria = ["projectaria-tools[all]==2.0.0"]
 yam = [

@@ -1,0 +1,234 @@
+# Graph port of EgoVerse ec5c903c; see docs/integration/RECIPE_PARITY.md.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0003
+  weight_decay: 0.0001
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1.0e-05
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+  - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
+    domain_first: true
+    preserve_config_order: true
+    selector_aliases:
+      '3': human_bimanual
+    stems:
+      observations.images.front_img_1:
+        _target_: egomimic.models.stems.composed.EncodedPolicyStem
+        stem:
+          _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+          input_dim: 256
+          output_dim: 256
+          widths:
+          - 256
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 8
+              crossattn_dim_head: 64
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: 256
+        feature_position_encoding: true
+        encoder:
+          _target_: egomimic.models.stems.hpt_stems.ResNet
+          output_dim: 256
+        train_transform:
+          _target_: torchvision.transforms.Compose
+          transforms:
+          - _target_: torchvision.transforms.ColorJitter
+            brightness: 0.1
+            contrast: 0.1
+            saturation: 0.1
+            hue: 0.05
+          - _target_: torchvision.transforms.Normalize
+            mean:
+            - 0.485
+            - 0.456
+            - 0.406
+            std:
+            - 0.229
+            - 0.224
+            - 0.225
+        eval_transform:
+          _target_: torchvision.transforms.Compose
+          transforms:
+          - _target_: torchvision.transforms.Normalize
+            mean:
+            - 0.485
+            - 0.456
+            - 0.406
+            std:
+            - 0.229
+            - 0.224
+            - 0.225
+    domain_stems:
+      human_bimanual:
+        observations.state.ee_pose:
+          _target_: egomimic.models.stems.composed.EncodedPolicyStem
+          stem:
+            _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+            input_dim: 12
+            output_dim: 256
+            widths:
+            - 256
+            specs:
+              random_horizon_masking: false
+              cross_attn:
+                crossattn_latent: 16
+                crossattn_heads: 8
+                crossattn_dim_head: 64
+                crossattn_modality_dropout: 0.1
+                modality_embed_dim: 256
+          feature_position_encoding: true
+  - _target_: egomimic.pipeline.stages_hpt.HPTTrunkStage
+    embed_dim: 256
+    token_postprocessing: action_token
+    action_token_count: 64
+    squeeze_action_token: false
+    use_domain_embedding: false
+    trunk:
+      _target_: egomimic.models.cores.hpt_transformer.SimpleTransformer
+      embed_dim: 256
+      num_blocks: 16
+      drop_path_rate: 0.1
+      weight_init_style: pytorch
+      attn_target:
+        _target_: egomimic.models.cores.hpt_transformer.MultiheadAttention
+        _partial_: true
+        embed_dim: 256
+        num_heads: 8
+        batch_first: true
+        bias: true
+        add_bias_kv: true
+  - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    action_key: actions_cartesian
+  - _target_: egomimic.pipeline.stages_flow.FlowNoisingStage
+    action_horizon: 100
+    action_dim: 12
+    time_dist: beta
+  - _target_: egomimic.pipeline.stages_flow.FlowDenoiserStage
+    action_horizon: 100
+    action_dim: 12
+    condition_input_dim: 256
+    condition_ndim: 3
+    condition_as_tokens: false
+    num_inference_steps: 50
+    model:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: 6
+      cond_dim: 256
+      hidden_dim: 128
+      act_dim: 12
+      act_seq: 100
+      n_heads: 4
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+  - _target_: egomimic.pipeline.stages_flow.FlowVelocityLossStage
+  stage_ids:
+    stems: 0
+    trunk: 1
+    sampler: 4
+deployment_domain: human_bimanual
+inference_domains:
+  human_bimanual:
+    input:
+      history_length: 1
+      keys:
+      - observations.state.ee_pose
+      - observations.images.front_img_1
+      - embodiment
+      history_keys:
+      - observations.state.ee_pose
+      - observations.images.front_img_1
+      constants:
+        embodiment: 3
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - 100
+      - 12
+      timing:
+        kind: uniform_resampled_target
+        temporally_resolved: true
+        dt: 0.009764309764309764
+        first_source_frame: 0
+        last_source_frame: 29
+        source_fps: 30
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - 30
+      - 12
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - 100
+        - 12
+        embodiment: 3
+      tokenizer: null
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - 100
+        - 12
+        adapter:
+          _target_: egomimic.pipeline.action_adapter.CanonicalSequenceAdapter
+          shape:
+          - 30
+          - 12
+          decoder:
+            _target_: egomimic.pipeline.sequence_decoder.UniformTimeGridDecoder
+            native_shape:
+            - 100
+            - 12
+            native_dt: 0.009764309764309764
+            output_horizon: 30
+            output_dt: 0.03333333333333333
+            angular_indices:
+            - 3
+            - 4
+            - 5
+            - 9
+            - 10
+            - 11
+        overrides:
+          replan_every:
+            label: Actions before replanning
+            description: Control-rate execution prefix.
+            type: integer
+            min: 1
+            max: 30
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+          inference_steps:
+            label: Sampling steps
+            description: Configured sampler iterations.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 50
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+inference: ${model.inference_domains.${model.deployment_domain}}

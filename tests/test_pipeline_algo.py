@@ -176,6 +176,8 @@ def test_pipeline_algo_constructor_and_source_are_route_agnostic():
         "stage_ids",
         "initialization",
         "trainability",
+        "loss_pipeline",
+        "training_passes",
     )
     with pytest.raises(TypeError):
         PipelineAlgo(stages=[], domains=["anything"])

@@ -90,6 +90,11 @@ EgoVerse-graph is expected to return to `GaTech-RL2/EgoVerse`. Before any
 merge-back or legacy-runtime deletion, read the integration audit and gates in
 `docs/GENERIC_PIPELINE_CONTRACT.md`.
 
+- Treat the audit as an evidence-backed handoff rather than a fixed edit script.
+  The successor agent may revise implementation order, interfaces, gap
+  classifications, and test strategy as live code warrants. Record material
+  judgments and update stale findings; preserve the hard genericity, feature
+  parity, compatibility, dependency, and cutover gates.
 - The destination must have one canonical graph execution path. Port retained
   HPT and PI recipes to `ModelWrapper -> PipelineAlgo` YAML, including their
   model-owned inference contracts, before removing the legacy algo/evaluator

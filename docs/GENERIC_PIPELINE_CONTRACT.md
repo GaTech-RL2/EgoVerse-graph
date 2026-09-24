@@ -210,6 +210,33 @@ Audit baseline (2026-09-23):
 - this is a source/config/test capability audit, not a completed merge or a
   claim that the combined tree passes.
 
+### Successor-agent handoff and judgment
+
+This audit is a starting map for the agent performing the cleanup, not a
+prescriptive list of file edits. The successor agent, including Astra, is
+authorized to inspect the live code and make its own evidence-based judgments
+about implementation order, interface design, compatibility mechanisms, test
+selection, and whether an apparent gap is genuinely missing, already replaced,
+or obsolete. It may add newly discovered work, reclassify findings, and split
+the integration into a different reviewable stack when that produces a cleaner
+result.
+
+The agent should proceed autonomously on reversible, in-scope cleanup and
+validation instead of stopping for every local design choice. It must record
+material decisions and their evidence in this audit, the parity manifest, or a
+task handoff so the next reviewer can distinguish verified facts from judgment.
+If live source contradicts this dated audit, update the audit and follow the
+live evidence rather than reproducing a stale recommendation.
+
+That judgment does not waive the hard boundaries in this document. The agent
+must not silently drop a retained capability, introduce model-family dispatch
+into shared code, guess checkpoint or representation compatibility, bypass an
+unresolved dependency conflict, or delete the legacy path before the applicable
+parity and cutover gates pass. Decisions that materially change supported
+features, checkpoint policy, dependency/runtime policy, or the intended merge
+scope still require an explicit recorded decision and user escalation when the
+correct choice cannot be established from repository evidence.
+
 The merge-back rules are:
 
 1. Port an old recipe by expressing it as `PipelineAlgo` stages and model-owned

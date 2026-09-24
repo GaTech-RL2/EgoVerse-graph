@@ -17,6 +17,10 @@ The root AGENTS.md applies here. Configure evaluators in
 - `bimanual_tempo_eval.py`, `e1_metrics.py`: tempo/duration scoring.
 - `planar_action_eval.py`, `synthetic_trajectory_eval.py`: nonrobot evaluation.
 - `checkpoint_loading.py`: strict graph checkpoint restoration and EMA selection.
+- `token_diagnostics.py`, `latent_archive.py`: provider-owned token capture,
+  bounded per-source reductions, CSV/raw-key archives and model-free rebuilds.
+- `dataset_video.py`, `data_field_audit.py`: recorded-data videos/PNG/array export
+  and configured zero/nonfinite checks; neither constructs a policy.
 
 PI-specific backend calls do not belong in the evaluator. Its graph stage emits
 the same normalized `pred_action` as HPT. Validation groups use `Valid/` for

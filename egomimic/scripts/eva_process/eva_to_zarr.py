@@ -13,7 +13,7 @@ from scipy.spatial.transform import Rotation as R
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.scripts.eva_process.eva_utils import EvaHD5Extractor
-from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
+from egomimic.utils.episode_identity import timestamp_ms_to_episode_hash
 from egomimic.utils.pose_utils import xyzw_to_wxyz
 from egomimic.utils.type_utils import str2bool
 from egomimic.utils.video_utils import resize_video_thwc, save_preview_mp4
@@ -162,12 +162,28 @@ def convert_episode(
     task_description: str = "",
     save_mp4: bool = False,
     chunk_timesteps: int = 100,
-) -> tuple[Path, Path]:
+) -> tuple[Path, Path | None]:
     """Process one HDF5 file and write a .zarr episode.
 
     Returns the zarr episode path on success.
     """
 
+    raw_path, output_dir = Path(raw_path), Path(output_dir)
+    if arm not in {"left", "right", "both"}:
+        raise ValueError("arm must be left, right, or both")
+    if type(fps) is not int or fps < 1:
+        raise ValueError("fps must be a positive integer")
+    if (
+        not dataset_name
+        or Path(dataset_name).name != dataset_name
+        or dataset_name in {".", ".."}
+    ):
+        raise ValueError("dataset_name must be one safe path component")
+    destinations = [output_dir / f"{dataset_name}.zarr"]
+    if save_mp4:
+        destinations.append(output_dir / f"{dataset_name}.mp4")
+    if existing := [path for path in destinations if path.exists()]:
+        raise FileExistsError(f"Refusing to overwrite converted data: {existing}")
     episode_feats = EvaHD5Extractor.process_episode(
         episode_path=raw_path,
         arm=arm,

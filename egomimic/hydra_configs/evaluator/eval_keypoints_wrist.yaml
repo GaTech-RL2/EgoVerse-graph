@@ -1,0 +1,7 @@
+defaults:
+  - eval_keypoints
+  - _self_
+revert_transforms:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_eef_frame_transform_list
+    is_quat: false

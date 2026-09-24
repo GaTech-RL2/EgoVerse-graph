@@ -100,36 +100,76 @@
       "legacy_blob": "59d0a3ab624cad417974e5c4b20b0e572b0b03a6",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/aria_keypoints.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/aria_keypoints_wrist.yaml",
       "legacy_blob": "4c22356e61df0c56cfe83f950cc22a56c6baf7b1",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/aria_keypoints_wrist.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/aria_qwen.yaml",
       "legacy_blob": "b1cf807ca597c9c7badbdc54e9a81df5101ec192",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/aria_qwen.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/bc_pickplace_eva_qwen.yaml",
       "legacy_blob": "bfeba77ebcb878306d47e4a1925692396ce7feb2",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/bc_pickplace_eva_qwen.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_base.yaml",
@@ -190,27 +230,57 @@
       "legacy_blob": "c05902d4e055b1a86470e8259bf22dd2440740a1",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pickplace_qwen.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pickplace_qwen_objgen.yaml",
       "legacy_blob": "abb5958ea5da5a959327afa66096a2c5a94bdda9",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pickplace_qwen_objgen.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/cotrain_pickplace_qwen_wrist.yaml",
       "legacy_blob": "9ef6424d5a16a081bc02430c627a9bfd2301d4c3",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/data/cotrain_pickplace_qwen_wrist.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/data/eva_pi.yaml",
@@ -253,18 +323,38 @@
       "legacy_blob": "901be307491f20ee0a1b07ac8f8ecef9a0592fef",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/eval_hpt.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/eval_hpt_wrist.yaml",
       "legacy_blob": "fc2099c1906e2d2b8fe0a120448d649a1959c286",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/eval_hpt_wrist.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/eval_latent.yaml",
@@ -289,9 +379,19 @@
       "legacy_blob": "3501465aa672463b6b4ce7d7bcacf8b766e5e3fe",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/cartesian.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/cartesian_wrist.yaml",
@@ -316,18 +416,38 @@
       "legacy_blob": "4325a04487a2756322f56d724e8fdc7e15991ad7",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/cotrain_lang.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/keypoints.yaml",
       "legacy_blob": "cf5d1d218c36c2d0ed48feb85d9c748bd0123975",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/keypoints.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/keypoints_wrist.yaml",
@@ -370,126 +490,266 @@
       "legacy_blob": "d9dbffd3cee23b2bfa9d0d87817c0b9fbd5c057d",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/egobridge.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_aria.yaml",
       "legacy_blob": "3efb2c137a923be66bb302e706e60cb9b60bcfbb",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_flow_aria.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_eva.yaml",
       "legacy_blob": "9f17c9bae99cf9be47766af43d5ca4ecbec7b7c6",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_flow_eva.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_human.yaml",
       "legacy_blob": "219f73534d08efa8f558bb0a5252a49ba37192a1",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_flow_human.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_mecka.yaml",
       "legacy_blob": "3efb2c137a923be66bb302e706e60cb9b60bcfbb",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_flow_mecka.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_scale.yaml",
       "legacy_blob": "97e8f8a1929565cce690b25fb34e4f8ed6c48c4c",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_flow_scale.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_keypoints_base.yaml",
       "legacy_blob": "9ece64e9a27b40c055f84c8adb67bf4d67221246",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_keypoints_base.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_pickplace_qwen_pertoken.yaml",
       "legacy_blob": "0d07fe295285f5c9bea187ab808a1dc0e88919f2",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_pickplace_qwen_pertoken.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_pickplace_qwen_pooled.yaml",
       "legacy_blob": "1615a7c4cc6727ecf507388a7c56f826aaa270e9",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_pickplace_qwen_pooled.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_enc_dec_base.yaml",
       "legacy_blob": "e87e4c7db5aa5b4e504afd61671f049494089f47",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_cotrain_enc_dec_base.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_flow_seperate_head.yaml",
       "legacy_blob": "899741e69f0f2270e96edec64a77d4693233e711",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_cotrain_flow_seperate_head.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_flow_shared_head.yaml",
       "legacy_blob": "98932a455a6d6d69df259ba99ef3f02b3929007c",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_cotrain_flow_shared_head.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head.yaml",
       "legacy_blob": "80e5a55f320c83425f1bf4ba17918629263e3376",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_scale_flow_shared_head.yaml",
       "legacy_blob": "0cfd4ae67d41d9f02f35a332417ca17645cc4881",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/model/hpt_cotrain_scale_flow_shared_head.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_base.yaml",
@@ -559,18 +819,38 @@
       "legacy_blob": "e45cfeea0aefdff98444a428fe9c8c6bc41d2d58",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/train_zarr_keypoint_wrist.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/train_zarr_keypoints.yaml",
       "legacy_blob": "170bffd2874f95f73d430a52101fdcf2e1b85184",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/train_zarr_keypoints.yaml",
+      "evidence": [
+        "docs/integration/RECIPE_PARITY.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight GPU smoke",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/viz_language.yaml",

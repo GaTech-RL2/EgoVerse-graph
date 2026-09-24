@@ -1,0 +1,6 @@
+defaults:
+  - train_zarr_cartesian
+  - override model: hpt_bc_keypoints_base
+  - override data: aria_keypoints
+  - override evaluator: eval_keypoints
+  - _self_

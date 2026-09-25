@@ -23,6 +23,7 @@ import torch
 import torch.nn.functional as F
 
 from egomimic.pipeline.core import Stage
+from egomimic.utils.batch_utils import map_batches
 
 _TIME_DISTRIBUTIONS = ("beta", "uniform")
 # Keeps the sampled time off both endpoints: at exactly 0 the path carries no
@@ -181,6 +182,21 @@ class FlowDenoiserStage(Stage):
         if mode == "inference":
             return self._forward_inference(batch)
         return self._forward_train(batch)
+
+    def execute_batches(self, batches, *, mode):
+        if mode != "train":
+            return super().execute_batches(batches, mode=mode)
+        inputs = {
+            source: {key: batch[key] for key in self.reads}
+            for source, batch in batches.items()
+        }
+        predictions = map_batches(
+            inputs,
+            lambda values: self._forward_train(values)["flow/predicted_velocity"],
+        )
+        for source, batch in batches.items():
+            batch["flow/predicted_velocity"] = predictions[source]
+        return batches
 
     def _forward_train(self, batch: dict) -> dict:
         condition = batch["condition"]

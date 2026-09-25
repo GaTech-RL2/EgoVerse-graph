@@ -86,6 +86,12 @@ class Stage(nn.Module):
     reads_by_mode: Mapping[str, Sequence[str]] = {}
     writes_by_mode: Mapping[str, Sequence[str]] = {}
 
+    def execute_batches(self, batches: Mapping[str, dict], *, mode: str) -> dict:
+        """Route separately unless a stage explicitly supports grouped inputs."""
+        return {
+            source: self.execute(batch, mode=mode) for source, batch in batches.items()
+        }
+
     def bind_data_context(self, *, normalizer):
         """Bind data-owned state before optimizer construction or checkpoint loading."""
         return None
@@ -191,6 +197,40 @@ class Pipeline(Stage):
                     "expected dict"
                 )
         return result
+
+    def execute_batches(self, batches: Mapping[str, dict], *, mode: str) -> dict:
+        """Run each stage across sources so shared networks can stack samples."""
+        results = {source: dict(batch) for source, batch in batches.items()}
+        plans = {}
+        for source, batch in results.items():
+            runnable, excluded = self.plan(tuple(batch), mode=mode)
+            blocked = [
+                (type(stage).__name__, missing)
+                for stage, missing in excluded
+                if missing not in (["<train-only>"], ["<inference-only>"])
+            ]
+            if blocked:
+                raise RuntimeError(
+                    f"Pipeline {mode} graph has blocked stages for {source!r}: {blocked}"
+                )
+            plans[source] = runnable
+        for stage in self.stages:
+            selected = {
+                source: batch
+                for source, batch in results.items()
+                if stage in plans[source]
+            }
+            if not selected:
+                continue
+            outputs = stage.execute_batches(selected, mode=mode)
+            if not isinstance(outputs, Mapping) or tuple(outputs) != tuple(selected):
+                raise ValueError(
+                    "Grouped stage results must preserve source keys and order"
+                )
+            if any(not isinstance(batch, dict) for batch in outputs.values()):
+                raise TypeError("Grouped stage results must be dictionaries")
+            results.update(outputs)
+        return results
 
     def explain(self, seed_keys: Sequence[str] = (), mode: str = "train") -> str:
         """Return a compact, human-readable dependency plan."""

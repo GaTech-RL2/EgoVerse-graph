@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.pipeline.core import Pipeline, Stage, sum_losses
+from egomimic.utils.batch_utils import batch_size, sample_mean
 
 
 class PipelineAlgo:
@@ -19,7 +20,8 @@ class PipelineAlgo:
     pipeline batch whose keys are interpreted exclusively by configured stages.
     """
 
-    def __init__(self, stages: Iterable[Stage], device=None):
+    def __init__(self, stages: Iterable[Stage], device=None, homogeneous_training=True):
+        self.homogeneous_training = bool(homogeneous_training)
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
@@ -71,6 +73,8 @@ class PipelineAlgo:
 
     def _execute(self, batch: Mapping, *, mode: str) -> OrderedDict:
         self._validate_groups(batch)
+        if mode == "train" and self.homogeneous_training and len(batch) > 1:
+            return OrderedDict(self.pipeline.execute_batches(batch, mode=mode))
         return OrderedDict(
             (source, self.pipeline.execute(dict(value), mode=mode))
             for source, value in batch.items()
@@ -106,7 +110,11 @@ class PipelineAlgo:
                 if value.ndim == 0:
                     diagnostics[f"source_{index}_{key.replace('/', '_')}"] = value
 
-        losses = OrderedDict(loss=torch.stack(per_source).mean())
+        losses = OrderedDict(
+            loss=sample_mean(
+                per_source, [batch_size(value) for value in batch.values()]
+            )
+        )
         losses.update(diagnostics)
         return losses
 

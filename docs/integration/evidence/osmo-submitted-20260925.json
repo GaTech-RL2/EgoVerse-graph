@@ -1,0 +1,48 @@
+{
+  "checked_at_utc": "2026-09-25T05:47:54.425177+00:00",
+  "source_commit": "5a0a1342db1f1deaf915fe44a5e68d5a769bd15d",
+  "workflow_name": "graph-integration-20260924-v2-1",
+  "workflow_uuid": "ae9fe36d519a45c7aa25e0362a597f47",
+  "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/graph-integration-20260924-v2-1",
+  "pool": "groot-l40-01",
+  "submitted": true,
+  "submit_time": "2026-09-25T05:45:42.694548",
+  "status": "RUNNING",
+  "tasks": [
+    {
+      "name": "ddp-gates",
+      "status": "WAITING",
+      "node_name": null
+    },
+    {
+      "name": "hpt-gates",
+      "status": "WAITING",
+      "node_name": null
+    },
+    {
+      "name": "pi-gates",
+      "status": "WAITING",
+      "node_name": null
+    },
+    {
+      "name": "stage-inputs",
+      "status": "RUNNING",
+      "node_name": "osmogroot-dgxc-k8s-forge-az05-prd1-w-1366"
+    }
+  ],
+  "spec_sha256": "85680c963a9c7879ec948f4380a2e3914da8fc4125e257616c7befc4ab77eb23",
+  "validation": "osmo workflow validate succeeded on 2026-09-25 UTC",
+  "scope": "Real-data and real-weight GPU checks submitted; no GPU gate result yet. Destination assembly and cutover remain pending.",
+  "tokenizer_transfer": {
+    "verified_at_utc": "2026-09-25T05:51:34.363192+00:00",
+    "task": "stage-inputs",
+    "remote_root": "/tmp/input-tokenizer",
+    "manifest": "docs/integration/evidence/pi-tokenizer-inputs.json",
+    "remote_sha256_matches": 6,
+    "initial_transfer_issue": "Submit-time rsync selected waiting ddp-gates. Explicit stage-inputs rsync copied the source basename beneath destination.",
+    "remedy": "Explicit task upload followed by non-overwriting placement of the six pinned files at the expected root. Remote sha256sum matches all manifest values.",
+    "future_local_directory": "/Users/rpunamiya/Desktop/GEAR/handover_figures/graph-integration-20260924/input-tokenizer",
+    "future_destination": "/tmp/",
+    "wrong_target_daemon": "stopped; workflow remains running"
+  }
+}

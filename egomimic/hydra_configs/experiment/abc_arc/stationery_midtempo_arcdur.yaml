@@ -58,6 +58,12 @@ e1:
   limit_val_batches: 1.0
 evaluator:
   limit_val_episodes: 10
+  # Pinned to the evaluator these runs were scored with (2026-09-15/16):
+  # eval_open_loop_sim later moved to a 30 % execution cap, distance DTW and
+  # full-episode videos; the recorded mid-tempo numbers use 25 % and neither.
+  execute_fraction: 0.25
+  distance_dtw_enabled: false
+  viz_every_n_epochs: 0
   action_mode: arc
   token_layout: e1_dur
   ground_truth_action_key: actions_time

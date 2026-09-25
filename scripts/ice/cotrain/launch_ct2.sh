@@ -23,6 +23,10 @@
 #     post-step chain_gripper_gen episodes excluded); runs under runs/cotrain-prestep-20260916/. No norm-stats
 #     default: each row's smoke computes its own file (UNITE minmax, DP quantile) and the full run takes it
 #     via NORM_STATS=<smoke run>/norm_stats. refctP keeps refctA's CFG 1.0 validation deviation.
+#   cl1dec..cl6ld8 = 2026-09-25 change loop: the refctP recipe + one change each (decoded-action loss,
+#     Min-SNR train_eps cap, contrastive flow matching, dispersive loss, flow-latent BatchNorm, latent_dim 8);
+#     runs under runs/unite-change-loop-20260925/; NORM_STATS defaults to refctP's pinned file.
+#   PREFLIGHT=1 runs the launcher's preflight-only mode inline instead of submitting (use on ice-cpu).
 #   identity env (defaults unchanged): RUN_NAME (run dir, default <tag>-<stamp>), WANDB_RUN_ID
 #     (default aidan-ct2-<tag>-<stamp>), WANDB_GROUP (default the sweep), GRES (default gpu:h200:WORLD),
 #     TEST_ONLY=1 (sbatch --test-only)
@@ -77,8 +81,22 @@ case "$ROW" in
   refdpct)   EXP=pusht/planar_v2_cotrain_dp_paper_points6_chaingen; MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_US,$DATA_CHG"; FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=af-ladder-20260913; GRES=${GRES:-gpu:$WORLD}; NORM_STATS=${NORM_STATS:-$CEDAR/unite-cotrain-3/s3-dp_paper-cotrain-chaingen-240k-09100200/norm_stats} ;;
   refctP)    EXP=pusht/unite_cotrain_usocket_chainpre_val01_h16;    MODEL=bf/ct_unite_register_separate_nt8_h384_s42; DATA="$DATA_US,$DATA_CHP"; FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=cotrain-prestep-20260916; GRES=${GRES:-gpu:$WORLD}; EXTRA="model.pipeline.stages.4.cfg_scale=1.0${EXTRA:+ $EXTRA}" ;;
   refdpctP)  EXP=pusht/planar_v2_cotrain_dp_paper_points6_chainpre; MODEL=bf/bf_planar_v2_dp_paper_points6;            DATA="$DATA_US,$DATA_CHP"; FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2; SWEEP=cotrain-prestep-20260916; GRES=${GRES:-gpu:$WORLD} ;;
+  cl1dec|cl2msnr|cl3cfm|cl4disp|cl5bn|cl6ld8)
+    # 2026-09-25 change loop (orchestrator-260925-0105): refctP + exactly one change each, refctP's
+    # pinned norm stats, CFG-1.0 validation. S4=policy stage, S5=objective stage.
+    S4=model.pipeline.stages.4; S5=model.pipeline.stages.5
+    case "$ROW" in
+      cl1dec)  CL="+$S4.decoded_action_samples_per_reconstruction=4 +$S5.decoded_action_weight=0.1" ;;
+      cl2msnr) CL="$S4.train_eps=0.447" ;;
+      cl3cfm)  CL="+$S4.contrastive_flow_weight=0.05" ;;
+      cl4disp) CL="+$S4.dispersive_weight=0.5 +$S4.dispersive_tau=0.5 +$S4.dispersive_block=3" ;;
+      cl5bn)   CL="+$S4.flow_latent_batchnorm=true" ;;
+      cl6ld8)  CL="model.latent_dim=8" ;;
+    esac
+    EXP=pusht/unite_cotrain_usocket_chainpre_val01_h16; MODEL=bf/ct_unite_register_separate_nt8_h384_s42; DATA="$DATA_US,$DATA_CHP"; FAM=$UNITE_ENV; PROJ=pushshapes-flow-transfer; SWEEP=unite-change-loop-20260925; GRES=${GRES:-gpu:$WORLD}
+    NORM_STATS=${NORM_STATS:-$CEDAR/cotrain-prestep-20260916/norm_stats_refctP}; EXTRA="model.pipeline.stages.4.cfg_scale=1.0 $CL${EXTRA:+ $EXTRA}" ;;
   dpch) EXP=pusht/planar_v2_chain_points_dp_paper;       MODEL=bf/bf_planar_v2_dp_paper_points6;             DATA="$DATA_CH";          FAM=ICE_UNITE_FAST=false; PROJ=pushshapes-planar-v2 ;;
-  *) echo "row must be ctA|ctAc|ctA768|ctB|dpct|dpus|dpch|uniteus|unitech|s3ctA|s3ctB|s3ctA768|s3unitech|s3dpct|s3dpch|refctA|refdpct|refctP|refdpctP"; exit 64 ;;
+  *) echo "row must be ctA|ctAc|ctA768|ctB|dpct|dpus|dpch|uniteus|unitech|s3ctA|s3ctB|s3ctA768|s3unitech|s3dpct|s3dpch|refctA|refdpct|refctP|refdpctP|cl1dec|cl2msnr|cl3cfm|cl4disp|cl5bn|cl6ld8"; exit 64 ;;
 esac
 [ "${SMOKE:-0}" = 1 ] && SWEEP=${SWEEP}-smoke
 OUT=$CEDAR/$SWEEP/${RUN_NAME:-${TAG}-${STAMP}}
@@ -86,9 +104,17 @@ mkdir -p "$CEDAR/$SWEEP" /home/hice1/agao81/scratch/logs
 NS=""; [ -n "${NORM_STATS:-}" ] && NS=",ICE_NORM_STATS_PATH=$NORM_STATS"
 EO=""; [ -n "${EXTRA:-}" ] && EO=",ICE_EXTRA_OVERRIDES=$EXTRA"
 COMMON="ICE_LAUNCH_MODE=run,ICE_REPO=$REPO,ICE_EXPECTED_HEAD=$HEAD,ICE_PYTHON=$PY,ICE_WANDB_ENTITY=rl2-group,ICE_WANDB_PROJECT=$PROJ,ICE_WANDB_GROUP=${WANDB_GROUP:-$SWEEP},ICE_EXPECTED_ACCOUNT=ece,ICE_EXPECTED_PARTITION=coe-gpu,ICE_EXPECTED_QOS=coe-ice,ICE_OUTPUT_DIR=$OUT,ICE_WANDB_RUN_ID=${WANDB_RUN_ID:-aidan-ct2-${TAG}-${STAMP}},ICE_LIMIT_TRAIN_BATCHES=1.0,ICE_LIMIT_VAL_BATCHES=8,ICE_TRAIN_BATCH_SIZE=32,ICE_VALID_BATCH_SIZE=32"
+EXPORTS="$COMMON,$DATA,ICE_EXPERIMENT=$EXP,ICE_MODEL=$MODEL,ICE_WORLD_SIZE=$WORLD,ICE_MAX_STEPS=$STEPS,ICE_VAL_CHECK_INTERVAL=${VAL_EVERY:-30000},ICE_CHECKPOINT_EVERY_N_STEPS=${CKPT_EVERY:-30000},$FAM$NS$EO"
+if [ "${PREFLIGHT:-0}" = 1 ]; then
+  # The launcher's official ICE_LAUNCH_MODE=preflight, run inline in this shell with the row's exact
+  # exports (no sbatch, no GPU): dataset validation, resolved-config asserts, runner dry-run. Run it
+  # inside an ice-cpu allocation -- login nodes kill large processes.
+  ( IFS=,; set -f; export ${EXPORTS/ICE_LAUNCH_MODE=run/ICE_LAUNCH_MODE=preflight}; exec bash "$REPO/scripts/ice/launch_unite_cotrain.sbatch" )
+  exit
+fi
 JOB=$(sbatch --parsable ${TEST_ONLY:+--test-only} --account=ece --partition=coe-gpu --qos=coe-ice --exclude="$EXCL" --time=$TIME \
   --gres=${GRES:-gpu:h200:$WORLD} --ntasks-per-node=$WORLD --cpus-per-task=8 --mem=128G \
   --job-name="ct2-$TAG" --output="$LOG" \
-  --export="ALL,$COMMON,$DATA,ICE_EXPERIMENT=$EXP,ICE_MODEL=$MODEL,ICE_WORLD_SIZE=$WORLD,ICE_MAX_STEPS=$STEPS,ICE_VAL_CHECK_INTERVAL=${VAL_EVERY:-30000},ICE_CHECKPOINT_EVERY_N_STEPS=${CKPT_EVERY:-30000},$FAM$NS$EO" \
+  --export="ALL,$EXPORTS" \
   "$REPO/scripts/ice/launch_unite_cotrain.sbatch")
 echo "$JOB $OUT"

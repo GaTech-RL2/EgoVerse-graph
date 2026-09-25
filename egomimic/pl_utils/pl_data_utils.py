@@ -266,6 +266,25 @@ class MultiDataModuleWrapper(LightningDataModule):
                     **dataset_params,
                 )
                 continue
+            balance_cfg = dataset_params.pop("group_balance_sampler", None)
+            if balance_cfg:
+                from omegaconf import OmegaConf
+
+                from egomimic.rldb.zarr.group_balance_sampler import (
+                    build_group_balance_sampler,
+                )
+
+                if OmegaConf.is_config(balance_cfg):
+                    balance_cfg = OmegaConf.to_container(balance_cfg, resolve=True)
+                sampler = build_group_balance_sampler(dataset, **dict(balance_cfg))
+                dataset_params.pop("shuffle", None)
+                iterables[dataset_name] = DataLoader(
+                    dataset,
+                    sampler=sampler,
+                    collate_fn=self.collate_fn,
+                    **dataset_params,
+                )
+                continue
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=True,

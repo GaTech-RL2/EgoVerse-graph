@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop
+  - override /data: abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg
+  - _self_
+name: stationery_rl2_hpt300_visual_hybrid_openloop
+description: HPT300M RL2 organize_stationary visual-only hybrid D40 M100 R24deg
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+  arc_rotation_distance: 0.4188790204786391
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+logger:
+  wandb:
+    tags: [hpt300m, rl2, organize_stationary, visual_only, no_language, hybrid, D40, M100, R24deg, per_waypoint, open_loop, video]

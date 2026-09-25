@@ -1,0 +1,106 @@
+# ARC PRE-TRAIN data -- ABC stationery only, arc-duration action target.
+# Aidan, 09-17. Elmo's h640t8_d384x10 checkpoint is variant=time: it has NO arc
+# pretraining, so fine-tuning the arc row off it starts from randomly initialised
+# action projections and a denoiser trained to emit 14-D cartesian chunks. That
+# makes a time-vs-arc comparison unfair to arc. This config builds arc the ABC
+# pretrain it was missing, so the later rl2 fine-tune mirrors the time arm.
+#
+# Source policy is Elmo's, with the rl2 clause dropped (ABC only) and the action
+# target swapped to the E1 duration token (D=0.40, M=100 -> (100,16)).
+# persistent_workers: with the default (False) PyTorch tears down and re-forks the
+# loader workers at every epoch boundary, and this stack deadlocks there -- job
+# 13307279 wedged at step 99 of a 100-step epoch with workers idle in do_poll and
+# the main thread in futex_wait, after limping at ~19 s/step. With persistent
+# workers the same config crosses three epoch boundaries and runs at 4.2 it/s
+# (job 13308744), ~80x faster.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery
+        into containers'''
+    mode: train
+    valid_ratio: 0.01
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery
+        into containers'''
+    mode: valid
+    valid_ratio: 0.01
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true

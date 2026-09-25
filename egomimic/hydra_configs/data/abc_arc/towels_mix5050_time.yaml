@@ -1,0 +1,91 @@
+# MIXED ABC + RL2, LAB-BALANCED 50/50 -- Aidan 2026-09-19: "weight the data evenly so that there is proper exposure to
+# in-domain data ... RL2 consists of 50% of the data the model sees and ABC the other 50%". Explicitly authorised mix.
+# Same pool filter + valid_ratio 0.01 as towels_mix_time; the ONLY change is train_dataloader_params.*.group_balance_sampler, which
+# replaces the uniform frame shuffle (RL2 was ~9 % of frames for stationery, ~30 % for towels) with draws that give each lab
+# half the samples, uniform over frames within a lab. Validation loaders are untouched. Do not copy this filter elsewhere.
+# persistent_workers true: default re-forks loader workers each epoch and this stack deadlocks there (job 13307279).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''fold and
+        stack the towels'') or (row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''rig_name'']
+        == ''rl2_abc''))'
+    mode: train
+    valid_ratio: 0.01
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''fold and
+        stack the towels'') or (row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''rig_name'']
+        == ''rl2_abc''))'
+    mode: valid
+    valid_ratio: 0.01
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true
+    group_balance_sampler:
+      group_episode_files:
+        rl2: /storage/project/r-dxu345-0/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/rl2_towels_episodes.txt
+      default_group: abc
+      group_fractions:
+        rl2: 0.5
+        abc: 0.5
+      seed: 42
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true

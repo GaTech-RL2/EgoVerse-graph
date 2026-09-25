@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict
 
 from lightning_utilities.core.rank_zero import rank_zero_only
@@ -17,19 +18,26 @@ def configure_runner_wandb(cfg: DictConfig, environ=None) -> None:
     restart requires the previous W&B run. Debug and non-W&B loggers are inert.
     """
     env = os.environ if environ is None else environ
-    if env.get("ICE_REQUEUE_OWNER") != "runner":
+    # Offline validation uses a separate W&B run, not the training identity.
+    if cfg.get("mode", "train") == "eval":
         return
     logger_cfg = cfg.get("logger")
     if not OmegaConf.is_dict(logger_cfg):
         return
     wandb_configs = [
-        value for value in logger_cfg.values()
-        if OmegaConf.is_dict(value) and str(value.get("_target_", "")) in {
+        value
+        for value in logger_cfg.values()
+        if OmegaConf.is_dict(value)
+        and str(value.get("_target_", ""))
+        in {
             "lightning.pytorch.loggers.wandb.WandbLogger",
             "pytorch_lightning.loggers.wandb.WandbLogger",
         }
     ]
     if not wandb_configs:
+        return
+    if env.get("ICE_REQUEUE_OWNER") != "runner":
+        _configure_lightning_wandb(cfg, wandb_configs, env)
         return
     restart_count = int(env.get("SLURM_RESTART_COUNT", "0"))
     if restart_count < 0:
@@ -40,7 +48,9 @@ def configure_runner_wandb(cfg: DictConfig, environ=None) -> None:
     metadata = {}
     if restart_count > 0:
         if not env.get("ICE_RESUME_CHECKPOINT"):
-            raise ValueError("automatic W&B resume requires the runner-selected checkpoint")
+            raise ValueError(
+                "automatic W&B resume requires the runner-selected checkpoint"
+            )
         metadata = json.loads(env.get("ICE_RESUME_CHECKPOINT_METADATA_JSON", "{}"))
         if not isinstance(metadata, dict):
             raise ValueError("runner checkpoint metadata must be a JSON object")
@@ -48,17 +58,124 @@ def configure_runner_wandb(cfg: DictConfig, environ=None) -> None:
         raw_id = OmegaConf.to_container(logger, resolve=False).get("id")
         run_id = logger.get("id")
         if not isinstance(run_id, str) or not run_id.strip() or "${now:" in str(raw_id):
-            raise ValueError("runner-owned W&B logging requires an explicit stable logger id")
+            raise ValueError(
+                "runner-owned W&B logging requires an explicit stable logger id"
+            )
         if restart_count > 0:
-            recorded_ids = [metadata[key] for key in ("wandb_run_id", "run_id") if metadata.get(key)]
+            recorded_ids = [
+                metadata[key] for key in ("wandb_run_id", "run_id") if metadata.get(key)
+            ]
             if not recorded_ids or any(value != run_id for value in recorded_ids):
-                raise ValueError("W&B logger id does not match the runner checkpoint run identity")
+                raise ValueError(
+                    "W&B logger id does not match the runner checkpoint run identity"
+                )
             for field in ("entity", "project"):
                 recorded = metadata.get(f"wandb_{field}")
                 if recorded is not None and logger.get(field) != recorded:
-                    raise ValueError(f"W&B logger {field} does not match the runner checkpoint")
+                    raise ValueError(
+                        f"W&B logger {field} does not match the runner checkpoint"
+                    )
         with open_dict(logger):
             logger.resume = "must" if restart_count > 0 else "never"
+
+
+def _local_wandb_run_id(output_dir: Path) -> str | None:
+    """Recover the most substantial local W&B artifact's run ID."""
+
+    artifacts = sorted(
+        output_dir.glob("wandb/run-*/run-*.wandb"),
+        key=lambda path: path.stat().st_size,
+        reverse=True,
+    )
+    if not artifacts:
+        return None
+    stem = artifacts[0].name
+    if not stem.startswith("run-") or not stem.endswith(".wandb"):
+        return None
+    return stem[len("run-") : -len(".wandb")] or None
+
+
+def _configure_lightning_wandb(cfg, wandb_configs, env) -> None:
+    """Fail closed when Lightning-owned jobs resume W&B without the old ID."""
+
+    restart_count = int(env.get("SLURM_RESTART_COUNT", "0"))
+    if restart_count < 0:
+        raise ValueError("SLURM_RESTART_COUNT must be nonnegative")
+    output_dir = Path(str(OmegaConf.select(cfg, "paths.output_dir")))
+    identity_file = output_dir / "wandb-run-id.txt"
+    # A user-provided ckpt_path initializes a new experiment's weights. It is
+    # not evidence that its W&B run should be resumed. Only the runner's
+    # explicit requeue checkpoint or a Slurm restart carries W&B identity.
+    automatic_checkpoint = env.get("ICE_RESUME_CHECKPOINT")
+    automatic_resume = bool(automatic_checkpoint) or restart_count > 0
+    checkpoint = automatic_checkpoint
+    inferred_checkpoint = output_dir / "checkpoints" / "last.ckpt"
+    local_id = _local_wandb_run_id(output_dir)
+    sidecar_id = identity_file.read_text().strip() if identity_file.is_file() else None
+    if not checkpoint and automatic_resume:
+        if inferred_checkpoint.is_file():
+            checkpoint = str(inferred_checkpoint)
+            with open_dict(cfg):
+                cfg.ckpt_path = checkpoint
+        else:
+            raise ValueError(
+                "automatic W&B resume requires a previous last.ckpt; "
+                f"none exists at {inferred_checkpoint}"
+            )
+
+    # Fresh experiments may initialize model weights with cfg.ckpt_path, but
+    # retain their new W&B identity and configured resume='never'.
+    if not automatic_resume:
+        return
+
+    for logger in wandb_configs:
+        raw_id = OmegaConf.to_container(logger, resolve=False).get("id")
+        configured_id = None
+        if "${now:" not in str(raw_id):
+            resolved_id = logger.get("id")
+            if isinstance(resolved_id, str) and resolved_id.strip():
+                configured_id = resolved_id
+        explicit_ids = [
+            value
+            for value in (env.get("ICE_WANDB_RUN_ID"), sidecar_id, configured_id)
+            if value
+        ]
+        if len(set(explicit_ids)) > 1:
+            raise ValueError("conflicting W&B run identities for checkpoint resume")
+        run_id = explicit_ids[0] if explicit_ids else local_id
+        if checkpoint and not run_id:
+            raise ValueError(
+                "W&B resume requires the original run ID; refusing to create a new run"
+            )
+        if checkpoint:
+            with open_dict(logger):
+                logger.id = run_id
+                logger.resume = "must"
+                if not logger.get("name"):
+                    logger.name = run_id
+
+
+def persist_wandb_run_identity(cfg: DictConfig, loggers, trainer) -> None:
+    """Persist the instantiated W&B ID for a future Lightning requeue."""
+
+    if (
+        cfg.get("mode", "train") == "eval"
+        or not loggers
+        or not getattr(trainer, "is_global_zero", True)
+    ):
+        return
+    wandb_logger = next(
+        (item for item in loggers if item.__class__.__name__ == "WandbLogger"),
+        None,
+    )
+    run_id = getattr(getattr(wandb_logger, "experiment", None), "id", None)
+    if not run_id:
+        return
+    identity_file = (
+        Path(str(OmegaConf.select(cfg, "paths.output_dir"))) / "wandb-run-id.txt"
+    )
+    identity_file.parent.mkdir(parents=True, exist_ok=True)
+    identity_file.write_text(f"{run_id}\n")
 
 
 @rank_zero_only

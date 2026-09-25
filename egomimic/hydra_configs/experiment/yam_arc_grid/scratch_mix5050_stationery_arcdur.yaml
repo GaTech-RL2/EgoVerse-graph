@@ -1,0 +1,145 @@
+# @package _global_
+# (arcdur twin of the arcvel run; same everything else)
+# FROM SCRATCH on MIXED ABC + RL2 (stationery), arcdur, LAB-BALANCED 50/50 sampling -- see the data config header.
+# New cell (no unbalanced arcdur mixed run ever existed). Elmo recipe: 240k, warmup 10k, valid_ratio 0.01.
+# evaluator = BimanualTempoEval (evaluator/e1/fold_tempo.yaml spelled out): the earlier arc runs had evaluator null and logged no Valid/*.
+defaults:
+- _self_
+- override /model: e1/hpt_flow_wrists_ft_arcdur
+- override /data: abc_arc/stationery_mix5050_arcdur
+- override /trainer: ddp
+- override /logger: wandb
+- override /callbacks: checkpoints
+name: scratch_mix5050_stationery_arcdur
+description: h640t8_d384x10_cos10k_240k_s42_scratch_mix5050_stationery_arcdur
+ft:
+  max_steps: 240000
+  warmup_steps: 10000
+init_weights_from: null
+ckpt_path: null
+mode: train
+seed: 42
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+  output_dir: ${hydra:runtime.output_dir}
+  work_dir: null
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+runtime:
+  slurm_requeue_owner: lightning
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: null
+  max_epochs: -1
+  min_epochs: 0
+  accelerator: gpu
+  devices: 1
+  precision: bf16
+  limit_train_batches: 100
+  limit_val_batches: 80
+  check_val_every_n_epoch: 200
+  deterministic: false
+  strategy: auto
+  num_nodes: 1
+  sync_batchnorm: false
+  num_sanity_val_steps: 2
+  max_steps: ${ft.max_steps}
+callbacks:
+  wandb_profiler:
+    _target_: egomimic.utils.timing_callback.WandbProfilerLogger
+    log_every_n_steps: 100
+  model_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: epoch-{epoch:04d}-step-{step:08d}
+    save_last: true
+    save_top_k: -1
+    every_n_epochs: null
+    every_n_train_steps: 30000
+    auto_insert_metric_name: false
+logger:
+  wandb:
+    _target_: lightning.pytorch.loggers.wandb.WandbLogger
+    save_dir: null
+    offline: false
+    id: scratch_mix5050_stationery_arcdur_20260918_s42
+    anonymous: null
+    project: arc
+    log_model: false
+    prefix: ''
+    entity: rl2-group
+    group: ''
+    tags:
+    - abc
+    - rl2
+    - mixed
+    - balanced5050
+    - stationery
+    - scratch
+    - arcdur
+    job_type: ''
+    resume: never
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.2
+  num_workers: 8
+  save_cache_dir: null
+  precomputed_norm_path: null
+e1:
+  variant: arcdur
+  spread: stationery
+  train_root: unused-s3-resolver
+  valid_root: unused-s3-resolver
+  train_mode: total
+  valid_mode: total
+  D: 0.4
+  M: 100
+  time_rows: 100
+  chunk_length: 100
+  h_match_frames: 40
+  limit_val_batches: 40
+  prog_horizon_m: 0.19
+  progress_smooth_hz: null
+  anchor_sampler: null
+  velocity_norm: path
+  fixed_spacing: false
+  arcmatch_gt_span_m: null
+  action_dim: 16
+  action_horizon: 100
+  image_weights: DEFAULT
+arc_tokenizer:
+  min_distance_unit: 0.4
+  resampled_vector_length: 100
+hpt:
+  embed_dim: 640
+  num_blocks: 8
+  num_heads: 8
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: 8
+      crossattn_dim_head: 80
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: 640
+  action_dim: 16
+  action_horizon: 100
+evaluator:
+  _target_: egomimic.eval.bimanual_tempo_eval.BimanualTempoEval
+  variant: ${e1.variant}
+  time_key: actions_time
+  D: ${e1.D}
+  M: ${e1.M}
+  dt: 0.03333333333333333
+  h_match_frames: ${e1.h_match_frames}
+  prog_horizon_m: ${e1.prog_horizon_m}
+  progress_smooth_hz: ${e1.progress_smooth_hz}
+  velocity_norm: ${e1.velocity_norm}
+  results_path: ${paths.output_dir}/e1_tempo.json
+  limit_val_batches: ${e1.limit_val_batches}
+  viz_func: null
+  arc_match_distance: null
+  arcmatch_gt_span_m: ${e1.arcmatch_gt_span_m}

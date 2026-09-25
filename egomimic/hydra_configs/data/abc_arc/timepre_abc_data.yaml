@@ -1,0 +1,80 @@
+# TIME PRE-TRAIN data -- ABC stationery only, Elmo's time/cartesian action target.
+# The from-scratch time twin of arcpre_abc_data (same 2089 episodes, same recipe). Elmo's
+# own checkpoint is NOT this: it trained on ABC + the old RL2 batch (2264 episodes).
+# persistent_workers: default False re-forks loader workers at every epoch boundary and
+# this stack deadlocks there (job 13307279). True runs at 4.2 it/s (job 13308744).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery
+        into containers'''
+    mode: train
+    valid_ratio: 0.01
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery
+        into containers'''
+    mode: valid
+    valid_ratio: 0.01
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true

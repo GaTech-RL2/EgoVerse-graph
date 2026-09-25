@@ -11,6 +11,19 @@ Load exactly one profile before composing or launching a cluster job:
 source scripts/clusters/common/load_profile.sh skynet
 ```
 
+On the Lambda loaner cluster, the profile binds all dataset, run, and worktree
+roots below `/workspace/users/ani-cheluva`:
+
+```bash
+source scripts/clusters/common/load_profile.sh lambda
+python egomimic/trainHydra.py \
+  hydra/launcher=submitit_lambda_h100 \
+  model=<model-config> data=<data-config> evaluator=<evaluator-config>
+```
+
+The profile defines locations; it does not download datasets. Verify the
+selected dataset directory contains the expected bytes before launching.
+
 For ICE and Phoenix, bind the verified task-local dataset and scratch roots
 first.  A source config or historical run name is not evidence that dataset
 bytes exist on that cluster.
@@ -27,6 +40,10 @@ The profiles expose one shared interface:
 - `PUSHSHAPES_DATA_ROOT`
 - `EGOVERSE_RUN_ROOT`
 - `EGOVERSE_SOURCE_ROOT`
+
+The Lambda profile also exports `EGOVERSE_ABC_DATASET_DIR` and
+`EGOVERSE_DATASET_DIR`, which are consumed by the corresponding Hydra data
+configs.
 
 Cluster launchers may consume these paths, but must still query live Slurm
 associations and use the maintained training or evaluation launcher.  Skynet's

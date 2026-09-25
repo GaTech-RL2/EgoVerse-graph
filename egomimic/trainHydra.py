@@ -19,7 +19,10 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
-from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
+from egomimic.eval.checkpoint_loading import (
+    init_pipeline_weights_from_checkpoint,
+    strict_load_pipeline_checkpoint,
+)
 from egomimic.eval.eval import Eval
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import export_configured_inference_artifact
@@ -30,7 +33,11 @@ from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.ema_callback import EMACallback
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.utils.logging_utils import configure_runner_wandb, log_hyperparameters
+from egomimic.utils.logging_utils import (
+    configure_runner_wandb,
+    log_hyperparameters,
+    persist_wandb_run_identity,
+)
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.slurm_requeue import SaveOnlySignalCheckpoint
 from egomimic.utils.utils import extras, task_wrapper
@@ -629,11 +636,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         callbacks.extend(_instantiate_slurm_callbacks(cfg))
 
     callbacks = _callbacks_for_mode(callbacks, mode)
-    # In eval mode, apply trainer overrides from the eval object and disable logger
+    # In eval mode, apply trainer overrides from the eval object. Post-hoc
+    # checkpoint sweeps may retain the configured logger so each checkpoint can
+    # append metrics at its original global step.
     if mode == "eval":
         eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
+        eval_logger_enabled = bool(cfg.get("eval_logger_enabled", False))
         log.info(
-            "Eval mode: applying trainer overrides from eval config, disabling logger"
+            "Eval mode: applying trainer overrides from eval config; "
+            f"external logger enabled={eval_logger_enabled}"
         )
         with open_dict(cfg):
             for k, v in eval_obj.override_dict.items():
@@ -641,7 +652,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.trainer.devices = 1
             cfg.trainer.num_nodes = 1
             cfg.trainer.num_sanity_val_steps = 0
-            cfg.logger = None
+            if not eval_logger_enabled:
+                cfg.logger = None
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
@@ -651,6 +663,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     trainer: Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
+    persist_wandb_run_identity(cfg, logger, trainer)
 
     if mode == "train":
         _resolve_training_checkpoint(cfg, trainer)
@@ -676,6 +689,42 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.bind_data_context(normalizer=norm_stats)
             model.evaluator = eval_obj
         log.info("Starting training!")
+        init_weights_from = cfg.get("init_weights_from")
+        if init_weights_from:
+            # Weights-only init is for STARTING a fine-tune. A resume must always win:
+            # cfg.ckpt_path carries full training state, and a Slurm requeue re-enters
+            # here with the run already in progress. Re-initialising in either case
+            # would silently discard progress.
+            if cfg.get("ckpt_path"):
+                log.info(
+                    "ckpt_path is set (resume); ignoring init_weights_from=%s",
+                    init_weights_from,
+                )
+            elif os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
+                log.info(
+                    "Slurm restart #%s; ignoring init_weights_from=%s",
+                    os.environ.get("SLURM_RESTART_COUNT"),
+                    init_weights_from,
+                )
+            else:
+                init_ckpt = torch.load(
+                    init_weights_from, map_location="cpu", weights_only=False
+                )
+                _, reinitialised = init_pipeline_weights_from_checkpoint(
+                    model.model, init_ckpt
+                )
+                del init_ckpt
+                log.info("Initialised weights from %s", init_weights_from)
+                for key, src_shape, dst_shape in reinitialised:
+                    log.warning(
+                        "  re-initialised (checkpoint %s -> model %s): %s",
+                        src_shape,
+                        dst_shape,
+                        key,
+                    )
+                if not reinitialised:
+                    log.info("  every tensor carried over from the checkpoint")
+
         if (
             cfg.get("val_at_start", False)
             and not cfg.get("ckpt_path")

@@ -1,0 +1,58 @@
+#!/bin/bash
+#SBATCH -A gts-dxu345-rl2
+#SBATCH -q inferno
+#SBATCH -N1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=128G
+# Untyped gres let PACE expand the partition list to gpu-v100 and job 13307008
+# actually landed on a V100 (Volta: no bf16, and the config runs precision bf16).
+# Pin the class; H200 picked up both earlier jobs within 21 s.
+#SBATCH -p gpu-h100,gpu-h200
+#SBATCH --gres=gpu:1
+#SBATCH --time=16:00:00
+#SBATCH --job-name=statft
+#SBATCH --output=ft_%x_%j.log
+# Throttled H200 units -- these pin SM ~350 MHz at >90 C with SW thermal slowdown
+# and cost 3-4x in wall time (provenance: scripts/pi05/train_abc_stationery_pi.sbatch).
+#SBATCH --exclude=atl1-1-02-012-16-0,atl1-1-02-014-9-0,atl1-1-02-012-2-0
+#
+# Stationery fine-tune off Elmo's epoch-2099-step-00210000.ckpt, 60k steps.
+# Usage: sbatch --export=ALL,ARM=time   scripts/e1/stationery_ft.sbatch
+#        sbatch --export=ALL,ARM=arcdur scripts/e1/stationery_ft.sbatch
+#
+# ONE GPU on purpose. These rows are input-bound (see the 09-16 arc-tokenizer
+# budget note), so extra ranks mostly idle, and DDP would multiply the effective
+# batch past the 32 the checkpoint was converging under. num_workers is raised
+# 6 -> 12 in the data configs instead -- that attacks the real bottleneck and
+# changes no maths.
+
+set -euo pipefail
+ARM=${ARM:?set ARM=time or ARM=arcdur}
+# EXPERIMENT lets a non stationery_ft_* config reuse this launcher (e.g. the ABC arc pretrain).
+EXPERIMENT=${EXPERIMENT:-yam_arc_grid/stationery_ft_${ARM}}
+WT=${WT:-$(git rev-parse --show-toplevel)}
+cd "$WT"
+PY=${PY:-$WT/.venv/bin/python}
+RUN=${OUT:-$HOME/scratch/runs/stationery_ft}/${ARM}_s42_j${SLURM_JOB_ID}
+
+export PATH="$WT/.venv/bin:$PATH" PYTHONPATH="$WT"
+export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
+# W&B online on Phoenix, always (PACE.md §4); entity rl2-group is pinned in the config.
+export WANDB_MODE=${WANDB_MODE:-online}
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+# Loader workers do small numpy ops; without this each spawns a full BLAS pool.
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+export TORCHINDUCTOR_CACHE_DIR=/tmp/ti_$SLURM_JOB_ID TRITON_CACHE_DIR=/tmp/tr_$SLURM_JOB_ID
+
+nvidia-smi --query-gpu=name,clocks.sm,temperature.gpu --format=csv,noheader
+# GPU CLASS GUARD: job 13307008 once landed on a V100 (no bf16). Refuse anything but H100/H200.
+nvidia-smi --query-gpu=name --format=csv,noheader | grep -qE 'H100|H200' || { echo "WRONG GPU CLASS: $(nvidia-smi --query-gpu=name --format=csv,noheader)" >&2; exit 42; }
+echo "=== FT $ARM -> $RUN ($(date)) commit=$(git rev-parse --short HEAD) ==="
+$PY egomimic/trainHydra.py --config-name=train_zarr_cartesian \
+  +experiment=${EXPERIMENT} \
+  logger.wandb.id=${ARM}_20260917_s42_j${SLURM_JOB_ID} \
+  ${EXTRA:-} \
+  paths.output_dir=$RUN \
+  norm_stats.save_cache_dir=$RUN \
+  hydra.run.dir=$RUN

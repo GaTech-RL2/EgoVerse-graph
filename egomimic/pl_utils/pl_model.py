@@ -44,6 +44,18 @@ class ModelWrapper(LightningModule):
     grad_norm_mad_min_count = 100
     grad_norm_mad_window = 200
 
+    def log(self, *args, **kwargs):
+        """Log metrics without Lightning's validation-loader name suffix."""
+
+        kwargs.setdefault("add_dataloader_idx", False)
+        return super().log(*args, **kwargs)
+
+    def log_dict(self, *args, **kwargs):
+        """Apply the same stable metric-name default to metric dictionaries."""
+
+        kwargs.setdefault("add_dataloader_idx", False)
+        return super().log_dict(*args, **kwargs)
+
     def __init__(
         self,
         pipeline=None,
@@ -343,7 +355,9 @@ class ModelWrapper(LightningModule):
         wrapper directly) or the index is out of range, and the evaluator then
         keeps its unprefixed metric names.
         """
-        datamodule = getattr(self.trainer, "datamodule", None) if self._trainer else None
+        datamodule = (
+            getattr(self.trainer, "datamodule", None) if self._trainer else None
+        )
         names = getattr(datamodule, "valid_group_names", None)
         if not names or not 0 <= int(dataloader_idx) < len(names):
             return None

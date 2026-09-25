@@ -6,15 +6,10 @@
 # ABC-ONLY (no cotraining) time-indexed BC data: fold_and_stack_the_t_shirts,
 # yam_bimanual.
 #
-# This is the single-domain arm of the cotrain ablation. The yam block below is
-# byte-for-byte the yam block of abc_fstshirt_mecka_freefold_baseline_cotrain --
-# same 20 episodes, same coord_frame, same action space, same dataloader params.
-# The ONLY difference is that the human_bimanual split is absent. That is what
-# isolates the effect of cotraining: robot data volume is held fixed at 20
-# episodes / 48,286 frames, so any delta against the cotrain run is attributable
-# to the human data, not to seeing more or less robot data.
-#
-# Its arc twin is abc_fstshirt_arc_bc_D40_M100.
+# Retained for experiment/abc/yam_fstshirt_{dp,hpt}. Historical cotrain/ARC
+# ablation templates were retired; the supported ARC experiments now live in
+# experiment/abc_arc/{robot_bc,human_bc}. Keep this older baseline's 20-episode
+# sampling contract unchanged for its existing consumers.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:

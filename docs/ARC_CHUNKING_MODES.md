@@ -7,6 +7,18 @@ representation, a positive rotation target R, and `per_waypoint` timing.
 Cartesian baseline recipes accept the override for evaluation and provenance;
 their training targets remain Cartesian.
 
+Supported experiment entrypoints are listed in
+`egomimic/hydra_configs/experiment/abc_arc/README.md`. Unreferenced legacy ABC
+Qwen, diffusion-policy, non-hybrid, and cotrain templates were removed; the
+historical versions remain recoverable from Git. Other experiment families and
+the data component still consumed by `experiment/abc` are unchanged.
+
+Retained recipes default to `norm_stats.sample_frac=0.10`. Cached statistics are
+immutable artifacts: this default does not convert a historical 20% cache into
+a 10% cache. Use a verified matching cache or compute a new one. An intentional
+historical-cache launch must explicitly declare its actual sampling fraction;
+the loader's ARC action-contract check is not a dataset/sampling provenance check.
+
 | Mode | Translation target and timing |
 | --- | --- |
 | `race` | End when the first arm travels D. Interpolate each arm by its own distance through that shared end time. |

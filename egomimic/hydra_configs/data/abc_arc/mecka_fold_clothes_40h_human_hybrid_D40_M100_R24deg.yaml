@@ -2,7 +2,7 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
   human_bimanual:
-    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    batch_keys: [observations.state.ee_pose, actions_cartesian]
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
@@ -11,7 +11,7 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: hybrid_arc_tokenizer_cartesian
-        annotation_key: annotations
+        annotation_key: null
         min_distance_unit: ${oc.select:abc.arc_distance,0.40}
         rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,0.4188790204786391}
         arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,joint_distance}
@@ -35,7 +35,7 @@ train_datasets:
     bounds_check: false
 valid_datasets:
   human_bimanual:
-    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    batch_keys: [observations.state.ee_pose, actions_cartesian]
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
@@ -44,7 +44,7 @@ valid_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: hybrid_arc_tokenizer_cartesian
-        annotation_key: annotations
+        annotation_key: null
         min_distance_unit: ${oc.select:abc.arc_distance,0.40}
         rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,0.4188790204786391}
         arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,joint_distance}

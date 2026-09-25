@@ -2,6 +2,12 @@
 
 ## September 25 feature tip
 
+The canonical layers have been reconciled with `main` at
+`161e3a0c40182ba003434d3adaeaa6cbd12107d8` using history-preserving merges.
+Each canonical parent remains an ancestor of its child; published commits were
+not rebased or force-pushed. The cluster overlays are siblings immediately above
+`canonical/arc-chunking-modes`, with application trees identical to that tip.
+
 The stack below now continues above `canonical/run-resume` with:
 
 10. `canonical/distance-budget-global-dtw`: episode-distance rollout budgets and
@@ -37,11 +43,12 @@ Bottom to top:
    per-waypoint velocity.
 7. `canonical/human-bc-recipes`: human-bimanual MECKA folding-clothes recipes.
 8. `canonical/visual-abc-multitask`: no-language ABC campaigns, 30 Hz sampling,
-   joint-distance calibration, and 20% normalization.
+   joint-distance calibration, and normalization (historically 20%; retained
+   recipes now default to 10%).
 9. `canonical/run-resume`: stable W&B identities for resumed training, while
    offline checkpoint evaluation retains a separate W&B identity.
 
-`cluster/pace`, `cluster/sky2`, and `cluster/ice` are sibling configuration
+`cluster/pace`, `cluster/sky2`, `cluster/ice`, and `cluster/lambda` are sibling configuration
 overlays above the same application tip. Do not put shared model, data, or
 evaluator implementation changes in those overlays.
 
@@ -54,7 +61,9 @@ jobs remain pinned to their recorded source commits; promotion requires a clean
 canonical checkout and the usual launch/cache/validation gates. ICE's existing
 untracked files must not be overwritten.
 
-Known pre-existing limitation: the visual-only recipes currently labeled
-HPT180/HPT300M instantiate approximately 232M/249M total parameters. This stack
-reconciliation preserves the submitted experiments; it does not silently resize
-their models.
+The `hpt180`/`hpt300` names are historical profile identifiers, not claims of
+exact total parameter counts. The robot visual profiles instantiate roughly
+232M/249M parameters, respectively; the bimanual human profile also has its own
+stem/domain parameters. Architecture and checkpoint shapes are preserved by
+this cleanup. See the experiment-directory README for the retained profile
+dimensions and how to measure a composed model.

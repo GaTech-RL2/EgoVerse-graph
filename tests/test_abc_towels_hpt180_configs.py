@@ -31,7 +31,7 @@ def test_abc_towel_pair_preserves_hpt180_contract(experiment, is_arc, expected_h
     assert cfg.hpt.num_heads == 8
     assert cfg.hpt.action_horizon == expected_horizon
     assert cfg.trainer.val_check_interval == 10000
-    assert cfg.norm_stats.sample_frac == 0.20
+    assert cfg.norm_stats.sample_frac == 0.10
     assert cfg.evaluator.limit_val_episodes == 4
     assert cfg.evaluator.requires_ordered_validation is True
     assert cfg.evaluator.control_horizon == 100

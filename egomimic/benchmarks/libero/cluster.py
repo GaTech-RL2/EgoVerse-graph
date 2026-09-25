@@ -270,6 +270,8 @@ def training_arguments(
         "arc": "libero_arc_policy",
         "arc_stk": "libero_arc_stk_policy",
         "arc_dur": "libero_arc_dur_policy",
+        "dp_unet": "libero_dp_unet_policy",
+        "dp_oat": "libero_dp_oat_dp_policy",
     }[method]
     if method.startswith("arc") and arc_backbone == "oat_dp":
         experiment = "libero_arc_oat_dp_policy"

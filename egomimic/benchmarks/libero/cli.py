@@ -14,6 +14,31 @@ import torch
 from egomimic.benchmarks.libero.catalog import LIBERO_COMMIT, OAT_COMMIT, TASKS
 
 
+def policy_method(stages, protocol):
+    """Identify the actual graph; never label raw diffusion actions as ARC."""
+    from egomimic.pipeline.stages_diffusion import DiffusionDenoiserStage
+    from egomimic.pipeline.stages_libero_arc import LiberoArcStage
+    from egomimic.pipeline.stages_oat import OATPolicyStage
+
+    is_oat = any(isinstance(stage, OATPolicyStage) for stage in stages)
+    is_arc = any(
+        isinstance(stage, LiberoArcStage) and not stage.reconstruction
+        for stage in stages
+    )
+    if is_oat or is_arc:
+        return "arc_oat" if is_oat and is_arc else "oat" if is_oat else "arc"
+    denoisers = [s for s in stages if isinstance(s, DiffusionDenoiserStage)]
+    if (
+        len(denoisers) == 1
+        and denoisers[0].action_dim == 7
+        and denoisers[0].action_horizon == protocol["horizon"]
+        and protocol.get("action_representation") == "raw_actions"
+        and protocol.get("dp_backbone") in ("unet", "oat_dp")
+    ):
+        return "dp_unet" if protocol["dp_backbone"] == "unet" else "dp_oat"
+    raise ValueError("Expected a native ARC, OAT, ARC+OAT or raw DP policy")
+
+
 def reconstruction(args):
     import numpy as np
     from torch.utils.data import DataLoader
@@ -38,6 +63,7 @@ def reconstruction(args):
     if payload.get("oat_input_representation") is not None:
         from hydra.utils import instantiate
         from omegaconf import OmegaConf
+
         from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
         from egomimic.models.oat.checkpoint import validate_input_representation
         from egomimic.pipeline.stages_libero_arc import LiberoArcStage
@@ -250,9 +276,7 @@ def main():
             isinstance(stage, LiberoArcStage) and not stage.reconstruction
             for stage in stages
         )
-        if not (is_oat or is_arc):
-            raise ValueError("Expected a native ARC, OAT or ARC+OAT policy")
-        method = "arc_oat" if is_oat and is_arc else "oat" if is_oat else "arc"
+        method = policy_method(stages, protocol)
         metadata = {
             **protocol,
             "method": method,
@@ -268,6 +292,14 @@ def main():
                 p.numel() for p in policy.algo.nets.parameters() if p.requires_grad
             ),
         }
+        if method.startswith("dp_"):
+            if args.tokens is not None:
+                raise ValueError("Raw diffusion policies do not use tokenizer prefixes")
+            metadata["representation"] = {
+                "kind": "raw actions",
+                "horizon": protocol["horizon"],
+                "float32_channels": 7,
+            }
         if is_oat:
             model = next(
                 stage.policy for stage in stages if isinstance(stage, OATPolicyStage)

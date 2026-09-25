@@ -43,16 +43,21 @@ def scheduler():
     )
 
 
-@pytest.mark.parametrize("horizon", [24, 32, 36])
-def test_released_backbone_noise_loss_gradients_and_sampling(reference, horizon):
+@pytest.mark.parametrize("channels,horizon", [(12, 24), (12, 32), (12, 36), (7, 32)])
+def test_released_backbone_noise_loss_gradients_and_sampling(
+    reference, channels, horizon
+):
     original_class = reference(
         "model.diffusion.transformer_for_diffusion"
     ).TransformerForDiffusion
-    native = GraphDiffusionTransformer(**dimensions(horizon=horizon))
-    original = original_class(**dimensions(horizon=horizon))
+    native = GraphDiffusionTransformer(**dimensions(channels=channels, horizon=horizon))
+    original = original_class(**dimensions(channels=channels, horizon=horizon))
     original.load_state_dict(native.state_dict(), strict=True)
     condition = torch.randn(2, 2, 138)
-    actions, noise = torch.randn(2, horizon, 12), torch.randn(2, horizon, 12)
+    actions, noise = (
+        torch.randn(2, horizon, channels),
+        torch.randn(2, horizon, channels),
+    )
     timesteps = torch.tensor([13, 87])
     noiser = scheduler()
     noisy = noiser.add_noise(actions, noise, timesteps)

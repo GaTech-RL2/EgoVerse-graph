@@ -107,7 +107,7 @@ class OATPolicyStage(Stage):
 
 
 class OATObservationStage(Stage):
-    """Use the same released vision/state encoder for continuous ARC policies."""
+    """Use the released vision/state encoder for raw-action and ARC policies."""
 
     writes = ("condition",)
 
@@ -115,6 +115,11 @@ class OATObservationStage(Stage):
         super().__init__()
         self.encoder = encoder
         self.reads = tuple(obs_keys)
+
+    def bind_data_context(self, *, normalizer):
+        # Raw-action DP has no codec stage to carry checkpoint normalization.
+        self.normalizer_state = normalizer.to_state()
+        self.data_context = normalizer.tokenizer_context()
 
     def forward(self, batch):
         batch["condition"] = self.encoder(

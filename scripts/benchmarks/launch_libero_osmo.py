@@ -222,6 +222,71 @@ def workflow(
     }
 
 
+def baseline_workflow(
+    commit,
+    run_id,
+    suite,
+    *,
+    backbone,
+    mode="full",
+    epochs=5001,
+    gpus=8,
+    gpu_type="L40S",
+    resume_from_run=None,
+):
+    """Release training GPUs before allocating one GPU for all 2500 rollouts."""
+    import copy
+
+    if backbone not in ("unet", "oat_dp") or len(run_id) > 58:
+        raise ValueError("Invalid raw DP backbone or run ID")
+    if mode == "full" and epochs != 5001:
+        raise ValueError("Full DP controls require 5001 epochs")
+    spec = workflow(
+        commit,
+        run_id,
+        suite,
+        mode=mode,
+        epochs=epochs,
+        gpus=gpus,
+        gpu_type=gpu_type,
+        resume_from_run=resume_from_run,
+    )
+    task = spec["workflow"]["tasks"][0]
+    task["name"] = "train"
+    task["environment"].update(
+        RUN_KIND="dp_baseline",
+        DP_BACKBONE=backbone,
+        DP_OUTPUT="{{output}}",
+    )
+    if mode == "full":
+        evaluation = copy.deepcopy(task)
+        evaluation["name"] = "evaluate"
+        evaluation["resource"] = "evaluation"
+        evaluation["inputs"] = [{"task": "train"}]
+        evaluation["environment"].update(
+            RUN_KIND="policy_evaluation",
+            RUN_ID=run_id + "-eval",
+            TRAINING_GPUS="1",
+            EVALUATION_WORKERS="5",
+            RESUME_FROM_RUN="",
+        )
+        entry = evaluation["files"][0]
+        entry["contents"] = entry["contents"].replace(
+            "set +x\n",
+            "set +x\ncp '{{input:0}}/evaluation-request.json' /tmp/evaluation-request.json\n",
+            1,
+        )
+        spec["workflow"]["resources"]["evaluation"] = {
+            "cpu": 15,
+            "gpu": 1,
+            "memory": "64Gi",
+            "storage": "64Gi",
+            "platform": GPU_PLATFORMS[gpu_type],
+        }
+        spec["workflow"]["tasks"].append(evaluation)
+    return spec
+
+
 def arc_oat_workflow(
     commit,
     run_id,
@@ -303,12 +368,45 @@ def main():
     parser.add_argument("--arc-replay-runs-file", type=Path)
     parser.add_argument("--arc-profile")
     parser.add_argument("--arc-backbone", choices=("unet", "oat_dp"), default="unet")
+    parser.add_argument("--dp-backbone", choices=("unet", "oat_dp"))
     parser.add_argument("--oat-reference-run")
     parser.add_argument("--replay-spec", default="libero_arc_replay")
     parser.add_argument("--calibration-parent")
     parser.add_argument("--raw-cache")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.dp_backbone:
+        if any(
+            (
+                args.replay,
+                args.arc_profile,
+                args.arc_modes,
+                args.arc_replay_run,
+                args.arc_replay_runs_file,
+                args.evaluate_from_run,
+                args.campaign_id,
+                args.campaign_runs_file,
+                args.oat_reference_run,
+                args.calibration_parent,
+                args.raw_cache,
+                args.arc_backbone != "unet",
+            )
+        ):
+            parser.error("Raw DP controls cannot use ARC/OAT campaign options")
+        spec = baseline_workflow(
+            args.commit,
+            args.run_id,
+            args.suite,
+            backbone=args.dp_backbone,
+            mode=args.mode,
+            epochs=args.epochs,
+            gpus=args.gpus,
+            gpu_type=args.gpu_type,
+            resume_from_run=args.resume_from_run,
+        )
+        with args.output.open("x") as handle:
+            yaml.safe_dump(spec, handle, sort_keys=False)
+        return
     with args.output.open("x") as handle:
         yaml.safe_dump(
             workflow(

@@ -1,0 +1,21 @@
+# @package _global_
+# Run 4 of 4 -- ARC hybrid, `joint_distance` chunking.
+#
+# Joint distance: one shared translation clock sums both arms' travel toward D,
+# i.e. cumulative_bimanual_translation_length. This is the repo-wide default and
+# what the retained hybrid checkpoints were trained under.
+defaults:
+  - /experiment/abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_base
+  - _self_
+name: stationery_rl2_organize_hpt300_arc_joint_distance_openloop
+description: HPT300M RL2 organize_stationary 2026-09-24 ARC hybrid joint_distance chunking
+
+abc:
+  arc_chunking_mode: joint_distance
+
+
+logger:
+  wandb:
+    tags: [hpt300m, rl2, organize_stationary, upload_20260924, visual_only,
+           no_language, arc, hybrid, per_waypoint, joint_distance, open_loop,
+           video, lambda, h100]

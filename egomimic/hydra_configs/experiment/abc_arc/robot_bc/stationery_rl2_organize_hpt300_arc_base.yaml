@@ -1,0 +1,66 @@
+# @package _global_
+# Shared ARC surface for runs 2-4. Not launchable on its own: it leaves
+# abc.arc_chunking_mode unset so a variant must choose one, and D is `???`.
+#
+# Everything that must be identical across the three ARC runs lives here, so the
+# only difference between them is the chunking mode. Data, D, R, M, velocity
+# mode, execute_fraction and batch size are therefore structurally impossible to
+# drift apart.
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_visual_hpt300_base
+  - override /data: abc_arc/stationery_rl2_organize_arc_hybrid
+  - _self_
+
+abc:
+  # Retained for provenance. The data config filters explicitly rather than
+  # interpolating this, so it documents the slice instead of silently missing.
+  task_predicate: "row['lab'] == 'rl2' and row['task'] == 'organize_stationary'"
+
+  # Exact token the branch's own hybrid experiment uses. `hybrid` alone is not
+  # a valid action_mode.
+  action_mode: hybrid_arc_tokenizer_cartesian
+
+  # Mandatory. Measured by measure_baseline_chunk_distance.py as the MEDIAN
+  # cumulative left+right EEF translation over a 100-frame baseline chunk, then
+  # pinned identically into all three variants. Median, not mean: the
+  # distribution is right-skewed, so the mean would set a budget above what a
+  # typical chunk covers. Left unset so no run can silently inherit the legacy
+  # hardcoded 0.40 m.
+  arc_distance: ???
+
+  # 24 degrees. Independent of the translation clock in every chunking mode.
+  arc_rotation_distance: 0.4188790204786391
+
+  arc_waypoints: 100
+  # Required by docs/ARC_CHUNKING_MODES.md: any explicitly supplied chunking
+  # mode demands per_waypoint velocity and a positive finite R.
+  arc_velocity_mode: per_waypoint
+  # per_waypoint emits 2 rows per waypoint (pose + velocity).
+  arc_token_rows: 200
+
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+
+norm_stats:
+  sample_frac: 0.20
+  # Left null on purpose. The episode slice and D are both new, and race and
+  # multistream reject caches with no action contract, so each run computes its
+  # own statistics into its own output dir (norm_stats.save_cache_dir default).
+  precomputed_norm_path: null
+
+# 2 H100s per run, four runs sharing one exclusive 8-GPU loaner node.
+launch_params: {gpus_per_node: 2, nodes: 1}
+trainer:
+  accumulate_grad_batches: 1
+
+evaluator:
+  action_mode: arc
+  # Scoring compares detokenized predictions against the raw cartesian stream,
+  # not against the tokenized target.
+  ground_truth_action_key: actions_cartesian_untokenized
+  limit_val_episodes: 5
+  # Open-loop episode walk: executes the first 30% of each chunk, scores DTW and
+  # MSE, and writes one full-episode MP4 per validation episode to val_videos/.
+  # 100 waypoints x 0.30 is integral, which orchestration.validate_launch checks.
+  execute_fraction: 0.30
+  distance_dtw_enabled: true

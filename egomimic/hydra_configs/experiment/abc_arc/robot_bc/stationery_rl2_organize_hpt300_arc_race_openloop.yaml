@@ -1,0 +1,21 @@
+# @package _global_
+# Run 2 of 4 -- ARC hybrid, `race` chunking.
+#
+# Race: the chunk ends when the FIRST arm has travelled D. Both arms are then
+# interpolated by their own translation distance through that shared end time,
+# so the faster arm defines the horizon and the slower one covers less than D.
+defaults:
+  - /experiment/abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_base
+  - _self_
+name: stationery_rl2_organize_hpt300_arc_race_openloop
+description: HPT300M RL2 organize_stationary 2026-09-24 ARC hybrid race chunking
+
+abc:
+  arc_chunking_mode: race
+
+
+logger:
+  wandb:
+    tags: [hpt300m, rl2, organize_stationary, upload_20260924, visual_only,
+           no_language, arc, hybrid, per_waypoint, race, open_loop, video,
+           lambda, h100]

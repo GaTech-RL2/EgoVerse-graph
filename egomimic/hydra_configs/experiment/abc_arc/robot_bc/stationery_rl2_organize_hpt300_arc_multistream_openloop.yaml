@@ -1,0 +1,23 @@
+# @package _global_
+# Run 3 of 4 -- ARC hybrid, `multistream` chunking.
+#
+# Multistream: each arm runs its own translation clock and targets D
+# independently, resampling its available path to M waypoints. An arm whose
+# remaining path is shorter than D travels what it has and then holds its last
+# absolute pose. This is the per-arm variant referred to as the multi-stream
+# method.
+defaults:
+  - /experiment/abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_base
+  - _self_
+name: stationery_rl2_organize_hpt300_arc_multistream_openloop
+description: HPT300M RL2 organize_stationary 2026-09-24 ARC hybrid multistream chunking
+
+abc:
+  arc_chunking_mode: multistream
+
+
+logger:
+  wandb:
+    tags: [hpt300m, rl2, organize_stationary, upload_20260924, visual_only,
+           no_language, arc, hybrid, per_waypoint, multistream, open_loop,
+           video, lambda, h100]

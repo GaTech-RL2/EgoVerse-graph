@@ -1,0 +1,72 @@
+# RL2-only YAM bimanual `organize_stationary`, time-indexed cartesian baseline.
+#
+# This is the 2026-09-24 upload, NOT the `organize_stationary_updated` set that
+# stationery_rl2_hpt_baseline.yaml selects. SQL truth at 2026-09-25:
+#   organize_stationary          230 episodes (30 on 09-20, 200 on 09-24), 229 zarr-processed
+#   organize_stationary_updated  199 episodes (all 09-17),                 198 zarr-processed
+# No ABC-lab episodes are unioned in here: the requested slice is lab == 'rl2'
+# only, so every train and validation frame comes from the same distribution.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  yam_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian]
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR}
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+        annotation_key: null
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - >-
+          lambda row: row['embodiment'] == 'yam_bimanual' and
+          row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and
+          row['zarr_processed_path'] != '' and row['is_deleted'] == False
+    mode: train
+    valid_ratio: 0.2
+    bounds_check: false
+
+valid_datasets:
+  yam_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian]
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR}
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+        annotation_key: null
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - >-
+          lambda row: row['embodiment'] == 'yam_bimanual' and
+          row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and
+          row['zarr_processed_path'] != '' and row['is_deleted'] == False
+    mode: valid
+    valid_ratio: 0.2
+    bounds_check: false
+
+# One 2-GPU DDP run: 64 per rank x 2 ranks x accumulate 1 = effective global 128,
+# which is config/policy.yaml's launch_defaults.training.effective_global_batch_size.
+train_dataloader_params:
+  yam_bimanual: {batch_size: 64, num_workers: 6}
+valid_dataloader_params:
+  yam_bimanual: {batch_size: 64, num_workers: 6}

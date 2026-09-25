@@ -1,0 +1,31 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE gpu-h200 launcher. Explicitly named counterpart to submitit_pace_h100;
+# submitit_pace.yaml already targets H200 but its name does not say so, which
+# makes launch commands hard to audit after the fact. Account, QoS, timeout,
+# requeue and the launch_params wiring are identical to submitit_pace_h100.
+#
+# Two values are deliberately NOT copied from the H100 profile:
+#   cpus_per_task  gpu-h200 nodes are 64 CPU / 8 GPU, so 8 per task is the
+#                  ceiling. The H100 profile's 4 would leave the configured
+#                  num_workers: 6 dataloaders oversubscribed.
+#   mem_per_gpu    H200 has 141 GB VRAM against H100's 80 GB, and the nodes
+#                  carry ~2 TB host RAM; 160G would strand host memory.
+#
+# Gres count is hardcoded because this repo does not register an eval
+# OmegaConf resolver for the ${eval:...} arithmetic submitit_pace uses.
+name: ${hydra.job.name}
+partition: "gpu-h200"
+account: "gts-dxu345-rl2"
+cpus_per_task: 8
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:h200:2"
+qos: "inferno"
+mem_per_gpu: 250G
+timeout_min: 2880
+additional_parameters:
+  requeue: true

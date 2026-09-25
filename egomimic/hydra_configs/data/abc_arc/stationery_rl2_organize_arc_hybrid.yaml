@@ -1,0 +1,90 @@
+# RL2-only YAM bimanual `organize_stationary`, hybrid ARC tokenization.
+#
+# Same episode slice as stationery_rl2_organize_baseline.yaml so the baseline and
+# every ARC variant are trained and validated on identical data. One file serves
+# all three chunking modes; `abc.arc_chunking_mode` selects race, multistream, or
+# joint_distance, matching how canonical/arc-chunking-modes parameterizes
+# stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg.yaml.
+#
+# Every ARC knob reads the `abc.*` namespace, which is the same surface
+# evaluator/eval_open_loop_sim.yaml selects on, so D / R / M / velocity_mode /
+# chunking mode are set once at experiment level and cannot drift between the
+# tokenizer and the evaluator.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  yam_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian]
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR}
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: ${abc.action_mode}
+        annotation_key: null
+        min_distance_unit: ${abc.arc_distance}
+        rotation_distance_unit: ${abc.arc_rotation_distance}
+        arc_chunking_mode: ${abc.arc_chunking_mode}
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: ${abc.action_mode}
+        coord_frame: eef_frame
+        rotation_mode: euler
+        min_distance_unit: ${abc.arc_distance}
+        rotation_distance_unit: ${abc.arc_rotation_distance}
+        resampled_vector_length: ${abc.arc_waypoints}
+        velocity_mode: ${abc.arc_velocity_mode}
+        arc_chunking_mode: ${abc.arc_chunking_mode}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - >-
+          lambda row: row['embodiment'] == 'yam_bimanual' and
+          row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and
+          row['zarr_processed_path'] != '' and row['is_deleted'] == False
+    mode: train
+    valid_ratio: 0.2
+    bounds_check: false
+
+valid_datasets:
+  yam_bimanual:
+    batch_keys: [observations.state.ee_pose, actions_cartesian]
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR}
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: ${abc.action_mode}
+        annotation_key: null
+        min_distance_unit: ${abc.arc_distance}
+        rotation_distance_unit: ${abc.arc_rotation_distance}
+        arc_chunking_mode: ${abc.arc_chunking_mode}
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: ${abc.action_mode}
+        coord_frame: eef_frame
+        rotation_mode: euler
+        min_distance_unit: ${abc.arc_distance}
+        rotation_distance_unit: ${abc.arc_rotation_distance}
+        resampled_vector_length: ${abc.arc_waypoints}
+        velocity_mode: ${abc.arc_velocity_mode}
+        arc_chunking_mode: ${abc.arc_chunking_mode}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - >-
+          lambda row: row['embodiment'] == 'yam_bimanual' and
+          row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and
+          row['zarr_processed_path'] != '' and row['is_deleted'] == False
+    mode: valid
+    valid_ratio: 0.2
+    bounds_check: false
+
+train_dataloader_params:
+  yam_bimanual: {batch_size: 64, num_workers: 6}
+valid_dataloader_params:
+  yam_bimanual: {batch_size: 64, num_workers: 6}

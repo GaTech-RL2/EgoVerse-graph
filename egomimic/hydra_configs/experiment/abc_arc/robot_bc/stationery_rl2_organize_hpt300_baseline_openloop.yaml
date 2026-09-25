@@ -1,0 +1,34 @@
+# @package _global_
+# Run 1 of 4 -- time-indexed cartesian baseline on the 2026-09-24 RL2
+# `organize_stationary` upload. This run is also the reference that defines D:
+# the mean cumulative left+right EEF translation of one 100-frame baseline
+# action chunk, which every ARC variant in this group then uses as its
+# min_distance_unit.
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_visual_hpt300_base
+  - override /data: abc_arc/stationery_rl2_organize_baseline
+  - _self_
+name: stationery_rl2_organize_hpt300_baseline_openloop
+description: HPT300M RL2 organize_stationary 2026-09-24 visual-only baseline
+
+abc:
+  # Retained for provenance. The data config filters explicitly rather than
+  # interpolating this, so it documents the slice instead of silently missing.
+  task_predicate: "row['lab'] == 'rl2' and row['task'] == 'organize_stationary'"
+
+# 2 H100s per run, four runs sharing one exclusive 8-GPU loaner node.
+launch_params: {gpus_per_node: 2, nodes: 1}
+trainer:
+  accumulate_grad_batches: 1
+
+evaluator:
+  limit_val_episodes: 5
+  # Open-loop episode walk: executes the first 30% of each chunk, scores DTW and
+  # MSE, and writes one full-episode MP4 per validation episode to val_videos/.
+  execute_fraction: 0.30
+  distance_dtw_enabled: true
+
+logger:
+  wandb:
+    tags: [hpt300m, rl2, organize_stationary, upload_20260924, visual_only,
+           no_language, baseline, open_loop, video, lambda, h100]

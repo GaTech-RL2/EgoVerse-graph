@@ -257,6 +257,51 @@ def _bracket_segments(
     return i, alpha
 
 
+def _first_crossing_brackets(
+    cumdist: np.ndarray, targets: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorized first-crossing bracket, mirroring the per-arm scalar rule.
+
+    Unlike :func:`_bracket_segments` this never clamps a target at or past the
+    end to the last segment's ``alpha = 1``: a trailing hold consumes no
+    translation, so the first frame reaching the distance is the answer.
+    ``TokenizeBimanualArcLengthCartesian._translation_bracket`` is the scalar
+    statement of the same rule, and the two must agree exactly.
+    """
+    cumdist = np.asarray(cumdist, dtype=np.float64)
+    targets = np.asarray(targets, dtype=np.float64)
+    n = len(cumdist)
+    capped = np.minimum(targets, cumdist[-1])
+    upper = np.clip(np.searchsorted(cumdist, capped, side="left"), 1, n - 1)
+    interval = cumdist[upper] - cumdist[upper - 1]
+    ok = interval > 1e-12
+    # The numerator keeps the uncapped target, exactly as the scalar path does;
+    # the clip below is what bounds an overshooting target.
+    alpha = np.where(
+        ok, (targets - cumdist[upper - 1]) / np.where(ok, interval, 1.0), 0.0
+    )
+    alpha = np.clip(alpha, 0.0, 1.0)
+    lo = targets <= cumdist[0]
+    return np.where(lo, 0, upper - 1), np.where(lo, 0.0, alpha)
+
+
+def _source_times_at_targets(
+    cumdist: np.ndarray, targets: np.ndarray, dt: float
+) -> np.ndarray:
+    """Map arc targets to fractional source times with scalar-identical math."""
+    indices, alpha = _bracket_segments(cumdist, targets)
+    return (indices + alpha) * dt
+
+
+def _linear_at_targets(
+    values: np.ndarray, cumdist: np.ndarray, targets: np.ndarray
+) -> np.ndarray:
+    """Interpolate all targets while preserving the scalar operation order."""
+    indices, alpha = _bracket_segments(cumdist, targets)
+    blend = alpha[:, None]
+    return (1.0 - blend) * values[indices] + blend * values[indices + 1]
+
+
 def _slerp_segments_ypr(
     ypr: np.ndarray, i: np.ndarray, alpha: np.ndarray
 ) -> np.ndarray:
@@ -1103,7 +1148,9 @@ def resolve_arc_chunking_mode(mode=None, rotation_distance_unit=None) -> str:
         return "joint_distance" if rotation_distance_unit is not None else "multistream"
     value = str(mode).strip().lower()
     if value not in ARC_CHUNKING_MODES:
-        raise ValueError(f"arc_chunking_mode must be one of {ARC_CHUNKING_MODES}, got {mode!r}")
+        raise ValueError(
+            f"arc_chunking_mode must be one of {ARC_CHUNKING_MODES}, got {mode!r}"
+        )
     return value
 
 
@@ -1267,6 +1314,28 @@ class TokenizeBimanualArcLengthCartesian:
                         axis=0,
                     )
             batch[self.preserve_action_key] = preserved
+        if (
+            self.rotation_distance_unit is not None
+            and self.velocity_mode == "per_waypoint"
+        ):
+            # The hybrid path replaces every waypoint and recomputes every
+            # velocity row, so tokenize()'s output below would be discarded
+            # wholesale. Skipping it is the single largest saving here. The
+            # guard is narrower than the hybrid branch further down because the
+            # "duration" and "mean" velocity modes still consume that token.
+            waypoints = self._hybrid_waypoints(raw)
+            velocity_rows = self._hybrid_per_waypoint_velocity(raw, waypoints)
+            out = np.concatenate([waypoints, velocity_rows], axis=0)
+            expected_rows = bimanual_arc_token_rows(self.M, self.velocity_mode)
+            if out.shape != (expected_rows, ARC_TOK_BIMANUAL_DIM):
+                raise AssertionError(
+                    f"{type(self).__name__} produced {out.shape}, expected "
+                    f"{(expected_rows, ARC_TOK_BIMANUAL_DIM)} for velocity_mode="
+                    f"{self.velocity_mode!r}"
+                )
+            batch[self.output_action_key] = out
+            return batch
+
         arc = self.tokenizer.tokenize(raw)
         # Per-arm block emitted by BimanualArcLengthTokenizer (MEAN_PER_DIM):
         #   [xyz(3), ypr(3), grip(1), vel_xyz(3)] = 10 dims.
@@ -1358,13 +1427,39 @@ class TokenizeBimanualArcLengthCartesian:
         batch[self.output_action_key] = out
         return batch
 
+    def _translation_brackets(self, cumulative, targets):
+        """Vectorized :meth:`_translation_bracket` over many targets.
+
+        Each branch routes to the vectorization of its own scalar rule, because
+        the two rules differ at the end of the source: ``joint_distance`` shares
+        ``_bracket_segment``'s clamping, the per-arm modes use first crossing.
+        """
+        if self.arc_chunking_mode == "joint_distance":
+            return _bracket_segments(cumulative, targets)
+        return _first_crossing_brackets(cumulative, targets)
+
+    def _translation_values_at_targets(self, values, cumulative, targets):
+        """Vectorized :meth:`_translation_values_at_s` over many targets."""
+        if self.arc_chunking_mode == "joint_distance":
+            return _linear_at_targets(values, cumulative, targets)
+        index, alpha = _first_crossing_brackets(cumulative, targets)
+        blend = alpha[:, None]
+        return (1.0 - blend) * values[index] + blend * values[index + 1]
+
+    def _translation_source_times(self, cumulative, targets, dt):
+        """Fractional source times for many targets, mode-aware."""
+        index, alpha = self._translation_brackets(cumulative, targets)
+        return (index + alpha) * dt
+
     def _translation_bracket(self, cumulative, target):
         """Use the first translation crossing; trailing holds consume no travel."""
         if self.arc_chunking_mode == "joint_distance":
             return _bracket_segment(cumulative, target)
         if target <= cumulative[0]:
             return 0, 0.0
-        upper = int(np.searchsorted(cumulative, min(target, cumulative[-1]), side="left"))
+        upper = int(
+            np.searchsorted(cumulative, min(target, cumulative[-1]), side="left")
+        )
         upper = max(1, min(upper, len(cumulative) - 1))
         interval = cumulative[upper] - cumulative[upper - 1]
         alpha = (target - cumulative[upper - 1]) / interval if interval > 1e-12 else 0.0
@@ -1387,7 +1482,9 @@ class TokenizeBimanualArcLengthCartesian:
             cumulative = cumulative_bimanual_translation_length(raw)
             targets = np.linspace(0.0, min(distance, float(cumulative[-1])), self.M)
             return [(cumulative, targets), (cumulative, targets)]
-        cumulative = [cumulative_arc_length(raw[:, offset:offset + 3]) for offset in (0, 7)]
+        cumulative = [
+            cumulative_arc_length(raw[:, offset : offset + 3]) for offset in (0, 7)
+        ]
         ends = [min(distance, float(values[-1])) for values in cumulative]
         if self.arc_chunking_mode == "race":
             crossings = []
@@ -1397,48 +1494,41 @@ class TokenizeBimanualArcLengthCartesian:
                     crossings.append(frame + alpha)
             race_frame = min(crossings, default=float(len(raw) - 1))
             frames = np.arange(len(raw), dtype=np.float64)
-            ends = [float(np.interp(race_frame, frames, values)) for values in cumulative]
-        return [(values, np.linspace(0.0, end, self.M)) for values, end in zip(cumulative, ends)]
+            ends = [
+                float(np.interp(race_frame, frames, values)) for values in cumulative
+            ]
+        return [
+            (values, np.linspace(0.0, end, self.M))
+            for values, end in zip(cumulative, ends)
+        ]
 
     def _hybrid_waypoints(self, raw: np.ndarray) -> np.ndarray:
         """Resample translation streams with the unchanged independent R clock."""
         rotation_cumulative = cumulative_bimanual_rotation_length(raw)
         rotation_end = min(self.rotation_distance_unit, float(rotation_cumulative[-1]))
         rotation_targets = np.linspace(0.0, rotation_end, self.M)
+        rotation_indices, rotation_alpha = _bracket_segments(
+            rotation_cumulative, rotation_targets
+        )
 
         arms = []
         for offset, (translation_cumulative, translation_targets) in zip(
             (0, 7), self._translation_source_coordinates(raw)
         ):
-            xyz = np.stack(
-                [
-                    self._translation_values_at_s(
-                        raw[:, offset : offset + 3],
-                        translation_cumulative,
-                        float(target),
-                    )
-                    for target in translation_targets
-                ]
+            xyz = self._translation_values_at_targets(
+                raw[:, offset : offset + 3],
+                translation_cumulative,
+                translation_targets,
             )
-            ypr = np.stack(
-                [
-                    _interp_ypr_at_s(
-                        raw[:, offset + 3 : offset + 6],
-                        rotation_cumulative,
-                        float(target),
-                    )
-                    for target in rotation_targets
-                ]
+            ypr = _slerp_segments_ypr(
+                raw[:, offset + 3 : offset + 6],
+                rotation_indices,
+                rotation_alpha,
             )
-            grip = np.stack(
-                [
-                    self._translation_values_at_s(
-                        raw[:, offset + 6 : offset + 7],
-                        translation_cumulative,
-                        float(target),
-                    )
-                    for target in translation_targets
-                ]
+            grip = self._translation_values_at_targets(
+                raw[:, offset + 6 : offset + 7],
+                translation_cumulative,
+                translation_targets,
             )
             arms.append(np.concatenate([xyz, ypr, grip], axis=-1))
         return np.concatenate(arms, axis=-1)
@@ -1453,10 +1543,9 @@ class TokenizeBimanualArcLengthCartesian:
         rotation_cumulative = cumulative_bimanual_rotation_length(raw)
         rotation_end = min(self.rotation_distance_unit, float(rotation_cumulative[-1]))
         rotation_targets = np.linspace(0.0, rotation_end, self.M)
-        rotation_times = np.empty(self.M, dtype=np.float64)
-        for index, angle in enumerate(rotation_targets):
-            frame, alpha = _bracket_segment(rotation_cumulative, float(angle))
-            rotation_times[index] = (frame + alpha) * dt
+        rotation_times = _source_times_at_targets(
+            rotation_cumulative, rotation_targets, dt
+        )
         rotation_dt = np.diff(rotation_times)
         rotation_safe = np.where(
             rotation_dt > self.zero_dist_epsilon,
@@ -1467,13 +1556,14 @@ class TokenizeBimanualArcLengthCartesian:
         for offset, (translation_cumulative, translation_targets) in zip(
             (0, 7), self._translation_source_coordinates(raw)
         ):
-            translation_times = np.empty(self.M, dtype=np.float64)
-            for index, distance in enumerate(translation_targets):
-                frame, alpha = self._translation_bracket(translation_cumulative, float(distance))
-                translation_times[index] = (frame + alpha) * dt
+            translation_times = self._translation_source_times(
+                translation_cumulative, translation_targets, dt
+            )
             translation_dt = np.diff(translation_times)
             translation_safe = np.where(
-                translation_dt > self.zero_dist_epsilon, translation_dt, np.inf,
+                translation_dt > self.zero_dist_epsilon,
+                translation_dt,
+                np.inf,
             )
             for block_offset, width in ((offset, 3), (offset + 6, 1)):
                 block = waypoints[:, block_offset : block_offset + width]
@@ -1519,10 +1609,7 @@ class TokenizeBimanualArcLengthCartesian:
             # source arc, shifting every timestamp after the first bend.
             end_s = min(self.tokenizer.config.min_distance_unit, float(source_cum[-1]))
             source_targets = np.linspace(0.0, end_s, len(xyz_wp))
-            times = np.empty(len(source_targets), dtype=np.float64)
-            for index, arc_position in enumerate(source_targets):
-                frame, alpha = _bracket_segment(source_cum, float(arc_position))
-                times[index] = (frame + alpha) * dt
+            times = _source_times_at_targets(source_cum, source_targets, dt)
             delta_t = np.diff(times)
             safe = np.where(delta_t > self.zero_dist_epsilon, delta_t, np.inf)
             for offset, width in ((xyz_off, 3), (ypr_off, 3), (grip_off, 1)):
@@ -1558,22 +1645,24 @@ class TokenizeBimanualArcLengthCartesian:
             # durations must be measured at the original source timestamps.
             end_s = min(self.tokenizer.config.min_distance_unit, float(source_cum[-1]))
             source_targets = np.linspace(0.0, end_s, len(xyz_wp))
-            times = np.empty(len(source_targets), dtype=np.float64)
-            for index, arc_position in enumerate(source_targets):
-                frame, alpha = _bracket_segment(source_cum, float(arc_position))
-                times[index] = (frame + alpha) * dt
+            times = _source_times_at_targets(source_cum, source_targets, dt)
             delta_t = np.diff(times)
             rows[:-1, xyz_off] = delta_t
             rows[-1, xyz_off] = delta_t[-1]
         return rows
 
     def _translation_arm_durations(
-        self, waypoints: np.ndarray, velocity_rows: np.ndarray,
-        offset: int, action_horizon: int,
+        self,
+        waypoints: np.ndarray,
+        velocity_rows: np.ndarray,
+        offset: int,
+        action_horizon: int,
     ) -> np.ndarray:
         """Recover one arm's clock, including holds and unreachable intervals."""
-        steps = np.linalg.norm(np.diff(waypoints[:, offset:offset + 3], axis=0), axis=-1)
-        rates = np.linalg.norm(velocity_rows[:-1, offset:offset + 3], axis=-1)
+        steps = np.linalg.norm(
+            np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
+        )
+        rates = np.linalg.norm(velocity_rows[:-1, offset : offset + 3], axis=-1)
         moving, usable = steps > 1e-12, rates > 1e-8
         duration = np.zeros_like(steps)
         np.divide(steps, rates, out=duration, where=moving & usable)

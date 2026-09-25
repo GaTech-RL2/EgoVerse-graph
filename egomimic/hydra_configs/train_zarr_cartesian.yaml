@@ -19,6 +19,20 @@ mode: train
 eval_logger_enabled: false
 norm_stats_only: false
 
+# Every training run emits a checkpoint-bound model inference contract. Robot
+# calibration, camera mapping, prompts, and safety limits remain station-owned.
+# Unsupported/non-Cartesian models still emit a fail-closed artifact explaining
+# why the generic YAM graph rollout cannot load them.
+inference_config:
+  enabled: true
+  output_path: ${paths.output_dir}/checkpoints/inference-config.yaml
+  flow_inference_steps: 10
+  diffusion_inference_steps: null
+  max_flow_inference_steps: 100
+  replan_every: 30
+  # Required only when an ARC recipe has no evaluator.dt.
+  action_dt: null
+
 hydra:
   run:
     # Dir should be experiment_name/description_{timestamp}

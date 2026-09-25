@@ -986,6 +986,7 @@ class MultiDataset(torch.utils.data.Dataset):
     bounds_semantics: str = "rotation_aware"
     fallback_policy: str = "legacy_random"
     fallback_seed: int = SEED
+    compatibility_mode: str = "current"
 
     def __init__(
         self,
@@ -1006,6 +1007,7 @@ class MultiDataset(torch.utils.data.Dataset):
         bounds_semantics: str = "rotation_aware",
         fallback_policy: str = "legacy_random",
         fallback_seed: int = SEED,
+        compatibility_mode: str = "current",
         **kwargs,
     ):
         """
@@ -1018,6 +1020,15 @@ class MultiDataset(torch.utils.data.Dataset):
             state: If provided, populate stats fields from this dict (deploy mode).
         """
         super().__init__()
+        from egomimic.utils.runtime_compatibility import validate_compatibility_mode
+
+        self.compatibility_mode = validate_compatibility_mode(compatibility_mode)
+        if self.compatibility_mode == "legacy_c12":
+            # Reproduce the historical implementation, including its ignored
+            # bounds_check flag. Do not silently change modern default behavior.
+            bounds_check = True
+            bounds_semantics = "legacy_full_vector"
+            fallback_policy = "legacy_random"
 
         # ---- Stats fields (always present, may be empty) ----
         self.norm_mode = norm_mode
@@ -1305,6 +1316,18 @@ class MultiDataset(torch.utils.data.Dataset):
         reason: str,
         origin_idx: int | None = None,
     ) -> tuple[int, int]:
+        if self.compatibility_mode == "legacy_c12":
+            candidates = self._global_indices_by_dataset[dataset_name]
+            next_idx, attempts = get_fallback_idx(
+                idx=idx, candidates=candidates, _attempts=attempts,
+                max_attempts=len(candidates),
+                exhausted_error=f"Entire dataset bad (no valid indices): dataset={dataset_name}",
+            )
+            next_name, next_local = self.index_map[next_idx]
+            logger.warning(
+                f"{reason} | attempt {attempts}, trying {next_name}[{next_local}]"
+            )
+            return next_idx, attempts
         attempts = (attempts or 0) + 1
         if attempts >= self.MAX_FALLBACK_ATTEMPTS:
             raise RuntimeError(
@@ -1590,7 +1613,13 @@ class MultiDataset(torch.utils.data.Dataset):
                     # float32: stats are consumed as float32 anyway, and the
                     # float64 poses double the stacked-sample footprint (an
                     # (N, 100, 18) action stack at large N is tens of GB).
-                    collected[k].append(np.asarray(x, dtype=np.float32))
+                    # Historical statistics must be computed before rounding
+                    # float64 poses, just as in c12. Keep the memory-saving
+                    # current path unchanged for other experiments.
+                    collected[k].append(
+                        x if self.compatibility_mode == "legacy_c12"
+                        else np.asarray(x, dtype=np.float32)
+                    )
                 cur += take
                 pbar.update(take)
         return collected

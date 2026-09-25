@@ -170,7 +170,9 @@ def test_pipeline_algo_is_not_specific_to_control_batches():
 
 def test_pipeline_algo_constructor_and_source_are_route_agnostic():
     parameters = inspect.signature(PipelineAlgo).parameters
-    assert tuple(parameters) == ("stages", "device")
+    # Generic execution compatibility is allowed; model/domain routing is not.
+    assert tuple(parameters) == ("stages", "device", "compatibility_mode")
+    assert parameters["compatibility_mode"].default == "current"
     with pytest.raises(TypeError):
         PipelineAlgo(stages=[], domains=["anything"])
 

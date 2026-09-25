@@ -23,6 +23,7 @@ from egomimic.pl_utils.training_metrics import (
     reduce_component_means,
 )
 from egomimic.utils.tensor_tree import clone_inference_tensors, cuda_devices
+from egomimic.utils.runtime_compatibility import validate_compatibility_mode
 
 
 class ActionFlowTrainingBehavior(TrainingBehavior):
@@ -55,8 +56,10 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         gradient_telemetry_cadence: int | None = None,
         reconstruction_only_warmup_steps: int | None = None,
         flow_mini_batch: int | None = None,
+        compatibility_mode: str = "current",
     ) -> None:
         super().__init__()
+        self.compatibility_mode = validate_compatibility_mode(compatibility_mode)
         self._requested_gradient_telemetry_cadence = gradient_telemetry_cadence
         self._requested_reconstruction_only_warmup_steps = (
             reconstruction_only_warmup_steps
@@ -329,7 +332,8 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         count: int,
     ) -> None:
         reduced, global_count = reduce_component_means(
-            components, count, label="Action Flow"
+            components, count, label="Action Flow",
+            preserve_input_dtype=self.compatibility_mode == "legacy_c12",
         )
         for name, value in reduced.items():
             self.context.log(

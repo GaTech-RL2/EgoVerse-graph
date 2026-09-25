@@ -126,6 +126,18 @@ AF_COTRAIN=false
 AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_usocket_refactored_c12_compat_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_refactored_c12_compat_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=30000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=5000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    ;;
   pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1

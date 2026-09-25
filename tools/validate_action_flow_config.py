@@ -104,7 +104,9 @@ GRAPH_METHOD = "graph_section_diagnostic"
 STOPGRAD_METHOD = "latent_fm_stopgrad"
 STOPGRAD_UNITE_METHOD = "latent_fm_stopgrad_unite"
 STOPGRAD_UNITE_CONFIG_NAME = "action_flow_usocket_latent_fm_sg_unite_h384_s42"
+HISTORICAL_COMPAT_CONFIG_NAME = "action_flow_usocket_refactored_c12_compat_s42"
 STOPGRAD_UNITE_PARITY_CONFIG_NAMES = {
+    HISTORICAL_COMPAT_CONFIG_NAME,
     "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
     "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_deterministic_s42",
 }
@@ -116,6 +118,7 @@ SCALED_ADAMW_CONFIG_NAME = (
 )
 SCALED_200M_CONFIG_NAMES = {SCALED_MUON_CONFIG_NAME, SCALED_ADAMW_CONFIG_NAME}
 CANDIDATE_METHODS = {
+    "pusht/" + HISTORICAL_COMPAT_CONFIG_NAME: STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
@@ -239,6 +242,15 @@ def method_wrapper_target(method: str) -> str:
 def validate_method_contract(config: DictConfig, experiment: str | None = None) -> str:
     """Small shared scientific gate used by CPU preflight and the real launcher."""
     method = action_flow_method(config, experiment)
+    if str(config.name) == HISTORICAL_COMPAT_CONFIG_NAME:
+        for key in (
+            "data.compatibility_mode", "normalizer.compatibility_mode",
+            "data.train_datasets.pushshapes_sim_u_socket.compatibility_mode",
+            "data.valid_datasets.pushshapes_sim_u_socket.compatibility_mode",
+            "model.pipeline.compatibility_mode", "model.training_behavior.compatibility_mode",
+        ):
+            _exact(OmegaConf.select(config, key), "legacy_c12", key)
+        _exact(config.val_at_start, False, "no initial validation")
     _exact(str(config.model._target_), method_wrapper_target(method), "model wrapper")
     stages = config.model.pipeline.stages
     _exact(
@@ -1039,7 +1051,10 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         _float(scheduler.base_lr_2, 5.0e-5, "scheduler base LR 2")
         _float(scheduler.final_lr, 5.0e-5, "scheduler final LR")
         trainer = config.trainer
-        _exact(int(trainer.max_steps), 150_000, "trainer maximum steps")
+        historical_compat = str(config.name) == HISTORICAL_COMPAT_CONFIG_NAME
+        maximum_steps = 30_000 if historical_compat else 150_000
+        checkpoint_every = 5_000 if historical_compat else 30_000
+        _exact(int(trainer.max_steps), maximum_steps, "trainer maximum steps")
         validation_every = (
             10_000
             if str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
@@ -1049,16 +1064,16 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         _require(str(trainer.precision) in {"bf16", "bf16-mixed"}, "BF16 precision")
         _float(trainer.gradient_clip_val, 3.0, "gradient clip")
         checkpoint = config.callbacks.model_checkpoint
-        _exact(int(checkpoint.every_n_train_steps), 30_000, "checkpoint cadence")
+        _exact(int(checkpoint.every_n_train_steps), checkpoint_every, "checkpoint cadence")
         _exact(int(checkpoint.save_top_k), -1, "checkpoint retention")
         _exact(str(config.norm_stats.norm_mode), "minmax", "normalization mode")
         _exact(bool(config.norm_stats.reduce_all_but_last), True, "normalization reduction")
         _float(config.callbacks.ema.decay, 0.9978, "EMA decay")
         _exact(bool(config.callbacks.ema.validate_with_ema), True, "EMA validation")
         return {
-            "checkpoint_every_steps": 30_000,
+            "checkpoint_every_steps": checkpoint_every,
             "gradient_clip_norm": 3.0,
-            "max_steps": 150_000,
+            "max_steps": maximum_steps,
             "optimizer": {"target": str(optimizer._target_), "lr": 1.0e-4},
             "precision": str(trainer.precision),
             "scheduler": {"target": str(scheduler._target_)},

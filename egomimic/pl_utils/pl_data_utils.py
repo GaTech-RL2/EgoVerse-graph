@@ -7,6 +7,7 @@ from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from torch.utils.data import DataLoader, default_collate
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.utils.runtime_compatibility import validate_compatibility_mode
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
         seed: int = 42,
+        compatibility_mode: str = "current",
     ):
         """
         Args:
@@ -124,6 +126,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         list-valued fields for whichever configured stage consumes them.
         """
         super().__init__()
+        self.compatibility_mode = validate_compatibility_mode(compatibility_mode)
         # Drop `None` slots so downstream iteration sites don't need null guards.
         # `None` entries arise when an inheriting data config opts out of a
         # dataset defined in a base (e.g. `aria_bimanual: null`).
@@ -154,7 +157,10 @@ class MultiDataModuleWrapper(LightningDataModule):
         self._restored_generator_states = {}
         self.collate_fn = annotation_collate
 
-    def _loader_generator(self, split: str, dataset_name: str) -> torch.Generator:
+    def _loader_generator(self, split: str, dataset_name: str) -> torch.Generator | None:
+        # c12 consumed the global CPU RNG for both shuffle and worker seeds.
+        if self.compatibility_mode == "legacy_c12":
+            return None
         key = f"{split}:{dataset_name}"
         if key in self._loader_generators:
             return self._loader_generators[key]
@@ -176,6 +182,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         return {
             "schema_version": 1,
             "seed": self.seed,
+            "compatibility_mode": self.compatibility_mode,
             "generator_states": {
                 key: generator.get_state().clone()
                 for key, generator in self._loader_generators.items()
@@ -183,6 +190,9 @@ class MultiDataModuleWrapper(LightningDataModule):
         }
 
     def load_state_dict(self, state_dict):
+        # Older refactored checkpoints predate this field and used current mode.
+        if state_dict.get("compatibility_mode", "current") != self.compatibility_mode:
+            raise ValueError("dataloader compatibility mode differs from checkpoint")
         if int(state_dict.get("schema_version", 0)) != 1:
             raise ValueError("unsupported dataloader RNG checkpoint schema")
         if int(state_dict.get("seed", self.seed)) != self.seed:

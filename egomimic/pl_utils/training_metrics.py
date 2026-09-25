@@ -107,8 +107,9 @@ def reduce_component_means(
     count: int,
     *,
     label: str,
+    preserve_input_dtype: bool = False,
 ) -> tuple[OrderedDict[str, torch.Tensor], int]:
-    return reduce_weighted_sums(
+    reduced, global_count = reduce_weighted_sums(
         OrderedDict(
             (name, value.detach().double() * count)
             for name, value in components.items()
@@ -116,6 +117,10 @@ def reduce_component_means(
         count,
         label=label,
     )
+    if preserve_input_dtype:
+        dtype = next(iter(components.values())).dtype
+        reduced = OrderedDict((name, value.to(dtype)) for name, value in reduced.items())
+    return reduced, global_count
 
 
 class MetricAccumulator:

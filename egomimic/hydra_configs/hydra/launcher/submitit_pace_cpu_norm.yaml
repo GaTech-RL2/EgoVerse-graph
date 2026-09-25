@@ -1,0 +1,14 @@
+# CPU-only normalization; training uses submitit_pace_h100 instead.
+defaults:
+  - submitit_slurm
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+name: ${hydra.job.name}
+partition: cpu-medium
+account: gts-dxu345-rl2
+qos: inferno
+nodes: 1
+tasks_per_node: 1
+cpus_per_task: 16
+mem_gb: 256
+gres: null
+timeout_min: 2880

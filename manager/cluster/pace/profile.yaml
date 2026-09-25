@@ -1,0 +1,13 @@
+# Cluster configuration only; application changes belong below this branch.
+name: pace
+application_branch: canonical/arc-chunking-modes
+application_commit: 57c455d6a0acb63d1324bbf770458e38cf21d006
+canonical_checkout: /storage/project/r-dxu345-0/acheluva3/EgoVerse-graph
+run_root: /storage/project/r-dxu345-0/acheluva3/egoverse-runs
+tmux: egoverse:pace-agent
+account: gts-dxu345-rl2
+submitit_config: submitit_pace_h100
+manager_host_profile: agent-config/pace.yaml
+manager_stack_profile: stacks/pace.yaml
+require_explicit_launch_preflight: true
+preserve_normal_hydra_log_layout: true

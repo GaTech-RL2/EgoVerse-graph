@@ -16,7 +16,7 @@ OUT=/storage/project/r-dxu345-0/agao81/grid_finals/arcpre_abc_j13308880; mkdir -
 export PATH="$WT/.venv/bin:$PATH" PYTHONPATH=$WT HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 WANDB_MODE=disabled
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 $WT/.venv/bin/python egomimic/trainHydra.py --config-name=train_zarr_cartesian \
-  +experiment=abc_arc/arcpre_abc_arcdur data=abc_arc/arcpre_abc_data_pinned2089 \
+  +experiment=yam_arc_grid/arcpre_abc_arcdur data=abc_arc/arcpre_abc_data_pinned2089 \
   norm_stats_only=true norm_stats.save_cache_dir=$OUT norm_stats.num_workers=14 \
   paths.output_dir=$OUT hydra.run.dir=$OUT/hydra
 ls -la $OUT

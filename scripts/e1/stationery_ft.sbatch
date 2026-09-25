@@ -30,7 +30,7 @@
 set -euo pipefail
 ARM=${ARM:?set ARM=time or ARM=arcdur}
 # EXPERIMENT lets a non stationery_ft_* config reuse this launcher (e.g. the ABC arc pretrain).
-EXPERIMENT=${EXPERIMENT:-abc_arc/stationery_ft_${ARM}}
+EXPERIMENT=${EXPERIMENT:-yam_arc_grid/stationery_ft_${ARM}}
 WT=${WT:-$(git rev-parse --show-toplevel)}
 cd "$WT"
 PY=${PY:-$WT/.venv/bin/python}

@@ -39,7 +39,7 @@ for CKPT in $CKPTS; do
     OUT="$RUN/eval/step${STEP}_${SET}"
     echo "=== EVAL step $STEP on $SET -> $OUT ($(date)) ==="
     srun "$PY" egomimic/trainHydra.py --config-name=train_zarr_cartesian \
-      +experiment=abc_arc/stationery_midtempo_${ROW} seed=42 mode=eval \
+      +experiment=yam_arc_grid/stationery_midtempo_${ROW} seed=42 mode=eval \
       "ckpt_path=\"$CKPT\"" \
       data=abc_arc/${DATA_PREFIX}_eval_${ROW}_${SET} \
       evaluator.limit_val_episodes=null \

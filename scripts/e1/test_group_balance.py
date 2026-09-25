@@ -2,7 +2,7 @@
 
 Ground truth for an episode s lab is the SQL snapshot (NOT the episode-list file the sampler reads),
 so a wrong or stale list shows up as a wrong realised share.
-usage: python scripts/e1/test_group_balance.py abc_arc/scratch_mix5050_towels_time [n_draws]
+usage: python scripts/e1/test_group_balance.py yam_arc_grid/scratch_mix5050_towels_time [n_draws]
 """
 import os, sys, time, collections
 import numpy as np, pandas as pd

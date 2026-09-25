@@ -36,6 +36,6 @@ nvidia-smi --query-gpu=name,memory.total,clocks.sm,temperature.gpu --format=csv
 mkdir -p "$RUN"
 # shellcheck disable=SC2086
 srun "$G/.venv/bin/python" egomimic/trainHydra.py --config-name=train_zarr_cartesian \
-  +experiment=abc_arc/stationery_midtempo_${ROW} seed=42 \
+  +experiment=yam_arc_grid/stationery_midtempo_${ROW} seed=42 \
   "hydra.run.dir=$RUN/train" $EXTRA
 echo "=== DONE $(date) ==="

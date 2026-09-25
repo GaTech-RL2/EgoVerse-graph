@@ -214,3 +214,17 @@ inference:
           target:
             kind: policy_attribute
             attribute_path: replan_every
+
+# Model-owned data semantics; independent of the selected dataset paths.
+data_requirements:
+  preprocessing:
+    '7':
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+      transforms:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+      source_fps: 30.0

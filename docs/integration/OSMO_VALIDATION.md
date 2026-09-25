@@ -37,7 +37,7 @@ python -m scripts.integration.build_workflow \
   --output "$INTEGRATION_SPEC"
 osmo workflow validate --pool groot-l40-01 "$INTEGRATION_SPEC"
 osmo workflow submit --pool groot-l40-01 --format-type json \
-  "$INTEGRATION_SPEC" --rsync "$TOKENIZER_TRANSFER:/tmp/input-tokenizer"
+  "$INTEGRATION_SPEC" --rsync "${TOKENIZER_TRANSFER%/}/:/tmp/input-tokenizer/"
 ```
 
 The local synthetic harness test checks orchestration only. A submitted or

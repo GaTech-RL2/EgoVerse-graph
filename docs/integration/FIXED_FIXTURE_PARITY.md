@@ -59,8 +59,11 @@ Retained root models now declare their expected preprocessing state in
 `model.data_requirements`. Generic code compares that declared subset before
 model construction and includes it in checkpoint/artifact compatibility hashes.
 The keypoint wrist recipe has a separate frame declaration while sharing the
-same architecture. These declarations cover the restored root recipes, not
-every preexisting nested campaign; the latter still require review.
+same architecture. Layer 09 extends declarations to every shipped ready model,
+including the nested PI/Yam/ARC/E1 recipes. Separate composition tests compare
+those model requirements against the selected data configuration and reject
+incompatible frames, frame rates and timing variants. These YAML checks do not
+replace actual source-fixture comparisons or GPU execution.
 
 This evidence does not establish real-weight GPU training, all model-output
 parity, or assembled-destination correctness. Those remain separate gates.

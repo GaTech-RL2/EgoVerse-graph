@@ -172,6 +172,7 @@ inference_domains:
       constants:
         embodiment: 6
     native_output:
+      frame: camframe
       key: pred_action
       representation: normalized_action
       shape:
@@ -185,6 +186,7 @@ inference_domains:
         last_source_frame: 44
         source_fps: 30
     output:
+      frame: camframe
       key: actions
       representation: cartesian
       shape:

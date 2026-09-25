@@ -31,6 +31,7 @@ train_datasets:
           observations.images.right_wrist_img: observations.images.right_wrist_img
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        stride: 3
         keypoint_gripper: true
         action_mode: cartesian
         coord_frame: eef_frame
@@ -63,6 +64,7 @@ valid_datasets:
             observations.images.right_wrist_img: observations.images.right_wrist_img
         transform_list:
           _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          stride: 3
           keypoint_gripper: true
           action_mode: cartesian
           coord_frame: eef_frame
@@ -94,6 +96,7 @@ valid_datasets:
             observations.images.right_wrist_img: observations.images.right_wrist_img
         transform_list:
           _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          stride: 3
           keypoint_gripper: true
           action_mode: cartesian
           coord_frame: eef_frame

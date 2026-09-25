@@ -388,6 +388,7 @@ inference_domains:
       constants:
         embodiment: 6
     native_output:
+      frame: camframe
       key: pred_action
       representation: normalized_action
       shape:
@@ -401,6 +402,7 @@ inference_domains:
         last_source_frame: 44
         source_fps: 30
     output:
+      frame: camframe
       key: actions
       representation: cartesian
       shape:
@@ -480,6 +482,7 @@ inference_domains:
       constants:
         embodiment: 3
     native_output:
+      frame: camframe
       key: pred_action
       representation: normalized_action
       shape:
@@ -493,6 +496,7 @@ inference_domains:
         last_source_frame: 27
         source_fps: 30
     output:
+      frame: camframe
       key: actions
       representation: cartesian
       shape:
@@ -561,3 +565,20 @@ inference_domains:
               stage_id: sampler
               attribute_path: num_inference_steps
 inference: ${model.inference_domains.${model.deployment_domain}}
+
+# Explicit source-frame and sampling requirements.
+data_requirements:
+  preprocessing:
+    '6':
+      transforms:
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+      source_fps: 30.0
+    '3':
+      transforms:
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 3
+      source_fps: 30.0

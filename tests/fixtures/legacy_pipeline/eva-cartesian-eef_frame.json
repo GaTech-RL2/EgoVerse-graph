@@ -1,0 +1,27 @@
+{
+  "source_commit": "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+  "vendor": "eva",
+  "representation": "cartesian",
+  "frame": "eef_frame",
+  "identity": 6,
+  "indices": [
+    0,
+    7,
+    29,
+    47,
+    50
+  ],
+  "model_keys": [
+    "actions_cartesian",
+    "observations.images.front_img_1",
+    "observations.images.left_wrist_img",
+    "observations.images.right_wrist_img",
+    "observations.state.ee_pose"
+  ],
+  "api": "legacy",
+  "transform_arguments": {
+    "mode": "cartesian_wristframe_ypr"
+  },
+  "normalization_frames": 54,
+  "archive_sha256": "687736aeb8cd1d280c79a368b34f4db612459d9aa4d98b5aa20be3d5b601cba7"
+}

@@ -249,6 +249,7 @@ class MultiDataModuleWrapper(LightningDataModule):
                 requirements.sample_id_key,
                 requirements.frame_index_key,
             } - {None}
+            required_keys.update(requirements.required_keys)
             if required_keys:
                 missing = required_keys - set(dataset[0])
                 if missing:

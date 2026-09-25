@@ -5,10 +5,12 @@ from collections.abc import Mapping
 from egomimic.pipeline.inference_config import (
     inference_contract_sha256,
     model_pipeline_sha256,
+    validate_model_data_context,
 )
 
 
 def checkpoint_binding(training, context):
+    validate_model_data_context(training, context)
     return {
         "schema_version": 1,
         "model_pipeline_sha256": model_pipeline_sha256(training),

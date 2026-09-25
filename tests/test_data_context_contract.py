@@ -11,9 +11,28 @@ from omegaconf import OmegaConf
 from torch.utils.data import Dataset
 
 from egomimic.eval.eval import EvaluationDataRequirements, validation_trainer_overrides
+from egomimic.pl_utils.data_context import DataContext
 from egomimic.pl_utils.pl_data_utils import MultiDataModuleWrapper, annotation_collate
 from egomimic.rldb.zarr.data_module import ZarrDataModule, _digest
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+
+def test_model_context_requirements_are_generic_exact_subsets():
+    context = DataContext(
+        None,
+        {},
+        (),
+        {"opaque": {"frame": "camera", "rate": 30, "shape": [2, 7], "extra": 1}},
+    )
+    context.validate_requirements({"opaque": {"frame": "camera", "shape": [2, 7]}})
+    for expected, path in (
+        ({"frame": "wrist"}, "frame"),
+        ({"rate": 15}, "rate"),
+        ({"shape": [7, 2]}, "shape"),
+        ({"units": "metres"}, "units"),
+    ):
+        with pytest.raises(ValueError, match=f"opaque.{path}"):
+            context.validate_requirements({"opaque": expected})
 
 
 class TinyDataset(Dataset):

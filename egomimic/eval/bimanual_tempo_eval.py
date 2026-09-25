@@ -129,6 +129,7 @@ class BimanualTempoEval(BimanualCartesianEval):
         self.on_validation_start()
 
     def on_validation_start(self):
+        super().on_validation_start()
         self._accumulators = {}
         self.last_results = None
 
@@ -191,6 +192,8 @@ class BimanualTempoEval(BimanualCartesianEval):
         return merged
 
     def on_validation_end(self):
+        # Every rank must finish the shared video collectives before returning.
+        super().on_validation_end()
         accumulators = self._combined_accumulators()
         if not accumulators:
             raise RuntimeError("E1 evaluation received no prediction/target batches")

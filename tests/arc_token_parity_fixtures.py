@@ -16,7 +16,7 @@ class ArcParityCase:
     distance: float
     waypoints: int
     velocity_mode: str
-    translation_horizon_mode: str = "joint"
+    arc_chunking_mode: str | None = None
     rotation_distance: float | None = None
     preserve_rows: int = 24
 
@@ -63,21 +63,21 @@ def _actions(
 
 ARC_CASES = (
     ArcParityCase(
-        "joint_straight_m100_per_waypoint",
+        "multistream_straight_m100_per_waypoint",
         _actions(151, left_speed=0.31, right_speed=0.27),
         distance=0.40,
         waypoints=100,
         velocity_mode="per_waypoint",
     ),
     ArcParityCase(
-        "joint_curved_mean",
+        "multistream_curved_mean",
         _actions(73, left_speed=0.42, right_speed=0.18, curve=0.09, rotation=0.8),
         distance=0.33,
         waypoints=13,
         velocity_mode="mean",
     ),
     ArcParityCase(
-        "joint_curved_duration_stationary_prefix",
+        "multistream_curved_duration_stationary_prefix",
         _actions(
             61,
             left_speed=0.38,
@@ -91,7 +91,7 @@ ARC_CASES = (
         velocity_mode="duration",
     ),
     ArcParityCase(
-        "joint_hybrid_wrap",
+        "joint_distance_hybrid_wrap",
         _actions(
             89,
             left_speed=0.36,
@@ -105,38 +105,43 @@ ARC_CASES = (
         rotation_distance=0.42,
         waypoints=17,
         velocity_mode="per_waypoint",
+        arc_chunking_mode="joint_distance",
     ),
     ArcParityCase(
         "race_left_first_fractional",
         _actions(71, left_speed=0.63, right_speed=0.21, curve=0.04, rotation=0.6),
         distance=0.40,
+        rotation_distance=0.42,
         waypoints=19,
         velocity_mode="per_waypoint",
-        translation_horizon_mode="race",
+        arc_chunking_mode="race",
     ),
     ArcParityCase(
         "race_right_first_fractional",
         _actions(67, left_speed=0.19, right_speed=0.68, curve=0.03, rotation=0.4),
         distance=0.40,
+        rotation_distance=0.42,
         waypoints=19,
         velocity_mode="per_waypoint",
-        translation_horizon_mode="race",
+        arc_chunking_mode="race",
     ),
     ArcParityCase(
         "race_simultaneous",
         _actions(55, left_speed=0.52, right_speed=0.52, rotation=0.2),
         distance=0.40,
+        rotation_distance=0.42,
         waypoints=15,
         velocity_mode="per_waypoint",
-        translation_horizon_mode="race",
+        arc_chunking_mode="race",
     ),
     ArcParityCase(
         "race_no_crossing_short_tail",
         _actions(9, left_speed=0.08, right_speed=0.06, curve=0.01),
         distance=0.40,
+        rotation_distance=0.42,
         waypoints=12,
         velocity_mode="per_waypoint",
-        translation_horizon_mode="race",
+        arc_chunking_mode="race",
     ),
     ArcParityCase(
         "race_hybrid_one_stationary_arm",
@@ -145,13 +150,75 @@ ARC_CASES = (
         rotation_distance=0.42,
         waypoints=16,
         velocity_mode="per_waypoint",
-        translation_horizon_mode="race",
+        arc_chunking_mode="race",
     ),
 )
 
 
-def tokenizer_for(case: ArcParityCase) -> TokenizeBimanualArcLengthCartesian:
-    return TokenizeBimanualArcLengthCartesian(
+# The three modes the organize_stationary group compares, at the shape actually
+# trained: hybrid rotation clock, M = 100, per-waypoint velocity. Without these
+# the corpus would freeze nothing about the configuration that matters.
+_PRODUCTION_SOURCE = _actions(
+    151, left_speed=0.31, right_speed=0.27, curve=0.05, rotation=0.7
+)
+
+ARC_CASES = (
+    ARC_CASES
+    + tuple(
+        ArcParityCase(
+            f"{mode}_hybrid_m100_per_waypoint",
+            _PRODUCTION_SOURCE,
+            distance=0.40,
+            rotation_distance=0.42,
+            waypoints=100,
+            velocity_mode="per_waypoint",
+            arc_chunking_mode=mode,
+        )
+        for mode in ("joint_distance", "race", "multistream")
+    )
+    + tuple(
+        # A source that never reaches D, where the per-arm first-crossing rule
+        # and _bracket_segments' end clamping disagree most.
+        ArcParityCase(
+            f"{mode}_hybrid_no_crossing_short_tail",
+            _actions(9, left_speed=0.08, right_speed=0.06, curve=0.01, rotation=0.3),
+            distance=0.40,
+            rotation_distance=0.42,
+            waypoints=12,
+            velocity_mode="per_waypoint",
+            arc_chunking_mode=mode,
+        )
+        for mode in ("joint_distance", "race", "multistream")
+    )
+    + tuple(
+        # One arm stationary, so the per-arm clocks diverge.
+        ArcParityCase(
+            f"{mode}_hybrid_one_stationary_arm",
+            _actions(47, left_speed=0.0, right_speed=0.57, curve=0.02, rotation=0.9),
+            distance=0.40,
+            rotation_distance=0.42,
+            waypoints=16,
+            velocity_mode="per_waypoint",
+            arc_chunking_mode=mode,
+        )
+        for mode in ("joint_distance", "multistream")
+    )
+)
+
+
+def tokenizer_for(case: ArcParityCase, module=None):
+    """Build the case's tokenizer, optionally from another revision's module.
+
+    ``module`` lets the throughput benchmark construct the same case against a
+    reference copy of this file loaded from an older commit, so before/after can
+    be compared without two checkouts.
+    """
+    factory = (
+        TokenizeBimanualArcLengthCartesian
+        if module is None
+        else module.TokenizeBimanualArcLengthCartesian
+    )
+    return factory(
         action_key="raw",
         output_action_key="token",
         min_distance_unit=case.distance,
@@ -160,10 +227,10 @@ def tokenizer_for(case: ArcParityCase) -> TokenizeBimanualArcLengthCartesian:
         preserve_action_key="preserved",
         preserve_action_rows=case.preserve_rows,
         velocity_mode=case.velocity_mode,
-        translation_horizon_mode=case.translation_horizon_mode,
+        arc_chunking_mode=case.arc_chunking_mode,
     )
 
 
-def tokenize_case(case: ArcParityCase) -> tuple[np.ndarray, np.ndarray]:
-    batch = tokenizer_for(case).transform({"raw": case.actions.copy()})
+def tokenize_case(case: ArcParityCase, module=None) -> tuple[np.ndarray, np.ndarray]:
+    batch = tokenizer_for(case, module).transform({"raw": case.actions.copy()})
     return batch["token"], batch["preserved"]

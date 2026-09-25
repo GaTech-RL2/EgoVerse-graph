@@ -22,7 +22,7 @@ def test_equivalent_yam_horizons_are_resolved_once_per_sample():
         "rotation_distance": np.float64(0.42),
         "source_buffer_frames": np.int64(600),
         "pose_zarr_keys": ["left.cmd_ee_pose", "right.cmd_ee_pose"],
-        "translation_horizon_mode": "race",
+        "arc_chunking_mode": "race",
     }
     specs = [
         dict(base),

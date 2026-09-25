@@ -57,6 +57,7 @@ Published draft stack in EgoVerse-graph:
 | Real-input OSMO harness | #156 | `37cb8db7` | 1,411 |
 | Source fixtures and data compatibility | #157 | `69839b12` | 1,430 |
 | Deployment frame/timing declarations | #158 | `1118d531` | 1,452 |
+| Original HPT trunk and capability dispositions | #159 | `5a0a1342` | 1,454 |
 
 Each layer's tested tree, snapshot and log hash are recorded under `evidence/`.
 The data-tool layer includes real HDF5 conversion, immutable output checks,
@@ -105,9 +106,13 @@ read-only destination inventory is in `evidence/destination-preflight.json`;
 conflict resolution and assembled-tree testing remain open. No GPU result or
 destination cutover is implied.
 
-OSMO currently returns HTTP 403 at both the service and login endpoints, even
-for unauthenticated requests. No workflow has been submitted. Network access
-must recover before the source-pinned real-input matrix can run.
+OSMO access recovered on 2026-09-25 UTC. The exact source-pinned specification
+validated and workflow `graph-integration-20260924-v2-1` was submitted to
+`groot-l40-01` against `5a0a1342`. Its first receipt records input staging as
+running and the GPU tasks waiting; this is not a passing GPU result.
+See `evidence/osmo-submitted-20260925.json`. Use the explicit `stage-inputs`
+tokenizer transfer in `OSMO_VALIDATION.md`; submit-time rsync selected the
+waiting distributed task instead of staging.
 
 Remaining gates: real-weight/data OSMO L40/L40S
 training and distributed smokes,
@@ -115,8 +120,9 @@ refreshed destination conflict inventory,
 assembled-tree validation and gated cutover. Public PI weight metadata matches
 the pinned OpenPI architecture, and read-only R2 audits located real bimanual
 EVA/Aria/Mecka/Scale/Yam episodes; neither observation is a real training result.
-No destination merge, legacy runtime removal, or integration GPU launch has
-occurred. DQC remains stopped.
+No destination merge or legacy runtime removal has occurred. Integration GPU
+validation is submitted, with training and inference results pending. DQC
+remains stopped.
 
 The checkpoint policy decision is recorded in `CHECKPOINTS.md`: new high-level
 loaders reject unbound historical checkpoints rather than silently pairing them

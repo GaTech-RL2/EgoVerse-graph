@@ -1,0 +1,13 @@
+# Cluster configuration only; application changes belong below this branch.
+name: ice
+application_branch: canonical/arc-chunking-modes
+application_commit: 57c455d6a0acb63d1324bbf770458e38cf21d006
+canonical_checkout: /home/hice1/acheluva3/ice/EgoVerse-graph
+run_root: /home/hice1/acheluva3/ice/egoverse-runs
+tmux: egograph-arc:codex
+account: coc
+submitit_config: null
+manager_host_profile: agent-config/ice.yaml
+manager_stack_profile: stacks/ice.yaml
+require_explicit_launch_preflight: true
+preserve_normal_hydra_log_layout: true

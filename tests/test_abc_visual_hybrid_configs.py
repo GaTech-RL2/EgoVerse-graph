@@ -9,6 +9,7 @@ from omegaconf import OmegaConf
 
 from egomimic.rldb.embodiment.yam import Yam
 from egomimic.trainHydra import _instantiate_model_wrapper
+from egomimic.pipeline.inference_config import build_inference_config
 from scripts.data.measure_abc_control_distance import TASKS, window_distances
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,7 +42,7 @@ def test_single_task_visual_launch_contract(name, embodiment, hybrid, monkeypatc
     cfg = config(name)
     assert "qwen" not in OmegaConf.to_yaml(cfg.model, resolve=True).lower()
     assert cfg.hpt.action_horizon == (200 if hybrid else 100)
-    assert cfg.norm_stats.sample_frac == .20
+    assert cfg.norm_stats.sample_frac == .10
     assert cfg.evaluator.distance_dtw_enabled
     assert cfg.evaluator.velocity_mode == "per_waypoint"
     assert cfg.evaluator.action_mode == ("arc" if hybrid else "baseline")
@@ -63,7 +64,7 @@ def test_visual_config_contract(name, hybrid, width, episodes, monkeypatch):
     cfg = config(name)
     assert cfg.hpt.embed_dim == width
     assert cfg.hpt.action_horizon == (200 if hybrid else 100)
-    assert cfg.norm_stats.sample_frac == 0.20
+    assert cfg.norm_stats.sample_frac == 0.10
     targets = [stage for stage in cfg.model.pipeline.stages
                if stage._target_.endswith("ActionTargetBuilder")]
     assert len(targets) == 1
@@ -141,3 +142,17 @@ def test_keymap_override_does_not_mutate_default():
     assert configured["left.cmd_ee_pose"]["horizon"]["distance"] == 0.71
     default = Yam.get_keymap("hybrid_arc_tokenizer_cartesian")
     assert default["left.cmd_ee_pose"]["horizon"]["distance"] == 0.4
+
+
+@pytest.mark.parametrize(
+    "name,hybrid",
+    [(name, hybrid) for name, _, hybrid in SINGLE_TASK_VISUAL]
+    + [(name, hybrid) for name, hybrid, _, _ in EXPERIMENTS],
+)
+def test_visual_recipe_inference_export_does_not_mislabel_arc_tokens(name, hybrid):
+    artifact = build_inference_config(config(name))
+    assert artifact["status"] == ("unsupported" if hybrid else "ready")
+    if hybrid:
+        assert "ABC ARC" in artifact["reason"]
+    else:
+        assert artifact["inference_graph"]["output"]["shape"] == [100, 14]

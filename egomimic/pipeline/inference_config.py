@@ -64,6 +64,15 @@ def model_pipeline_sha256(training: DictConfig | Mapping[str, Any]) -> str:
     return _canonical_sha256(pipeline)
 
 
+def _uses_abc_arc(config: DictConfig) -> bool:
+    return any(
+        "arc_tokenizer" in str(OmegaConf.select(config, path, default=None))
+        for path in (
+            "abc.action_mode", "run_provenance.action_contract.representation"
+        )
+    )
+
+
 def inference_contract_sha256(
     training: DictConfig | Mapping[str, Any],
 ) -> str:
@@ -87,6 +96,21 @@ def inference_contract_sha256(
             )
         },
     }
+    # ABC uses the same action tensor width as Cartesian output, so its codec
+    # declaration is part of the contract even when the pipeline shape matches.
+    # Preserve existing Cartesian/E1 hashes: ancillary ABC settings do not
+    # change their rollout codec. Only ARC declarations extend the contract.
+    if _uses_abc_arc(config):
+        source["abc"] = {
+            name: OmegaConf.select(config, f"abc.{name}", default=None)
+            for name in (
+                "action_mode", "arc_chunking_mode", "arc_distance",
+                "arc_rotation_distance", "arc_waypoints", "arc_velocity_mode",
+            )
+        }
+        action_contract = _plain_node(config, "run_provenance.action_contract")
+        if action_contract is not None:
+            source["action_contract"] = action_contract
     return _canonical_sha256(source)
 
 
@@ -241,6 +265,13 @@ def build_inference_config(
     pipeline_hash = model_pipeline_sha256(config)
     contract_hash = inference_contract_sha256(config)
     try:
+        if _uses_abc_arc(config):
+            raise ValueError(
+                "ABC ARC requires a mode-aware hybrid rollout adapter; automatic "
+                "robot inference export is unsupported. Token rows are not "
+                "Cartesian control frames. Training and offline evaluation "
+                "continue to use the ARC tokenizer/detokenizer."
+            )
         stages = _pipeline_stages(config)
         action_targets = [
             stage for stage in stages if stage.get("_target_") == ACTION_TARGET

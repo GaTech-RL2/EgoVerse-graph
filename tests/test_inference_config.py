@@ -153,6 +153,51 @@ def test_legacy_mean_timing_and_noncartesian_models_fail_closed():
     assert "actions_cartesian" in artifact["reason"]
 
 
+@pytest.mark.parametrize("mode", ["race", "multistream", "joint_distance"])
+@pytest.mark.parametrize("saved_contract", [False, True])
+def test_abc_arc_tokens_are_never_exported_as_cartesian_frames(mode, saved_contract):
+    training = training_config(horizon=200)
+    if saved_contract:
+        training.run_provenance = {"action_contract": {
+            "representation": "hybrid_arc_tokenizer_cartesian",
+            "arc_chunking_mode": mode,
+        }}
+    else:
+        training.abc = {
+            "action_mode": "hybrid_arc_tokenizer_cartesian",
+            "arc_chunking_mode": mode,
+            "arc_velocity_mode": "per_waypoint",
+        }
+    artifact = build_inference_config(training)
+    assert artifact["status"] == "unsupported"
+    assert "ABC ARC" in artifact["reason"]
+    assert "inference_graph" not in artifact
+
+
+def test_same_shape_abc_codec_change_invalidates_cartesian_artifact():
+    training = training_config(horizon=100)
+    training.abc = {"action_mode": "cartesian", "arc_waypoints": 50}
+    artifact = build_inference_config(training)
+    assert artifact["status"] == "ready"
+    changed = deepcopy(training)
+    changed.abc.action_mode = "hybrid_arc_tokenizer_cartesian"
+    with pytest.raises(ValueError, match="codec and inference defaults"):
+        validate_inference_config(artifact, changed)
+
+
+@pytest.mark.parametrize("mode", [None, "cartesian"])
+def test_cartesian_abc_metadata_preserves_existing_sidecars_and_resume(tmp_path, mode):
+    legacy = training_config()
+    path = tmp_path / "inference-config.yaml"
+    _, artifact = write_inference_config(legacy, path)
+    current = deepcopy(legacy)
+    current.abc = {"action_mode": mode, "arc_waypoints": 100}
+    current.run_provenance = {"action_contract": {"representation": "cartesian"}}
+    assert validate_inference_config(artifact, current)["output"]["shape"] == [100, 14]
+    # Resuming a baseline must not trip the immutable-sidecar writer.
+    assert write_inference_config(current, path)[1] == artifact
+
+
 def test_artifact_is_bound_to_exact_pipeline_and_graph_content():
     training = training_config()
     artifact = build_inference_config(training)

@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+from hydra import compose, initialize_config_dir
+
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPERIMENT_ROOT = ROOT / "egomimic/hydra_configs/experiment/abc_arc"
@@ -54,3 +57,21 @@ def test_every_arc_recipe_has_a_matching_baseline_recipe():
     for arc_path, baseline_path in expected_pairs.items():
         assert (EXPERIMENT_ROOT / arc_path).is_file()
         assert (EXPERIMENT_ROOT / baseline_path).is_file()
+
+
+@pytest.mark.parametrize("data", [
+    "abc_visual",
+    "stationery_rl2_hpt_baseline",
+    "stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg",
+    "mecka_fold_clothes_40h_human_baseline",
+    "mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg",
+])
+def test_retained_data_components_do_not_request_language_inputs(data):
+    with initialize_config_dir(
+        version_base=None, config_dir=str(ROOT / "egomimic/hydra_configs")
+    ):
+        cfg = compose("train_zarr_cartesian", overrides=[f"data=abc_arc/{data}"])
+    for split in ("train_datasets", "valid_datasets"):
+        for dataset in cfg.data[split].values():
+            assert "annotations" not in dataset.batch_keys
+            assert dataset.resolver.key_map.get("annotation_key") is None

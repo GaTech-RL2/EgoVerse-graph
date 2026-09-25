@@ -10,6 +10,10 @@
 #   EXTRA="trainer.max_steps=300 ..."   appended to every run (smoke tests)
 #   RUN_ROOT=...                          default /workspace/users/$USER/runs
 #   GPUS_PER_RUN=2                        must match the experiments' trainer.devices
+#   CPUS_PER_TASK=, PORT_BASE=29500       override the CPU share / DDP port range
+# To add runs to a RUNNING pack job's spare GPUs, run this file with bash (not sbatch) and SLURM_JOB_ID=<job>
+# exported, plus CPUS_PER_TASK within the job's free CPUs and a PORT_BASE unused on that node. Such steps die
+# with that job, so queue a follow-up (sbatch --dependency=afterany:<job>) to resume them from last.ckpt.
 #
 #SBATCH --job-name=pack_train
 #SBATCH --account=loaner
@@ -29,14 +33,14 @@ RUN_ROOT=${RUN_ROOT:-/workspace/users/$USER/runs}
 G=${GPUS_PER_RUN:-2}
 read -r -a runs <<< "${RUNS:?set RUNS to space-separated +experiment names}"
 (( ${#runs[@]} * G <= 8 )) || { echo "${#runs[@]} runs x $G GPUs do not fit one node" >&2; exit 2; }
-CPUS=$(( 192 / (${#runs[@]} * G) ))
+CPUS=${CPUS_PER_TASK:-$(( 192 / (${#runs[@]} * G) ))}
 test -s "$IMAGE" && test -x "$SRC/.venv/bin/python"
 echo "=== pack_train job=$SLURM_JOB_ID node=$(hostname) restart=${SLURM_RESTART_COUNT:-0} commit=$(git -C "$SRC" rev-parse --short HEAD) runs=${runs[*]}"
 
 i=0
 for exp in "${runs[@]}"; do
   name=${exp##*/}
-  port=$(( 29500 + 10 * i )); i=$(( i + 1 ))
+  port=$(( ${PORT_BASE:-29500} + 10 * i )); i=$(( i + 1 ))
   run="$RUN_ROOT/$name"
   mkdir -p "$run"
   resume=""

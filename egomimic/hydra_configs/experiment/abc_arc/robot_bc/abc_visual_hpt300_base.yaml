@@ -31,7 +31,18 @@ abc:
   arc_waypoints: 100
   arc_token_rows: 200
   arc_velocity_mode: per_waypoint
+  arc_chunking_mode: joint_distance
   task_predicate: ???
+# _build_model_config_tree retains this block in Lightning checkpoints.
+run_provenance:
+  action_contract:
+    representation: ${abc.action_mode}
+    arc_chunking_mode: ${abc.arc_chunking_mode}
+    translation_distance_m: ${abc.arc_distance}
+    rotation_distance_radians: ${abc.arc_rotation_distance}
+    waypoints: ${abc.arc_waypoints}
+    velocity_mode: ${abc.arc_velocity_mode}
+    control_dt: ${evaluator.control_dt}
 trainer:
   max_steps: 240000
   max_epochs: -1
@@ -51,6 +62,7 @@ evaluator:
   control_dt: 0.03333333333333333
   execute_fraction: 0.30
   arc_execution_cap_mode: waypoints
+  arc_chunking_mode: ${abc.arc_chunking_mode}
   min_distance_unit: ${abc.arc_distance}
   rotation_distance_unit: ${abc.arc_rotation_distance}
   resampled_vector_length: ${abc.arc_waypoints}

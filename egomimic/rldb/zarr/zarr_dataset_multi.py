@@ -1018,6 +1018,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.zarr_keys: dict[int, dict[str, str]] = {}
         self.shapes: dict[int, dict[str, tuple]] = {}
         self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
+        self.action_contracts: dict[int, dict] = {}
         self._norm_run_metadata: dict[str, float | int | None] | None = None
 
         # ---- Dataset graph fields ----
@@ -1111,6 +1112,7 @@ class MultiDataset(torch.utils.data.Dataset):
         accumulate duplicate passes when leaves share a transform list reference.
         """
         self.norm_stats = source.norm_stats
+        self.action_contracts = copy.deepcopy(getattr(source, "action_contracts", {}))
         self.key_types = source.key_types
         self.zarr_keys = source.zarr_keys
         self.shapes = source.shapes
@@ -1424,10 +1426,13 @@ class MultiDataset(torch.utils.data.Dataset):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        action_contract: dict | None = None,
     ):
         embodiment = dataset_name
         if isinstance(embodiment, str):
             embodiment = get_embodiment_id(embodiment)
+        if action_contract is not None:
+            self.action_contracts[embodiment] = copy.deepcopy(action_contract)
 
         norm_keys = list(self.keys_of_type("proprio_keys", embodiment))
         norm_keys.extend(self.keys_of_type("action_keys", embodiment))
@@ -1578,6 +1583,10 @@ class MultiDataset(torch.utils.data.Dataset):
             # (same dims, different meaning) is refused instead of applied.
             "provenance": {
                 "norm_mode": self.norm_mode,
+                "action_contracts": {
+                    str(emb): copy.deepcopy(contract)
+                    for emb, contract in getattr(self, "action_contracts", {}).items()
+                },
                 "stat_shapes": {
                     str(emb): {
                         k: list(np.asarray(next(iter(sd.values()))).shape)
@@ -1734,6 +1743,7 @@ class MultiDataset(torch.utils.data.Dataset):
             "zarr_keys": copy.deepcopy(self.zarr_keys),
             "shapes": copy.deepcopy(self.shapes),
             "norm_stats": self._clone_norm_stats(self.norm_stats),
+            "action_contracts": copy.deepcopy(getattr(self, "action_contracts", {})),
         }
 
     @classmethod
@@ -1751,6 +1761,10 @@ class MultiDataset(torch.utils.data.Dataset):
         self.zarr_keys = copy.deepcopy(state.get("zarr_keys", {}))
         self.shapes = copy.deepcopy(state.get("shapes", {}))
         self.norm_stats = self._clone_norm_stats(state.get("norm_stats", {}))
+        self.action_contracts = {
+            int(emb): copy.deepcopy(contract)
+            for emb, contract in state.get("action_contracts", {}).items()
+        }
         for emb in self.embodiments:
             self.key_types.setdefault(emb, {})
             self.zarr_keys.setdefault(emb, {})
@@ -1763,10 +1777,11 @@ class MultiDataset(torch.utils.data.Dataset):
         """Load ``norm_stats.json`` for one embodiment, refusing a file whose
         provenance does not match this dataset.
 
-        The stats are only meaningful for the exact (norm_mode, key set)
-        they were computed under; the payload's ``provenance`` block (written
-        by :meth:`cache_stats`) carries both. Files written before provenance
-        existed load as before, with a warning.
+        The provenance checks normalization mode, key set, and any requested
+        ARC action contract. Untagged legacy caches remain eligible for the
+        original joint_distance representation; new nonjoint modes require
+        matching contract metadata. Callers without a contract retain the
+        legacy loading behavior.
         """
         with open(precomputed_file, "r") as f:
             payload = json.load(f)
@@ -1780,6 +1795,32 @@ class MultiDataset(torch.utils.data.Dataset):
                 "reusing a pre-collapse norm_stats.json."
             )
         provenance = payload.get("provenance")
+        file_contract = (provenance or {}).get("action_contracts", {}).get(str(embodiment))
+        wanted_contract = getattr(self, "action_contracts", {}).get(embodiment)
+        if wanted_contract is not None:
+            if file_contract is None:
+                if (
+                    wanted_contract.get("arc_chunking_mode") != "joint_distance"
+                    or wanted_contract.get("source_sampling") is not None
+                ):
+                    raise ValueError(
+                        f"norm_stats file {precomputed_file} has no action contract for "
+                        f"embodiment {embodiment}; arc_chunking_mode="
+                        f"{wanted_contract.get('arc_chunking_mode')!r}, "
+                        f"source_sampling={wanted_contract.get('source_sampling')!r} requires matching "
+                        "cache provenance. Recompute stats for this representation."
+                    )
+                logger.warning(
+                    "[MultiDataset] Accepting legacy joint_distance norm cache %s "
+                    "without an action contract; existing data/cap compatibility "
+                    "must have been checked by the caller.", precomputed_file,
+                )
+            elif file_contract != wanted_contract:
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} action contract for embodiment "
+                    f"{embodiment} differs: cached={file_contract!r}, "
+                    f"requested={wanted_contract!r}; recompute stats."
+                )
         if provenance is None:
             logger.warning(
                 f"[MultiDataset] {precomputed_file} carries no provenance block "
@@ -1803,6 +1844,8 @@ class MultiDataset(torch.utils.data.Dataset):
                 f"normalizes {sorted(want_keys)}; the file was computed for a "
                 "different keymap/transform mode — recompute the stats."
             )
+        if file_contract is not None:
+            self.action_contracts[embodiment] = copy.deepcopy(file_contract)
         self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
         self._norm_run_metadata = payload.get("norm_run_metadata", None)
 
@@ -2039,9 +2082,10 @@ class ZarrDataset(torch.utils.data.Dataset):
         regular repeat-last padding rule handles short tails. ``max_frames``
         is accepted as a legacy spelling.
 
-        ``arc_hybrid`` uses one joint translation clock and one joint rotation
-        clock. Each clock sums the left and right arm increments, and the
-        returned source window covers both requested caps.
+        Translation follows ``arc_chunking_mode``: the first arm to D (race),
+        both arms to their own D (multistream), or summed arm travel to D
+        (joint_distance). When R is supplied its independent joint rotation
+        clock must also finish; a translation cutoff never clips raw rotation.
         """
         horizon_type = spec.get("type") if isinstance(spec, dict) else None
         if horizon_type not in ("arc_distance", "arc_hybrid"):
@@ -2055,13 +2099,25 @@ class ZarrDataset(torch.utils.data.Dataset):
                 f"arc_distance horizon requires a positive finite distance, got {distance!r}"
             )
         rotation_distance = None
-        if horizon_type == "arc_hybrid":
+        if horizon_type == "arc_hybrid" or spec.get("rotation_distance") is not None:
             rotation_distance = float(spec.get("rotation_distance", 0.0))
             if not np.isfinite(rotation_distance) or rotation_distance <= 0.0:
                 raise ValueError(
                     "arc_hybrid horizon requires positive finite rotation_distance, "
                     f"got {rotation_distance!r}"
                 )
+        from egomimic.rldb.zarr.arc_length_tokenizer import resolve_arc_chunking_mode
+
+        chunking_mode = resolve_arc_chunking_mode(
+            spec.get("arc_chunking_mode"), rotation_distance
+        )
+        if (
+            spec.get("arc_chunking_mode") is None
+            and rotation_distance is None
+            and not spec.get("require_all_arms", True)
+        ):
+            # Old source specs expressed race selection with this flag.
+            chunking_mode = "race"
         max_frames_value = spec.get(
             "source_buffer_frames", spec.get("max_frames", self.total_frames)
         )
@@ -2088,20 +2144,20 @@ class ZarrDataset(torch.utils.data.Dataset):
         poses = self.episode_reader.read(
             {str(key): (int(start_idx), end_idx) for key in pose_keys}
         )
-        if rotation_distance is not None:
-            # Hybrid ARC uses two bimanual clocks. Each clock advances by the
-            # left-arm increment plus the right-arm increment at a native
-            # timestep. Keep reading until both independent caps are covered.
+        if rotation_distance is not None or chunking_mode == "joint_distance":
+            # Translation and rotation select their own endpoints from the
+            # complete bounded buffer. The later endpoint governs source I/O.
             pose_arrays = []
             common_usable = available
+            pose_width = 7 if rotation_distance is not None else 3
             for key in pose_keys:
                 pose = np.asarray(poses[str(key)], dtype=np.float64)
-                if pose.ndim != 2 or pose.shape[1] < 7:
+                if pose.ndim != 2 or pose.shape[1] < pose_width:
                     raise ValueError(
-                        f"arc_hybrid pose key {key!r} must be (T, >=7), "
+                        f"{horizon_type} pose key {key!r} must be (T, >={pose_width}), "
                         f"got {pose.shape}"
                     )
-                finite = np.isfinite(pose[:, :7]).all(axis=1)
+                finite = np.isfinite(pose[:, :pose_width]).all(axis=1)
                 first_bad = np.flatnonzero(~finite)
                 usable = int(first_bad[0]) if len(first_bad) else len(pose)
                 common_usable = min(common_usable, usable)
@@ -2109,19 +2165,31 @@ class ZarrDataset(torch.utils.data.Dataset):
 
             if len(pose_arrays) != 2:
                 raise ValueError(
-                    "arc_hybrid horizon requires exactly two pose_zarr_keys "
+                    "joint ARC horizon requires exactly two pose_zarr_keys "
                     f"for the bimanual joint clocks, got {len(pose_arrays)}"
                 )
             if common_usable < 2:
                 return max(2, available)
 
             left, right = (pose[:common_usable] for pose in pose_arrays)
-            translation_step = np.linalg.norm(
-                np.diff(left[:, :3], axis=0), axis=1
-            ) + np.linalg.norm(np.diff(right[:, :3], axis=0), axis=1)
-            translation_cumulative = np.concatenate(
-                ([0.0], np.cumsum(translation_step))
-            )
+            arm_distances = []
+            for pose in (left, right):
+                steps = np.linalg.norm(np.diff(pose[:, :3], axis=0), axis=1)
+                arm_distances.append(np.concatenate(([0.0], np.cumsum(steps))))
+            arm_distances = np.stack(arm_distances)
+            if chunking_mode == "joint_distance":
+                translation_cumulative = arm_distances.sum(axis=0)
+            elif chunking_mode == "race":
+                translation_cumulative = arm_distances.max(axis=0)
+            else:
+                translation_cumulative = arm_distances.min(axis=0)
+
+            translation_reached = np.flatnonzero(translation_cumulative >= distance)
+            if not len(translation_reached):
+                return max(2, available)
+            translation_end = int(translation_reached[0])
+            if rotation_distance is None:
+                return max(2, min(available, translation_end + 1))
 
             rotation_steps = []
             for pose in (left, right):
@@ -2133,11 +2201,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                 ([0.0], np.cumsum(rotation_steps[0] + rotation_steps[1]))
             )
 
-            translation_reached = np.flatnonzero(translation_cumulative >= distance)
             rotation_reached = np.flatnonzero(rotation_cumulative >= rotation_distance)
-            if not len(translation_reached) or not len(rotation_reached):
+            if not len(rotation_reached):
                 return max(2, available)
-            required = max(int(translation_reached[0]), int(rotation_reached[0]))
+            required = max(translation_end, int(rotation_reached[0]))
             return max(2, min(available, required + 1))
 
         crossing_indices: list[int | None] = []
@@ -2165,7 +2232,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             crossing_indices.append(int(reached[0]) if len(reached) else None)
 
         reached = [i for i in crossing_indices if i is not None]
-        require_all = bool(spec.get("require_all_arms", True))
+        require_all = chunking_mode == "multistream"
         if (require_all and len(reached) == len(crossing_indices)) or (
             not require_all and reached
         ):

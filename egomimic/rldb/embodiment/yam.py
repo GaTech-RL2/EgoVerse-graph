@@ -165,6 +165,7 @@ class Yam(Embodiment):
         # How the arc token carries timing; see
         # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
         velocity_mode: str = "mean",
+        arc_chunking_mode: str | None = None,
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -251,6 +252,7 @@ class Yam(Embodiment):
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 velocity_mode=velocity_mode,
+                arc_chunking_mode=arc_chunking_mode,
                 # Keep a fixed 100-step native-cadence GT copy for evaluator
                 # metrics/videos. The source window itself is variable, but
                 # the control horizon is always 100 steps; repeat-last at an
@@ -347,6 +349,7 @@ class Yam(Embodiment):
         camera_keys: dict | None = None,
         min_distance_unit: float | None = None,
         rotation_distance_unit: float | None = None,
+        arc_chunking_mode: str | None = None,
     ):
         """Keep the raw-data read horizon aligned with configured ARC caps."""
         key_map = super().get_keymap(
@@ -361,11 +364,15 @@ class Yam(Embodiment):
                 continue
             if min_distance_unit is not None:
                 horizon["distance"] = float(min_distance_unit)
-            if (
-                rotation_distance_unit is not None
-                and horizon.get("type") == "arc_hybrid"
-            ):
+            if rotation_distance_unit is not None:
+                horizon["type"] = "arc_hybrid"
                 horizon["rotation_distance"] = float(rotation_distance_unit)
+            if arc_chunking_mode is not None:
+                from egomimic.rldb.zarr.arc_length_tokenizer import resolve_arc_chunking_mode
+
+                horizon["arc_chunking_mode"] = resolve_arc_chunking_mode(
+                    arc_chunking_mode, horizon.get("rotation_distance")
+                )
         return key_map
 
     @classmethod

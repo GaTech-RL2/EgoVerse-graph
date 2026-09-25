@@ -10,9 +10,27 @@ import math
 
 import numpy as np
 
-METRIC_VERSION = "joint_distance_global_dtw_v1"
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    ARC_CHUNKING_MODES,
+    resolve_arc_chunking_mode,
+)
+
+METRIC_VERSION = "arc_chunking_global_dtw_v2"
 METRIC_FRAME_KEY = "evaluation.eef_to_world"
 XYZ_COLS = (0, 1, 2, 7, 8, 9)
+ARC_DISTANCE_SEMANTICS = {
+    "joint_distance": "combined_left_plus_right_translation",
+    "race": "max_cumulative_per_arm_translation",
+    "multistream": "min_cumulative_per_arm_translation",
+}
+
+
+def evaluator_chunking_mode(evaluator) -> str:
+    """Resolve new evaluators; retain summed budgets for legacy saved objects."""
+    return resolve_arc_chunking_mode(
+        getattr(evaluator, "arc_chunking_mode", "joint_distance"),
+        getattr(evaluator, "rotation_distance_unit", None),
+    )
 
 
 def world_xyz(actions: np.ndarray, anchors: np.ndarray) -> np.ndarray:
@@ -34,7 +52,34 @@ def world_xyz(actions: np.ndarray, anchors: np.ndarray) -> np.ndarray:
     return xyz
 
 
+def per_arm_cumulative_distance(xyz: np.ndarray) -> np.ndarray:
+    """Cumulative translation for each arm, preserving which arm moved first."""
+    values = np.asarray(xyz, dtype=np.float64)
+    if values.ndim != 2 or values.shape[1] != 6 or not len(values):
+        raise ValueError("Expected nonempty (T,6) bimanual XYZ")
+    if not np.isfinite(values).all():
+        raise ValueError("Nonfinite GT positions")
+    steps = np.linalg.norm(np.diff(values, axis=0).reshape(-1, 2, 3), axis=2)
+    return np.concatenate((np.zeros((1, 2)), np.cumsum(steps, axis=0)))
+
+
+def translation_progress(xyz: np.ndarray, chunking_mode: str) -> np.ndarray:
+    """Episode progress: sum for joint D, max for race, min for multistream.
+
+    Reduce AFTER accumulating each arm. Summing interval-wise minima/maxima
+    gives a different budget when the active arm changes during an episode.
+    """
+    mode = resolve_arc_chunking_mode(chunking_mode)
+    if mode == "joint_distance":
+        return joint_cumulative_distance(xyz)
+    cumulative = per_arm_cumulative_distance(xyz)
+    reduce = np.max if mode == "race" else np.min
+    return reduce(cumulative, axis=1)
+
+
 def joint_cumulative_distance(xyz: np.ndarray) -> np.ndarray:
+    # Preserve the original accumulation order, including exact threshold
+    # rounding used to select GT frame anchors in historical joint-D scores.
     values = np.asarray(xyz, dtype=np.float64)
     if values.ndim != 2 or values.shape[1] != 6 or not len(values):
         raise ValueError("Expected nonempty (T,6) bimanual XYZ")
@@ -78,6 +123,64 @@ def distance_windows(
     starts = np.arange(max(1, count), dtype=np.float64) * budget
     anchors = np.searchsorted(cumulative, starts, side="left")
     return anchors, np.minimum(budget, np.maximum(0.0, length - starts))
+
+
+def chunk_distance_windows(
+    xyz: np.ndarray, budget: float, chunking_mode: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Distance windows with per-arm origins reset at each fractional boundary.
+
+    Joint distance retains its historical global milestones exactly. Race
+    ends a window when either arm reaches budget; multistream waits for both.
+    A fractional boundary resets BOTH distances at that source time. The next
+    observation is the first recorded frame at/after it, as for joint D;
+    multiple boundaries within one interval deliberately repeat that anchor.
+    Zero mode progress gets one full-prefix fallback, including multistream
+    episodes where one arm is stationary throughout.
+    """
+    mode = resolve_arc_chunking_mode(chunking_mode)
+    if mode == "joint_distance":
+        return distance_windows(joint_cumulative_distance(xyz), budget)
+    if not np.isfinite(budget) or budget <= 0:
+        raise ValueError("Invalid execution distance budget")
+    cumulative = per_arm_cumulative_distance(xyz)
+    reduce = np.max if mode == "race" else np.min
+    origin = np.zeros(2)
+    start = 0.0
+    anchors, budgets = [], []
+    while True:
+        remaining = max(0.0, float(reduce(cumulative[-1] - origin)))
+        if remaining <= 1e-12:
+            if not anchors:
+                return np.array([0]), np.array([budget])
+            break
+        anchors.append(min(len(cumulative) - 1, int(math.ceil(start - 1e-10))))
+        budgets.append(min(budget, remaining))
+        if remaining < budget and not math.isclose(
+            remaining, budget, rel_tol=1e-10, abs_tol=1e-10
+        ):
+            break
+        crossings = []
+        for arm in range(2):
+            target = origin[arm] + budget
+            if math.isclose(target, cumulative[-1, arm], rel_tol=1e-10, abs_tol=1e-10):
+                target = cumulative[-1, arm]
+            upper = int(np.searchsorted(cumulative[:, arm], target, side="left"))
+            if upper == len(cumulative):
+                crossings.append(math.inf)
+            else:
+                delta = cumulative[upper, arm] - cumulative[upper - 1, arm]
+                alpha = (target - cumulative[upper - 1, arm]) / delta
+                crossings.append(upper - 1 + alpha)
+        boundary = float(min(crossings) if mode == "race" else max(crossings))
+        if not math.isfinite(boundary) or boundary <= start:
+            raise ValueError("Distance window did not advance on the source trajectory")
+        lower = min(int(math.floor(boundary)), len(cumulative) - 2)
+        origin = cumulative[lower] + (boundary - lower) * (
+            cumulative[lower + 1] - cumulative[lower]
+        )
+        start = boundary
+    return np.asarray(anchors, dtype=np.int64), np.asarray(budgets)
 
 
 def global_dtw(
@@ -217,13 +320,15 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
             for item in records
         ]
     )
-    cumulative = joint_cumulative_distance(gt)
+    joint_distance = joint_cumulative_distance(gt)
     is_arc = evaluator._is_arc_prediction(records[0]["prediction"])
     if any(
         evaluator._is_arc_prediction(item["prediction"]) != is_arc for item in records
     ):
         raise ValueError("Mixed ARC/baseline representations within an episode")
     budget = None
+    chunking_mode = evaluator_chunking_mode(evaluator)
+    cumulative = translation_progress(gt, chunking_mode) if is_arc else joint_distance
     if is_arc:
         if evaluator.velocity_mode != "per_waypoint":
             raise ValueError("Distance-budget DTW requires per-waypoint ARC velocity")
@@ -232,13 +337,18 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         if evaluator.arc_execution_cap_mode == "waypoints":
             fraction = (executed_arc_waypoints(m, fraction) - 1) / (m - 1)
         budget = evaluator.min_distance_unit * fraction
-        anchors, budgets = distance_windows(cumulative, budget)
+        anchors, budgets = chunk_distance_windows(gt, budget, chunking_mode)
         tokenizer = TokenizeBimanualArcLengthCartesian(
             min_distance_unit=evaluator.min_distance_unit,
             rotation_distance_unit=getattr(evaluator, "rotation_distance_unit", None),
             resampled_vector_length=m,
             dt=evaluator.control_dt,
             velocity_mode=evaluator.velocity_mode,
+            arc_chunking_mode=(
+                chunking_mode
+                if getattr(evaluator, "rotation_distance_unit", None) is not None
+                else None
+            ),
         )
     else:
         anchors = np.arange(0, len(records), evaluator.execute_steps)
@@ -258,6 +368,11 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
                 evaluator.velocity_mode,
                 evaluator.min_distance_unit,
                 evaluator.arc_execution_cap_mode,
+                arc_chunking_mode=chunking_mode,
+                rotation_distance_unit=getattr(
+                    evaluator, "rotation_distance_unit", None
+                ),
+                control_dt=evaluator.control_dt,
             )
             if evaluator.arc_execution_cap_mode == "waypoints" and fraction < 1:
                 partial = fractional_waypoint_prefix(partial, fraction)
@@ -272,6 +387,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
                     evaluator, "rotation_distance_unit", None
                 ),
                 arc_execution_cap_mode="waypoints",
+                arc_chunking_mode=chunking_mode,
             )
             if n > evaluator.dtw_max_prediction_steps:
                 raise ValueError(
@@ -298,7 +414,28 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         segment_control_steps=steps,
         execution_distance_budget_m=budget,
         segment_distance_budgets_m=budgets.tolist() if is_arc else None,
-        gt_joint_distance_m=float(cumulative[-1]),
+        arc_chunking_mode=chunking_mode if is_arc else None,
+        distance_semantics=ARC_DISTANCE_SEMANTICS[chunking_mode] if is_arc else None,
+        distance_window_semantics=(
+            (
+                "global_joint_distance_milestones"
+                if chunking_mode == "joint_distance"
+                else "chunk_local_per_arm_reset"
+            )
+            if is_arc
+            else None
+        ),
+        gt_joint_distance_m=float(joint_distance[-1]),
+        gt_mode_progress_m=float(cumulative[-1]),
+        gt_per_arm_distance_m=per_arm_cumulative_distance(gt)[-1].tolist(),
+        rotation_distance_unit=(
+            getattr(evaluator, "rotation_distance_unit", None) if is_arc else None
+        ),
+        rotation_clock=(
+            "shared_independent"
+            if is_arc and getattr(evaluator, "rotation_distance_unit", None) is not None
+            else None
+        ),
         stationary_fallback=bool(is_arc and cumulative[-1] <= 1e-12),
         predicted_duration_s=float(total * evaluator.control_dt),
         gt_duration_s=float(len(gt) * evaluator.control_dt),

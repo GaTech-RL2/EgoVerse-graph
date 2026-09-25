@@ -16,7 +16,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from egomimic.eval.distance_budget_dtw import METRIC_VERSION  # noqa: E402
+from egomimic.eval.distance_budget_dtw import (  # noqa: E402
+    ARC_CHUNKING_MODES,
+    METRIC_VERSION,
+)
 from egomimic.utils.hydra_override import encode_hydra_string_override  # noqa: E402
 
 
@@ -129,6 +132,7 @@ def validation_command(
     extra_overrides: list[str],
     video_only: bool = False,
     arc_execution_cap_mode: str = "waypoints",
+    arc_chunking_mode: str | None = None,
 ) -> list[str]:
     results_path = output_dir / "open_loop_sim.json"
     video_dir = output_dir / "val_videos"
@@ -167,6 +171,10 @@ def validation_command(
         ),
         encode_hydra_string_override("+logger.wandb.resume", "allow"),
     ]
+    if arc_chunking_mode is not None:
+        if arc_chunking_mode not in ARC_CHUNKING_MODES:
+            raise ValueError(f"Invalid arc_chunking_mode: {arc_chunking_mode!r}")
+        command.append(f"evaluator.arc_chunking_mode={arc_chunking_mode}")
     if video_only:
         command.append("evaluator.video_only=true")
     if limit_val_episodes is not None:
@@ -235,6 +243,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--limit-val-episodes", type=int)
     parser.add_argument(
+        "--arc-chunking-mode",
+        choices=ARC_CHUNKING_MODES,
+        help="ARC translation mode; omitted uses the experiment/codec default. Match the checkpoint's training mode.",
+    )
+    parser.add_argument(
         "--video-only",
         action="store_true",
         help="Render and upload validation videos without scoring or metric JSON.",
@@ -268,6 +281,8 @@ def main(argv: list[str] | None = None) -> int:
         "action_mode": args.action_mode,
         "execute_fraction": args.execute_fraction,
         "arc_execution_cap_mode": args.arc_execution_cap_mode,
+        "arc_chunking_mode": args.arc_chunking_mode,
+        "distance_dtw_metric_version": METRIC_VERSION,
         "limit_val_episodes": args.limit_val_episodes,
         "video_only": args.video_only,
         "wandb_run_id": args.wandb_run_id,
@@ -294,6 +309,7 @@ def main(argv: list[str] | None = None) -> int:
             wandb_group=args.wandb_group,
             video_only=args.video_only,
             arc_execution_cap_mode=args.arc_execution_cap_mode,
+            arc_chunking_mode=args.arc_chunking_mode,
             extra_overrides=list(args.override),
         )
         manifest["commands"].append(command)

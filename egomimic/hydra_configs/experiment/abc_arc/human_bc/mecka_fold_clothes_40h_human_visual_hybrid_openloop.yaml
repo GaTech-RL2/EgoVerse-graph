@@ -8,6 +8,9 @@ description: HPT300M human-bimanual MECKA fold_clothes visual-only hybrid D40 M1
 abc:
   action_mode: hybrid_arc_tokenizer_cartesian
   arc_rotation_distance: 0.4188790204786391
+run_provenance:
+  action_contract:
+    source_sampling: native_30hz_v1
 hpt:
   action_horizon: ${abc.arc_token_rows}
 evaluator:

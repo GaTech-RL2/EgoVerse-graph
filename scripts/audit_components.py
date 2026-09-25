@@ -12,6 +12,7 @@ import hashlib
 import json
 import socket
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import torch
@@ -20,6 +21,7 @@ from omegaconf import OmegaConf
 
 from egomimic.pipeline.construction import checkpoint_construction
 from egomimic.pipeline.inference_config import build_inference_config
+from egomimic.trainHydra import _instantiate_model_wrapper
 from scripts.audit_hydra_configs import CONFIGS, ROOT, compose_for_audit
 
 # This is a shipped, explicitly non-runnable fragment, not ignored migration debt.
@@ -97,10 +99,33 @@ def audit_components():
                                         "reason": artifact["reason"],
                                     }
                                 else:
+                                    audit_cfg = OmegaConf.create(
+                                        OmegaConf.to_container(cfg, resolve=True)
+                                    )
+                                    OmegaConf.update(
+                                        audit_cfg,
+                                        "model.pipeline.device",
+                                        "meta",
+                                        force_add=True,
+                                    )
                                     with torch.device("meta"):
-                                        graph = instantiate(
-                                            config.pipeline, device="meta"
+                                        wrapper = _instantiate_model_wrapper(audit_cfg)
+                                    graph = wrapper.model
+                                    # Honor configured TrainingBehavior parameter binding
+                                    # (including named/composite optimizers). Late-bound
+                                    # backends have no parameters until data is bound.
+                                    placeholder = not any(
+                                        True for _ in wrapper.parameters()
+                                    )
+                                    if placeholder:
+                                        wrapper.nets.register_parameter(
+                                            "_audit_placeholder",
+                                            torch.nn.Parameter(
+                                                torch.zeros(1, device="cpu")
+                                            ),
                                         )
+                                    wrapper.trainer = SimpleNamespace(model=wrapper)
+                                    wrapper.configure_optimizers()
                                     if artifact["status"] == "ready":
                                         declaration = artifact["inference_graph"]
                                         runnable, excluded = graph.pipeline.plan(
@@ -128,8 +153,10 @@ def audit_components():
                                         "stages": len(graph.pipeline.stages),
                                         "inference": artifact["status"],
                                         "reason": artifact.get("reason"),
+                                        "optimizer_scheduler": "passed",
+                                        "late_bound_parameter_placeholder": placeholder,
                                     }
-                                    del graph
+                                    del graph, wrapper
                                     gc.collect()
                         row["components"][key] = cached[cache_key]
                 row["status"] = "passed"

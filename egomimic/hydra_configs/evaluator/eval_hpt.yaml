@@ -4,6 +4,8 @@ defaults:
   - _self_
 _target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
 pose_metrics: true
+# Preserve the pinned source's ordinary elementwise camera-frame MSE.
+camera_mse_wrap: false
 rkl_samples: 8
 revert_transforms:
   eva_bimanual:

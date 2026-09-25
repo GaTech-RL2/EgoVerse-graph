@@ -1,0 +1,26 @@
+{
+  "source_commit": "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+  "vendor": "scale",
+  "representation": "cartesian",
+  "frame": "eef_frame",
+  "identity": 3,
+  "indices": [
+    0,
+    7,
+    29,
+    47,
+    50
+  ],
+  "model_keys": [
+    "actions_cartesian",
+    "observations.images.front_img_1",
+    "observations.state.ee_pose"
+  ],
+  "api": "legacy",
+  "transform_arguments": {
+    "mode": "cartesian_wristframe_ypr",
+    "stride": 1
+  },
+  "normalization_frames": 54,
+  "archive_sha256": "d456f93c3dec0d8eac559f46a5f56cabc0c42f813d2e4feac78fbf34d92fe65c"
+}

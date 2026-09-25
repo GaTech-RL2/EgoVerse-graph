@@ -1,0 +1,19 @@
+{
+  "tree": "35598db70c0163efba40437abeffb986783c47bd",
+  "snapshot": "813e786f7e50e7dfae897e1bc55cc4130269858c",
+  "parent": "37cb8db7362437a0d7a3acfcb88648138b15ea6a",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-parity-validation-20260924",
+  "status": "passed",
+  "tests": 1430,
+  "warnings": 41,
+  "seconds": 227.36,
+  "command": "HF_HUB_OFFLINE=1 WANDB_MODE=disabled pytest tests -q",
+  "log_sha256": "da98fed7ed4a65323e7a286148f53148b43d0045190396f9e297034093b47c2a",
+  "yaml_contexts": 254,
+  "constructor_contexts": 254,
+  "scope": "isolated CPU parity hardening; real-weight/data GPU and assembled-destination gates remain open",
+  "post_validation_changes": [
+    "this receipt",
+    "docs/integration/PLAN.md status only"
+  ]
+}

@@ -14,6 +14,7 @@ from egomimic.pipeline.core import resolve_homogeneous_scalar
 from egomimic.pipeline.inference_config import (
     find_inference_config,
     validate_inference_config,
+    validate_model_data_context,
 )
 from egomimic.pipeline.inference_controls import configure_profile_controls
 from egomimic.pl_utils.data_context import DataContext
@@ -55,6 +56,7 @@ def load_bound_graph(
         checkpoint_path, map_location="cpu", weights_only=False, mmap=True
     )
     validate_artifact_binding(artifact, checkpoint, training, context)
+    validate_model_data_context(training, context)
     context.normalizer.validate_inference_schema(
         declaration["compatibility"]["normalizer_schema"], identity=identity
     )

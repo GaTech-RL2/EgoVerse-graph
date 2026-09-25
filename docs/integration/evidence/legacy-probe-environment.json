@@ -1,0 +1,8 @@
+{
+  "source_lock_version": "2.0.0",
+  "target": "/Users/rpunamiya/Desktop/GEAR/handover_figures/graph-integration-20260924/legacy-probe-libs",
+  "wheel": "projectaria_tools-2.0.0-cp311-cp311-macosx_11_0_arm64.whl",
+  "url": "https://files.pythonhosted.org/packages/ea/e5/02084a4b9343ee26d54ea9e157240f10a3ffd9bbd0b61079dbaaf68468c9/projectaria_tools-2.0.0-cp311-cp311-macosx_11_0_arm64.whl",
+  "sha256": "10b8db400c6421aca10ef4fb7fca35c5d2da6f65901997e303ed8033d243f15d",
+  "scope": "isolated optional legacy SE3 library; core numeric packages shared with the graph CPU environment; not a legacy model-training environment"
+}

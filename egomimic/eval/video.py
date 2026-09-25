@@ -84,6 +84,7 @@ class EvalVideo(Eval):
         self.val_open_episode = {}
         self.val_written = {}
         self._written_paths = []
+        self._written_fps = {}
         self._frame_records = {}
         previous = getattr(self, "_video_spool", None)
         if previous is not None:
@@ -151,13 +152,15 @@ class EvalVideo(Eval):
     def _write_video(self, out_dir, name, frames, *, group, embodiment_name, fps=None):
         os.makedirs(out_dir, exist_ok=True)
         path = os.path.join(out_dir, f"{name}.mp4")
+        fps = self._video_fps() if fps is None else fps
         tvio.write_video(
             path,
             torch.stack(list(frames)),
-            fps=self._video_fps() if fps is None else fps,
+            fps=fps,
             video_codec="h264",
         )
         self._written_paths.append((group, embodiment_name, path))
+        self._written_fps[path] = fps
 
     def _write_episode_stream(
         self, out_dir, name, frames, *, group, embodiment_name, fps
@@ -185,6 +188,7 @@ class EvalVideo(Eval):
                 for packet in stream.encode():
                     container.mux(packet)
         self._written_paths.append((group, embodiment_name, path))
+        self._written_fps[path] = fps
 
     def _flush_episode(self, buf_key, out_dir):
         """Write the open episode's buffer as ``{episode_hash}.mp4``."""
@@ -449,7 +453,10 @@ class EvalVideo(Eval):
                 "Val_video" if group == DEFAULT_VALID_GROUP else f"Val_video_{group}"
             )
             payload[f"{prefix}/{embodiment_name}"] = [
-                wandb.Video(p, fps=self._video_fps(), format="mp4") for p in paths
+                wandb.Video(
+                    p, fps=self._written_fps.get(p, self._video_fps()), format="mp4"
+                )
+                for p in paths
             ]
         experiment.log(
             payload,

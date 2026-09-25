@@ -54,15 +54,17 @@ Published draft stack in EgoVerse-graph:
 | Recorded-data tools | #153 | `5cb26b9e` | 1,392 |
 | Bound inference | #154 | `9bd2bed5` | 1,404 |
 | Recursive configuration/CI gates | #155 | `09accb58` | 1,408 |
+| Real-input OSMO harness | #156 | `37cb8db7` | 1,411 |
 
 Each layer's tested tree, snapshot and log hash are recorded under `evidence/`.
 The data-tool layer includes real HDF5 conversion, immutable output checks,
 complete annotated video encoding and data preview without a model or fitting
-normalization. The recursive working-tree audit resolves 253/253 shipped YAMLs.
+normalization. The expanded working-tree constructor audit passes 254/254
+shipped YAML contexts, including configured optimizers and schedulers.
 
-The active branch is `codex/graph-integration-20260924/07-osmo-validation`.
-All 253 YAMLs compose and all 253 constructor contexts pass offline, including
-ready inference dependency plans. The gate caught a stale EVA wrist keymap and
+The active branch is `codex/graph-integration-20260924/08-parity-hardening`.
+Layer 07 passed all 253 YAML/constructor contexts available at its revision,
+including ready inference dependency plans. The gate caught a stale EVA wrist keymap and
 Scale API access during construction; both are fixed. The layer also finishes
 the shared diagnostic-prediction metric entrypoint and canonical Yam keymap,
 with behavior tests. Ruff enforcement preserves the byte-pinned Yam files.
@@ -73,9 +75,21 @@ checkpoint and no-hardware strict-reload harness. Source data is read-only;
 public weights/tokenizer files are hash-pinned. GPU execution receipts remain
 required; input metadata and CPU fixtures are not substitutes for them.
 
+Layer 08 adds ten fixed-fixture old/new data, normalization and metric cases,
+all-epoch language scheduler references, explicit preprocessing requirements
+for restored root models, video corrections and optimizer constructor checks.
+See `FIXED_FIXTURE_PARITY.md` for provenance and the limits of this evidence.
+Its isolated suite passes all 1,430 tests; lock, Ruff and all 254 recursive
+configuration contexts pass. The tested tree and log hash are recorded in
+`evidence/parity-hardening-cpu-receipt.json`.
+
+OSMO currently returns HTTP 403 at both the service and login endpoints, even
+for unauthenticated requests. No workflow has been submitted. Network access
+must recover before the source-pinned real-input matrix can run.
+
 Remaining gates: real-weight/data OSMO L40/L40S
-training and distributed smokes, complete fixed-fixture parity, explicit
-model-versus-data frame compatibility, refreshed destination conflict inventory,
+training and distributed smokes, remaining nested model/data contracts,
+refreshed destination conflict inventory,
 assembled-tree validation and gated cutover. Public PI weight metadata matches
 the pinned OpenPI architecture, and read-only R2 audits located real bimanual
 EVA/Aria/Mecka/Scale/Yam episodes; neither observation is a real training result.

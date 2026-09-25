@@ -65,12 +65,22 @@ def model_pipeline_sha256(training: DictConfig | Mapping[str, Any]) -> str:
 def inference_contract_sha256(training: DictConfig | Mapping[str, Any]) -> str:
     """Bind only the resolved, explicitly declared model semantics."""
     config = _as_config(training)
-    return _canonical_sha256(
-        {
-            "pipeline": _plain_node(config, "model.pipeline"),
-            "inference": _plain_node(config, "model.inference"),
-        }
-    )
+    payload = {
+        "pipeline": _plain_node(config, "model.pipeline"),
+        "inference": _plain_node(config, "model.inference"),
+    }
+    requirements = _plain_node(config, "model.data_requirements")
+    if requirements is not None:
+        payload["data_requirements"] = requirements
+    return _canonical_sha256(payload)
+
+
+def validate_model_data_context(training, context):
+    """Enforce model-owned data constraints before constructing a network."""
+    config = _as_config(training)
+    requirements = _plain_node(config, "model.data_requirements")
+    if requirements is not None:
+        context.validate_requirements(requirements)
 
 
 def _positive_int(value, name):
@@ -204,6 +214,7 @@ def build_inference_config(
     if data_context is not None:
         from egomimic.pipeline.checkpoint_binding import checkpoint_binding
 
+        validate_model_data_context(config, data_context)
         artifact["checkpoint_binding"] = checkpoint_binding(config, data_context)
     try:
         declaration = _plain_node(config, "model.inference")

@@ -153,6 +153,9 @@ def chunk_distance_windows(
         if remaining <= 1e-12:
             if not anchors:
                 return np.array([0]), np.array([budget])
+            if mode == "multistream" and np.max(cumulative[-1] - origin) > 1e-12:
+                anchors.append(int(math.ceil(start - 1e-10)))
+                budgets.append(budget)
             break
         anchors.append(min(len(cumulative) - 1, int(math.ceil(start - 1e-10))))
         budgets.append(min(budget, remaining))

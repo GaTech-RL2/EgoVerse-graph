@@ -54,6 +54,22 @@ def test_multistream_windows_reset_both_arms_after_slow_arm_catches_up():
     np.testing.assert_allclose(budgets, [1, 1, 0.25])
 
 
+def test_multistream_remaining_tail_gets_fallback_after_completed_window():
+    values = xyz([0, 1, 1, 1], [0, 1, 2, 3])
+    anchors, budgets = dtw.chunk_distance_windows(values, 1, "multistream")
+    np.testing.assert_array_equal(anchors, [0, 1])
+    np.testing.assert_allclose(budgets, [1, 1])
+    assert dtw.translation_progress(values, "multistream")[-1] == 1
+
+
+@pytest.mark.parametrize("mode", ["multistream", "race"])
+def test_completed_translation_does_not_add_fallback_for_static_tail(mode):
+    values = xyz([0, 1, 1, 1], [0, 1, 1, 1])
+    anchors, budgets = dtw.chunk_distance_windows(values, 1, mode)
+    np.testing.assert_array_equal(anchors, [0])
+    np.testing.assert_allclose(budgets, [1])
+
+
 def test_race_windows_keep_fractional_crossings_and_repeated_frame_anchors():
     values = xyz([0, 2.5], [0, 0])
     anchors, budgets = dtw.chunk_distance_windows(values, 1, "race")

@@ -48,11 +48,12 @@ for exp in "${runs[@]}"; do
     --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw --container-workdir="$SRC" \
     --output="$run/train-%j.log" \
     bash -c "set -euo pipefail
+      ulimit -n \$(ulimit -Hn)  # zarr-heavy loaders exhaust the default 1024 fds (norm pass, job 405906)
       export MASTER_PORT=$port PYTHONPATH=$SRC HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 WANDB_MODE=\${WANDB_MODE:-online}
       export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
       export TORCHINDUCTOR_CACHE_DIR=/tmp/ti_${SLURM_JOB_ID}_$name TRITON_CACHE_DIR=/tmp/tr_${SLURM_JOB_ID}_$name
       [ \"\${SLURM_PROCID:-0}\" = 0 ] && nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader
-      echo rank=\${SLURM_PROCID:-0} local=\${SLURM_LOCALID:-0} commit=\$(git -C $SRC rev-parse --short HEAD) job=$SLURM_JOB_ID restart=${SLURM_RESTART_COUNT:-0}
+      echo rank=\${SLURM_PROCID:-0} local=\${SLURM_LOCALID:-0} nofile=\$(ulimit -n) commit=\$(git -C $SRC rev-parse --short HEAD) job=$SLURM_JOB_ID restart=${SLURM_RESTART_COUNT:-0}
       exec $SRC/.venv/bin/python egomimic/trainHydra.py --config-name=train_zarr_cartesian \
         +experiment=$exp paths.output_dir=$run norm_stats.save_cache_dir=$run hydra.run.dir=$run \
         $resume ${EXTRA:-}" &

@@ -56,6 +56,7 @@ Published draft stack in EgoVerse-graph:
 | Recursive configuration/CI gates | #155 | `09accb58` | 1,408 |
 | Real-input OSMO harness | #156 | `37cb8db7` | 1,411 |
 | Source fixtures and data compatibility | #157 | `69839b12` | 1,430 |
+| Deployment frame/timing declarations | #158 | `1118d531` | 1,452 |
 
 Each layer's tested tree, snapshot and log hash are recorded under `evidence/`.
 The data-tool layer includes real HDF5 conversion, immutable output checks,
@@ -63,7 +64,7 @@ complete annotated video encoding and data preview without a model or fitting
 normalization. The expanded working-tree constructor audit passes 254/254
 shipped YAML contexts, including configured optimizers and schedulers.
 
-The active branch is `codex/graph-integration-20260924/09-deployment-contracts`.
+The active branch is `codex/graph-integration-20260924/10-trunk-parity`.
 Layer 07 passed all 253 YAML/constructor contexts available at its revision,
 including ready inference dependency plans. The gate caught a stale EVA wrist keymap and
 Scale API access during construction; both are fixed. The layer also finishes
@@ -92,6 +93,17 @@ identity. All 1,452 isolated CPU tests and 254 configuration/constructor context
 pass; `evidence/deployment-contracts-cpu-receipt.json` records the tested revision.
 `MIGRATION.md` ties installation,
 retained commands, data tools and checkpoint rules together.
+
+Layer 10 verifies the original HPT trunk weight namespace through the generic
+initializer, including source-pinned masked outputs and gradients. It completes
+the old-only capability dispositions with explicit evidence and remaining gates;
+`CAPABILITY_DISPOSITIONS.md` explains the retained and unreferenced surfaces.
+All 1,454 isolated CPU tests pass, including recursive 254/254 YAML/component
+gates. Source fixtures contain generated CPU tensors, not learned historical
+checkpoints. The receipt is `evidence/trunk-parity-cpu-receipt.json`. A fresh
+read-only destination inventory is in `evidence/destination-preflight.json`;
+conflict resolution and assembled-tree testing remain open. No GPU result or
+destination cutover is implied.
 
 OSMO currently returns HTTP 403 at both the service and login endpoints, even
 for unauthenticated requests. No workflow has been submitted. Network access

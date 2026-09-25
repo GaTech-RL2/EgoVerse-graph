@@ -1,0 +1,56 @@
+{
+  "source_commit": "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+  "scope": "in-repository text import/target audit; no claim about external consumers",
+  "scans": {
+    "act_nets": {
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-e",
+        "act_nets",
+        "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+        "--",
+        ".",
+        ":(exclude)egomimic/models/act_nets.py"
+      ],
+      "matches": [],
+      "exit_code": 1
+    },
+    "abstract_eval": {
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-e",
+        "scripts.evaluation.eval",
+        "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+        "--",
+        "."
+      ],
+      "matches": [],
+      "exit_code": 1
+    },
+    "tensor_utils": {
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-e",
+        "egomimic.utils.tensor_utils",
+        "-e",
+        "TensorUtils",
+        "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+        "--",
+        "."
+      ],
+      "matches": [
+        "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2:egomimic/algo/hpt.py:20:from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table",
+        "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2:egomimic/models/hpt_nets.py:16:from egomimic.utils.tensor_utils import get_sinusoid_encoding_table",
+        "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2:egomimic/pl_utils/pl_model.py:12:import egomimic.utils.tensor_utils as TensorUtils",
+        "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2:egomimic/pl_utils/pl_model.py:151:        info[\"losses\"] = TensorUtils.detach(losses)"
+      ],
+      "exit_code": 0
+    }
+  }
+}

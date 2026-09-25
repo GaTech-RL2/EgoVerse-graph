@@ -26,27 +26,61 @@
       "legacy_blob": "88b0ce5aa0843737e74912b0c7298442e86dc5ec",
       "category": "policy runtime",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/pipeline/algo.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py",
+        "tests/test_legacy_hpt_trunk_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/algo/algo.py",
       "legacy_blob": "a01e4cc861671c5ffe25a02a7a30db0e560bdb28",
       "category": "policy runtime",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/pipeline/algo.py; egomimic/pl_utils/pl_model.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py",
+        "tests/test_legacy_hpt_trunk_parity.py",
+        "tests/test_model_wrapper_metrics.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/algo/hpt.py",
       "legacy_blob": "ad567b0fb6be4752d03f38dfb5554eb55a0943b5",
       "category": "policy runtime",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/pipeline/stages_hpt.py; egomimic/pipeline/stages_alignment.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py",
+        "tests/test_legacy_hpt_trunk_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/algo/pi.py",
@@ -73,9 +107,18 @@
       "legacy_blob": "ee7af2a0e264bd93884745b9b0511bdae75d5a73",
       "category": "evaluation",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/eval/bimanual_cartesian_eval.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_legacy_data_metric_parity.py",
+        "tests/test_shared_robot_components.py",
+        "tests/test_retained_hpt_variants.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/eval/eval_latent.py",
@@ -122,9 +165,17 @@
       "legacy_blob": "9cf44d121c0fc72650514d062bafbbc6c34ce2b2",
       "category": "evaluation",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/eval/video.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_video_contract.py",
+        "tests/test_retained_language.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/eval/latent_dataset.py",
@@ -1176,36 +1227,72 @@
       "legacy_blob": "2126de8f6fa73a66516df9978f17a09dd3ccd6c5",
       "category": "model component",
       "owner": "graph-integration",
-      "disposition": "pending",
+      "disposition": "unreferenced-at-audited-source",
       "replacement": null,
-      "evidence": []
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "docs/integration/evidence/legacy-unused-surface-audit.json"
+      ],
+      "remaining_gates": [
+        "assembled-destination reference audit before cutover"
+      ]
     },
     {
       "legacy_path": "egomimic/models/denoising_policy.py",
       "legacy_blob": "645a8c44e49059f2d0409a9c12102ea60c0ca1c3",
       "category": "model component",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/pipeline/stages_diffusion.py; egomimic/pipeline/stages_flow.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_hpt_stages.py",
+        "tests/test_bound_inference.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/models/fm_policy.py",
       "legacy_blob": "e41f4943c1d287c1e1dc83d10e040bffd1f5649d",
       "category": "model component",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/pipeline/stages_flow.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_hpt_stages.py",
+        "tests/test_bound_inference.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/models/hpt_nets.py",
       "legacy_blob": "3e76bcee43b506d993be4240ecbecec3137cf2f1",
       "category": "model component",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/models/cores/hpt_transformer.py; egomimic/models/stems; egomimic/models/heads/hpt_decoder.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_retained_recipe_steps.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_language.py",
+        "tests/test_alignment_parity.py",
+        "tests/test_legacy_hpt_trunk_parity.py",
+        "tests/test_hpt_cores.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/models/preprocess_pi_obs.py",
@@ -1331,9 +1418,15 @@
       "legacy_blob": "63321515af6d5cbbe670f87c7d304b0f7c014e41",
       "category": "tool",
       "owner": "graph-integration",
-      "disposition": "pending",
+      "disposition": "unreferenced-at-audited-source",
       "replacement": null,
-      "evidence": []
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "docs/integration/evidence/legacy-unused-surface-audit.json"
+      ],
+      "remaining_gates": [
+        "assembled-destination reference audit before cutover"
+      ]
     },
     {
       "legacy_path": "egomimic/scripts/viz_language.py",
@@ -1357,27 +1450,51 @@
       "legacy_blob": "75c4fac11e28cc0729598ce263ae688dcc83489f",
       "category": "utility",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/utils/action_encoding.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_pi05_action_encoding.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/utils/hf_utils.py",
       "legacy_blob": "46a9488733c4bf922743f50b780d23843ed9c28f",
       "category": "utility",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/pipeline/initialization.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_legacy_hpt_trunk_parity.py",
+        "tests/test_pipeline_initialization.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/utils/hydra_resolvers.py",
       "legacy_blob": "8009fdecc8934ff785341358d72fd404d0705301",
       "category": "utility",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/hydra_configs/train_zarr_cartesian.yaml; egomimic/eval/token_diagnostics.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_recursive_config_audit.py",
+        "tests/test_token_diagnostics.py"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/utils/metrics.py",
@@ -1416,9 +1533,18 @@
       "legacy_blob": "70252e1c383a23fccde78eb64af8d9304e9b574e",
       "category": "utility",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/models/cores/hpt_utils.py; egomimic/pl_utils/pl_model.py",
+      "evidence": [
+        "docs/integration/CAPABILITY_DISPOSITIONS.md",
+        "tests/test_hpt_cores.py",
+        "tests/test_model_wrapper_metrics.py",
+        "docs/integration/evidence/legacy-unused-surface-audit.json"
+      ],
+      "remaining_gates": [
+        "real-weight/data GPU validation where applicable",
+        "assembled-destination parity"
+      ]
     }
   ]
 }

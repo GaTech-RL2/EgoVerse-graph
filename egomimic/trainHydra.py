@@ -26,7 +26,11 @@ from egomimic.eval.checkpoint_loading import (
 from egomimic.eval.eval import Eval
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import export_configured_inference_artifact
-from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP, as_valid_groups
+from egomimic.pl_utils.pl_data_utils import (
+    DEFAULT_VALID_GROUP,
+    _is_embodiment_name,
+    as_valid_groups,
+)
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
@@ -550,6 +554,21 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     )
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
+    source_embodiments = {
+        name: _source_embodiment(name, dataset)
+        for name, dataset in datamodule.train_datasets.items()
+    }
+    shared = [
+        emb for emb in set(map(str, source_embodiments.values()))
+        if list(map(str, source_embodiments.values())).count(emb) > 1
+    ]
+    if shared and not OmegaConf.select(cfg, "norm_stats.precomputed_norm_path", default=None):
+        # Stats are keyed by embodiment, so each later source would overwrite the
+        # earlier one's (a weighted ABC + RL2 mix silently got ABC-only stats).
+        raise ValueError(
+            f"train sources {source_embodiments} share embodiment(s) {shared}: fit pooled "
+            "stats once (norm_stats_only over the union) and set norm_stats.precomputed_norm_path"
+        )
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         norm_stats.infer_shapes_from_batch(dataset[0])
@@ -565,7 +584,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
         norm_stats.infer_norm_from_dataset(
             norm_dataset,
-            dataset_name,
+            source_embodiments[dataset_name],
             sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
             num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
             precomputed_norm_path=OmegaConf.select(
@@ -754,6 +773,25 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise ValueError(f"Invalid mode: {mode}")
 
     return trainer.callback_metrics, object_dict
+
+
+def _source_embodiment(dataset_name, dataset):
+    """Embodiment whose norm stats a train source fits.
+
+    Train-source keys are embodiment names, except for extra sources of an
+    existing embodiment in a weighted mixture (PR #141), e.g. ``abc_yam_bimanual``
+    next to ``yam_bimanual``. Those take the embodiment their leaves carry.
+    """
+    if _is_embodiment_name(dataset_name):
+        return dataset_name
+    found = {getattr(leaf, "embodiment", None) for leaf in MultiDataset._iter_leaves(dataset)}
+    found.discard(None)
+    if len(found) != 1:
+        raise ValueError(
+            f"train source {dataset_name!r} is not an embodiment name and its leaves carry "
+            f"{sorted(map(str, found))}; cannot tell which embodiment's norm stats it fits"
+        )
+    return found.pop()
 
 
 @hydra.main(

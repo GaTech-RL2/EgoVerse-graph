@@ -102,7 +102,7 @@ def prepare(data_manifest, weight_manifest, tokenizer_manifest, tokenizer_root, 
     for spec in tokens["files"]:
         path = Path(tokenizer_root) / relative_path(spec["file"])
         deadline = time.monotonic() + 300
-        # The submit-time rsync sends only these pinned tokenizer files; no tokens/credentials.
+        # Explicit rsync to stage-inputs sends only these files; no tokens/credentials.
         while (
             not path.is_file() or path.stat().st_size != spec["bytes"]
         ) and time.monotonic() < deadline:

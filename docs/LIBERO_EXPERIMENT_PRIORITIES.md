@@ -4,13 +4,18 @@ User-directed order, updated September 25, 2026 (UTC):
 
 The latest request is to fill every result-table cell and add plain DP controls
 for both backbones by the following morning. Target: September 25, 09:00 Pacific
-(16:00 UTC), pending actual GPU throughput and queueing. Run the eight fresh
+(16:00 UTC). Observed training throughput now rules out completing every cell
+by that target on the current allocation: the two LIBERO-10 controls alone
+need approximately 14–17 more training hours at the first measured rates,
+excluding evaluation. Run the eight fresh
 raw-action controls (two architectures × four suites) alongside recovery of
 the 18 interrupted ARC/Transformer runs. Preserve full 5001 epoch training,
 global batch 1024, and2500 episode evaluations; no partial-budget score counts as
 a completed cell. Original ARC paired reevaluations remain submitted. Hybrid
 and LIBERO-90 stay deferred. See [current results](results/arc_vs_oat_libero_20260925.md)
-and [raw DP controls](LIBERO_DP_BASELINES.md).
+and [raw DP controls](LIBERO_DP_BASELINES.md). The
+[completion campaign](results/libero_completion_launch_20260925.md) records
+live job identities, recovery receipts and measured progress.
 
 **GPU allocation:** use L40S for training, recovery and evaluation. The user
 requested migration away from H100 on September 24. Preserve uploaded

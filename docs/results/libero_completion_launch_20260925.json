@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-25T06:28:20.992821+00:00",
+  "at": "2026-09-25T06:55:49.462799+00:00",
   "target_completion": "2026-09-25T09:00:00-07:00",
   "deadline_at_risk": true,
   "source_commit": "6590ab8a01dd2347b3659356d03c821fee318a76",
@@ -165,7 +165,7 @@
         "start_time": "2026-09-25T06:06:40.030597",
         "end_time": null,
         "queued_time": 10.422975,
-        "duration": 1165.909341,
+        "duration": 2654.276195,
         "status": "RUNNING",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-20260925-unet-10-1",
         "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-20260925-unet-10-1/logs",
@@ -186,7 +186,7 @@
         "start_time": "2026-09-25T06:10:22.528658",
         "end_time": null,
         "queued_time": 227.908597,
-        "duration": 943.411188,
+        "duration": 2431.778092,
         "status": "RUNNING",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-20260925-oat-10-1",
         "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-20260925-oat-10-1/logs",
@@ -207,7 +207,7 @@
         "start_time": "2026-09-25T06:10:24.634651",
         "end_time": null,
         "queued_time": 225.78426,
-        "duration": 941.305091,
+        "duration": 2429.672044,
         "status": "RUNNING",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-20260925-unet-object-1",
         "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-20260925-unet-object-1/logs",
@@ -228,7 +228,7 @@
         "start_time": "2026-09-25T06:06:56.134011",
         "end_time": null,
         "queued_time": 10.551245,
-        "duration": 1149.805667,
+        "duration": 2638.172639,
         "status": "RUNNING",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-20260925-oat-object-1",
         "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-20260925-oat-object-1/logs",
@@ -249,7 +249,7 @@
         "start_time": "2026-09-25T06:10:33.450906",
         "end_time": null,
         "queued_time": 223.288479,
-        "duration": 932.488683,
+        "duration": 2420.855698,
         "status": "RUNNING",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-20260925-unet-goal-1",
         "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-20260925-unet-goal-1/logs",
@@ -268,13 +268,13 @@
         "workflow_uuid": "21640ed8e02e472f87baf2f2beb30abb",
         "submit_time": "2026-09-25T06:06:53.959036",
         "start_time": "2026-09-25T06:19:42.482416",
-        "end_time": null,
+        "end_time": "2026-09-25T06:40:54.094859",
         "queued_time": 768.52338,
-        "duration": 383.457098,
-        "status": "RUNNING",
+        "duration": 1271.612443,
+        "status": "FAILED",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-20260925-oat-goal-1",
         "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-20260925-oat-goal-1/logs",
-        "error_logs": null,
+        "error_logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-20260925-oat-goal-1/error_logs",
         "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=21640ed8e02e472f&from=now-1h&to=now",
         "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=21640ed8e02e472f",
         "pool": "groot-l40s-03",
@@ -290,7 +290,7 @@
         "submit_time": "2026-09-25T06:06:59.828223",
         "start_time": null,
         "end_time": null,
-        "queued_time": 1146.111246,
+        "queued_time": 2634.478256,
         "duration": null,
         "status": "PENDING",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-20260925-unet-spatial-1",
@@ -311,7 +311,7 @@
         "submit_time": "2026-09-25T06:07:08.503098",
         "start_time": null,
         "end_time": null,
-        "queued_time": 1137.390444,
+        "queued_time": 2625.748312,
         "duration": null,
         "status": "PENDING",
         "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-20260925-oat-spatial-1",
@@ -328,7 +328,7 @@
     ]
   },
   "baseline_progress": {
-    "at": "2026-09-25T06:26:08.868571+00:00",
+    "at": "2026-09-25T06:50:56.936176+00:00",
     "runs": [
       {
         "run_id": "dp-plain-20260925-unet-10",
@@ -365,7 +365,30 @@
           "global_step": 2,
           "ema_num_updates": 2,
           "training_budget": null
-        }
+        },
+        "training/dp_unet/training-budget.json": {
+          "train_examples": 124087,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 121,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "metrics": {
+          "epoch": "76",
+          "log/ema_decay": "0.9989379644393921",
+          "log/ema_num_updates": "9230.0",
+          "step": "9229",
+          "Train/loss": "0.026497526094317436",
+          "Train/source_0_loss": "0.026497526094317436",
+          "Train/source_0_loss_diffusion_noise": "0.026497526094317436"
+        },
+        "metrics_uploaded_at": "2026-09-25T06:50:37+00:00",
+        "finite_loss": true
       },
       {
         "run_id": "dp-plain-20260925-oat-10",
@@ -393,8 +416,39 @@
           "evaluation_workers": 5
         },
         "status.json": {
-          "state": "GPU_PREFLIGHT"
-        }
+          "state": "TRAINING",
+          "method": "dp_oat"
+        },
+        "gpu-preflight.json": {
+          "passed": true,
+          "epochs_completed": 1,
+          "global_step": 2,
+          "ema_num_updates": 2,
+          "training_budget": null
+        },
+        "training/dp_oat/training-budget.json": {
+          "train_examples": 124087,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 121,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "metrics": {
+          "epoch": "78",
+          "log/ema_decay": "0.9989606738090515",
+          "log/ema_num_updates": "9500.0",
+          "step": "9499",
+          "Train/loss": "0.07400385290384293",
+          "Train/source_0_loss": "0.07400385290384293",
+          "Train/source_0_loss_diffusion_noise": "0.07400385290384293"
+        },
+        "metrics_uploaded_at": "2026-09-25T06:50:32+00:00",
+        "finite_loss": true
       },
       {
         "run_id": "dp-plain-20260925-unet-object",
@@ -422,8 +476,39 @@
           "evaluation_workers": 5
         },
         "status.json": {
-          "state": "GPU_PREFLIGHT"
-        }
+          "state": "TRAINING",
+          "method": "dp_unet"
+        },
+        "gpu-preflight.json": {
+          "passed": true,
+          "epochs_completed": 1,
+          "global_step": 2,
+          "ema_num_updates": 2,
+          "training_budget": null
+        },
+        "training/dp_unet/training-budget.json": {
+          "train_examples": 66940,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 65,
+          "microbatches_per_epoch": 65,
+          "epochs": 5001,
+          "total_optimizer_steps": 325065,
+          "dropped_examples_per_epoch": 380
+        },
+        "metrics": {
+          "epoch": "123",
+          "log/ema_decay": "0.9988210201263428",
+          "log/ema_num_updates": "8030.0",
+          "step": "8029",
+          "Train/loss": "0.02328534796833992",
+          "Train/source_0_loss": "0.02328534796833992",
+          "Train/source_0_loss_diffusion_noise": "0.02328534796833992"
+        },
+        "metrics_uploaded_at": "2026-09-25T06:50:46+00:00",
+        "finite_loss": true
       },
       {
         "run_id": "dp-plain-20260925-oat-object",
@@ -460,7 +545,30 @@
           "global_step": 2,
           "ema_num_updates": 2,
           "training_budget": null
-        }
+        },
+        "training/dp_oat/training-budget.json": {
+          "train_examples": 66940,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 65,
+          "microbatches_per_epoch": 65,
+          "epochs": 5001,
+          "total_optimizer_steps": 325065,
+          "dropped_examples_per_epoch": 380
+        },
+        "metrics": {
+          "epoch": "245",
+          "log/ema_decay": "0.9992946982383728",
+          "log/ema_num_updates": "15930.0",
+          "step": "15929",
+          "Train/loss": "0.06296898424625397",
+          "Train/source_0_loss": "0.06296898424625397",
+          "Train/source_0_loss_diffusion_noise": "0.06296898424625397"
+        },
+        "metrics_uploaded_at": "2026-09-25T06:50:51+00:00",
+        "finite_loss": true
       },
       {
         "run_id": "dp-plain-20260925-unet-goal",
@@ -488,8 +596,39 @@
           "evaluation_workers": 5
         },
         "status.json": {
-          "state": "GPU_PREFLIGHT"
-        }
+          "state": "TRAINING",
+          "method": "dp_unet"
+        },
+        "gpu-preflight.json": {
+          "passed": true,
+          "epochs_completed": 1,
+          "global_step": 2,
+          "ema_num_updates": 2,
+          "training_budget": null
+        },
+        "training/dp_unet/training-budget.json": {
+          "train_examples": 57763,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 56,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        },
+        "metrics": {
+          "epoch": "168",
+          "log/ema_decay": "0.998956561088562",
+          "log/ema_num_updates": "9450.0",
+          "step": "9449",
+          "Train/loss": "0.023245003074407578",
+          "Train/source_0_loss": "0.023245003074407578",
+          "Train/source_0_loss_diffusion_noise": "0.023245003074407578"
+        },
+        "metrics_uploaded_at": "2026-09-25T06:50:13+00:00",
+        "finite_loss": true
       },
       {
         "run_id": "dp-plain-20260925-oat-goal",
@@ -517,8 +656,40 @@
           "evaluation_workers": 5
         },
         "status.json": {
-          "state": "STAGING_DATA"
-        }
+          "state": "FAILED",
+          "type": "RuntimeError",
+          "error": "Command failed; see /workspace/libero/evidence/training.log"
+        },
+        "gpu-preflight.json": {
+          "passed": true,
+          "epochs_completed": 1,
+          "global_step": 2,
+          "ema_num_updates": 2,
+          "training_budget": null
+        },
+        "training/dp_oat/training-budget.json": {
+          "train_examples": 57763,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 56,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        },
+        "metrics": {
+          "epoch": "37",
+          "log/ema_decay": "0.9967981576919556",
+          "log/ema_num_updates": "2120.0",
+          "step": "2127",
+          "Train/loss": "0.11266259104013443",
+          "Train/source_0_loss": "0.11266259104013443",
+          "Train/source_0_loss_diffusion_noise": "0.11266259104013443"
+        },
+        "metrics_uploaded_at": "2026-09-25T06:40:46+00:00",
+        "finite_loss": true
       },
       {
         "run_id": "dp-plain-20260925-unet-spatial"
@@ -2453,17 +2624,858 @@
     ]
   },
   "collector": {
-    "name": "libero-table-20260925-2",
+    "name": "libero-table-live-20260925-1",
     "status": "RUNNING",
     "pool": "groot-l40s-01",
-    "result_prefix": "s3://rldb/experiments/arc-oat-20260919/campaigns/libero-table-20260925/",
+    "result_prefix": "s3://rldb/experiments/arc-oat-20260919/campaigns/libero-table-live-20260925/",
     "cells": 60,
     "scored_cells_at_first_snapshot": 34,
     "preferred_complete_cells_at_first_snapshot": 23,
-    "first_snapshot_at": "2026-09-25T06:22:47.527357+00:00",
+    "first_snapshot_at": "2026-09-25T06:49:53.663322+00:00",
     "first_snapshot_verified": true,
-    "error": null
+    "error": null,
+    "accepted_run_aliases": {
+      "arc-paired-20260925-stk1-spatial": "arc-paired-s03-20260925-stk1-spatial",
+      "arc-paired-20260925-stk2-spatial": "arc-paired-s03-20260925-stk2-spatial",
+      "arc-paired-20260925-stk2-10": "arc-paired-s03-20260925-stk2-10",
+      "arc-paired-20260925-dur1-spatial": "arc-paired-s03-20260925-dur1-spatial",
+      "arc-paired-20260925-dur1-10": "arc-paired-s03-20260925-dur1-10",
+      "arc-paired-20260925-dur2-spatial": "arc-paired-s03-20260925-dur2-spatial",
+      "arc-paired-20260925-dur2-10": "arc-paired-s03-20260925-dur2-10",
+      "arc-paired-20260925-shared-stk-spatial": "arc-paired-s03-20260925-shared-stk-spatial",
+      "arc-paired-20260925-shared-stk-10": "arc-paired-s03-20260925-shared-stk-10",
+      "arc-paired-20260925-shared-dur-spatial": "arc-paired-s03-20260925-shared-dur-spatial",
+      "arc-paired-20260925-shared-dur-10": "arc-paired-s03-20260925-shared-dur-10",
+      "dp-plain-20260925-oat-goal-eval": "dp-plain-r1-20260925-oat-goal-eval",
+      "dp-plain-20260925-oat-goal": "dp-plain-r1-20260925-oat-goal"
+    },
+    "supersedes": "libero-table-20260925-2",
+    "predecessor_retired": true
   },
   "access_constraint": "Additional isaac-dex-l40s-04 dry run denied with HTTP403; no workflow submitted there.",
-  "gpu_policy": "L40S only; NORMAL queue; no changes to other agents workflows."
+  "gpu_policy": "L40S only; NORMAL queue; no changes to other agents workflows.",
+  "deadline_feasible_at_observed_rates": false,
+  "followup_source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+  "baseline_rates": {
+    "at": "2026-09-25T06:50:56.936176+00:00",
+    "runs": [
+      {
+        "run_id": "dp-plain-20260925-unet-10",
+        "updates": 9230,
+        "total_updates": 605121,
+        "sample_seconds": 722.0,
+        "updates_per_second": 9.695,
+        "training_hours_remaining": 17.07,
+        "projected_training_finish_utc": "2026-09-25T23:54:58.900286+00:00"
+      },
+      {
+        "run_id": "dp-plain-20260925-oat-10",
+        "updates": 9500,
+        "total_updates": 605121,
+        "sample_seconds": 715.0,
+        "updates_per_second": 12.252,
+        "training_hours_remaining": 13.5,
+        "projected_training_finish_utc": "2026-09-25T20:20:47.184361+00:00"
+      },
+      {
+        "run_id": "dp-plain-20260925-unet-object",
+        "updates": 8030,
+        "total_updates": 325065,
+        "sample_seconds": 810.0,
+        "updates_per_second": 9.111,
+        "training_hours_remaining": 9.67,
+        "projected_training_finish_utc": "2026-09-25T16:30:42.524390+00:00"
+      },
+      {
+        "run_id": "dp-plain-20260925-oat-object",
+        "updates": 15930,
+        "total_updates": 325065,
+        "sample_seconds": 1055.0,
+        "updates_per_second": 12.066,
+        "training_hours_remaining": 7.12,
+        "projected_training_finish_utc": "2026-09-25T13:57:50.593480+00:00"
+      },
+      {
+        "run_id": "dp-plain-20260925-unet-goal",
+        "updates": 9450,
+        "total_updates": 280056,
+        "sample_seconds": 1010.0,
+        "updates_per_second": 9.168,
+        "training_hours_remaining": 8.2,
+        "projected_training_finish_utc": "2026-09-25T15:02:08.341253+00:00"
+      }
+    ],
+    "caveat": "Observed short-window training throughput; excludes evaluation, future contention and failures."
+  },
+  "baseline_replacements": [
+    {
+      "run_id": "dp-plain-r1-20260925-oat-goal",
+      "evaluation_run": "dp-plain-r1-20260925-oat-goal-eval",
+      "replaces_run": "dp-plain-20260925-oat-goal",
+      "suite": "libero_goal",
+      "dp_backbone": "oat_dp",
+      "method": "dp_oat",
+      "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "gpus": 8,
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "total_optimizer_steps": 280056,
+      "evaluation_episodes": 2500,
+      "evaluation_workers": 5,
+      "checkpoint_proof": {
+        "checkpoint": {
+          "sha256": "b3bdb0e02c9878c02c72d26fde7b77929ecc8e5a64e886d891483760c4578c23",
+          "bytes": 435424520,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-20260925-oat-goal/checkpoints/b3bdb0e02c9878c02c72d26fde7b77929ecc8e5a64e886d891483760c4578c23/last.ckpt"
+        },
+        "epochs_completed": 29,
+        "global_step": 1680,
+        "ema_num_updates": 1680,
+        "training_budget": {
+          "train_examples": 57763,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 56,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        }
+      },
+      "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-dp-baselines-20260925/dp-plain-r1-20260925-oat-goal.yaml",
+      "workflow_sha256": "126fc5bf2c63cadec603b9c7d7728919bcd51a24d6f6a49afc6ebe1c60e645cc",
+      "failure": "Rank 5 NCCL watchdog reported CUDA unspecified launch failure; root cause not established."
+    }
+  ],
+  "baseline_replacement_scheduler": {
+    "name": "dp-plain-r1-20260925-oat-goal-1",
+    "uuid": "cb88706280a14ba6b3aefe0eb3cfffc9",
+    "submitted_by": "rpunamiya@nvidia.com",
+    "cancelled_by": null,
+    "spec": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-r1-20260925-oat-goal-1/spec",
+    "template_spec": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-r1-20260925-oat-goal-1/spec?use_template=true",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-r1-20260925-oat-goal-1/logs?last_n_lines=1000",
+    "events": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-r1-20260925-oat-goal-1/events",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/dp-plain-r1-20260925-oat-goal-1",
+    "parent_name": null,
+    "parent_job_id": null,
+    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=cb88706280a14ba6",
+    "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=cb88706280a14ba6&from=now-1h&to=now",
+    "tags": [],
+    "submit_time": "2026-09-25T06:48:18.373898",
+    "start_time": null,
+    "end_time": null,
+    "exec_timeout": 5184000.0,
+    "queue_timeout": 172800.0,
+    "duration": null,
+    "queued_time": 91.754945,
+    "status": "PENDING",
+    "outputs": "https://pdx.s8k.io/v1/AUTH_team-osmo-ops/workflows/dp-plain-r1-20260925-oat-goal-1",
+    "groups": [
+      {
+        "name": "evaluate-group",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null,
+        "processing_start_time": null,
+        "scheduling_start_time": null,
+        "initializing_start_time": null,
+        "remaining_upstream_groups": [
+          "train-group"
+        ],
+        "downstream_groups": [],
+        "failure_message": null,
+        "tasks": [
+          {
+            "name": "evaluate",
+            "retry_id": 0,
+            "status": "WAITING",
+            "failure_message": null,
+            "exit_code": null,
+            "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-r1-20260925-oat-goal-1/logs?last_n_lines=1000&task_name=evaluate&retry_id=0",
+            "error_logs": null,
+            "processing_start_time": null,
+            "scheduling_start_time": null,
+            "initializing_start_time": null,
+            "events": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-r1-20260925-oat-goal-1/events?task_name=evaluate&retry_id=0",
+            "start_time": null,
+            "end_time": null,
+            "input_download_start_time": null,
+            "input_download_end_time": null,
+            "output_upload_start_time": null,
+            "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/pod/osmo-prod/cb88706280a14ba6-1d01594b35074330?namespace=osmo-prod",
+            "pod_name": "cb88706280a14ba6-1d01594b35074330",
+            "pod_ip": null,
+            "task_uuid": "1d01594b35074330b6f3f5470604836d",
+            "node_name": null,
+            "lead": true
+          }
+        ]
+      },
+      {
+        "name": "train-group",
+        "status": "SCHEDULING",
+        "start_time": null,
+        "end_time": null,
+        "processing_start_time": "2026-09-25T06:48:18.703918",
+        "scheduling_start_time": "2026-09-25T06:48:20.426414",
+        "initializing_start_time": null,
+        "remaining_upstream_groups": [],
+        "downstream_groups": [
+          "evaluate-group"
+        ],
+        "failure_message": null,
+        "tasks": [
+          {
+            "name": "train",
+            "retry_id": 0,
+            "status": "SCHEDULING",
+            "failure_message": null,
+            "exit_code": null,
+            "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-r1-20260925-oat-goal-1/logs?last_n_lines=1000&task_name=train&retry_id=0",
+            "error_logs": null,
+            "processing_start_time": "2026-09-25T06:48:18.703918",
+            "scheduling_start_time": "2026-09-25T06:48:20.426414",
+            "initializing_start_time": null,
+            "events": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/dp-plain-r1-20260925-oat-goal-1/events?task_name=train&retry_id=0",
+            "start_time": null,
+            "end_time": null,
+            "input_download_start_time": null,
+            "input_download_end_time": null,
+            "output_upload_start_time": null,
+            "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/pod/osmo-prod/cb88706280a14ba6-f5102ae55697489f?namespace=osmo-prod",
+            "pod_name": "cb88706280a14ba6-f5102ae55697489f",
+            "pod_ip": null,
+            "task_uuid": "f5102ae55697489f8a08230d69867511",
+            "node_name": null,
+            "lead": true
+          }
+        ]
+      }
+    ],
+    "pool": "groot-l40s-03",
+    "backend": "ovx-l40s-03",
+    "app_owner": null,
+    "app_name": null,
+    "app_version": null,
+    "plugins": {
+      "rsync": true
+    },
+    "priority": "NORMAL"
+  },
+  "paired_migration": {
+    "at": "2026-09-25T06:39:57.829867+00:00",
+    "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+    "runs": [
+      {
+        "run_id": "arc-paired-s03-20260925-stk1-spatial",
+        "suite": "libero_spatial",
+        "profile": "stk_1",
+        "arc_mode": "stk",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache-resume-20260923-stk1-spatial",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_stk",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "6fc753c458190cca577a0ae63f0a65fdc18b9b54c036d8d462ac05f21538b5d1",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-resume-20260923-stk1-spatial/checkpoints/6fc753c458190cca577a0ae63f0a65fdc18b9b54c036d8d462ac05f21538b5d1/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-p01-20260923-spatial",
+        "replaces_unpaired_evaluation": "arc-cache-resume-20260923-stk1-spatial",
+        "original_mismatches": 200,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-stk1-spatial.yaml",
+        "workflow_sha256": "a2f0cba0e79b3f3a4ccba76306b405fcf5736a90d923e1ac2e59e2f80eb6ee3c",
+        "replaces_evaluation": "arc-paired-20260925-stk1-spatial",
+        "old_workflow": "arc-paired-20260925-stk1-spatial-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-stk2-spatial",
+        "suite": "libero_spatial",
+        "profile": "stk_2",
+        "arc_mode": "stk",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache-arc-20260923-stk2-spatial",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_stk",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "d89f55f2159afda8060f92cc3d560e87ded28d9b40e79298c36b2ed766240de6",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-stk2-spatial/checkpoints/d89f55f2159afda8060f92cc3d560e87ded28d9b40e79298c36b2ed766240de6/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-p01-20260923-spatial",
+        "replaces_unpaired_evaluation": "arc-cache-arc-20260923-stk2-spatial",
+        "original_mismatches": 200,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-stk2-spatial.yaml",
+        "workflow_sha256": "93b829f081c1a1a0b632a44df8e34fffe65f7247f6fbbe04a5f465b572eda6eb",
+        "replaces_evaluation": "arc-paired-20260925-stk2-spatial",
+        "old_workflow": "arc-paired-20260925-stk2-spatial-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-stk2-10",
+        "suite": "libero_10",
+        "profile": "stk_2",
+        "arc_mode": "stk",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache4-20260923-stk2-10",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_stk",
+          "suite": "libero_10",
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "04ca88dcbf3dd14895b1160541187416afb002fe83791901e0805a45628f475b",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-stk2-10/checkpoints/04ca88dcbf3dd14895b1160541187416afb002fe83791901e0805a45628f475b/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-gated2-20260924-10",
+        "replaces_unpaired_evaluation": "arc-cache4-20260923-stk2-10",
+        "original_mismatches": 600,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-stk2-10.yaml",
+        "workflow_sha256": "440f82b943c0459bad362f40b3963abdeccc7d097ad8957a404f6d64c65ade9c",
+        "replaces_evaluation": "arc-paired-20260925-stk2-10",
+        "old_workflow": "arc-paired-20260925-stk2-10-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-dur1-spatial",
+        "suite": "libero_spatial",
+        "profile": "dur_1",
+        "arc_mode": "dur",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache-arc-20260923-dur1-spatial",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_dur",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "2a3b8fa6074f52fcecb9e4d91e2dd103a2d9a5231d29a777e24ca0d6d76767c2",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur1-spatial/checkpoints/2a3b8fa6074f52fcecb9e4d91e2dd103a2d9a5231d29a777e24ca0d6d76767c2/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-p01-20260923-spatial",
+        "replaces_unpaired_evaluation": "arc-cache-arc-20260923-dur1-spatial",
+        "original_mismatches": 200,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-dur1-spatial.yaml",
+        "workflow_sha256": "0e22a59949bc4f907826badff25bd9dd0a64d39b0a9848128d12dad3a1994437",
+        "replaces_evaluation": "arc-paired-20260925-dur1-spatial",
+        "old_workflow": "arc-paired-20260925-dur1-spatial-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-dur1-10",
+        "suite": "libero_10",
+        "profile": "dur_1",
+        "arc_mode": "dur",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache4-20260923-dur1-10",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_dur",
+          "suite": "libero_10",
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "0c47965a923abc9e40e6447969368368cce552c21e837353ed8bb59ec51f8754",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-dur1-10/checkpoints/0c47965a923abc9e40e6447969368368cce552c21e837353ed8bb59ec51f8754/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-gated2-20260924-10",
+        "replaces_unpaired_evaluation": "arc-cache4-20260923-dur1-10",
+        "original_mismatches": 600,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-dur1-10.yaml",
+        "workflow_sha256": "41099cfeb2841c69ec326a039536ec64587e17bf06b9bdccb8cfb91e0afdcbf4",
+        "replaces_evaluation": "arc-paired-20260925-dur1-10",
+        "old_workflow": "arc-paired-20260925-dur1-10-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-dur2-spatial",
+        "suite": "libero_spatial",
+        "profile": "dur_2",
+        "arc_mode": "dur",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache-arc-20260923-dur2-spatial",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_dur",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "1148a47fc7501fd81d4d63dacd3f809899597d8231e9c7c31956f49e5395fd64",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-dur2-spatial/checkpoints/1148a47fc7501fd81d4d63dacd3f809899597d8231e9c7c31956f49e5395fd64/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-p01-20260923-spatial",
+        "replaces_unpaired_evaluation": "arc-cache-arc-20260923-dur2-spatial",
+        "original_mismatches": 200,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-dur2-spatial.yaml",
+        "workflow_sha256": "ee160cfb7247adbb05a27b9221461814cbb4ef35c6967a5702ba5690c9cb55f8",
+        "replaces_evaluation": "arc-paired-20260925-dur2-spatial",
+        "old_workflow": "arc-paired-20260925-dur2-spatial-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-dur2-10",
+        "suite": "libero_10",
+        "profile": "dur_2",
+        "arc_mode": "dur",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache4-20260923-dur2-10",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_dur",
+          "suite": "libero_10",
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "6c661b5aaff03b0d8ce90cacb283aed3c092ae3af3c32afd8e0073f7e11e04dc",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-dur2-10/checkpoints/6c661b5aaff03b0d8ce90cacb283aed3c092ae3af3c32afd8e0073f7e11e04dc/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-gated2-20260924-10",
+        "replaces_unpaired_evaluation": "arc-cache4-20260923-dur2-10",
+        "original_mismatches": 600,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-dur2-10.yaml",
+        "workflow_sha256": "c8e923c5c602975037e7ef1282013d9b76a2fe2ca777b422f50fbf81d312c8ef",
+        "replaces_evaluation": "arc-paired-20260925-dur2-10",
+        "old_workflow": "arc-paired-20260925-dur2-10-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-shared-stk-spatial",
+        "suite": "libero_spatial",
+        "profile": "shared",
+        "arc_mode": "stk",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache-arc-20260923-shared-stk-spatial",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_stk",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "4f3707a03e1dde3ac62cb68655908f7c48d4036ff95078353e79537759beb096",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-stk-spatial/checkpoints/4f3707a03e1dde3ac62cb68655908f7c48d4036ff95078353e79537759beb096/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-p01-20260923-spatial",
+        "replaces_unpaired_evaluation": "arc-cache-arc-20260923-shared-stk-spatial",
+        "original_mismatches": 200,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-shared-stk-spatial.yaml",
+        "workflow_sha256": "dce5376c6abc6772230de173fdad1e30daa30d334300342439b6f527650528c4",
+        "replaces_evaluation": "arc-paired-20260925-shared-stk-spatial",
+        "old_workflow": "arc-paired-20260925-shared-stk-spatial-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-shared-stk-10",
+        "suite": "libero_10",
+        "profile": "shared",
+        "arc_mode": "stk",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache4-20260923-shared-stk-10",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_stk",
+          "suite": "libero_10",
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "d99a236bab0c1316a4878f1b63dc270fdab5b3137239eed7f5149c67fb997168",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-shared-stk-10/checkpoints/d99a236bab0c1316a4878f1b63dc270fdab5b3137239eed7f5149c67fb997168/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-gated2-20260924-10",
+        "replaces_unpaired_evaluation": "arc-cache4-20260923-shared-stk-10",
+        "original_mismatches": 600,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-shared-stk-10.yaml",
+        "workflow_sha256": "fb7384bf31aa77dab9a2c461950a600d3daa9742dcec7c23ea48b9f6db684f15",
+        "replaces_evaluation": "arc-paired-20260925-shared-stk-10",
+        "old_workflow": "arc-paired-20260925-shared-stk-10-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-shared-dur-spatial",
+        "suite": "libero_spatial",
+        "profile": "shared",
+        "arc_mode": "dur",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache-arc-20260923-shared-dur-spatial",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_dur",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "c2c00e0d46b723f3ec2e48b406a41e04e478d08aec935bfb3615ce3bba52e2ba",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache-arc-20260923-shared-dur-spatial/checkpoints/c2c00e0d46b723f3ec2e48b406a41e04e478d08aec935bfb3615ce3bba52e2ba/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-p01-20260923-spatial",
+        "replaces_unpaired_evaluation": "arc-cache-arc-20260923-shared-dur-spatial",
+        "original_mismatches": 200,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-shared-dur-spatial.yaml",
+        "workflow_sha256": "5e3bfe714803bd3c3065704c3a80e16e0015529c74516f48da5a20971487a796",
+        "replaces_evaluation": "arc-paired-20260925-shared-dur-spatial",
+        "old_workflow": "arc-paired-20260925-shared-dur-spatial-1"
+      },
+      {
+        "run_id": "arc-paired-s03-20260925-shared-dur-10",
+        "suite": "libero_10",
+        "profile": "shared",
+        "arc_mode": "dur",
+        "architecture": "unet",
+        "source_commit": "cff54402b3a424075074b536443c7ac6c28c5c1c",
+        "request": {
+          "source_run": "arc-cache4-20260923-shared-dur-10",
+          "source_commit": "d2c89b9314aa59e5c59bd41b29c2a99b3b0b46b9",
+          "method": "arc_dur",
+          "suite": "libero_10",
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "checkpoint": {
+            "bytes": 1004453896,
+            "sha256": "6870f74e903d8acdf823a783dbf1531eebefbdcdb3746a0263db2666ef229d9b",
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-cache4-20260923-shared-dur-10/checkpoints/6870f74e903d8acdf823a783dbf1531eebefbdcdb3746a0263db2666ef229d9b/last.ckpt"
+          }
+        },
+        "oat_reference_run": "arc-oat-eval-gated2-20260924-10",
+        "replaces_unpaired_evaluation": "arc-cache4-20260923-shared-dur-10",
+        "original_mismatches": 600,
+        "gpus": 1,
+        "gpu_type": "L40S",
+        "pool": "groot-l40s-03",
+        "evaluation_workers": 5,
+        "episodes": 2500,
+        "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-paired-pool03-20260925/arc-paired-s03-20260925-shared-dur-10.yaml",
+        "workflow_sha256": "0fbed1edca266d9850e8631e8366abff44816fa09fee1ea94bed77c460acdb16",
+        "replaces_evaluation": "arc-paired-20260925-shared-dur-10",
+        "old_workflow": "arc-paired-20260925-shared-dur-10-1"
+      }
+    ]
+  },
+  "paired_scheduler": {
+    "workflows": [
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-stk1-spatial-1",
+        "workflow_uuid": "913810e52735465d88caf173666f59b9",
+        "submit_time": "2026-09-25T06:40:14.411899",
+        "start_time": "2026-09-25T06:40:23.714591",
+        "end_time": null,
+        "queued_time": 9.302692,
+        "duration": 324.960325,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-stk1-spatial-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-stk1-spatial-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=913810e52735465d&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=913810e52735465d",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-stk2-spatial-1",
+        "workflow_uuid": "c9b143a9360a459c85204c1363aeb754",
+        "submit_time": "2026-09-25T06:40:22.291657",
+        "start_time": "2026-09-25T06:40:33.870640",
+        "end_time": null,
+        "queued_time": 11.578983,
+        "duration": 314.804239,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-stk2-spatial-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-stk2-spatial-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=c9b143a9360a459c&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=c9b143a9360a459c",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-stk2-10-1",
+        "workflow_uuid": "c08a7dbd48a34f998cd3375686d632c7",
+        "submit_time": "2026-09-25T06:40:31.071235",
+        "start_time": "2026-09-25T06:40:39.930639",
+        "end_time": null,
+        "queued_time": 8.859404,
+        "duration": 308.744203,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-stk2-10-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-stk2-10-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=c08a7dbd48a34f99&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=c08a7dbd48a34f99",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-dur1-spatial-1",
+        "workflow_uuid": "c3bc36fadb8d40e0aa52295ea2986665",
+        "submit_time": "2026-09-25T06:40:42.856502",
+        "start_time": "2026-09-25T06:40:53.270561",
+        "end_time": null,
+        "queued_time": 10.414059,
+        "duration": 295.404243,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-dur1-spatial-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-dur1-spatial-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=c3bc36fadb8d40e0&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=c3bc36fadb8d40e0",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-dur1-10-1",
+        "workflow_uuid": "4951aa6186fe44408321b0257d6a78b0",
+        "submit_time": "2026-09-25T06:40:52.179172",
+        "start_time": "2026-09-25T06:41:04.502331",
+        "end_time": null,
+        "queued_time": 12.323159,
+        "duration": 284.172435,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-dur1-10-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-dur1-10-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=4951aa6186fe4440&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=4951aa6186fe4440",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-dur2-spatial-1",
+        "workflow_uuid": "8305c7927db24378bff4a990d9ca5029",
+        "submit_time": "2026-09-25T06:41:00.660015",
+        "start_time": "2026-09-25T06:41:12.518627",
+        "end_time": null,
+        "queued_time": 11.858612,
+        "duration": 276.156099,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-dur2-spatial-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-dur2-spatial-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=8305c7927db24378&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=8305c7927db24378",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-dur2-10-1",
+        "workflow_uuid": "453ae9362caf41f9ac287d0062db8917",
+        "submit_time": "2026-09-25T06:41:07.769802",
+        "start_time": "2026-09-25T06:41:17.610306",
+        "end_time": null,
+        "queued_time": 9.840504,
+        "duration": 271.06438,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-dur2-10-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-dur2-10-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=453ae9362caf41f9&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=453ae9362caf41f9",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-shared-stk-spatial-1",
+        "workflow_uuid": "bde3c310ca624d1895d4bccd7cdb9d2a",
+        "submit_time": "2026-09-25T06:41:14.706149",
+        "start_time": "2026-09-25T06:41:34.609837",
+        "end_time": null,
+        "queued_time": 19.903688,
+        "duration": 254.064809,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-shared-stk-spatial-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-shared-stk-spatial-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=bde3c310ca624d18&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=bde3c310ca624d18",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-shared-stk-10-1",
+        "workflow_uuid": "d186ef0147fd45e1b42001cc38d5b4c5",
+        "submit_time": "2026-09-25T06:41:21.155335",
+        "start_time": "2026-09-25T06:41:31.642722",
+        "end_time": null,
+        "queued_time": 10.487387,
+        "duration": 257.031881,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-shared-stk-10-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-shared-stk-10-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=d186ef0147fd45e1&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=d186ef0147fd45e1",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-shared-dur-spatial-1",
+        "workflow_uuid": "37c4daa05baa4372889ebf1b5845470f",
+        "submit_time": "2026-09-25T06:41:27.757037",
+        "start_time": "2026-09-25T06:41:38.002493",
+        "end_time": null,
+        "queued_time": 10.245456,
+        "duration": 250.672064,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-shared-dur-spatial-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-shared-dur-spatial-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=37c4daa05baa4372&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=37c4daa05baa4372",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      },
+      {
+        "user": "rpunamiya@nvidia.com",
+        "name": "arc-paired-s03-20260925-shared-dur-10-1",
+        "workflow_uuid": "aae5505b79124dd4835c1d3e24130031",
+        "submit_time": "2026-09-25T06:41:32.950599",
+        "start_time": "2026-09-25T06:41:43.938609",
+        "end_time": null,
+        "queued_time": 10.98801,
+        "duration": 244.70765,
+        "status": "RUNNING",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-paired-s03-20260925-shared-dur-10-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-paired-s03-20260925-shared-dur-10-1/logs",
+        "error_logs": null,
+        "grafana_url": "https://dashboards.telemetry.dgxc.ngc.nvidia.com/d/workflow_resources/workflow-resources-v2?orgId=46&var-datasource=ae6qyv87oh0cgd&var-cluster=osmogroot-dgxc-k8s-forge-az41-prd1&var-namespace=osmo-prod&var-uuid=aae5505b79124dd4&from=now-1h&to=now",
+        "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=aae5505b79124dd4",
+        "pool": "groot-l40s-03",
+        "app_owner": null,
+        "app_name": null,
+        "app_version": null,
+        "priority": "NORMAL"
+      }
+    ]
+  },
+  "l40_proposal": {
+    "authorized": false,
+    "submitted": false,
+    "pool": "groot-l40-04",
+    "requirement": "Explicit user exception to L40S-only hardware.",
+    "note": "Original paired sources have moved to L40S pool03. Reconcile and skip any source no longer PENDING before using the prepared L40 proposal."
+  }
 }

@@ -1,5 +1,6 @@
 # @package _global_
-# Shared visual-only HPT300M family and training contract.
+# Shared visual-only legacy HPT300 family and training contract.
+# The family label is historical, not an exact total parameter count.
 defaults:
   - override /model: abc_arc/hpt_yam_visual
   - override /data: abc_arc/abc_visual
@@ -54,7 +55,7 @@ trainer:
   num_sanity_val_steps: 0
   accumulate_grad_batches: 1
   log_every_n_steps: 10
-norm_stats: {sample_frac: 0.20}
+norm_stats: {sample_frac: 0.10}
 evaluator:
   action_mode: baseline
   ground_truth_action_key: actions_cartesian

@@ -1,6 +1,7 @@
 """Graph checkpoint, normalization and robot frame-boundary regressions."""
 
 import json
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -15,7 +16,9 @@ from egomimic.robot.arc_decoder import BimanualArcDecoder
 from egomimic.robot.graph_policy import (
     CartesianGraphAdapter,
     GraphRobotPolicy,
+    configure_adapter_for_training,
     configure_flow_inference_steps,
+    configure_profile_controls,
     load_graph_policy,
     load_normalizer,
     validate_graph_device,
@@ -90,6 +93,19 @@ class RetryStage(Stage):
             # The test normalizer maps 0.5 to a raw opening of 1.5.
             prediction[..., [6, 13]] = 0.5
         batch["pred_action"] = prediction
+        return batch
+
+
+class ProfileSamplerStage(Stage):
+    reads = (PROPRIO,)
+    writes = ("pred_action",)
+
+    def __init__(self):
+        super().__init__()
+        self.policy = SimpleNamespace(num_inference_steps=100)
+
+    def forward(self, batch):
+        batch["pred_action"] = torch.zeros(1, 100, 14)
         return batch
 
 
@@ -175,11 +191,53 @@ def test_checkpoint_load_applies_flow_euler_override(tmp_path):
             checkpoint=str(ckpt),
             device="cpu",
             adapter=boundary,
-            num_inference_steps=10,
+            inference_graph={
+                "input": {"history_length": 1},
+                "output": {"representation": "cartesian", "shape": [2, 14]},
+                "profiles": {
+                    "flow_time": {
+                        "match": {
+                            "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage"
+                        },
+                        "native_shape": [2, 14],
+                        "overrides": {
+                            "inference_steps": {
+                                "label": "Euler integration steps",
+                                "description": "Flow solver budget.",
+                                "type": "integer",
+                                "min": 1,
+                                "max": 100,
+                                "step": 1,
+                                "default": 10,
+                                "target": {
+                                    "kind": "stage_attribute",
+                                    "attribute_path": "num_inference_steps",
+                                },
+                            },
+                            "replan_every": {
+                                "label": "Repredict every",
+                                "description": "Execution prefix.",
+                                "type": "integer",
+                                "min": 1,
+                                "max": 2,
+                                "step": 1,
+                                "default": 1,
+                                "target": {
+                                    "kind": "policy_attribute",
+                                    "attribute_path": "replan_every",
+                                },
+                            },
+                        },
+                        "adapter": {"decoder": None},
+                    }
+                },
+            },
         )
     )
 
     assert policy.graph.pipeline.stages[0].num_inference_steps == 10
+    assert policy.inference_controls()["inference_steps"]["value"] == 10
+    assert policy.execution_plan(np.zeros((2, 14))).shape == (1, 14)
 
 
 def test_graph_normalizes_proprio_and_unnormalizes_actions_once():
@@ -294,6 +352,245 @@ def test_graph_adapter_decodes_all_arc_layouts_before_frame_conversion(layout):
     poses = adapter(decoder=decoder).actions(tokens, FakeRobot().get_obs())
     assert poses.shape == (7, 14)
     assert np.isfinite(poses).all()
+
+
+@pytest.mark.parametrize(
+    ("variant", "action_dim", "expected_layout"),
+    [
+        ("time", 14, None),
+        ("arcvel", 16, "e1_profile"),
+        ("arcdur", 16, "e1_dur"),
+    ],
+)
+def test_selected_e1_model_derives_its_rollout_decoder(
+    variant, action_dim, expected_layout
+):
+    training = OmegaConf.create(
+        {
+            "e1": {
+                "variant": variant,
+                "D": 0.4,
+                "M": 100,
+                "chunk_length": 100,
+            },
+            "hpt": {"action_dim": action_dim, "action_horizon": 100},
+            "evaluator": {"dt": 1 / 30},
+            "model": {
+                "pipeline": {
+                    "stages": [
+                        {
+                            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                            "action_horizon": 100,
+                            "action_dim": action_dim,
+                        }
+                    ]
+                }
+            },
+        }
+    )
+    adapter_config = {
+        "_target_": "egomimic.robot.graph_policy.CartesianGraphAdapter",
+        "decoder": {"_target_": "old.decoder"},
+    }
+
+    profiles = OmegaConf.create(
+        {
+            "flow_time": {
+                "match": {
+                    "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                    "variant": "time",
+                },
+                "native_shape": [100, 14],
+                "adapter": {"decoder": None},
+            },
+            "flow_arcvel": {
+                "match": {
+                    "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                    "variant": "arcvel",
+                },
+                "native_shape": [100, 16],
+                "adapter": {
+                    "decoder": {
+                        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+                        "token_layout": "e1_profile",
+                    }
+                },
+            },
+            "flow_arcdur": {
+                "match": {
+                    "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                    "variant": "arcdur",
+                },
+                "native_shape": [100, 16],
+                "adapter": {
+                    "decoder": {
+                        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+                        "token_layout": "e1_dur",
+                    }
+                },
+            },
+        }
+    )
+    selected = configure_adapter_for_training(adapter_config, training, profiles)
+
+    if expected_layout is None:
+        assert "decoder" not in selected
+    else:
+        assert selected["decoder"] == {
+            "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+            "token_layout": expected_layout,
+        }
+
+
+def test_selected_e1_model_rejects_an_incompatible_token_width():
+    training = OmegaConf.create(
+        {
+            "e1": {"variant": "arcvel"},
+            "hpt": {"action_dim": 14, "action_horizon": 100},
+            "model": {
+                "pipeline": {
+                    "stages": [
+                        {
+                            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                            "action_horizon": 100,
+                            "action_dim": 14,
+                        }
+                    ]
+                }
+            },
+        }
+    )
+
+    with pytest.raises(ValueError, match="expects"):
+        configure_adapter_for_training(
+            {},
+            training,
+            {
+                "flow_arcvel": {
+                    "match": {
+                        "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                        "variant": "arcvel",
+                    },
+                    "native_shape": [100, 16],
+                    "adapter": {},
+                }
+            },
+        )
+
+
+def test_diffusion_profile_exposes_typed_controls_and_needs_no_arc_variant():
+    target = f"{ProfileSamplerStage.__module__}.{ProfileSamplerStage.__qualname__}"
+    training = OmegaConf.create(
+        {
+            "model": {
+                "pipeline": {
+                    "stages": [
+                        {
+                            "_target_": target,
+                            "action_horizon": 100,
+                            "action_dim": 14,
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    profiles = {
+        "diffusion_time": {
+            "match": {"stage_target": target},
+            "native_shape": [100, 14],
+            "overrides": {
+                "inference_steps": {
+                    "label": "Diffusion denoising steps",
+                    "description": "Denoising budget.",
+                    "type": "integer",
+                    "min": 1,
+                    "max": 100,
+                    "step": 1,
+                    "default": 12,
+                    "target": {
+                        "kind": "stage_attribute",
+                        "attribute_path": "policy.num_inference_steps",
+                    },
+                },
+                "replan_every": {
+                    "label": "Repredict every",
+                    "description": "Execution prefix.",
+                    "type": "integer",
+                    "min": 1,
+                    "max": 100,
+                    "step": 1,
+                    "default": 30,
+                    "target": {
+                        "kind": "policy_attribute",
+                        "attribute_path": "replan_every",
+                    },
+                },
+            },
+            "adapter": {"decoder": None},
+        }
+    }
+    stage = ProfileSamplerStage()
+    graph = PipelineAlgo([stage], device="cpu")
+
+    controls = configure_profile_controls(graph, training, profiles)
+    selected = configure_adapter_for_training(
+        {"decoder": {"_target_": "old.decoder"}}, training, profiles
+    )
+    policy = GraphRobotPolicy(
+        graph,
+        normalizer(),
+        adapter(),
+        inference_controls=controls,
+    )
+
+    assert stage.policy.num_inference_steps == 12
+    assert "decoder" not in selected
+    assert policy.inference_controls()["replan_every"]["value"] == 30
+    assert policy.execution_plan(np.zeros((100, 14))).shape == (30, 14)
+
+    controls = policy.apply_inference_overrides(
+        {"inference_steps": 7, "replan_every": 4}
+    )
+
+    assert stage.policy.num_inference_steps == 7
+    assert controls["inference_steps"]["value"] == 7
+    assert policy.execution_plan(np.zeros((100, 14))).shape == (4, 14)
+    with pytest.raises(ValueError, match="not exposed"):
+        policy.apply_inference_overrides({"unknown": 1})
+
+
+def test_inference_graph_owns_history_and_enforces_canonical_output():
+    stage = EchoStage()
+    contract = {
+        "input": {"history_length": 2},
+        "output": {"representation": "cartesian", "shape": [2, 14]},
+    }
+    policy = GraphRobotPolicy(
+        PipelineAlgo([stage], device="cpu"),
+        normalizer(),
+        adapter(),
+        inference_graph=contract,
+    )
+
+    result = policy.predict(FakeRobot().get_obs())
+
+    assert stage.seen.shape == (1, 2, 14)
+    assert result.shape == (2, 14)
+    policy.reset()
+    assert not policy._observation_history
+
+    incompatible = GraphRobotPolicy(
+        PipelineAlgo([EchoStage()], device="cpu"),
+        normalizer(),
+        adapter(),
+        inference_graph={
+            "input": {"history_length": 1},
+            "output": {"representation": "cartesian", "shape": [3, 14]},
+        },
+    )
+    with pytest.raises(ValueError, match="canonical output contract"):
+        incompatible.predict(FakeRobot().get_obs())
 
 
 def test_normalizer_export_roundtrip_and_incomplete_cache_rejection(tmp_path):

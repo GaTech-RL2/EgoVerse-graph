@@ -7,17 +7,6 @@ name: stationery_rl2_hpt300_visual_baseline_openloop
 description: HPT300M RL2 organize_stationary visual-only baseline
 abc:
   task_predicate: "row['task'] == 'organize_stationary'"
-data:
-  train_datasets:
-    yam_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian]
-      resolver:
-        key_map: {annotation_key: null}
-  valid_datasets:
-    yam_bimanual:
-      batch_keys: [observations.state.ee_pose, actions_cartesian]
-      resolver:
-        key_map: {annotation_key: null}
 evaluator:
   limit_val_episodes: 5
 logger:

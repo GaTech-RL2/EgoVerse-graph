@@ -34,7 +34,7 @@ G=${GPUS_PER_RUN:-2}
 read -r -a runs <<< "${RUNS:?set RUNS to space-separated +experiment names}"
 (( ${#runs[@]} * G <= 8 )) || { echo "${#runs[@]} runs x $G GPUs do not fit one node" >&2; exit 2; }
 CPUS=${CPUS_PER_TASK:-$(( 192 / (${#runs[@]} * G) ))}
-test -s "$IMAGE" && test -x "$SRC/.venv/bin/python"
+test -s "$IMAGE" && test -s "$SRC/.venv/pyvenv.cfg"  # venv python resolves only inside the image
 echo "=== pack_train job=$SLURM_JOB_ID node=$(hostname) restart=${SLURM_RESTART_COUNT:-0} commit=$(git -C "$SRC" rev-parse --short HEAD) runs=${runs[*]}"
 
 i=0

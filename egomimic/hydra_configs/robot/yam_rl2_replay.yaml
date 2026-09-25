@@ -1,3 +1,5 @@
+# RL2 Yam station replay profile. Match the physical starting joints to the
+# selected replay frame before execution; the rollout velocity gate rejects a jump.
 robot:
   kind: yam
   arms:
@@ -16,7 +18,7 @@ robot:
     - -0.008
     - 0.007
     - 0.004
-    - -0.07
+    - -0.070
     - 0.001
     - -0.015
     - 0.999
@@ -41,6 +43,7 @@ robot:
     front_img_1:
       type: realsense
       enabled: true
+      # Matches the calibrated agentview camera in yam-pipeline.
       serial_number: '230322272195'
       height: 480
       width: 640
@@ -60,17 +63,18 @@ robot:
       width: 640
       fps: 30
 frequency: 30
-max_joint_velocity: 4.5
+max_joint_velocity: 1.0
 max_steps: 3000
 preview:
   enabled: true
   width: 640
 policy:
-  kind: hdf5_replay
+  kind: zarr_replay
   path: ${oc.env:YAM_REPLAY_PATH}
-  action_key: actions/joints
+  joint_action_key: actions/joint_position
+  gripper_action_key: actions/gripper
+  arm_order: null  # Read the recorded root arm_order attribute.
   require_complete: true
-  chunk_size: 1
+  chunk_size: 30
   start: 0
   stop: null
-prealign_replay_start: true

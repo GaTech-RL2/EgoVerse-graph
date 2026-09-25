@@ -22,6 +22,7 @@ from tabulate import tabulate
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.eval.eval import Eval
 from egomimic.pipeline.algo import PipelineAlgo
+from egomimic.pipeline.inference_config import export_configured_inference_artifact
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP, as_valid_groups
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
@@ -462,6 +463,17 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     mode = _validate_run_config(cfg)
     if mode == "train":
         configure_runner_wandb(cfg)
+        if not cfg.get("norm_stats_only", False):
+            exported = export_configured_inference_artifact(cfg)
+            if exported is not None:
+                artifact_path, artifact = exported
+                message = (
+                    f"Inference config artifact ({artifact['status']}): {artifact_path}"
+                )
+                if artifact["status"] == "ready":
+                    log.info(message)
+                else:
+                    log.warning(f"{message}; {artifact['reason']}")
 
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):

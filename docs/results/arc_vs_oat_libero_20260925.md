@@ -32,6 +32,8 @@ STK1: R192/D1.6/M36. STK2: R192/D0.8/M32. DUR1: R192/D1.6/M24. DUR2: R384/D0.8/M
 
 ## Work still in progress
 
+[Preliminary success rates at 13:50 Pacific](libero_preliminary_20260925_1350.md) are available separately; they do not count as completed cells.
+
 Evaluation episode counts are from the 13:02 Pacific collector snapshot. Training counters and scheduler state were refreshed at 2026-09-25T20:03:52.503302+00:00. These episode counts are progress, not success rates.
 
 | Suite | Plain DP / U-Net | Plain DP / OAT-release |

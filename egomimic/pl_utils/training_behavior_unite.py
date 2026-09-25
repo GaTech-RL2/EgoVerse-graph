@@ -34,6 +34,20 @@ class ReleasedUniteTrainingBehavior(TrainingBehavior):
         "ActionVelocityLoss",
         "loss/unite_action_velocity",
     )
+    # Optional objective terms: optimised (added to TotalLoss) and logged when
+    # the objective writes their loss/* key, absent otherwise, so a baseline
+    # row's TotalLoss is the same expression as before they existed.
+    _optional_loss_components = (
+        ("DecodedActionLoss", "loss/unite_decoded_action"),
+        ("ContrastiveFlowLoss", "loss/unite_contrastive_flow"),
+        ("DispersiveLoss", "loss/unite_dispersive"),
+    )
+    # Logged only (never optimised): unweighted views of the optional terms.
+    _optional_log_components = (
+        ("ContrastiveFlowDistance", "log/unite_contrastive_flow_distance"),
+        ("DispersiveRaw", "log/unite_dispersive_raw"),
+        ("FlowLatentBatchStd", "log/unite_flow_latent_batch_std"),
+    )
     _content_only = ("content_projection.", "content_pos_emb")
     _finite_scalar = staticmethod(finite_scalar)
     _distributed_gradient = staticmethod(distributed_gradient)
@@ -370,6 +384,25 @@ class ReleasedUniteTrainingBehavior(TrainingBehavior):
                 reconstruction_loss, flow_loss, tokenizer, denoiser
             )
 
+    @classmethod
+    def _present_optional_components(
+        cls, predictions: Mapping
+    ) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
+        results = [result for result in predictions.values() if isinstance(result, Mapping)]
+        present = []
+        for group in (cls._optional_loss_components, cls._optional_log_components):
+            selected = []
+            for name, key in group:
+                flags = {key in result for result in results}
+                if len(flags) > 1:
+                    raise RuntimeError(
+                        f"Optional UNITE term {key} is present for only some sources"
+                    )
+                if flags == {True}:
+                    selected.append((name, key))
+            present.append(tuple(selected))
+        return present[0], present[1]
+
     def _weighted_components(
         self, predictions: Mapping
     ) -> tuple[OrderedDict[str, torch.Tensor], int]:
@@ -384,6 +417,10 @@ class ReleasedUniteTrainingBehavior(TrainingBehavior):
                 self._action_velocity_component,
                 *component_keys[2:],
             )
+        optional_losses, optional_logs = self._present_optional_components(
+            predictions
+        )
+        component_keys = (*component_keys, *optional_losses, *optional_logs)
         sums = OrderedDict((name, None) for name, _ in component_keys)
         count = 0
         for source, result in predictions.items():
@@ -408,6 +445,8 @@ class ReleasedUniteTrainingBehavior(TrainingBehavior):
                 "ActionVelocityLoss", components["FlowLoss"].new_zeros(())
             )
         )
+        for name, _ in optional_losses:
+            components["TotalLoss"] = components["TotalLoss"] + components[name]
         components.move_to_end("TotalLoss", last=False)
         for name, value in components.items():
             self._finite_scalar(value, name)

@@ -790,9 +790,39 @@ class ReleasedRecipeUniteObjective(Stage):
         decoded_action = batch["unite/decoded_action_loss"]
         if decoded_action.ndim != 0 or not bool(torch.isfinite(decoded_action)):
             raise RuntimeError("decoded-action loss must be a finite scalar")
-        batch["loss/unite_decoded_action"] = (
-            self.decoded_action_weight * decoded_action
-        )
+        if self.decoded_action_weight > 0.0:
+            # Written only when on: ReleasedUniteTrainingBehavior optimises every
+            # optional loss/* term that is present (before 2026-09-25 it
+            # optimised reconstruction + flow only, so this term was computed
+            # but never trained).
+            batch["loss/unite_decoded_action"] = (
+                self.decoded_action_weight * decoded_action
+            )
+        for policy_key, loss_key, log_key, raw_key in (
+            (
+                "unite/contrastive_flow_loss",
+                "loss/unite_contrastive_flow",
+                "log/unite_contrastive_flow_distance",
+                "unite/contrastive_flow_distance",
+            ),
+            (
+                "unite/dispersive_loss",
+                "loss/unite_dispersive",
+                "log/unite_dispersive_raw",
+                "unite/dispersive_raw",
+            ),
+        ):
+            if policy_key not in batch:
+                continue
+            value = batch[policy_key]
+            if value.ndim != 0 or not bool(torch.isfinite(value)):
+                raise RuntimeError(f"{policy_key} must be a finite scalar")
+            batch[loss_key] = value
+            batch[log_key] = batch[raw_key]
+        if "unite/flow_latent_batch_std" in batch:
+            batch["log/unite_flow_latent_batch_std"] = batch[
+                "unite/flow_latent_batch_std"
+            ]
         batch["log/unite_reconstruction"] = reconstruction.detach()
         batch["log/unite_reconstruction_l1"] = reconstruction_l1.detach()
         batch["log/unite_latent"] = flow.detach()

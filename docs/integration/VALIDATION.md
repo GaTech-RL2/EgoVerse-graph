@@ -57,7 +57,9 @@ this does not change the UNITE objective or launch a training run.
 Source-pinned data/normalization/metric fixtures and all-epoch language scheduler
 comparisons are described in `FIXED_FIXTURE_PARITY.md`. The restored root models
 also reject incompatible declared data frames before constructing a network.
-Real-weight/data OSMO L40/L40S tests, the remaining nested model/data contracts
-and assembled-tree validation remain separate gates. Passing these CPU commands
+The deployment declaration gate covers every shipped ready model and checks
+selected nested PI/Yam/ARC/E1 compositions against independent data settings.
+Real-weight/data OSMO L40/L40S tests and assembled-tree validation remain separate
+gates. Passing these CPU commands
 does not authorize legacy cutover or assert a successful PI training run. DQC
 is not restarted by any integration check.

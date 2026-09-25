@@ -16,9 +16,11 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
         horizon: ${e1.chunk_length}
+        embodiment: human
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
         variant: ${e1.variant}
+        embodiment: human
         chunk_length: ${e1.chunk_length}
         time_rows: ${e1.time_rows}
         min_distance_unit: ${e1.D}
@@ -41,9 +43,11 @@ valid_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
         horizon: ${e1.chunk_length}
+        embodiment: human
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
         variant: ${e1.variant}
+        embodiment: human
         chunk_length: ${e1.chunk_length}
         time_rows: ${e1.time_rows}
         min_distance_unit: ${e1.D}

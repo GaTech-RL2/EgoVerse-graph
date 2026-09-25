@@ -10,3 +10,6 @@ defaults:
 - override /data: e1/abc_skirts
 - _self_
 name: e1_abc_${e1.variant}
+
+e1:
+  policy_domain: yam

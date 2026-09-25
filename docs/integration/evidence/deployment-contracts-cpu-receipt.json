@@ -1,0 +1,19 @@
+{
+  "tree": "8dbeea04e628e16f24870138b677f56bd76f7301",
+  "snapshot": "fb9b57cebb7b8c7816df2611f6078a86166e5466",
+  "parent": "69839b12459134c22600860038d789dd08d245c9",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-deployment-validation-20260924",
+  "status": "passed",
+  "tests": 1452,
+  "warnings": 41,
+  "seconds": 208.12,
+  "command": "HF_HUB_OFFLINE=1 WANDB_MODE=disabled pytest tests -q",
+  "log_sha256": "7a058148a5817d953249cdd22e4c5eea488fc4b1e7bf80442ffbd857810d365e",
+  "yaml_contexts": 254,
+  "constructor_contexts": 254,
+  "scope": "isolated deployment-contract CPU gate; real-weight GPU and assembled-tree gates remain open",
+  "post_validation_changes": [
+    "this receipt",
+    "docs/integration/PLAN.md status only"
+  ]
+}

@@ -85,6 +85,7 @@ inference_domains:
       constants:
         embodiment: 3
     native_output:
+      frame: ${model.coordinate_frame}
       key: pred_action
       representation: normalized_action
       shape:
@@ -98,6 +99,7 @@ inference_domains:
         last_source_frame: 29
         source_fps: 30.0
     output:
+      frame: ${model.coordinate_frame}
       key: actions
       representation: cartesian
       shape:
@@ -181,3 +183,22 @@ inference_domains:
               kind: policy_attribute
               attribute_path: replan_every
 inference: ${model.inference_domains.${model.deployment_domain}}
+
+# Model-owned data semantics; independent of the selected dataset paths.
+coordinate_frame: eef_frame
+deployment_frames:
+  eef_frame: eef_frame
+  camframe: model_frame
+data_requirements:
+  preprocessing:
+    '3':
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transforms:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian
+        coord_frame: ${model.coordinate_frame}
+        rotation_mode: 6D
+        stride: 1
+      source_fps: 30.0

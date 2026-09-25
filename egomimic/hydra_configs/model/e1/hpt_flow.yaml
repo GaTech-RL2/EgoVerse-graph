@@ -93,6 +93,8 @@ scheduler: null
 inference_contracts:
   time:
     input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
       history_length: 1
       keys:
       - observations.images.front_img_1
@@ -102,6 +104,7 @@ inference_contracts:
       - observations.images.front_img_1
       - observations.state.ee_pose
     native_output:
+      frame: eef_frame
       key: pred_action
       representation: normalized_action
       shape:
@@ -112,6 +115,7 @@ inference_contracts:
         temporally_resolved: true
         dt: 0.03333333333333333
     output:
+      frame: eef_frame
       key: actions
       representation: cartesian
       shape:
@@ -138,6 +142,7 @@ inference_contracts:
           _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
           decoder: null
           rotation_mode: euler
+          action_frame: eef_frame
         overrides:
           inference_steps:
             label: Sampling steps
@@ -169,6 +174,8 @@ inference_contracts:
       for rollout.
   arcvel:
     input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
       history_length: 1
       keys:
       - observations.images.front_img_1
@@ -178,6 +185,7 @@ inference_contracts:
       - observations.images.front_img_1
       - observations.state.ee_pose
     native_output:
+      frame: eef_frame
       key: pred_action
       representation: normalized_action
       shape:
@@ -187,6 +195,7 @@ inference_contracts:
         kind: per_waypoint_progress
         temporally_resolved: true
     output:
+      frame: eef_frame
       key: actions
       representation: cartesian
       shape:
@@ -225,6 +234,7 @@ inference_contracts:
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
           rotation_mode: euler
+          action_frame: eef_frame
         overrides:
           inference_steps:
             label: Sampling steps
@@ -251,6 +261,8 @@ inference_contracts:
               attribute_path: replan_every
   arcdur:
     input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
       history_length: 1
       keys:
       - observations.images.front_img_1
@@ -260,6 +272,7 @@ inference_contracts:
       - observations.images.front_img_1
       - observations.state.ee_pose
     native_output:
+      frame: eef_frame
       key: pred_action
       representation: normalized_action
       shape:
@@ -269,6 +282,7 @@ inference_contracts:
         kind: per_waypoint_duration
         temporally_resolved: true
     output:
+      frame: eef_frame
       key: actions
       representation: cartesian
       shape:
@@ -307,6 +321,7 @@ inference_contracts:
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
           rotation_mode: euler
+          action_frame: eef_frame
         overrides:
           inference_steps:
             label: Sampling steps
@@ -333,6 +348,8 @@ inference_contracts:
               attribute_path: replan_every
   arclogdur:
     input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
       history_length: 1
       keys:
       - observations.images.front_img_1
@@ -342,6 +359,7 @@ inference_contracts:
       - observations.images.front_img_1
       - observations.state.ee_pose
     native_output:
+      frame: eef_frame
       key: pred_action
       representation: normalized_action
       shape:
@@ -351,6 +369,7 @@ inference_contracts:
         kind: per_waypoint_log_duration
         temporally_resolved: true
     output:
+      frame: eef_frame
       key: actions
       representation: cartesian
       shape:
@@ -389,6 +408,7 @@ inference_contracts:
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
           rotation_mode: euler
+          action_frame: eef_frame
         overrides:
           inference_steps:
             label: Sampling steps
@@ -414,3 +434,52 @@ inference_contracts:
               kind: policy_attribute
               attribute_path: replan_every
 inference: ${model.inference_contracts.${e1.variant}}
+
+# Data and deployment routing are declared by the model and experiment.
+source_identities:
+  human: 3
+  yam: 7
+data_contracts:
+  human:
+    preprocessing:
+      '3':
+        key_map:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+          horizon: ${e1.chunk_length}
+          embodiment: human
+        transforms:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+          variant: ${e1.variant}
+          embodiment: human
+          chunk_length: ${e1.chunk_length}
+          time_rows: ${e1.time_rows}
+          min_distance_unit: ${e1.D}
+          resampled_vector_length: ${e1.M}
+          stride: 1
+          rotation_mode: euler
+          progress_smooth_hz: ${e1.progress_smooth_hz}
+          velocity_norm: ${e1.velocity_norm}
+          fixed_spacing: ${e1.fixed_spacing}
+        source_fps: 30.0
+  yam:
+    preprocessing:
+      '7':
+        key_map:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+          horizon: ${e1.chunk_length}
+          embodiment: yam
+        transforms:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+          variant: ${e1.variant}
+          chunk_length: ${e1.chunk_length}
+          time_rows: ${e1.time_rows}
+          min_distance_unit: ${e1.D}
+          resampled_vector_length: ${e1.M}
+          stride: 1
+          rotation_mode: euler
+          progress_smooth_hz: ${e1.progress_smooth_hz}
+          velocity_norm: ${e1.velocity_norm}
+          fixed_spacing: ${e1.fixed_spacing}
+          embodiment: yam
+        source_fps: 30.0
+data_requirements: ${model.data_contracts.${e1.policy_domain}}

@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ROOT / "egomimic/hydra_configs"
 
 EXPERIMENT_CONTEXTS = {
+    "model/e1/hpt_flow_wrists": "e1/abcs_time",
     "data/abc_arc/abc_fstshirt_arc_bc_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
     "model/abc/yam_bimanual_dp": "abc/yam_fstshirt_dp",
     "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",

@@ -55,6 +55,7 @@ Published draft stack in EgoVerse-graph:
 | Bound inference | #154 | `9bd2bed5` | 1,404 |
 | Recursive configuration/CI gates | #155 | `09accb58` | 1,408 |
 | Real-input OSMO harness | #156 | `37cb8db7` | 1,411 |
+| Source fixtures and data compatibility | #157 | `69839b12` | 1,430 |
 
 Each layer's tested tree, snapshot and log hash are recorded under `evidence/`.
 The data-tool layer includes real HDF5 conversion, immutable output checks,
@@ -62,7 +63,7 @@ complete annotated video encoding and data preview without a model or fitting
 normalization. The expanded working-tree constructor audit passes 254/254
 shipped YAML contexts, including configured optimizers and schedulers.
 
-The active branch is `codex/graph-integration-20260924/08-parity-hardening`.
+The active branch is `codex/graph-integration-20260924/09-deployment-contracts`.
 Layer 07 passed all 253 YAML/constructor contexts available at its revision,
 including ready inference dependency plans. The gate caught a stale EVA wrist keymap and
 Scale API access during construction; both are fixed. The layer also finishes
@@ -83,12 +84,21 @@ Its isolated suite passes all 1,430 tests; lock, Ruff and all 254 recursive
 configuration contexts pass. The tested tree and log hash are recorded in
 `evidence/parity-hardening-cpu-receipt.json`.
 
+Layer 09 extends declared data requirements to all shipped ready models,
+including nested Yam/ARC/PI/E1 and EgoBridge. Declarations now carry explicit
+native/output frames; PI's model-owned frame setting also selects the deployment
+adapter frame. E1 experiments declare their policy domain and bind the input
+identity. All 1,452 isolated CPU tests and 254 configuration/constructor contexts
+pass; `evidence/deployment-contracts-cpu-receipt.json` records the tested revision.
+`MIGRATION.md` ties installation,
+retained commands, data tools and checkpoint rules together.
+
 OSMO currently returns HTTP 403 at both the service and login endpoints, even
 for unauthenticated requests. No workflow has been submitted. Network access
 must recover before the source-pinned real-input matrix can run.
 
 Remaining gates: real-weight/data OSMO L40/L40S
-training and distributed smokes, remaining nested model/data contracts,
+training and distributed smokes,
 refreshed destination conflict inventory,
 assembled-tree validation and gated cutover. Public PI weight metadata matches
 the pinned OpenPI architecture, and read-only R2 audits located real bimanual

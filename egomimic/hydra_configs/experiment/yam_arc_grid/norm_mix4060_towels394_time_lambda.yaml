@@ -1,17 +1,14 @@
 # @package _global_
-# MIXED 40 % ABC / 60 % RL2 fold towels from scratch (PR #141 weights), variant time. Lambda loaner, 2-GPU DDP x batch 16 (global 32 as the grid), recipe as scratch_rl2_towels394_time (h640t8_d384x10,
-# 240k steps, warmup 10k, seed 42, BimanualTempoEval). Launched by scripts/clusters/lambda/pack_train.sbatch.
-# Normalisation: loads pooled stats (RL2 375 train + ABC 389) from norm_mix4060_towels394_time_lambda; without this the
-# per-source fit would leave ABC-only stats (the second source overwrites the first for the same embodiment).
+# Norm-only pass (no training) fitting the pooled stats that mix4060_towels394_time_lambda loads. Same sample_frac 0.2 / quantile.
 defaults:
 - _self_
 - override /model: e1/hpt_flow_wrists_ft
-- override /data: abc_arc/towels_mix4060_time_lambda
+- override /data: abc_arc/towels_mix4060_normpool_time_lambda
 - override /trainer: ddp
 - override /logger: wandb
 - override /callbacks: checkpoints
-name: mix4060_towels394_time_lambda
-description: h640t8_d384x10_cos10k_240k_s42_mix4060_towels394_time_lambda
+name: norm_mix4060_towels394_time_lambda
+description: pooled norm stats for mix4060_towels394_time_lambda
 ft:
   max_steps: 240000
   warmup_steps: 10000
@@ -71,7 +68,7 @@ logger:
     _target_: lightning.pytorch.loggers.wandb.WandbLogger
     save_dir: null
     offline: false
-    id: mix4060_towels394_time_lambda_20260925_s42
+    id: norm_mix4060_towels394_time_lambda
     anonymous: null
     project: arc
     log_model: false
@@ -91,9 +88,9 @@ logger:
 norm_stats:
   norm_mode: quantile
   sample_frac: 0.2
-  num_workers: 8
+  num_workers: 24
   save_cache_dir: null
-  precomputed_norm_path: /workspace/users/agao81/norm_runs/norm_mix4060_towels394_time_lambda/norm_stats/norm_stats.json
+  precomputed_norm_path: null
 e1:
   variant: time
   spread: stationery
@@ -149,3 +146,4 @@ evaluator:
   viz_func: null
   arc_match_distance: null
   arcmatch_gt_span_m: ${e1.arcmatch_gt_span_m}
+norm_stats_only: true

@@ -122,15 +122,15 @@ def main() -> int:
     parser.add_argument(
         "--no-sync",
         action="store_true",
-        help="Measure only what is already on disk.",
+        help="Skip the S3 sync; still resolve the episode list through the filter.",
     )
     args = parser.parse_args()
 
     filters = DatasetFilter(filter_lambdas=[FILTER_LAMBDA])
     if args.no_sync:
-        rows = [
-            (None, p.name) for p in sorted(args.dataset_dir.iterdir()) if p.is_dir()
-        ]
+        # Still resolve through the filter. Listing the dataset dir instead would
+        # sweep in every unrelated episode that shares that directory.
+        rows = S3EpisodeResolver._get_filtered_paths(filters)
     else:
         rows = S3EpisodeResolver.sync_from_filters(
             bucket_name="rldb", filters=filters, local_dir=args.dataset_dir

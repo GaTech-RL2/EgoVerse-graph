@@ -20,13 +20,17 @@ abc:
   # a valid action_mode.
   action_mode: hybrid_arc_tokenizer_cartesian
 
-  # Mandatory. Measured by measure_baseline_chunk_distance.py as the MEDIAN
-  # cumulative left+right EEF translation over a 100-frame baseline chunk, then
-  # pinned identically into all three variants. Median, not mean: the
-  # distribution is right-skewed, so the mean would set a budget above what a
-  # typical chunk covers. Left unset so no run can silently inherit the legacy
-  # hardcoded 0.40 m.
-  arc_distance: ???
+  # Measured 2026-09-25 by scripts/data/measure_arc_distance_rl2_organize.py,
+  # PACE job 13582310: the MEDIAN cumulative left+right EEF translation over a
+  # time-based 100-frame baseline chunk, pooled over 24339 windows from all 229
+  # episodes. Median, not mean (0.5117): the distribution is right-skewed
+  # (p5 0.233, p95 0.985, max 2.042), so the mean sets a budget above what a
+  # typical chunk covers.
+  #
+  # This is the JOINT clock, so it is exact for arc_chunking_mode=joint_distance.
+  # Under race and multistream the same number is spent by one arm alone, which
+  # takes roughly twice as long; see plan.yaml arc_distance_D.mode_implications.
+  arc_distance: 0.464146895489191
 
   # 24 degrees. Independent of the translation clock in every chunking mode.
   arc_rotation_distance: 0.4188790204786391

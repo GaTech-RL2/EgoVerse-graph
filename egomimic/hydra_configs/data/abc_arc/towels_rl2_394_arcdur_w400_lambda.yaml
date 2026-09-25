@@ -1,0 +1,100 @@
+# ROOT-CAUSE TEST for Elmo's Lambda w400 twins (yam_rl2_towels298_scratch_arcdur_w400_*_lambda_20260921).
+# towels_rl2_394_arcdur_lambda with ONE change: the YAM source window is 400 frames (13.3 s) instead of the fixed
+# 100 (3.3 s). yam_source_frames: 400 is the knob that makes this branch honour it; horizon / chunk_length 400 mirror
+# Elmo's resolved config (his max_steps_per_chunk has no counterpart here: this tokenizer consumes the whole window).
+# Same pool, split, pins, recipe and 2 GPU x batch 16 as the 100-frame arcdur cell, so the two differ only in window.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /workspace/users/agao81/datasets/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 400
+        embodiment: yam
+        drop_wrist_images: false
+        yam_source_frames: 400
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 400
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+      expected_episode_count: 394
+      expected_episode_names_sha256: 9aa2c859f23324cf942e01d843c81c5ebb6659a25e68356d2c39f2b83aef928b
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row, allowed=frozenset(open(''/workspace/users/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/rl2_towels394_episodes.txt'').read().split()):
+        str(row[''episode_hash'']) in allowed'
+    mode: train
+    valid_ratio: 0.05
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: 375
+    expected_valid_episode_count: 19
+    expected_train_episode_names_sha256: ffe1c84955e4c81e2c316806925d9a14f302300a0e251a5a5c49eac56f8b5e26
+    expected_valid_episode_names_sha256: 42d6798907567d9ac88f30ffc50670fe4527fde59ccb0bc2d18887d9af2978c2
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /workspace/users/agao81/datasets/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 400
+        embodiment: yam
+        drop_wrist_images: false
+        yam_source_frames: 400
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 400
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+      expected_episode_count: 394
+      expected_episode_names_sha256: 9aa2c859f23324cf942e01d843c81c5ebb6659a25e68356d2c39f2b83aef928b
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row, allowed=frozenset(open(''/workspace/users/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/rl2_towels394_episodes.txt'').read().split()):
+        str(row[''episode_hash'']) in allowed'
+    mode: valid
+    valid_ratio: 0.05
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: 375
+    expected_valid_episode_count: 19
+    expected_train_episode_names_sha256: ffe1c84955e4c81e2c316806925d9a14f302300a0e251a5a5c49eac56f8b5e26
+    expected_valid_episode_names_sha256: 42d6798907567d9ac88f30ffc50670fe4527fde59ccb0bc2d18887d9af2978c2
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 16
+    num_workers: 7
+    persistent_workers: true
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 16
+    num_workers: 7
+    persistent_workers: true

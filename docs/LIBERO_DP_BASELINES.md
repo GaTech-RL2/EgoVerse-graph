@@ -56,3 +56,8 @@ optimizer/EMA state; no tokenizer calibration or replay selection is needed.
 resume, target-free inference, and job dependencies. `test_oat_diffusion.py`
 also checks 32×7 released-network outputs, epsilon gradients and all 10 DDIM
 updates against the pinned upstream source.
+
+The launcher also recognizes L40 (`ovx-l40`) as a distinct device family and
+rejects an L40/L40S mismatch. This is an optional capacity fallback, not a
+change to the current L40S-only campaign: L40 jobs require the user's hardware
+exception before submission.

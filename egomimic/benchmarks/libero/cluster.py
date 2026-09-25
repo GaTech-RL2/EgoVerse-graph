@@ -24,7 +24,7 @@ REPLAY_REPO = "chaoqi-liu/libero10_N500.zarr"
 REPLAY_REVISION = "685b2b764e525ad33ab36d7315adbcab07494251"
 REPLAY_NAME = "libero10_N500.zarr.zip"
 REPLAY_SHA256 = "176de6aed271a76a5d6afc43af1ef6562614e86e9b08aaae5eb4c337538a0550"
-GPU_PLATFORMS = {"L40S": "ovx-l40s", "H100": "dgx-h100"}
+GPU_PLATFORMS = {"L40S": "ovx-l40s", "L40": "ovx-l40", "H100": "dgx-h100"}
 
 
 def validate_gpu_allocation(gpus, gpu_type):
@@ -36,7 +36,11 @@ def validate_gpu_allocation(gpus, gpu_type):
     if (
         not torch.cuda.is_available()
         or torch.cuda.device_count() != gpus
-        or any(gpu_type not in torch.cuda.get_device_name(i) for i in range(gpus))
+        or any(
+            re.search(rf"\b{re.escape(gpu_type)}\b", torch.cuda.get_device_name(i))
+            is None
+            for i in range(gpus)
+        )
     ):
         raise RuntimeError(f"This workflow requests exactly {gpus} {gpu_type} GPUs")
 

@@ -165,6 +165,9 @@ def test_workflow_pins_source_and_requests_one_gpu():
     "devices,gpu_type,error",
     [
         (["NVIDIA L40S"] * 8, "L40S", None),
+        (["NVIDIA L40"] * 8, "L40", None),
+        (["NVIDIA L40S"] * 8, "L40", RuntimeError),
+        (["NVIDIA L40"] * 8, "L40S", RuntimeError),
         (["NVIDIA H100 80GB HBM3"] * 8, "H100", None),
         (["NVIDIA L40S"] * 8, "H100", RuntimeError),
         (["NVIDIA H100 80GB HBM3"] * 7, "H100", RuntimeError),

@@ -9,8 +9,8 @@
 # For ARC runs, actions_cartesian_untokenized is the preserved control-space
 # ground-truth chunk. ARC capping happens before detokenization. Waypoint mode
 # keeps exactly execute_fraction * M waypoint and matching velocity rows;
-# distance mode interpolates the crossing at execute_fraction * D combined
-# left-plus-right EEF translation.
+# distance mode follows the selected translation chunking mode at fD. Rotation
+# uses its own shared bimanual fR target and clock.
 
 defaults:
   - viz@viz_func: cartesian/base
@@ -32,10 +32,12 @@ control_dt: 0.03333333333333333
 # prediction as a (T, 14) baseline control chunk. Set explicitly when a custom
 # token row count could collide with the baseline horizon.
 action_mode: auto
+arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,null}
 arc_execution_cap_mode: waypoints
 # ARC video overlays independently redraw every validation frame. Cap both the
-# predicted and GT paths at execute_fraction * D combined left+right travel.
-arc_video_trajectory_cap_mode: joint_distance
+# predicted and GT paths using the selected mode's fD and independent fR.
+# joint_distance remains an alias for this mode-aware cap in older overrides.
+arc_video_trajectory_cap_mode: distance
 min_distance_unit: ${oc.select:abc.arc_distance,0.40}
 rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,null}
 resampled_vector_length: ${oc.select:abc.arc_waypoints,100}

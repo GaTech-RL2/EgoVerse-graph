@@ -6,7 +6,7 @@ known episode/frame indices.  We cache the prediction made from each
 observation, then replay the episode at validation end:
 
 * execute the first ``execute_fraction`` of a baseline control chunk, or cap
-  ARC by an exact waypoint prefix (default) or interpolated combined-arm
+  ARC by an exact waypoint prefix (default) or a mode-aware interpolated
   distance prefix;
 * compare those control-frequency commands with the ground-truth commands;
 * advance to the observation at the resulting frame;
@@ -36,8 +36,13 @@ from egomimic.eval.bimanual_cartesian_eval import (
     overlay_annotation_fields,
 )
 from egomimic.eval.distance_budget_dtw import (
+    ARC_DISTANCE_SEMANTICS,
     METRIC_FRAME_KEY,
     METRIC_VERSION,
+    evaluator_chunking_mode,
+    joint_cumulative_distance,
+    per_arm_cumulative_distance,
+    resolve_arc_chunking_mode,
     score_distance_dtw_episode,
     summarize_distance_dtw,
 )
@@ -55,7 +60,7 @@ YPR_COLS = (3, 4, 5, 10, 11, 12)
 GRIP_COLS = (6, 13)
 PAIRED_COLS = XYZ_COLS + GRIP_COLS
 ARC_EXECUTION_CAP_MODES = ("waypoints", "distance")
-ARC_VIDEO_TRAJECTORY_CAP_MODES = ("execution_horizon", "joint_distance")
+ARC_VIDEO_TRAJECTORY_CAP_MODES = ("execution_horizon", "distance", "joint_distance")
 
 
 def validate_arc_execution_cap_mode(mode: str) -> str:
@@ -146,14 +151,17 @@ def truncate_arc_token(
     execute_fraction: float,
     velocity_mode: str,
     min_distance_unit: float,
+    *,
+    arc_chunking_mode: str = "joint_distance",
+    rotation_distance_unit: float | None = None,
+    control_dt: float = 1.0 / 30.0,
 ) -> np.ndarray:
-    """Keep the prefix covering ``execute_fraction * D`` combined arm travel.
+    """Cap translation at fD using the selected clocks and rotation at fR.
 
-    The distance coordinate is cumulative
-    ``||delta_left_xyz|| + ||delta_right_xyz||``. If the target falls inside a
-    waypoint interval, the final waypoint is interpolated to land exactly on
-    the target. Matching timing rows are retained so detokenization recovers
-    the variable 30 Hz execution horizon.
+    Independent streams retain their own vertices and timing rows, with
+    terminal holds padding shorter streams. Race stops both translations at
+    the earliest arm's D time, interpolating on each arm's own clock.
+    The legacy standalone helper defaults to joint distance explicitly.
     """
 
     mode = validate_bimanual_velocity_mode(velocity_mode)
@@ -174,45 +182,218 @@ def truncate_arc_token(
     if not math.isfinite(distance) or distance <= 0.0:
         raise ValueError("min_distance_unit must be positive and finite")
 
-    all_waypoints = value[:M]
-    left_step = np.linalg.norm(np.diff(all_waypoints[:, 0:3], axis=0), axis=-1)
-    right_step = np.linalg.norm(np.diff(all_waypoints[:, 7:10], axis=0), axis=-1)
-    interval_distance = left_step + right_step
-    cumulative = np.concatenate(([0.0], np.cumsum(interval_distance)))
+    chunking_mode = resolve_arc_chunking_mode(arc_chunking_mode, rotation_distance_unit)
+    all_waypoints, all_timing = value[:M], value[M:]
+    cumulative = per_arm_cumulative_distance(all_waypoints[:, XYZ_COLS])
     target = fraction * distance
-    crossing = np.flatnonzero(cumulative >= target)
-
-    partial_alpha = 1.0
-    if not len(crossing):
-        waypoint_count = M
-        waypoints = all_waypoints.copy()
+    if chunking_mode == "joint_distance":
+        boundaries = [
+            _distance_boundary(
+                joint_cumulative_distance(all_waypoints[:, XYZ_COLS]), target
+            )
+        ] * 2
     else:
-        end_index = max(1, int(crossing[0]))
-        interval = float(interval_distance[end_index - 1])
-        partial_alpha = (
-            1.0
-            if interval <= 1e-12
-            else float(
-                np.clip(
-                    (target - cumulative[end_index - 1]) / interval,
-                    0.0,
-                    1.0,
+        boundaries = [
+            _distance_boundary(cumulative[:, arm], target) for arm in range(2)
+        ]
+        if chunking_mode == "race":
+            clocks, _ = _arc_clock_durations(
+                all_waypoints,
+                all_timing,
+                mode,
+                control_dt,
+                distance,
+                chunking_mode,
+                rotation_distance_unit,
+            )
+            times = []
+            elapsed = [np.concatenate(([0.0], np.cumsum(clock))) for clock in clocks]
+            for arm, boundary in enumerate(boundaries):
+                lower = min(int(math.floor(boundary)), M - 2)
+                alpha = boundary - lower
+                times.append(
+                    elapsed[arm][lower] + alpha * clocks[arm][lower]
+                    if cumulative[-1, arm] >= target and alpha > 0
+                    else (
+                        elapsed[arm][lower]
+                        if cumulative[-1, arm] >= target
+                        else math.inf
+                    )
                 )
+            race_time = min(times)
+            if math.isfinite(race_time):
+                boundaries = [_distance_boundary(clock, race_time) for clock in elapsed]
+
+    streams = []
+    for arm, offset in enumerate((0, 7)):
+        columns = (
+            list(range(offset, offset + 7))
+            if rotation_distance_unit is None
+            else [offset, offset + 1, offset + 2, offset + 6]
+        )
+        streams.append((columns, boundaries[arm]))
+    if rotation_distance_unit is not None:
+        if mode != "per_waypoint":
+            raise ValueError(
+                "independent rotation clock requires velocity_mode='per_waypoint'"
+            )
+        rotation_cumulative = cumulative_rotation_length(
+            all_waypoints[:, 3:6]
+        ) + cumulative_rotation_length(all_waypoints[:, 10:13])
+        streams.append(
+            (
+                list(YPR_COLS),
+                _distance_boundary(
+                    rotation_cumulative, fraction * float(rotation_distance_unit)
+                ),
             )
         )
-        waypoint_count = end_index + 1
-        waypoints = all_waypoints[:waypoint_count].copy()
-        if partial_alpha < 1.0:
-            waypoints[-1] = all_waypoints[end_index - 1] + partial_alpha * (
-                all_waypoints[end_index] - all_waypoints[end_index - 1]
-            )
-    if granular:
-        timing = value[M : M + waypoint_count].copy()
-        if mode == "duration" and partial_alpha < 1.0:
-            timing[waypoint_count - 2, (0, 7)] *= partial_alpha
-    else:
-        timing = value[M : M + 1].copy()
+
+    count = max(_boundary_rows(boundary) for _, boundary in streams)
+    waypoints = np.empty((count, 14), dtype=np.float64)
+    timing = np.empty((count if granular else 1, 14), dtype=np.float64)
+    for columns, boundary in streams:
+        rows = _boundary_rows(boundary)
+        prefix = all_waypoints[:rows].copy()
+        prefix[-1] = _waypoint_at(all_waypoints, boundary)
+        waypoints[:rows, columns] = prefix[:, columns]
+        waypoints[rows:, columns] = prefix[-1, columns]
+        if granular:
+            rates = all_timing[:rows].copy()
+            if mode == "duration":
+                for offset in (0, 7):
+                    if offset in columns:
+                        rates[rows - 2, offset] *= boundary - (rows - 2)
+            timing[:rows, columns] = rates[:, columns]
+            timing[rows:, columns] = rates[-1, columns]
+        else:
+            timing[:, columns] = all_timing[:, columns]
     return np.concatenate((waypoints, timing), axis=0)
+
+
+def _distance_boundary(cumulative: np.ndarray, target: float) -> float:
+    """Fractional source-row index of a cap, or the final available row."""
+    reached = np.flatnonzero(cumulative >= target)
+    if not len(reached):
+        return float(len(cumulative) - 1)
+    upper = int(reached[0])
+    if upper == 0:
+        return 0.0
+    delta = cumulative[upper] - cumulative[upper - 1]
+    alpha = (target - cumulative[upper - 1]) / delta if delta > 1e-12 else 1.0
+    return float(upper - 1 + np.clip(alpha, 0.0, 1.0))
+
+
+def _boundary_rows(boundary: float) -> int:
+    return max(2, int(math.ceil(boundary - 1e-12)) + 1)
+
+
+def _waypoint_at(waypoints: np.ndarray, boundary: float) -> np.ndarray:
+    lower = min(int(math.floor(boundary)), len(waypoints) - 2)
+    alpha = boundary - lower
+    result = waypoints[lower] + alpha * (waypoints[lower + 1] - waypoints[lower])
+    for columns in (slice(3, 6), slice(10, 13)):
+        result[columns] = slerp_pair_ypr(
+            waypoints[lower, columns], waypoints[lower + 1, columns], np.array([alpha])
+        )[0]
+    return result
+
+
+def _arc_clock_durations(
+    waypoints,
+    timing,
+    velocity_mode,
+    dt,
+    distance,
+    chunking_mode,
+    rotation_distance_unit=None,
+    max_steps=None,
+):
+    """Use codec clocks, with unbounded invalid intervals for stride inference.
+
+    The codec uses a horizon-sized hold for a moving interval with no rate.
+    Without a caller-provided horizon this has no finite replan boundary.
+    """
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
+    )
+
+    codec = TokenizeBimanualArcLengthCartesian(
+        min_distance_unit=distance,
+        rotation_distance_unit=rotation_distance_unit,
+        resampled_vector_length=len(waypoints),
+        dt=dt,
+        velocity_mode=velocity_mode,
+        arc_chunking_mode=chunking_mode if rotation_distance_unit is not None else None,
+    )
+    horizon = max_steps if max_steps is not None else 1
+    if rotation_distance_unit is not None and chunking_mode == "joint_distance":
+        clocks = [
+            codec._hybrid_clock_durations(
+                waypoints, timing, rotation=False, action_horizon=horizon
+            )
+        ]
+    elif velocity_mode == "per_waypoint":
+        clocks = [
+            codec._translation_arm_durations(waypoints, timing, offset, horizon)
+            for offset in (0, 7)
+        ]
+    else:
+        # Historical nonhybrid mean/duration layouts retain per-arm timing.
+        clocks = []
+        for offset in (0, 7):
+            travel = np.linalg.norm(
+                np.diff(waypoints[:, offset : offset + 3], axis=0), axis=1
+            )
+            if velocity_mode == "duration":
+                duration = np.where(travel > 1e-12, timing[:-1, offset], 0.0)
+            else:
+                speed = np.linalg.norm(timing[0, offset : offset + 3])
+                duration = np.divide(
+                    travel, speed, out=np.zeros_like(travel), where=speed > 1e-8
+                )
+            clocks.append(duration)
+
+    def invalid_intervals(rotation=False):
+        masks = []
+        for offset in (0, 7):
+            columns = (
+                slice(offset + 3, offset + 6) if rotation else slice(offset, offset + 3)
+            )
+            travel = (
+                np.diff(cumulative_rotation_length(waypoints[:, columns]))
+                if rotation
+                else np.linalg.norm(np.diff(waypoints[:, columns], axis=0), axis=1)
+            )
+            if velocity_mode == "duration" and not rotation:
+                rate = timing[:-1, offset]
+            else:
+                rate = np.linalg.norm(
+                    (
+                        timing[:-1, columns]
+                        if velocity_mode == "per_waypoint"
+                        else timing[:1, columns]
+                    ),
+                    axis=1,
+                )
+            masks.append((travel > 1e-12) & ((rate <= 1e-8) | ~np.isfinite(rate)))
+        return masks
+
+    invalid_duration = math.inf if max_steps is None else dt * (max_steps + 1)
+    masks = invalid_intervals()
+    if len(clocks) == 1:
+        masks = [masks[0] | masks[1]]
+    clocks = [
+        np.where(mask, invalid_duration, clock) for clock, mask in zip(clocks, masks)
+    ]
+    rotation_clock = None
+    if rotation_distance_unit is not None:
+        rotation_clock = codec._hybrid_clock_durations(
+            waypoints, timing, rotation=True, action_horizon=horizon
+        )
+        masks = invalid_intervals(rotation=True)
+        rotation_clock = np.where(masks[0] | masks[1], invalid_duration, rotation_clock)
+    return clocks, rotation_clock
 
 
 def truncate_cartesian_trajectory_by_joint_distance(
@@ -345,18 +526,90 @@ def truncate_cartesian_trajectory_by_joint_clocks(
     return result
 
 
+def truncate_cartesian_trajectory_by_arc_mode(
+    trajectory: np.ndarray,
+    max_translation_distance: float,
+    arc_chunking_mode: str,
+    max_rotation_distance: float | None = None,
+) -> np.ndarray:
+    """Cap control-frame overlays using the selected D mode and independent R.
+
+    Control frames already share a time axis, so the race boundary is the
+    earlier arm crossing. Multistream holds each arm at its own crossing.
+    """
+    value = np.asarray(trajectory, dtype=np.float64)
+    if value.ndim != 2 or value.shape[1] != 14:
+        raise ValueError(
+            f"cartesian trajectory must have shape (T, 14), got {value.shape}"
+        )
+    mode = resolve_arc_chunking_mode(arc_chunking_mode, max_rotation_distance)
+    for cap in (max_translation_distance, max_rotation_distance):
+        if cap is not None and (not math.isfinite(float(cap)) or cap <= 0):
+            raise ValueError("trajectory distance caps must be positive and finite")
+    if len(value) < 2:
+        return value.copy()
+    cumulative = per_arm_cumulative_distance(value[:, XYZ_COLS])
+    if mode == "joint_distance":
+        boundaries = [
+            _distance_boundary(
+                joint_cumulative_distance(value[:, XYZ_COLS]), max_translation_distance
+            )
+        ] * 2
+    else:
+        boundaries = [
+            _distance_boundary(cumulative[:, arm], max_translation_distance)
+            for arm in range(2)
+        ]
+        if mode == "race":
+            boundaries = [min(boundaries)] * 2
+    streams = []
+    for arm, offset in enumerate((0, 7)):
+        columns = (
+            list(range(offset, offset + 7))
+            if max_rotation_distance is None
+            else [offset, offset + 1, offset + 2, offset + 6]
+        )
+        streams.append((columns, boundaries[arm]))
+    if max_rotation_distance is not None:
+        rotation = cumulative_rotation_length(
+            value[:, 3:6]
+        ) + cumulative_rotation_length(value[:, 10:13])
+        streams.append(
+            (list(YPR_COLS), _distance_boundary(rotation, max_rotation_distance))
+        )
+    count = max(_boundary_rows(boundary) for _, boundary in streams)
+    result = value[:count].copy()
+    for columns, boundary in streams:
+        terminal = _waypoint_at(value, boundary)
+        end = _boundary_rows(boundary) - 1
+        result[end:, columns] = terminal[columns]
+    return result
+
+
 def arc_execution_prefix(
     token: np.ndarray,
     execute_fraction: float,
     velocity_mode: str,
     min_distance_unit: float,
     arc_execution_cap_mode: str,
+    *,
+    arc_chunking_mode: str = "joint_distance",
+    rotation_distance_unit: float | None = None,
+    control_dt: float = 1.0 / 30.0,
 ) -> np.ndarray:
     """Apply either exact M-based or interpolated distance-based capping."""
     cap_mode = validate_arc_execution_cap_mode(arc_execution_cap_mode)
     if cap_mode == "waypoints":
         return truncate_arc_token_by_waypoints(token, execute_fraction, velocity_mode)
-    return truncate_arc_token(token, execute_fraction, velocity_mode, min_distance_unit)
+    return truncate_arc_token(
+        token,
+        execute_fraction,
+        velocity_mode,
+        min_distance_unit,
+        arc_chunking_mode=arc_chunking_mode,
+        rotation_distance_unit=rotation_distance_unit,
+        control_dt=control_dt,
+    )
 
 
 def arc_prefix_control_steps(
@@ -367,6 +620,7 @@ def arc_prefix_control_steps(
     min_distance_unit: float,
     *,
     rotation_distance_unit: float | None = None,
+    arc_chunking_mode: str = "joint_distance",
     arc_execution_cap_mode: str = "waypoints",
     max_steps: int | None = None,
 ) -> int:
@@ -386,92 +640,33 @@ def arc_prefix_control_steps(
         velocity_mode,
         min_distance_unit,
         arc_execution_cap_mode,
+        arc_chunking_mode=arc_chunking_mode,
+        rotation_distance_unit=rotation_distance_unit,
+        control_dt=control_dt,
     )
     mode = validate_bimanual_velocity_mode(velocity_mode)
     granular = mode in ("per_waypoint", "duration")
     M = len(partial) // 2 if granular else len(partial) - 1
     waypoints = partial[:M]
     timing = partial[M:]
-    durations = []
-    for xyz_off, xyz_slice in ((0, slice(0, 3)), (7, slice(7, 10))):
-        xyz = waypoints[:, xyz_slice]
-        interval_arc = np.linalg.norm(np.diff(xyz, axis=0), axis=-1)
-        moving = interval_arc > 1e-12
-        if not bool(np.any(moving)):
-            durations.append(0.0)
-            continue
-        if mode == "duration":
-            interval_duration = timing[:-1, xyz_off]
-        elif mode == "per_waypoint":
-            interval_rate = np.linalg.norm(timing[:-1, xyz_slice], axis=-1)
-            interval_duration = np.full_like(interval_arc, np.inf)
-            np.divide(
-                interval_arc,
-                interval_rate,
-                out=interval_duration,
-                where=interval_rate > 1e-8,
-            )
-        else:
-            chord = float(np.linalg.norm(np.diff(xyz, axis=0), axis=-1).sum())
-            speed = float(np.linalg.norm(timing[0, xyz_slice]))
-            interval_duration = np.array(
-                [chord / speed if chord > 1e-9 and speed > 1e-9 else np.inf]
-            )
-            moving = np.ones_like(interval_duration, dtype=bool)
-        usable = moving & np.isfinite(interval_duration) & (interval_duration > 0.0)
-        if not bool(np.all(usable[moving])):
-            duration = math.inf
-        else:
-            duration = float(interval_duration[moving].sum())
-        durations.append(duration)
-
-    if rotation_distance_unit is not None:
-        if mode != "per_waypoint":
-            raise ValueError(
-                "independent rotation clock requires velocity_mode='per_waypoint'"
-            )
-        shared_durations = []
-        for slices, rotation in (
-            ((slice(0, 3), slice(7, 10)), False),
-            ((slice(3, 6), slice(10, 13)), True),
-        ):
-            step_by_arm = []
-            rate_by_arm = []
-            for value_slice in slices:
-                if rotation:
-                    cumulative = cumulative_rotation_length(waypoints[:, value_slice])
-                    step = np.diff(cumulative)
-                else:
-                    step = np.linalg.norm(
-                        np.diff(waypoints[:, value_slice], axis=0), axis=-1
-                    )
-                step_by_arm.append(step)
-                rate_by_arm.append(np.linalg.norm(timing[:-1, value_slice], axis=-1))
-
-            interval_durations = []
-            for index in range(M - 1):
-                moving = [step[index] > 1e-12 for step in step_by_arm]
-                if not any(moving):
-                    interval_durations.append(0.0)
-                elif any(
-                    is_moving and rate[index] <= 1e-8
-                    for is_moving, rate in zip(moving, rate_by_arm)
-                ):
-                    interval_durations.append(math.inf)
-                else:
-                    interval_durations.append(
-                        max(
-                            step[index] / rate[index]
-                            for is_moving, step, rate in zip(
-                                moving, step_by_arm, rate_by_arm
-                            )
-                            if is_moving
-                        )
-                    )
-            shared_durations.append(float(np.sum(interval_durations)))
-        durations = shared_durations
-
+    chunking_mode = resolve_arc_chunking_mode(arc_chunking_mode, rotation_distance_unit)
+    clocks, rotation_clock = _arc_clock_durations(
+        waypoints,
+        timing,
+        mode,
+        dt,
+        min_distance_unit,
+        chunking_mode,
+        rotation_distance_unit,
+        max_steps,
+    )
+    durations = [float(np.sum(clock)) for clock in clocks]
+    # The distance prefix already enforces the race endpoint. All retained
+    # stream prefixes must finish, including exact M prefixes whose predicted
+    # per-arm clocks may disagree; rotation remains independently timed.
     duration = max(durations, default=0.0)
+    if rotation_clock is not None:
+        duration = max(duration, float(np.sum(rotation_clock)))
     if math.isfinite(duration):
         steps = max(1, int(math.ceil(duration / dt - 1e-9)))
     elif max_steps is not None:
@@ -490,7 +685,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
     chunk. ARC supports two explicit caps before detokenization: ``waypoints``
     keeps exactly ``execute_fraction * M`` waypoint and per-waypoint velocity
     rows; ``distance`` interpolates its terminal waypoint at
-    ``execute_fraction * D`` cumulative left-plus-right EEF translation. Token
+    ``execute_fraction * D`` according to the selected translation mode. Token
     timing recovers the corresponding variable control-frame stride.
 
     The evaluator expects validation to contain every frame of each episode,
@@ -538,6 +733,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         max_episode_frames: int = 6000,
         viz_every_n_epochs: int = 1,
         viz_max_batches: int | None = None,
+        arc_chunking_mode: str | None = None,
         **kwargs,
     ):
         mode = str(action_mode)
@@ -552,11 +748,19 @@ class OpenLoopSimEval(BimanualCartesianEval):
             or float(rotation_distance_unit) <= 0
         ):
             raise ValueError("rotation_distance_unit must be positive and finite")
+        if arc_chunking_mode is not None and rotation_distance_unit is None:
+            raise ValueError(
+                "explicit arc_chunking_mode requires rotation_distance_unit; "
+                "omit arc_chunking_mode for legacy no-R checkpoints"
+            )
         validate_bimanual_velocity_mode(velocity_mode)
         self.execute_fraction = float(execute_fraction)
         self.control_horizon = int(control_horizon)
         self.control_dt = float(control_dt)
         self.action_mode = mode
+        self.arc_chunking_mode = resolve_arc_chunking_mode(
+            arc_chunking_mode, rotation_distance_unit
+        )
         self.arc_execution_cap_mode = validate_arc_execution_cap_mode(
             arc_execution_cap_mode
         )
@@ -707,7 +911,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         ground_truth: torch.Tensor,
         prefix_lengths: list[int],
     ) -> tuple[torch.Tensor, torch.Tensor, list[int], list[int]]:
-        """Cap ARC overlays at the configured executed joint-clock prefixes."""
+        """Cap ARC overlays at the selected translation and rotation prefixes."""
 
         cap = self.execute_fraction * self.min_distance_unit
         rotation_distance_unit = getattr(self, "rotation_distance_unit", None)
@@ -718,21 +922,17 @@ class OpenLoopSimEval(BimanualCartesianEval):
         pred_lengths = []
         gt_lengths = []
         for index, steps in enumerate(prefix_lengths):
-            if rotation_distance_unit is None:
-                pred = truncate_cartesian_trajectory_by_joint_distance(
-                    pred_np[index, :steps], cap
-                )
-                gt = truncate_cartesian_trajectory_by_joint_distance(
-                    gt_np[index, :steps], cap
-                )
-            else:
-                rotation_cap = self.execute_fraction * rotation_distance_unit
-                pred = truncate_cartesian_trajectory_by_joint_clocks(
-                    pred_np[index, :steps], cap, rotation_cap
-                )
-                gt = truncate_cartesian_trajectory_by_joint_clocks(
-                    gt_np[index, :steps], cap, rotation_cap
-                )
+            rotation_cap = (
+                None
+                if rotation_distance_unit is None
+                else self.execute_fraction * rotation_distance_unit
+            )
+            pred = truncate_cartesian_trajectory_by_arc_mode(
+                pred_np[index, :steps], cap, evaluator_chunking_mode(self), rotation_cap
+            )
+            gt = truncate_cartesian_trajectory_by_arc_mode(
+                gt_np[index, :steps], cap, evaluator_chunking_mode(self), rotation_cap
+            )
             pred_values.append(pred)
             gt_values.append(gt)
             pred_lengths.append(len(pred))
@@ -921,15 +1121,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self.action_mode == "auto"
             and self._is_arc_prediction(prediction[0].detach().cpu().numpy())
         )
-        if (
-            is_arc_video
-            and getattr(
-                self,
-                "arc_video_trajectory_cap_mode",
-                "execution_horizon",
-            )
-            == "joint_distance"
-        ):
+        if is_arc_video and getattr(
+            self,
+            "arc_video_trajectory_cap_mode",
+            "execution_horizon",
+        ) in ("distance", "joint_distance"):
             (
                 pred_native,
                 gt_native,
@@ -1067,6 +1263,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             frame_index=np.asarray(frame, dtype=np.int64),
             action_mode=np.asarray(str(self.action_mode)),
             arc_execution_cap_mode=np.asarray(str(self.arc_execution_cap_mode)),
+            arc_chunking_mode=np.asarray(evaluator_chunking_mode(self)),
         )
         self._trajectory_snapshot_written = True
 
@@ -1175,6 +1372,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self._arc_tokenizer = TokenizeBimanualArcLengthCartesian(
                 min_distance_unit=self.min_distance_unit,
                 rotation_distance_unit=rotation_distance_unit,
+                arc_chunking_mode=(
+                    evaluator_chunking_mode(self)
+                    if rotation_distance_unit is not None
+                    else None
+                ),
                 resampled_vector_length=self.resampled_vector_length,
                 dt=self.control_dt,
                 velocity_mode=self.velocity_mode,
@@ -1185,6 +1387,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self.velocity_mode,
             self.min_distance_unit,
             self.arc_execution_cap_mode,
+            arc_chunking_mode=evaluator_chunking_mode(self),
+            rotation_distance_unit=getattr(self, "rotation_distance_unit", None),
+            control_dt=self.control_dt,
         )
         steps = arc_prefix_control_steps(
             prediction,
@@ -1193,6 +1398,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self.control_dt,
             self.min_distance_unit,
             rotation_distance_unit=getattr(self, "rotation_distance_unit", None),
+            arc_chunking_mode=evaluator_chunking_mode(self),
             arc_execution_cap_mode=self.arc_execution_cap_mode,
             max_steps=max_steps,
         )
@@ -1506,6 +1712,18 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 "arc_execution_cap_mode": (
                     self.arc_execution_cap_mode if self.action_mode == "arc" else None
                 ),
+                "arc_chunking_mode": evaluator_chunking_mode(self),
+                "arc_episode_progress_semantics": ARC_DISTANCE_SEMANTICS[
+                    evaluator_chunking_mode(self)
+                ],
+                "arc_rotation_distance_unit": getattr(
+                    self, "rotation_distance_unit", None
+                ),
+                "arc_rotation_clock": (
+                    "shared_independent"
+                    if getattr(self, "rotation_distance_unit", None) is not None
+                    else None
+                ),
                 "execute_arc_waypoints": (
                     self.execute_arc_waypoints
                     if self.action_mode == "arc"
@@ -1519,7 +1737,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     else None
                 ),
                 "arc_distance_semantics": (
-                    "combined_left_plus_right_translation"
+                    ARC_DISTANCE_SEMANTICS[evaluator_chunking_mode(self)]
                     if self.action_mode == "arc"
                     and self.arc_execution_cap_mode == "distance"
                     else None

@@ -12,16 +12,20 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: hybrid_arc_tokenizer_cartesian
         annotation_key: annotations
+        min_distance_unit: ${oc.select:abc.arc_distance,0.40}
+        rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,0.4188790204786391}
+        arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,joint_distance}
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         action_mode: hybrid_arc_tokenizer_cartesian
         coord_frame: eef_frame
         rotation_mode: euler
         stride: 1
-        min_distance_unit: 0.40
-        rotation_distance_unit: 0.4188790204786391
-        resampled_vector_length: 100
+        min_distance_unit: ${oc.select:abc.arc_distance,0.40}
+        rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,0.4188790204786391}
+        resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
         velocity_mode: per_waypoint
+        arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,joint_distance}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -41,16 +45,20 @@ valid_datasets:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: hybrid_arc_tokenizer_cartesian
         annotation_key: annotations
+        min_distance_unit: ${oc.select:abc.arc_distance,0.40}
+        rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,0.4188790204786391}
+        arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,joint_distance}
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         action_mode: hybrid_arc_tokenizer_cartesian
         coord_frame: eef_frame
         rotation_mode: euler
         stride: 1
-        min_distance_unit: 0.40
-        rotation_distance_unit: 0.4188790204786391
-        resampled_vector_length: 100
+        min_distance_unit: ${oc.select:abc.arc_distance,0.40}
+        rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,0.4188790204786391}
+        resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
         velocity_mode: per_waypoint
+        arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,joint_distance}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

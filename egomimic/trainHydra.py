@@ -158,6 +158,14 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     return OmegaConf.create(config_tree)
 
 
+def _arc_normalization_contract(cfg: DictConfig) -> dict | None:
+    """Bind retained ARC recipes to cache provenance without changing old configs."""
+    contract = OmegaConf.select(cfg, "run_provenance.action_contract", default=None)
+    if contract is None or "arc_tokenizer" not in str(contract.get("representation", "")):
+        return None
+    return OmegaConf.to_container(contract, resolve=True)
+
+
 def _validate_run_config(cfg: DictConfig) -> str:
     if cfg.get("model") is None:
         raise ValueError("Select a complete Pipeline model config")
@@ -556,6 +564,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             precomputed_norm_path=OmegaConf.select(
                 cfg, "norm_stats.precomputed_norm_path", default=None
             ),
+            action_contract=_arc_normalization_contract(cfg),
         )
         # Cache norm stats if save_cache_dir is set
         save_cache_dir = OmegaConf.select(

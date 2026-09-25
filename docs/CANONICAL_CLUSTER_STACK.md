@@ -1,5 +1,26 @@
 # Canonical cluster application stack
 
+## September 25 feature tip
+
+The stack below now continues above `canonical/run-resume` with:
+
+10. `canonical/distance-budget-global-dtw`: episode-distance rollout budgets and
+    bidirectional, GT-frame-balanced DTW.
+11. `canonical/visual-bc-launch-readiness`: visual-only robot/human recipes and
+    corrected BC targets.
+12. `canonical/open-loop-full-frame-video-wandb`: per-frame validation video,
+    fresh-run logging, and organized retained experiments.
+13. `canonical/arc-chunking-modes`: race, multistream, and joint-distance
+    translation; separate hybrid R clocks; matching evaluation and cache
+    provenance. See `ARC_CHUNKING_MODES.md`.
+
+Pace, Sky2, ICE, and Lambda each retain a cluster-specific configuration overlay
+above the shared application tip. Updating refs does not change active checkouts
+or running jobs. Lambda's original launcher addition remains in the historical
+application ancestry; this feature does not rewrite that published history.
+
+## Original canonical layers
+
 The shared application stack is rooted on GitHub `main`. Each branch represents
 one user-visible feature; follow-up fixes stay on that feature branch.
 

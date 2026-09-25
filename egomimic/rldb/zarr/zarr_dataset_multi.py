@@ -2022,6 +2022,50 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         return min(start_idx + horizon, self.total_frames)
 
+    @staticmethod
+    def _canonical_dynamic_horizon_spec(value: Any) -> Any:
+        """Return a hashable, value-based form of a horizon specification."""
+        if isinstance(value, Mapping):
+            return tuple(
+                sorted(
+                    (
+                        str(key),
+                        ZarrDataset._canonical_dynamic_horizon_spec(item),
+                    )
+                    for key, item in value.items()
+                )
+            )
+        if isinstance(value, (list, tuple)):
+            return tuple(
+                ZarrDataset._canonical_dynamic_horizon_spec(item) for item in value
+            )
+        if isinstance(value, np.generic):
+            return value.item()
+        return value
+
+    def _resolve_dynamic_horizons_for_sample(self, start_idx: int) -> dict[Any, int]:
+        """Resolve each distinct dynamic horizon once for one sample index."""
+        resolved_by_spec: dict[Any, int] = {}
+        shared_horizon: int | None = None
+        for key_spec in self.key_map.values():
+            if not isinstance(key_spec, dict):
+                continue
+            horizon_spec = key_spec.get("horizon")
+            if not isinstance(horizon_spec, dict):
+                continue
+            canonical = self._canonical_dynamic_horizon_spec(horizon_spec)
+            if canonical not in resolved_by_spec:
+                resolved = self._resolve_dynamic_horizon(start_idx, horizon_spec)
+                if shared_horizon is None:
+                    shared_horizon = resolved
+                elif shared_horizon != resolved:
+                    raise ValueError(
+                        "multiple dynamic horizon specs resolved to different "
+                        f"lengths ({shared_horizon} vs {resolved})"
+                    )
+                resolved_by_spec[canonical] = resolved
+        return resolved_by_spec
+
     def _resolve_dynamic_horizon(self, start_idx: int, spec: dict) -> int:
         """Resolve a declarative distance-based source window.
 
@@ -2260,6 +2304,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             # Resolve a shared action window once per sample.  All YAM action
             # keys (both poses and grippers) must have identical lengths so
             # the downstream transforms and collate function stay aligned.
+            dynamic_horizons = self._resolve_dynamic_horizons_for_sample(idx)
             dynamic_horizon: int | None = None
             for horizon_spec in (
                 spec.get("horizon")
@@ -2267,7 +2312,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if isinstance(spec, dict)
             ):
                 if isinstance(horizon_spec, dict):
-                    resolved = self._resolve_dynamic_horizon(idx, horizon_spec)
+                    resolved = dynamic_horizons[
+                        self._canonical_dynamic_horizon_spec(horizon_spec)
+                    ]
                     if dynamic_horizon is None:
                         dynamic_horizon = resolved
                     elif dynamic_horizon != resolved:

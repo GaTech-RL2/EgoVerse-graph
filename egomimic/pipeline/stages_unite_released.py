@@ -65,6 +65,12 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         "unite/action_velocity_loss",
         "unite/action_velocity_sample_count",
         "unite/decoded_action_loss",
+        # written only when the corresponding change-loop term is on
+        "unite/contrastive_flow_loss",
+        "unite/contrastive_flow_distance",
+        "unite/dispersive_loss",
+        "unite/dispersive_raw",
+        "unite/flow_latent_batch_std",
     ]
     reads_by_mode = {
         "inference": ["sampler/noise", "condition", "embodiment"],
@@ -95,11 +101,82 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         dopri5_atol: float = 1.0e-6,
         dopri5_rtol: float = 1.0e-3,
         compile_backbones: bool = False,
+        contrastive_flow_weight: float = 0.0,
+        dispersive_weight: float = 0.0,
+        dispersive_tau: float = 0.5,
+        dispersive_block: int = 3,
+        flow_latent_batchnorm: bool = False,
     ):
         super().__init__()
         self.generative_encoder = generative_encoder
         self.action_decoder = _PerEmbodimentDecoder(decoders)
         self.compile_backbones = bool(compile_backbones)
+        # Change-loop terms (2026-09-25). Each is off at its default and then
+        # touches neither the graph, the RNG stream nor the module tree, so a
+        # default-built policy is the released recipe byte for byte. Their
+        # weights live here rather than on the objective because the policy has
+        # to skip the extra computation entirely when a term is off; the
+        # objective only forwards the already-weighted term into ``loss/*``.
+        self.contrastive_flow_weight = float(contrastive_flow_weight)
+        self.dispersive_weight = float(dispersive_weight)
+        self.dispersive_tau = float(dispersive_tau)
+        self.dispersive_block = int(dispersive_block)
+        self.flow_latent_batchnorm = bool(flow_latent_batchnorm)
+        for label, value in (
+            ("contrastive_flow_weight", self.contrastive_flow_weight),
+            ("dispersive_weight", self.dispersive_weight),
+        ):
+            if not torch.isfinite(torch.tensor(value)) or value < 0.0:
+                raise ValueError(f"{label} must be finite and non-negative")
+        if self.contrastive_flow_weight >= 1.0:
+            # flow - w * contrast is unbounded below in the prediction for w >= 1.
+            raise ValueError("contrastive_flow_weight must be < 1")
+        if not torch.isfinite(torch.tensor(self.dispersive_tau)) or (
+            self.dispersive_tau <= 0.0
+        ):
+            raise ValueError("dispersive_tau must be finite and positive")
+        uses_new_terms = (
+            self.contrastive_flow_weight > 0.0
+            or self.dispersive_weight > 0.0
+            or self.flow_latent_batchnorm
+        )
+        if uses_new_terms and int(action_velocity_samples_per_reconstruction) > 0:
+            raise ValueError(
+                "contrastive/dispersive/flow-latent-batchnorm terms are implemented on "
+                "the released flow path only, not together with UNITE-AV"
+            )
+        if self.dispersive_weight > 0.0:
+            blocks = getattr(
+                getattr(self.generative_encoder, "denoising_module", None),
+                "blocks",
+                None,
+            )
+            if not isinstance(blocks, nn.ModuleList) or not (
+                0 <= self.dispersive_block < len(blocks)
+            ):
+                raise ValueError(
+                    "dispersive_block must index the denoiser's 'blocks' ModuleList"
+                )
+            if self.compile_backbones:
+                raise ValueError("dispersive loss hooks are not supported with compile")
+        if self.flow_latent_batchnorm:
+            domains = tuple(getattr(self.generative_encoder, "domains", ()))
+            latent_dim = int(getattr(self.generative_encoder, "latent_dim", -1))
+            if not domains or latent_dim <= 0:
+                raise ValueError("flow_latent_batchnorm needs encoder domains/latent_dim")
+            # One non-affine BatchNorm per embodiment: every embodiment runs
+            # through the pipeline as its own batch, so training normalises
+            # with that embodiment's batch statistics; a per-embodiment running
+            # estimate is the matching inference-time inverse. No parameters,
+            # buffers only (the EMA overlay keeps the online buffers).
+            self.flow_latent_norms = nn.ModuleDict(
+                {
+                    str(domain): nn.BatchNorm1d(
+                        latent_dim, affine=False, momentum=0.1, eps=1.0e-5
+                    )
+                    for domain in domains
+                }
+            )
         self.timestep_shift_alpha = float(timestep_shift_alpha)
         self.flow_steps_per_reconstruction = int(flow_steps_per_reconstruction)
         self.flow_mini_batch = int(flow_mini_batch)
@@ -183,6 +260,48 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
 
     def _decode(self, latent: torch.Tensor, embodiment: str) -> torch.Tensor:
         return self.action_decoder.decoder_for(embodiment)(latent)
+
+    def _normalize_flow_latent(
+        self, clean_latent: torch.Tensor, embodiment: str
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+        """REPA-E style flow-only latent BatchNorm over the latent channels.
+
+        Input ``(B, T, C)``; statistics are per channel over batch and tokens.
+        Training uses (and returns) the batch statistics, updating the running
+        estimate; evaluation uses the running estimate. The returned
+        ``(mean, std)`` (shape ``(1, 1, C)``, detached) invert exactly what was
+        applied. The input is detached: the flow never reaches the tokenizer.
+        """
+
+        norm = self.flow_latent_norms[str(embodiment)]
+        latent = clean_latent.detach().float()
+        channels_first = latent.transpose(1, 2)
+        normalized = norm(channels_first).transpose(1, 2)
+        if norm.training:
+            mean = latent.mean(dim=(0, 1))
+            var = latent.var(dim=(0, 1), unbiased=False)
+        else:
+            mean = norm.running_mean
+            var = norm.running_var
+        std = (var + norm.eps).sqrt()
+        stats = (mean.reshape(1, 1, -1).detach(), std.reshape(1, 1, -1).detach())
+        return normalized.to(clean_latent.dtype), stats
+
+    @staticmethod
+    def _denormalize_flow_latent(
+        latent: torch.Tensor, stats: tuple[torch.Tensor, torch.Tensor]
+    ) -> torch.Tensor:
+        mean, std = stats
+        return (latent.float() * std + mean).to(latent.dtype)
+
+    def _running_flow_latent_stats(
+        self, embodiment: str
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        norm = self.flow_latent_norms[str(embodiment)]
+        return (
+            norm.running_mean.reshape(1, 1, -1),
+            (norm.running_var + norm.eps).sqrt().reshape(1, 1, -1),
+        )
 
     def _validate_noise(self, noise: torch.Tensor) -> None:
         expected = (
@@ -313,6 +432,7 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         target: torch.Tensor,
         condition: torch.Tensor,
         embodiment: str,
+        flow_latent_stats: tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> torch.Tensor:
         """Supervise the flow through the decoder, against the real actions.
 
@@ -327,6 +447,10 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         matched to the ground-truth chunk: exact, no JVP, and anchored to a
         target that never moves. ``Z_0`` stays detached, so this shapes the
         denoiser and decoder without feeding back into the tokenizer.
+
+        With ``flow_latent_batchnorm`` the caller passes the normalised latent
+        and its ``flow_latent_stats``; the prediction is mapped back to the raw
+        latent space before decoding.
         """
 
         samples = self.decoded_action_samples_per_reconstruction
@@ -347,6 +471,10 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         predicted_clean = self.generative_encoder.denoise(
             corrupted, time, repeated_condition, embodiment
         )
+        if flow_latent_stats is not None:
+            predicted_clean = self._denormalize_flow_latent(
+                predicted_clean, flow_latent_stats
+            )
         decoded = self._decode(predicted_clean, embodiment)
         return (decoded - repeated_target).square().mean()
 
@@ -356,11 +484,62 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         condition: torch.Tensor,
         embodiment: str,
     ) -> torch.Tensor:
+        loss, _, _ = self._released_flow_terms(clean_latent, condition, embodiment)
+        return loss
+
+    def _dispersive_term(self, activation: torch.Tensor) -> torch.Tensor:
+        """Dispersive loss, InfoNCE-L2 variant (arXiv 2506.09027).
+
+        ``log mean_{i,j} exp(-||h_i - h_j||^2 / (D * tau))`` over every ordered
+        pair of the ``B`` rows, diagonal included, with ``D`` the flattened
+        feature size (the paper's implementation). Always <= 0; minimising it
+        spreads the rows apart.
+        """
+
+        rows = int(activation.shape[0])
+        flat = activation.float().reshape(rows, -1)
+        squared = (flat.unsqueeze(1) - flat.unsqueeze(0)).square().sum(-1)
+        squared = squared / float(flat.shape[1])
+        logits = (-squared / self.dispersive_tau).reshape(-1)
+        return torch.logsumexp(logits, dim=0) - torch.log(
+            torch.tensor(float(logits.numel()), device=logits.device)
+        )
+
+    def _released_flow_terms(
+        self,
+        clean_latent: torch.Tensor,
+        condition: torch.Tensor,
+        embodiment: str,
+    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
+        """Released flow loss plus the optional change-loop terms.
+
+        Returns ``(flow, contrastive_distance, dispersive)``; the last two are
+        ``None`` when their weight is zero, and the default path executes the
+        released loop unchanged (same operations, same RNG draws).
+
+        ``contrastive_distance`` (Contrastive Flow Matching, arXiv 2506.05350):
+        with ``v_hat = (z_hat - z_t) / max(1 - t, train_eps)`` and the negative
+        velocity target ``v_neg`` = the ``(z - eps)`` of the row rolled by one
+        along the batch axis inside the same repeat, it is
+        ``sum_chunks mean((v_hat - v_neg)^2) * repeats`` -- the same aggregation
+        as the flow loss, which the objective subtracts with its weight.
+
+        ``dispersive`` is ``_dispersive_term`` of the denoiser block
+        ``dispersive_block`` output over the B distinct rows of the first flow
+        repeat.
+        """
+
         detached_clean = clean_latent.detach()
         batch_size = int(detached_clean.shape[0])
+        use_contrastive = self.contrastive_flow_weight > 0.0
+        use_dispersive = self.dispersive_weight > 0.0
+        if use_contrastive and batch_size < 2:
+            raise ValueError("contrastive flow matching needs at least two rows")
         loss = None
-        for repeats in self._flow_chunks(
-            self.flow_steps_per_reconstruction, self.flow_mini_batch
+        contrastive = None
+        dispersive = None
+        for chunk_index, repeats in enumerate(
+            self._flow_chunks(self.flow_steps_per_reconstruction, self.flow_mini_batch)
         ):
             repeated_clean = detached_clean.repeat(repeats, 1, 1)
             repeated_condition = condition.repeat(
@@ -373,16 +552,56 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             time_view = time.reshape(batch_size * repeats, 1, 1).to(detached_clean)
             noise = torch.randn_like(repeated_clean)
             corrupted = time_view * repeated_clean + (1.0 - time_view) * noise
-            prediction = self.generative_encoder.denoise(
-                corrupted, time, repeated_condition, embodiment
-            )
+            handle = None
+            captured: list[torch.Tensor] = []
+            if use_dispersive and chunk_index == 0:
+                block = self.generative_encoder.denoising_module.blocks[
+                    self.dispersive_block
+                ]
+                handle = block.register_forward_hook(
+                    lambda _module, _inputs, output: captured.append(output)
+                )
+            try:
+                prediction = self.generative_encoder.denoise(
+                    corrupted, time, repeated_condition, embodiment
+                )
+            finally:
+                if handle is not None:
+                    handle.remove()
             denominator = (1.0 - time_view).clamp_min(self.train_eps)
             chunk_loss = ((repeated_clean - prediction) / denominator).square().mean()
             weighted = chunk_loss * repeats
             loss = weighted if loss is None else loss + weighted
+            if use_contrastive:
+                predicted_velocity = (prediction - corrupted) / denominator
+                target_velocity = repeated_clean - noise
+                negative_velocity = target_velocity.reshape(
+                    repeats, batch_size, *target_velocity.shape[1:]
+                ).roll(1, dims=1).reshape_as(target_velocity)
+                chunk_contrast = (predicted_velocity - negative_velocity).square().mean()
+                weighted_contrast = chunk_contrast * repeats
+                contrastive = (
+                    weighted_contrast
+                    if contrastive is None
+                    else contrastive + weighted_contrast
+                )
+            if use_dispersive and chunk_index == 0:
+                if len(captured) != 1 or not torch.is_tensor(captured[0]):
+                    raise RuntimeError(
+                        "dispersive hook must capture exactly one block output"
+                    )
+                activation = captured[0]
+                if self.training and torch.is_grad_enabled() and not (
+                    activation.requires_grad
+                ):
+                    raise RuntimeError(
+                        "dispersive activation carries no gradient (reentrant "
+                        "checkpointing?); run with gradient checkpointing off"
+                    )
+                dispersive = self._dispersive_term(activation[:batch_size])
         if loss is None:
             raise RuntimeError("Released UNITE flow loop produced no samples")
-        return loss
+        return loss, contrastive, dispersive
 
     def _released_flow_and_action_velocity_loss(
         self,
@@ -595,6 +814,10 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
 
         if self.training:
             raise RuntimeError("Released UNITE diagnostics require evaluation mode")
+        if self.flow_latent_batchnorm:
+            raise NotImplementedError(
+                "UNITE diagnostics do not map the flow-latent BatchNorm space back"
+            )
         embodiment = self._resolve_domain(embodiment)
         self._validate_noise(noise)
         levels = torch.as_tensor(
@@ -670,14 +893,49 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         reconstructed_action = self._decode(
             self._noisy_reconstruction_latent(clean_latent), embodiment
         )
-        flow_loss, action_velocity_loss, action_velocity_sample_count = (
-            self._released_flow_and_action_velocity_loss(
-                clean_latent, batch["condition"], embodiment
+        extras = {}
+        if (
+            self.contrastive_flow_weight > 0.0
+            or self.dispersive_weight > 0.0
+            or self.flow_latent_batchnorm
+        ):
+            flow_latent, flow_latent_stats = clean_latent, None
+            if self.flow_latent_batchnorm:
+                flow_latent, flow_latent_stats = self._normalize_flow_latent(
+                    clean_latent, embodiment
+                )
+            flow_loss, contrastive, dispersive = self._released_flow_terms(
+                flow_latent, batch["condition"], embodiment
             )
-        )
-        decoded_action_loss = self._decoded_action_loss(
-            clean_latent, target, batch["condition"], embodiment
-        )
+            action_velocity_loss = clean_latent.new_zeros(())
+            action_velocity_sample_count = 0
+            decoded_action_loss = self._decoded_action_loss(
+                flow_latent,
+                target,
+                batch["condition"],
+                embodiment,
+                flow_latent_stats=flow_latent_stats,
+            )
+            if contrastive is not None:
+                extras["unite/contrastive_flow_loss"] = (
+                    -self.contrastive_flow_weight * contrastive
+                )
+                extras["unite/contrastive_flow_distance"] = contrastive.detach()
+            if dispersive is not None:
+                extras["unite/dispersive_loss"] = self.dispersive_weight * dispersive
+                extras["unite/dispersive_raw"] = dispersive.detach()
+            if flow_latent_stats is not None:
+                extras["unite/flow_latent_batch_std"] = flow_latent_stats[1].mean()
+        else:
+            flow_loss, action_velocity_loss, action_velocity_sample_count = (
+                self._released_flow_and_action_velocity_loss(
+                    clean_latent, batch["condition"], embodiment
+                )
+            )
+            decoded_action_loss = self._decoded_action_loss(
+                clean_latent, target, batch["condition"], embodiment
+            )
+        batch.update(extras)
         batch.update(
             {
                 "unite/clean_latent": clean_latent,
@@ -692,6 +950,12 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
 
     def _forward_rollout(self, batch: dict, embodiment: str) -> dict:
         endpoint = self.sample(batch["sampler/noise"], batch["condition"], embodiment)
+        if self.flow_latent_batchnorm:
+            # The denoiser generates in the normalised space; map back with the
+            # running statistics before decoding (sampler/endpoint is raw z).
+            endpoint = self._denormalize_flow_latent(
+                endpoint, self._running_flow_latent_stats(embodiment)
+            )
         batch["sampler/endpoint"] = endpoint
         batch["pred_action"] = self._decode(endpoint, embodiment)
         return batch

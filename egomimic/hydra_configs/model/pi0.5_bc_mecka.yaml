@@ -180,3 +180,14 @@ diagnostic_provider:
   stage_id: sampler
   emit_combined: true
   mask_padding: false
+
+# Required preprocessing semantics, independent of episode selection or location.
+data_requirements:
+  preprocessing:
+    '3':
+      transforms:
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 1
+      source_fps: 30.0

@@ -163,3 +163,42 @@ def test_complete_video_rejects_batch_cap():
     )
     with pytest.raises(ValueError, match="viz_max_batches"):
         obj.data_requirements()
+
+
+def test_complete_video_requires_renderer_reversion_and_declares_tensor_inputs():
+    obj = BimanualCartesianEval(complete_video_episodes=True)
+    with pytest.raises(ValueError, match="renderers"):
+        obj.data_requirements()
+    obj.viz_func = {"source": object()}
+    with pytest.raises(ValueError, match="frame reversion"):
+        obj.data_requirements()
+    obj.revert_transforms = {"source": []}
+    assert set(obj.data_requirements().required_keys) == {
+        obj.action_key,
+        obj.obs_pose_key,
+        obj.image_key,
+    }
+
+
+def test_sparse_episode_upload_keeps_the_encoded_frame_rate(tmp_path, monkeypatch):
+    import sys
+
+    obj = evaluator(tmp_path)
+    logged = []
+    obj.trainer.logger = SimpleNamespace(
+        experiment=SimpleNamespace(
+            id="fake", log=lambda values, **kw: logged.append(values)
+        )
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "wandb",
+        SimpleNamespace(Video=lambda path, **kw: {"path": path, **kw}),
+    )
+    obj._record_video_frames(
+        ("valid", "source"),
+        torch.zeros(3, 16, 16, 3, dtype=torch.uint8),
+        {"trial": ["e"] * 3, "tick": [0, 3, 6]},
+    )
+    obj.on_validation_end()
+    assert logged[0]["Val_video/source"][0]["fps"] == 8.0

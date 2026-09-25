@@ -1,0 +1,42 @@
+[
+  {
+    "case": "eva-cartesian-camframe",
+    "exit_code": 0
+  },
+  {
+    "case": "eva-cartesian-eef_frame",
+    "exit_code": 0
+  },
+  {
+    "case": "aria-cartesian-camframe",
+    "exit_code": 0
+  },
+  {
+    "case": "aria-cartesian-eef_frame",
+    "exit_code": 0
+  },
+  {
+    "case": "mecka-cartesian-camframe",
+    "exit_code": 0
+  },
+  {
+    "case": "mecka-cartesian-eef_frame",
+    "exit_code": 0
+  },
+  {
+    "case": "scale-cartesian-camframe",
+    "exit_code": 0
+  },
+  {
+    "case": "scale-cartesian-eef_frame",
+    "exit_code": 0
+  },
+  {
+    "case": "aria-keypoints-camframe",
+    "exit_code": 0
+  },
+  {
+    "case": "aria-keypoints-eef_frame",
+    "exit_code": 0
+  }
+]

@@ -456,3 +456,20 @@ inference_domains:
               kind: policy_attribute
               attribute_path: replan_every
 inference: ${model.inference_domains.${model.deployment_domain}}
+
+# Required preprocessing semantics, independent of episode selection or location.
+data_requirements:
+  preprocessing:
+    '6':
+      transforms:
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+      source_fps: 30.0
+    '3':
+      transforms:
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 3
+      source_fps: 30.0

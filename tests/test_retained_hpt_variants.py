@@ -10,7 +10,10 @@ from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 from omegaconf import OmegaConf, open_dict
 
-from egomimic.pipeline.inference_config import build_inference_config
+from egomimic.pipeline.inference_config import (
+    build_inference_config,
+    validate_model_data_context,
+)
 from egomimic.pipeline.sequence_decoder import UniformTimeGridDecoder
 from tests.fixtures.synthetic_episodes import write_episode
 from tests.test_retained_recipe_steps import CONFIGS, small_cpu_model
@@ -100,6 +103,13 @@ def test_keypoints_real_transforms_and_overlay(wrist, tmp_path):
         }
     dm = instantiate(cfg.data, _recursive_=False)
     context = dm.prepare_context(mode="train", normalization={"num_workers": 0})
+    validate_model_data_context(cfg, context)
+    mismatched = deepcopy(cfg)
+    mismatched.model.data_requirements.preprocessing["3"].transforms.coord_frame = (
+        "camframe" if wrist else "eef_frame"
+    )
+    with pytest.raises(ValueError, match="coord_frame"):
+        validate_model_data_context(mismatched, context)
     evaluator = instantiate(cfg.evaluator)
     dm.configure_evaluation(evaluator.data_requirements())
     graph = instantiate(small_cpu_model(cfg, "hpt").model.pipeline, device="cpu")

@@ -13,8 +13,13 @@ class EvaluationDataRequirements:
     sample_id_key: str | None = None
     frame_index_key: str | None = None
     source_fps: float | None = None
+    required_keys: tuple[str, ...] = ()
 
     def __post_init__(self):
+        if not isinstance(self.required_keys, tuple) or any(
+            not isinstance(key, str) or not key for key in self.required_keys
+        ):
+            raise TypeError("required_keys must be a tuple of nonempty strings")
         if type(self.ordered) is not bool or type(self.complete_episodes) is not bool:
             raise TypeError("ordered and complete_episodes must be booleans")
         if self.max_episodes is not None and (

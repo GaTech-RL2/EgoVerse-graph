@@ -66,7 +66,9 @@ def test_language_optimizer_and_actual_annotation_overlay(
     with open_dict(config.data):
         config.data.valid_datasets = {"eva_bimanual": deepcopy(dataset)}
         config.data.train_dataloader_params = {
-            "eva_bimanual": {"batch_size": 2, "num_workers": 0}
+            # Start within the annotated interval, rather than sometimes sampling
+            # the unannotated terminal frame. Empty prompts are tested below.
+            "eva_bimanual": {"batch_size": 2, "num_workers": 0, "shuffle": False}
         }
         config.data.valid_dataloader_params = {
             "eva_bimanual": {"batch_size": 2, "num_workers": 0}
@@ -80,7 +82,8 @@ def test_language_optimizer_and_actual_annotation_overlay(
     context.bind(graph, evaluator)
     source = next(iter(dm.train_dataloader().iterables["eva_bimanual"]))
     batch = graph.process_batch_for_training({"eva_bimanual": source})
-    optimizer = torch.optim.Adam(graph.nets.parameters(), lr=1e-4)
+    optimizer = instantiate(config.model.optimizer)(params=graph.nets.parameters())
+    scheduler = instantiate(config.model.scheduler)(optimizer=optimizer)
     for _ in range(2):
         optimizer.zero_grad()
         loss = graph.compute_losses(graph.forward_training(batch), batch)["loss"]
@@ -89,6 +92,7 @@ def test_language_optimizer_and_actual_annotation_overlay(
         assert stem.proj.weight.grad.abs().sum() > 0
         assert stem.encoder.embedding.weight.grad is None
         optimizer.step()
+        scheduler.step()
     assert prompts_seen and all(
         text in ("pick up the red cube", "place it in the bin") for text in prompts_seen
     )

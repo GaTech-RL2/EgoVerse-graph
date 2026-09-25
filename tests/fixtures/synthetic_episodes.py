@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import zarr
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.rldb.embodiment.eva import Eva
@@ -122,3 +123,24 @@ def write_episode(
         intrinsics={"front_1": K},
         extrinsics=extrinsics,
     )
+
+
+def write_moving_episode(root: Path, vendor: str, *, seed: int):
+    """Deterministic translating/rotating poses for old/new preprocessing parity."""
+    path = write_episode(root, vendor, T=48, H=32, W=32, seed=seed)
+    group = zarr.open_group(path, mode="r+")
+    for key in group.array_keys():
+        if "pose" not in key:
+            continue
+        values = group[key][:]
+        if values.shape != (48, 7):
+            continue
+        step = np.arange(48)[:, None]
+        speed = 0.002 if ".cmd_" in key else 0.0007
+        values[:, :3] += step * np.array([[speed, -speed * 0.6, speed * 0.2]])
+        rotations = R.from_quat(values[:, [4, 5, 6, 3]]) * R.from_rotvec(
+            step * np.array([[0.0002, 0.0003, -0.0001]])
+        )
+        values[:, 3:] = rotations.as_quat()[:, [3, 0, 1, 2]]
+        group[key][:] = values
+    return path

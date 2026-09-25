@@ -6,7 +6,7 @@ optimizer:
   lr: 0.0002
   weight_decay: 0.0001
 scheduler:
-  _target_: egomimic.utils.scheduler_utils.warmup_then_cosine
+  _target_: egomimic.utils.schedulers.warmup_then_cosine
   _partial_: true
   warmup_epochs: 100
   total_epochs: 2000
@@ -252,3 +252,13 @@ inference_domains:
               stage_id: sampler
               attribute_path: num_inference_steps
 inference: ${model.inference_domains.${model.deployment_domain}}
+
+# Required preprocessing semantics, independent of episode selection or location.
+data_requirements:
+  preprocessing:
+    '6':
+      transforms:
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+      source_fps: 30.0

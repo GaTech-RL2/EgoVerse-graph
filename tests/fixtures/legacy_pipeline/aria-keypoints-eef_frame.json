@@ -1,0 +1,26 @@
+{
+  "source_commit": "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+  "vendor": "aria",
+  "representation": "keypoints",
+  "frame": "eef_frame",
+  "identity": 3,
+  "indices": [
+    0,
+    7,
+    29,
+    47,
+    50
+  ],
+  "model_keys": [
+    "actions_keypoints",
+    "observations.images.front_img_1",
+    "observations.state.keypoints"
+  ],
+  "api": "legacy",
+  "transform_arguments": {
+    "mode": "keypoints_wristframe_ypr",
+    "stride": 3
+  },
+  "normalization_frames": 54,
+  "archive_sha256": "fac7145706aa87b6e20b008833488d659c82b0ba70c9d9eed9aee29ff91f2894"
+}

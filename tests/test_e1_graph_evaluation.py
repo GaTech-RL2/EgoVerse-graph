@@ -129,6 +129,9 @@ def test_distributed_results_merge_counts_and_sums(monkeypatch):
     monkeypatch.setattr(module.dist, "get_world_size", lambda: 2)
     monkeypatch.setattr(module.dist, "get_rank", lambda: 0)
     monkeypatch.setattr(
+        module.dist, "broadcast_object_list", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
         module.dist,
         "all_gather_object",
         lambda output, value: output.__setitem__(slice(None), [value, value]),
@@ -137,6 +140,30 @@ def test_distributed_results_merge_counts_and_sums(monkeypatch):
     assert merged["n_chunks"] == 2
     assert merged["paired_mse"] == pytest.approx(local["paired_mse"])
     assert merged["e_time_p90"] == pytest.approx(local["e_time_p90"])
+
+
+def test_tempo_finishes_shared_episode_video(tmp_path):
+    import av
+
+    pred, truth = example("time", "offset")
+    obj = evaluator(pred)
+    obj.trainer = SimpleNamespace(
+        default_root_dir=str(tmp_path),
+        current_epoch=0,
+        is_global_zero=True,
+        lightning_module=SimpleNamespace(log_dict=lambda *args, **kwargs: None),
+    )
+    obj.on_validation_start()
+    obj.on_validation_step(batch(truth), 0)
+    obj._record_video_frames(
+        ("valid", "source"),
+        torch.zeros(3, 16, 16, 3, dtype=torch.uint8),
+        {"episode_hash": ["e"] * 3, "frame_index": [0, 1, 2]},
+    )
+    assert obj.on_validation_end()["n_chunks"] == 1
+    [path] = list(tmp_path.rglob("e.mp4"))
+    with av.open(str(path)) as container:
+        assert len(list(container.decode(video=0))) == 3
 
 
 def test_missing_time_targets_fail_instead_of_writing_empty_metrics():

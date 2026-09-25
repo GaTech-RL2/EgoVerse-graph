@@ -144,8 +144,10 @@ data; those are visualization/reproduction recipes, not held-out score claims.
 - `evidence/full-foundation-tests.log`: initial broad run, including failures
   subsequently repaired; do not read it as the final assembled-tree receipt.
 
-Real-weight GPU checks, fixed-fixture old/new
-comparisons, and destination conflict resolution remain mandatory gates.
+Ten source-pinned data/normalization/headline-metric comparisons and both
+language learning-rate schedules are now covered by checked-in numerical
+references; see `FIXED_FIXTURE_PARITY.md` for provenance and limits. Real-weight
+GPU checks and destination conflict resolution remain mandatory gates.
 
 ## Initialization
 

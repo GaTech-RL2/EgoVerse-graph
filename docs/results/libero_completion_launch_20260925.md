@@ -1,5 +1,9 @@
 # LIBERO completion campaign, September 25, 2026
 
+This is the historical 06:55 UTC launch snapshot. For current training,
+evaluation and recovery progress, use the
+[September 25 afternoon table](arc_vs_oat_libero_20260925.md#work-still-in-progress).
+
 Operational snapshot: 2026-09-25T06:55:49.462799+00:00. Training source `6590ab8a01dd2347b3659356d03c821fee318a76`; new evaluation migrations and Goal recovery use `cff54402b3a424075074b536443c7ac6c28c5c1c`. [Current numeric tables](arc_vs_oat_libero_20260925.md).
 
 **Every missing result has a submitted job, but the complete table will miss the September 25, 09:00 Pacific target at the measured rates.** The two LIBERO-10 controls need roughly 14–17 additional hours of training alone. Evaluation and future queueing add time. All jobs retain 5001 epochs, global batch 1024 and 2500 evaluation episodes.

@@ -10,6 +10,8 @@ from egomimic.eval.arc_metrics import (
     arm_travel,
     chunk_metrics,
     clip_to_distance,
+    combined_cumulative_distance,
+    combined_travel,
     dtw_metrics,
     dtw_path,
     geodesic_deg,
@@ -48,17 +50,25 @@ def test_arm_travel_is_per_arm_and_in_metres():
     assert travel[0] > 0.6  # the sweep plus the wiggle exceeds the x extent
 
 
-def test_match_spans_takes_the_shorter_travel_per_arm():
+def test_combined_travel_sums_both_arm_interval_distances():
+    path = _path()
+    assert combined_travel(path) == pytest.approx(arm_travel(path).sum())
+    cumulative = combined_cumulative_distance(path)
+    assert cumulative[0] == 0.0
+    assert cumulative[-1] == pytest.approx(combined_travel(path))
+
+
+def test_match_spans_takes_the_shorter_combined_travel():
     full = _path()
     short = full[: len(full) // 2]
-    spans = match_spans(short, full)
-    np.testing.assert_allclose(spans, arm_travel(short), rtol=1e-9)
+    span = match_spans(short, full)
+    assert span == pytest.approx(combined_travel(short), rel=1e-9)
 
 
 def test_shared_spans_also_clamps_by_D():
     full = _path(span=0.6)
-    spans = shared_spans(full, full, min_distance_unit=0.4)
-    np.testing.assert_allclose(spans, np.full(2, 0.4), rtol=1e-9)
+    span = shared_spans(full, full, min_distance_unit=0.4)
+    assert span == pytest.approx(0.4, rel=1e-9)
 
 
 def test_arcmatch_with_D_caps_reported_span():
@@ -162,20 +172,31 @@ def test_arcmatch_returns_nothing_for_an_empty_batch():
 
 
 def test_tokenize_span_emits_the_requested_points_and_a_velocity_row():
-    waypoints, velocity = tokenize_span(_path(), arm_travel(_path()), _M, _DT)
+    waypoints, velocity = tokenize_span(_path(), combined_travel(_path()), _M, _DT)
     assert waypoints.shape == (_M, 14)
     assert velocity.shape == (14,)
 
 
 def test_tokenize_span_starts_at_the_chunk_origin():
     full = _path()
-    waypoints, _ = tokenize_span(full, arm_travel(full), _M, _DT)
+    waypoints, _ = tokenize_span(full, combined_travel(full), _M, _DT)
     np.testing.assert_allclose(waypoints[0, :3], full[0, :3], atol=1e-9)
+
+
+def test_tokenize_span_preserves_bimanual_order_on_one_joint_distance_axis():
+    traj = np.zeros((5, 14), dtype=np.float64)
+    traj[:, 0] = [0.0, 0.1, 0.2, 0.2, 0.2]
+    traj[:, 7] = [0.0, 0.0, 0.0, 0.1, 0.2]
+
+    waypoints, _ = tokenize_span(traj, 0.4, 5, _DT)
+
+    np.testing.assert_allclose(waypoints[:, 0], traj[:, 0])
+    np.testing.assert_allclose(waypoints[:, 7], traj[:, 7])
 
 
 def test_tokenize_span_velocity_is_zero_for_a_stationary_arm():
     still = np.zeros((50, 14))
-    _, velocity = tokenize_span(still, np.zeros(2), _M, _DT)
+    _, velocity = tokenize_span(still, 0.0, _M, _DT)
     assert np.isfinite(velocity).all()
     np.testing.assert_allclose(velocity, 0.0)
 
@@ -185,7 +206,9 @@ def test_tokenize_span_rejects_degenerate_settings(bad):
     full = _path()
     kwargs = {"num_points": _M, "dt": _DT, **bad}
     with pytest.raises(ValueError):
-        tokenize_span(full, arm_travel(full), kwargs["num_points"], kwargs["dt"])
+        tokenize_span(
+            full, combined_travel(full), kwargs["num_points"], kwargs["dt"]
+        )
 
 
 # -- dtw --------------------------------------------------------------------
@@ -429,8 +452,8 @@ def test_extra_metrics_can_be_turned_off():
 #
 # The baseline and arc runs must land on the SAME arcmatch charts or the
 # comparison is meaningless. Shared-D prep: baseline keeps tokenizer-resolution
-# poses; ARC uses token waypoints unless L_gt < D (then detok). Overlay still
-# always detokenizes ARC for viz.
+# poses; ARC uses token waypoints unless combined-arm L_gt < D (then detok).
+# Overlay still always detokenizes ARC for viz.
 
 
 def _arc_evaluator(velocity_mode="mean", action_horizon=45):
@@ -566,24 +589,26 @@ def test_include_reconstruction_loss_always_detoks_arc_for_arcmatch():
 
 
 def test_arcmatch_detoks_arc_when_gt_travel_is_shorter_than_D():
-    """L_gt < D: detok so both sides re-tokenize over the shorter shared span."""
+    """Combined L_gt < D: detok before matching the shorter joint span."""
     evaluator = _arc_evaluator(action_horizon=100)
-    gt = np.stack([_path(100, span=0.2)])  # travel < D=0.4
+    gt = np.zeros((1, 100, 14), dtype=np.float64)
+    gt[0, :, 0] = np.linspace(0.0, 0.1, 100)
+    gt[0, :, 7] = np.linspace(0.0, 0.1, 100)
     pred = _arc_token()
     out = evaluator._arc_pred_for_arcmatch(pred, gt, 7)
     assert isinstance(out, list)
     assert out[0].shape == (100, 14)
 
 
-def test_arcmatch_detoks_when_only_one_arm_is_shorter_than_D():
-    """Mixed arms: any arm with L_gt < D forces detok (intentional)."""
+def test_arcmatch_uses_waypoints_when_one_arm_is_short_but_combined_reaches_D():
+    """Per-arm shortfall does not matter once joint bimanual travel reaches D."""
     evaluator = _arc_evaluator(action_horizon=100)
     gt = _path(100, span=0.6)
     gt[:, 7:14] = gt[0:1, 7:14]  # right idle → L_right ≈ 0 < D
     # Give right a short non-zero travel still < D
     gt[:, 7] = np.linspace(0.0, 0.15, 100)
     out = evaluator._arc_pred_for_arcmatch(_arc_token(), gt[None], 7)
-    assert out[0].shape == (100, 14)
+    assert out[0].shape == (_M, 14)
 
 
 def test_arc_evaluator_rejects_mismatched_arcmatch_and_codec_D():

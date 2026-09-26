@@ -1,5 +1,9 @@
 # ARC versus OAT: LIBERO, September 26 morning
 
+The additional [FAST baseline](fast_libero_20260926.md) has four accepted
+L40S workflows. Its scores are pending and are separate from this dated
+60-cell result snapshot.
+
 Verified artifact snapshot: 2026-09-26T16:13:53.325224+00:00 (09:13 Pacific). 40/60 requested cells have complete evaluations.
 
 | Method | Spatial | Object | Goal | LIBERO-10 |

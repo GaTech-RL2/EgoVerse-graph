@@ -222,6 +222,73 @@ def test_resume_rollouts_executes_only_missing_trials_and_keeps_existing_bytes(
     assert not seen
 
 
+def test_rollout_cli_resumes_interrupted_trials_only_with_explicit_flag(
+    tmp_path, monkeypatch
+):
+    import sys
+    from types import SimpleNamespace
+
+    from egomimic.benchmarks.libero import cli, rollout
+
+    class InterruptedPolicy(FakePolicy):
+        resets = 0
+        interrupted = False
+
+        def reset(self, observation):
+            self.resets += 1
+            if self.resets == 4 and not self.interrupted:
+                self.interrupted = True
+                raise RuntimeError("simulated preemption")
+            super().reset(observation)
+
+    policy = InterruptedPolicy()
+    policy.algo = SimpleNamespace(
+        pipeline=SimpleNamespace(stages=[]), nets=torch.nn.Linear(1, 1)
+    )
+    policy.normalizer = SimpleNamespace(
+        tokenizer_context=lambda: {}, context={"observations_sha256": "observations"}
+    )
+    protocol = {"suite": "libero_spatial", "horizon": 32}
+    monkeypatch.setattr(rollout, "load_policy", lambda *a, **kw: (policy, protocol))
+    monkeypatch.setattr(cli, "policy_method", lambda *a: "dp_unet")
+    monkeypatch.setattr(
+        rollout,
+        "run_rollouts",
+        lambda *a, **kw: run_rollouts(*a, env_factory=FakeEnvironment, **kw),
+    )
+    checkpoint = tmp_path / "policy.ckpt"
+    checkpoint.write_bytes(b"unchanged policy checkpoint")
+    output = tmp_path / "rollout"
+    command = [
+        "libero",
+        "rollout",
+        "--checkpoint",
+        str(checkpoint),
+        "--output",
+        str(output),
+        "--trials-per-task",
+        "1",
+        "--repetitions",
+        "1",
+        "--video-trials",
+        "0",
+    ]
+    monkeypatch.setattr(sys, "argv", command)
+    with pytest.raises(RuntimeError, match="preemption"):
+        cli.main()
+    saved = (output / "episodes.jsonl").read_bytes()
+    assert len(saved.splitlines()) == 3
+    with pytest.raises(FileExistsError):
+        cli.main()
+    monkeypatch.setattr(sys, "argv", command + ["--resume"])
+    cli.main()
+    assert len(read_run(output)[1]) == 10
+    assert (output / "episodes.jsonl").read_bytes().startswith(saved)
+    assert policy.resets == 11  # Ten completed trials plus the interrupted trial.
+    cli.main()
+    assert policy.resets == 11
+
+
 def test_rollouts_stop_inside_chunk_and_compare_all_expected_records(tmp_path):
     plan = rollout_plan("libero10", trials_per_task=1, repetitions=2)
     assert len(plan) == 20 and len({spec.seed for spec in plan}) == 20

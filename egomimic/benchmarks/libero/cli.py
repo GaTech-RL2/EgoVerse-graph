@@ -237,7 +237,11 @@ def main():
     compare.add_argument("--oat-root", required=True)
     compare.add_argument("--output", required=True)
     args = parser.parse_args()
-    if getattr(args, "output", None) and Path(args.output).exists():
+    if (
+        getattr(args, "output", None)
+        and Path(args.output).exists()
+        and not (args.command == "rollout" and args.resume)
+    ):
         raise FileExistsError(args.output)
     if args.command == "plan":
         from egomimic.benchmarks.libero.rollout import rollout_plan

@@ -165,8 +165,9 @@ def test_evaluation_routes_directly_to_native_rollouts_on_one_gpu(checkpoint):
 
 
 @pytest.mark.parametrize("invalid", [None, "hash", "checkpoint", "duplicate", "seed"])
+@pytest.mark.parametrize("source_kind", ["standalone", "inline", "wrong_inline_budget"])
 def test_restore_evaluation_keeps_only_verified_same_policy_records(
-    tmp_path, checkpoint, invalid
+    tmp_path, checkpoint, invalid, source_kind
 ):
     import hashlib
     from dataclasses import asdict
@@ -178,6 +179,11 @@ def test_restore_evaluation_keeps_only_verified_same_policy_records(
     from egomimic.benchmarks.libero.rollout import rollout_plan
 
     _, _, request = checkpoint
+    if source_kind != "standalone":
+        request["checkpoint"]["uri"] = request["checkpoint"]["uri"].replace(
+            "/oat-source/", "/previous-evaluation/"
+        )
+        request["source_run"] = "previous-evaluation"
     plan = [asdict(s) for s in rollout_plan("libero_spatial", repetition_index=0)]
     protocol = {
         "suite": "libero_spatial",
@@ -220,6 +226,33 @@ def test_restore_evaluation_keeps_only_verified_same_policy_records(
         ),
         prefix + relative + "rollout_000000.mp4": b"saved-video",
     }
+    if source_kind != "standalone":
+        del artifacts[prefix + "evaluation-request.json"]
+        artifacts.update(
+            {
+                prefix + "runtime.json": json.dumps(
+                    {
+                        "source_commit": request["source_commit"],
+                        "suite": request["suite"],
+                        "epochs": 5001,
+                        "global_batch_size": 1024,
+                        "mode": "full",
+                    }
+                ).encode(),
+                prefix + "training/oat/training-budget.json": json.dumps(
+                    {
+                        "epochs": 5001,
+                        "global_batch_size": (
+                            512 if source_kind == "wrong_inline_budget" else 1024
+                        ),
+                        "total_optimizer_steps": request["total_optimizer_steps"],
+                    }
+                ).encode(),
+                prefix + "checkpoint-receipts.json": json.dumps(
+                    {"training/oat/checkpoints/last.ckpt": request["checkpoint"]}
+                ).encode(),
+            }
+        )
 
     class Storage:
         def get_object(self, *, Bucket, Key):
@@ -230,7 +263,7 @@ def test_restore_evaluation_keeps_only_verified_same_policy_records(
             return {"Body": io.BytesIO(body), "Metadata": {"sha256": sha}}
 
     evidence = tmp_path / "recovery"
-    if invalid:
+    if invalid or source_kind == "wrong_inline_budget":
         with pytest.raises(ValueError):
             restore_evaluation(Storage(), "previous-evaluation", request, evidence)
     else:

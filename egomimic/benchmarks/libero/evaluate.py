@@ -211,7 +211,35 @@ def restore_evaluation(client, source_run, request, evidence):
         receipts[name] = {"sha256": sha, "bytes": len(body)}
         return body
 
-    previous = json.loads(read("evaluation-request.json"))
+    previous_bytes = read("evaluation-request.json", optional=True)
+    if previous_bytes is None:
+        # Older ARC jobs evaluated directly after training, before standalone
+        # evaluation requests existed. Recover the same request from their
+        # checksummed training provenance, never from the requested hash alone.
+        runtime = json.loads(read("runtime.json"))
+        budget = json.loads(read(f"training/{request['method']}/training-budget.json"))
+        checkpoints = json.loads(read("checkpoint-receipts.json"))
+        if (
+            source_run != request["source_run"]
+            or runtime.get("mode") != "full"
+            or runtime.get("global_batch_size") != 1024
+            or budget.get("global_batch_size") != 1024
+            or budget.get("epochs") != runtime.get("epochs")
+        ):
+            raise ValueError("Inline evaluation recovery training provenance differs")
+        previous = {
+            "source_run": source_run,
+            "source_commit": runtime["source_commit"],
+            "suite": runtime["suite"],
+            "method": request["method"],
+            "epochs": runtime["epochs"],
+            "total_optimizer_steps": budget["total_optimizer_steps"],
+            "checkpoint": checkpoints[
+                f"training/{request['method']}/checkpoints/last.ckpt"
+            ],
+        }
+    else:
+        previous = json.loads(previous_bytes)
     if previous != request:
         raise ValueError("Evaluation recovery uses a different checkpoint request")
     counts = []

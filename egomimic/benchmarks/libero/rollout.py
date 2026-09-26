@@ -268,6 +268,7 @@ def run_rollouts(
         "plan": [asdict(spec) for spec in plan],
         **(metadata or {}),
     }
+    protocol = json.loads(json.dumps(protocol))
     records, completed = [], set()
     existing = resume and output.exists()
     if existing:

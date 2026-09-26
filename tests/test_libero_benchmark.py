@@ -162,7 +162,11 @@ def test_resume_rollouts_executes_only_missing_trials_and_keeps_existing_bytes(
     tmp_path,
 ):
     plan = rollout_plan("libero_spatial", trials_per_task=1, repetitions=1)
-    metadata = {"checkpoint_sha256": "same-checkpoint", "suite": "libero_spatial"}
+    metadata = {
+        "checkpoint_sha256": "same-checkpoint",
+        "suite": "libero_spatial",
+        "camera_keys": ("front", "wrist"),
+    }
     output = tmp_path / "episodes"
 
     class InterruptedPolicy(FakePolicy):

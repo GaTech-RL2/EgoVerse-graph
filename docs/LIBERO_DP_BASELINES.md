@@ -66,6 +66,11 @@ trial identities and referenced videos before restoring records. Each worker's
 the final merge still requires all 2500 unique episodes. Tests exercise an
 interrupted rollout through the CLI, preserved record bytes, and rejection of
 changed checkpoints, duplicate trials, invalid seeds and bad artifact hashes.
+Older ARC runs that evaluated inline can reconstruct the request from their
+checksummed runtime, training budget and checkpoint receipt. The source run,
+full training budget and immutable checkpoint must still match exactly. This
+allows a completed ARC model to resume its saved trials in a one-GPU
+evaluation job without retaining its training GPU allocation.
 
 The launcher also recognizes L40 (`ovx-l40`) as a distinct device family and
 rejects an L40/L40S mismatch. This is an optional capacity fallback, not a

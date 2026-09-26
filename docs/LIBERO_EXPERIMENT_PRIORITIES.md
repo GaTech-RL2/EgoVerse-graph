@@ -1,26 +1,25 @@
 # LIBERO experiment priorities
 
-User-directed order, updated September 25 evening, 2026 (Pacific):
+User-directed order, updated September 26 morning, 2026 (Pacific):
 
-The latest request is to fill every result-table cell and add plain DP controls
-for both backbones by the following morning. Target: September 25, 09:00 Pacific
-(16:00 UTC). That target was missed. The September 25 evening check
-has 39/60 complete scores: native OAT 4/4, original ARC/U-Net 24/24, and
-ARC/OAT-DP 11/24. All eight plain-DP baselines have finished training; their
-evaluations were interrupted by cluster GPU quota enforcement. Eight
-evaluation replacements and eleven ARC/OAT-DP training recoveries have been
-submitted on L40S. Seven baseline replacements retain verified completed
-trials and evaluate only missing episodes. Continue these controls alongside
-the remaining ARC/Transformer jobs. Preserve full 5001 epoch training,
-global batch 1024, and 2500 episode evaluations; no partial-budget score counts as
-a completed cell. Original ARC paired reevaluations are complete and pass
-matching initial-state checks. Hybrid
-and LIBERO-90 stay deferred. See [current results](results/arc_vs_oat_libero_20260925.md)
-and [raw DP controls](LIBERO_DP_BASELINES.md). The
-[paired preliminary baseline comparisons](results/arc_vs_plain_dp_libero_20260925_evening.md)
-report only exact shared trials and remain separate from completed suite scores. The
-[completion campaign](results/libero_completion_launch_20260925.md) records
-live job identities, recovery receipts and measured progress.
+The September 25, 09:00 Pacific completion target was missed. The September 26
+morning audit has 40/60 final scores: native OAT 4/4, ARC/U-Net 24/24,
+ARC/OAT-DP 11/24 and plain DP 1/8. U-Net Goal is the first completed raw-action
+control, at 85.68%; all DUR variants lead it and all STK variants trail it.
+All eight raw-DP models finished training. Twenty remaining jobs were
+preempted again by GPU quota enforcement around 23:00 Pacific September 25.
+Recover evaluations from verified saved trials and ARC training from verified
+optimizer/EMA checkpoints. Shared STK and DUR LIBERO-10 now need only
+one-GPU evaluation jobs, not their previous eight-GPU inline allocations.
+Preserve full 5001-epoch training, global batch 1024 and 2500-trial evaluations.
+Original ARC paired reevaluations are complete and pass matching initial-state
+checks. Hybrid and LIBERO-90 stay deferred.
+
+See the [current table](results/arc_vs_oat_libero_20260925.md),
+[full Goal comparison and other partial trials](results/arc_vs_plain_dp_libero_20260926_morning.md),
+and [raw DP controls](LIBERO_DP_BASELINES.md). The original
+[completion campaign](results/libero_completion_launch_20260925.md) is a dated
+launch snapshot, not the current scheduler state.
 
 **GPU allocation:** use L40S for training, recovery and evaluation. The user
 requested migration away from H100 on September 24. Preserve uploaded

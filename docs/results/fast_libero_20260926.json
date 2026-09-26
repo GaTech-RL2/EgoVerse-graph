@@ -1,6 +1,6 @@
 {
-  "at": "2026-09-26T18:54:28.544556+00:00",
-  "scheduler_at": "2026-09-26T18:48:14.775543+00:00",
+  "at": "2026-09-26T19:04:16.704198+00:00",
+  "scheduler_at": "2026-09-26T19:02:21.589457+00:00",
   "cpu_tests": {
     "fast": 8,
     "oat_parity": 13,
@@ -23,7 +23,7 @@
       "evaluation_trials": 2500,
       "workflow_sha256": "f709c2b74888be851b03682ca7b1e220db0d5bd0d152873ccbe2e6ced546cab2",
       "scheduler_status": "RUNNING",
-      "phase": "STAGING_DATA",
+      "phase": "TRAINING",
       "verified_runtime": {
         "run_kind": "fast",
         "source_commit": "d756b1ff38f54378593d1083218f3773d88b4074",
@@ -45,10 +45,80 @@
         "evaluation_run": "fast-libero-20260926-spatial-eval",
         "evaluation_workers": 5
       },
-      "reconstruction": null,
-      "gpu_preflight": null,
+      "reconstruction": {
+        "suite": "libero_spatial",
+        "fit_configuration": {
+          "scale": 10,
+          "vocab_size": 1024,
+          "horizon": 32,
+          "action_dim": 7,
+          "max_seq_len": 128,
+          "split_seed": 42,
+          "valid_ratio": 0.1,
+          "fit_units": "raw_actions"
+        },
+        "train_chunks": 55861,
+        "validation_chunks": 6389,
+        "fitted_vocabulary": 1024,
+        "configured_vocabulary": 1024,
+        "token_count_percentiles": {
+          "min": 4.0,
+          "p50": 60.0,
+          "p95": 87.0,
+          "p99": 97.0,
+          "max": 111.0
+        },
+        "policy_truncation_fraction": 0.0,
+        "invalid_reconstruction_fraction": 0.0,
+        "metrics": {
+          "reconst_mse": 0.0002721846067954638,
+          "reconst_mae": 0.011256743036181382,
+          "translation_mse": 0.0004495083369846876,
+          "rotation_command_mse": 3.8219545384684254e-05,
+          "gripper_mse": 0.00044210861223615856,
+          "gripper_sign_accuracy": 1.0,
+          "command_endpoint_error_m": 0.012635227642623374
+        },
+        "data_context": {
+          "dataset_sha256": "feed1ee7cc45e267e448006e9393da5ad183106872ac923320fcac0dca9e9b5c",
+          "suite": "libero_spatial",
+          "split_seed": 42,
+          "val_ratio": 0.1,
+          "action_scale": [
+            1.0666667222976685,
+            1.0666667222976685,
+            1.0666667222976685,
+            5.185184955596924,
+            2.8411972522735596,
+            2.721088409423828,
+            1.0
+          ],
+          "action_offset": [
+            0.0,
+            0.0,
+            0.0,
+            -0.022222280502319336,
+            0.044139981269836426,
+            -0.020408153533935547,
+            0.0
+          ]
+        },
+        "artifact_reload_tokens_equal": true,
+        "normalizer_scope": "All replay frame limits, matching the OAT release; BPE uses training episodes only."
+      },
+      "gpu_preflight": {
+        "passed": true,
+        "epochs_completed": 1,
+        "global_step": 2,
+        "ema_num_updates": 2,
+        "training_budget": null
+      },
       "success_rate": null,
-      "completed_evaluation_episodes": 0
+      "completed_evaluation_episodes": 0,
+      "oat_data_context_match": {
+        "source_run": "arc-oat-eval-p01-20260923-spatial",
+        "matched": true
+      }
     },
     {
       "run_id": "fast-libero-20260926-object",
@@ -65,7 +135,7 @@
       "evaluation_trials": 2500,
       "workflow_sha256": "203003c0aca03632949b5ab0696f907473b537631058d5296448057d45efe949",
       "scheduler_status": "RUNNING",
-      "phase": "STAGING_DATA",
+      "phase": "TRAINING",
       "verified_runtime": {
         "run_kind": "fast",
         "source_commit": "d756b1ff38f54378593d1083218f3773d88b4074",
@@ -87,10 +157,74 @@
         "evaluation_run": "fast-libero-20260926-object-eval",
         "evaluation_workers": 5
       },
-      "reconstruction": null,
+      "reconstruction": {
+        "suite": "libero_object",
+        "fit_configuration": {
+          "scale": 10,
+          "vocab_size": 1024,
+          "horizon": 32,
+          "action_dim": 7,
+          "max_seq_len": 128,
+          "split_seed": 42,
+          "valid_ratio": 0.1,
+          "fit_units": "raw_actions"
+        },
+        "train_chunks": 66940,
+        "validation_chunks": 7567,
+        "fitted_vocabulary": 1024,
+        "configured_vocabulary": 1024,
+        "token_count_percentiles": {
+          "min": 5.0,
+          "p50": 44.0,
+          "p95": 78.0,
+          "p99": 85.0,
+          "max": 96.0
+        },
+        "policy_truncation_fraction": 0.0,
+        "invalid_reconstruction_fraction": 0.0005286110744020088,
+        "metrics": {
+          "reconst_mse": 0.0003563635466323311,
+          "reconst_mae": 0.010097357054803833,
+          "translation_mse": 0.000501785433251152,
+          "rotation_command_mse": 2.7575746075615533e-05,
+          "gripper_mse": 0.0009064613010012966,
+          "gripper_sign_accuracy": 0.9996943967226113,
+          "command_endpoint_error_m": 0.01273923584480231
+        },
+        "data_context": {
+          "dataset_sha256": "a2de8be274f201d51e569c3cbdd4d95b7065fcb53e59d28873fb3105ff047423",
+          "suite": "libero_object",
+          "split_seed": 42,
+          "val_ratio": 0.1,
+          "action_scale": [
+            1.0980392694473267,
+            1.0932163000106812,
+            1.0666667222976685,
+            6.120218753814697,
+            2.8325746059417725,
+            3.9215686321258545,
+            1.0
+          ],
+          "action_offset": [
+            -0.029411673545837402,
+            0.02489030361175537,
+            0.0,
+            -0.08196717500686646,
+            0.007587313652038574,
+            0.28991591930389404,
+            0.0
+          ]
+        },
+        "artifact_reload_tokens_equal": true,
+        "normalizer_scope": "All replay frame limits, matching the OAT release; BPE uses training episodes only."
+      },
       "gpu_preflight": null,
       "success_rate": null,
-      "completed_evaluation_episodes": 0
+      "completed_evaluation_episodes": 0,
+      "oat_data_context_match": {
+        "source_run": "arc-oat-eval-20260923-object",
+        "matched": true
+      }
     },
     {
       "run_id": "fast-libero-20260926-goal",
@@ -112,7 +246,8 @@
       "reconstruction": null,
       "gpu_preflight": null,
       "success_rate": null,
-      "completed_evaluation_episodes": 0
+      "completed_evaluation_episodes": 0,
+      "oat_data_context_match": null
     },
     {
       "run_id": "fast-libero-20260926-10",
@@ -134,12 +269,13 @@
       "reconstruction": null,
       "gpu_preflight": null,
       "success_rate": null,
-      "completed_evaluation_episodes": 0
+      "completed_evaluation_episodes": 0,
+      "oat_data_context_match": null
     }
   ],
   "notes": [
     "One training seed per suite. Evaluation uses five repetitions, not five separately trained policies.",
-    "Scheduler RUNNING can include setup and data staging; optimizer progress has not yet been verified.",
+    "Spatial/Object entered full training after the preflight gate. Spatial GPU/simulator preflight receipt is verified. Full-run optimizer progress and success rates are not yet reported.",
     "Existing ARC/OAT/raw-DP jobs are preserved. LIBERO-90 and ARC+OAT remain deferred."
   ]
 }

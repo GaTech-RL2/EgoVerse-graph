@@ -1,15 +1,14 @@
 # FAST LIBERO launch — September 26, 2026
 
-Artifact/scheduler audit: 2026-09-26T18:54:28.544556+00:00. This is a launch snapshot, not a success-rate result.
+Artifact/scheduler audit: 2026-09-26T19:04:16.704198+00:00. This is a launch snapshot, not a success-rate result.
 
 The native OAT-codebase FAST baseline is submitted for all four active suites.
-Spatial and Object have verified NVIDIA L40S runtimes and are staging data;
-Goal and LIBERO-10 are queued. GPU preflight and optimizer progress are not yet verified.
+Spatial and Object completed tokenizer fitting/reconstruction and entered the full training phase. Spatial has a verified four-GPU bf16/checkpoint and real-simulator preflight receipt. Goal and LIBERO-10 remain queued. Full-run optimizer progress is not yet reported.
 
 | Suite | Workflow | Phase | Full SR |
 | --- | --- | --- | ---: |
-| Spatial | [fast-libero-20260926-spatial-2](https://us-west-2-aws.osmo.nvidia.com/workflows/fast-libero-20260926-spatial-2) | STAGING_DATA | Pending |
-| Object | [fast-libero-20260926-object-1](https://us-west-2-aws.osmo.nvidia.com/workflows/fast-libero-20260926-object-1) | STAGING_DATA | Pending |
+| Spatial | [fast-libero-20260926-spatial-2](https://us-west-2-aws.osmo.nvidia.com/workflows/fast-libero-20260926-spatial-2) | TRAINING | Pending |
+| Object | [fast-libero-20260926-object-1](https://us-west-2-aws.osmo.nvidia.com/workflows/fast-libero-20260926-object-1) | TRAINING | Pending |
 | Goal | [fast-libero-20260926-goal-1](https://us-west-2-aws.osmo.nvidia.com/workflows/fast-libero-20260926-goal-1) | QUEUED | Pending |
 | LIBERO-10 | [fast-libero-20260926-10-1](https://us-west-2-aws.osmo.nvidia.com/workflows/fast-libero-20260926-10-1) | QUEUED | Pending |
 
@@ -24,3 +23,16 @@ CPU validation: 166 tests passed (8 FAST, 13 OAT parity, 145 shared regressions)
 The first Spatial submission was rejected before execution because 128 GiB exceeded the pool's per-GPU memory allowance. The accepted workflow uses 120 GiB for evaluation, within the allocation limit. That rejected submission consumed the `-1` workflow suffix; the accepted Spatial workflow is `-2`. No duplicate Spatial training was started.
 
 [Source evidence (JSON)](fast_libero_20260926.json) · [FAST implementation/protocol](../LIBERO_FAST.md) · [Existing ARC/OAT/raw-DP result snapshot](arc_vs_oat_libero_20260925.md)
+
+## Held-out reconstruction
+
+These are tokenizer replay metrics, not policy success rates. BPE uses only training episodes; the action normalizer follows the OAT release's all-frame limits.
+
+| Suite | Validation chunks | Action MSE | Median / maximum tokens | Truncated | Failed decode |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| libero_spatial | 6389 | 0.00027218 | 60 / 111 | 0.00% | 0/6389 |
+| libero_object | 7567 | 0.00035636 | 44 / 96 | 0.00% | 4/7567 |
+
+Object includes four malformed round trips (0.0529%). Their zero-action fallback is included in the MSE, preserving the released decoder behavior. No validation chunk in either suite exceeds the 127-action-token supervised limit.
+
+Spatial and Object dataset/split/action-normalizer fingerprints match the existing OAT evaluation artifacts exactly. These data checks are separate from rollout initial-state pairing, which will be checked when full FAST evaluations exist.

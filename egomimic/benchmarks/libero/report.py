@@ -15,7 +15,7 @@ from egomimic.benchmarks.libero.catalog import (
 from egomimic.benchmarks.libero.rollout import RolloutSpec, rollout_plan
 
 
-def read_run(directory):
+def read_run(directory, *, require_complete=True):
     directory = Path(directory)
     protocol = json.loads((directory / "protocol.json").read_text())
     records = [
@@ -33,7 +33,8 @@ def read_run(directory):
     if (
         len(expected) != len(plan)
         or len(set(actual)) != len(actual)
-        or set(actual) != expected
+        or not set(actual).issubset(expected)
+        or (require_complete and set(actual) != expected)
     ):
         raise ValueError("Missing, unexpected, or duplicate benchmark episodes")
     for record in records:

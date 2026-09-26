@@ -247,8 +247,9 @@ def run_rollouts(
     env_factory=LiberoEnvironment,
     video_trials=0,
     metadata=None,
+    resume=False,
 ):
-    """Stream every episode record; refuse existing output, never hide failures."""
+    """Stream episodes; explicitly resumed runs retain verified completed trials."""
     plan = list(plan)
     if not plan or max_episode_steps < 1 or video_trials < 0:
         raise ValueError("A nonempty plan and positive episode horizon are required")
@@ -260,24 +261,40 @@ def run_rollouts(
         plan, key=lambda spec: (TASK_IDS[spec.task][2], spec.repetition, spec.trial)
     )
     output = Path(output)
-    output.mkdir(parents=True, exist_ok=False)
-    (output / "protocol.json").write_text(
-        json.dumps(
-            {
-                "oat_commit": OAT_COMMIT,
-                "libero_commit": LIBERO_COMMIT,
-                "max_episode_steps": max_episode_steps,
-                "plan": [asdict(spec) for spec in plan],
-                **(metadata or {}),
-            },
-            indent=2,
-        )
-        + "\n"
-    )
-    records, env, last_task = [], None, None
+    protocol = {
+        "oat_commit": OAT_COMMIT,
+        "libero_commit": LIBERO_COMMIT,
+        "max_episode_steps": max_episode_steps,
+        "plan": [asdict(spec) for spec in plan],
+        **(metadata or {}),
+    }
+    records, completed = [], set()
+    existing = resume and output.exists()
+    if existing:
+        from egomimic.benchmarks.libero.report import read_run
+
+        previous, indexed = read_run(output, require_complete=False)
+        if previous != protocol:
+            raise ValueError("Resumed rollout protocol or checkpoint differs")
+        if (output / "episodes.jsonl").stat().st_size and not (
+            output / "episodes.jsonl"
+        ).read_bytes().endswith(b"\n"):
+            raise ValueError("Resumed episode records lack a complete final line")
+        for record in indexed.values():
+            if "video" in record:
+                name = record["video"]
+                if Path(name).name != name or not (output / name).is_file():
+                    raise ValueError("Resumed episode video is missing or invalid")
+        records, completed = list(indexed.values()), set(indexed)
+    else:
+        output.mkdir(parents=True, exist_ok=False)
+        (output / "protocol.json").write_text(json.dumps(protocol, indent=2) + "\n")
+    env, last_task = None, None
     try:
-        with (output / "episodes.jsonl").open("x") as handle:
+        with (output / "episodes.jsonl").open("a" if existing else "x") as handle:
             for index, spec in enumerate(execution_order):
+                if (spec.task, spec.repetition, spec.trial, spec.seed) in completed:
+                    continue
                 random.seed(spec.seed)
                 np.random.seed(spec.seed)
                 torch.manual_seed(spec.seed)

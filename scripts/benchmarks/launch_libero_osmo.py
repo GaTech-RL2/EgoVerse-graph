@@ -322,17 +322,33 @@ def arc_oat_workflow(
     return spec
 
 
-def evaluation_workflow(commit, run_id, request, *, gpu_type="L40S", workers=1):
+def evaluation_workflow(
+    commit,
+    run_id,
+    request,
+    *,
+    gpu_type="L40S",
+    workers=1,
+    resume_evaluation_from=None,
+):
     """Allocate one evaluation GPU only after a final policy checkpoint is ready."""
     from egomimic.benchmarks.libero.evaluate import validate_request
 
     validate_request(request)
     if workers not in (1, 5):
         raise ValueError("Evaluation uses one worker or five independent repetitions")
+    if resume_evaluation_from and (
+        workers != 5
+        or resume_evaluation_from == run_id
+        or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", resume_evaluation_from)
+    ):
+        raise ValueError("Evaluation recovery requires a distinct run and five workers")
     result = workflow(commit, run_id, request["suite"], mode="full", gpu_type=gpu_type)
     task = result["workflow"]["tasks"][0]
     task["environment"]["RUN_KIND"] = "policy_evaluation"
     task["environment"]["EVALUATION_WORKERS"] = str(workers)
+    if resume_evaluation_from:
+        task["environment"]["RESUME_EVALUATION_FROM"] = resume_evaluation_from
     if workers == 5:
         # Pool03 permits at most floor(127 / 8) cores per allocated L40S.
         result["workflow"]["resources"]["default"]["cpu"] = (

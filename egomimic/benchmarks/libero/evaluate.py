@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -184,7 +185,87 @@ def merge_repetitions(directories, output):
     read_run(output)
 
 
-def parallel_rollouts(checkpoint, evidence, method, suite):
+def restore_evaluation(client, source_run, request, evidence):
+    """Recover checksummed trials from the same immutable policy and protocol."""
+    from botocore.exceptions import ClientError
+
+    from egomimic.benchmarks.libero.report import read_run, validate_full_protocol
+    from egomimic.benchmarks.libero.rollout import rollout_plan
+
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", source_run):
+        raise ValueError("Invalid evaluation recovery run")
+    prefix = f"experiments/arc-oat-20260919/{source_run}/"
+    receipts = {}
+
+    def read(name, *, optional=False):
+        try:
+            obj = client.get_object(Bucket="rldb", Key=prefix + name)
+        except ClientError as error:
+            if optional and error.response["Error"]["Code"] in ("404", "NoSuchKey"):
+                return None
+            raise
+        body = obj["Body"].read()
+        sha = hashlib.sha256(body).hexdigest()
+        if obj.get("Metadata", {}).get("sha256") != sha:
+            raise ValueError(f"Evaluation recovery artifact hash differs: {name}")
+        receipts[name] = {"sha256": sha, "bytes": len(body)}
+        return body
+
+    previous = json.loads(read("evaluation-request.json"))
+    if previous != request:
+        raise ValueError("Evaluation recovery uses a different checkpoint request")
+    counts = []
+    for index in range(5):
+        relative = f"repetitions/{index}/{request['method']}/{request['suite']}"
+        body = read(relative + "/episodes.jsonl", optional=True)
+        if body is None:
+            counts.append(0)
+            continue
+        protocol_bytes = read(relative + "/protocol.json")
+        protocol = json.loads(protocol_bytes)
+        expected = [
+            asdict(s) for s in rollout_plan(request["suite"], repetition_index=index)
+        ]
+        if (
+            protocol.get("evaluation_repetition") != index
+            or protocol.get("plan") != expected
+            or protocol.get("checkpoint_sha256") != request["checkpoint"]["sha256"]
+            or protocol.get("method")
+            != (
+                request["method"]
+                if request["method"] in ("oat", "arc_oat", "dp_unet", "dp_oat")
+                else "arc"
+            )
+        ):
+            raise ValueError("Evaluation recovery repetition or checkpoint differs")
+        full = dict(protocol, plan=[asdict(s) for s in rollout_plan(request["suite"])])
+        validate_full_protocol(full)
+        if body and not body.endswith(b"\n"):
+            raise ValueError("Evaluation recovery has an incomplete episode line")
+        directory = evidence / relative
+        directory.mkdir(parents=True, exist_ok=False)
+        (directory / "protocol.json").write_bytes(protocol_bytes)
+        (directory / "episodes.jsonl").write_bytes(body)
+        _, records = read_run(directory, require_complete=False)
+        for record in records.values():
+            if "video" in record:
+                name = record["video"]
+                if Path(name).name != name:
+                    raise ValueError("Invalid recovered episode video path")
+                (directory / name).write_bytes(read(relative + "/" + name))
+        counts.append(len(records))
+    proof = {
+        "source_run": source_run,
+        "checkpoint_sha256": request["checkpoint"]["sha256"],
+        "episodes": sum(counts),
+        "per_repetition": counts,
+        "artifacts": receipts,
+    }
+    write_json(evidence / "restored-evaluation.json", proof)
+    return proof
+
+
+def parallel_rollouts(checkpoint, evidence, method, suite, *, resume=False):
     """Overlap independent simulator repetitions on one GPU and reserved CPUs."""
     processes, directories = [], []
     try:
@@ -203,6 +284,8 @@ def parallel_rollouts(checkpoint, evidence, method, suite):
                 "--repetition-index",
                 str(index),
             ]
+            if resume:
+                command.append("--resume")
             with (evidence / f"{method}-repetition-{index}.log").open("w") as log:
                 processes.append(
                     subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
@@ -271,9 +354,16 @@ def main():
         choices=(1, 5),
         default=int(os.environ.get("EVALUATION_WORKERS", "1")),
     )
+    parser.add_argument(
+        "--resume-evaluation-from", default=os.environ.get("RESUME_EVALUATION_FROM")
+    )
     args = parser.parse_args()
     request = json.loads(args.request.read_text())
     validate_request(request)
+    if args.resume_evaluation_from and args.workers != 5:
+        raise ValueError("Evaluation recovery requires five repetition workers")
+    if args.resume_evaluation_from == args.run_id:
+        raise ValueError("Evaluation recovery requires a distinct new run ID")
     validate_gpu_allocation(1, os.environ.get("BENCHMARK_GPU_TYPE", "L40S"))
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if commit != os.environ["SOURCE_COMMIT"]:
@@ -293,6 +383,7 @@ def main():
             "evaluate_from_run": request["source_run"],
             "gpu_type": os.environ.get("BENCHMARK_GPU_TYPE", "L40S"),
             "evaluation_workers": args.workers,
+            "resume_evaluation_from": args.resume_evaluation_from,
         },
     )
     uploader.thread.start()
@@ -305,7 +396,17 @@ def main():
         write_json(evidence / "status.json", {"state": "ROLLOUTS", "method": method})
         output = evidence / method / suite
         if args.workers == 5:
-            parallel_rollouts(checkpoint, evidence, method, suite)
+            if args.resume_evaluation_from:
+                restore_evaluation(
+                    uploader.client, args.resume_evaluation_from, request, evidence
+                )
+            parallel_rollouts(
+                checkpoint,
+                evidence,
+                method,
+                suite,
+                resume=bool(args.resume_evaluation_from),
+            )
         else:
             execute(
                 [

@@ -216,6 +216,7 @@ def main():
     rollout.add_argument("--start-seed", type=int, default=1000)
     rollout.add_argument("--max-episode-steps", type=int, default=550)
     rollout.add_argument("--video-trials", type=int, default=20)
+    rollout.add_argument("--resume", action="store_true")
     recon = commands.add_parser("reconstruct")
     for option in ("checkpoint", "dataset", "suite", "output"):
         recon.add_argument("--" + option, required=True)
@@ -349,6 +350,7 @@ def main():
             max_episode_steps=args.max_episode_steps,
             video_trials=args.video_trials if args.repetition_index in (None, 0) else 0,
             metadata=metadata,
+            resume=args.resume,
         )
         return
     else:

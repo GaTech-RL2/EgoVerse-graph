@@ -164,6 +164,97 @@ def test_evaluation_routes_directly_to_native_rollouts_on_one_gpu(checkpoint):
     assert "trainHydra" not in branch and "stage_dataset" not in branch
 
 
+@pytest.mark.parametrize("invalid", [None, "hash", "checkpoint", "duplicate", "seed"])
+def test_restore_evaluation_keeps_only_verified_same_policy_records(
+    tmp_path, checkpoint, invalid
+):
+    import hashlib
+    from dataclasses import asdict
+
+    from botocore.exceptions import ClientError
+
+    from egomimic.benchmarks.libero.catalog import LIBERO_COMMIT, OAT_COMMIT
+    from egomimic.benchmarks.libero.evaluate import restore_evaluation
+    from egomimic.benchmarks.libero.rollout import rollout_plan
+
+    _, _, request = checkpoint
+    plan = [asdict(s) for s in rollout_plan("libero_spatial", repetition_index=0)]
+    protocol = {
+        "suite": "libero_spatial",
+        "method": "oat",
+        "evaluation_repetition": 0,
+        "plan": plan,
+        "checkpoint_sha256": request["checkpoint"]["sha256"],
+        "max_episode_steps": 550,
+        "horizon": 32,
+        "n_obs_steps": 2,
+        "n_action_steps": 16,
+        "oat_commit": OAT_COMMIT,
+        "libero_commit": LIBERO_COMMIT,
+        "use_ema": True,
+    }
+    records = [
+        {
+            **s,
+            "success": True,
+            "steps": 3,
+            "inference_seconds": [0.1],
+            "initial_state_sha256": "same-state",
+        }
+        for s in plan[:2]
+    ]
+    records[0]["video"] = "rollout_000000.mp4"
+    if invalid == "checkpoint":
+        protocol["checkpoint_sha256"] = "b" * 64
+    elif invalid == "duplicate":
+        records.append(records[0])
+    elif invalid == "seed":
+        records[0]["seed"] += 1
+    prefix = "experiments/arc-oat-20260919/previous-evaluation/"
+    relative = "repetitions/0/oat/libero_spatial/"
+    artifacts = {
+        prefix + "evaluation-request.json": json.dumps(request).encode(),
+        prefix + relative + "protocol.json": json.dumps(protocol).encode(),
+        prefix + relative + "episodes.jsonl": b"".join(
+            (json.dumps(r) + "\n").encode() for r in records
+        ),
+        prefix + relative + "rollout_000000.mp4": b"saved-video",
+    }
+
+    class Storage:
+        def get_object(self, *, Bucket, Key):
+            if Key not in artifacts:
+                raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+            body = artifacts[Key]
+            sha = "bad" if invalid == "hash" else hashlib.sha256(body).hexdigest()
+            return {"Body": io.BytesIO(body), "Metadata": {"sha256": sha}}
+
+    evidence = tmp_path / "recovery"
+    if invalid:
+        with pytest.raises(ValueError):
+            restore_evaluation(Storage(), "previous-evaluation", request, evidence)
+    else:
+        proof = restore_evaluation(Storage(), "previous-evaluation", request, evidence)
+        assert proof["episodes"] == 2 and proof["per_repetition"] == [2, 0, 0, 0, 0]
+        assert (evidence / relative / "episodes.jsonl").read_bytes() == artifacts[
+            prefix + relative + "episodes.jsonl"
+        ]
+        assert (
+            evidence / relative / "rollout_000000.mp4"
+        ).read_bytes() == b"saved-video"
+        spec = evaluation_workflow(
+            "b" * 40,
+            "resumed-evaluation",
+            request,
+            workers=5,
+            resume_evaluation_from="previous-evaluation",
+        )
+        assert (
+            spec["workflow"]["tasks"][0]["environment"]["RESUME_EVALUATION_FROM"]
+            == "previous-evaluation"
+        )
+
+
 def test_parallel_repetitions_keep_every_original_seed_once():
     from egomimic.benchmarks.libero.rollout import rollout_plan
 

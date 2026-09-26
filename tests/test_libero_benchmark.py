@@ -158,6 +158,66 @@ class FakePolicy:
         return np.zeros((16, 7))
 
 
+def test_resume_rollouts_executes_only_missing_trials_and_keeps_existing_bytes(
+    tmp_path,
+):
+    plan = rollout_plan("libero_spatial", trials_per_task=1, repetitions=1)
+    metadata = {"checkpoint_sha256": "same-checkpoint", "suite": "libero_spatial"}
+    output = tmp_path / "episodes"
+
+    class InterruptedPolicy(FakePolicy):
+        resets = 0
+
+        def reset(self, observation):
+            self.resets += 1
+            if self.resets == 4:
+                raise RuntimeError("simulated preemption")
+            super().reset(observation)
+
+    with pytest.raises(RuntimeError, match="preemption"):
+        run_rollouts(
+            InterruptedPolicy(),
+            plan,
+            output,
+            env_factory=FakeEnvironment,
+            metadata=metadata,
+        )
+    saved = (output / "episodes.jsonl").read_bytes()
+    assert len(saved.splitlines()) == 3
+    with pytest.raises(ValueError, match="Missing"):
+        read_run(output)
+    protocol, partial = read_run(output, require_complete=False)
+    assert len(partial) == 3
+    with pytest.raises(ValueError, match="protocol or checkpoint"):
+        run_rollouts(
+            FakePolicy(),
+            plan,
+            output,
+            env_factory=FakeEnvironment,
+            metadata={**metadata, "checkpoint_sha256": "different"},
+            resume=True,
+        )
+    assert (output / "episodes.jsonl").read_bytes() == saved
+    seen = []
+
+    def factory(task):
+        seen.append(task)
+        return FakeEnvironment(task)
+
+    records = run_rollouts(
+        FakePolicy(), plan, output, env_factory=factory, metadata=metadata, resume=True
+    )
+    assert len(seen) == len(plan) - 3
+    assert (output / "episodes.jsonl").read_bytes().startswith(saved)
+    _, complete = read_run(output)
+    assert len(complete) == len(records) == len(plan)
+    seen.clear()
+    run_rollouts(
+        FakePolicy(), plan, output, env_factory=factory, metadata=metadata, resume=True
+    )
+    assert not seen
+
+
 def test_rollouts_stop_inside_chunk_and_compare_all_expected_records(tmp_path):
     plan = rollout_plan("libero10", trials_per_task=1, repetitions=2)
     assert len(plan) == 20 and len({spec.seed for spec in plan}) == 20
@@ -199,12 +259,9 @@ def test_rollouts_stop_inside_chunk_and_compare_all_expected_records(tmp_path):
         compare_runs(
             tmp_path / "arc", tmp_path / "oat", require_full=False, arc_mode="dur"
         )
-    assert (
-        compare_runs(
-            tmp_path / "arc", tmp_path / "oat", require_full=False, arc_mode="stk"
-        )["arc"]["episodes"]
-        == len(plan)
-    )
+    assert compare_runs(
+        tmp_path / "arc", tmp_path / "oat", require_full=False, arc_mode="stk"
+    )["arc"]["episodes"] == len(plan)
     with pytest.raises(ValueError, match="Full benchmark"):
         compare_runs(tmp_path / "arc", tmp_path / "oat")
     file = tmp_path / "arc/episodes.jsonl"

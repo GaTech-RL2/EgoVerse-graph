@@ -24,7 +24,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-LAUNCHER = "submitit_pace_h200"
+# The profile launch.sh actually uses. Composing against a different one
+# would leave the launcher wiring unvalidated.
+LAUNCHER = "submitit_pace_h100"
 GPUS_PER_JOB = 2
 # The value measured by scripts/data/measure_arc_distance_rl2_organize.py. Any
 # ARC experiment resolving to something else has silently lost its override.
@@ -52,12 +54,17 @@ def model_check(experiment):
     assert cfg.norm_stats.sample_frac == 0.2
     assert cfg.evaluator.distance_dtw_enabled
     assert "qwen" not in OmegaConf.to_yaml(cfg.model, resolve=True).lower()
-    assert cfg.data.batch_size == 64, cfg.data.batch_size
     assert cfg.evaluator.execute_fraction == 0.30, cfg.evaluator.execute_fraction
+
+    # Batch size is per source under train_dataloader_params, not a top-level
+    # data key: MultiDataModuleWrapper builds one loader per training dataset.
+    source = next(iter(cfg.data.train_datasets))
+    batch_size = cfg.data.train_dataloader_params[source].batch_size
+    assert batch_size == 64, batch_size
 
     # Effective global batch = 64 * 2 ranks * 1 accumulation = 128, the value
     # config/policy.yaml launch_defaults.training requires.
-    effective = cfg.data.batch_size * GPUS_PER_JOB * cfg.trainer.accumulate_grad_batches
+    effective = batch_size * GPUS_PER_JOB * cfg.trainer.accumulate_grad_batches
     assert effective == 128, effective
 
     is_arc = "arc_tokenizer" in cfg.abc.action_mode
@@ -69,7 +76,6 @@ def model_check(experiment):
         assert cfg.abc.arc_chunking_mode in ("race", "multistream", "joint_distance")
         assert cfg.evaluator.ground_truth_action_key == "actions_cartesian_untokenized"
 
-    source = next(iter(cfg.data.train_datasets))
     embodiment = 3 if source == "human_bimanual" else 7
     wrapper = _instantiate_model_wrapper(cfg).cuda(0).train()
     wrapper.model.device = torch.device("cuda:0")

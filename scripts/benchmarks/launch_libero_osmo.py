@@ -322,6 +322,42 @@ def arc_oat_workflow(
     return spec
 
 
+def fast_workflow(
+    commit,
+    run_id,
+    suite,
+    *,
+    mode="full",
+    epochs=5001,
+    gpus=4,
+    gpu_type="L40S",
+    resume_from_run=None,
+):
+    """FAST fit/replay, native GPU preflight/training, then a single evaluation GPU."""
+    spec = baseline_workflow(
+        commit,
+        run_id,
+        suite,
+        backbone="oat_dp",
+        mode=mode,
+        epochs=epochs,
+        gpus=gpus,
+        gpu_type=gpu_type,
+        resume_from_run=resume_from_run,
+    )
+    task = spec["workflow"]["tasks"][0]
+    task["environment"].update(RUN_KIND="fast", FAST_OUTPUT="{{output}}")
+    task["environment"].pop("DP_BACKBONE")
+    task["environment"].pop("DP_OUTPUT")
+    if mode == "full":
+        # Five simulator workers can exceed the older 64 GiB evaluation limit.
+        spec["workflow"]["resources"]["evaluation"]["memory"] = "128Gi"
+        evaluation = spec["workflow"]["tasks"][1]
+        evaluation["environment"].pop("DP_BACKBONE")
+        evaluation["environment"].pop("DP_OUTPUT")
+    return spec
+
+
 def evaluation_workflow(
     commit,
     run_id,
@@ -385,12 +421,45 @@ def main():
     parser.add_argument("--arc-profile")
     parser.add_argument("--arc-backbone", choices=("unet", "oat_dp"), default="unet")
     parser.add_argument("--dp-backbone", choices=("unet", "oat_dp"))
+    parser.add_argument("--fast", action="store_true")
     parser.add_argument("--oat-reference-run")
     parser.add_argument("--replay-spec", default="libero_arc_replay")
     parser.add_argument("--calibration-parent")
     parser.add_argument("--raw-cache")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.fast:
+        if any(
+            (
+                args.dp_backbone,
+                args.arc_profile,
+                args.arc_modes,
+                args.replay,
+                args.evaluate_from_run,
+                args.campaign_id,
+                args.campaign_runs_file,
+                args.arc_replay_run,
+                args.arc_replay_runs_file,
+                args.oat_reference_run,
+                args.calibration_parent,
+                args.raw_cache,
+                args.arc_backbone != "unet",
+            )
+        ):
+            parser.error("FAST is a standalone tokenizer and autoregressive policy")
+        spec = fast_workflow(
+            args.commit,
+            args.run_id,
+            args.suite,
+            mode=args.mode,
+            epochs=args.epochs,
+            gpus=args.gpus,
+            gpu_type=args.gpu_type,
+            resume_from_run=args.resume_from_run,
+        )
+        with args.output.open("x") as handle:
+            yaml.safe_dump(spec, handle, sort_keys=False)
+        return
     if args.dp_backbone:
         if any(
             (

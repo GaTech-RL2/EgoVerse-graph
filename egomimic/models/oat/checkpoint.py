@@ -68,6 +68,17 @@ def validate_input_representation(stages, payload=None):
 def policy_config_without_external_tokenizer(config, payload):
     config = deepcopy(config)
     for stage in config.model.pipeline.stages:
+        if stage._target_ == "egomimic.pipeline.stages_fast.FASTPolicyStage":
+            if not payload.get("fast_tokenizer_config"):
+                raise ValueError("FAST checkpoint lacks its fitted BPE tokenizer")
+            with open_dict(stage.policy):
+                stage.policy._target_ = "egomimic.models.oat.fast.make_policy"
+                stage.policy._recursive_ = False
+                stage.policy.pop("tokenizer_checkpoint", None)
+                stage.policy.tokenizer_config = OmegaConf.create(
+                    payload["fast_tokenizer_config"]
+                )
+            continue
         if stage._target_ != "egomimic.pipeline.stages_oat.OATPolicyStage":
             continue
         if "oat_tokenizer_config" not in payload:

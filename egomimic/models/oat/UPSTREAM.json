@@ -36,6 +36,8 @@
     "perception/crop_randomizer.py": "9cdde5cf02b7b8ad4687212aba24af00cf388d1c1a7a2929e1418a3e6bea22d6",
     "model/common/tensor_util.py": "751b042aa5390ddf1f5b6220a465dfa20dbb9304e3c057f04512d6ee55f4e1b1",
     "model/diffusion/transformer_for_diffusion.py": "ee6264b1f44d8b54a1fec6279f25df412e45f7dcca3838e6f686f8daa16a2f3f",
-    "model/common/positional_embedding.py": "3c4fe01809286331ae71c526efb0ee6e5a69657b7d0c0231dbb29761008bf13d"
+    "model/common/positional_embedding.py": "3c4fe01809286331ae71c526efb0ee6e5a69657b7d0c0231dbb29761008bf13d",
+    "policy/fastpolicy.py": "df01756124695db71f8296b0aea7b57c4c312d86c24de6b07ed8c1f899e4c9ae",
+    "tokenizer/fast/tokenizer_wrapper.py": "b474c6f81832379bd9f674af2de7fdba373d7c9bcef3a08acf83d90e2d7ac15f"
   }
 }

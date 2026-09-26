@@ -64,7 +64,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-oat = ["robomimic==0.2.0", "imageio", "imageio-ffmpeg"]
+oat = ["robomimic==0.2.0", "imageio", "imageio-ffmpeg", "scipy>=1.10", "tokenizers>=0.21,<0.22"]
 libero = [
     "libero @ git+https://github.com/Chaoqi-LIU/LIBERO.git@6090ff21837566fed47b7c9061c9899f4749d36b",
     "robosuite==1.4.0",
@@ -126,6 +126,8 @@ egomimic = [
     "models/oat/*.json",
     "models/oat/LICENSE*",
     "models/oat/NOTICE*",
+    "models/oat/tokenizer/fast/*.json",
+    "models/oat/tokenizer/fast/LICENSE",
     "robot/teleop_dashboard_static/*.html",
     "robot/teleop_dashboard_static/*.js",
     "robot/teleop_dashboard_static/*.css",

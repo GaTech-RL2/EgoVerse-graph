@@ -23,3 +23,18 @@ port. No replacement license text has been invented.
 `factory.py` and `checkpoint.py` are native integration code. Graph adapters,
 dataset adapters and benchmark code live in EgoVerse's existing namespaces.
 See `docs/ARC_OAT.md` for protocol corrections and numerical validation.
+
+The FAST policy is ported from the same pinned OAT release. Its variable-length
+BOS/EOS/PAD handling, cross-entropy mask, generation cap, sampling and optimizer
+are preserved. The native wrapper replaces mutable remote code and sidecar
+model directories with embedded BPE JSON. Graph normalization is applied once,
+as for the native OAT tokenizer.
+
+`tokenizer/fast/processing_action_tokenizer.py` is Physical Intelligence's
+original FAST processor, pinned to Hugging Face revision
+`ec4d7aa71691cac0b8bed6942be45684db2110f4`. Its original source hash and Apache-2.0
+license are in that directory. Changes to this processor are formatting and
+import cleanup only. DCT, quantization, BPE fitting, coefficient clipping, and
+malformed-decode fallback calculations are preserved. This fits a fresh
+dataset-specific vocabulary, as OAT does, rather than using pretrained FAST+.
+See `docs/LIBERO_FAST.md` for fitting conventions.

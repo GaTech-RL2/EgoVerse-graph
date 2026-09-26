@@ -271,6 +271,7 @@ def training_arguments(
     experiment = {
         "tokenizer": "libero_oattok",
         "oat": "libero_oatpolicy",
+        "fast": "libero_fastpolicy",
         "arc": "libero_arc_policy",
         "arc_stk": "libero_arc_stk_policy",
         "arc_dur": "libero_arc_dur_policy",
@@ -310,6 +311,10 @@ def training_arguments(
     if method == "oat":
         args.append(
             f"benchmark.tokenizer_checkpoint={Path(evidence) / 'training/tokenizer/checkpoints/last.ckpt'}"
+        )
+    if method == "fast":
+        args.append(
+            f"benchmark.tokenizer_checkpoint={Path(evidence) / 'fast-tokenizer.pt'}"
         )
     if mode == "full":
         args.append("logger=csv")

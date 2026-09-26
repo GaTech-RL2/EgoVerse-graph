@@ -17,9 +17,15 @@ from egomimic.benchmarks.libero.catalog import LIBERO_COMMIT, OAT_COMMIT, TASKS
 def policy_method(stages, protocol):
     """Identify the actual graph; never label raw diffusion actions as ARC."""
     from egomimic.pipeline.stages_diffusion import DiffusionDenoiserStage
+    from egomimic.pipeline.stages_fast import FASTPolicyStage
     from egomimic.pipeline.stages_libero_arc import LiberoArcStage
     from egomimic.pipeline.stages_oat import OATPolicyStage
 
+    fast = [stage for stage in stages if isinstance(stage, FASTPolicyStage)]
+    if fast:
+        if len(stages) != 1 or protocol.get("action_representation") != "fast_dct_bpe":
+            raise ValueError("FAST requires its native raw-action policy graph")
+        return "fast"
     is_oat = any(isinstance(stage, OATPolicyStage) for stage in stages)
     is_arc = any(
         isinstance(stage, LiberoArcStage) and not stage.reconstruction
@@ -297,6 +303,21 @@ def main():
                 p.numel() for p in policy.algo.nets.parameters() if p.requires_grad
             ),
         }
+        if method == "fast":
+            model = stages[0].policy
+            from egomimic.models.oat.tokenizer.fast.tokenizer_wrapper import (
+                PROCESSOR_REVISION,
+            )
+
+            metadata["representation"] = {
+                "kind": "FAST DCT BPE",
+                "vocab_size": model.action_tokenizer.vocab_size,
+                "scale": model.action_tokenizer.fast_tok.scale,
+                "max_seq_len": model.max_seq_len,
+                "processor_revision": PROCESSOR_REVISION,
+                "temperature": model.temperature,
+                "topk": model.topk,
+            }
         if method.startswith("dp_"):
             if args.tokens is not None:
                 raise ValueError("Raw diffusion policies do not use tokenizer prefixes")

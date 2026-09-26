@@ -42,6 +42,8 @@ if [[ "${RUN_KIND:-benchmark}" == policy_evaluation ]]; then
     python -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id "$RUN_ID" --request /tmp/evaluation-request.json
 elif [[ "${RUN_KIND:-benchmark}" == dp_baseline ]]; then
     python -m egomimic.benchmarks.libero.baseline --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --backbone "$DP_BACKBONE" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$DP_OUTPUT"
+elif [[ "${RUN_KIND:-benchmark}" == fast ]]; then
+    python -m egomimic.benchmarks.libero.fast --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$FAST_OUTPUT"
 elif [[ "${RUN_KIND:-benchmark}" == arc_oat ]]; then
     python -m egomimic.benchmarks.libero.arc_oat --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS"
 elif [[ "${RUN_KIND:-benchmark}" == arc_sweep ]]; then

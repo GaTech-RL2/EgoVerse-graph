@@ -99,7 +99,7 @@ def verify_checkpoint(path, *, suite, method, mode, complete=True):
 
 
 def smoke_policy(checkpoint, evidence, method, suite):
-    """Exercise real simulator observations and raw-action inference before training."""
+    """Exercise real simulator observations and native inference before training."""
     execute(
         [
             sys.executable,
@@ -125,7 +125,7 @@ def smoke_policy(checkpoint, evidence, method, suite):
 
     protocol, records = read_run(evidence / method / suite)
     if protocol["method"] != method or len(records) != len(TASKS[suite]):
-        raise ValueError("Raw DP simulator smoke coverage differs")
+        raise ValueError("Policy simulator smoke coverage differs")
 
 
 def main():

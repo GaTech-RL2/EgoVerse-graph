@@ -2,6 +2,8 @@
 
 For ARC runs using OAT's released diffusion Transformer and 10-step sampler,
 see [ARC with the released OAT DP backbone](LIBERO_ARC_OAT_DP.md).
+The additional [native FAST baseline](LIBERO_FAST.md) uses OAT's released
+DCT/BPE tokenizer and autoregressive policy on the same four active suites.
 
 This port targets **EgoVerse-graph**, using `PipelineAlgo`, `ModelWrapper`,
 `MultiDataModuleWrapper`, and `trainHydra` for both methods. OAT is the actual

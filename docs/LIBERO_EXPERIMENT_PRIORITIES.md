@@ -55,6 +55,12 @@ Existing ARC and OAT jobs, datasets, checkpoints and other agents' worktrees
 are preserved. New hybrid submissions must remain disabled while this order
 is in effect. Queue priority stays within the normal cluster allocation rules.
 
+September 26 addition: the user requested the OAT-codebase FAST baseline.
+[Native FAST](LIBERO_FAST.md) runs on Spatial, Object, Goal and LIBERO-10 with
+the same training/evaluation budgets, using L40S at NORMAL priority. It does
+not cancel or replace the existing recovery/evaluation workflows. The original
+60-cell table remains a dated snapshot; FAST adds four pending results.
+
 Current score snapshots (with unresolved issues explicitly marked):
 
 - [Spatial](results/arc_vs_oat_libero_spatial_20260924.md)

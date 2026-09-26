@@ -74,13 +74,14 @@ class OATTrainingBehavior(TrainingBehavior):
         self.weight_decay, self.betas = weight_decay, tuple(betas)
 
     def configure_optimizers(self):
-        from egomimic.pipeline.stages_oat import OATPolicyStage, OATTokenizerStage
         from egomimic.models.oat.checkpoint import validate_input_representation
+        from egomimic.pipeline.stages_fast import FASTPolicyStage
+        from egomimic.pipeline.stages_oat import OATPolicyStage, OATTokenizerStage
 
         validate_input_representation(self.context.model.pipeline.stages)
 
         for stage in self.context.model.pipeline.stages:
-            if isinstance(stage, OATPolicyStage):
+            if isinstance(stage, (OATPolicyStage, FASTPolicyStage)):
                 return stage.policy.get_optimizer(
                     self.learning_rate,
                     self.obs_enc_lr,
@@ -124,9 +125,14 @@ class OATTrainingBehavior(TrainingBehavior):
             )
         checkpoint["normalizer_state"] = stages[0].normalizer_state
         checkpoint["benchmark_data_context"] = stages[0].data_context
+        from egomimic.pipeline.stages_fast import FASTPolicyStage
         from egomimic.pipeline.stages_oat import OATPolicyStage
 
         for stage in self.context.model.pipeline.stages:
+            if isinstance(stage, FASTPolicyStage):
+                checkpoint["fast_tokenizer_config"] = (
+                    stage.policy.action_tokenizer._native_config
+                )
             if isinstance(stage, OATPolicyStage):
                 checkpoint["oat_tokenizer_config"] = (
                     stage.policy.action_tokenizer._native_config
@@ -134,10 +140,18 @@ class OATTrainingBehavior(TrainingBehavior):
 
     def on_load_checkpoint(self, checkpoint):
         from egomimic.models.oat.checkpoint import validate_input_representation
+        from egomimic.pipeline.stages_fast import FASTPolicyStage
 
         validate_input_representation(self.context.model.pipeline.stages, checkpoint)
         reference = checkpoint.get("normalizer_state", {}).get("benchmark_context")
         for stage in self.context.model.pipeline.stages:
+            if isinstance(stage, FASTPolicyStage) and (
+                stage.policy.action_tokenizer._native_config
+                != checkpoint.get("fast_tokenizer_config")
+            ):
+                raise ValueError(
+                    "Cannot resume FAST with a different fitted BPE tokenizer"
+                )
             if hasattr(stage, "normalizer_state"):
                 if stage.normalizer_state.get("benchmark_context") != reference:
                     raise ValueError(

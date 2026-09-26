@@ -1,0 +1,134 @@
+{
+  "kind": "gpu_pipeline_smoke_not_benchmark_performance",
+  "run_id": "arc-oat-timed-smoke2-20260921-libero-10",
+  "status": {
+    "state": "SMOKE_PASSED",
+    "paired_episodes_per_method": 10,
+    "benchmark_performance": false
+  },
+  "runtime": {
+    "source_commit": "df3f26f261aa1746bbc5f824c130c8dcfd13318a",
+    "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+    "torch": "2.7.1+cu126",
+    "cuda": "12.6",
+    "gpu": "NVIDIA L40S",
+    "suite": "libero_10",
+    "mode": "smoke",
+    "epochs": 1,
+    "global_batch_size": 4,
+    "evaluate_from_run": null,
+    "resume_from_run": null,
+    "arc_replay_run": null,
+    "arc_modes": [
+      "dur",
+      "stk"
+    ],
+    "arc_replay_runs": {},
+    "campaign_id": null,
+    "campaign_runs": null,
+    "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-oat-timed-smoke2-20260921-libero-10/"
+  },
+  "verified_four_training_stages": true,
+  "verified_ema_reload_and_paired_rollouts": true,
+  "verified_comparison_recomputation": true,
+  "arc_config": {
+    "stk": {
+      "arc_mode": "stk",
+      "arc_waypoints": 16,
+      "arc_velocity_norm_bound": 1.7320508075688772
+    },
+    "dur": {
+      "arc_mode": "dur",
+      "arc_waypoints": 16,
+      "arc_velocity_norm_bound": 1.7320508075688772
+    }
+  },
+  "checkpoints": {
+    "tokenizer": {
+      "sha256": "c1d1f712639a4dd21d3103d41c45fd83bac3dc3e8a5fedaed5926aa3b49bcc1d",
+      "bytes": 93032149,
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-timed-smoke2-20260921-libero-10/checkpoints/c1d1f712639a4dd21d3103d41c45fd83bac3dc3e8a5fedaed5926aa3b49bcc1d/last.ckpt"
+    },
+    "oat": {
+      "sha256": "4979d6d44e4cc12fe767c752860c623b572a5159e5ba0ddfccc772c7e556b03a",
+      "bytes": 485724160,
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-timed-smoke2-20260921-libero-10/checkpoints/4979d6d44e4cc12fe767c752860c623b572a5159e5ba0ddfccc772c7e556b03a/last.ckpt"
+    },
+    "arc_dur": {
+      "sha256": "4d5076527947ffd4f5865987c9450adedb4061acdf20ab1ebbb786a0debe8159",
+      "bytes": 1004453320,
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-timed-smoke2-20260921-libero-10/checkpoints/4d5076527947ffd4f5865987c9450adedb4061acdf20ab1ebbb786a0debe8159/last.ckpt"
+    },
+    "arc_stk": {
+      "sha256": "d7dd1d12e3ff4d2169784ee1d8842f78b0fa8bafc722400e9c1d0f54818a18a5",
+      "bytes": 1004453320,
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-oat-timed-smoke2-20260921-libero-10/checkpoints/d7dd1d12e3ff4d2169784ee1d8842f78b0fa8bafc722400e9c1d0f54818a18a5/last.ckpt"
+    }
+  },
+  "reconstruction": {
+    "samples": 16,
+    "complete_validation": false,
+    "methods": [
+      "arc_dur_m16",
+      "arc_dur_m2",
+      "arc_dur_m33",
+      "arc_dur_m4",
+      "arc_dur_m8",
+      "arc_stk_m16",
+      "arc_stk_m2",
+      "arc_stk_m33",
+      "arc_stk_m4",
+      "arc_stk_m8",
+      "oat_k1",
+      "oat_k2",
+      "oat_k4",
+      "oat_k8"
+    ]
+  },
+  "representations": {
+    "oat": {
+      "kind": "OAT FSQ",
+      "codebook_size": 1000,
+      "prefix_tokens": 8
+    },
+    "arc_dur": {
+      "kind": "SE3 ARC",
+      "mode": "dur",
+      "waypoints": 16,
+      "float32_channels": 12,
+      "dt": 0.05,
+      "max_translation": null,
+      "max_rotation_degrees": null,
+      "independent_clocks": true
+    },
+    "arc_stk": {
+      "kind": "SE3 ARC",
+      "mode": "stk",
+      "waypoints": 16,
+      "float32_channels": 12,
+      "dt": 0.05,
+      "max_translation": null,
+      "max_rotation_degrees": null,
+      "independent_clocks": true
+    }
+  },
+  "artifact_sha256": {
+    "status.json": "1c5c10c7c5bb075a63935785329a22a7c8b091d7a074575b8e5819c299ce1666",
+    "runtime.json": "df477315a7bd77e3233418cfad81d9ba3c2401f95d4642254f23e9b0958ffad8",
+    "comparison.json": "e095f267ccd30bc9740ce7c7ec294f3068849e5a9ade6b98d9c347f8428d22ed",
+    "oat/libero_10/protocol.json": "4382b2d033038a893ed24025cfa9ea41b03713ef2facb6a3c0e3df00422b772e",
+    "oat/libero_10/episodes.jsonl": "6e1d4f654ece1dfe2ba2a600484d800acfa42722d9379334f45a3fd312583030",
+    "arc_dur/libero_10/protocol.json": "8d3fdeb9c47bb72c770ce041550dc2a80220678719068e15a2323549a208eec5",
+    "arc_dur/libero_10/episodes.jsonl": "6655b6f34baa4de81c48287086a10d65ce97acce61fb70888c7cf7763beef301",
+    "arc_stk/libero_10/protocol.json": "5ed2c28930315b62ba256925aaaaf0c8e235cada3ffbb71fb914e4d99c023f6e",
+    "arc_stk/libero_10/episodes.jsonl": "1368068d0206f6addeb9f9863e816a273b248e1f6a57190ea21f830164b963d7",
+    "training/arc_stk/.hydra/config.yaml": "609789d612e6ec2de530a858ab0808e955f3bca8c5c32a06a9e0b67f0aef31e7",
+    "training/arc_dur/.hydra/config.yaml": "69d3f67a7ae83743cfa03cd9203f01a6255873792fef9580644168fb3abb1ff5",
+    "checkpoint-receipts.json": "8224037f249a750e3762b699923358f6a7a21ea341b08e79af099a10341a26c6",
+    "tokenizer-training.log": "ca305bbcb7a3b901d5b0ecd06ed5049d246e772186df57bfab4cad7c99a8d602",
+    "oat-training.log": "8c4246cab355890cfbf80278f34d0574c792de7cd418a7a84c515e38e1a1910f",
+    "arc_dur-training.log": "3a457e2fa21878d48e38d422e93234b2f087a874cffa9bc4e208fc9f2f5341b7",
+    "arc_stk-training.log": "3216731381cdc400abeb97649e3c5e6b2931045de2d10fb8c562304c0d192dfc",
+    "reconstruction.json": "30438a40ca368c6fba20d96f0d88c5b70386326e50a3633cb3d05bfc84976189"
+  }
+}

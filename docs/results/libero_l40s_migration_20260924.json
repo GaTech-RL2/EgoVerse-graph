@@ -1,0 +1,330 @@
+{
+  "checked_at": "2026-09-24T19:51:16.420355+00:00",
+  "source_commit": "6d30bcf31f23fdc3ca1748209e32ab119eb6276d",
+  "gpu_policy": "L40S only",
+  "retired_h100_workflows": [
+    {
+      "name": "arc-dp-20260924-dur1-10-1",
+      "status": "FAILED_CANCELED",
+      "pool": "groot-h100-02",
+      "start_time": "2026-09-24T07:45:46.038599",
+      "end_time": "2026-09-24T19:46:35.066605"
+    },
+    {
+      "name": "arc-dp-20260924-stk1-10-1",
+      "status": "FAILED_CANCELED",
+      "pool": "groot-h100-02",
+      "start_time": "2026-09-24T07:18:23.734519",
+      "end_time": "2026-09-24T19:46:17.298646"
+    },
+    {
+      "name": "arc-dp-20260924-stk2-10-1",
+      "status": "FAILED_CANCELED",
+      "pool": "groot-h100-02",
+      "start_time": "2026-09-24T07:18:36.202388",
+      "end_time": "2026-09-24T19:46:25.388245"
+    },
+    {
+      "name": "arc-h1008b-20260923-stk1-10-1",
+      "status": "FAILED_CANCELED",
+      "pool": "groot-h100-02",
+      "start_time": "2026-09-23T16:42:53.650109",
+      "end_time": "2026-09-24T19:46:08.082628"
+    },
+    {
+      "name": "arc-oat-h1008-20260923-10-1",
+      "status": "FAILED_CANCELED",
+      "pool": "groot-h100-02",
+      "start_time": "2026-09-23T20:01:46.752326",
+      "end_time": "2026-09-24T19:42:13.658337"
+    },
+    {
+      "name": "arc-oat-h1008-20260923-goal-1",
+      "status": "FAILED_CANCELED",
+      "pool": "groot-h100-02",
+      "start_time": "2026-09-23T20:01:43.874552",
+      "end_time": "2026-09-24T19:42:07.294326"
+    },
+    {
+      "name": "arc-oat-h1008-20260923-object-1",
+      "status": "FAILED_CANCELED",
+      "pool": "groot-h100-02",
+      "start_time": "2026-09-23T20:01:44.706664",
+      "end_time": "2026-09-24T19:42:01.110373"
+    }
+  ],
+  "replacements": [
+    {
+      "run_id": "arc-eval-l40s-20260924-stk1-10",
+      "kind": "evaluation",
+      "predecessor_workflow": "arc-h1008b-20260923-stk1-10-1",
+      "source_commit": "6d30bcf31f23fdc3ca1748209e32ab119eb6276d",
+      "suite": "libero_10",
+      "arc_mode": "stk",
+      "profile": "stk_1",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "gpus": 1,
+      "gpu_type": "L40S",
+      "pool": "groot-l40s-01",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "total_optimizer_steps": 605121,
+      "evaluation_workers": 5,
+      "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-l40s-migration-20260924/arc-eval-l40s-20260924-stk1-10.yaml",
+      "workflow_sha256": "fc7f36ea0869ed4a56b7ff32e610f188dd8dd248d03b6051a307e16d86969c47",
+      "request": {
+        "source_run": "arc-h1008b-20260923-stk1-10",
+        "source_commit": "c609eb366b28a7aa1acb398b81273b4822c62743",
+        "method": "arc_stk",
+        "suite": "libero_10",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "b19cb47d39564a1971a0e06832887f58830a4e48be99ddbaa34865682eb02669",
+          "bytes": 1004453896,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/checkpoints/b19cb47d39564a1971a0e06832887f58830a4e48be99ddbaa34865682eb02669/last.ckpt"
+        }
+      },
+      "preserved_prior_episodes": 779,
+      "evaluation_restart": "Full 2500-episode five-worker protocol, same checkpoint; prior partial records retained at source",
+      "scheduler": {
+        "name": "arc-eval-l40s-20260924-stk1-10-1",
+        "status": "PENDING",
+        "pool": "groot-l40s-01",
+        "start_time": null,
+        "end_time": null
+      },
+      "verified_source_checkpoint": {
+        "source_run": "arc-h1008b-20260923-stk1-10",
+        "checkpoint": {
+          "sha256": "b19cb47d39564a1971a0e06832887f58830a4e48be99ddbaa34865682eb02669",
+          "bytes": 1004453896,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-h1008b-20260923-stk1-10/checkpoints/b19cb47d39564a1971a0e06832887f58830a4e48be99ddbaa34865682eb02669/last.ckpt"
+        },
+        "epochs_completed": 5001,
+        "global_step": 605121,
+        "ema_num_updates": 605121,
+        "optimizer_steps": [
+          605121.0
+        ],
+        "backbone": "unet",
+        "budget": {
+          "train_examples": 124087,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 121,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "normalizer_present": true,
+        "sha256_verified": true
+      }
+    },
+    {
+      "run_id": "arc-dp-l40s-20260924-stk1-10",
+      "kind": "dp",
+      "predecessor_workflow": "arc-dp-20260924-stk1-10-1",
+      "source_commit": "6d30bcf31f23fdc3ca1748209e32ab119eb6276d",
+      "suite": "libero_10",
+      "arc_mode": "stk",
+      "profile": "stk_1",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "gpus": 4,
+      "gpu_type": "L40S",
+      "pool": "groot-l40s-01",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "total_optimizer_steps": 605121,
+      "evaluation_workers": 5,
+      "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-l40s-migration-20260924/arc-dp-l40s-20260924-stk1-10.yaml",
+      "workflow_sha256": "87bc4d1a872e93eacdb6774af08906788ada4d3251996e3f29e11f4d1b451d89",
+      "resume_from_run": "arc-dp-20260924-stk1-10",
+      "reference_checkpoint_before_cutover": {
+        "sha256": "3e1c019e4a85053ff4f0495ddf11bb80d53c0602b22058b11eccd6022a628080",
+        "bytes": 435487300,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dp-20260924-stk1-10/checkpoints/3e1c019e4a85053ff4f0495ddf11bb80d53c0602b22058b11eccd6022a628080/last.ckpt"
+      },
+      "oat_reference_run": "arc-oat-eval-gated2-20260924-10",
+      "replay_run_id": "arc-five-v2-20260921-stk1-libero-10-replay",
+      "scheduler": {
+        "name": "arc-dp-l40s-20260924-stk1-10-1",
+        "status": "PENDING",
+        "pool": "groot-l40s-01",
+        "start_time": null,
+        "end_time": null
+      },
+      "verified_source_checkpoint": {
+        "source_run": "arc-dp-20260924-stk1-10",
+        "checkpoint": {
+          "sha256": "df8c5d02ae1486f3576dbe978c4c490d316eacaa441ee343868f46ceb822bd70",
+          "bytes": 435487300,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dp-20260924-stk1-10/checkpoints/df8c5d02ae1486f3576dbe978c4c490d316eacaa441ee343868f46ceb822bd70/last.ckpt"
+        },
+        "epochs_completed": 4359,
+        "global_step": 527560,
+        "ema_num_updates": 527560,
+        "optimizer_steps": [
+          527560.0
+        ],
+        "backbone": "oat_dp",
+        "budget": {
+          "train_examples": 124087,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 121,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "normalizer_present": true,
+        "sha256_verified": true
+      }
+    },
+    {
+      "run_id": "arc-dp-l40s-20260924-stk2-10",
+      "kind": "dp",
+      "predecessor_workflow": "arc-dp-20260924-stk2-10-1",
+      "source_commit": "6d30bcf31f23fdc3ca1748209e32ab119eb6276d",
+      "suite": "libero_10",
+      "arc_mode": "stk",
+      "profile": "stk_2",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "gpus": 4,
+      "gpu_type": "L40S",
+      "pool": "groot-l40s-01",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "total_optimizer_steps": 605121,
+      "evaluation_workers": 5,
+      "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-l40s-migration-20260924/arc-dp-l40s-20260924-stk2-10.yaml",
+      "workflow_sha256": "0354b0b37916e8b3f9278776409d36e800958756e0d04ba9ac32db7d98dc40f8",
+      "resume_from_run": "arc-dp-20260924-stk2-10",
+      "reference_checkpoint_before_cutover": {
+        "sha256": "1c357be7fe4d9b058b04111dcd633fb6229d32b6bf0557642f22b855baba9ee5",
+        "bytes": 435469828,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dp-20260924-stk2-10/checkpoints/1c357be7fe4d9b058b04111dcd633fb6229d32b6bf0557642f22b855baba9ee5/last.ckpt"
+      },
+      "oat_reference_run": "arc-oat-eval-gated2-20260924-10",
+      "replay_run_id": "arc-five-v2-20260921-stk2-libero-10-replay",
+      "scheduler": {
+        "name": "arc-dp-l40s-20260924-stk2-10-1",
+        "status": "PENDING",
+        "pool": "groot-l40s-01",
+        "start_time": null,
+        "end_time": null
+      },
+      "verified_source_checkpoint": {
+        "source_run": "arc-dp-20260924-stk2-10",
+        "checkpoint": {
+          "sha256": "8c4ba10a19e1b1c8f2a7e12b50d864941c74831c001c6b823a94203969166e15",
+          "bytes": 435469828,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dp-20260924-stk2-10/checkpoints/8c4ba10a19e1b1c8f2a7e12b50d864941c74831c001c6b823a94203969166e15/last.ckpt"
+        },
+        "epochs_completed": 4449,
+        "global_step": 538450,
+        "ema_num_updates": 538450,
+        "optimizer_steps": [
+          538450.0
+        ],
+        "backbone": "oat_dp",
+        "budget": {
+          "train_examples": 124087,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 121,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "normalizer_present": true,
+        "sha256_verified": true
+      }
+    },
+    {
+      "run_id": "arc-dp-l40s-20260924-dur1-10",
+      "kind": "dp",
+      "predecessor_workflow": "arc-dp-20260924-dur1-10-1",
+      "source_commit": "6d30bcf31f23fdc3ca1748209e32ab119eb6276d",
+      "suite": "libero_10",
+      "arc_mode": "dur",
+      "profile": "dur_1",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "gpus": 4,
+      "gpu_type": "L40S",
+      "pool": "groot-l40s-01",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "total_optimizer_steps": 605121,
+      "evaluation_workers": 5,
+      "workflow_file": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-arc-oat-20260919/scratch/libero-l40s-migration-20260924/arc-dp-l40s-20260924-dur1-10.yaml",
+      "workflow_sha256": "b206090344295c459a84cd6affbcc5563097154c188f9be9e0787ce63368b6bf",
+      "resume_from_run": "arc-dp-20260924-dur1-10",
+      "reference_checkpoint_before_cutover": {
+        "sha256": "67396d96fcdca952be67cb99861e252f0fd33c10ad3e8542e039c6f3b9b2f75a",
+        "bytes": 435435140,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dp-20260924-dur1-10/checkpoints/67396d96fcdca952be67cb99861e252f0fd33c10ad3e8542e039c6f3b9b2f75a/last.ckpt"
+      },
+      "oat_reference_run": "arc-oat-eval-gated2-20260924-10",
+      "replay_run_id": "arc-five-v2-20260921-dur1-libero-10-replay",
+      "scheduler": {
+        "name": "arc-dp-l40s-20260924-dur1-10-1",
+        "status": "PENDING",
+        "pool": "groot-l40s-01",
+        "start_time": null,
+        "end_time": null
+      },
+      "verified_source_checkpoint": {
+        "source_run": "arc-dp-20260924-dur1-10",
+        "checkpoint": {
+          "sha256": "d0c112e090355f555c5c9a32e6f9278f86f5bb1af9c87d86563df53d6ec19fc1",
+          "bytes": 435435140,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dp-20260924-dur1-10/checkpoints/d0c112e090355f555c5c9a32e6f9278f86f5bb1af9c87d86563df53d6ec19fc1/last.ckpt"
+        },
+        "epochs_completed": 4269,
+        "global_step": 516670,
+        "ema_num_updates": 516670,
+        "optimizer_steps": [
+          516670.0
+        ],
+        "backbone": "oat_dp",
+        "budget": {
+          "train_examples": 124087,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 121,
+          "microbatches_per_epoch": 121,
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "dropped_examples_per_epoch": 183
+        },
+        "normalizer_present": true,
+        "sha256_verified": true
+      }
+    }
+  ],
+  "preserved_original_evaluation_episodes": 781,
+  "focused_cpu_tests_passed": 117,
+  "cuda_only_tests_skipped_locally": 4,
+  "real_l40s_resume_verified": false,
+  "hybrid": "Deferred until original ARC/OAT then ARC-with-OAT-DP complete"
+}

@@ -1,0 +1,10 @@
+# @package _global_
+# Calibration shortlist shared across all five suites; see docs/results/libero_arc_common_configs_20260921.md.
+defaults: [/experiment/oat/libero_arc_policy, _self_]
+benchmark:
+  # Supply benchmark.arc_mode=stk or dur explicitly.
+  arc_mode: null
+  arc_action_dim: 12
+  arc_max_rotation_degrees: 384
+  arc_max_translation: 1.6
+  arc_waypoints: 36

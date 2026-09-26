@@ -1,0 +1,918 @@
+{
+  "at": "2026-09-26T05:27:21.982096+00:00",
+  "collector": {
+    "workflow": "libero-table-evening-20260926-1",
+    "result": {
+      "at": "2026-09-26T05:27:16.973561+00:00",
+      "complete": false,
+      "scored_cells": 39,
+      "preferred_complete_cells": 39,
+      "total_cells": 60,
+      "sha256": "35dd4dd25086ad76415831a8aabe678b502089526a2323b4c0d80b956642bfaa"
+    },
+    "result_prefix": "s3://rldb/experiments/arc-oat-20260919/campaigns/libero-table-evening-20260926/"
+  },
+  "scheduler": [
+    {
+      "workflow": "dp-eval-r2-20260926-oat-goal-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-dur1-goal-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-shared-stk-spatial-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-dur1-object-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-dur2-object-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-shared-dur-goal-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-dur2-spatial-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-shared-dur-spatial-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-shared-dur-object-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-shared-stk-goal-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-stk1-object-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr2-20260926-shared-stk-object-1",
+      "status": "PENDING",
+      "tasks": [
+        [
+          "libero",
+          "SCHEDULING"
+        ]
+      ]
+    },
+    {
+      "workflow": "dp-eval-r3-20260926-unet-goal-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "dp-eval-r3-20260926-unet-10-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "dp-eval-r3-20260926-oat-10-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "dp-eval-r3-20260926-unet-object-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "dp-eval-r3-20260926-oat-object-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "dp-eval-r3-20260926-unet-spatial-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "dp-eval-r3-20260926-oat-spatial-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr-20260925-shared-stk-10-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "arc-dpr-20260925-shared-dur-10-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    },
+    {
+      "workflow": "libero-table-evening-20260926-1",
+      "status": "RUNNING",
+      "tasks": [
+        [
+          "libero",
+          "RUNNING"
+        ]
+      ]
+    }
+  ],
+  "accepted_recoveries": [
+    {
+      "run_id": "dp-eval-r3-20260926-unet-goal",
+      "replaces_run": "dp-eval-r2-20260926-unet-goal",
+      "replaces_evaluation": "dp-eval-r2-20260926-unet-goal",
+      "suite": "libero_goal",
+      "architecture": "raw_unet",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "resume_evaluation_from": "dp-eval-r1-20260925-unet-goal",
+      "saved_episodes": 2418,
+      "source_commit": "d8213f9c5e7ccc5f60ea99d82dbb9e7ca40fcbfa",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "ee71c15f2b30ab29851061413e510e321b78164c8d127cc70e9a7368c509f943"
+    },
+    {
+      "run_id": "dp-eval-r2-20260926-oat-goal",
+      "replaces_run": "dp-plain-r1-20260925-oat-goal-eval",
+      "replaces_evaluation": "dp-plain-r1-20260925-oat-goal-eval",
+      "suite": "libero_goal",
+      "architecture": "raw_oat_dp",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "resume_evaluation_from": null,
+      "saved_episodes": 0,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "b9ce640602bed9411826e14c6101cb40c769ef374ee13b1e54593c8bae2da5cf"
+    },
+    {
+      "run_id": "dp-eval-r3-20260926-unet-10",
+      "replaces_run": "dp-eval-r2-20260926-unet-10",
+      "replaces_evaluation": "dp-eval-r2-20260926-unet-10",
+      "suite": "libero_10",
+      "architecture": "raw_unet",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "resume_evaluation_from": "dp-plain-20260925-unet-10-eval",
+      "saved_episodes": 1372,
+      "source_commit": "d8213f9c5e7ccc5f60ea99d82dbb9e7ca40fcbfa",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "b7d3a32aaa448261015adc53266a3d797f4e1275b1e556e95afdea20d9feb5b5"
+    },
+    {
+      "run_id": "dp-eval-r3-20260926-oat-10",
+      "replaces_run": "dp-eval-r2-20260926-oat-10",
+      "replaces_evaluation": "dp-eval-r2-20260926-oat-10",
+      "suite": "libero_10",
+      "architecture": "raw_oat_dp",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "resume_evaluation_from": "dp-plain-20260925-oat-10-eval",
+      "saved_episodes": 180,
+      "source_commit": "d8213f9c5e7ccc5f60ea99d82dbb9e7ca40fcbfa",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "81d2daa56ee6aef1b176a5ac153eed9f5746fde5cdfb4fe55d35d64f01928ce9"
+    },
+    {
+      "run_id": "dp-eval-r3-20260926-unet-object",
+      "replaces_run": "dp-eval-r2-20260926-unet-object",
+      "replaces_evaluation": "dp-eval-r2-20260926-unet-object",
+      "suite": "libero_object",
+      "architecture": "raw_unet",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "resume_evaluation_from": "dp-plain-20260925-unet-object-eval",
+      "saved_episodes": 1683,
+      "source_commit": "d8213f9c5e7ccc5f60ea99d82dbb9e7ca40fcbfa",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "5f7a9db0ffbb18029e0c04d53bad45e60abfe1839326e16d79ff62785d301819"
+    },
+    {
+      "run_id": "dp-eval-r3-20260926-oat-object",
+      "replaces_run": "dp-eval-r2-20260926-oat-object",
+      "replaces_evaluation": "dp-eval-r2-20260926-oat-object",
+      "suite": "libero_object",
+      "architecture": "raw_oat_dp",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "resume_evaluation_from": "dp-plain-r1-20260925-oat-object-eval",
+      "saved_episodes": 787,
+      "source_commit": "d8213f9c5e7ccc5f60ea99d82dbb9e7ca40fcbfa",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "5927932903ed6615966fe5405748fc40028648263d8ba6c8c1f701140ee7326c"
+    },
+    {
+      "run_id": "dp-eval-r3-20260926-unet-spatial",
+      "replaces_run": "dp-eval-r2-20260926-unet-spatial",
+      "replaces_evaluation": "dp-eval-r2-20260926-unet-spatial",
+      "suite": "libero_spatial",
+      "architecture": "raw_unet",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "resume_evaluation_from": "dp-eval-r1-20260925-unet-spatial",
+      "saved_episodes": 163,
+      "source_commit": "d8213f9c5e7ccc5f60ea99d82dbb9e7ca40fcbfa",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "62be7ecbf336eaa307094d06c765317bc2e7aa930918cc4c605cf44a6bbe947b"
+    },
+    {
+      "run_id": "dp-eval-r3-20260926-oat-spatial",
+      "replaces_run": "dp-eval-r2-20260926-oat-spatial",
+      "replaces_evaluation": "dp-eval-r2-20260926-oat-spatial",
+      "suite": "libero_spatial",
+      "architecture": "raw_oat_dp",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "resume_evaluation_from": "dp-plain-20260925-oat-spatial-eval",
+      "saved_episodes": 2094,
+      "source_commit": "d8213f9c5e7ccc5f60ea99d82dbb9e7ca40fcbfa",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "ab4e5905577ea210d8c1858af9bf87a07a6f95269d4e8b5211762943b345fab4"
+    },
+    {
+      "suite": "libero_goal",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "run_id": "arc-dpr2-20260926-dur1-goal",
+      "replaces_run": "arc-dpr-20260925-dur1-goal",
+      "replaces_evaluation": "arc-dpr-20260925-dur1-goal",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-dur1-goal",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "97df318b744438d49661b1b5e6af5130dca7bbab2c47719152d137caf515eb3d"
+    },
+    {
+      "suite": "libero_spatial",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "run_id": "arc-dpr2-20260926-shared-stk-spatial",
+      "replaces_run": "arc-dpr-20260925-shared-stk-spatial",
+      "replaces_evaluation": "arc-dpr-20260925-shared-stk-spatial",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-shared-stk-spatial",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "5754539dce8da02d2328ba8bdafb8485385fbdc26d7b92b33ac2ffc3c443b9e5"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "run_id": "arc-dpr2-20260926-dur1-object",
+      "replaces_run": "arc-dpr-20260925-dur1-object",
+      "replaces_evaluation": "arc-dpr-20260925-dur1-object",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-dur1-object",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "e4c3c35bdeb462e0afe0c7c405bbab4a32fae06fd4b46c4d37cf78906c4afa82"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "run_id": "arc-dpr2-20260926-dur2-object",
+      "replaces_run": "arc-dpr-20260925-dur2-object",
+      "replaces_evaluation": "arc-dpr-20260925-dur2-object",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-dur2-object",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "41cc4e6f868cf832c863f09401af3f109d68697a891a905e2688a9f123c2a3c1"
+    },
+    {
+      "suite": "libero_goal",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "run_id": "arc-dpr2-20260926-shared-dur-goal",
+      "replaces_run": "arc-dpr-20260925-shared-dur-goal",
+      "replaces_evaluation": "arc-dpr-20260925-shared-dur-goal",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-shared-dur-goal",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "f3c0eb33107a4164a00d915b6555a771df214809549106619e010246f3dc9eab"
+    },
+    {
+      "suite": "libero_spatial",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "run_id": "arc-dpr2-20260926-dur2-spatial",
+      "replaces_run": "arc-dpr-20260925-dur2-spatial",
+      "replaces_evaluation": "arc-dpr-20260925-dur2-spatial",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-dur2-spatial",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "aefe66b0ff36086ba274aceaa63c80f3f9e8f3d0547c23bcf3eb12a57a44a0ac"
+    },
+    {
+      "suite": "libero_spatial",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "run_id": "arc-dpr2-20260926-shared-dur-spatial",
+      "replaces_run": "arc-dpr-20260925-shared-dur-spatial",
+      "replaces_evaluation": "arc-dpr-20260925-shared-dur-spatial",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-shared-dur-spatial",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "70397684014edaab541fb5268157156e093b28111522ca7674da359b2dfa4bcf"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "run_id": "arc-dpr2-20260926-shared-dur-object",
+      "replaces_run": "arc-dpr-20260925-shared-dur-object",
+      "replaces_evaluation": "arc-dpr-20260925-shared-dur-object",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-shared-dur-object",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "d09486ae62e1145879cc4690ae3a8d4ee3be50b1103befc355a67b09ea4ce1c8"
+    },
+    {
+      "suite": "libero_goal",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "run_id": "arc-dpr2-20260926-shared-stk-goal",
+      "replaces_run": "arc-dpr-20260925-shared-stk-goal",
+      "replaces_evaluation": "arc-dpr-20260925-shared-stk-goal",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-shared-stk-goal",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "c90a57ca34d41eb4889cb2aec5493c87a3fa464ce3b1853389c153e1dbc8b2f9"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "run_id": "arc-dpr2-20260926-stk1-object",
+      "replaces_run": "arc-dpr-20260925-stk1-object",
+      "replaces_evaluation": "arc-dpr-20260925-stk1-object",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-stk1-object",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "12d566ad9e15d809f8e77e404fb796681c4b66cacf9a528db0eeb786f8ce78d2"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "run_id": "arc-dpr2-20260926-shared-stk-object",
+      "replaces_run": "arc-dpr-20260925-shared-stk-object",
+      "replaces_evaluation": "arc-dpr-20260925-shared-stk-object",
+      "architecture": "oat_dp",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-shared-stk-object",
+      "gpus": 4,
+      "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "d5add3bfbe7febceb629af13ed7aae734f02175159fe0fe4b71c827674c07e19"
+    }
+  ],
+  "baseline_final_checkpoints": [
+    {
+      "run_id": "dp-plain-20260925-unet-10-eval",
+      "suite": "libero_10",
+      "method": "dp_unet",
+      "checkpoint": {
+        "sha256": "f833d6777b36e5d8d56b911f33f3553e021953b5c7b236cb62f86880888f0259",
+        "bytes": 1004347404,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-20260925-unet-10/checkpoints/f833d6777b36e5d8d56b911f33f3553e021953b5c7b236cb62f86880888f0259/last.ckpt"
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 605121,
+      "ema_num_updates": 605121
+    },
+    {
+      "run_id": "dp-plain-20260925-oat-10-eval",
+      "suite": "libero_10",
+      "method": "dp_oat",
+      "checkpoint": {
+        "sha256": "ae04e5966c0169e162bb91244f8768eea396c4599c3d22cb465965202959f679",
+        "bytes": 435424584,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-20260925-oat-10/checkpoints/ae04e5966c0169e162bb91244f8768eea396c4599c3d22cb465965202959f679/last.ckpt"
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 605121,
+      "ema_num_updates": 605121
+    },
+    {
+      "run_id": "dp-plain-20260925-unet-object-eval",
+      "suite": "libero_object",
+      "method": "dp_unet",
+      "checkpoint": {
+        "sha256": "7fdd4d00efa3c174bb906befd8f94083d827405ef890901aa4c90f1e9c0317e4",
+        "bytes": 1004347404,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-20260925-unet-object/checkpoints/7fdd4d00efa3c174bb906befd8f94083d827405ef890901aa4c90f1e9c0317e4/last.ckpt"
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 325065,
+      "ema_num_updates": 325065
+    },
+    {
+      "run_id": "dp-plain-r1-20260925-oat-object-eval",
+      "suite": "libero_object",
+      "method": "dp_oat",
+      "checkpoint": {
+        "sha256": "36b95626356ef8b9d3fe4858d0247e96fe1c9fdc9d23c41e786e221ff97d5372",
+        "bytes": 435424584,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-r1-20260925-oat-object/checkpoints/36b95626356ef8b9d3fe4858d0247e96fe1c9fdc9d23c41e786e221ff97d5372/last.ckpt"
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 325065,
+      "ema_num_updates": 325065
+    },
+    {
+      "run_id": "dp-eval-r1-20260925-unet-goal",
+      "suite": "libero_goal",
+      "method": "dp_unet",
+      "checkpoint": {
+        "sha256": "33290f12189a0f31de897a33446be2e76878b58338271ca855e34c66eb82af24",
+        "bytes": 1004347404,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-20260925-unet-goal/checkpoints/33290f12189a0f31de897a33446be2e76878b58338271ca855e34c66eb82af24/last.ckpt"
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 280056,
+      "ema_num_updates": 280056
+    },
+    {
+      "run_id": "dp-plain-r1-20260925-oat-goal-eval",
+      "suite": "libero_goal",
+      "method": "dp_oat",
+      "checkpoint": {
+        "sha256": "91f3deca364f03abeeed4331985726631fee05f0c86e8933efae6bab32d39938",
+        "bytes": 435424584,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-r1-20260925-oat-goal/checkpoints/91f3deca364f03abeeed4331985726631fee05f0c86e8933efae6bab32d39938/last.ckpt"
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 280056,
+      "ema_num_updates": 280056
+    },
+    {
+      "run_id": "dp-eval-r1-20260925-unet-spatial",
+      "suite": "libero_spatial",
+      "method": "dp_unet",
+      "checkpoint": {
+        "sha256": "886edd9d2af83f52c5a27e08cd1deb6f941b5e90bb47b51211ee6f28d4b19d00",
+        "bytes": 1004347404,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-20260925-unet-spatial/checkpoints/886edd9d2af83f52c5a27e08cd1deb6f941b5e90bb47b51211ee6f28d4b19d00/last.ckpt"
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 270054,
+      "ema_num_updates": 270054
+    },
+    {
+      "run_id": "dp-plain-20260925-oat-spatial-eval",
+      "suite": "libero_spatial",
+      "method": "dp_oat",
+      "checkpoint": {
+        "sha256": "da15c49fad7850e8a752221ee3318ebc261fd45fb8d6d6be6237ab1f2348a121",
+        "bytes": 435424584,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/dp-plain-20260925-oat-spatial/checkpoints/da15c49fad7850e8a752221ee3318ebc261fd45fb8d6d6be6237ab1f2348a121/last.ckpt"
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 270054,
+      "ema_num_updates": 270054
+    }
+  ],
+  "partial_baseline_audit_at": "2026-09-26T05:02:37.935838+00:00",
+  "final_scores": 39,
+  "total_cells": 60,
+  "resumed_evaluation_progress": {
+    "at": "2026-09-26T05:29:28.839190+00:00",
+    "runs": [
+      {
+        "run_id": "dp-eval-r3-20260926-unet-goal",
+        "restored-evaluation.json": {
+          "source_run": "dp-eval-r1-20260925-unet-goal",
+          "checkpoint_sha256": "33290f12189a0f31de897a33446be2e76878b58338271ca855e34c66eb82af24",
+          "episodes": 2418,
+          "per_repetition": [
+            486,
+            469,
+            500,
+            477,
+            486
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 2421,
+          "planned": 2500,
+          "per_repetition": [
+            487,
+            470,
+            500,
+            478,
+            486
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r3-20260926-unet-10",
+        "restored-evaluation.json": {
+          "source_run": "dp-plain-20260925-unet-10-eval",
+          "checkpoint_sha256": "f833d6777b36e5d8d56b911f33f3553e021953b5c7b236cb62f86880888f0259",
+          "episodes": 1372,
+          "per_repetition": [
+            283,
+            270,
+            277,
+            275,
+            267
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 1380,
+          "planned": 2500,
+          "per_repetition": [
+            285,
+            272,
+            278,
+            276,
+            269
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r3-20260926-oat-10",
+        "restored-evaluation.json": {
+          "source_run": "dp-plain-20260925-oat-10-eval",
+          "checkpoint_sha256": "ae04e5966c0169e162bb91244f8768eea396c4599c3d22cb465965202959f679",
+          "episodes": 180,
+          "per_repetition": [
+            36,
+            38,
+            36,
+            35,
+            35
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 186,
+          "planned": 2500,
+          "per_repetition": [
+            37,
+            39,
+            37,
+            37,
+            36
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r3-20260926-unet-object",
+        "restored-evaluation.json": {
+          "source_run": "dp-plain-20260925-unet-object-eval",
+          "checkpoint_sha256": "7fdd4d00efa3c174bb906befd8f94083d827405ef890901aa4c90f1e9c0317e4",
+          "episodes": 1683,
+          "per_repetition": [
+            332,
+            338,
+            338,
+            338,
+            337
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 1683,
+          "planned": 2500,
+          "per_repetition": [
+            332,
+            338,
+            338,
+            338,
+            337
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r3-20260926-oat-object",
+        "restored-evaluation.json": {
+          "source_run": "dp-plain-r1-20260925-oat-object-eval",
+          "checkpoint_sha256": "36b95626356ef8b9d3fe4858d0247e96fe1c9fdc9d23c41e786e221ff97d5372",
+          "episodes": 787,
+          "per_repetition": [
+            157,
+            158,
+            157,
+            157,
+            158
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 787,
+          "planned": 2500,
+          "per_repetition": [
+            157,
+            158,
+            157,
+            157,
+            158
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r3-20260926-unet-spatial",
+        "restored-evaluation.json": {
+          "source_run": "dp-eval-r1-20260925-unet-spatial",
+          "checkpoint_sha256": "886edd9d2af83f52c5a27e08cd1deb6f941b5e90bb47b51211ee6f28d4b19d00",
+          "episodes": 163,
+          "per_repetition": [
+            35,
+            34,
+            30,
+            31,
+            33
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 163,
+          "planned": 2500,
+          "per_repetition": [
+            35,
+            34,
+            30,
+            31,
+            33
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r3-20260926-oat-spatial",
+        "restored-evaluation.json": {
+          "source_run": "dp-plain-20260925-oat-spatial-eval",
+          "checkpoint_sha256": "da15c49fad7850e8a752221ee3318ebc261fd45fb8d6d6be6237ab1f2348a121",
+          "episodes": 2094,
+          "per_repetition": [
+            419,
+            423,
+            414,
+            429,
+            409
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 2095,
+          "planned": 2500,
+          "per_repetition": [
+            419,
+            424,
+            414,
+            429,
+            409
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r2-20260926-oat-goal",
+        "evaluation-progress.json": {
+          "episodes": 124,
+          "planned": 2500,
+          "per_repetition": [
+            24,
+            25,
+            24,
+            25,
+            26
+          ],
+          "workers": 5
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+enable_grad_norm: false
+training_behavior:
+  _target_: egomimic.pl_utils.oat_training.OATTrainingBehavior
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_oat.OATObservationStage
+      encoder:
+        _target_: egomimic.models.oat.factory.make_obs_encoder
+      obs_keys: [agentview_rgb, robot0_eye_in_hand_rgb, robot0_eef_pos, robot0_eef_quat, robot0_gripper_qpos, task_uid]
+    - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
+      operation: encode
+      encode_cache_size: ${benchmark.arc_encode_cache_size}
+      arc_mode: ${benchmark.arc_mode}
+      velocity_norm_bound: ${benchmark.arc_velocity_norm_bound}
+      num_waypoints: ${benchmark.arc_waypoints}
+      horizon: ${benchmark.horizon}
+      max_translation: ${benchmark.arc_max_translation}
+      max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: ${benchmark.arc_waypoints}
+      action_dim: ${benchmark.arc_action_dim}
+      noise_scheduler: &scheduler
+        _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: ${benchmark.arc_waypoints}
+      action_dim: ${benchmark.arc_action_dim}
+      condition_input_dim: 276
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: ${benchmark.arc_waypoints}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+          input_dim: ${benchmark.arc_action_dim}
+          cond_dim: 276
+          ac_latent_seq: 1
+          diffusion_step_embed_dim: 256
+          down_dims: [256, 512, 1024]
+          kernel_size: 3
+        noise_scheduler: *scheduler
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+    - _target_: egomimic.pipeline.stages_libero_arc.ArcPredictionName
+    - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
+      operation: decode
+      arc_mode: ${benchmark.arc_mode}
+      velocity_norm_bound: ${benchmark.arc_velocity_norm_bound}
+      num_waypoints: ${benchmark.arc_waypoints}
+      horizon: ${benchmark.horizon}
+      max_translation: ${benchmark.arc_max_translation}
+      max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
+benchmark_protocol:
+  suite: ${benchmark.suite}
+  horizon: ${benchmark.horizon}
+  n_obs_steps: ${benchmark.n_obs_steps}
+  n_action_steps: ${benchmark.n_action_steps}

@@ -1,0 +1,461 @@
+"""Render a pinned ARC/OAT GPU workflow; submit with the OSMO CLI."""
+
+import argparse
+import json
+import re
+from pathlib import Path
+
+import yaml
+
+from egomimic.benchmarks.libero.catalog import TASKS
+from egomimic.benchmarks.libero.cluster import (
+    GPU_PLATFORMS,
+    arc_method_modes,
+    campaign_sources,
+    training_layout,
+)
+
+
+def workflow(
+    commit,
+    run_id,
+    suite,
+    mode="smoke",
+    epochs=5001,
+    evaluate_from_run=None,
+    campaign_id=None,
+    replay=False,
+    resume_from_run=None,
+    arc_replay_run=None,
+    replay_spec="libero_arc_replay",
+    calibration_parent=None,
+    raw_cache=None,
+    campaign_runs=None,
+    arc_modes=None,
+    arc_replay_runs=None,
+    arc_profile=None,
+    oat_reference_run=None,
+    gpus=1,
+    gpu_type="L40S",
+    arc_backbone="unet",
+):
+    training_layout(gpus, mode)
+    if arc_backbone not in {"unet", "oat_dp"}:
+        raise ValueError("Unknown ARC backbone")
+    if arc_backbone != "unet" and not arc_profile:
+        raise ValueError("An alternate ARC backbone requires a standalone profile")
+    if gpu_type not in GPU_PLATFORMS:
+        raise ValueError(f"Unsupported GPU type: {gpu_type}")
+    if replay and gpus != 1:
+        raise ValueError("Demonstration replay uses one GPU allocation")
+    arc_modes = list(arc_modes or (["joint_dur"] if arc_replay_run else ["dur", "stk"]))
+    arc_method_modes(arc_modes)
+    arc_replay_runs = dict(arc_replay_runs or {})
+    if arc_replay_run and arc_modes != ["joint_dur"]:
+        raise ValueError("Independent modes require mode-specific replay runs")
+    if set(arc_replay_runs) - set(arc_modes):
+        raise ValueError("Unexpected ARC replay mode")
+    if arc_profile:
+        from egomimic.benchmarks.libero.arc_sweep import profile_settings
+
+        if (
+            len(arc_modes) != 1
+            or replay
+            or campaign_id
+            or evaluate_from_run
+            or arc_replay_run
+        ):
+            raise ValueError("ARC profile requires one standalone policy mode")
+        profile_settings(arc_profile, arc_modes[0])
+        if len(run_id) > 56:
+            raise ValueError("ARC sweep run ID must leave room for -replay")
+        if (
+            mode == "full"
+            and resume_from_run
+            and set(arc_replay_runs) != set(arc_modes)
+        ):
+            raise ValueError(
+                "Resuming a sweep requires its completed mode-specific replay"
+            )
+        if mode == "full" and (
+            not oat_reference_run
+            or (not resume_from_run and not calibration_parent and not arc_replay_runs)
+        ):
+            raise ValueError(
+                "Full ARC sweep requires calibration and OAT reference runs"
+            )
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("Use an immutable 40-character Git commit")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", run_id):
+        raise ValueError("run_id must be a DNS label of at most 63 characters")
+    if suite not in TASKS or mode not in {"smoke", "full"} or epochs < 1:
+        raise ValueError("Invalid suite, mode or epoch budget")
+    if evaluate_from_run is not None and not re.fullmatch(
+        r"[a-z0-9][a-z0-9-]{0,62}", evaluate_from_run
+    ):
+        raise ValueError("Invalid evaluation source run ID")
+    if campaign_runs is not None and campaign_id is None:
+        raise ValueError("Campaign source manifest requires a campaign ID")
+    expected_run = (
+        campaign_sources(campaign_id, commit, campaign_runs)[suite]
+        if campaign_id
+        else None
+    )
+    if campaign_id is not None and (
+        mode != "full"
+        or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,44}", campaign_id)
+        or run_id != expected_run["run_id"]
+        or commit != expected_run["source_commit"]
+    ):
+        raise ValueError("Campaign requires full mode and matching suite run IDs")
+    if replay and (evaluate_from_run or campaign_id):
+        raise ValueError("Replay calibration is separate from a policy campaign")
+    for source in (
+        resume_from_run,
+        arc_replay_run,
+        calibration_parent,
+        oat_reference_run,
+        *arc_replay_runs.values(),
+    ):
+        if source is not None and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", source):
+            raise ValueError("Invalid training/replay source run ID")
+    if evaluate_from_run and resume_from_run:
+        raise ValueError("Choose evaluation recovery or training resume")
+    if replay_spec not in {
+        "libero_arc_replay",
+        "libero_arc_replay_expanded",
+        "libero_arc_replay_refine",
+        "libero_arc_replay_stk",
+        "libero_arc_replay_dur",
+    }:
+        raise ValueError("Unknown checked-in replay specification")
+    if raw_cache is not None and not Path(raw_cache).is_absolute():
+        raise ValueError("Raw cache must be an absolute path")
+    replay_config = yaml.safe_load(
+        (
+            Path(__file__).parents[2]
+            / "egomimic/hydra_configs/benchmark"
+            / f"{replay_spec}.yaml"
+        ).read_text()
+    )
+    replay_workers = replay_config["workers"]
+    preflight = replay or (
+        arc_profile is not None
+        and mode == "full"
+        and not resume_from_run
+        and not arc_replay_runs
+    )
+    if arc_profile:
+        replay_workers = 16
+    memory_gib = replay_config.get("memory_gib", 64) if preflight else 64
+    if arc_profile and mode == "full":
+        memory_gib = max(memory_gib, 128)
+    memory_gib = max(memory_gib, 64 * gpus)
+    # Eight-H100 nodes in the supported pool expose 94 allocatable CPU cores.
+    cpu_per_gpu = 10 if gpu_type == "H100" else 12
+    entry = Path(__file__).with_name("libero_osmo_entry.sh").read_text()
+    return {
+        "workflow": {
+            "name": run_id,
+            "resources": {
+                "default": {
+                    "cpu": max(
+                        cpu_per_gpu * gpus, replay_workers + 4 if preflight else 0
+                    ),
+                    "gpu": gpus,
+                    "memory": f"{memory_gib}Gi",
+                    "storage": "128Gi" if replay else "240Gi",
+                    "platform": GPU_PLATFORMS[gpu_type],
+                }
+            },
+            "timeout": {
+                "queue_timeout": "2d" if replay or mode == "full" else "4h",
+                "exec_timeout": "2d"
+                if replay
+                else ("4h" if mode == "smoke" else "60d"),
+            },
+            "tasks": [
+                {
+                    "name": "libero",
+                    "image": "nvcr.io/nvidia/pytorch:25.06-py3",
+                    "credentials": {
+                        "egoverse-github": {"GITHUB_TOKEN": "github_token"},
+                        "grabber-arc-r2-20260916": {
+                            "R2_ACCESS_KEY_ID": "r2_access_key_id",
+                            "R2_SECRET_ACCESS_KEY": "r2_secret_access_key",
+                            "R2_ENDPOINT_URL": "r2_endpoint_url",
+                        },
+                    },
+                    "environment": {
+                        "SOURCE_COMMIT": commit,
+                        "RUN_ID": run_id,
+                        "SUITE": suite,
+                        "RUN_MODE": mode,
+                        "EPOCHS": str(epochs),
+                        "TRAINING_GPUS": str(gpus),
+                        "BENCHMARK_GPU_TYPE": gpu_type,
+                        "EVALUATE_FROM_RUN": evaluate_from_run or "",
+                        "CAMPAIGN_ID": campaign_id or "",
+                        "CAMPAIGN_RUNS_JSON": json.dumps(campaign_runs),
+                        "RUN_KIND": "arc_sweep"
+                        if arc_profile
+                        else "replay"
+                        if replay
+                        else "benchmark",
+                        "ARC_PROFILE": arc_profile or "",
+                        "ARC_BACKBONE": arc_backbone,
+                        "OAT_REFERENCE_RUN": oat_reference_run or "",
+                        "RESUME_FROM_RUN": resume_from_run or "",
+                        "ARC_REPLAY_RUN": arc_replay_run or "",
+                        "ARC_MODES_JSON": json.dumps(arc_modes),
+                        "ARC_REPLAY_RUNS_JSON": json.dumps(arc_replay_runs),
+                        "REPLAY_SPEC": replay_spec,
+                        "REPLAY_CALIBRATION_PARENT": calibration_parent or "",
+                        "LIBERO_RAW_CACHE": str(raw_cache) if raw_cache else "",
+                    },
+                    "command": ["bash"],
+                    "args": ["/tmp/entry.sh"],
+                    "files": [{"path": "/tmp/entry.sh", "contents": entry}],
+                }
+            ],
+        }
+    }
+
+
+def baseline_workflow(
+    commit,
+    run_id,
+    suite,
+    *,
+    backbone,
+    mode="full",
+    epochs=5001,
+    gpus=8,
+    gpu_type="L40S",
+    resume_from_run=None,
+):
+    """Release training GPUs before allocating one GPU for all 2500 rollouts."""
+    import copy
+
+    if backbone not in ("unet", "oat_dp") or len(run_id) > 58:
+        raise ValueError("Invalid raw DP backbone or run ID")
+    if mode == "full" and epochs != 5001:
+        raise ValueError("Full DP controls require 5001 epochs")
+    spec = workflow(
+        commit,
+        run_id,
+        suite,
+        mode=mode,
+        epochs=epochs,
+        gpus=gpus,
+        gpu_type=gpu_type,
+        resume_from_run=resume_from_run,
+    )
+    task = spec["workflow"]["tasks"][0]
+    task["name"] = "train"
+    task["environment"].update(
+        RUN_KIND="dp_baseline",
+        DP_BACKBONE=backbone,
+        DP_OUTPUT="{{output}}",
+    )
+    if mode == "full":
+        evaluation = copy.deepcopy(task)
+        evaluation["name"] = "evaluate"
+        evaluation["resource"] = "evaluation"
+        evaluation["inputs"] = [{"task": "train"}]
+        evaluation["environment"].update(
+            RUN_KIND="policy_evaluation",
+            RUN_ID=run_id + "-eval",
+            TRAINING_GPUS="1",
+            EVALUATION_WORKERS="5",
+            RESUME_FROM_RUN="",
+        )
+        entry = evaluation["files"][0]
+        entry["contents"] = entry["contents"].replace(
+            "set +x\n",
+            "set +x\ncp '{{input:0}}/evaluation-request.json' /tmp/evaluation-request.json\n",
+            1,
+        )
+        spec["workflow"]["resources"]["evaluation"] = {
+            "cpu": 15,
+            "gpu": 1,
+            "memory": "64Gi",
+            "storage": "64Gi",
+            "platform": GPU_PLATFORMS[gpu_type],
+        }
+        spec["workflow"]["tasks"].append(evaluation)
+    return spec
+
+
+def arc_oat_workflow(
+    commit,
+    run_id,
+    suite,
+    *,
+    arc_mode,
+    profile,
+    replay_run=None,
+    oat_reference_run=None,
+    mode="full",
+    epochs=5001,
+    gpus=4,
+    gpu_type="L40S",
+    resume_from_run=None,
+):
+    if mode == "full" and (epochs != 5001 or not replay_run):
+        raise ValueError("Full ARC+OAT requires 5001 epochs and its audited ARC replay")
+    spec = workflow(
+        commit,
+        run_id,
+        suite,
+        mode=mode,
+        epochs=epochs,
+        arc_modes=[arc_mode],
+        arc_profile=profile,
+        arc_replay_runs={arc_mode: replay_run} if replay_run else {},
+        oat_reference_run=oat_reference_run,
+        gpus=gpus,
+        gpu_type=gpu_type,
+        resume_from_run=resume_from_run,
+    )
+    spec["workflow"]["tasks"][0]["environment"]["RUN_KIND"] = "arc_oat"
+    return spec
+
+
+def evaluation_workflow(
+    commit,
+    run_id,
+    request,
+    *,
+    gpu_type="L40S",
+    workers=1,
+    resume_evaluation_from=None,
+):
+    """Allocate one evaluation GPU only after a final policy checkpoint is ready."""
+    from egomimic.benchmarks.libero.evaluate import validate_request
+
+    validate_request(request)
+    if workers not in (1, 5):
+        raise ValueError("Evaluation uses one worker or five independent repetitions")
+    if resume_evaluation_from and (
+        workers != 5
+        or resume_evaluation_from == run_id
+        or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", resume_evaluation_from)
+    ):
+        raise ValueError("Evaluation recovery requires a distinct run and five workers")
+    result = workflow(commit, run_id, request["suite"], mode="full", gpu_type=gpu_type)
+    task = result["workflow"]["tasks"][0]
+    task["environment"]["RUN_KIND"] = "policy_evaluation"
+    task["environment"]["EVALUATION_WORKERS"] = str(workers)
+    if resume_evaluation_from:
+        task["environment"]["RESUME_EVALUATION_FROM"] = resume_evaluation_from
+    if workers == 5:
+        # Pool03 permits at most floor(127 / 8) cores per allocated L40S.
+        result["workflow"]["resources"]["default"]["cpu"] = (
+            15 if gpu_type == "L40S" else 10
+        )
+    task["files"].append(
+        {
+            "path": "/tmp/evaluation-request.json",
+            "contents": json.dumps(request, indent=2) + "\n",
+        }
+    )
+    result["workflow"]["resources"]["default"]["storage"] = "64Gi"
+    result["workflow"]["timeout"]["exec_timeout"] = "2d"
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--commit", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--suite", choices=TASKS, default="libero_10")
+    parser.add_argument("--mode", choices=("smoke", "full"), default="smoke")
+    parser.add_argument("--epochs", type=int, default=5001)
+    parser.add_argument("--gpus", type=int, choices=(1, 2, 4, 8), default=1)
+    parser.add_argument("--gpu-type", choices=tuple(GPU_PLATFORMS), default="L40S")
+    parser.add_argument("--evaluate-from-run")
+    parser.add_argument("--campaign-id")
+    parser.add_argument("--campaign-runs-file", type=Path)
+    parser.add_argument("--replay", action="store_true")
+    parser.add_argument("--resume-from-run")
+    parser.add_argument("--arc-replay-run")
+    parser.add_argument("--arc-modes", nargs="+", choices=("joint_dur", "stk", "dur"))
+    parser.add_argument("--arc-replay-runs-file", type=Path)
+    parser.add_argument("--arc-profile")
+    parser.add_argument("--arc-backbone", choices=("unet", "oat_dp"), default="unet")
+    parser.add_argument("--dp-backbone", choices=("unet", "oat_dp"))
+    parser.add_argument("--oat-reference-run")
+    parser.add_argument("--replay-spec", default="libero_arc_replay")
+    parser.add_argument("--calibration-parent")
+    parser.add_argument("--raw-cache")
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    if args.dp_backbone:
+        if any(
+            (
+                args.replay,
+                args.arc_profile,
+                args.arc_modes,
+                args.arc_replay_run,
+                args.arc_replay_runs_file,
+                args.evaluate_from_run,
+                args.campaign_id,
+                args.campaign_runs_file,
+                args.oat_reference_run,
+                args.calibration_parent,
+                args.raw_cache,
+                args.arc_backbone != "unet",
+            )
+        ):
+            parser.error("Raw DP controls cannot use ARC/OAT campaign options")
+        spec = baseline_workflow(
+            args.commit,
+            args.run_id,
+            args.suite,
+            backbone=args.dp_backbone,
+            mode=args.mode,
+            epochs=args.epochs,
+            gpus=args.gpus,
+            gpu_type=args.gpu_type,
+            resume_from_run=args.resume_from_run,
+        )
+        with args.output.open("x") as handle:
+            yaml.safe_dump(spec, handle, sort_keys=False)
+        return
+    with args.output.open("x") as handle:
+        yaml.safe_dump(
+            workflow(
+                args.commit,
+                args.run_id,
+                args.suite,
+                args.mode,
+                args.epochs,
+                args.evaluate_from_run,
+                args.campaign_id,
+                args.replay,
+                args.resume_from_run,
+                args.arc_replay_run,
+                args.replay_spec,
+                args.calibration_parent,
+                args.raw_cache,
+                json.loads(args.campaign_runs_file.read_text())
+                if args.campaign_runs_file
+                else None,
+                args.arc_modes,
+                json.loads(args.arc_replay_runs_file.read_text())
+                if args.arc_replay_runs_file
+                else None,
+                args.arc_profile,
+                args.oat_reference_run,
+                args.gpus,
+                args.gpu_type,
+                args.arc_backbone,
+            ),
+            handle,
+            sort_keys=False,
+        )
+
+
+if __name__ == "__main__":
+    main()

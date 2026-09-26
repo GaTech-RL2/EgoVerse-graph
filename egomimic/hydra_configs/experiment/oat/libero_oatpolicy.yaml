@@ -1,0 +1,5 @@
+# @package _global_
+defaults:
+  - /experiment/oat/libero_base
+  - override /model: oat/policy
+  - _self_

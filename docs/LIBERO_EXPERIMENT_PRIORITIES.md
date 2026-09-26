@@ -1,21 +1,24 @@
 # LIBERO experiment priorities
 
-User-directed order, updated September 25, 2026 (UTC):
+User-directed order, updated September 25 evening, 2026 (Pacific):
 
 The latest request is to fill every result-table cell and add plain DP controls
 for both backbones by the following morning. Target: September 25, 09:00 Pacific
-(16:00 UTC). That target was missed. The September 25 afternoon check still
-has 35/60 complete scores: native OAT 4/4, original ARC/U-Net 24/24, and
-ARC/OAT-DP 7/24. Four plain-DP evaluations have recorded episodes, the
-U-Net Spatial evaluation replacement has started, two LIBERO-10 baselines
-are still training, and the OAT-DP Goal recovery is queued. Continue the eight
-raw-action controls (two architectures × four suites) alongside recovery of
-the 18 interrupted ARC/Transformer runs. Preserve full 5001 epoch training,
-global batch 1024, and2500 episode evaluations; no partial-budget score counts as
+(16:00 UTC). That target was missed. The September 25 evening check
+has 39/60 complete scores: native OAT 4/4, original ARC/U-Net 24/24, and
+ARC/OAT-DP 11/24. All eight plain-DP baselines have finished training; their
+evaluations were interrupted by cluster GPU quota enforcement. Eight
+evaluation replacements and eleven ARC/OAT-DP training recoveries have been
+submitted on L40S. Seven baseline replacements retain verified completed
+trials and evaluate only missing episodes. Continue these controls alongside
+the remaining ARC/Transformer jobs. Preserve full 5001 epoch training,
+global batch 1024, and 2500 episode evaluations; no partial-budget score counts as
 a completed cell. Original ARC paired reevaluations are complete and pass
 matching initial-state checks. Hybrid
 and LIBERO-90 stay deferred. See [current results](results/arc_vs_oat_libero_20260925.md)
 and [raw DP controls](LIBERO_DP_BASELINES.md). The
+[paired preliminary baseline comparisons](results/arc_vs_plain_dp_libero_20260925_evening.md)
+report only exact shared trials and remain separate from completed suite scores. The
 [completion campaign](results/libero_completion_launch_20260925.md) records
 live job identities, recovery receipts and measured progress.
 

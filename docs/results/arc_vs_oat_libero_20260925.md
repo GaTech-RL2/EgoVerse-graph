@@ -1,6 +1,6 @@
 # ARC versus OAT: LIBERO, September 25
 
-Verified artifact snapshot: 2026-09-25T20:02:07.143558+00:00 (13:02 Pacific). 35/60 requested cells have complete evaluations; no additional full scores since the morning snapshot.
+Verified artifact snapshot: 2026-09-26T04:56:16.893402+00:00 (21:56 Pacific). 39/60 requested cells have complete evaluations.
 
 | Method | Spatial | Object | Goal | LIBERO-10 |
 | --- | ---: | ---: | ---: | ---: |
@@ -11,16 +11,16 @@ Verified artifact snapshot: 2026-09-25T20:02:07.143558+00:00 (13:02 Pacific). 35
 | ARC U-Net / DUR2 | 68.32% | 63.72% | 87.28% | 55.44% |
 | ARC U-Net / shared STK | 66.36% | 58.88% | 84.84% | 57.16% |
 | ARC U-Net / shared DUR | 68.08% | 59.64% | 88.96% | 53.52% |
-| ARC OAT-DP / STK1 | Pending | Pending | 87.00% | 67.88% |
-| ARC OAT-DP / STK2 | Pending | 0.00%* | 81.32% | 70.12% |
+| ARC OAT-DP / STK1 | 76.16% | Pending | 87.00% | 67.88% |
+| ARC OAT-DP / STK2 | 76.16% | 0.00%* | 81.32% | 70.12% |
 | ARC OAT-DP / DUR1 | 73.76% | Pending | Pending | 68.76% |
-| ARC OAT-DP / DUR2 | Pending | Pending | Pending | Pending |
+| ARC OAT-DP / DUR2 | Pending | Pending | 83.48% | 71.68% |
 | ARC OAT-DP / shared STK | Pending | Pending | Pending | Pending |
 | ARC OAT-DP / shared DUR | Pending | Pending | Pending | Pending |
 | Plain DP / U-Net | Pending | Pending | Pending | Pending |
 | Plain DP / OAT-release | Pending | Pending | Pending | Pending |
 
-All completed cells use 2500 episodes from one trained checkpoint, with five evaluation repetitions. All 31 completed ARC comparisons pass matching starting-state checks against OAT. The eleven earlier unpaired results have been superseded.
+All completed cells use 2500 episodes from one trained checkpoint, with five evaluation repetitions. All 35 completed ARC comparisons pass matching starting-state checks against OAT. The eleven earlier unpaired results have been superseded.
 
 * OAT Object (9/2500) and ARC OAT-DP STK2 Object (0/2500) are complete but unusually low. Their causes remain unresolved; do not infer a settled representation advantage from Object.
 
@@ -28,27 +28,31 @@ Native OAT uses its learned tokenizer and autoregressive policy. ARC U-Net uses 
 
 STK1: R192/D1.6/M36. STK2: R192/D0.8/M32. DUR1: R192/D1.6/M24. DUR2: R384/D0.8/M32. Shared STK and DUR: R384/D1.6/M36.
 
-[Heatmap (PNG)](arc_vs_oat_libero_20260925_morning.png) · [Vector plot (SVG)](arc_vs_oat_libero_20260925_morning.svg) · [CSV](arc_vs_oat_libero_20260925_morning.csv) · [Latest complete source audit](arc_vs_oat_libero_20260925_afternoon.json)
+[Heatmap (PNG)](arc_vs_oat_libero_20260925_evening.png) · [Vector plot (SVG)](arc_vs_oat_libero_20260925_evening.svg) · [CSV](arc_vs_oat_libero_20260925_evening.csv) · [Complete source audit](arc_vs_oat_libero_20260925_evening.json)
 
-## Work still in progress
+## Plain DP comparison and recovery
 
-[Preliminary success rates at 13:50 Pacific](libero_preliminary_20260925_1350.md) are available separately; they do not count as completed cells.
+[Matched preliminary ARC versus plain-DP comparisons](arc_vs_plain_dp_libero_20260925_evening.md) are available separately. They compare exact shared trials within each backbone and do not fill unfinished cells above.
 
-Evaluation episode counts are from the 13:02 Pacific collector snapshot. Training counters and scheduler state were refreshed at 2026-09-25T20:03:52.503302+00:00. These episode counts are progress, not success rates.
+All eight plain-DP baselines have finished the full 5001-epoch budget. Their final checkpoints were downloaded and verified for SHA-256, optimizer updates and EMA updates. Seven evaluations have saved trials; OAT-DP Goal finished training before its evaluation could begin. All eight baseline jobs were interrupted by cluster GPU quota enforcement.
 
-| Suite | Plain DP / U-Net | Plain DP / OAT-release |
-| --- | --- | --- |
-| spatial | Evaluation replacement running; no recorded episodes yet | Evaluating: 1668/2500 episodes |
-| object | Evaluating: 1437/2500 episodes | Evaluating: 477/2500 episodes |
-| goal | Evaluating: 1824/2500 episodes | Recovery queued (1680/280056 updates saved) |
-| 10 | Training: 469310/605121 updates (77.6%) | Training: 592380/605121 updates (97.9%) |
+The saved baseline trials at the 22:02 Pacific audit are:
 
-Original ARC/U-Net is complete on all 24 cells, and native OAT on all four. ARC with OAT's diffusion Transformer is complete on seven of 24 cells; 10 are training, 1 is evaluating and 6 are queued.
+| Suite | U-Net | OAT-release DP |
+| --- | ---: | ---: |
+| Spatial | 163/2500 | 2094/2500 |
+| Object | 1683/2500 | 787/2500 |
+| Goal | 2418/2500 | 0/2500 |
+| LIBERO-10 | 1372/2500 | 180/2500 |
 
-The U-Net Spatial evaluation failed to start after training completed. Its final checkpoint was downloaded, SHA-256 verified and confirmed to contain all 5001 epochs / 270054 optimizer and EMA updates. A separate one-L40S evaluation, `dp-eval-r1-20260925-unet-spatial-1`, now runs that exact checkpoint. The Goal U-Net evaluation recovery and OAT-DP Object training recovery are also evaluating.
+Eight evaluation-only replacements were submitted on L40S. Seven resume saved trials and run only missing episodes, after validating the immutable checkpoint, exact protocol and artifact hashes. The first seven resume attempts restored the records but failed at a command-line output-directory guard before running new trials. That guard was fixed in `d8213f9c`, tested through the command-line entry point, and those seven attempts were replaced under `dp-eval-r3-20260926-*`. OAT-DP Goal uses `dp-eval-r2-20260926-oat-goal` and starts its evaluation fresh. Restored trials are never counted twice.
 
-The current CPU collector is `libero-table-afternoon-20260925-1`, publishing every five minutes under `s3://rldb/experiments/arc-oat-20260919/campaigns/libero-table-afternoon-20260925/`. It follows all accepted recovery IDs. The previous collector was retired only after the successor published a verified 60-cell report.
+Eleven interrupted ARC/OAT-DP training runs were also resubmitted under `arc-dpr2-20260926-*` from verified checkpoints on four L40S each, retaining optimizer/EMA state, global batch 1024 and the original total update budget. Two ongoing shared-configuration LIBERO-10 evaluations were left running. No other agents' workflows were changed.
 
-All current jobs use L40S. Training budgets remain 5001 epochs / global batch 1024; complete evaluations require 2500 episodes. LIBERO-90 and ARC+OAT remain deferred. The September 25 morning completion target was missed.
+All campaign jobs use L40S at normal queue priority. LIBERO-90 and ARC+OAT remain deferred. The September 25 morning completion target was missed. Queueing and further preemption remain unresolved completion risks.
 
-[Progress, scheduler and recovery evidence](libero_progress_20260925_afternoon.json)
+The successor CPU collector `libero-table-evening-20260926-1` published a SHA-verified 60-cell report at 22:27 Pacific, following all accepted recovery IDs. Only then was the previous CPU collector retired. It publishes every five minutes under `s3://rldb/experiments/arc-oat-20260919/campaigns/libero-table-evening-20260926/`.
+
+At 22:27 Pacific, all eight baseline evaluation replacements were running; two ARC training replacements were running and nine queued. Running status includes startup and is not itself evidence of new optimizer updates or episodes. [Scheduler, recovery and final-checkpoint evidence](libero_progress_20260925_evening.json).
+
+At 22:29 Pacific, GPU rollouts had advanced beyond restored trials in U-Net Goal (2418→2421), U-Net LIBERO-10 (1372→1380), OAT-DP LIBERO-10 (180→186), and OAT-DP Spatial (2094→2095). The other three resumed baselines had restored their saved counts; OAT-DP Goal had 124 new trials. These progress counts do not update the frozen 22:02 paired comparison above.

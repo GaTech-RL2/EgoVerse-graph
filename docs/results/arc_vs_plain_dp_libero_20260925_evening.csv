@@ -1,0 +1,35 @@
+suite,architecture,configuration,episodes,arc_successes,plain_successes,arc_success_rate_percent,baseline_success_rate_percent,delta_percentage_points,arc_full_evaluation,baseline_full_evaluation,identities_and_initial_states_match,arc_run,plain_run
+libero_spatial,unet,STK1,163,101,30,61.96319018404908,18.404907975460123,43.558282208588956,True,False,True,arc-paired-s03-20260925-stk1-spatial,dp-eval-r1-20260925-unet-spatial
+libero_object,unet,STK1,1683,845,787,50.20796197266785,46.761734997029116,3.4462269756387403,True,False,True,arc-cache-arc-20260923-stk1-object,dp-plain-20260925-unet-object-eval
+libero_goal,unet,STK1,2418,1988,2070,82.21670802315964,85.60794044665012,-3.391232423490488,True,False,True,arc-cache-arc-20260923-stk1-goal,dp-eval-r1-20260925-unet-goal
+libero_spatial,unet,STK2,163,93,30,57.05521472392638,18.404907975460123,38.65030674846626,True,False,True,arc-paired-s03-20260925-stk2-spatial,dp-eval-r1-20260925-unet-spatial
+libero_object,unet,STK2,1683,831,787,49.376114081996434,46.761734997029116,2.6143790849673203,True,False,True,arc-cache-arc-20260923-stk2-object,dp-plain-20260925-unet-object-eval
+libero_goal,unet,STK2,2418,2056,2070,85.02894954507858,85.60794044665012,-0.5789909015715468,True,False,True,arc-cache-arc-20260923-stk2-goal,dp-eval-r1-20260925-unet-goal
+libero_10,unet,STK2,1372,826,783,60.204081632653065,57.06997084548105,3.1341107871720117,True,False,True,arc-paired-s03-20260925-stk2-10,dp-plain-20260925-unet-10-eval
+libero_spatial,unet,DUR1,163,81,30,49.693251533742334,18.404907975460123,31.288343558282207,True,False,True,arc-paired-s03-20260925-dur1-spatial,dp-eval-r1-20260925-unet-spatial
+libero_object,unet,DUR1,1683,844,787,50.14854426619132,46.761734997029116,3.3868092691622103,True,False,True,arc-cache-arc-20260923-dur1-object,dp-plain-20260925-unet-object-eval
+libero_goal,unet,DUR1,2418,2170,2070,89.74358974358974,85.60794044665012,4.1356492969396195,True,False,True,arc-cache-arc-20260923-dur1-goal,dp-eval-r1-20260925-unet-goal
+libero_10,unet,DUR1,1372,899,783,65.52478134110787,57.06997084548105,8.454810495626822,True,False,True,arc-paired-s03-20260925-dur1-10,dp-plain-20260925-unet-10-eval
+libero_spatial,unet,DUR2,163,81,30,49.693251533742334,18.404907975460123,31.288343558282207,True,False,True,arc-paired-s03-20260925-dur2-spatial,dp-eval-r1-20260925-unet-spatial
+libero_object,unet,DUR2,1683,1102,787,65.47831253713606,46.761734997029116,18.71657754010695,True,False,True,arc-cache-arc-20260923-dur2-object,dp-plain-20260925-unet-object-eval
+libero_goal,unet,DUR2,2418,2109,2070,87.22084367245658,85.60794044665012,1.6129032258064515,True,False,True,arc-cache-arc-20260923-dur2-goal,dp-eval-r1-20260925-unet-goal
+libero_10,unet,DUR2,1372,898,783,65.45189504373178,57.06997084548105,8.38192419825073,True,False,True,arc-paired-s03-20260925-dur2-10,dp-plain-20260925-unet-10-eval
+libero_spatial,unet,shared STK,163,95,30,58.282208588957054,18.404907975460123,39.877300613496935,True,False,True,arc-paired-s03-20260925-shared-stk-spatial,dp-eval-r1-20260925-unet-spatial
+libero_object,unet,shared STK,1683,938,787,55.73380867498515,46.761734997029116,8.97207367795603,True,False,True,arc-cache-arc-20260923-shared-stk-object,dp-plain-20260925-unet-object-eval
+libero_goal,unet,shared STK,2418,2066,2070,85.44251447477254,85.60794044665012,-0.1654259718775848,True,False,True,arc-cache-arc-20260923-shared-stk-goal,dp-eval-r1-20260925-unet-goal
+libero_10,unet,shared STK,1372,871,783,63.48396501457726,57.06997084548105,6.41399416909621,True,False,True,arc-paired-s03-20260925-shared-stk-10,dp-plain-20260925-unet-10-eval
+libero_spatial,unet,shared DUR,163,108,30,66.25766871165644,18.404907975460123,47.852760736196316,True,False,True,arc-paired-s03-20260925-shared-dur-spatial,dp-eval-r1-20260925-unet-spatial
+libero_object,unet,shared DUR,1683,1015,787,60.30897207367796,46.761734997029116,13.547237076648841,True,False,True,arc-cache-arc-20260923-shared-dur-object,dp-plain-20260925-unet-object-eval
+libero_goal,unet,shared DUR,2418,2152,2070,88.99917287014061,85.60794044665012,3.391232423490488,True,False,True,arc-cache-arc-20260923-shared-dur-goal,dp-eval-r1-20260925-unet-goal
+libero_10,unet,shared DUR,1372,855,783,62.31778425655977,57.06997084548105,5.247813411078718,True,False,True,arc-paired-s03-20260925-shared-dur-10,dp-plain-20260925-unet-10-eval
+libero_10,unet,STK1,1372,792,783,57.72594752186589,57.06997084548105,0.6559766763848397,True,False,True,arc-eval-l40s-20260924-stk1-10,dp-plain-20260925-unet-10-eval
+libero_spatial,oat_dp,STK1,2094,1613,1443,77.02960840496657,68.91117478510029,8.118433619866284,True,False,True,arc-dpr-20260925-stk1-spatial,dp-plain-20260925-oat-spatial-eval
+libero_10,oat_dp,STK1,180,41,64,22.77777777777778,35.55555555555556,-12.777777777777779,True,False,True,arc-dp-l40s-20260924-stk1-10,dp-plain-20260925-oat-10-eval
+libero_spatial,oat_dp,STK2,2094,1603,1443,76.55205348615091,68.91117478510029,7.640878701050621,True,False,True,arc-dpr-20260925-stk2-spatial,dp-plain-20260925-oat-spatial-eval
+libero_object,oat_dp,STK2,787,0,0,0.0,0.0,0.0,True,False,True,arc-dpr-20260925-stk2-object,dp-plain-r1-20260925-oat-object-eval
+libero_10,oat_dp,STK2,180,69,64,38.333333333333336,35.55555555555556,2.7777777777777777,True,False,True,arc-dp-l40s-20260924-stk2-10,dp-plain-20260925-oat-10-eval
+libero_spatial,oat_dp,DUR1,2094,1575,1443,75.21489971346705,68.91117478510029,6.303724928366762,True,False,True,arc-dp-20260924-dur1-spatial,dp-plain-20260925-oat-spatial-eval
+libero_10,oat_dp,DUR1,180,45,64,25.0,35.55555555555556,-10.555555555555555,True,False,True,arc-dp-l40s-20260924-dur1-10,dp-plain-20260925-oat-10-eval
+libero_10,oat_dp,DUR2,180,57,64,31.666666666666668,35.55555555555556,-3.888888888888889,True,False,True,arc-dpr-20260925-dur2-10,dp-plain-20260925-oat-10-eval
+libero_10,oat_dp,shared STK,180,56,64,31.11111111111111,35.55555555555556,-4.444444444444445,False,False,True,arc-dpr-20260925-shared-stk-10,dp-plain-20260925-oat-10-eval
+libero_10,oat_dp,shared DUR,180,45,64,25.0,35.55555555555556,-10.555555555555555,False,False,True,arc-dpr-20260925-shared-dur-10,dp-plain-20260925-oat-10-eval

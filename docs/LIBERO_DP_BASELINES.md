@@ -57,6 +57,16 @@ resume, target-free inference, and job dependencies. `test_oat_diffusion.py`
 also checks 32×7 released-network outputs, epsilon gradients and all 10 DDIM
 updates against the pinned upstream source.
 
+Interrupted five-worker evaluations can be recovered with
+`evaluation_workflow(..., resume_evaluation_from=<previous-evaluation-run>)`.
+The replacement uses a new run ID and the same immutable evaluation request.
+Recovery verifies artifact SHA-256, checkpoint identity, complete protocol,
+trial identities and referenced videos before restoring records. Each worker's
+`rollout --resume` validates its saved protocol and skips only completed trials;
+the final merge still requires all 2500 unique episodes. Tests exercise an
+interrupted rollout through the CLI, preserved record bytes, and rejection of
+changed checkpoints, duplicate trials, invalid seeds and bad artifact hashes.
+
 The launcher also recognizes L40 (`ovx-l40`) as a distinct device family and
 rejects an L40/L40S mismatch. This is an optional capacity fallback, not a
 change to the current L40S-only campaign: L40 jobs require the user's hardware

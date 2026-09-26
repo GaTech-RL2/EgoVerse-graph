@@ -67,6 +67,6 @@ valid_datasets:
 # One 2-GPU DDP run: 64 per rank x 2 ranks x accumulate 1 = effective global 128,
 # which is config/policy.yaml's launch_defaults.training.effective_global_batch_size.
 train_dataloader_params:
-  yam_bimanual: {batch_size: 64, num_workers: 6}
+  yam_bimanual: {batch_size: 32, num_workers: 6}
 valid_dataloader_params:
-  yam_bimanual: {batch_size: 64, num_workers: 6}
+  yam_bimanual: {batch_size: 32, num_workers: 6}

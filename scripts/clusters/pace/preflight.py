@@ -60,12 +60,13 @@ def model_check(experiment):
     # data key: MultiDataModuleWrapper builds one loader per training dataset.
     source = next(iter(cfg.data.train_datasets))
     batch_size = cfg.data.train_dataloader_params[source].batch_size
-    assert batch_size == 64, batch_size
+    assert batch_size == 32, batch_size
 
-    # Effective global batch = 64 * 2 ranks * 1 accumulation = 128, the value
-    # config/policy.yaml launch_defaults.training requires.
+    # Effective global batch = 32 * 2 ranks * 1 accumulation = 64. The user set
+    # this explicitly for this group; it overrides the 128 in
+    # config/policy.yaml launch_defaults.training.
     effective = batch_size * GPUS_PER_JOB * cfg.trainer.accumulate_grad_batches
-    assert effective == 128, effective
+    assert effective == 64, effective
 
     is_arc = "arc_tokenizer" in cfg.abc.action_mode
     if is_arc:

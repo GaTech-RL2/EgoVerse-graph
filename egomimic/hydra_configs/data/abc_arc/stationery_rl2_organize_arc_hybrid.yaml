@@ -85,6 +85,6 @@ valid_datasets:
     bounds_check: false
 
 train_dataloader_params:
-  yam_bimanual: {batch_size: 64, num_workers: 6}
+  yam_bimanual: {batch_size: 32, num_workers: 6}
 valid_dataloader_params:
-  yam_bimanual: {batch_size: 64, num_workers: 6}
+  yam_bimanual: {batch_size: 32, num_workers: 6}

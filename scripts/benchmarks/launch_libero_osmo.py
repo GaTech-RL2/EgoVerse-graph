@@ -350,8 +350,9 @@ def fast_workflow(
     task["environment"].pop("DP_BACKBONE")
     task["environment"].pop("DP_OUTPUT")
     if mode == "full":
-        # Five simulator workers can exceed the older 64 GiB evaluation limit.
-        spec["workflow"]["resources"]["evaluation"]["memory"] = "128Gi"
+        # Five workers can exceed 64 GiB. Stay below pool03's proportional
+        # memory limit: 989 GiB / eight GPUs is less than 128 GiB per GPU.
+        spec["workflow"]["resources"]["evaluation"]["memory"] = "120Gi"
         evaluation = spec["workflow"]["tasks"][1]
         evaluation["environment"].pop("DP_BACKBONE")
         evaluation["environment"].pop("DP_OUTPUT")

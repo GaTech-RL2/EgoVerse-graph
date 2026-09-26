@@ -279,6 +279,9 @@ def test_fast_launch_preserves_budget_and_separates_evaluation():
     assert evaluate["environment"]["EVALUATION_WORKERS"] == "5"
     assert workflow["resources"]["default"]["gpu"] == 4
     assert workflow["resources"]["evaluation"]["gpu"] == 1
+    assert (
+        int(workflow["resources"]["evaluation"]["memory"].removesuffix("Gi")) <= 989 / 8
+    )
     assert all(r["platform"] == "ovx-l40s" for r in workflow["resources"].values())
     args = training_arguments(
         "fast", "libero_spatial", "/data", "/evidence", "full", 5001, gpus=4

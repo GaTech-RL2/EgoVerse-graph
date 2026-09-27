@@ -1138,6 +1138,7 @@ class TokenizeBimanualArcLengthCartesian:
         dt: float = 1.0 / 30.0,
         zero_dist_epsilon: float = 1e-6,
         preserve_action_key: str | None = None,
+        preserve_action_rows: int | None = None,
         velocity_mode: str = "mean",
     ):
         self.action_key = action_key
@@ -1148,8 +1149,14 @@ class TokenizeBimanualArcLengthCartesian:
         # normal action-chunk sampling", and detokenizing the token to recover
         # it would be circular (the reconstruction spans D by construction, so
         # its travelled distance carries no information). Set this to keep an
-        # untouched copy alongside the token.
+        # untouched copy alongside the token. ``preserve_action_rows`` can
+        # make that copy rectangular for a variable-length source window.
         self.preserve_action_key = preserve_action_key
+        self.preserve_action_rows = (
+            None if preserve_action_rows is None else int(preserve_action_rows)
+        )
+        if self.preserve_action_rows is not None and self.preserve_action_rows <= 0:
+            raise ValueError("preserve_action_rows must be positive when provided")
         self.velocity_mode = validate_bimanual_velocity_mode(velocity_mode)
         # MEAN_PER_DIM velocity mode: we consume the per-axis xyz velocity
         # directly. ypr and gripper velocities are computed here (the base
@@ -1171,7 +1178,26 @@ class TokenizeBimanualArcLengthCartesian:
     def transform(self, batch: dict) -> dict:
         raw = np.asarray(batch[self.action_key], dtype=np.float64)
         if self.preserve_action_key is not None:
-            batch[self.preserve_action_key] = raw.copy()
+            preserved = raw.copy()
+            if self.preserve_action_rows is not None:
+                preserved = preserved[: self.preserve_action_rows]
+                if len(preserved) == 0:
+                    raise ValueError(
+                        f"{self.action_key!r} must contain at least one row to preserve"
+                    )
+                if len(preserved) < self.preserve_action_rows:
+                    preserved = np.concatenate(
+                        [
+                            preserved,
+                            np.repeat(
+                                preserved[-1:],
+                                self.preserve_action_rows - len(preserved),
+                                axis=0,
+                            ),
+                        ],
+                        axis=0,
+                    )
+            batch[self.preserve_action_key] = preserved
         arc = self.tokenizer.tokenize(raw)
         # Per-arm block emitted by BimanualArcLengthTokenizer (MEAN_PER_DIM):
         #   [xyz(3), ypr(3), grip(1), vel_xyz(3)] = 10 dims.
@@ -1281,10 +1307,15 @@ class TokenizeBimanualArcLengthCartesian:
             (7, 10, 13, slice(7, 10)),
         ):
             xyz_wp = waypoints[:, xyz_off : xyz_off + 3]
-            cumdist = cumulative_arc_length(xyz_wp)
             source_cum = cumulative_arc_length(raw[:, raw_xyz])
-            times = np.empty(len(xyz_wp), dtype=np.float64)
-            for index, arc_position in enumerate(cumdist):
+            # The waypoints are generated at these SOURCE arc coordinates.
+            # Do not use the waypoint polyline's chord cumulative distance as
+            # a lookup coordinate: on a curved path it is shorter than the
+            # source arc, shifting every timestamp after the first bend.
+            end_s = min(self.tokenizer.config.min_distance_unit, float(source_cum[-1]))
+            source_targets = np.linspace(0.0, end_s, len(xyz_wp))
+            times = np.empty(len(source_targets), dtype=np.float64)
+            for index, arc_position in enumerate(source_targets):
                 frame, alpha = _bracket_segment(source_cum, float(arc_position))
                 times[index] = (frame + alpha) * dt
             delta_t = np.diff(times)
@@ -1316,10 +1347,14 @@ class TokenizeBimanualArcLengthCartesian:
             (7, slice(7, 10)),
         ):
             xyz_wp = waypoints[:, xyz_off : xyz_off + 3]
-            cumdist = cumulative_arc_length(xyz_wp)
             source_cum = cumulative_arc_length(raw[:, raw_xyz])
-            times = np.empty(len(xyz_wp), dtype=np.float64)
-            for index, arc_position in enumerate(cumdist):
+            # Match the tokenizer's source-space targets exactly.  Re-using
+            # waypoint chord coordinates here underestimates timing on bends;
+            # durations must be measured at the original source timestamps.
+            end_s = min(self.tokenizer.config.min_distance_unit, float(source_cum[-1]))
+            source_targets = np.linspace(0.0, end_s, len(xyz_wp))
+            times = np.empty(len(source_targets), dtype=np.float64)
+            for index, arc_position in enumerate(source_targets):
                 frame, alpha = _bracket_segment(source_cum, float(arc_position))
                 times[index] = (frame + alpha) * dt
             delta_t = np.diff(times)

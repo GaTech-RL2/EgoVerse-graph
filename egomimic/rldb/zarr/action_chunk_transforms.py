@@ -20,8 +20,6 @@ import torch
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.utils.pose_utils import (
-    _rot6d_to_ypr,
-    _ypr_to_rot6d,
     _interpolate_euler,
     _interpolate_linear,
     _interpolate_quat_wxyz,
@@ -30,9 +28,11 @@ from egomimic.utils.pose_utils import (
     _matrix_to_xyzrot6d,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
+    _rot6d_to_ypr,
     _xyz_to_matrix,
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
+    _ypr_to_rot6d,
     wxyz_to_xyzw,
     xyzw_to_wxyz,
 )
@@ -61,7 +61,7 @@ class InterpolatePose(Transform):
 
     def __init__(
         self,
-        new_chunk_length: int,
+        new_chunk_length: int | None,
         action_key: str,
         output_action_key: str,
         stride: int = 1,
@@ -77,7 +77,18 @@ class InterpolatePose(Transform):
 
     def transform(self, batch: dict) -> dict:
         actions = np.asarray(batch[self.action_key])
+        # ``None`` means keep the native source window.  Ignore the legacy
+        # stride in this mode: ARC distance must be measured on every stored
+        # source sample, not on a subsampled action stream.
+        if self.new_chunk_length is None:
+            batch[self.output_action_key] = actions.copy()
+            return batch
         actions = actions[:: self.stride]
+        # A matching source/output length is also an identity operation; this
+        # matters for the 100-frame baseline, where interpolation is disabled.
+        if len(actions) == self.new_chunk_length:
+            batch[self.output_action_key] = actions.copy()
+            return batch
         if self.mode == "xyzwxyz":
             if actions.ndim != 2 or actions.shape[-1] != 7:
                 raise ValueError(
@@ -113,7 +124,7 @@ class InterpolateLinear(Transform):
 
     def __init__(
         self,
-        new_chunk_length: int,
+        new_chunk_length: int | None,
         action_key: str,
         output_action_key: str,
         stride: int = 1,
@@ -132,7 +143,15 @@ class InterpolateLinear(Transform):
                 f"InterpolateLinear expects (T, D), got {actions.shape} for key "
                 f"'{self.action_key}'"
             )
+        # As with InterpolatePose, ``None`` denotes native source rows and
+        # suppresses the legacy stride before ARC measures distance.
+        if self.new_chunk_length is None:
+            batch[self.output_action_key] = actions.copy()
+            return batch
         actions = actions[:: self.stride]
+        if len(actions) == self.new_chunk_length:
+            batch[self.output_action_key] = actions.copy()
+            return batch
         batch[self.output_action_key] = _interpolate_linear(
             actions, self.new_chunk_length
         )

@@ -223,6 +223,10 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         evaluator._is_arc_prediction(item["prediction"]) != is_arc for item in records
     ):
         raise ValueError("Mixed ARC/baseline representations within an episode")
+    if is_arc and getattr(evaluator, "arc_token_layout", "canonical") == "e1":
+        from egomimic.eval.e1_open_loop import score_e1_distance_dtw_episode
+
+        return score_e1_distance_dtw_episode(evaluator, records, gt, cumulative)
     budget = None
     if is_arc:
         if evaluator.velocity_mode != "per_waypoint":

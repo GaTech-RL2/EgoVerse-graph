@@ -409,9 +409,36 @@ class OpenLoopSimEval(BimanualCartesianEval):
         max_episode_frames: int = 6000,
         viz_every_n_epochs: int = 1,
         viz_max_batches: int | None = None,
+        arc_token_layout: str = "canonical",
+        e1_velocity_mode: str | None = None,
+        e1_velocity_norm: str = "path",
+        e1_min_speed: float = 0.01,
+        e1_source_frames: int | None = None,
+        oracle_predictions: bool = False,
         **kwargs,
     ):
         mode = str(action_mode)
+        # E1 bimanual ARC tokens (M, 16) of the YAM arc grid; see e1_open_loop.
+        self.arc_token_layout = str(arc_token_layout)
+        if self.arc_token_layout not in ("canonical", "e1"):
+            raise ValueError("arc_token_layout must be 'canonical' or 'e1'")
+        self.e1_velocity_mode = e1_velocity_mode
+        self.e1_velocity_norm = str(e1_velocity_norm)
+        self.e1_min_speed = float(e1_min_speed)
+        self.e1_source_frames = None if e1_source_frames is None else int(e1_source_frames)
+        self.oracle_predictions = bool(oracle_predictions)
+        if self.arc_token_layout == "e1":
+            from egomimic.eval.e1_open_loop import E1_TIMING_MODES
+
+            if self.e1_velocity_mode not in E1_TIMING_MODES:
+                raise ValueError(
+                    f"E1 M-based execution needs per-waypoint timing {E1_TIMING_MODES}, "
+                    f"got {self.e1_velocity_mode!r}"
+                )
+            if str(arc_execution_cap_mode) != "waypoints":
+                raise ValueError("E1 tokens support only arc_execution_cap_mode='waypoints'")
+            if self.e1_source_frames is None or self.e1_source_frames < 2:
+                raise ValueError("E1 tokens need e1_source_frames (the source window W)")
         if mode not in ("auto", "baseline", "arc"):
             raise ValueError("action_mode must be auto, baseline, or arc")
         if float(control_dt) <= 0:
@@ -443,6 +470,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         )
         if (
             mode == "arc"
+            and self.arc_token_layout == "canonical"
             and self.arc_execution_cap_mode == "waypoints"
             and self.velocity_mode != "per_waypoint"
         ):
@@ -879,6 +907,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
         return self.normalizer.unnormalize({key: value}, embodiment_id).get(key, value)
 
     def _is_arc_prediction(self, prediction: np.ndarray) -> bool:
+        if getattr(self, "arc_token_layout", "canonical") == "e1":
+            from egomimic.eval.e1_open_loop import is_e1_token
+
+            return is_e1_token(prediction, self.resampled_vector_length)
         expected = bimanual_arc_token_rows(
             self.resampled_vector_length, self.velocity_mode
         )
@@ -912,6 +944,21 @@ class OpenLoopSimEval(BimanualCartesianEval):
             if max_steps is not None:
                 steps = min(steps, int(max_steps))
             return prediction[:steps].copy(), steps
+
+        if getattr(self, "arc_token_layout", "canonical") == "e1":
+            from egomimic.eval.e1_open_loop import (
+                build_e1_tokenizer,
+                e1_prefix_control_steps,
+                e1_waypoint_prefix,
+            )
+
+            tokenizer = build_e1_tokenizer(self)
+            partial = e1_waypoint_prefix(prediction, self.execute_fraction)
+            steps = e1_prefix_control_steps(
+                tokenizer, partial, self.control_dt, max_steps=max_steps
+            )
+            decoded = tokenizer.detokenize(partial, action_horizon=steps)
+            return decoded.astype(np.float64, copy=False), steps
 
         if self._arc_tokenizer is None:
             from egomimic.rldb.zarr.arc_length_tokenizer import (
@@ -953,6 +1000,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             raise ValueError(
                 f"open_loop_sim expects batched predictions, got {type(prediction)} "
                 f"with shape {getattr(prediction, 'shape', None)}"
+            )
+        if getattr(self, "oracle_predictions", False):
+            # Floor measurement: score the batch's own (normalized) target tokens.
+            prediction = source_batch[self.action_key].to(
+                device=prediction.device, dtype=prediction.dtype
             )
         batch_size = int(prediction.shape[0])
         self._metric_device = prediction.device

@@ -51,6 +51,15 @@ trajectory_snapshot_path: null
 # Video-only checkpoint sweeps skip episode scoring and scalar/JSON metrics.
 video_only: false
 distance_dtw_enabled: true
+# E1 bimanual ARC tokens (M, 16) of the YAM arc grid (egomimic/eval/e1_open_loop.py):
+# arc_token_layout: e1, e1_velocity_mode: dur | profile, e1_source_frames: the fixed
+# source window W. oracle_predictions scores the GT tokens (the rollout's floor).
+arc_token_layout: canonical
+e1_velocity_mode: null
+e1_velocity_norm: path
+e1_min_speed: 0.01
+e1_source_frames: null
+oracle_predictions: false
 # Exact global alignment: fail explicitly at the bound, never silently drop
 # GT frames or clip slower predictions to the recorded episode's clock.
 dtw_max_cells: 50000000

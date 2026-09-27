@@ -948,17 +948,20 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if getattr(self, "arc_token_layout", "canonical") == "e1":
             from egomimic.eval.e1_open_loop import (
                 build_e1_tokenizer,
-                e1_prefix_control_steps,
-                e1_waypoint_prefix,
+                e1_execute_prefix,
+                waypoint_progress_fraction,
             )
 
-            tokenizer = build_e1_tokenizer(self)
-            partial = e1_waypoint_prefix(prediction, self.execute_fraction)
-            steps = e1_prefix_control_steps(
-                tokenizer, partial, self.control_dt, max_steps=max_steps
+            return e1_execute_prefix(
+                build_e1_tokenizer(self),
+                prediction,
+                progress_fraction=waypoint_progress_fraction(
+                    self.resampled_vector_length, self.execute_fraction
+                ),
+                control_dt=self.control_dt,
+                max_steps=max_steps,
+                max_prediction_steps=self.dtw_max_prediction_steps,
             )
-            decoded = tokenizer.detokenize(partial, action_horizon=steps)
-            return decoded.astype(np.float64, copy=False), steps
 
         if self._arc_tokenizer is None:
             from egomimic.rldb.zarr.arc_length_tokenizer import (

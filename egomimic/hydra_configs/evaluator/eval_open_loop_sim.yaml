@@ -37,7 +37,6 @@ arc_execution_cap_mode: waypoints
 # predicted and GT paths at execute_fraction * D combined left+right travel.
 arc_video_trajectory_cap_mode: joint_distance
 min_distance_unit: ${oc.select:abc.arc_distance,0.40}
-rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,null}
 resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
 # M-based execution requires the per-waypoint velocity layout. Distance mode
 # remains available explicitly and interpolates its terminal waypoint.
@@ -46,10 +45,6 @@ velocity_mode: ${oc.select:abc.arc_velocity_mode,per_waypoint}
 # Optional post-hoc checkpoint step used for logger x-axis alignment. Training
 # leaves this null and uses trainer.global_step.
 log_step: null
-# ARC token layout. lab = the (M+1, 14) / (2M, 14) layouts above, selected by
-# velocity_mode. e1_dur / e1_logdur / e1_profile = the E1 wide (M, 16) layouts,
-# decoded with the same codec robot/arc_decoder.py builds for that layout.
-token_layout: lab
 
 results_path: ${paths.output_dir}/open_loop_sim.json
 trajectory_snapshot_path: null

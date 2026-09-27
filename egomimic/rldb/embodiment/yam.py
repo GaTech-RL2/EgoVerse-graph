@@ -338,6 +338,36 @@ class Yam(Embodiment):
         }
 
     @classmethod
+    def get_keymap(
+        cls,
+        keymap_mode: str,
+        norm_mode: bool = False,
+        annotation_key=None,
+        camera_keys: dict | None = None,
+        min_distance_unit: float | None = None,
+        rotation_distance_unit: float | None = None,
+    ):
+        """Keep the raw-data read horizon aligned with configured ARC caps."""
+        key_map = super().get_keymap(
+            keymap_mode,
+            norm_mode=norm_mode,
+            annotation_key=annotation_key,
+            camera_keys=camera_keys,
+        )
+        for spec in key_map.values():
+            horizon = spec.get("horizon")
+            if not isinstance(horizon, dict):
+                continue
+            if min_distance_unit is not None:
+                horizon["distance"] = float(min_distance_unit)
+            if (
+                rotation_distance_unit is not None
+                and horizon.get("type") == "arc_hybrid"
+            ):
+                horizon["rotation_distance"] = float(rotation_distance_unit)
+        return key_map
+
+    @classmethod
     def _get_keymap(cls, keymap_mode: str):
         """Mirrors Eva's keymap: the zarr keys the converter writes are the same.
 

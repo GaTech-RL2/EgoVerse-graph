@@ -294,7 +294,9 @@ def test_original_abc_cotrain_study_shares_one_arcmatch_configuration():
         # reconstruction metrics, covered by test_robot_arc_campaigns.py. The
         # HPT180 towel launch recipes are likewise outside this original
         # ten-arm cotrain study.
-        if not p.stem.startswith(("abc_stationery_", "abc_towels_"))
+        if not p.stem.startswith(
+            ("abc_stationery_", "abc_towels_", "abc_multitask4_", "abc_visual_")
+        )
     )
     assert len(experiments) == 10, experiments
 

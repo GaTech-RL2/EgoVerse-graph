@@ -44,6 +44,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         self,
         *args,
         min_distance_unit: float,
+        rotation_distance_unit: float | None = None,
         resampled_vector_length: int,
         action_horizon: int = 100,
         dt: float = 1.0 / 30.0,
@@ -57,6 +58,14 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         )
 
         self.min_distance_unit = float(min_distance_unit)
+        if rotation_distance_unit is not None and (
+            not np.isfinite(float(rotation_distance_unit))
+            or float(rotation_distance_unit) <= 0.0
+        ):
+            raise ValueError("rotation_distance_unit must be positive and finite")
+        self.rotation_distance_unit = (
+            None if rotation_distance_unit is None else float(rotation_distance_unit)
+        )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
         self.action_horizon = int(action_horizon)
@@ -82,6 +91,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
             action_key=self.action_key,
             output_action_key=self.action_key,
             min_distance_unit=self.min_distance_unit,
+            rotation_distance_unit=self.rotation_distance_unit,
             resampled_vector_length=self.resampled_vector_length,
             dt=float(dt),
             preserve_action_key=None,

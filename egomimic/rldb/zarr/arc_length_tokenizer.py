@@ -1540,8 +1540,10 @@ class TokenizeBimanualArcLengthCartesian:
             step_by_arm.append(step)
             rate_by_arm.append(rate)
 
-        duration = np.zeros(self.M - 1, dtype=np.float64)
-        for index in range(self.M - 1):
+        # Evaluation/deployment may pass an execution prefix shorter than the
+        # tokenizer's configured full M (including a fractional last interval).
+        duration = np.zeros(len(waypoints) - 1, dtype=np.float64)
+        for index in range(len(waypoints) - 1):
             moving = [step[index] > 1e-12 for step in step_by_arm]
             if not any(moving):
                 duration[index] = 0.0
@@ -1566,7 +1568,7 @@ class TokenizeBimanualArcLengthCartesian:
         elapsed = np.concatenate(([0.0], np.cumsum(duration)))
         targets = self.tokenizer.config.dt * np.arange(action_horizon, dtype=np.float64)
         upper = np.searchsorted(elapsed, targets, side="right")
-        upper = np.clip(upper, 1, self.M - 1)
+        upper = np.clip(upper, 1, len(elapsed) - 1)
         lower = upper - 1
         start = elapsed[lower]
         end = elapsed[upper]

@@ -6,6 +6,7 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
+    StoreBimanualMetricFrame,
     ActionChunkCoordinateFrameTransform,
     ConcatKeys,
     DeleteKeys,
@@ -486,6 +487,8 @@ def _build_yam_bimanual_eef_frame_transform_list(
     proprio stays in the station world frame rather than a camera frame.
     """
     transform_list = [
+        *([StoreBimanualMetricFrame(left_obs_pose, right_obs_pose)]
+          if rotation_mode == "euler" else []),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_cmd_world,

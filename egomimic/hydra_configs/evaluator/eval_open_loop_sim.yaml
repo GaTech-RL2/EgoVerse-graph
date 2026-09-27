@@ -1,0 +1,78 @@
+# Episode-level open-loop segment simulation for bimanual cartesian policies.
+#
+# The evaluator collects predictions for every validation frame, then walks
+# each complete episode from frame 0. It executes the first fraction of each
+# chunk at the control frequency, compares those commands with ground truth,
+# and resumes from the recorded observation at the next boundary.
+#
+# For baseline runs, actions_cartesian is already a time-indexed control chunk.
+# For ARC runs, actions_cartesian_untokenized is the preserved control-space
+# ground-truth chunk. ARC capping happens before detokenization. Waypoint mode
+# keeps exactly execute_fraction * M waypoint and matching velocity rows;
+# distance mode interpolates the crossing at execute_fraction * D combined
+# left-plus-right EEF translation.
+
+defaults:
+  - viz@viz_func: cartesian/base
+  - _self_
+
+_target_: egomimic.eval.open_loop_sim.OpenLoopSimEval
+
+action_key: actions_cartesian
+ground_truth_action_key: actions_cartesian_untokenized
+
+# Main sweep knob. With the default waypoint cap, 0.30 and M=100 retain exactly
+# the first 30 waypoint rows and their 30 per-waypoint velocity rows. M times
+# execute_fraction must be an integer. Baseline mode executes 30/100 frames.
+execute_fraction: 0.30
+control_horizon: 100
+control_dt: 0.03333333333333333
+
+# auto detects (M+1, 14) / (2M, 14) ARC predictions and otherwise treats the
+# prediction as a (T, 14) baseline control chunk. Set explicitly when a custom
+# token row count could collide with the baseline horizon.
+action_mode: auto
+arc_execution_cap_mode: waypoints
+# ARC video overlays independently redraw every validation frame. Cap both the
+# predicted and GT paths at execute_fraction * D combined left+right travel.
+arc_video_trajectory_cap_mode: joint_distance
+min_distance_unit: ${oc.select:abc.arc_distance,0.40}
+resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
+# M-based execution requires the per-waypoint velocity layout. Distance mode
+# remains available explicitly and interpolates its terminal waypoint.
+velocity_mode: ${oc.select:abc.arc_velocity_mode,per_waypoint}
+
+# Optional post-hoc checkpoint step used for logger x-axis alignment. Training
+# leaves this null and uses trainer.global_step.
+log_step: null
+
+results_path: ${paths.output_dir}/open_loop_sim.json
+trajectory_snapshot_path: null
+# Video-only checkpoint sweeps skip episode scoring and scalar/JSON metrics.
+video_only: false
+require_episode_start: true
+# Episode-level limit. The datamodule uses this to retain complete episodes,
+# not an arbitrary prefix of validation batches. null evaluates every episode.
+limit_val_episodes: null
+# The episode walk depends on dataset order and contiguous frame indices.
+requires_ordered_validation: true
+
+# Match the normal evaluator's episode-aware overlay path. Every validation
+# sample contributes one rendered frame; EvalVideo cuts the stream on
+# episode_hash and writes one full-episode MP4 under this directory.
+obs_pose_key: observations.state.ee_pose
+image_key: observations.images.front_img_1
+revert_transforms:
+  yam_bimanual:
+    _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+    to_camera_frame: true
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    is_quat: false
+    gripper_padded: true
+video_output_dir: ${paths.output_dir}/val_videos
+video_chunk_frames: 1000
+max_episode_frames: 6000
+viz_every_n_epochs: 1
+viz_max_batches: null

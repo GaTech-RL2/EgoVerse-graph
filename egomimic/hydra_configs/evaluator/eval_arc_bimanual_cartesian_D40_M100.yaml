@@ -46,8 +46,8 @@ revert_transforms:
 # Arc metric families, all scored against the time-indexed ground truth the
 # tokenizer preserved (actions_cartesian_untokenized):
 #
-#   Valid/arcmatch_*   re-tokenized onto a matched per-arm span; travel is
-#                      divided out, so this is path SHAPE alone. Read
+#   Valid/arcmatch_*   re-tokenized on combined left-plus-right EEF travel;
+#                      distance is divided out, so this is path SHAPE. Read
 #                      arcmatch_span_m and arcmatch_travel_ratio beside it --
 #                      a policy that stalls scores well here while those fall.
 #   Valid/dtw_*        warped against the GT chunk; elastic in time, so unlike

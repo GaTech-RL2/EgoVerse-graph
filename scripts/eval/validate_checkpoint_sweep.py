@@ -155,7 +155,7 @@ def validation_command(
         ),
         encode_hydra_string_override("evaluator.video_output_dir", str(video_dir)),
         encode_hydra_string_override("logger.wandb.id", wandb_run_id),
-        encode_hydra_string_override("+logger.wandb.name", wandb_name),
+        encode_hydra_string_override("++logger.wandb.name", wandb_name),
         encode_hydra_string_override("logger.wandb.group", wandb_group),
         encode_hydra_string_override(
             "logger.wandb.job_type",
@@ -165,7 +165,7 @@ def validation_command(
                 else "offline_checkpoint_validation"
             ),
         ),
-        encode_hydra_string_override("+logger.wandb.resume", "allow"),
+        encode_hydra_string_override("++logger.wandb.resume", "allow"),
     ]
     if video_only:
         command.append("evaluator.video_only=true")

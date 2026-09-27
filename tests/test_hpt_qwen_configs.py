@@ -18,6 +18,10 @@ _LANG_EXPERIMENTS = (
     "abc_arc/abc_lang_mecka_fold_multitask_cotrain_baseline",
     "abc_arc/abc_lang_mecka_fold_multitask_cotrain_arcD40M100",
 )
+_MIXTURE_EXPERIMENT = (
+    "abc_arc/mixture_hpt_abc_fstshirt_mecka_freefold_cotrain_arcD40M100"
+)
+_CLOCK_EXPERIMENT = "abc_arc/clock_head_abc_fstshirt_mecka_freefold_cotrain_arcD40M100"
 
 _QWEN_STEM = "egomimic.models.stems.text_encoders.QwenPooledEncoder"
 _PROMPT_STAGE = "egomimic.pipeline.stages_hpt.AnnotationPromptStage"
@@ -45,8 +49,28 @@ def test_lang_experiments_compose(experiment):
         == "annotations"
     )
     assert "annotations" in cfg.data.train_datasets.yam_bimanual.batch_keys
-    assert cfg.evaluator.viz_func.yam_bimanual.annotation_key == "annotations"
-    assert cfg.evaluator.viz_func.human_bimanual.annotation_key == "annotations"
+
+
+def test_mixture_experiment_seeds_annotation_prompt_stage():
+    cfg = _compose(_MIXTURE_EXPERIMENT)
+    assert cfg.model.pipeline.stages[0]._target_ == (
+        "egomimic.pipeline.stages_hpt.AnnotationPromptStage"
+    )
+    for split in ("train_datasets", "valid_datasets"):
+        for embodiment in ("human_bimanual", "yam_bimanual"):
+            dataset = cfg.data[split][embodiment]
+            assert "annotations" in dataset.batch_keys
+            assert dataset.resolver.key_map.annotation_key == "annotations"
+
+
+@pytest.mark.parametrize("experiment", (_CLOCK_EXPERIMENT, _MIXTURE_EXPERIMENT))
+def test_dual_head_experiments_compose_with_split_flow(experiment):
+    cfg = _compose(experiment)
+    targets = [stage._target_ for stage in cfg.model.pipeline.stages]
+    assert "egomimic.pipeline.stages_dual_flow.DualFlowNoisingStage" in targets
+    assert "egomimic.pipeline.stages_dual_flow.DualFlowDenoiserStage" in targets
+    assert "egomimic.pipeline.stages_dual_flow.DualFlowVelocityLossStage" in targets
+    assert cfg.abc.arc_token_rows == 2 * cfg.abc.arc_waypoints
 
 
 def test_baseline_horizon_is_time_indexed():

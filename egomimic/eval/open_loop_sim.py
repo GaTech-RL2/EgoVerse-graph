@@ -569,6 +569,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         viz_func: Mapping | None = None,
         revert_transforms: Mapping | None = None,
         video_output_dir: str | None = None,
+        episode_dump_dir: str | None = None,
         video_chunk_frames: int = 1000,
         max_episode_frames: int = 6000,
         viz_every_n_epochs: int = 1,
@@ -627,6 +628,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
             raise ValueError("log_step must be nonnegative")
         self.token_layout = str(token_layout)
         self.results_path = Path(results_path) if results_path else None
+        # Opt-in: one .npz per scored episode with the executed predicted and ground-truth control steps
+        # (frame index, prediction, ground truth) for plotting. None (default) writes nothing.
+        self.episode_dump_dir = Path(episode_dump_dir) if episode_dump_dir else None
         self.trajectory_snapshot_path = (
             Path(trajectory_snapshot_path) if trajectory_snapshot_path else None
         )
@@ -1423,6 +1427,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         executed = 0
         segments = 0
         segment_control_steps = []
+        dump = [] if getattr(self, "episode_dump_dir", None) is not None else None
         cursor = frames[0]
         while cursor < end_frame:
             record = by_frame.get(cursor)
@@ -1446,10 +1451,22 @@ class OpenLoopSimEval(BimanualCartesianEval):
             sq["ypr_mse"] += float(np.square(error[:, YPR_COLS]).sum())
             sq["grip_mse"] += float(np.square(error[:, GRIP_COLS]).sum())
             sq["paired_mse"] += float(np.square(error[:, PAIRED_COLS]).sum())
+            if dump is not None:
+                dump.append((cursor, prediction[:n], ground_truth[:n]))
             executed += n
             segments += 1
             segment_control_steps.append(n)
             cursor += n
+        if dump:
+            self.episode_dump_dir.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(
+                self.episode_dump_dir / f"{records[0]['episode']}.npz",
+                segment_start=np.asarray([c for c, _, _ in dump], dtype=np.int64),
+                frame=np.concatenate([c + np.arange(len(p)) for c, p, _ in dump]).astype(np.int64),
+                prediction=np.concatenate([p for _, p, _ in dump]).astype(np.float32),
+                ground_truth=np.concatenate([g for _, _, g in dump]).astype(np.float32),
+                control_dt=np.asarray(self.control_dt, dtype=np.float64),
+            )
 
         episode_length = end_frame - frames[0]
         denominators = {

@@ -39,7 +39,7 @@ for CKPT in $CKPTS; do
       data=abc_arc/stationery_tempo_eval_${VARIANT}_${SET} \
       "evaluator.results_path=$OUT/open_loop_sim.json" \
       trainer.limit_val_batches=1.0 logger.wandb.offline=true \
-      "norm_stats.precomputed_norm_path=$NORM" \
+      "norm_stats.precomputed_norm_path=$NORM" ${EXTRA:-} \
       "paths.output_dir=$OUT" "hydra.run.dir=$OUT"
     test -s "$OUT/open_loop_sim.json" || { echo "missing $OUT/open_loop_sim.json" >&2; exit 1; }
     printf '%s\n' "$CKPT" > "$OUT/ckpt_path.txt"

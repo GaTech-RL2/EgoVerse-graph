@@ -11,6 +11,7 @@ import torch.nn as nn
 from torch.func import jvp
 
 from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
+from egomimic.pipeline.grouped_repeat import grouped_index_select
 
 
 def _key(value: str, *, label: str) -> str:
@@ -283,12 +284,12 @@ class LatentBridgeStage(Stage):
         base_index = torch.arange(batch_size, device=clean.device).repeat_interleave(
             count
         )
-        clean_many = clean.index_select(0, base_index)
+        clean_many = grouped_index_select(clean, base_index, count)
         if self.independent_noise_per_sample:
             noise_many = torch.randn_like(clean_many)
         else:
             noise_many = base_noise.to(dtype=clean.dtype).index_select(0, base_index)
-        condition_many = condition.index_select(0, base_index)
+        condition_many = grouped_index_select(condition, base_index, count)
 
         time = self._sample_time(batch_size * count, clean.device)
         time_view = time.to(dtype=clean.dtype).reshape(-1, *([1] * (clean.ndim - 1)))

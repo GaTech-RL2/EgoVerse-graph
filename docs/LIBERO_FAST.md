@@ -4,8 +4,11 @@ The September 26 request adds the released OAT-codebase FAST baseline on
 Spatial, Object, Goal and LIBERO-10. Existing ARC/OAT/plain-DP jobs continue;
 LIBERO-90 and ARC+OAT remain deferred. All new jobs request L40S at NORMAL
 priority. No other worktrees are used.
-The [launch table and source evidence](results/fast_libero_20260926.md) record
-the four accepted workflows; success rates remain pending.
+The [initial launch table](results/fast_libero_20260926.md) records the original
+four workflows. The [September 26 night progress](results/libero_progress_20260926_night.md)
+records verified optimizer updates and the accepted Spatial/Object recovery
+workflows after CUDA failures. Goal and LIBERO-10 continue training. FAST
+success rates remain pending.
 
 Sources are OAT commit `1da92695ef12c23b7000a0b1a76cab0aef4750e6`, specifically
 [`FASTPolicy`](https://github.com/Chaoqi-LIU/oat/blob/1da92695ef12c23b7000a0b1a76cab0aef4750e6/oat/policy/fastpolicy.py),

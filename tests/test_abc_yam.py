@@ -257,7 +257,7 @@ def test_yam_arc_uses_distance_buffer_not_fixed_action_horizon():
     assert specs
     assert all(spec["type"] == "arc_distance" for spec in specs)
     assert {spec["distance"] for spec in specs} == {0.40}
-    assert {spec["source_buffer_frames"] for spec in specs} == {600}
+    assert {spec["source_buffer_frames"] for spec in specs} == {200}
     assert {spec["require_all_arms"] for spec in specs} == {True}
 
     source = np.arange(37 * 7, dtype=np.float64).reshape(37, 7)

@@ -1471,17 +1471,46 @@ class TokenizeBimanualArcLengthCartesian:
         index, alpha = self._translation_bracket(cumulative, target)
         return (1.0 - alpha) * values[index] + alpha * values[index + 1]
 
+    def _translation_hold_index(self, cumulative: np.ndarray, end: float) -> int | None:
+        """Apply ``ArcLengthTokenizer.tokenize_at``'s zero-token rule to one arm.
+
+        That tokenizer refuses to resample a chunk covering less than
+        ``zero_dist_epsilon`` of travel and emits a held pose instead: position
+        repeated, translational velocity zero, but gripper and rotation still
+        carried to the end of the window. Both hybrid paths below build their
+        waypoints without ever reaching that tokenizer, and resampling a
+        zero-length distance coordinate freezes the whole arm, gripper
+        included. Restating the rule here keeps the hold token faithful.
+
+        Deliberately does not restate ``max_steps_per_chunk``: with a source
+        window fixed at the same 200 frames that rule can never fire upstream
+        either, and an arm that moves but cannot reach D inside the window is
+        specified to resample its available motion, not to hold
+        (test_multistream_short_arm_resamples_all_100_waypoints_then_holds_on_decode).
+
+        Returns the source index a hold carries its gripper to, or None when the
+        arm resamples normally.
+        """
+        if end >= self.tokenizer.config.zero_dist_epsilon:
+            return None
+        _, end_idx = _dist_interval_indices(cumulative, 0.0, end)
+        return end_idx
+
     def _translation_source_coordinates(self, raw: np.ndarray):
-        """Return each arm's source distance coordinate and waypoint targets.
+        """Return each arm's source coordinate, waypoint targets and hold index.
 
         Race shares the stopping time, not the interpolation distance. The
         complete source remains available to the independent rotation stream.
+        A non-None hold index means that arm emits a hold token this chunk.
         """
         distance = self.tokenizer.config.min_distance_unit
         if self.arc_chunking_mode == "joint_distance":
             cumulative = cumulative_bimanual_translation_length(raw)
-            targets = np.linspace(0.0, min(distance, float(cumulative[-1])), self.M)
-            return [(cumulative, targets), (cumulative, targets)]
+            end = min(distance, float(cumulative[-1]))
+            targets = np.linspace(0.0, end, self.M)
+            # Both arms share the joint clock, so they hold or move together.
+            hold = self._translation_hold_index(cumulative, end)
+            return [(cumulative, targets, hold), (cumulative, targets, hold)]
         cumulative = [
             cumulative_arc_length(raw[:, offset : offset + 3]) for offset in (0, 7)
         ]
@@ -1498,7 +1527,11 @@ class TokenizeBimanualArcLengthCartesian:
                 float(np.interp(race_frame, frames, values)) for values in cumulative
             ]
         return [
-            (values, np.linspace(0.0, end, self.M))
+            (
+                values,
+                np.linspace(0.0, end, self.M),
+                self._translation_hold_index(values, end),
+            )
             for values, end in zip(cumulative, ends)
         ]
 
@@ -1511,24 +1544,36 @@ class TokenizeBimanualArcLengthCartesian:
             rotation_cumulative, rotation_targets
         )
 
+        hold_alphas = np.linspace(0.0, 1.0, self.M)[:, None]
         arms = []
-        for offset, (translation_cumulative, translation_targets) in zip(
+        for offset, (translation_cumulative, translation_targets, hold) in zip(
             (0, 7), self._translation_source_coordinates(raw)
         ):
-            xyz = self._translation_values_at_targets(
-                raw[:, offset : offset + 3],
-                translation_cumulative,
-                translation_targets,
-            )
+            if hold is None:
+                xyz = self._translation_values_at_targets(
+                    raw[:, offset : offset + 3],
+                    translation_cumulative,
+                    translation_targets,
+                )
+                grip = self._translation_values_at_targets(
+                    raw[:, offset + 6 : offset + 7],
+                    translation_cumulative,
+                    translation_targets,
+                )
+            else:
+                # Hold token, matching tokenize_at's kind="zero" payload: repeat
+                # the arm's current position and walk its gripper to the end of
+                # the span the arm does cover.
+                xyz = np.repeat(raw[0:1, offset : offset + 3], self.M, axis=0)
+                grip = (1.0 - hold_alphas) * raw[0, offset + 6 : offset + 7] + (
+                    hold_alphas * raw[hold, offset + 6 : offset + 7]
+                )
+            # Rotation always keeps its own clock: a translation hold must not
+            # cut the independent rotation stream short.
             ypr = _slerp_segments_ypr(
                 raw[:, offset + 3 : offset + 6],
                 rotation_indices,
                 rotation_alpha,
-            )
-            grip = self._translation_values_at_targets(
-                raw[:, offset + 6 : offset + 7],
-                translation_cumulative,
-                translation_targets,
             )
             arms.append(np.concatenate([xyz, ypr, grip], axis=-1))
         return np.concatenate(arms, axis=-1)
@@ -1553,23 +1598,27 @@ class TokenizeBimanualArcLengthCartesian:
             np.inf,
         )
 
-        for offset, (translation_cumulative, translation_targets) in zip(
+        for offset, (translation_cumulative, translation_targets, hold) in zip(
             (0, 7), self._translation_source_coordinates(raw)
         ):
-            translation_times = self._translation_source_times(
-                translation_cumulative, translation_targets, dt
-            )
-            translation_dt = np.diff(translation_times)
-            translation_safe = np.where(
-                translation_dt > self.zero_dist_epsilon,
-                translation_dt,
-                np.inf,
-            )
-            for block_offset, width in ((offset, 3), (offset + 6, 1)):
-                block = waypoints[:, block_offset : block_offset + width]
-                rate = np.diff(block, axis=0) / translation_safe[:, None]
-                rows[:-1, block_offset : block_offset + width] = rate
-                rows[-1, block_offset : block_offset + width] = rate[-1]
+            # A held arm keeps its allocated zero rows: tokenize_at's zero token
+            # carries no translational velocity, and detokenization reads that
+            # zero rate as "this arm stays put for the whole chunk".
+            if hold is None:
+                translation_times = self._translation_source_times(
+                    translation_cumulative, translation_targets, dt
+                )
+                translation_dt = np.diff(translation_times)
+                translation_safe = np.where(
+                    translation_dt > self.zero_dist_epsilon,
+                    translation_dt,
+                    np.inf,
+                )
+                for block_offset, width in ((offset, 3), (offset + 6, 1)):
+                    block = waypoints[:, block_offset : block_offset + width]
+                    rate = np.diff(block, axis=0) / translation_safe[:, None]
+                    rows[:-1, block_offset : block_offset + width] = rate
+                    rows[-1, block_offset : block_offset + width] = rate[-1]
 
             ypr = waypoints[:, offset + 3 : offset + 6]
             rotations = _ypr_to_rotation(ypr)

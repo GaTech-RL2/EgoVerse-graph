@@ -149,3 +149,31 @@ def test_multistream_short_arm_resamples_all_100_waypoints_then_holds_on_decode(
     np.testing.assert_allclose(decoded[:, 7], np.minimum(0.1 * time, 0.4), atol=1e-9)
     np.testing.assert_allclose(decoded[300:, 3], 0.1, atol=1e-9)
     assert decoded[120, 3] < decoded[300, 3]
+
+
+@pytest.mark.parametrize("mode", ["race", "multistream"])
+def test_stationary_arm_hold_token_still_carries_its_gripper(mode):
+    """A held arm must match tokenize_at's kind="zero" payload.
+
+    That token repeats the position and zeroes translational velocity, but it
+    still walks the gripper to the end of the window.  Resampling a zero-length
+    distance coordinate instead freezes the gripper at frame 0, which is what
+    the hybrid paths did before they applied the rule themselves.
+
+    joint_distance is excluded on purpose: both arms share one clock, so a
+    stationary arm is carried by the other arm's travel and never holds.
+    """
+    raw = source_chunk()
+    raw[:, 7:10] = [0.2, 0.3, 0.4]
+    tokenizer = codec(mode)
+    token = tokenizer.transform({"actions_cartesian": raw})["actions_cartesian"]
+    np.testing.assert_allclose(token[:31, 7:10], np.tile([0.2, 0.3, 0.4], (31, 1)))
+    np.testing.assert_allclose(
+        token[:31, 13], np.linspace(raw[0, 13], raw[-1, 13], 31), atol=1e-12
+    )
+    # Translation is held, so the arm carries no translational or gripper rate.
+    np.testing.assert_allclose(token[31:, 7:10], 0.0)
+    np.testing.assert_allclose(token[31:, 13], 0.0)
+    # The rotation clock is untouched by the translation hold.
+    assert np.any(np.abs(token[31:, 10:13]) > 1e-9)
+    np.testing.assert_allclose(token[30, 10], 0.3, atol=1e-10)

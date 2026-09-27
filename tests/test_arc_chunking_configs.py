@@ -64,7 +64,7 @@ def test_retained_visual_recipes_forward_mode_and_caps(recipe, mode, monkeypatch
                     assert spec["horizon"]["arc_chunking_mode"] == mode
                     assert spec["horizon"]["distance"] == cfg.abc.arc_distance
                     assert spec["horizon"]["rotation_distance"] == cfg.abc.arc_rotation_distance
-                    assert spec["horizon"]["source_buffer_frames"] == 600
+                    assert spec["horizon"]["source_buffer_frames"] == 200
 
 
 @pytest.mark.parametrize("recipe", RECIPES)

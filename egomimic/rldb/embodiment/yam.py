@@ -130,10 +130,19 @@ class Yam(Embodiment):
     # source-frame count anymore.
     ARC_DISTANCE = 0.40
     ARC_ROTATION_DISTANCE = float(np.deg2rad(24.0))
-    # ARC reads a bounded 600-frame native source buffer, then cuts the
-    # shortest prefix satisfying the distance target.  This is deliberately a
-    # source-read buffer, not the model/token horizon.
-    ARC_SOURCE_BUFFER_FRAMES = 600
+    # ARC reads a bounded native source buffer, then cuts the shortest prefix
+    # satisfying the distance target.  This is deliberately a source-read
+    # buffer, not the model/token horizon.
+    #
+    # The bound is ARC_TOK_ACTION_HORIZON frames because that is the fixed
+    # source window main's ARC used before the window became distance-resolved.
+    # Within it the two are equivalent for every window whose arms reach D:
+    # frames past the D crossing feed no clock.  Past it they are not.  A
+    # larger bound only changes the windows where an arm is too slow for D, and
+    # there it trains the model on chunks several times longer in wall time
+    # than main's ARC ever produced -- multistream, which waits for both arms,
+    # ran a median of 372 frames against main's 200.
+    ARC_SOURCE_BUFFER_FRAMES = 200
     # Compatibility alias for older callers; this is a read buffer, never
     # the resolved per-sample ARC horizon.
     ARC_MAX_SOURCE_FRAMES = ARC_SOURCE_BUFFER_FRAMES

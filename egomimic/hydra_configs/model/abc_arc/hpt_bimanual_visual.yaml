@@ -11,7 +11,8 @@ pipeline:
           _target_: egomimic.models.stems.hpt_stems.ResNet
           output_dim: ${hpt.embed_dim}
           resnet_model: resnet18
-          weights: null
+          weights: DEFAULT
+          imagenet_normalize: true
           specs: ${hpt.stem_specs}
       domain_stems:
         yam_bimanual:
@@ -19,13 +20,15 @@ pipeline:
             _target_: egomimic.models.stems.hpt_stems.ResNet
             output_dim: ${hpt.embed_dim}
             resnet_model: resnet18
-            weights: null
+            weights: DEFAULT
+            imagenet_normalize: true
             specs: ${hpt.stem_specs}
           observations.images.right_wrist_img:
             _target_: egomimic.models.stems.hpt_stems.ResNet
             output_dim: ${hpt.embed_dim}
             resnet_model: resnet18
-            weights: null
+            weights: DEFAULT
+            imagenet_normalize: true
             specs: ${hpt.stem_specs}
           observations.state.ee_pose:
             _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem

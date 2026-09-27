@@ -191,7 +191,12 @@ def score_e1_distance_dtw_episode(evaluator, records, gt, cumulative) -> dict:
             raise ValueError("Episode exceeds dtw_max_cells; no GT/prediction samples were discarded")
         predictions.append(world_xyz(samples, record[METRIC_FRAME_KEY]))
         steps.append(n)
-    result = global_dtw(np.concatenate(predictions), gt, max_cells=evaluator.dtw_max_cells)
+    prediction = np.concatenate(predictions)
+    result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells,
+                        return_path=bool(getattr(evaluator, "rollout_dump_dir", None)))
+    from egomimic.eval.distance_budget_dtw import dump_rollout
+
+    dump_rollout(evaluator, records, prediction, gt, result, steps, anchors)
     result.update(
         metric_version=METRIC_VERSION,
         e1_anchor_rule=E1_ANCHOR_RULE,

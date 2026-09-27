@@ -7,6 +7,7 @@ one vote per recorded GT timestamp. Timing remains a separate diagnostic.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import numpy as np
 
@@ -157,6 +158,29 @@ def global_dtw(
     return result
 
 
+def dump_rollout(evaluator, records, prediction, gt, result, steps, anchors):
+    """Save one episode's scored rollout (world-frame XYZ) when rollout_dump_dir is set."""
+    directory = getattr(evaluator, "rollout_dump_dir", None)
+    if not directory:
+        return
+    out = Path(directory)
+    out.mkdir(parents=True, exist_ok=True)
+    episode = str(records[0].get("episode", records[0].get("episode_hash", "episode")))
+    path = result.pop("path", None)
+    result.pop("per_gt_cost", None)
+    result.pop("matches_per_gt", None)
+    np.savez_compressed(
+        out / f"{episode}.npz",
+        prediction_xyz=np.asarray(prediction, dtype=np.float32),
+        gt_xyz=np.asarray(gt, dtype=np.float32),
+        segment_steps=np.asarray(steps, dtype=np.int32),
+        anchor_frames=np.asarray([int(records[int(i)]["frame"]) for i in anchors], dtype=np.int32),
+        dtw_path=np.asarray(path if path is not None else np.zeros((0, 2)), dtype=np.int32),
+        control_dt=np.asarray(float(evaluator.control_dt)),
+        xyz_mse=np.asarray(float(result["xyz_mse"])),
+    )
+
+
 def fractional_waypoint_prefix(token: np.ndarray, fraction: float) -> np.ndarray:
     """Trim an already-capped per-waypoint token at fractional source progress.
 
@@ -294,7 +318,9 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         predictions.append(world_xyz(decoded, record[METRIC_FRAME_KEY]))
         steps.append(n)
     prediction = np.concatenate(predictions)
-    result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells)
+    result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells,
+                        return_path=bool(getattr(evaluator, "rollout_dump_dir", None)))
+    dump_rollout(evaluator, records, prediction, gt, result, steps, anchors)
     result.update(
         metric_version=METRIC_VERSION,
         segments=len(anchors),

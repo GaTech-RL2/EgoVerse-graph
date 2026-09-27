@@ -415,8 +415,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
         e1_min_speed: float = 0.01,
         e1_source_frames: int | None = None,
         oracle_predictions: bool = False,
+        rollout_dump_dir: str | None = None,
         **kwargs,
     ):
+        self.rollout_dump_dir = rollout_dump_dir
         mode = str(action_mode)
         # E1 bimanual ARC tokens (M, 16) of the YAM arc grid; see e1_open_loop.
         self.arc_token_layout = str(arc_token_layout)

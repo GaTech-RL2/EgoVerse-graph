@@ -60,6 +60,8 @@ e1_velocity_norm: path
 e1_min_speed: 0.01
 e1_source_frames: null
 oracle_predictions: false
+# Per-episode npz of the scored rollout (world XYZ, DTW path) for plotting.
+rollout_dump_dir: null
 # Exact global alignment: fail explicitly at the bound, never silently drop
 # GT frames or clip slower predictions to the recorded episode's clock.
 dtw_max_cells: 50000000

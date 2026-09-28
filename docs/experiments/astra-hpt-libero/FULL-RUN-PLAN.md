@@ -103,3 +103,38 @@ paired videos in self-contained HTML/ZIP. The twelve discarded diagnostic
 branches restore the same complete final snapshot and measure fixed training-
 only transfer windows after policy evaluation. No adaptation follows sealed
 test outcomes.
+
+## Explicit acquisition repair and versioned continuation
+
+The first launched coordinator did not implement specification-v2 section 03's
+permission to revise unfilled template geometry or typed teacher instructions.
+This omission became visible during U2 collection: the red-offset teacher
+exhausted its approach timeout. The coordinator was reversibly stopped at 229
+incurred attempts, after 63 accepted episodes; the sole pending worker completed
+its already reserved attempt. No learner, controller, quota, accepted data or
+frozen evaluation definition was changed by the pause.
+
+The continuation implementation adds the same explicit repair path for both
+arms. An immutable teacher-validity intent produces an exact native Astra repair
+request bound to the original decision, preceding revision, incurred operation
+prefix, accepted counts and remaining per-template quotas. Completed templates
+are frozen. The repaired decision must retain every template ID, stage and quota,
+pass the original grammar, scene-family firewall and two-new-signature gate, and
+fit the original generation and 300-attempt caps. Each accepted revision records
+its native exchange hashes and cutover attempt. Future own-arm generation
+archives include all original and revised scene signatures. Already generated
+future proposals with an obsolete archive remain counted and must be regenerated
+against their exact current runtime request.
+
+A versioned ledger copies the immutable pause snapshot and recovers the existing
+pending receipt without repeating its attempt. The original coordinator remains
+stopped and the original ledger stays preserved. Complete checkpoints, data and
+finished evaluations are reused through the existing recovery paths. A separate
+execution-source validation receipt is required, and Git blob comparisons enforce
+unchanged learner, controller, simulator, model/configuration and other scientific
+code. Only orchestration, revision validation and reporting may differ. Frozen
+data/checkpoint/bank hashes and the original manifest are checked at continuation
+startup. Immutable activation receipts identify the active ledger for monitors,
+exports and reports; original and execution source revisions are reported
+separately. This documents an implementation repair during acquisition, not a
+completed outcome or a reset of the experiment's budget.

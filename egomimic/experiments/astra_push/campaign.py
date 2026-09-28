@@ -137,6 +137,7 @@ def acquire(
     simulator,
     arm="common",
     round_index=0,
+    revisions=None,
 ):
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
@@ -163,7 +164,18 @@ def acquire(
         "SELECT COUNT(*) FROM operations WHERE phase=? AND kind='attempt'", (phase,)
     ).fetchone()[0]
     while used < cap and not ledger.phase_complete(phase):
+        if revisions is not None:
+            templates = revisions.apply(ledger).templates
         for template in templates:
+            # A newly requested validity repair must take effect before another
+            # reservation, including in the middle of a five-template sweep.
+            if revisions is not None:
+                current = revisions.apply(ledger)
+                template = next(
+                    item
+                    for item in current.templates
+                    if item.template_id == template.template_id
+                )
             name = template.template_id
             if ledger._accepted(phase, name) >= quotas[name] or used >= cap:
                 continue
@@ -505,13 +517,21 @@ def train_phase(
     return final
 
 
-def run(output, *, source_commit, stop_after=None):
+def run(output, *, source_commit, stop_after=None, continuation=None):
     root = Path(output).resolve()
     root.mkdir(parents=True, exist_ok=True)
     cfg = config()
     manifest = {"config": cfg, "source_commit": source_commit}
     immutable(root / "run-manifest.json", manifest)
-    ledger = Ledger(root / "ledger.sqlite", manifest)
+    execution_source_commit = source_commit
+    ledger_path = root / "ledger.sqlite"
+    if continuation:
+        from egomimic.experiments.astra_push.continuation import open_continuation
+
+        ledger_path, execution_source_commit = open_continuation(
+            root, continuation, source_commit=source_commit
+        )
+    ledger = Ledger(ledger_path, manifest)
     simulator = Simulator(root)
     try:
         proposal, _ = load_generated(cfg["generation_archive"])
@@ -665,6 +685,14 @@ def run(output, *, source_commit, stop_after=None):
                     quotas=quotas,
                 )
                 ledger.transition(phase, SEQUENCE, "decision", canonical_hash(decision))
+                from egomimic.experiments.astra_push.revisions import RevisionManager
+
+                revisions = RevisionManager(
+                    root / "generation" / phase,
+                    original=decision,
+                    archive=archives[arm],
+                    bank=bank,
+                )
                 data = acquire(
                     root / "data" / phase,
                     phase=phase,
@@ -675,7 +703,11 @@ def run(output, *, source_commit, stop_after=None):
                     simulator=simulator,
                     arm=arm,
                     round_index=round_index,
+                    revisions=revisions,
                 )
+                # Completed phases can be revisited on continuation without
+                # entering acquire's attempt loop. Recover their full lineage.
+                revisions.apply(ledger)
                 records[arm].extend(data["accepted"])
                 ledger.transition(
                     phase,
@@ -719,15 +751,7 @@ def run(output, *, source_commit, stop_after=None):
                     phase, SEQUENCE, "committed", checkpoints[arm]["sha256"]
                 )
                 reports[arm], frame_banks[arm] = report, frames
-                archives[arm].extend(
-                    {
-                        "source_arm": arm,
-                        "scene_hash": canonical_hash(t.scene),
-                        "structural_signature": t.scene.structural_signature(),
-                        "stage": t.scene.stage,
-                    }
-                    for t in decision.templates
-                )
+                archives[arm].extend(revisions.archive_entries())
         finals = {
             "warm_start": warm,
             "U_final": checkpoints["U"],
@@ -758,6 +782,8 @@ def run(output, *, source_commit, stop_after=None):
                 "main_updates": 5000,
                 "diagnostic_updates": 240,
                 "ledger": ledger.summary(),
+                "ledger_path": str(ledger_path),
+                "execution_source_commit": execution_source_commit,
                 "checkpoints": finals,
             },
         )
@@ -771,4 +797,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--stop-after", choices=["warm-start"])
+    parser.add_argument(
+        "--continuation", help="Immutable versioned continuation receipt"
+    )
     run(**vars(parser.parse_args()))

@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from egomimic.experiments.astra_push.artifacts import file_hash, publish_json
+from egomimic.experiments.astra_push.continuation import active_ledger
 from egomimic.experiments.astra_push.partitions import config
 
 
@@ -218,6 +219,19 @@ def report_campaign(root):
         control_reports=controls,
         allocations={p: d["allocations"] for p, d in decisions.items()},
         source_manifest_hash=file_hash(root / "run-manifest.json"),
+        active_ledger_path=str(active_ledger(root)),
+        continuations=[
+            json.loads(path.read_text())
+            for path in sorted(root.glob("continuations/continuation-*/receipt.json"))
+        ],
+        acquisition_revisions={
+            phase.name: [
+                json.loads(path.read_text())
+                for path in sorted(phase.glob("revisions/revision-*/committed.json"))
+            ]
+            for phase in sorted((root / "generation").iterdir())
+            if phase.is_dir()
+        },
     )
     summary["signals"] = {
         "learning": {

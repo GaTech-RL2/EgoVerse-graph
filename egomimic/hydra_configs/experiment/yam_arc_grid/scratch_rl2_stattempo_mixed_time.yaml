@@ -1,6 +1,6 @@
 # @package _global_
 # FROM SCRATCH, RL2-only sort stationery, tempo bucket 'mixed' (133 eps; see the data config header), variant time.
-# One of 8 cells {slow, medium, fast, mixed} x {time, arcdur} sharing loader path, recipe (Elmo h640t8_d384x10, 240k, warmup 10k,
+# One of the stationery tempo cells {slow, medium, fast, mixed, slowpace, all} x {time, arcdur} sharing loader path, recipe (Elmo h640t8_d384x10, 240k, warmup 10k,
 # seed 42), evaluator (BimanualTempoEval) and the same 24-episode held-out validation set (8 per bucket). GENERATED from the
 # towels394 time cell by scripts/e1/make_stationery_tempo_configs.py.
 defaults:

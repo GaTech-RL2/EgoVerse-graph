@@ -6,7 +6,7 @@ import os
 man = json.load(open("scripts/e1/stationery_tempo_manifest.json"))["sets"]
 cfgdir = os.path.abspath("egomimic/hydra_configs")
 bad = 0
-for b in ("slow", "medium", "fast", "mixed"):
+for b in sys.argv[1].split(",") if len(sys.argv) > 1 else ("slow", "medium", "fast", "mixed"):
     for v in ("time", "arcdur"):
         with initialize_config_dir(config_dir=cfgdir, version_base=None):
             cfg = compose(config_name="train_zarr_cartesian", overrides=[f"+experiment=yam_arc_grid/scratch_rl2_stattempo_{b}_{v}", "paths.output_dir=/tmp/x", "hydra.run.dir=/tmp/x"], return_hydra_config=False)

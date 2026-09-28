@@ -140,7 +140,7 @@ def data_cfg(man, variant, train, valid, what):
             + "valid_datasets:\n" + LEAF.format(mirror=MIRROR, variant=variant, lam=lam(sets[valid]["episodes"])) + TAIL)
 
 
-def experiment(template, bucket, variant):
+def experiment(template, bucket, variant, n_eps=133):
     t = template
     old = "scratch_rl2_towels394_time"
     new = f"scratch_rl2_stattempo_{bucket}_{variant}"
@@ -151,8 +151,8 @@ def experiment(template, bucket, variant):
     t = t.replace("    - towels\n    - towels394\n", f"    - stationery\n    - stattempo\n    - tempo_{bucket}\n")
     first = t.index("\n", t.index("\n", t.index("\n") + 1) + 1)  # replace the 2-line header comment
     t = ("# @package _global_\n"
-         f"# FROM SCRATCH, RL2-only sort stationery, tempo bucket '{bucket}' (133 eps; see the data config header), variant {variant}.\n"
-         "# One of 8 cells {slow, medium, fast, mixed} x {time, arcdur} sharing loader path, recipe (Elmo h640t8_d384x10, 240k, warmup 10k,\n"
+         f"# FROM SCRATCH, RL2-only sort stationery, tempo bucket '{bucket}' ({n_eps} eps; see the data config header), variant {variant}.\n"
+         "# One of the stationery tempo cells {slow, medium, fast, mixed, slowpace, all} x {time, arcdur} sharing loader path, recipe (Elmo h640t8_d384x10, 240k, warmup 10k,\n"
          "# seed 42), evaluator (BimanualTempoEval) and the same 24-episode held-out validation set (8 per bucket). GENERATED from the\n"
          "# towels394 time cell by scripts/e1/make_stationery_tempo_configs.py." + t[first:])
     if variant == "arcdur":
@@ -175,16 +175,17 @@ def main():
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--repo", required=True)
     ap.add_argument("--lambda", dest="lam", action="store_true", help="also write the *_lambda twins")
+    ap.add_argument("--pools", default=",".join(BUCKETS), help="comma list of train_<pool> sets to write (default: the 4 tempo pools)")
     args = ap.parse_args()
     man = json.load(open(args.manifest))
     dd = os.path.join(args.repo, "egomimic/hydra_configs/data/abc_arc")
     ed = os.path.join(args.repo, "egomimic/hydra_configs/experiment/yam_arc_grid")
     template = open(os.path.join(ed, "scratch_rl2_towels394_time.yaml")).read()
     for v in VARIANTS:
-        for b in BUCKETS:
+        for b in args.pools.split(","):
             write(os.path.join(dd, f"stationery_tempo_{b}_{v}.yaml"),
                   data_cfg(man, v, f"train_{b}", "val", f"training on train_{b}, in-training validation on val (8 per bucket)"))
-            exp = experiment(template, b, v)
+            exp = experiment(template, b, v, man["sets"][f"train_{b}"]["n"])
             write(os.path.join(ed, f"scratch_rl2_stattempo_{b}_{v}.yaml"), exp)
             if args.lam:
                 write(os.path.join(dd, f"stationery_tempo_{b}_{v}_lambda.yaml"),

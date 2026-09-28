@@ -10,6 +10,13 @@ from egomimic.experiments.astra_push.schemas import SceneSpec, TaskSpec
 
 def resolve_instruction(scene, instruction, initial_positions):
     """Resolve student language independently of the teacher's object argument."""
+    # Independent parsing of the two frozen held-out surface realizations.
+    reordered = re.fullmatch(r"Leave (.+) in place\. (Push .+)\.", instruction)
+    if reordered:
+        instruction = f"{reordered[2]}. Leave {reordered[1]} in place."
+    separated = re.fullmatch(r"(Push .+); leave (.+) in place\.", instruction)
+    if separated:
+        instruction = f"{separated[1]}. Leave {separated[2]} in place."
     if scene.stage == "S1" and instruction == "Push the block into the target.":
         return scene.cubes[0].name, "target"
     if scene.stage == "S2":

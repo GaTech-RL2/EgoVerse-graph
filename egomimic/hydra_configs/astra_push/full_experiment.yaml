@@ -1,0 +1,47 @@
+version: astra-hpt-full-20260928-v1
+seed: 17
+simulator_python: /tmp/simulator-env/bin/python
+commissioning_evidence: docs/experiments/astra-hpt-libero/evidence/subagent-pilot-v2
+generation_archive: docs/experiments/astra-hpt-libero/evidence/subagent-pilot-v1/generation/commissioning-001
+prior_commissioning_attempts: 62
+prior_generation_calls: 4
+seed_episodes: 120
+seed_attempt_cap: 480
+common_updates: 1000
+rounds: 4
+round_episodes: 75
+round_attempt_cap: 300
+round_updates: 500
+checkpoint_interval: 100
+generation_wait_seconds: 21600
+worker_timeout_seconds: 7200
+policy_timeout_seconds: 120
+training:
+  batch_size: 4
+  gradient_clip_norm: 1.0
+evaluation:
+  control_templates_per_stage: 4
+  control_states_per_template: 3
+  development_pair_templates_per_stage: 4
+  development_states_per_template: 2
+  sealed_pair_templates_per_stage: 8
+  sealed_states_per_template: 3
+  bootstrap_resamples: 10000
+  save_video_state_indices: [0]
+  frame_steps: [0, 49, 99, 149]
+  family_precision_m: 0.01
+  family_exclusion_tolerance_m: 0.0075
+  geometry:
+    initial_x_range: [-0.055, -0.015]
+    lane_y_range: [0.091, 0.122]
+    push_dx_range: [0.092, 0.135]
+    target_y_delta_range: [-0.010, 0.010]
+    target_half_width_range: [0.041, 0.051]
+    marker_x_range: [-0.185, -0.140]
+    placement_half_width: 0.03
+diagnostic:
+  candidates_per_stage: 4
+  windows_per_candidate: 4
+  draws: 2
+  branch_updates: 20
+  transfer_windows_per_stage: 16

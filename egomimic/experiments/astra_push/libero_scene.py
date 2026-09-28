@@ -20,7 +20,12 @@ from libero.libero.utils.mu_utils import InitialSceneTemplates
 from robosuite.models.objects import BoxObject, CylinderObject
 
 from egomimic.experiments.astra_push.artifacts import file_hash, publish_json
-from egomimic.experiments.astra_push.schemas import SceneSpec, TaskSpec, canonical_hash
+from egomimic.experiments.astra_push.schemas import (
+    SceneSpec,
+    TaskSpec,
+    canonical_hash,
+    instruction_for,
+)
 
 
 class RedCube(BoxObject):
@@ -184,10 +189,14 @@ def compile_scene(scene, task, output):
             == (task.referent == "left")
         )
     saved = dict(task_generation_utils.TASK_INFO)
+    # BDDL treats semicolons as comments, including inside its language field.
+    # Compile the trusted semantic canonical form; the immutable TaskSpec keeps
+    # the actual surface realization supplied to the student and evaluator.
+    bddl_instruction = instruction_for(scene.stage, task.referent, task.destination)
     try:
         task_generation_utils.TASK_INFO.clear()
         task_generation_utils.register_task_info(
-            task.instruction,
+            bddl_instruction,
             name,
             objects_of_interest=[c.name for c in scene.cubes],
             goal_states=[("On", selected, f"main_table_goal_{task.destination}")],
@@ -215,6 +224,7 @@ def compile_scene(scene, task, output):
             "schema_version": 1,
             "scene_hash": canonical_hash(scene),
             "task_hash": canonical_hash(task),
+            "bddl_instruction": bddl_instruction,
             "structural_signature": scene.structural_signature(),
             "registered_scene": name,
             "problem": "AstraPush",

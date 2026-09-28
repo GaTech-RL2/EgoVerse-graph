@@ -11,6 +11,7 @@ from egomimic.experiments.astra_push.schemas import (
     TaskSpec,
     TeacherProgram,
     canonical_hash,
+    instruction_for,
 )
 
 SHA256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -24,6 +25,12 @@ class TaskProposal(Contract):
     instruction: str
 
     def bind(self, scene):
+        if self.instruction != instruction_for(
+            scene.stage, self.referent, self.destination
+        ):
+            raise ValueError(
+                "Generated training tasks must use the canonical language realization"
+            )
         task = TaskSpec(
             schema_version="astrapush-1",
             scene_hash=canonical_hash(scene),
@@ -142,7 +149,7 @@ class ProbeCounts(Contract):
 class LearnerReport(Contract):
     schema_version: Literal["astrapush-control-report-1"]
     partition: Literal["training-control"]
-    arm: Literal["common", "A"]
+    arm: Literal["common", "A", "U"]
     checkpoint_hash: SHA256
     probe_manifest_hash: SHA256
     completed_round: Annotated[int, Field(ge=0, le=4)]
@@ -151,6 +158,17 @@ class LearnerReport(Contract):
     previous_allocation: Allocations | None
     frame_sequence_hashes: Annotated[list[SHA256], Field(max_length=6)]
     inferred_error_categories: Annotated[list[str], Field(max_length=8)]
+    stage_success_deltas: dict[Literal["S1", "S2", "S3"], int] = Field(
+        default_factory=dict
+    )
+    teacher_yield: dict[str, dict[str, int]] = Field(default_factory=dict)
+    remaining_rounds: Annotated[int, Field(ge=0, le=4)] = 4
+    case_successes: dict[str, bool] = Field(default_factory=dict)
+    stage_forgetting_counts: dict[Literal["S1", "S2", "S3"], Nonnegative] = Field(
+        default_factory=dict
+    )
+    remaining_accepted_episodes: Nonnegative = 300
+    remaining_optimizer_updates: Nonnegative = 2000
 
     @model_validator(mode="after")
     def all_stages(self):

@@ -166,7 +166,7 @@ class TaskSpec(Contract):
         if self.scene_hash != canonical_hash(scene):
             raise ValueError("Task refers to a different immutable scene")
         expected = instruction_for(scene.stage, self.referent, self.destination)
-        if self.instruction != expected:
+        if self.instruction not in instruction_realizations(expected):
             raise ValueError("Instruction must match the trusted semantic grammar")
         if len(self.instruction.encode("utf-8")) > 254:
             raise ValueError("Instruction exceeds byte-language capacity")
@@ -232,6 +232,14 @@ def instruction_for(stage, referent, destination):
     ):
         return f"Push the block {referent} of the marker to the {destination} target. Leave the other block in place."
     raise ValueError("Referent/destination are outside the stage grammar")
+
+
+def instruction_realizations(canonical):
+    """Frozen grammar realizations; only the first is allowed in generated data."""
+    if ". Leave " not in canonical:
+        return (canonical,)
+    push, leave = canonical.split(". Leave ", 1)
+    return (canonical, "Leave " + leave + " " + push + ".", push + "; leave " + leave)
 
 
 class Skill(Contract):

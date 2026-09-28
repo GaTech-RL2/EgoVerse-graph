@@ -1,0 +1,13 @@
+{
+  "name": "astra-hpt-calibration-20260928-v3-1",
+  "uuid": "9150565222674477860b049f516dc323",
+  "submit_time": "2026-09-28T17:08:29.962838",
+  "start_time": "2026-09-28T17:08:38.646612",
+  "end_time": "2026-09-28T17:16:47.189369",
+  "duration": 488.542757,
+  "queued_time": 8.683774,
+  "status": "COMPLETED",
+  "pool": "groot-l40-01",
+  "backend": "ovx-l40-01",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/astra-hpt-calibration-20260928-v3-1"
+}

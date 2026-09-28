@@ -1,0 +1,31 @@
+{
+  "repository": "GaTech-RL2/EgoVerse-graph",
+  "recorded_date_utc": "2026-09-28",
+  "layers": [
+    {
+      "pr": 178,
+      "head": "3f989c270daf52a820ce6e06c9b4e5350e8b2ef0",
+      "run_id": 36456473310,
+      "static": "success",
+      "cpu_and_wheel": "success"
+    },
+    {
+      "pr": 179,
+      "head": "58bbeb8c8328788ae4ef7fcc3184f31cdf037ac1",
+      "run_id": 36456471622,
+      "static": "success",
+      "cpu_and_wheel": "success"
+    },
+    {
+      "pr": 180,
+      "head": "5e7bd472e0882ac09a2f9805bc48dc4c69d15870",
+      "run_id": 36456471469,
+      "static": "success",
+      "cpu_and_wheel": "success",
+      "pytest_passed": 1481,
+      "pytest_seconds": 439.26
+    }
+  ],
+  "production_optimizer_updates": 0,
+  "learned_policy_performance_measured": false
+}

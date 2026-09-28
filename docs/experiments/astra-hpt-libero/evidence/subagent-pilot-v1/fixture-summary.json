@@ -1,0 +1,49 @@
+{
+  "category": "synthetic_report_contract_tests",
+  "commissioning_generation_calls": 1,
+  "conditions": {
+    "fixture-basic": {
+      "allocations": {
+        "S1": 25,
+        "S2": 30,
+        "S3": 20
+      },
+      "learner_report_supplied": true,
+      "rationale": "This is a synthetic engineering contract fixture, not evidence of measured learner behavior. Conditional on its constructed error pattern, allocate 25 episodes to basic displacement, 30 to color selection with both requested colors, and 20 to relational selection with both sides of the marker. All stages receive prerequisite practice because the fixture reports zero successes. Straight 0.12 m nominal pushes and separated lanes keep the displacement demand comparable while color and marker-relative instructions vary selection. Staggered starting X positions and changed lane spacing provide composition variation across the paired S2 and S3 templates. These authored regions and programs are proposals, not verified physics outcomes.",
+      "request_hash": "51c59e6ef2e9bd6e9c44eae10472b7eb3feb60a566531981f03987f556d6e076",
+      "response_hash": "f79b32f0d80b90ce0dd22eaa087a2beeba1b07b9aa2468276bc9932503debd5c",
+      "valid": true
+    },
+    "fixture-spatial": {
+      "allocations": {
+        "S1": 5,
+        "S2": 10,
+        "S3": 60
+      },
+      "learner_report_supplied": true,
+      "rationale": "This is a synthetic engineering fixture, not measured learner performance. The constructed report concentrates wrong-object errors in S3 (12 of 12 trials), with two wrong-object errors in S2 and one displacement failure in S1. Allocate 60 episodes to spatial referent practice, 10 to color selection, and 5 to basic pushing. Three spatial templates alternate the requested side and vary marker position, lateral separation, and push length while keeping the other cube clear. S1 retains a short straight push; S2 requests blue on the smaller-Y side to separate color identity from spatial side. These are proposed accepted-episode quotas, not observed acceptance or physics success.",
+      "request_hash": "548d9d0a78d1cbb958362a79b31e115949c6edb00b4b2d48035657a919497314",
+      "response_hash": "372093c728ec92828f2420375cb84954c494d8bf2f28cf1a6ce696a55b8da4f5",
+      "valid": true
+    },
+    "fixture-uniform": {
+      "allocations": {
+        "S1": 25,
+        "S2": 25,
+        "S3": 25
+      },
+      "learner_report_supplied": false,
+      "rationale": "Uniform engineering contract fixture: each stage receives exactly 25 accepted episodes without learner performance information. One single-object template supplies S1; paired templates in S2 and S3 cover both selected objects and destinations with changed placement and target geometry. Short direct pushes, separated regions, and five ordered skills follow the supplied constraints. Consolidate denotes repeated stage coverage, not an inference of learner mastery.",
+      "request_hash": "69b030fe2efca969cb6c85178200fdadcab56aaff2d34460187d277db64364ab",
+      "response_hash": "6469a59c9cd4e3e36b18f6cca2c718d760064fa78770e6732e8c4075e2f7da21",
+      "valid": true
+    }
+  },
+  "fixture_generation_calls": 3,
+  "measured_learner_results": false,
+  "repairs": 0,
+  "requested_model": "gpt-6-astra",
+  "total_logical_calls": 4,
+  "transport": "codex_subagent",
+  "usage": null
+}

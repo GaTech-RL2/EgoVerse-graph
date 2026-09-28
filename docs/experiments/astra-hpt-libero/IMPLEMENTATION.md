@@ -5,6 +5,26 @@ explicitly selected **EgoVerse-graph**, overriding its proposed AstraExps
 repository. This work builds on integration PR #159; it does not replace or
 modify the previous Astra-reversal or DQC experiments.
 
+## Current measured scope
+
+The user-authorized Codex `gpt-6-astra` subagent route has passed generated
+commissioning on one OSMO L40: six novel templates, 30 accepted demonstrations
+in 31 attempts, six exact fresh-process restores, frozen thirty-episode
+normalization, and a discarded real-data HPT update with gradients in all six
+components. Source `41778ab32bb84d10bea8745763bfe8107f152b56` includes the visual
+correction that distinguishes the yellow reference marker from gray optional
+fixtures. The earlier 31 attempts remain preserved and charged against the
+shared 120 cap; cumulative use is 62. See [SUBAGENT-PILOT.md](SUBAGENT-PILOT.md)
+and [`evidence/subagent-pilot-v2/`](evidence/subagent-pilot-v2/).
+
+Three further actual Astra calls passed synthetic-report decision fixtures;
+the uniform call received no learner feedback. These are interface checks.
+There have been **zero production optimizer updates or student policy
+rollouts**. Frozen evaluation partitions, common seed training, the full round
+coordinator, matched U/A evaluation and the gradient diagnostic remain open.
+The source-pinned gateway failures below are historical; no gateway renewal
+is required for the separately documented subagent route.
+
 ## Implemented foundation
 
 - The shared HPT graph has two independently initialized ResNet18 encoders,
@@ -55,7 +75,7 @@ static fixture geometry and marker relations, and ignores labels/colors alone.
 Stock-scene inventory comparison and the six generated-scene witness gate
 remain separate requirements.
 
-## Validation and limitations
+## Earlier foundation validation and limitations
 
 CPU checks: 49 focused tests passed, covering temporal alignment, masking,
 language gradients, instruction semantics, preservation/lift failures,
@@ -96,11 +116,12 @@ tests the real three-stage HDF5 batch on the exact learner. Its identity
 proprioception transform is explicitly engineering-only; W04 must still freeze
 statistics from thirty accepted generated commissioning demonstrations.
 
-No production training is enabled here. Astra commissioning, the frozen split
-firewall, complete checkpoint/round coordinator, paired policy evaluation and
-gradient diagnostic still need implementation and measured gates.
+No production training is enabled here. Astra commissioning is now measured
+through the subagent route described above. The frozen split firewall, complete
+checkpoint/round coordinator, paired policy evaluation and gradient diagnostic
+still need implementation and measured gates.
 
-## Protocol layer and current blocker
+## Protocol layer and historical gateway blocker
 
 The next stack layer adds strict decisions with five positive templates,
 exact 75-episode quotas, and immutable per-template allocations during repair.
@@ -108,8 +129,9 @@ Uniform context rejects learner reports and adaptive-arm archives; adaptive
 decisions bind to a frozen training-control report. The SQLite ledger locks
 ownership to one coordinator, reserves cost before external work, preserves
 pending attempts across crashes, rejects changed outcomes/caps, and records
-ordered transitions. These pieces are tested; the end-to-end round runner
-and actual-provider W07 fixtures are still pending.
+ordered transitions. These pieces are tested; the end-to-end round runner is
+still pending. Actual Astra W07 synthetic-report fixture calls subsequently
+passed through the user-authorized subagent route.
 
 The v2 catalog responses identify **budget_exceeded**, not transient capacity.
 The existing credential had reached its 5000-unit budget before this pilot;

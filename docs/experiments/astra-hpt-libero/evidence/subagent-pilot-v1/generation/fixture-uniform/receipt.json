@@ -1,0 +1,14 @@
+{
+  "agent_id": "/root/astra_fixture_uniform",
+  "answer_hash": "7525e25efd2f5fdeaad7bb00d9e23cd4e9f904fd2c589faaa18fa32f560b03ce",
+  "output_token_cap_enforced": false,
+  "request_sha256": "69b030fe2efca969cb6c85178200fdadcab56aaff2d34460187d277db64364ab",
+  "requested_model": "gpt-6-astra",
+  "resolved_provider_snapshot": null,
+  "response_bytes": 8310,
+  "response_sha256": "6469a59c9cd4e3e36b18f6cca2c718d760064fa78770e6732e8c4075e2f7da21",
+  "transport": "codex_subagent",
+  "transport_attempts": null,
+  "usage": null,
+  "valid": true
+}

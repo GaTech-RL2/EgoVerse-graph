@@ -1,0 +1,15 @@
+{
+  "backend": "ovx-l40-01",
+  "duration": 717.991748,
+  "end_time": "2026-09-28T18:21:14.362339",
+  "gpu_count": 1,
+  "name": "astra-hpt-subagent-commissioning-20260928-v2-1",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/astra-hpt-subagent-commissioning-20260928-v2-1",
+  "pool": "groot-l40-01",
+  "queued_time": 9.576589,
+  "source_commit": "41778ab32bb84d10bea8745763bfe8107f152b56",
+  "start_time": "2026-09-28T18:09:16.370591",
+  "status": "COMPLETED",
+  "submit_time": "2026-09-28T18:09:06.794002",
+  "uuid": "c128ef85d87648dc95d55fe8b7addf2f"
+}

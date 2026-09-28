@@ -1,0 +1,577 @@
+{
+  "fork_turns": "none",
+  "logical_requests_per_phase": 8,
+  "model": "gpt-6-astra",
+  "output_token_cap_enforced": false,
+  "phase": "commissioning",
+  "prompt": {
+    "data_exposure": "Commissioning only. No evaluation bank, learner performance or arm-specific archive is supplied.",
+    "engineering_starters": [
+      {
+        "cubes": [
+          {
+            "color": "red",
+            "name": "cube_a",
+            "placement": {
+              "center_xy": [
+                -0.03,
+                0.0
+              ],
+              "half_width": 0.03
+            }
+          }
+        ],
+        "fixtures": [],
+        "scene_id": "engineering_s1",
+        "schema_version": "astrapush-1",
+        "stage": "S1",
+        "targets": [
+          {
+            "center_xy": [
+              0.09,
+              0.0
+            ],
+            "half_width": 0.04,
+            "name": "target"
+          }
+        ]
+      },
+      {
+        "cubes": [
+          {
+            "color": "red",
+            "name": "cube_a",
+            "placement": {
+              "center_xy": [
+                -0.03,
+                -0.09
+              ],
+              "half_width": 0.03
+            }
+          },
+          {
+            "color": "blue",
+            "name": "cube_b",
+            "placement": {
+              "center_xy": [
+                -0.03,
+                0.09
+              ],
+              "half_width": 0.03
+            }
+          }
+        ],
+        "fixtures": [],
+        "scene_id": "engineering_s2",
+        "schema_version": "astrapush-1",
+        "stage": "S2",
+        "targets": [
+          {
+            "center_xy": [
+              0.09,
+              -0.07
+            ],
+            "half_width": 0.04,
+            "name": "left"
+          },
+          {
+            "center_xy": [
+              0.09,
+              0.07
+            ],
+            "half_width": 0.04,
+            "name": "right"
+          }
+        ]
+      },
+      {
+        "cubes": [
+          {
+            "color": "red",
+            "name": "cube_a",
+            "placement": {
+              "center_xy": [
+                -0.03,
+                -0.09
+              ],
+              "half_width": 0.03
+            }
+          },
+          {
+            "color": "red",
+            "name": "cube_b",
+            "placement": {
+              "center_xy": [
+                -0.03,
+                0.09
+              ],
+              "half_width": 0.03
+            }
+          }
+        ],
+        "fixtures": [
+          {
+            "center_xy": [
+              -0.18,
+              0.0
+            ],
+            "name": "marker"
+          }
+        ],
+        "scene_id": "engineering_s3",
+        "schema_version": "astrapush-1",
+        "stage": "S3",
+        "targets": [
+          {
+            "center_xy": [
+              0.09,
+              -0.07
+            ],
+            "half_width": 0.04,
+            "name": "left"
+          },
+          {
+            "center_xy": [
+              0.09,
+              0.07
+            ],
+            "half_width": 0.04,
+            "name": "right"
+          }
+        ]
+      }
+    ],
+    "fixed_controller": {
+      "control_hz": 10,
+      "horizon": 150,
+      "reset_max_drift_m": 0.003,
+      "reset_settle_steps": 10,
+      "teacher": {
+        "approach_height_m": 0.12,
+        "behind_distance_m": 0.065,
+        "closed_gripper": 1.0,
+        "contact_distance_m": 0.029,
+        "contact_height_m": 0.017,
+        "desired_quaternion_xyzw": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "engineering_program": [
+          {
+            "skill": "approach",
+            "speed_m_s": 0.1,
+            "timeout_steps": 50
+          },
+          {
+            "skill": "align_behind",
+            "speed_m_s": 0.08,
+            "timeout_steps": 30
+          },
+          {
+            "skill": "contact",
+            "speed_m_s": 0.08,
+            "timeout_steps": 15
+          },
+          {
+            "skill": "push_toward",
+            "speed_m_s": 0.1,
+            "timeout_steps": 40
+          },
+          {
+            "skill": "settle",
+            "speed_m_s": 0.03,
+            "timeout_steps": 15
+          }
+        ],
+        "position_tolerance_m": 0.007,
+        "release_distance_m": 0.009,
+        "rotation_limit_rad": 0.05,
+        "rotation_output_scale": 0.5,
+        "settle_steps": 12,
+        "target_center_tolerance_m": 0.008,
+        "translation_output_scale": 0.05
+      }
+    },
+    "grammar": [
+      "Fixed Panda at 10 Hz, horizon 150, 40mm cubes; speed <=0.1 m/s; five ordered skills approach, align_behind, contact, push_toward, settle. Skill timeouts sum <=150. Teacher references the requested cube and destination in every skill.",
+      "Scene schema_version astrapush-1. One red or blue cube + one target for S1. Exactly one red and one blue cube + left/right targets for S2. Two same-color cubes, marker, left/right targets for S3. At most one optional reference_fixture in addition to marker. No obstacles, grasping, new assets, rewards, or executable code.",
+      "Cube placement half_width 0.03-0.05m. Target half_width 0.04-0.06m. All axis-aligned square region pairs including fixtures (halfwidth .02m) must be disjoint: in at least one axis, abs(center difference)>=sum halfwidths. |x|+half<=.28, |y|+half<=.32.",
+      "Left is smaller table Y. In S3 entire left placement region <= markerY-.05 and right region >= markerY+.05. Marker/fixtures must clear the direct push corridor by >.0483m; preserved other cube region must clear it by >sqrt(2)*(placement_half_width+.02).",
+      "Nominal selected cube center to selected target center must be .05-.15m. Keep modest straight, reachable pushes, with enough horizon for approach, lowering, contact, push and >=13 settle commands. Random reset samples inside authored placement regions; each seed may fail and is counted.",
+      "Trusted exact instruction grammar: S1 Push the block into the target. S2 Push the {red|blue} block to the {left|right} target. Leave the {other color} block in place. S3 Push the block {left|right} of the marker to the {left|right} target. Leave the other block in place.",
+      "TaskProposal has task_id, referent, destination, instruction. Do NOT invent scene_hash; local compiler binds it. Use schema exactly, no extra fields. Choose meaningful layout/composition changes, not IDs or recoloring alone.",
+      "Respond with one JSON object under 8192 tokens and 32768 UTF-8 bytes; no markdown. This interface lacks a hard token-cap/usage receipt and is documented as a new transport pilot."
+    ],
+    "response_contract": {
+      "$defs": {
+        "Cube": {
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "enum": [
+                "red",
+                "blue"
+              ],
+              "title": "Color",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[a-z][a-z0-9_]{0,47}$",
+              "title": "Name",
+              "type": "string"
+            },
+            "placement": {
+              "$ref": "#/$defs/Placement"
+            }
+          },
+          "required": [
+            "name",
+            "color",
+            "placement"
+          ],
+          "title": "Cube",
+          "type": "object"
+        },
+        "Fixture": {
+          "additionalProperties": false,
+          "properties": {
+            "center_xy": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "title": "Center Xy",
+              "type": "array"
+            },
+            "name": {
+              "enum": [
+                "marker",
+                "reference_fixture"
+              ],
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "center_xy"
+          ],
+          "title": "Fixture",
+          "type": "object"
+        },
+        "GateTemplate": {
+          "additionalProperties": false,
+          "properties": {
+            "novelty_rationale": {
+              "maxLength": 1500,
+              "minLength": 1,
+              "title": "Novelty Rationale",
+              "type": "string"
+            },
+            "scene": {
+              "$ref": "#/$defs/SceneSpec"
+            },
+            "task": {
+              "$ref": "#/$defs/TaskProposal"
+            },
+            "teacher": {
+              "$ref": "#/$defs/TeacherProgram"
+            },
+            "template_id": {
+              "pattern": "^[a-z][a-z0-9_]{0,47}$",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "template_id",
+            "scene",
+            "task",
+            "teacher",
+            "novelty_rationale"
+          ],
+          "title": "GateTemplate",
+          "type": "object"
+        },
+        "Placement": {
+          "additionalProperties": false,
+          "properties": {
+            "center_xy": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "title": "Center Xy",
+              "type": "array"
+            },
+            "half_width": {
+              "maximum": 0.05,
+              "minimum": 0.03,
+              "title": "Half Width",
+              "type": "number"
+            }
+          },
+          "required": [
+            "center_xy",
+            "half_width"
+          ],
+          "title": "Placement",
+          "type": "object"
+        },
+        "SceneSpec": {
+          "additionalProperties": false,
+          "properties": {
+            "cubes": {
+              "items": {
+                "$ref": "#/$defs/Cube"
+              },
+              "maxItems": 2,
+              "minItems": 1,
+              "title": "Cubes",
+              "type": "array"
+            },
+            "fixtures": {
+              "items": {
+                "$ref": "#/$defs/Fixture"
+              },
+              "maxItems": 2,
+              "title": "Fixtures",
+              "type": "array"
+            },
+            "scene_id": {
+              "pattern": "^[a-z][a-z0-9_]{0,47}$",
+              "title": "Scene Id",
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "astrapush-1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "stage": {
+              "enum": [
+                "S1",
+                "S2",
+                "S3"
+              ],
+              "title": "Stage",
+              "type": "string"
+            },
+            "targets": {
+              "items": {
+                "$ref": "#/$defs/Target"
+              },
+              "maxItems": 2,
+              "minItems": 1,
+              "title": "Targets",
+              "type": "array"
+            }
+          },
+          "required": [
+            "schema_version",
+            "scene_id",
+            "stage",
+            "cubes",
+            "targets",
+            "fixtures"
+          ],
+          "title": "SceneSpec",
+          "type": "object"
+        },
+        "Skill": {
+          "additionalProperties": false,
+          "properties": {
+            "object": {
+              "pattern": "^[a-z][a-z0-9_]{0,47}$",
+              "title": "Object",
+              "type": "string"
+            },
+            "skill": {
+              "enum": [
+                "approach",
+                "align_behind",
+                "contact",
+                "push_toward",
+                "settle"
+              ],
+              "title": "Skill",
+              "type": "string"
+            },
+            "speed_m_s": {
+              "exclusiveMinimum": 0,
+              "maximum": 0.1,
+              "title": "Speed M S",
+              "type": "number"
+            },
+            "target": {
+              "enum": [
+                "target",
+                "left",
+                "right"
+              ],
+              "title": "Target",
+              "type": "string"
+            },
+            "timeout_steps": {
+              "maximum": 150,
+              "minimum": 1,
+              "title": "Timeout Steps",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "skill",
+            "object",
+            "target",
+            "speed_m_s",
+            "timeout_steps"
+          ],
+          "title": "Skill",
+          "type": "object"
+        },
+        "Target": {
+          "additionalProperties": false,
+          "properties": {
+            "center_xy": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "title": "Center Xy",
+              "type": "array"
+            },
+            "half_width": {
+              "maximum": 0.06,
+              "minimum": 0.04,
+              "title": "Half Width",
+              "type": "number"
+            },
+            "name": {
+              "enum": [
+                "target",
+                "left",
+                "right"
+              ],
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "center_xy",
+            "half_width"
+          ],
+          "title": "Target",
+          "type": "object"
+        },
+        "TaskProposal": {
+          "additionalProperties": false,
+          "properties": {
+            "destination": {
+              "enum": [
+                "target",
+                "left",
+                "right"
+              ],
+              "title": "Destination",
+              "type": "string"
+            },
+            "instruction": {
+              "title": "Instruction",
+              "type": "string"
+            },
+            "referent": {
+              "enum": [
+                "block",
+                "red",
+                "blue",
+                "left",
+                "right"
+              ],
+              "title": "Referent",
+              "type": "string"
+            },
+            "task_id": {
+              "pattern": "^[a-z][a-z0-9_]{0,47}$",
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "task_id",
+            "referent",
+            "destination",
+            "instruction"
+          ],
+          "title": "TaskProposal",
+          "type": "object"
+        },
+        "TeacherProgram": {
+          "additionalProperties": false,
+          "properties": {
+            "schema_version": {
+              "const": "astrapush-1",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "skills": {
+              "items": {
+                "$ref": "#/$defs/Skill"
+              },
+              "maxItems": 5,
+              "minItems": 5,
+              "title": "Skills",
+              "type": "array"
+            }
+          },
+          "required": [
+            "schema_version",
+            "skills"
+          ],
+          "title": "TeacherProgram",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "astrapush-commissioning-1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "templates": {
+          "items": {
+            "$ref": "#/$defs/GateTemplate"
+          },
+          "maxItems": 6,
+          "minItems": 6,
+          "title": "Templates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "templates"
+      ],
+      "title": "CommissioningProposal",
+      "type": "object"
+    },
+    "role": "You are Astra, the scene and typed teacher generator for a bounded LIBERO pushing experiment. Produce JSON data, never code or claimed measurements.",
+    "task": "Generate six new scene/task/teacher bundles, exactly two each of S1 S2 S3. At least three must alter fixture composition or marker relations in addition to spatial layout relative to the matching starter. All six must have distinct structural geometry. Commissioning will attempt five successful demonstrations per scene, 30 total within 120 attempts. Do not claim novelty or success as measured."
+  },
+  "provider_billing_available": false,
+  "reasoning_effort": "low",
+  "repair_of": null,
+  "repairs_per_proposal": 2,
+  "request_id": "commissioning-001",
+  "requested_output_tokens": 8192,
+  "resolved_provider_snapshot": null,
+  "transport": "codex_subagent",
+  "usage": null,
+  "version": "astra-hpt-subagent-pilot-20260928-v1"
+}

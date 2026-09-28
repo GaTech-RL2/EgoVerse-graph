@@ -1,0 +1,729 @@
+{
+  "accepted": [
+    {
+      "attempt_id": "commissioning-0001",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0001/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0001",
+          "initial_state_hash": "987ec7b15c4a77c9480d949d8bf91b31029ed6addf994163e4d58899417a74d1",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "cee6f21e84fabae5e5b3c6f7756e0dbf6c00eabdbef436bc86cbcd3d20fbed60",
+          "stage": "S1",
+          "task_hash": "5a96708a9984b13f7ebf7888647610c8bff93030f002d6ffb0a540e981ed6d53",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "f791be7e723602469f920279c660b05488b2097421fd256f7b5aae65c6c4f0ee",
+        "steps": 122
+      },
+      "template_id": "s1_low_diagonal"
+    },
+    {
+      "attempt_id": "commissioning-0002",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0002/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0002",
+          "initial_state_hash": "82bdfabb14e5de3bc434c1ff33b35830633046a30fd25b54b32abe0c965756ac",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "b51d6e717c8b7452418856094b8ef29ae27c452e45d40f14b1fce1964fad323e",
+          "stage": "S1",
+          "task_hash": "5e6427f4fe005851a21520fab271962153e34dd220311d2311b37f354307da01",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "2f0484aaae687f17f7b65a9939bcbbb695a23d2ca9f5c86ee401dfb0ed57fc39",
+        "steps": 132
+      },
+      "template_id": "s1_high_descending"
+    },
+    {
+      "attempt_id": "commissioning-0003",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0003/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0003",
+          "initial_state_hash": "bdf0b8a53b5c7140fc06cd9a136b65d54d8f5a4952416dac37ef0199009296e9",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "77ef2fb4a777891abb974c8c655e7a11ef78f2443fd23a74f6ddafe5a38da05b",
+          "stage": "S2",
+          "task_hash": "28f4a02ddb2552ac3926ac290a929c853b09adc4b9b210654e2531dc917b4522",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "d89874b5e93cdb45fe61e6942e379cf18ce16ff8d79bf244dd80d3b853918db1",
+        "steps": 125
+      },
+      "template_id": "s2_blue_upper_lane"
+    },
+    {
+      "attempt_id": "commissioning-0004",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0004/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0004",
+          "initial_state_hash": "aa47df14a0ebe3715c7a406d7d4e21e4648570df72d3b098ad2c5d888b70e3bd",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "52e5f133e19444dc9ee8050435a0d7b574e6e54ceee5d9b1ce2fbf7df291d551",
+          "stage": "S2",
+          "task_hash": "707735dbc61f27507d873ada76f018aaa0bd1a9e1c36b198220db96a26bae032",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "ba2eaebc4894fb6cfd96ea82568fe4e1b587d4e4e33bb9000d2277ceb56683db",
+        "steps": 124
+      },
+      "template_id": "s2_red_lower_lane"
+    },
+    {
+      "attempt_id": "commissioning-0005",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0005/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0005",
+          "initial_state_hash": "60454b0f8bd2b1885442aea80480197a4c75526b4769f1cacd07b39239c56c87",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "df98ee270642e6a186292ec49286ad9b27d06f76608551e88a72c72c8e87e484",
+          "stage": "S3",
+          "task_hash": "0d492ff0b15148908e550e95d6ab825e1ebb3b290ec2bad8a3338108a68d8ea4",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "5bcfe9ea2fb838994659a8ca418431a88cc06de34d28534e3379f05cfb77abdc",
+        "steps": 124
+      },
+      "template_id": "s3_shifted_marker_left"
+    },
+    {
+      "attempt_id": "commissioning-0006",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0006/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0006",
+          "initial_state_hash": "51ea3c5231e013f4341d1a428f2d286c9656f513a40bf00f7699ae4ef6bef287",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "c184871ae03d16d1b7d0ed94d3312643c7309812b545bf7335fe177bbd36bdce",
+          "stage": "S3",
+          "task_hash": "fe42804a577f4b3b2d2859f276ddd0c8a24fc85507a77dc437d6c581bfa9d4a5",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "0d4dbb77278f8103c10433a19db54aabe7080578c4ca904e22c6c9a06376e926",
+        "steps": 125
+      },
+      "template_id": "s3_forward_marker_right"
+    },
+    {
+      "attempt_id": "commissioning-0007",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0007/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0007",
+          "initial_state_hash": "86358035fa11705c9155538d7f9b1f582756f2c6fe1434dfb4c59674acef2002",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "cee6f21e84fabae5e5b3c6f7756e0dbf6c00eabdbef436bc86cbcd3d20fbed60",
+          "stage": "S1",
+          "task_hash": "5a96708a9984b13f7ebf7888647610c8bff93030f002d6ffb0a540e981ed6d53",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "ac958fd1f7c5312cde57375f62cb170957defd603165515c4f28f22bed50c1c9",
+        "steps": 122
+      },
+      "template_id": "s1_low_diagonal"
+    },
+    {
+      "attempt_id": "commissioning-0008",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0008/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0008",
+          "initial_state_hash": "e3d11a7e5c108c0919feab16f7ff396854493d03a4754607bb75583f5d3f6a43",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "b51d6e717c8b7452418856094b8ef29ae27c452e45d40f14b1fce1964fad323e",
+          "stage": "S1",
+          "task_hash": "5e6427f4fe005851a21520fab271962153e34dd220311d2311b37f354307da01",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "e04ca2671314c46108246812364f865a07149764bb964bfe8d43ebacbe50c414",
+        "steps": 132
+      },
+      "template_id": "s1_high_descending"
+    },
+    {
+      "attempt_id": "commissioning-0009",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0009/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0009",
+          "initial_state_hash": "b8c5bbb5c6571ce15166744a0d450295df048b5c2f65027a50a14bdbd1b74db3",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "77ef2fb4a777891abb974c8c655e7a11ef78f2443fd23a74f6ddafe5a38da05b",
+          "stage": "S2",
+          "task_hash": "28f4a02ddb2552ac3926ac290a929c853b09adc4b9b210654e2531dc917b4522",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "d44402dc775a1d062a22b73e5348b56294f8ce1889b9e0edc6377a887040148d",
+        "steps": 125
+      },
+      "template_id": "s2_blue_upper_lane"
+    },
+    {
+      "attempt_id": "commissioning-0010",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0010/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0010",
+          "initial_state_hash": "f70bd1058f4ebe1faf90c7b21bdf5cdaa29f59d60291a89767eed05fda2bba96",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "52e5f133e19444dc9ee8050435a0d7b574e6e54ceee5d9b1ce2fbf7df291d551",
+          "stage": "S2",
+          "task_hash": "707735dbc61f27507d873ada76f018aaa0bd1a9e1c36b198220db96a26bae032",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "c53059b5b987d533bc3b8481c8e4d6478d9854f1fa65f68d62dd8b26eec8e3f6",
+        "steps": 124
+      },
+      "template_id": "s2_red_lower_lane"
+    },
+    {
+      "attempt_id": "commissioning-0011",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0011/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0011",
+          "initial_state_hash": "00e5cd77d68c4d7d65599544302306e6c84e13d8f7df23396ecf5ff55bb3673d",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "df98ee270642e6a186292ec49286ad9b27d06f76608551e88a72c72c8e87e484",
+          "stage": "S3",
+          "task_hash": "0d492ff0b15148908e550e95d6ab825e1ebb3b290ec2bad8a3338108a68d8ea4",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "8011f5dc5c8ef10a2e96511e7c1a438d61cb26be97b4bffe263aa067705dffa4",
+        "steps": 124
+      },
+      "template_id": "s3_shifted_marker_left"
+    },
+    {
+      "attempt_id": "commissioning-0012",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0012/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0012",
+          "initial_state_hash": "a070e1c362198070b26d41ae2695a96f459c5522e738b68b1eeb917033c10b63",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "c184871ae03d16d1b7d0ed94d3312643c7309812b545bf7335fe177bbd36bdce",
+          "stage": "S3",
+          "task_hash": "fe42804a577f4b3b2d2859f276ddd0c8a24fc85507a77dc437d6c581bfa9d4a5",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "8a57041318e60ecdf75521e8c3204225beda96a05a36a6094799707894a3d51e",
+        "steps": 124
+      },
+      "template_id": "s3_forward_marker_right"
+    },
+    {
+      "attempt_id": "commissioning-0013",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0013/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0013",
+          "initial_state_hash": "a1975d788ab0ec8384da123703605275f02dd3cca8879e83a1d396e4afe39817",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "cee6f21e84fabae5e5b3c6f7756e0dbf6c00eabdbef436bc86cbcd3d20fbed60",
+          "stage": "S1",
+          "task_hash": "5a96708a9984b13f7ebf7888647610c8bff93030f002d6ffb0a540e981ed6d53",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "691e97679bbf826a5de05e59f22f4e068211faaeab474201e5968f0d362bec6f",
+        "steps": 122
+      },
+      "template_id": "s1_low_diagonal"
+    },
+    {
+      "attempt_id": "commissioning-0014",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0014/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0014",
+          "initial_state_hash": "36f049732b5f1a1410a6d726abc7cfc13382eb45e05d3d4ff844fbd7d1645c37",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "b51d6e717c8b7452418856094b8ef29ae27c452e45d40f14b1fce1964fad323e",
+          "stage": "S1",
+          "task_hash": "5e6427f4fe005851a21520fab271962153e34dd220311d2311b37f354307da01",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "7005d69e9239b1af57f818af75273fedfa207121493d9bb2b4a8b27c7fe8702a",
+        "steps": 132
+      },
+      "template_id": "s1_high_descending"
+    },
+    {
+      "attempt_id": "commissioning-0015",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0015/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0015",
+          "initial_state_hash": "b91d48728f1b5b3ea0b95ccfa8034f95fc2172ceef96c0e0287771c55fc8150b",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "77ef2fb4a777891abb974c8c655e7a11ef78f2443fd23a74f6ddafe5a38da05b",
+          "stage": "S2",
+          "task_hash": "28f4a02ddb2552ac3926ac290a929c853b09adc4b9b210654e2531dc917b4522",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "c98de3b4a9e95ed4aded7d8b00a2ce180b11d705f5705781d7df64c4ffd3794b",
+        "steps": 125
+      },
+      "template_id": "s2_blue_upper_lane"
+    },
+    {
+      "attempt_id": "commissioning-0016",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0016/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0016",
+          "initial_state_hash": "092104d1e29bdfa5895c7c19a68cedd345dfefc6ccbb785fd162cc1f10cc2d75",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "52e5f133e19444dc9ee8050435a0d7b574e6e54ceee5d9b1ce2fbf7df291d551",
+          "stage": "S2",
+          "task_hash": "707735dbc61f27507d873ada76f018aaa0bd1a9e1c36b198220db96a26bae032",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "5ab29b62f518be90b17afbf77d8a5530471973ce2d381f25fbe2830278f6d571",
+        "steps": 126
+      },
+      "template_id": "s2_red_lower_lane"
+    },
+    {
+      "attempt_id": "commissioning-0017",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0017/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0017",
+          "initial_state_hash": "0cd8a3ca6deb0515423cd6adfec47a9a3a5809383395b5143df1da0a05b3c0de",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "df98ee270642e6a186292ec49286ad9b27d06f76608551e88a72c72c8e87e484",
+          "stage": "S3",
+          "task_hash": "0d492ff0b15148908e550e95d6ab825e1ebb3b290ec2bad8a3338108a68d8ea4",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "481fdb79edd376886d0e44499bf905837c0e3e95e3ec5f03ccba22332fb9ec09",
+        "steps": 124
+      },
+      "template_id": "s3_shifted_marker_left"
+    },
+    {
+      "attempt_id": "commissioning-0018",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0018/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0018",
+          "initial_state_hash": "37eb18e731a3f2f14fc1e999dfe8f25ec05ba75a18209877e8267f2596655f8a",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "c184871ae03d16d1b7d0ed94d3312643c7309812b545bf7335fe177bbd36bdce",
+          "stage": "S3",
+          "task_hash": "fe42804a577f4b3b2d2859f276ddd0c8a24fc85507a77dc437d6c581bfa9d4a5",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "8c02cbf0c9f658fbc4445c3d3dc56ee6360dc6133b7e2ab72533c45b74c95725",
+        "steps": 123
+      },
+      "template_id": "s3_forward_marker_right"
+    },
+    {
+      "attempt_id": "commissioning-0019",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0019/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0019",
+          "initial_state_hash": "34a485d07603c2825944ab03b131cb35a745155a745e5959fb29160d85527592",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "cee6f21e84fabae5e5b3c6f7756e0dbf6c00eabdbef436bc86cbcd3d20fbed60",
+          "stage": "S1",
+          "task_hash": "5a96708a9984b13f7ebf7888647610c8bff93030f002d6ffb0a540e981ed6d53",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "5b531c04f06c9ca5a74c63d0054d083aadf5e9e6b273e15d4ba46bb96202c2bb",
+        "steps": 122
+      },
+      "template_id": "s1_low_diagonal"
+    },
+    {
+      "attempt_id": "commissioning-0020",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0020/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0020",
+          "initial_state_hash": "acb886fbc27551a1c083e0926b17b452b64da2cc67b3c31adea7f349ac3090eb",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "b51d6e717c8b7452418856094b8ef29ae27c452e45d40f14b1fce1964fad323e",
+          "stage": "S1",
+          "task_hash": "5e6427f4fe005851a21520fab271962153e34dd220311d2311b37f354307da01",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "c01c54f0dd3087ba5c7648dc46df4b9d06ede70cb6f0d00c725285ea3de891b6",
+        "steps": 132
+      },
+      "template_id": "s1_high_descending"
+    },
+    {
+      "attempt_id": "commissioning-0021",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0021/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0021",
+          "initial_state_hash": "32fd8938b1ee2f81e82c4685e11210c966b0a580f8550c5958c389f3abff3d0f",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "77ef2fb4a777891abb974c8c655e7a11ef78f2443fd23a74f6ddafe5a38da05b",
+          "stage": "S2",
+          "task_hash": "28f4a02ddb2552ac3926ac290a929c853b09adc4b9b210654e2531dc917b4522",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "cfe8a6aab9d627bc38a48b7df698260be078d1d33a50f71d42a1d179256e5c80",
+        "steps": 125
+      },
+      "template_id": "s2_blue_upper_lane"
+    },
+    {
+      "attempt_id": "commissioning-0022",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0022/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0022",
+          "initial_state_hash": "0f8bd8a550f3f1acceb086ba1415d406a6dbeecda19099c2813b6430eac3b94f",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "52e5f133e19444dc9ee8050435a0d7b574e6e54ceee5d9b1ce2fbf7df291d551",
+          "stage": "S2",
+          "task_hash": "707735dbc61f27507d873ada76f018aaa0bd1a9e1c36b198220db96a26bae032",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "1a3406e43990c9b68cbaa3a3ac1b544fbe8013d5845363e18d8869e000b7fd1c",
+        "steps": 125
+      },
+      "template_id": "s2_red_lower_lane"
+    },
+    {
+      "attempt_id": "commissioning-0023",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0023/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0023",
+          "initial_state_hash": "6885ed5490e0797213e2c2a8244a107ea7b8b45e3c100d9407a6e2f382c77e3d",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "df98ee270642e6a186292ec49286ad9b27d06f76608551e88a72c72c8e87e484",
+          "stage": "S3",
+          "task_hash": "0d492ff0b15148908e550e95d6ab825e1ebb3b290ec2bad8a3338108a68d8ea4",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "3af519a602657fe3a5e59b9b9bd3ae58f559ccc210f812cf4c4a1809cf6a2056",
+        "steps": 123
+      },
+      "template_id": "s3_shifted_marker_left"
+    },
+    {
+      "attempt_id": "commissioning-0024",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0024/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0024",
+          "initial_state_hash": "54f329a29ef8207b2d3d5eaba927cf6e649cc5847ab4508e81ddf0e326263043",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "c184871ae03d16d1b7d0ed94d3312643c7309812b545bf7335fe177bbd36bdce",
+          "stage": "S3",
+          "task_hash": "fe42804a577f4b3b2d2859f276ddd0c8a24fc85507a77dc437d6c581bfa9d4a5",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "8af9786cc6f8d141b2eb3f4ebac040ef25893734773371a2f2334dd1ec63f28e",
+        "steps": 123
+      },
+      "template_id": "s3_forward_marker_right"
+    },
+    {
+      "attempt_id": "commissioning-0025",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0025/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0025",
+          "initial_state_hash": "9e3e03dcee773f5447cbd7da2404d99120c53b09f630a6fdcbe44d295298fabe",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "cee6f21e84fabae5e5b3c6f7756e0dbf6c00eabdbef436bc86cbcd3d20fbed60",
+          "stage": "S1",
+          "task_hash": "5a96708a9984b13f7ebf7888647610c8bff93030f002d6ffb0a540e981ed6d53",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "984087b7550b4b349e0cec41fc453f24f63347c53e040a2e313f5dd0b2b5f464",
+        "steps": 122
+      },
+      "template_id": "s1_low_diagonal"
+    },
+    {
+      "attempt_id": "commissioning-0027",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0027/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0027",
+          "initial_state_hash": "be15aecc2f09fcedb18a581a469967fad4dd61e4e94c5eb9409a45dffa956292",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "77ef2fb4a777891abb974c8c655e7a11ef78f2443fd23a74f6ddafe5a38da05b",
+          "stage": "S2",
+          "task_hash": "28f4a02ddb2552ac3926ac290a929c853b09adc4b9b210654e2531dc917b4522",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "a8f31a7d341964b44cf2577b312a9ebc6957479e8a40482af1a8ab388494a63d",
+        "steps": 125
+      },
+      "template_id": "s2_blue_upper_lane"
+    },
+    {
+      "attempt_id": "commissioning-0028",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0028/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0028",
+          "initial_state_hash": "248c7737aecc48208c8b6b74c86f8fe9006c0e1672adc4b659419fa3454bad76",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "52e5f133e19444dc9ee8050435a0d7b574e6e54ceee5d9b1ce2fbf7df291d551",
+          "stage": "S2",
+          "task_hash": "707735dbc61f27507d873ada76f018aaa0bd1a9e1c36b198220db96a26bae032",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "3b307e752ff96deefbdd67f2aca0363d7b67440907076dd32ecbbcb74ae3f9ab",
+        "steps": 124
+      },
+      "template_id": "s2_red_lower_lane"
+    },
+    {
+      "attempt_id": "commissioning-0029",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0029/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0029",
+          "initial_state_hash": "d525c9371061c83bff334d96a6b17632d2ca70ee3a6b1d0a3a9ecc2f75c77995",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "df98ee270642e6a186292ec49286ad9b27d06f76608551e88a72c72c8e87e484",
+          "stage": "S3",
+          "task_hash": "0d492ff0b15148908e550e95d6ab825e1ebb3b290ec2bad8a3338108a68d8ea4",
+          "teacher_hash": "18461231541cc00f0615a1d5884a1a3fffcdf367488ec181c9883417c05cbcf6"
+        },
+        "sha256": "6d4aa6299e8fd62b176db794c63b7bfe0ee3a09449bd286dbccd739a8db66576",
+        "steps": 123
+      },
+      "template_id": "s3_shifted_marker_left"
+    },
+    {
+      "attempt_id": "commissioning-0030",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0030/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0030",
+          "initial_state_hash": "9435e21271947827f5f6dccf8d6e560c2a1674578c5442c7d60d86dfa03bf8d7",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "c184871ae03d16d1b7d0ed94d3312643c7309812b545bf7335fe177bbd36bdce",
+          "stage": "S3",
+          "task_hash": "fe42804a577f4b3b2d2859f276ddd0c8a24fc85507a77dc437d6c581bfa9d4a5",
+          "teacher_hash": "f6024dce140243eef1cd77b85ab4283f894112f2f3edde000e3e9b03efa4bbfa"
+        },
+        "sha256": "d629210b325b342a35c06340cdb1554703fee1f0fdb35516e2303d4239be20dc",
+        "steps": 124
+      },
+      "template_id": "s3_forward_marker_right"
+    },
+    {
+      "attempt_id": "commissioning-0031",
+      "episode": {
+        "path": "/osmo/data/output/commissioning/attempts/commissioning-0031/episode.hdf5",
+        "provenance": {
+          "accepted": true,
+          "arm": "common",
+          "episode_id": "commissioning-0031",
+          "initial_state_hash": "4cad500b109144b5cd52f8258f8d524930a0c4b03fa994e86b121d35e5675e92",
+          "partition": "training",
+          "phase": "commissioning",
+          "round": 0,
+          "scene_hash": "b51d6e717c8b7452418856094b8ef29ae27c452e45d40f14b1fce1964fad323e",
+          "stage": "S1",
+          "task_hash": "5e6427f4fe005851a21520fab271962153e34dd220311d2311b37f354307da01",
+          "teacher_hash": "99d7bbfa07ceecda9f312b4aad9bbb42c2ad6c5854e56f4b4f8b70606e263849"
+        },
+        "sha256": "66099d6bdacd1dbb3a31d3bd33ec72e11b8e16c24e40ab6954dc98c9fa9f0d46",
+        "steps": 131
+      },
+      "template_id": "s1_high_descending"
+    }
+  ],
+  "accepted_by_template": {
+    "s1_high_descending": 5,
+    "s1_low_diagonal": 5,
+    "s2_blue_upper_lane": 5,
+    "s2_red_lower_lane": 5,
+    "s3_forward_marker_right": 5,
+    "s3_shifted_marker_left": 5
+  },
+  "acquisition_complete": true,
+  "attempts": 31,
+  "complete": true,
+  "engineering_reload_resets": 6,
+  "fresh_process_reloads": 6,
+  "generator_receipt_hash": "4304d971b3c8610af5031787f247288aaf3735d698c876c07ae70fb1aa8c4970",
+  "inventory_hash": "0ed0615d8c6dc067f315b6725f9363d7f569c4f4edcbe4b998239fd95dd423de",
+  "ledger": [
+    {
+      "count": 1,
+      "kind": "attempt",
+      "phase": "commissioning",
+      "status": "failed"
+    },
+    {
+      "count": 30,
+      "kind": "attempt",
+      "phase": "commissioning",
+      "status": "succeeded"
+    }
+  ],
+  "production_optimizer_updates": 0,
+  "proposal_hash": "8f13be38d400927c6433cc835a9d57b7dc9d344266ac1af794c4c18134317ec1",
+  "reload_records": [
+    {
+      "passed": true,
+      "receipt_hash": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+      "template": "s1_low_diagonal"
+    },
+    {
+      "passed": true,
+      "receipt_hash": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+      "template": "s1_high_descending"
+    },
+    {
+      "passed": true,
+      "receipt_hash": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+      "template": "s2_blue_upper_lane"
+    },
+    {
+      "passed": true,
+      "receipt_hash": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+      "template": "s2_red_lower_lane"
+    },
+    {
+      "passed": true,
+      "receipt_hash": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+      "template": "s3_shifted_marker_left"
+    },
+    {
+      "passed": true,
+      "receipt_hash": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+      "template": "s3_forward_marker_right"
+    }
+  ],
+  "schema_version": "astrapush-commissioning-result-1",
+  "seconds": 346.4866384025663
+}

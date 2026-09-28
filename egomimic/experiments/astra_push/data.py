@@ -1,6 +1,7 @@
 """Immutable HDF5 episodes and an allowlisted, episode-local HPT window adapter."""
 
 import json
+from collections import Counter
 
 import h5py
 import numpy as np
@@ -43,6 +44,7 @@ class ProprioceptionStats:
                 "Normalization requires thirty distinct commissioning episodes"
             )
         values = []
+        provenances = []
         for record in records:
             with verified_episode(record) as episode:
                 provenance = json.loads(episode.attrs["provenance"])
@@ -54,7 +56,19 @@ class ProprioceptionStats:
                     raise ValueError(
                         "Normalization may use only accepted training-side commissioning"
                     )
+                if provenance != record["provenance"]:
+                    raise ValueError("Commissioning manifest provenance changed")
+                provenances.append(provenance)
                 values.append(episode["observations/proprioception"][:])
+        if Counter(p["stage"] for p in provenances) != {"S1": 10, "S2": 10, "S3": 10}:
+            raise ValueError(
+                "Commissioning normalization requires ten episodes per stage"
+            )
+        scenes = Counter(p["scene_hash"] for p in provenances)
+        if len(scenes) != 6 or set(scenes.values()) != {5}:
+            raise ValueError(
+                "Commissioning normalization requires five episodes per scene"
+            )
         state = np.concatenate(values).astype(np.float64)
         return cls(state.mean(0), state.std(0), [r["sha256"] for r in records])
 
@@ -76,7 +90,7 @@ class EpisodeWindows(Dataset):
     """Explicit training manifest only; no filesystem glob or privileged features."""
 
     def __init__(self, records, normalization, *, purpose="training"):
-        if purpose not in {"training", "engineering"}:
+        if purpose not in {"training", "engineering", "commissioning_audit"}:
             raise ValueError("Unknown data access purpose")
         self.purpose = purpose
         self.records, self.normalization = list(records), normalization
@@ -106,9 +120,16 @@ class EpisodeWindows(Dataset):
                     provenance["partition"] == "engineering"
                     and provenance["phase"] == "engineering"
                 )
-                if not provenance["accepted"] or not (
-                    valid_training if purpose == "training" else valid_engineering
-                ):
+                valid_commissioning = (
+                    provenance["partition"] == "training"
+                    and provenance["phase"] == "commissioning"
+                )
+                valid = {
+                    "training": valid_training,
+                    "engineering": valid_engineering,
+                    "commissioning_audit": valid_commissioning,
+                }[purpose]
+                if not provenance["accepted"] or not valid:
                     raise ValueError(
                         "Only accepted imitation training episodes can enter replay"
                     )
@@ -178,7 +199,7 @@ class EpisodeBalancedReplay:
 
     def __init__(self, dataset, *, seed, arm=None, round_index=None):
         if dataset.purpose != "training":
-            raise ValueError("Engineering fixtures cannot enter production replay")
+            raise ValueError("Only imitation training data can enter production replay")
         self.dataset = dataset
         self.rng = np.random.default_rng(seed)
         if arm is None:

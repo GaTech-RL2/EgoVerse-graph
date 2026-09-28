@@ -54,19 +54,30 @@ class BlueCube(BoxObject):
 
 
 class ReferenceCylinder(CylinderObject):
+    rgba = [0.42, 0.45, 0.50, 1]
+
     def __init__(self, name="astra_reference", joints=None):
-        super().__init__(
-            name=name, size=[0.02, 0.02], rgba=[0.9, 0.7, 0.12, 1], joints=joints
-        )
+        super().__init__(name=name, size=[0.02, 0.02], rgba=self.rgba, joints=joints)
         self.rotation, self.rotation_axis = (0, 0), "z"
         self.category_name = "astra_reference"
         self.object_properties = {"vis_site_names": {}}
+
+
+class MarkerCylinder(ReferenceCylinder):
+    """The unique yellow language-reference marker; optional fixtures are gray."""
+
+    rgba = [0.9, 0.7, 0.12, 1]
+
+    def __init__(self, name="astra_marker", joints=None):
+        super().__init__(name=name, joints=joints)
+        self.category_name = "astra_marker"
 
 
 for key, cls in {
     "astra_red_cube": RedCube,
     "astra_blue_cube": BlueCube,
     "astra_reference": ReferenceCylinder,
+    "astra_marker": MarkerCylinder,
 }.items():
     if key in OBJECTS_DICT and OBJECTS_DICT[key].__module__ != __name__:
         raise RuntimeError(f"Asset registration collision: {key}")
@@ -104,10 +115,9 @@ class CompiledScene(InitialSceneTemplates):
         # the upstream scene/BDDL interfaces without its scanned-asset crawler.
         self.workspace_name = "main_table"
         self.fixture_object_dict = {"table": ["main_table"]}
-        if self.scene_spec.fixtures:
-            self.fixture_object_dict["astra_reference"] = [
-                f.name for f in self.scene_spec.fixtures
-            ]
+        for fixture in self.scene_spec.fixtures:
+            asset = "astra_marker" if fixture.name == "marker" else "astra_reference"
+            self.fixture_object_dict.setdefault(asset, []).append(fixture.name)
         self.movable_object_dict = {}
         for cube in self.scene_spec.cubes:
             self.movable_object_dict.setdefault(f"astra_{cube.color}_cube", []).append(
@@ -209,6 +219,18 @@ def compile_scene(scene, task, output):
             "registered_scene": name,
             "problem": "AstraPush",
             "bddl_sha256": file_hash(canonical),
+            "compiler_and_assets_sha256": file_hash(__file__),
+            "visual_catalog_version": 2,
+            "marker_rgba": MarkerCylinder.rgba,
+            "optional_fixture_rgba": ReferenceCylinder.rgba,
+            "bundle_hash": canonical_hash(
+                {
+                    "scene": canonical_hash(scene),
+                    "task": canonical_hash(task),
+                    "bddl": file_hash(canonical),
+                    "compiler_and_assets": file_hash(__file__),
+                }
+            ),
             "generator": "LIBERO register_mu/register_task_info/generate_bddl_from_task_info",
             "physical_checks": "not_run",
         },
@@ -225,8 +247,11 @@ def load_environment(bundle, *, seed=17):
     if (
         file_hash(bundle / "task.bddl") != meta["bddl_sha256"]
         or canonical_hash(scene) != meta["scene_hash"]
+        or meta.get("compiler_and_assets_sha256") != file_hash(__file__)
     ):
-        raise ValueError("Scene bundle content changed")
+        raise ValueError(
+            "Scene bundle content or compiler/assets implementation changed"
+        )
     np.random.seed(seed)
     random.seed(seed)
     return OffScreenRenderEnv(

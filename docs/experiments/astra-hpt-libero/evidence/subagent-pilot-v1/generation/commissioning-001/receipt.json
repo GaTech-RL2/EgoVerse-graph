@@ -1,0 +1,14 @@
+{
+  "agent_id": "/root/astra_commissioning_001",
+  "answer_hash": "8f13be38d400927c6433cc835a9d57b7dc9d344266ac1af794c4c18134317ec1",
+  "output_token_cap_enforced": false,
+  "request_sha256": "47608b64b1801176c1b1957951b12a6ccc75743128b690cc71f32d296a041cc4",
+  "requested_model": "gpt-6-astra",
+  "resolved_provider_snapshot": null,
+  "response_bytes": 9889,
+  "response_sha256": "fe079ae9b06e9d2ad01012a580e37da3096163e52507f4b0cc0ac0db5bcec504",
+  "transport": "codex_subagent",
+  "transport_attempts": null,
+  "usage": null,
+  "valid": true
+}

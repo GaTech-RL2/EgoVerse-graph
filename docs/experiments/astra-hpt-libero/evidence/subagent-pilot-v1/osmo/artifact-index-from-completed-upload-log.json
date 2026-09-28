@@ -1,0 +1,2617 @@
+{
+  "count": 522,
+  "files": [
+    {
+      "bytes": 53248,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/acquisition-ledger.sqlite",
+      "sha256": "12c6930e8ffedb0d364ae7db9f29f826a98b30e80bbc9763ae1b26e280b2aa77"
+    },
+    {
+      "bytes": 0,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/acquisition-ledger.sqlite.owner",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 29529,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/acquisition.json",
+      "sha256": "2e406f5cca3e5ef2f9fb884f1ef4c8345d83a3f47f046fef2e581320f470d6c8"
+    },
+    {
+      "bytes": 144,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/attempt.json",
+      "sha256": "8db5c02653a8fe365e31457e28401be17804b577b60870c75bdf2a115f2ae38f"
+    },
+    {
+      "bytes": 1134,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/bundle/ASTRA_SCENECEE6F21E84FA_push_the_block_into_the_target..bddl",
+      "sha256": "528d69e31e895012fe645f7c8dfd30aebf11fc5fbc053e80ed741ecacd528270"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/bundle/compiler.json",
+      "sha256": "19e701bdfdef19c8eae4b2fe6c26bf1a905d68686c5e4f9a0cd6f4be0cf31f5f"
+    },
+    {
+      "bytes": 38818,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/bundle/resolved.xml",
+      "sha256": "d67c5513d16c0f648795f58ebf2ac15fbdcda5611ebcebd87175334bbc3809e5"
+    },
+    {
+      "bytes": 561,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/bundle/scene.json",
+      "sha256": "64434caf37493ebb436c166c997f901c29c32febc5a9f91852e9f1cd6a8b3090"
+    },
+    {
+      "bytes": 1115,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/bundle/task.bddl",
+      "sha256": "fa73f6407ef961358278f607a5d3433dbd8bc3e4f6208e9d08782ce0fbd2f2f4"
+    },
+    {
+      "bytes": 261,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/bundle/task.json",
+      "sha256": "3a214cecad3908d80e341126326093145b537675af49109a523d6cd55091cd76"
+    },
+    {
+      "bytes": 288648,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/control-trace.json",
+      "sha256": "597e268fa7816ddc4948c8112f6c48b89c706e2ab021e67605cba088890318d5"
+    },
+    {
+      "bytes": 9167096,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/episode.hdf5",
+      "sha256": "f791be7e723602469f920279c660b05488b2097421fd256f7b5aae65c6c4f0ee"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/episode.json",
+      "sha256": "e2ef1ef438b1f4891b18398a01c20092069d49bfbf4ea3f1b349c6dc28859d4b"
+    },
+    {
+      "bytes": 10121,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/expected-replay.json",
+      "sha256": "00e3df7f9ebad41174be13d517386c157a8423ded69a26607232ddab3b3bcbcd"
+    },
+    {
+      "bytes": 108,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/fresh-process-reload.json",
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "bytes": 245343,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/initial-full-state/arrays.npz",
+      "sha256": "84555651bc44bce154047caf7d3b0ee1d78ada3dcd07016481e402cf5e71f8d2"
+    },
+    {
+      "bytes": 66025,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/initial-full-state/snapshot.json",
+      "sha256": "987ec7b15c4a77c9480d949d8bf91b31029ed6addf994163e4d58899417a74d1"
+    },
+    {
+      "bytes": 323715,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/preview.mp4",
+      "sha256": "d5fb6722f47c37c28a24da809fe29cadd522c902eab03788103d4d37015a7300"
+    },
+    {
+      "bytes": 1562,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/receipt.json",
+      "sha256": "1f9bdd2308b74ece4ef730573e3522f4decb19921a5e1a5c304f39435d670da7"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0001/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/attempt.json",
+      "sha256": "298d87de5b18aa908711c728012e6a2012a7c256a52a3e5a1f9d9494c6a4d8cd"
+    },
+    {
+      "bytes": 1057,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/bundle/ASTRA_SCENEB51D6E717C8B_push_the_block_into_the_target..bddl",
+      "sha256": "b6ee9df2d08a8ca0d0db1ac9b9a536ef6911e0cbdd6e0b3ede2200f0f8566cb2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/bundle/compiler.json",
+      "sha256": "1ee0213b2f2b608c1ec078fd5e27f442f5d40e86b2e5f3f406dd45b402f2c1b0"
+    },
+    {
+      "bytes": 38348,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/bundle/resolved.xml",
+      "sha256": "7c215499680debd93c55d56afc786bc2394b45bbe41e8879ac1deeb163cca038"
+    },
+    {
+      "bytes": 454,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/bundle/scene.json",
+      "sha256": "78614dc0c12fe6391015345b4ab40ea13235d369e73c0c49faee727289f05678"
+    },
+    {
+      "bytes": 1038,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/bundle/task.bddl",
+      "sha256": "2a9f0c1ac785d9e989a6df21c6610a4292e96860b6826a19283e6ce8895deff2"
+    },
+    {
+      "bytes": 264,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/bundle/task.json",
+      "sha256": "ee8b4c7efad8f27d16749fb2159a27fdfd918e4fdfe7282a5a60cdc7a8a9cc5c"
+    },
+    {
+      "bytes": 311028,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/control-trace.json",
+      "sha256": "df61d9d5697374391cf63e946c64d3172200c230b405d3c02405e0b942780774"
+    },
+    {
+      "bytes": 9821550,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/episode.hdf5",
+      "sha256": "2f0484aaae687f17f7b65a9939bcbbb695a23d2ca9f5c86ee401dfb0ed57fc39"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/episode.json",
+      "sha256": "4241a43e97524688f903942ec255bb1ebe521149f3c04ff2268ce54508b010ef"
+    },
+    {
+      "bytes": 10063,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/expected-replay.json",
+      "sha256": "92407f96e292f7581c02f4a78234b0fc8a3d7eeee63bd3fd8550ad53f0d4e3b3"
+    },
+    {
+      "bytes": 108,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/fresh-process-reload.json",
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "bytes": 243186,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/initial-full-state/arrays.npz",
+      "sha256": "17122056ac6d02b7a82ecbc3b9b1169e22a756ec5e5ad24006f4d11f719c3438"
+    },
+    {
+      "bytes": 66031,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/initial-full-state/snapshot.json",
+      "sha256": "82bdfabb14e5de3bc434c1ff33b35830633046a30fd25b54b32abe0c965756ac"
+    },
+    {
+      "bytes": 374396,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/preview.mp4",
+      "sha256": "fef55ffe677c892ae7f80db692d6f62fa35ef7d2b9b96b21db97a6781aa86750"
+    },
+    {
+      "bytes": 1564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/receipt.json",
+      "sha256": "8f783a8d1549e900e29a5290a314718a8dcc37f004ec17917edd3b73871fe664"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0002/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/attempt.json",
+      "sha256": "fec08bae8b58b54a759f5a6343727809a5d12090c91386c953c50af71e358b94"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/bundle/ASTRA_SCENE77EF2FB4A777_push_the_blue_block_to_the_right_target._leave_the_red_block_in_place..bddl",
+      "sha256": "ff7f656d5e69c6b1e91a8f148c77260f887398b96c1c82b34be3e5ff2a4a19d9"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/bundle/compiler.json",
+      "sha256": "9ec627361b0c8ab7901ab0f178a6b0f74e45b382977393c17eeccd717ca62621"
+    },
+    {
+      "bytes": 39502,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/bundle/resolved.xml",
+      "sha256": "85b2182c4dc7e13c122b552da38678283acb5c3ff12115dec8df87a77f0fb776"
+    },
+    {
+      "bytes": 863,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/bundle/scene.json",
+      "sha256": "2f018a2656ad87acccdc35c96cfbe0fd8d2aa29b8c551b2c741a0c1332fa4038"
+    },
+    {
+      "bytes": 1895,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/bundle/task.bddl",
+      "sha256": "49dadc14b83a2bdb981562e8f65b8a21796530dea5ff175e8e7f31b9a4bd2d17"
+    },
+    {
+      "bytes": 301,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/bundle/task.json",
+      "sha256": "9044ea865a1f28a53b087eed205b9b94c57572df57849096f99cf40d75fa7f27"
+    },
+    {
+      "bytes": 370052,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/control-trace.json",
+      "sha256": "89870b76c989ce6aec08db014113a20f70e5f1bbd29316a0af639f359e844003"
+    },
+    {
+      "bytes": 9218778,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/episode.hdf5",
+      "sha256": "d89874b5e93cdb45fe61e6942e379cf18ce16ff8d79bf244dd80d3b853918db1"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/episode.json",
+      "sha256": "cb238ee99224158b6556e8f3020a6e942fc6f46927b6850f9be3ddb0b23b671e"
+    },
+    {
+      "bytes": 12956,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/expected-replay.json",
+      "sha256": "3dbd5e6297eef78ebc5c00709e596a35647dcc8d304788cd53ce9b6652de2440"
+    },
+    {
+      "bytes": 108,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/fresh-process-reload.json",
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "bytes": 245719,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/initial-full-state/arrays.npz",
+      "sha256": "ceff00162068f33dbc96f2abf5b1494f8e3ae8cbf85aad2c25ca95a0bf46f3dd"
+    },
+    {
+      "bytes": 69096,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/initial-full-state/snapshot.json",
+      "sha256": "bdf0b8a53b5c7140fc06cd9a136b65d54d8f5a4952416dac37ef0199009296e9"
+    },
+    {
+      "bytes": 352516,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/preview.mp4",
+      "sha256": "15b1ca959312249b91516e8901fcd74662f8115e18edd84f4cdb96465a8906de"
+    },
+    {
+      "bytes": 1582,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/receipt.json",
+      "sha256": "138d6e91ee26c788e0999e5aab362fc19cb12bca248d091d06ccbe66370ae162"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0003/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/attempt.json",
+      "sha256": "00f7a216ae6c95f3ca6f731aa9fed6229d74c9863bc08c5283a70f9d072ff841"
+    },
+    {
+      "bytes": 1933,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/bundle/ASTRA_SCENE52E5F133E194_push_the_red_block_to_the_left_target._leave_the_blue_block_in_place..bddl",
+      "sha256": "1a99e7ed0678d0fe786f21a46a6fe8881c472c26ed06a85a0b4fec2f1ffbda00"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/bundle/compiler.json",
+      "sha256": "088fa86240a7038d723625125483c2ac17656a35aa794d6cb920b7bcda5eed7b"
+    },
+    {
+      "bytes": 39040,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/bundle/resolved.xml",
+      "sha256": "8d4901b48f48da92c1f7e39d87490b72a1631629b9b2f83f39872f00b46eef3d"
+    },
+    {
+      "bytes": 756,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/bundle/scene.json",
+      "sha256": "0bb897d7dd7f8f1499eda13a603a5d6a546fca0a8e1e4710d6ef5c88e66675aa"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/bundle/task.bddl",
+      "sha256": "31285de30d696a0e3428ce610ccd216f33e39d92d8a76d97fcb3e46f3408b30a"
+    },
+    {
+      "bytes": 297,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/bundle/task.json",
+      "sha256": "365899b5f3a13e3426f68a06cf12d4292e8cc0d884b0838bd2ab5f4ade594b8a"
+    },
+    {
+      "bytes": 366709,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/control-trace.json",
+      "sha256": "e62aebd848819767a6e8bf96f518e8e51c7a8e5c8e67c8a9620d834718860965"
+    },
+    {
+      "bytes": 9409957,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/episode.hdf5",
+      "sha256": "ba2eaebc4894fb6cfd96ea82568fe4e1b587d4e4e33bb9000d2277ceb56683db"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/episode.json",
+      "sha256": "e4d36f7aa623ddd9213d3c0009a7a2624366407e18f932ccfc8f8dd9a09a1405"
+    },
+    {
+      "bytes": 13018,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/expected-replay.json",
+      "sha256": "53c28d0a56b05c111aafcc3cfd1ea08d1d1dadd27c6a6b50717859a4ee720b8f"
+    },
+    {
+      "bytes": 108,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/fresh-process-reload.json",
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "bytes": 246572,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/initial-full-state/arrays.npz",
+      "sha256": "5a9a61b51387ab4e67b5b3ea422e344aa70b9c2cb1f123bf757d748f3fada486"
+    },
+    {
+      "bytes": 69094,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/initial-full-state/snapshot.json",
+      "sha256": "aa47df14a0ebe3715c7a406d7d4e21e4648570df72d3b098ad2c5d888b70e3bd"
+    },
+    {
+      "bytes": 348572,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/preview.mp4",
+      "sha256": "38ab3047c15695061b9379ddc1ab5953a9d7c04f6b9a4f0d37c4264590f57aa3"
+    },
+    {
+      "bytes": 1581,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/receipt.json",
+      "sha256": "b149c3923e27a2d754a179eef2b9994d4defa1ab6420556f06268b12d28aca6d"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0004/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 145,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/attempt.json",
+      "sha256": "7370f3a76c77749eff3da8e82e963fc2e9ac0ab472139c74fe924d65087fa52a"
+    },
+    {
+      "bytes": 1910,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/bundle/ASTRA_SCENEDF98EE270642_push_the_block_left_of_the_marker_to_the_left_target._leave_the_other_block_in_place..bddl",
+      "sha256": "c774a89139507f26ac7572691de9e7091a5cfa3477393036190144372e325ee8"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/bundle/compiler.json",
+      "sha256": "d5bd17e18efd93ad0178cd2ec2ff04f8deaf4e0ad45be7b60dd2bac5b0a87b22"
+    },
+    {
+      "bytes": 39921,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/bundle/resolved.xml",
+      "sha256": "d5509a0db9752ed73f00be82ce0590b870d08a4ee3ad339ed4340adc40c7720d"
+    },
+    {
+      "bytes": 957,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/bundle/scene.json",
+      "sha256": "846ae9d4417610c1b3918af23fb64703ab57300ce154963df8e49fe0e3c7fea2"
+    },
+    {
+      "bytes": 1891,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/bundle/task.bddl",
+      "sha256": "4ae53b145f96f6bb913e0b7f7e02c586dd5ffb2deb07ea04e7a026c4412668d8"
+    },
+    {
+      "bytes": 319,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/bundle/task.json",
+      "sha256": "f79e3404c9ccbb0f0e71e7b0eb346bd6c4f2a17bdb65e79a5144b280dd342585"
+    },
+    {
+      "bytes": 362351,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/control-trace.json",
+      "sha256": "1e005793228c0a9b7c1ed07e65e34aba29ffdee866fc0b7bb8b7eaa0e0ad6954"
+    },
+    {
+      "bytes": 9368149,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/episode.hdf5",
+      "sha256": "5bcfe9ea2fb838994659a8ca418431a88cc06de34d28534e3379f05cfb77abdc"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/episode.json",
+      "sha256": "003524b1c63a7b0f9576dbf6bea241b13a4958db93568c442ffccd3a983afd4c"
+    },
+    {
+      "bytes": 13007,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/expected-replay.json",
+      "sha256": "55af7b5fca6b756e8162e10dd0bae051b48094283726884534171f331291722e"
+    },
+    {
+      "bytes": 108,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/fresh-process-reload.json",
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "bytes": 245193,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/initial-full-state/arrays.npz",
+      "sha256": "3cbd0d9da37e7c340af5fcba54a8fef1654ff1d8ab79fd4f19483b2314416e68"
+    },
+    {
+      "bytes": 69071,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/initial-full-state/snapshot.json",
+      "sha256": "60454b0f8bd2b1885442aea80480197a4c75526b4769f1cacd07b39239c56c87"
+    },
+    {
+      "bytes": 347763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/preview.mp4",
+      "sha256": "a2395b0f8f95a1bab82ead1254206e1cbbd361756637a347683d278b0457d922"
+    },
+    {
+      "bytes": 1581,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/receipt.json",
+      "sha256": "0b2fb7a72fcc60d725da99681c1528eccab9e02b9f63d9b9e5317057f712fb34"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0005/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/attempt.json",
+      "sha256": "bd4cf0b11dbc15484f4c2173efeae8222144f6d90c4d6c65ae4e44a4d27ede38"
+    },
+    {
+      "bytes": 1975,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/bundle/ASTRA_SCENEC184871AE03D_push_the_block_right_of_the_marker_to_the_right_target._leave_the_other_block_in_place..bddl",
+      "sha256": "23b1bee561b75f8b4592afba4d31883359e1801385ce610670566f07a0d562d2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/bundle/compiler.json",
+      "sha256": "6044008546df6c5d9422ded2c1082543bd487ce5f09bd2fb78f0f23072c76049"
+    },
+    {
+      "bytes": 39460,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/bundle/resolved.xml",
+      "sha256": "7694accb036bc762caf75fa66633b13734fb6d62c8e4ecefdbaa67236f9722ff"
+    },
+    {
+      "bytes": 860,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/bundle/scene.json",
+      "sha256": "fc21301b74d014a6196d41360c494a55b69ef12f2ccb1364a457b25e747559a7"
+    },
+    {
+      "bytes": 1956,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/bundle/task.bddl",
+      "sha256": "6508fa98e3c364529d0e2552eaea18a0b838e5d93166ef51e47d14f8eee27581"
+    },
+    {
+      "bytes": 324,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/bundle/task.json",
+      "sha256": "aa8191b19281a4ed982f2fad70dc27729c7be54d299069c1e37f87c5f6f2eb2b"
+    },
+    {
+      "bytes": 366825,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/control-trace.json",
+      "sha256": "dec64505463997a651bc67cac47c5c6bf90d0e628516eaf9e438aa07d792b91b"
+    },
+    {
+      "bytes": 9170018,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/episode.hdf5",
+      "sha256": "0d4dbb77278f8103c10433a19db54aabe7080578c4ca904e22c6c9a06376e926"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/episode.json",
+      "sha256": "7b96c8559ff306a32662235aaf42a730573c841b4d4dc0925f13c814e1643bcd"
+    },
+    {
+      "bytes": 12952,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/expected-replay.json",
+      "sha256": "2036a2421014d5021a83edff659e7377af69c03577dd94293661c5dbefcab1dd"
+    },
+    {
+      "bytes": 108,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/fresh-process-reload.json",
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "bytes": 245774,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/initial-full-state/arrays.npz",
+      "sha256": "ddf3c23e97dbdb10d75609f3bde9d53f66d304b14bde3f108172d6a156d6d19b"
+    },
+    {
+      "bytes": 69076,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/initial-full-state/snapshot.json",
+      "sha256": "51ea3c5231e013f4341d1a428f2d286c9656f513a40bf00f7699ae4ef6bef287"
+    },
+    {
+      "bytes": 344830,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/preview.mp4",
+      "sha256": "acf8608752902607b63aa78a059e4a932c80e0eb98ef2557d5720c056e7ca75d"
+    },
+    {
+      "bytes": 1580,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/receipt.json",
+      "sha256": "31719e9e0fac16f569821cf0ea8e3072b6746e30987aaa2ce109aec3eeb11458"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0006/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/attempt.json",
+      "sha256": "25eca57f051c0b0b1a43ffaef44f61127232434c21512559f0dc150ddf4e3d38"
+    },
+    {
+      "bytes": 1134,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/bundle/ASTRA_SCENECEE6F21E84FA_push_the_block_into_the_target..bddl",
+      "sha256": "528d69e31e895012fe645f7c8dfd30aebf11fc5fbc053e80ed741ecacd528270"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/bundle/compiler.json",
+      "sha256": "19e701bdfdef19c8eae4b2fe6c26bf1a905d68686c5e4f9a0cd6f4be0cf31f5f"
+    },
+    {
+      "bytes": 38818,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/bundle/resolved.xml",
+      "sha256": "d67c5513d16c0f648795f58ebf2ac15fbdcda5611ebcebd87175334bbc3809e5"
+    },
+    {
+      "bytes": 561,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/bundle/scene.json",
+      "sha256": "64434caf37493ebb436c166c997f901c29c32febc5a9f91852e9f1cd6a8b3090"
+    },
+    {
+      "bytes": 1115,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/bundle/task.bddl",
+      "sha256": "fa73f6407ef961358278f607a5d3433dbd8bc3e4f6208e9d08782ce0fbd2f2f4"
+    },
+    {
+      "bytes": 261,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/bundle/task.json",
+      "sha256": "3a214cecad3908d80e341126326093145b537675af49109a523d6cd55091cd76"
+    },
+    {
+      "bytes": 286543,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/control-trace.json",
+      "sha256": "49a2541d64cdb2cfaac9ae46fec29e226ab951f92295728677db582a4d906dc6"
+    },
+    {
+      "bytes": 9197817,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/episode.hdf5",
+      "sha256": "ac958fd1f7c5312cde57375f62cb170957defd603165515c4f28f22bed50c1c9"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/episode.json",
+      "sha256": "2a92f1a40ca80e5a5d6e8fa4c8c5d419200ce69ec9a5437fa33b2c3326b830bb"
+    },
+    {
+      "bytes": 10125,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/expected-replay.json",
+      "sha256": "cf92268c4394e09ae8e0d5594a00aadaef238f168fb3fe52ca50554b590be6b5"
+    },
+    {
+      "bytes": 245359,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/initial-full-state/arrays.npz",
+      "sha256": "8890c7ceef490aa0e6b7520a8660511d6f03900155b9e7de2327f56d72f65f06"
+    },
+    {
+      "bytes": 66020,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/initial-full-state/snapshot.json",
+      "sha256": "86358035fa11705c9155538d7f9b1f582756f2c6fe1434dfb4c59674acef2002"
+    },
+    {
+      "bytes": 330546,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/preview.mp4",
+      "sha256": "b3c97aabef95fed146a91ac2a9aafddbc1bd17fc3323c307a7d849b2236c2d5e"
+    },
+    {
+      "bytes": 1563,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/receipt.json",
+      "sha256": "983b9659de3498ba2218d08d309218a9124649c7c52ae0c746d8b74c8d4495f2"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0007/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/attempt.json",
+      "sha256": "d2d58f7863d31be7bcdddc6a875999a948ef046c9785108ab9eb41ae19e354e6"
+    },
+    {
+      "bytes": 1057,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/bundle/ASTRA_SCENEB51D6E717C8B_push_the_block_into_the_target..bddl",
+      "sha256": "b6ee9df2d08a8ca0d0db1ac9b9a536ef6911e0cbdd6e0b3ede2200f0f8566cb2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/bundle/compiler.json",
+      "sha256": "1ee0213b2f2b608c1ec078fd5e27f442f5d40e86b2e5f3f406dd45b402f2c1b0"
+    },
+    {
+      "bytes": 38348,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/bundle/resolved.xml",
+      "sha256": "7c215499680debd93c55d56afc786bc2394b45bbe41e8879ac1deeb163cca038"
+    },
+    {
+      "bytes": 454,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/bundle/scene.json",
+      "sha256": "78614dc0c12fe6391015345b4ab40ea13235d369e73c0c49faee727289f05678"
+    },
+    {
+      "bytes": 1038,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/bundle/task.bddl",
+      "sha256": "2a9f0c1ac785d9e989a6df21c6610a4292e96860b6826a19283e6ce8895deff2"
+    },
+    {
+      "bytes": 264,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/bundle/task.json",
+      "sha256": "ee8b4c7efad8f27d16749fb2159a27fdfd918e4fdfe7282a5a60cdc7a8a9cc5c"
+    },
+    {
+      "bytes": 313271,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/control-trace.json",
+      "sha256": "3acc2429ce7176df6fc2c5582641ffbb022362b81312565676784866b671273c"
+    },
+    {
+      "bytes": 9810153,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/episode.hdf5",
+      "sha256": "e04ca2671314c46108246812364f865a07149764bb964bfe8d43ebacbe50c414"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/episode.json",
+      "sha256": "75b408666c2458fff517aca1d4fda9815d8a1c9bff89c7a5931daaf44641be65"
+    },
+    {
+      "bytes": 10071,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/expected-replay.json",
+      "sha256": "bda932ae66ad15146ed559888ed9e3b8b71669e90e54169fa582ac63c355ea2d"
+    },
+    {
+      "bytes": 243069,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/initial-full-state/arrays.npz",
+      "sha256": "57a7a70cd0cf1b36b178469b9e460c9431b9fb960deb8de61dd178b3c4084683"
+    },
+    {
+      "bytes": 66038,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/initial-full-state/snapshot.json",
+      "sha256": "e3d11a7e5c108c0919feab16f7ff396854493d03a4754607bb75583f5d3f6a43"
+    },
+    {
+      "bytes": 371656,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/preview.mp4",
+      "sha256": "b120fadb0175d00d510a91075c2a5c71435c8a3027ad48313e9c8fa7e9d6bafe"
+    },
+    {
+      "bytes": 1564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/receipt.json",
+      "sha256": "ae27bdc0d3ef5850af733fae496ef2f39198b3b3aa6dd1db261caa6ae0fa4301"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0008/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/attempt.json",
+      "sha256": "db3e7598cda00c21fb5ab9292c590d20fe3235d56867bca60ff68e27c271caf9"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/bundle/ASTRA_SCENE77EF2FB4A777_push_the_blue_block_to_the_right_target._leave_the_red_block_in_place..bddl",
+      "sha256": "ff7f656d5e69c6b1e91a8f148c77260f887398b96c1c82b34be3e5ff2a4a19d9"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/bundle/compiler.json",
+      "sha256": "9ec627361b0c8ab7901ab0f178a6b0f74e45b382977393c17eeccd717ca62621"
+    },
+    {
+      "bytes": 39502,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/bundle/resolved.xml",
+      "sha256": "85b2182c4dc7e13c122b552da38678283acb5c3ff12115dec8df87a77f0fb776"
+    },
+    {
+      "bytes": 863,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/bundle/scene.json",
+      "sha256": "2f018a2656ad87acccdc35c96cfbe0fd8d2aa29b8c551b2c741a0c1332fa4038"
+    },
+    {
+      "bytes": 1895,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/bundle/task.bddl",
+      "sha256": "49dadc14b83a2bdb981562e8f65b8a21796530dea5ff175e8e7f31b9a4bd2d17"
+    },
+    {
+      "bytes": 301,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/bundle/task.json",
+      "sha256": "9044ea865a1f28a53b087eed205b9b94c57572df57849096f99cf40d75fa7f27"
+    },
+    {
+      "bytes": 367524,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/control-trace.json",
+      "sha256": "1c49d000ac4d60aba8f61041b2ade2f07c850f72c83c7781e1a1b4031a3b02b5"
+    },
+    {
+      "bytes": 9223032,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/episode.hdf5",
+      "sha256": "d44402dc775a1d062a22b73e5348b56294f8ce1889b9e0edc6377a887040148d"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/episode.json",
+      "sha256": "f450a257654850ea2bd1a67d170467dc7b03be32057bdbe4a0289073331204ff"
+    },
+    {
+      "bytes": 12963,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/expected-replay.json",
+      "sha256": "6622f73b72a86b8f7f71f4e810c4ef4350fe2df0c3ca4cb54b1e6f833c76ef21"
+    },
+    {
+      "bytes": 245960,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/initial-full-state/arrays.npz",
+      "sha256": "6d42267bff7a61555fb8c1c7000130f722616e299391e1d1dd35b92afccf2a05"
+    },
+    {
+      "bytes": 69106,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/initial-full-state/snapshot.json",
+      "sha256": "b8c5bbb5c6571ce15166744a0d450295df048b5c2f65027a50a14bdbd1b74db3"
+    },
+    {
+      "bytes": 351926,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/preview.mp4",
+      "sha256": "d177c0c756cb4212e4e70d9328bdbb7fcc6dbaf5319734876f6ee5f5a6df42c8"
+    },
+    {
+      "bytes": 1580,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/receipt.json",
+      "sha256": "7d9012bb3b041248c58e8a535162d2f0a06795c1051f4855f02afcb325c9f2ed"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0009/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/attempt.json",
+      "sha256": "a77490724abddeebda437406702e56410729eb091e1e4e9d0d19a99f20bd793b"
+    },
+    {
+      "bytes": 1933,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/bundle/ASTRA_SCENE52E5F133E194_push_the_red_block_to_the_left_target._leave_the_blue_block_in_place..bddl",
+      "sha256": "1a99e7ed0678d0fe786f21a46a6fe8881c472c26ed06a85a0b4fec2f1ffbda00"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/bundle/compiler.json",
+      "sha256": "088fa86240a7038d723625125483c2ac17656a35aa794d6cb920b7bcda5eed7b"
+    },
+    {
+      "bytes": 39040,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/bundle/resolved.xml",
+      "sha256": "8d4901b48f48da92c1f7e39d87490b72a1631629b9b2f83f39872f00b46eef3d"
+    },
+    {
+      "bytes": 756,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/bundle/scene.json",
+      "sha256": "0bb897d7dd7f8f1499eda13a603a5d6a546fca0a8e1e4710d6ef5c88e66675aa"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/bundle/task.bddl",
+      "sha256": "31285de30d696a0e3428ce610ccd216f33e39d92d8a76d97fcb3e46f3408b30a"
+    },
+    {
+      "bytes": 297,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/bundle/task.json",
+      "sha256": "365899b5f3a13e3426f68a06cf12d4292e8cc0d884b0838bd2ab5f4ade594b8a"
+    },
+    {
+      "bytes": 362926,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/control-trace.json",
+      "sha256": "28b66627952ba2df2bbe445f5566bef7874bc309ed2ae5fc98e698ba514d2e5e"
+    },
+    {
+      "bytes": 9405991,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/episode.hdf5",
+      "sha256": "c53059b5b987d533bc3b8481c8e4d6478d9854f1fa65f68d62dd8b26eec8e3f6"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/episode.json",
+      "sha256": "e98dec7f10d246cdd3e8554c3dd5bd4783ea1e95d418d5efdbd0d19f7d5d1a90"
+    },
+    {
+      "bytes": 13018,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/expected-replay.json",
+      "sha256": "52ccd15f0b7f559d143384e95a9242d83da5c71b2fe46f59d2abef7130d17dbc"
+    },
+    {
+      "bytes": 246483,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/initial-full-state/arrays.npz",
+      "sha256": "503095796b73316df0f169acb3f5419911cd60535f2f7b0296748a43eec4efee"
+    },
+    {
+      "bytes": 69109,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/initial-full-state/snapshot.json",
+      "sha256": "f70bd1058f4ebe1faf90c7b21bdf5cdaa29f59d60291a89767eed05fda2bba96"
+    },
+    {
+      "bytes": 347497,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/preview.mp4",
+      "sha256": "bde6141be75ae03f6c60910def857f92ce237c105bdc3cef945e335dcb0665bb"
+    },
+    {
+      "bytes": 1582,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/receipt.json",
+      "sha256": "690b8538419ad700a4dfc7a36c7ec36088a8cad51f7fc56472f352e5ac31179a"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0010/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/attempt.json",
+      "sha256": "7a1f632262d251b7254d32235bca87d080f0f79913f239806e7d5ef7412e7614"
+    },
+    {
+      "bytes": 1910,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/bundle/ASTRA_SCENEDF98EE270642_push_the_block_left_of_the_marker_to_the_left_target._leave_the_other_block_in_place..bddl",
+      "sha256": "c774a89139507f26ac7572691de9e7091a5cfa3477393036190144372e325ee8"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/bundle/compiler.json",
+      "sha256": "d5bd17e18efd93ad0178cd2ec2ff04f8deaf4e0ad45be7b60dd2bac5b0a87b22"
+    },
+    {
+      "bytes": 39921,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/bundle/resolved.xml",
+      "sha256": "d5509a0db9752ed73f00be82ce0590b870d08a4ee3ad339ed4340adc40c7720d"
+    },
+    {
+      "bytes": 957,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/bundle/scene.json",
+      "sha256": "846ae9d4417610c1b3918af23fb64703ab57300ce154963df8e49fe0e3c7fea2"
+    },
+    {
+      "bytes": 1891,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/bundle/task.bddl",
+      "sha256": "4ae53b145f96f6bb913e0b7f7e02c586dd5ffb2deb07ea04e7a026c4412668d8"
+    },
+    {
+      "bytes": 319,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/bundle/task.json",
+      "sha256": "f79e3404c9ccbb0f0e71e7b0eb346bd6c4f2a17bdb65e79a5144b280dd342585"
+    },
+    {
+      "bytes": 362232,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/control-trace.json",
+      "sha256": "0baa8ef5d32066755320df0db17ecca3a742cdb0ba6cff84c46419d1b960bb45"
+    },
+    {
+      "bytes": 9369913,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/episode.hdf5",
+      "sha256": "8011f5dc5c8ef10a2e96511e7c1a438d61cb26be97b4bffe263aa067705dffa4"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/episode.json",
+      "sha256": "d0fc971ffb75592f2fbb8fe40e085cbe24f1e399c9476a1958febf4390583169"
+    },
+    {
+      "bytes": 12985,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/expected-replay.json",
+      "sha256": "24eaf166b591bf3cafc7ae160b070654a4dcafc1bfd78596fbd57789b8565c98"
+    },
+    {
+      "bytes": 245152,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/initial-full-state/arrays.npz",
+      "sha256": "9f8bc8d248eb465c0081c87d7390fead099aa9c69a78b9b00667f8f071502642"
+    },
+    {
+      "bytes": 69080,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/initial-full-state/snapshot.json",
+      "sha256": "00e5cd77d68c4d7d65599544302306e6c84e13d8f7df23396ecf5ff55bb3673d"
+    },
+    {
+      "bytes": 347620,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/preview.mp4",
+      "sha256": "302bdf2f53d1c0513d9fc1113dee1b6c4ce67a016195511e3029c1a812b3bf65"
+    },
+    {
+      "bytes": 1581,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/receipt.json",
+      "sha256": "4036922810e0361d021e517e2dce2e1336e1be7528ca33bf8105de3a1c823fd5"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0011/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/attempt.json",
+      "sha256": "78cb71794f9c5a9ec6498040ab32e5dd2cd7108cecbf4ca75200dd3e6e0505ad"
+    },
+    {
+      "bytes": 1975,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/bundle/ASTRA_SCENEC184871AE03D_push_the_block_right_of_the_marker_to_the_right_target._leave_the_other_block_in_place..bddl",
+      "sha256": "23b1bee561b75f8b4592afba4d31883359e1801385ce610670566f07a0d562d2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/bundle/compiler.json",
+      "sha256": "6044008546df6c5d9422ded2c1082543bd487ce5f09bd2fb78f0f23072c76049"
+    },
+    {
+      "bytes": 39460,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/bundle/resolved.xml",
+      "sha256": "7694accb036bc762caf75fa66633b13734fb6d62c8e4ecefdbaa67236f9722ff"
+    },
+    {
+      "bytes": 860,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/bundle/scene.json",
+      "sha256": "fc21301b74d014a6196d41360c494a55b69ef12f2ccb1364a457b25e747559a7"
+    },
+    {
+      "bytes": 1956,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/bundle/task.bddl",
+      "sha256": "6508fa98e3c364529d0e2552eaea18a0b838e5d93166ef51e47d14f8eee27581"
+    },
+    {
+      "bytes": 324,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/bundle/task.json",
+      "sha256": "aa8191b19281a4ed982f2fad70dc27729c7be54d299069c1e37f87c5f6f2eb2b"
+    },
+    {
+      "bytes": 361772,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/control-trace.json",
+      "sha256": "8558fa60c7f4c34635d216a33886d5ef3cd4b689344846c1db9c83edf09b7664"
+    },
+    {
+      "bytes": 9109996,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/episode.hdf5",
+      "sha256": "8a57041318e60ecdf75521e8c3204225beda96a05a36a6094799707894a3d51e"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/episode.json",
+      "sha256": "b3eb1f9370548e68503d0a5d93d646c0ad8d35876982ff1bcf91e093847aff2d"
+    },
+    {
+      "bytes": 12979,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/expected-replay.json",
+      "sha256": "108adee369f8f7bc81af2e89e6dd42a7c6edb8d56d6857cfe5c4cb25458f851b"
+    },
+    {
+      "bytes": 245756,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/initial-full-state/arrays.npz",
+      "sha256": "dd17464ef2b106fdfb2e605a6034e68da083daace086d603e338ed8f499f4b6b"
+    },
+    {
+      "bytes": 69077,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/initial-full-state/snapshot.json",
+      "sha256": "a070e1c362198070b26d41ae2695a96f459c5522e738b68b1eeb917033c10b63"
+    },
+    {
+      "bytes": 344913,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/preview.mp4",
+      "sha256": "0791284701f6488c7ce9e5c97797825e18627ea15169282383c3edac83e4ce9f"
+    },
+    {
+      "bytes": 1582,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/receipt.json",
+      "sha256": "589d91ce8d86c8ce238e41786c3fe0eb612c9798a2c00a3cafaaefff70a0d4ae"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0012/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 145,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/attempt.json",
+      "sha256": "2e485c23e1640b93290e09afe6a40bf96c2729868f724503e45024257b7beb48"
+    },
+    {
+      "bytes": 1134,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/bundle/ASTRA_SCENECEE6F21E84FA_push_the_block_into_the_target..bddl",
+      "sha256": "528d69e31e895012fe645f7c8dfd30aebf11fc5fbc053e80ed741ecacd528270"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/bundle/compiler.json",
+      "sha256": "19e701bdfdef19c8eae4b2fe6c26bf1a905d68686c5e4f9a0cd6f4be0cf31f5f"
+    },
+    {
+      "bytes": 38818,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/bundle/resolved.xml",
+      "sha256": "d67c5513d16c0f648795f58ebf2ac15fbdcda5611ebcebd87175334bbc3809e5"
+    },
+    {
+      "bytes": 561,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/bundle/scene.json",
+      "sha256": "64434caf37493ebb436c166c997f901c29c32febc5a9f91852e9f1cd6a8b3090"
+    },
+    {
+      "bytes": 1115,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/bundle/task.bddl",
+      "sha256": "fa73f6407ef961358278f607a5d3433dbd8bc3e4f6208e9d08782ce0fbd2f2f4"
+    },
+    {
+      "bytes": 261,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/bundle/task.json",
+      "sha256": "3a214cecad3908d80e341126326093145b537675af49109a523d6cd55091cd76"
+    },
+    {
+      "bytes": 287756,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/control-trace.json",
+      "sha256": "69564fc5dab0b6b4ef1034743bc1f4276c617f1f8fa535d657d96905e03532a0"
+    },
+    {
+      "bytes": 9189667,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/episode.hdf5",
+      "sha256": "691e97679bbf826a5de05e59f22f4e068211faaeab474201e5968f0d362bec6f"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/episode.json",
+      "sha256": "4da184e2986bc614757b1c286e044ace808b937d606764d7df6ff070a3a3b9af"
+    },
+    {
+      "bytes": 10111,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/expected-replay.json",
+      "sha256": "53f689b97a10898b1382fc18ebfbb1038742b486c59c7286782e1c4999a93a39"
+    },
+    {
+      "bytes": 245333,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/initial-full-state/arrays.npz",
+      "sha256": "71fd76e55e5fd23317f845378c19a45a40dba7bcc9425f112cd245757d01c321"
+    },
+    {
+      "bytes": 66033,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/initial-full-state/snapshot.json",
+      "sha256": "a1975d788ab0ec8384da123703605275f02dd3cca8879e83a1d396e4afe39817"
+    },
+    {
+      "bytes": 326851,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/preview.mp4",
+      "sha256": "0951cb4ff4976862e8a01d97c4016bd4125c03a4a7e09fe331bd312ccc2efa65"
+    },
+    {
+      "bytes": 1563,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/receipt.json",
+      "sha256": "4508e7ba2c99d3732a7ef0b6af143950bad68c7a439515bf4134ec13295eb43b"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0013/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 145,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/attempt.json",
+      "sha256": "eee55674d944acb817567c00267d1b9c992be53ac44dae35a747a40a385015c2"
+    },
+    {
+      "bytes": 1057,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/bundle/ASTRA_SCENEB51D6E717C8B_push_the_block_into_the_target..bddl",
+      "sha256": "b6ee9df2d08a8ca0d0db1ac9b9a536ef6911e0cbdd6e0b3ede2200f0f8566cb2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/bundle/compiler.json",
+      "sha256": "1ee0213b2f2b608c1ec078fd5e27f442f5d40e86b2e5f3f406dd45b402f2c1b0"
+    },
+    {
+      "bytes": 38348,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/bundle/resolved.xml",
+      "sha256": "7c215499680debd93c55d56afc786bc2394b45bbe41e8879ac1deeb163cca038"
+    },
+    {
+      "bytes": 454,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/bundle/scene.json",
+      "sha256": "78614dc0c12fe6391015345b4ab40ea13235d369e73c0c49faee727289f05678"
+    },
+    {
+      "bytes": 1038,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/bundle/task.bddl",
+      "sha256": "2a9f0c1ac785d9e989a6df21c6610a4292e96860b6826a19283e6ce8895deff2"
+    },
+    {
+      "bytes": 264,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/bundle/task.json",
+      "sha256": "ee8b4c7efad8f27d16749fb2159a27fdfd918e4fdfe7282a5a60cdc7a8a9cc5c"
+    },
+    {
+      "bytes": 311739,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/control-trace.json",
+      "sha256": "8aa96abae4eb4a3f7470212113b2705e408aa1dda6475540c309590c22448eb3"
+    },
+    {
+      "bytes": 9824552,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/episode.hdf5",
+      "sha256": "7005d69e9239b1af57f818af75273fedfa207121493d9bb2b4a8b27c7fe8702a"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/episode.json",
+      "sha256": "4057fc14b3690448af95af84a6830a49a77e4b4f09ddaab3528630f377337d39"
+    },
+    {
+      "bytes": 10051,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/expected-replay.json",
+      "sha256": "e8496c0f50267e675fa868aae4c1f7608d4540db5b070c7e6f6ec61d09359778"
+    },
+    {
+      "bytes": 243190,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/initial-full-state/arrays.npz",
+      "sha256": "e3c227906a5fee54a1622fc4468cb31a6fbe75dec451bfed1ca0d0029ff998b5"
+    },
+    {
+      "bytes": 66016,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/initial-full-state/snapshot.json",
+      "sha256": "36f049732b5f1a1410a6d726abc7cfc13382eb45e05d3d4ff844fbd7d1645c37"
+    },
+    {
+      "bytes": 371911,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/preview.mp4",
+      "sha256": "2c0c083be3bd4c0fead57eb6476866d9646c221e39fba1a4646a5cf1eb3f3cac"
+    },
+    {
+      "bytes": 1563,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/receipt.json",
+      "sha256": "b2b873d2fe6d36760a15dfc7e712e135fddbde69b9a5cd37858b685a5da943eb"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0014/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/attempt.json",
+      "sha256": "42584ef4206c8ebc1c2314f982814ef0248123bc79dfff6fed275e9dbc7de9ca"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/bundle/ASTRA_SCENE77EF2FB4A777_push_the_blue_block_to_the_right_target._leave_the_red_block_in_place..bddl",
+      "sha256": "ff7f656d5e69c6b1e91a8f148c77260f887398b96c1c82b34be3e5ff2a4a19d9"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/bundle/compiler.json",
+      "sha256": "9ec627361b0c8ab7901ab0f178a6b0f74e45b382977393c17eeccd717ca62621"
+    },
+    {
+      "bytes": 39502,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/bundle/resolved.xml",
+      "sha256": "85b2182c4dc7e13c122b552da38678283acb5c3ff12115dec8df87a77f0fb776"
+    },
+    {
+      "bytes": 863,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/bundle/scene.json",
+      "sha256": "2f018a2656ad87acccdc35c96cfbe0fd8d2aa29b8c551b2c741a0c1332fa4038"
+    },
+    {
+      "bytes": 1895,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/bundle/task.bddl",
+      "sha256": "49dadc14b83a2bdb981562e8f65b8a21796530dea5ff175e8e7f31b9a4bd2d17"
+    },
+    {
+      "bytes": 301,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/bundle/task.json",
+      "sha256": "9044ea865a1f28a53b087eed205b9b94c57572df57849096f99cf40d75fa7f27"
+    },
+    {
+      "bytes": 368914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/control-trace.json",
+      "sha256": "db99996bb74e3afbb9a6f66bfba83d0069cbc929d76a29234bc93a08197812ce"
+    },
+    {
+      "bytes": 9224728,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/episode.hdf5",
+      "sha256": "c98de3b4a9e95ed4aded7d8b00a2ce180b11d705f5705781d7df64c4ffd3794b"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/episode.json",
+      "sha256": "ac151d221842d5cb0442b2e32219a8266d24325cb546c8dd005ae2e4bba4e05e"
+    },
+    {
+      "bytes": 12966,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/expected-replay.json",
+      "sha256": "cf387ea5ace751ab6302ed4bd46f5535f4f1fbeb80cbb04d5492d2140055476c"
+    },
+    {
+      "bytes": 245767,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/initial-full-state/arrays.npz",
+      "sha256": "36cb0513cb455995ca38e55497b96d29d21447b90d11393f689d1ec9bda89aad"
+    },
+    {
+      "bytes": 69111,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/initial-full-state/snapshot.json",
+      "sha256": "b91d48728f1b5b3ea0b95ccfa8034f95fc2172ceef96c0e0287771c55fc8150b"
+    },
+    {
+      "bytes": 352952,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/preview.mp4",
+      "sha256": "4742480adf9c683d3f9f4d0f54ef273c5119d80a92007a960a0a837cbaf1e649"
+    },
+    {
+      "bytes": 1581,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/receipt.json",
+      "sha256": "6877d246e4e9fc1e35ef5ffcaa3388c9d1f42329e35a8768ed3e7cddc29cb4d5"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0015/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/attempt.json",
+      "sha256": "91b7a18a8a41d28dff96c2a71945b3e59758dcc3d8ba0ae28fae5a53c27b99c4"
+    },
+    {
+      "bytes": 1933,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/bundle/ASTRA_SCENE52E5F133E194_push_the_red_block_to_the_left_target._leave_the_blue_block_in_place..bddl",
+      "sha256": "1a99e7ed0678d0fe786f21a46a6fe8881c472c26ed06a85a0b4fec2f1ffbda00"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/bundle/compiler.json",
+      "sha256": "088fa86240a7038d723625125483c2ac17656a35aa794d6cb920b7bcda5eed7b"
+    },
+    {
+      "bytes": 39040,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/bundle/resolved.xml",
+      "sha256": "8d4901b48f48da92c1f7e39d87490b72a1631629b9b2f83f39872f00b46eef3d"
+    },
+    {
+      "bytes": 756,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/bundle/scene.json",
+      "sha256": "0bb897d7dd7f8f1499eda13a603a5d6a546fca0a8e1e4710d6ef5c88e66675aa"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/bundle/task.bddl",
+      "sha256": "31285de30d696a0e3428ce610ccd216f33e39d92d8a76d97fcb3e46f3408b30a"
+    },
+    {
+      "bytes": 297,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/bundle/task.json",
+      "sha256": "365899b5f3a13e3426f68a06cf12d4292e8cc0d884b0838bd2ab5f4ade594b8a"
+    },
+    {
+      "bytes": 370503,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/control-trace.json",
+      "sha256": "cd5c19e6f81c4a4cb80ce855b49d2eca54f8f89d90e035aecf3398ea7e84bcc1"
+    },
+    {
+      "bytes": 9539538,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/episode.hdf5",
+      "sha256": "5ab29b62f518be90b17afbf77d8a5530471973ce2d381f25fbe2830278f6d571"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/episode.json",
+      "sha256": "6e67ea2757106ded5600a99c1b56c7a42be940131e8a4e31d7717b9b76b681bc"
+    },
+    {
+      "bytes": 13008,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/expected-replay.json",
+      "sha256": "019c73b284d5f74fdf9db40287f62dccdbd68e883e30c951d7b82594da764fa1"
+    },
+    {
+      "bytes": 246387,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/initial-full-state/arrays.npz",
+      "sha256": "9b31eef76c7e3c1c9a2010932891a4f2eb96a4c2d11d95afb5b7db32346f3a0f"
+    },
+    {
+      "bytes": 69092,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/initial-full-state/snapshot.json",
+      "sha256": "092104d1e29bdfa5895c7c19a68cedd345dfefc6ccbb785fd162cc1f10cc2d75"
+    },
+    {
+      "bytes": 354111,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/preview.mp4",
+      "sha256": "979b52e17f7ea5978a08895a6e8acb5f02be0c181ba0603a92c2ccfaded2e8d6"
+    },
+    {
+      "bytes": 1582,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/receipt.json",
+      "sha256": "bdcc6c9efa4068ce256ed80c0b56b02739a43d0c97b5acf49cd468b07305bbd7"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0016/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 145,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/attempt.json",
+      "sha256": "912a3d04eabf7cf68dfe39f40f4fab7a90692f43206f40980af114a5331704ba"
+    },
+    {
+      "bytes": 1910,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/bundle/ASTRA_SCENEDF98EE270642_push_the_block_left_of_the_marker_to_the_left_target._leave_the_other_block_in_place..bddl",
+      "sha256": "c774a89139507f26ac7572691de9e7091a5cfa3477393036190144372e325ee8"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/bundle/compiler.json",
+      "sha256": "d5bd17e18efd93ad0178cd2ec2ff04f8deaf4e0ad45be7b60dd2bac5b0a87b22"
+    },
+    {
+      "bytes": 39921,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/bundle/resolved.xml",
+      "sha256": "d5509a0db9752ed73f00be82ce0590b870d08a4ee3ad339ed4340adc40c7720d"
+    },
+    {
+      "bytes": 957,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/bundle/scene.json",
+      "sha256": "846ae9d4417610c1b3918af23fb64703ab57300ce154963df8e49fe0e3c7fea2"
+    },
+    {
+      "bytes": 1891,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/bundle/task.bddl",
+      "sha256": "4ae53b145f96f6bb913e0b7f7e02c586dd5ffb2deb07ea04e7a026c4412668d8"
+    },
+    {
+      "bytes": 319,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/bundle/task.json",
+      "sha256": "f79e3404c9ccbb0f0e71e7b0eb346bd6c4f2a17bdb65e79a5144b280dd342585"
+    },
+    {
+      "bytes": 362880,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/control-trace.json",
+      "sha256": "5eeb8efc76319e4b641133d633ab537963e4d9b88582ccf8a57672abd45a91fc"
+    },
+    {
+      "bytes": 9384315,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/episode.hdf5",
+      "sha256": "481fdb79edd376886d0e44499bf905837c0e3e95e3ec5f03ccba22332fb9ec09"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/episode.json",
+      "sha256": "2a97e963090e1ce6c3dcefa8ea4c8f5ebe202790e811bfe86fdc822f83cf2aaf"
+    },
+    {
+      "bytes": 13020,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/expected-replay.json",
+      "sha256": "1af14dabd7cb0ae9fa07238ad1e86c349d1167e2ccf2d400841b9ef624f5e2ca"
+    },
+    {
+      "bytes": 245150,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/initial-full-state/arrays.npz",
+      "sha256": "09d3902cba76c528660e33d8a0f65dfb2977d07f6f3e14aded728527b467086a"
+    },
+    {
+      "bytes": 69098,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/initial-full-state/snapshot.json",
+      "sha256": "0cd8a3ca6deb0515423cd6adfec47a9a3a5809383395b5143df1da0a05b3c0de"
+    },
+    {
+      "bytes": 350829,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/preview.mp4",
+      "sha256": "f44bfb616bb2fbe927d31327bb6ff5127612d46b62f8a0b7d4197fd4913a5689"
+    },
+    {
+      "bytes": 1581,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/receipt.json",
+      "sha256": "b418b94ed53f6af9b9368cb20a2dbdb8e34c27340f4aeef443dcb5ac3e956e04"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0017/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 145,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/attempt.json",
+      "sha256": "fac557f0d127a59612c66214a2eb663e26b4301ab26e7713e903d8b85bc3e63d"
+    },
+    {
+      "bytes": 1975,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/bundle/ASTRA_SCENEC184871AE03D_push_the_block_right_of_the_marker_to_the_right_target._leave_the_other_block_in_place..bddl",
+      "sha256": "23b1bee561b75f8b4592afba4d31883359e1801385ce610670566f07a0d562d2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/bundle/compiler.json",
+      "sha256": "6044008546df6c5d9422ded2c1082543bd487ce5f09bd2fb78f0f23072c76049"
+    },
+    {
+      "bytes": 39460,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/bundle/resolved.xml",
+      "sha256": "7694accb036bc762caf75fa66633b13734fb6d62c8e4ecefdbaa67236f9722ff"
+    },
+    {
+      "bytes": 860,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/bundle/scene.json",
+      "sha256": "fc21301b74d014a6196d41360c494a55b69ef12f2ccb1364a457b25e747559a7"
+    },
+    {
+      "bytes": 1956,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/bundle/task.bddl",
+      "sha256": "6508fa98e3c364529d0e2552eaea18a0b838e5d93166ef51e47d14f8eee27581"
+    },
+    {
+      "bytes": 324,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/bundle/task.json",
+      "sha256": "aa8191b19281a4ed982f2fad70dc27729c7be54d299069c1e37f87c5f6f2eb2b"
+    },
+    {
+      "bytes": 358111,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/control-trace.json",
+      "sha256": "861477e86431d6df30449b16c7f963dfec1dfe491f815901a99f0248e6c928ab"
+    },
+    {
+      "bytes": 9053294,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/episode.hdf5",
+      "sha256": "8c02cbf0c9f658fbc4445c3d3dc56ee6360dc6133b7e2ab72533c45b74c95725"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/episode.json",
+      "sha256": "c7639891c52bc17d3c33c2da65ad6f4af59a1ac2e5ce22b94663e2bf671a43ca"
+    },
+    {
+      "bytes": 12948,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/expected-replay.json",
+      "sha256": "7d07a0f9eeddcda36fbd717d21ae51a85b22b686c04ffca47772932cb521f8c3"
+    },
+    {
+      "bytes": 245744,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/initial-full-state/arrays.npz",
+      "sha256": "e57734a88976a175e4b73638cdb062be08db19588e586f49f17cbfcd872e5a7d"
+    },
+    {
+      "bytes": 69096,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/initial-full-state/snapshot.json",
+      "sha256": "37eb18e731a3f2f14fc1e999dfe8f25ec05ba75a18209877e8267f2596655f8a"
+    },
+    {
+      "bytes": 343311,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/preview.mp4",
+      "sha256": "fccd5205c1eb7cd37f3098891f6215ff209800fa345a77580d7cb84335109bfa"
+    },
+    {
+      "bytes": 1580,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/receipt.json",
+      "sha256": "2d172097aa734114f9d89b7a00126153543a745f39706d78fe16ff2799b3bd75"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0018/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/attempt.json",
+      "sha256": "91a8710504c18905af19b479a6533ccf0e6e0435b5804148f906a9524bb17b67"
+    },
+    {
+      "bytes": 1134,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/bundle/ASTRA_SCENECEE6F21E84FA_push_the_block_into_the_target..bddl",
+      "sha256": "528d69e31e895012fe645f7c8dfd30aebf11fc5fbc053e80ed741ecacd528270"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/bundle/compiler.json",
+      "sha256": "19e701bdfdef19c8eae4b2fe6c26bf1a905d68686c5e4f9a0cd6f4be0cf31f5f"
+    },
+    {
+      "bytes": 38818,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/bundle/resolved.xml",
+      "sha256": "d67c5513d16c0f648795f58ebf2ac15fbdcda5611ebcebd87175334bbc3809e5"
+    },
+    {
+      "bytes": 561,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/bundle/scene.json",
+      "sha256": "64434caf37493ebb436c166c997f901c29c32febc5a9f91852e9f1cd6a8b3090"
+    },
+    {
+      "bytes": 1115,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/bundle/task.bddl",
+      "sha256": "fa73f6407ef961358278f607a5d3433dbd8bc3e4f6208e9d08782ce0fbd2f2f4"
+    },
+    {
+      "bytes": 261,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/bundle/task.json",
+      "sha256": "3a214cecad3908d80e341126326093145b537675af49109a523d6cd55091cd76"
+    },
+    {
+      "bytes": 287053,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/control-trace.json",
+      "sha256": "8db4aa42645ee3a65e289387ef48e94964be1b1fa1cfe387c881420cf1fa132a"
+    },
+    {
+      "bytes": 9191562,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/episode.hdf5",
+      "sha256": "5b531c04f06c9ca5a74c63d0054d083aadf5e9e6b273e15d4ba46bb96202c2bb"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/episode.json",
+      "sha256": "0385eaf27c58a20b2835c3f4f6fefb6a68939a662cf6e2ee4a459cd38ec4a1c9"
+    },
+    {
+      "bytes": 10112,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/expected-replay.json",
+      "sha256": "37dbc2aa27225021757f5dbb50ae6a64281d524eb06dfd97ccd46a864c8a1ca7"
+    },
+    {
+      "bytes": 245232,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/initial-full-state/arrays.npz",
+      "sha256": "fec335881795fcbf6f16010a0423a574a8c6d7881eba9ba5586819fefd4e754b"
+    },
+    {
+      "bytes": 66023,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/initial-full-state/snapshot.json",
+      "sha256": "34a485d07603c2825944ab03b131cb35a745155a745e5959fb29160d85527592"
+    },
+    {
+      "bytes": 329002,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/preview.mp4",
+      "sha256": "c99ee8e4b48a4cabd3f042be513f9853914b8c7141799a9d62e3e1cecc883c54"
+    },
+    {
+      "bytes": 1562,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/receipt.json",
+      "sha256": "a6dfeb159f069e94ed99b85fecc689b712b8a54a6d0471e33e9eae71d8062ae5"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0019/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 145,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/attempt.json",
+      "sha256": "e95a4a11b1a2b9b3413904b1c863e0d788a4205b656b0ac25dbcc912594dd08d"
+    },
+    {
+      "bytes": 1057,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/bundle/ASTRA_SCENEB51D6E717C8B_push_the_block_into_the_target..bddl",
+      "sha256": "b6ee9df2d08a8ca0d0db1ac9b9a536ef6911e0cbdd6e0b3ede2200f0f8566cb2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/bundle/compiler.json",
+      "sha256": "1ee0213b2f2b608c1ec078fd5e27f442f5d40e86b2e5f3f406dd45b402f2c1b0"
+    },
+    {
+      "bytes": 38348,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/bundle/resolved.xml",
+      "sha256": "7c215499680debd93c55d56afc786bc2394b45bbe41e8879ac1deeb163cca038"
+    },
+    {
+      "bytes": 454,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/bundle/scene.json",
+      "sha256": "78614dc0c12fe6391015345b4ab40ea13235d369e73c0c49faee727289f05678"
+    },
+    {
+      "bytes": 1038,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/bundle/task.bddl",
+      "sha256": "2a9f0c1ac785d9e989a6df21c6610a4292e96860b6826a19283e6ce8895deff2"
+    },
+    {
+      "bytes": 264,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/bundle/task.json",
+      "sha256": "ee8b4c7efad8f27d16749fb2159a27fdfd918e4fdfe7282a5a60cdc7a8a9cc5c"
+    },
+    {
+      "bytes": 313583,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/control-trace.json",
+      "sha256": "c65dff1a811b2e8b9a83d560e9f26665381fb88c8427a593f6d9379e627dd359"
+    },
+    {
+      "bytes": 9820193,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/episode.hdf5",
+      "sha256": "c01c54f0dd3087ba5c7648dc46df4b9d06ede70cb6f0d00c725285ea3de891b6"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/episode.json",
+      "sha256": "c52d78685081a086f34230987206c5f91aa176680f42a0b28d30ee21b524eb08"
+    },
+    {
+      "bytes": 10059,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/expected-replay.json",
+      "sha256": "f22688433f73d8af30905e0f9cc13d927f8ebe89fdff8955c00cbc33eb2539b4"
+    },
+    {
+      "bytes": 243185,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/initial-full-state/arrays.npz",
+      "sha256": "3ab1a287502cd0422a819f26337e9397d1c16da577c523497add3039f90e2fa6"
+    },
+    {
+      "bytes": 66031,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/initial-full-state/snapshot.json",
+      "sha256": "acb886fbc27551a1c083e0926b17b452b64da2cc67b3c31adea7f349ac3090eb"
+    },
+    {
+      "bytes": 370620,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/preview.mp4",
+      "sha256": "a71ff380f053e2fa1818c2cbc6307b9b15e8226046a3fc320099eb5140fcd02e"
+    },
+    {
+      "bytes": 1562,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/receipt.json",
+      "sha256": "1e6bee20d1a65429237bbda8f3e9c682d7627156b205838a439c940ed5a3ed5d"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0020/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/attempt.json",
+      "sha256": "4d74a5f0990ac8e64db66ecd4d7a4c4994982d82998eb3e425a6a4baa8e82291"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/bundle/ASTRA_SCENE77EF2FB4A777_push_the_blue_block_to_the_right_target._leave_the_red_block_in_place..bddl",
+      "sha256": "ff7f656d5e69c6b1e91a8f148c77260f887398b96c1c82b34be3e5ff2a4a19d9"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/bundle/compiler.json",
+      "sha256": "9ec627361b0c8ab7901ab0f178a6b0f74e45b382977393c17eeccd717ca62621"
+    },
+    {
+      "bytes": 39502,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/bundle/resolved.xml",
+      "sha256": "85b2182c4dc7e13c122b552da38678283acb5c3ff12115dec8df87a77f0fb776"
+    },
+    {
+      "bytes": 863,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/bundle/scene.json",
+      "sha256": "2f018a2656ad87acccdc35c96cfbe0fd8d2aa29b8c551b2c741a0c1332fa4038"
+    },
+    {
+      "bytes": 1895,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/bundle/task.bddl",
+      "sha256": "49dadc14b83a2bdb981562e8f65b8a21796530dea5ff175e8e7f31b9a4bd2d17"
+    },
+    {
+      "bytes": 301,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/bundle/task.json",
+      "sha256": "9044ea865a1f28a53b087eed205b9b94c57572df57849096f99cf40d75fa7f27"
+    },
+    {
+      "bytes": 368739,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/control-trace.json",
+      "sha256": "16b9573bf569b255aaded31fdfba5246f891a6d8ca10f88c05915d98d2cefb58"
+    },
+    {
+      "bytes": 9237815,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/episode.hdf5",
+      "sha256": "cfe8a6aab9d627bc38a48b7df698260be078d1d33a50f71d42a1d179256e5c80"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/episode.json",
+      "sha256": "489489f95d9e56ff22883f4a48cf9e240686f734774924183963c36e3e0c3754"
+    },
+    {
+      "bytes": 12969,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/expected-replay.json",
+      "sha256": "b5161159e113ee039e2125e02fd4f0dac6246d36f54a42d72b4de0d0b5c75e2b"
+    },
+    {
+      "bytes": 245873,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/initial-full-state/arrays.npz",
+      "sha256": "a1dcf935cab825ece378f5d05d30f556819babab7c590db6a7b66f5c2eeaf73e"
+    },
+    {
+      "bytes": 69090,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/initial-full-state/snapshot.json",
+      "sha256": "32fd8938b1ee2f81e82c4685e11210c966b0a580f8550c5958c389f3abff3d0f"
+    },
+    {
+      "bytes": 355490,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/preview.mp4",
+      "sha256": "a275878f947ce9b8331610da9d035bcd297d0d8c0adfb3464b6e9ea4658d2842"
+    },
+    {
+      "bytes": 1580,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/receipt.json",
+      "sha256": "1b8ca172956189bb2dcbff477aea107832d11144764dd2bd8f0a2dbb87ff9ed0"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0021/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/attempt.json",
+      "sha256": "e830fc72f55134fcb9f0ac9726237992df5ea409beceea09a7a7bd54f7b3ea4c"
+    },
+    {
+      "bytes": 1933,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/bundle/ASTRA_SCENE52E5F133E194_push_the_red_block_to_the_left_target._leave_the_blue_block_in_place..bddl",
+      "sha256": "1a99e7ed0678d0fe786f21a46a6fe8881c472c26ed06a85a0b4fec2f1ffbda00"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/bundle/compiler.json",
+      "sha256": "088fa86240a7038d723625125483c2ac17656a35aa794d6cb920b7bcda5eed7b"
+    },
+    {
+      "bytes": 39040,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/bundle/resolved.xml",
+      "sha256": "8d4901b48f48da92c1f7e39d87490b72a1631629b9b2f83f39872f00b46eef3d"
+    },
+    {
+      "bytes": 756,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/bundle/scene.json",
+      "sha256": "0bb897d7dd7f8f1499eda13a603a5d6a546fca0a8e1e4710d6ef5c88e66675aa"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/bundle/task.bddl",
+      "sha256": "31285de30d696a0e3428ce610ccd216f33e39d92d8a76d97fcb3e46f3408b30a"
+    },
+    {
+      "bytes": 297,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/bundle/task.json",
+      "sha256": "365899b5f3a13e3426f68a06cf12d4292e8cc0d884b0838bd2ab5f4ade594b8a"
+    },
+    {
+      "bytes": 358580,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/control-trace.json",
+      "sha256": "f423715fae2671735a732c3e6425e06dfb5da55afbd83feafa365bbb3bec23f3"
+    },
+    {
+      "bytes": 9457893,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/episode.hdf5",
+      "sha256": "1a3406e43990c9b68cbaa3a3ac1b544fbe8013d5845363e18d8869e000b7fd1c"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/episode.json",
+      "sha256": "8f2357891c583c453293c6dfa8f64cd35aa589b75829a8cb8bb6c95420d941dd"
+    },
+    {
+      "bytes": 13025,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/expected-replay.json",
+      "sha256": "ef825a44da47382842d0cf066b01a274a247a30fb2b7f6206af3750c7882288f"
+    },
+    {
+      "bytes": 246548,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/initial-full-state/arrays.npz",
+      "sha256": "1aa6a2070b1a48ee9f8dc766d93055c7afa84d7ae106d3baa5642e5e0c095e2c"
+    },
+    {
+      "bytes": 69084,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/initial-full-state/snapshot.json",
+      "sha256": "0f8bd8a550f3f1acceb086ba1415d406a6dbeecda19099c2813b6430eac3b94f"
+    },
+    {
+      "bytes": 350579,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/preview.mp4",
+      "sha256": "2878e946374bb3d4a1c87b6a1481eb6abf45d6575969bd776359d49b0a40e737"
+    },
+    {
+      "bytes": 1582,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/receipt.json",
+      "sha256": "551bca55030c241dd242483440ceb866f7998d442ee5fa2b83cfbbe4e6cd52d9"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0022/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/attempt.json",
+      "sha256": "7822b9c70d9e5d8071e21f131d7e562c52fd24b36eb29f1cb5329e42f47c4a11"
+    },
+    {
+      "bytes": 1910,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/bundle/ASTRA_SCENEDF98EE270642_push_the_block_left_of_the_marker_to_the_left_target._leave_the_other_block_in_place..bddl",
+      "sha256": "c774a89139507f26ac7572691de9e7091a5cfa3477393036190144372e325ee8"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/bundle/compiler.json",
+      "sha256": "d5bd17e18efd93ad0178cd2ec2ff04f8deaf4e0ad45be7b60dd2bac5b0a87b22"
+    },
+    {
+      "bytes": 39921,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/bundle/resolved.xml",
+      "sha256": "d5509a0db9752ed73f00be82ce0590b870d08a4ee3ad339ed4340adc40c7720d"
+    },
+    {
+      "bytes": 957,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/bundle/scene.json",
+      "sha256": "846ae9d4417610c1b3918af23fb64703ab57300ce154963df8e49fe0e3c7fea2"
+    },
+    {
+      "bytes": 1891,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/bundle/task.bddl",
+      "sha256": "4ae53b145f96f6bb913e0b7f7e02c586dd5ffb2deb07ea04e7a026c4412668d8"
+    },
+    {
+      "bytes": 319,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/bundle/task.json",
+      "sha256": "f79e3404c9ccbb0f0e71e7b0eb346bd6c4f2a17bdb65e79a5144b280dd342585"
+    },
+    {
+      "bytes": 359639,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/control-trace.json",
+      "sha256": "bf20ad1016fe4dee7f25c440281952fb1ada182a1fb00fd54446de945a1e3530"
+    },
+    {
+      "bytes": 9308027,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/episode.hdf5",
+      "sha256": "3af519a602657fe3a5e59b9b9bd3ae58f559ccc210f812cf4c4a1809cf6a2056"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/episode.json",
+      "sha256": "9774b5737c86d13f4d66f669fa385529d8eda59a84eb158f0e0f9d9d73269a2d"
+    },
+    {
+      "bytes": 13041,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/expected-replay.json",
+      "sha256": "eaa37ce2c3ba7aa88e98dda88633dc326b793289a5ba0b988d9f3fc788fb828c"
+    },
+    {
+      "bytes": 245064,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/initial-full-state/arrays.npz",
+      "sha256": "7aa0f570f0f40e39c86e8452a4beed389ac9775d1e71d540cf9b3ff2db0379ac"
+    },
+    {
+      "bytes": 69112,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/initial-full-state/snapshot.json",
+      "sha256": "6885ed5490e0797213e2c2a8244a107ea7b8b45e3c100d9407a6e2f382c77e3d"
+    },
+    {
+      "bytes": 345857,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/preview.mp4",
+      "sha256": "c606ce11beb4d6902f22a639ce591b88f185189a0baaf51d535b2bb28085d69d"
+    },
+    {
+      "bytes": 1582,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/receipt.json",
+      "sha256": "ad6f0214793c7f8182b385a19e93ab8ad99c35d42dd678b5d99763bb82e101e1"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0023/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/attempt.json",
+      "sha256": "76a0f4b793f119991ae56dfc843914ba4de0e1cce8cbf6f1478042d5affad980"
+    },
+    {
+      "bytes": 1975,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/bundle/ASTRA_SCENEC184871AE03D_push_the_block_right_of_the_marker_to_the_right_target._leave_the_other_block_in_place..bddl",
+      "sha256": "23b1bee561b75f8b4592afba4d31883359e1801385ce610670566f07a0d562d2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/bundle/compiler.json",
+      "sha256": "6044008546df6c5d9422ded2c1082543bd487ce5f09bd2fb78f0f23072c76049"
+    },
+    {
+      "bytes": 39460,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/bundle/resolved.xml",
+      "sha256": "7694accb036bc762caf75fa66633b13734fb6d62c8e4ecefdbaa67236f9722ff"
+    },
+    {
+      "bytes": 860,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/bundle/scene.json",
+      "sha256": "fc21301b74d014a6196d41360c494a55b69ef12f2ccb1364a457b25e747559a7"
+    },
+    {
+      "bytes": 1956,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/bundle/task.bddl",
+      "sha256": "6508fa98e3c364529d0e2552eaea18a0b838e5d93166ef51e47d14f8eee27581"
+    },
+    {
+      "bytes": 324,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/bundle/task.json",
+      "sha256": "aa8191b19281a4ed982f2fad70dc27729c7be54d299069c1e37f87c5f6f2eb2b"
+    },
+    {
+      "bytes": 358651,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/control-trace.json",
+      "sha256": "ca9593fe01a8178867dd362fb7b21f41a4e4764b840faa2731e448d415221174"
+    },
+    {
+      "bytes": 9066390,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/episode.hdf5",
+      "sha256": "8af9786cc6f8d141b2eb3f4ebac040ef25893734773371a2f2334dd1ec63f28e"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/episode.json",
+      "sha256": "54744fc55018d34f1d54603d61f3d223060576b304a62031ca4e39c8c22099a3"
+    },
+    {
+      "bytes": 12959,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/expected-replay.json",
+      "sha256": "7565d64ee74425b8b2cb6c0ff88c92dd3a774316c6540f50fa2e57bb862a5b59"
+    },
+    {
+      "bytes": 245698,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/initial-full-state/arrays.npz",
+      "sha256": "f2308028ec51821a49b675703f6770df13c1ec3ae65bbccdcc05cf75cecaac04"
+    },
+    {
+      "bytes": 69095,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/initial-full-state/snapshot.json",
+      "sha256": "54f329a29ef8207b2d3d5eaba927cf6e649cc5847ab4508e81ddf0e326263043"
+    },
+    {
+      "bytes": 345066,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/preview.mp4",
+      "sha256": "b9d37f0000db7c69df0e828cf1348c1b3c01381dd78e32bb5d516d02910cf69f"
+    },
+    {
+      "bytes": 1580,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/receipt.json",
+      "sha256": "0cbed589ff52d3cc25e1851c67c996126fba8e22793eeedc0aac066bb809394f"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0024/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/attempt.json",
+      "sha256": "72f79aef434616850b071de3cc4df55f99d3441ee14f0ca4b3f429db5adca46e"
+    },
+    {
+      "bytes": 1134,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/bundle/ASTRA_SCENECEE6F21E84FA_push_the_block_into_the_target..bddl",
+      "sha256": "528d69e31e895012fe645f7c8dfd30aebf11fc5fbc053e80ed741ecacd528270"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/bundle/compiler.json",
+      "sha256": "19e701bdfdef19c8eae4b2fe6c26bf1a905d68686c5e4f9a0cd6f4be0cf31f5f"
+    },
+    {
+      "bytes": 38818,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/bundle/resolved.xml",
+      "sha256": "d67c5513d16c0f648795f58ebf2ac15fbdcda5611ebcebd87175334bbc3809e5"
+    },
+    {
+      "bytes": 561,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/bundle/scene.json",
+      "sha256": "64434caf37493ebb436c166c997f901c29c32febc5a9f91852e9f1cd6a8b3090"
+    },
+    {
+      "bytes": 1115,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/bundle/task.bddl",
+      "sha256": "fa73f6407ef961358278f607a5d3433dbd8bc3e4f6208e9d08782ce0fbd2f2f4"
+    },
+    {
+      "bytes": 261,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/bundle/task.json",
+      "sha256": "3a214cecad3908d80e341126326093145b537675af49109a523d6cd55091cd76"
+    },
+    {
+      "bytes": 288477,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/control-trace.json",
+      "sha256": "df2c840382b14a14ac77586dcb214dce2a2b8da41626f8bfc3a5b73f93a629b9"
+    },
+    {
+      "bytes": 9203847,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/episode.hdf5",
+      "sha256": "984087b7550b4b349e0cec41fc453f24f63347c53e040a2e313f5dd0b2b5f464"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/episode.json",
+      "sha256": "71ec0d7327b05632b5c06710cc96986c8760df94448608f1973ebe0001b4ca25"
+    },
+    {
+      "bytes": 10122,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/expected-replay.json",
+      "sha256": "5a4c1d2b13f0333bbcbe2ef975816f623d942c087c5f693610e50c6428dfc37c"
+    },
+    {
+      "bytes": 245377,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/initial-full-state/arrays.npz",
+      "sha256": "28d5f9c7658fac000b67ea88e23f9fac2197ef223dfb649fdc47c72375fccc6a"
+    },
+    {
+      "bytes": 66044,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/initial-full-state/snapshot.json",
+      "sha256": "9e3e03dcee773f5447cbd7da2404d99120c53b09f630a6fdcbe44d295298fabe"
+    },
+    {
+      "bytes": 331090,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/preview.mp4",
+      "sha256": "463e812f0af2dd6c8238fd76f35647dd0231864e15b15310262637948da300c7"
+    },
+    {
+      "bytes": 1562,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/receipt.json",
+      "sha256": "dabfd01aa82e68d00df5072ae411df878510fb8e13a8b3a352eeccfad9e146da"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0025/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/attempt.json",
+      "sha256": "a973ecc469284a5694263d3fe04cdcdc26ed846dab0fdb1fbfccfaa9ef79227e"
+    },
+    {
+      "bytes": 1057,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/bundle/ASTRA_SCENEB51D6E717C8B_push_the_block_into_the_target..bddl",
+      "sha256": "b6ee9df2d08a8ca0d0db1ac9b9a536ef6911e0cbdd6e0b3ede2200f0f8566cb2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/bundle/compiler.json",
+      "sha256": "1ee0213b2f2b608c1ec078fd5e27f442f5d40e86b2e5f3f406dd45b402f2c1b0"
+    },
+    {
+      "bytes": 38348,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/bundle/resolved.xml",
+      "sha256": "7c215499680debd93c55d56afc786bc2394b45bbe41e8879ac1deeb163cca038"
+    },
+    {
+      "bytes": 454,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/bundle/scene.json",
+      "sha256": "78614dc0c12fe6391015345b4ab40ea13235d369e73c0c49faee727289f05678"
+    },
+    {
+      "bytes": 1038,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/bundle/task.bddl",
+      "sha256": "2a9f0c1ac785d9e989a6df21c6610a4292e96860b6826a19283e6ce8895deff2"
+    },
+    {
+      "bytes": 264,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/bundle/task.json",
+      "sha256": "ee8b4c7efad8f27d16749fb2159a27fdfd918e4fdfe7282a5a60cdc7a8a9cc5c"
+    },
+    {
+      "bytes": 116082,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/control-trace.json",
+      "sha256": "d2e2c68fb2ca0b1d6ef4d00aed6eddf7fe4ea3c45b32413e056a2306bae3f034"
+    },
+    {
+      "bytes": 3985501,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/episode.hdf5",
+      "sha256": "35b9ddd73c4a5e9cba1169c77aa825b96304f8de5a2efa6c601923026f78265e"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/episode.json",
+      "sha256": "a1f501c1e8a20501be0df4d4c2184c68bf3ea052d2f885aec33f872e51d80414"
+    },
+    {
+      "bytes": 10070,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/expected-replay.json",
+      "sha256": "4a8d7d616d8337c6e4eea38101eadc9b79db573c47bdbc7c6845adcadb638eeb"
+    },
+    {
+      "bytes": 422,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/failure-traceback.txt",
+      "sha256": "0767b67f491e1c14d782a79d1add3b87241d38b4b1135cee6e0cc5b739211013"
+    },
+    {
+      "bytes": 243073,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/initial-full-state/arrays.npz",
+      "sha256": "579642fbb93321b635ee617a95d53c2b0d9f51f798f2de83e2e846c4bef91864"
+    },
+    {
+      "bytes": 66025,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/initial-full-state/snapshot.json",
+      "sha256": "f1c72054d3b14ac34b1cd5a8eaf959d50c73549a79377a4d46278149e8893f2c"
+    },
+    {
+      "bytes": 141505,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/preview.mp4",
+      "sha256": "6a6fc5b22e06796c98bf46275b4a4dfb1927e25509d5ecdb53433b9fbf2cbb33"
+    },
+    {
+      "bytes": 1607,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/receipt.json",
+      "sha256": "adf1c112f742e7cfb2a87ca10c23f1195a1bcb1f8630bf4556af38bc8d92fe71"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0026/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/attempt.json",
+      "sha256": "089f841533dd78e1e500f318c0934d3fc2b6859e10b96dba59766537c77f3e48"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/bundle/ASTRA_SCENE77EF2FB4A777_push_the_blue_block_to_the_right_target._leave_the_red_block_in_place..bddl",
+      "sha256": "ff7f656d5e69c6b1e91a8f148c77260f887398b96c1c82b34be3e5ff2a4a19d9"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/bundle/compiler.json",
+      "sha256": "9ec627361b0c8ab7901ab0f178a6b0f74e45b382977393c17eeccd717ca62621"
+    },
+    {
+      "bytes": 39502,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/bundle/resolved.xml",
+      "sha256": "85b2182c4dc7e13c122b552da38678283acb5c3ff12115dec8df87a77f0fb776"
+    },
+    {
+      "bytes": 863,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/bundle/scene.json",
+      "sha256": "2f018a2656ad87acccdc35c96cfbe0fd8d2aa29b8c551b2c741a0c1332fa4038"
+    },
+    {
+      "bytes": 1895,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/bundle/task.bddl",
+      "sha256": "49dadc14b83a2bdb981562e8f65b8a21796530dea5ff175e8e7f31b9a4bd2d17"
+    },
+    {
+      "bytes": 301,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/bundle/task.json",
+      "sha256": "9044ea865a1f28a53b087eed205b9b94c57572df57849096f99cf40d75fa7f27"
+    },
+    {
+      "bytes": 368233,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/control-trace.json",
+      "sha256": "ca5ac7d9765d6adcded1da864484820ec1475eb0c7d26138e7a692a0030fae24"
+    },
+    {
+      "bytes": 9225070,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/episode.hdf5",
+      "sha256": "a8f31a7d341964b44cf2577b312a9ebc6957479e8a40482af1a8ab388494a63d"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/episode.json",
+      "sha256": "cfedeefd963a7811bf73e32761ad146eac6cf30d2c7d96fad82dc5172e258934"
+    },
+    {
+      "bytes": 12941,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/expected-replay.json",
+      "sha256": "88a4a5b7a6a47c30706fdbc21bb033a3f6cda52c6b344dad449df6e16f40d73c"
+    },
+    {
+      "bytes": 245812,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/initial-full-state/arrays.npz",
+      "sha256": "e5e938762471e7f944fc1ee365559d7a1ef45d70818ea0d7c6a1b47bfc878679"
+    },
+    {
+      "bytes": 69074,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/initial-full-state/snapshot.json",
+      "sha256": "be15aecc2f09fcedb18a581a469967fad4dd61e4e94c5eb9409a45dffa956292"
+    },
+    {
+      "bytes": 354271,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/preview.mp4",
+      "sha256": "649fc41e10047663bf08cdc75de112e3393f193a368b235c5e35b27b4f0cf4b1"
+    },
+    {
+      "bytes": 1580,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/receipt.json",
+      "sha256": "4b342f51d16f42ed770b8c3ec661d624ee02ec323306e0dfab2fcc810f7303fe"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0027/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/attempt.json",
+      "sha256": "bf59c237a15005051e812bf577e0d8a8725219e7634960b21d37f5cc07446680"
+    },
+    {
+      "bytes": 1933,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/bundle/ASTRA_SCENE52E5F133E194_push_the_red_block_to_the_left_target._leave_the_blue_block_in_place..bddl",
+      "sha256": "1a99e7ed0678d0fe786f21a46a6fe8881c472c26ed06a85a0b4fec2f1ffbda00"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/bundle/compiler.json",
+      "sha256": "088fa86240a7038d723625125483c2ac17656a35aa794d6cb920b7bcda5eed7b"
+    },
+    {
+      "bytes": 39040,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/bundle/resolved.xml",
+      "sha256": "8d4901b48f48da92c1f7e39d87490b72a1631629b9b2f83f39872f00b46eef3d"
+    },
+    {
+      "bytes": 756,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/bundle/scene.json",
+      "sha256": "0bb897d7dd7f8f1499eda13a603a5d6a546fca0a8e1e4710d6ef5c88e66675aa"
+    },
+    {
+      "bytes": 1914,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/bundle/task.bddl",
+      "sha256": "31285de30d696a0e3428ce610ccd216f33e39d92d8a76d97fcb3e46f3408b30a"
+    },
+    {
+      "bytes": 297,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/bundle/task.json",
+      "sha256": "365899b5f3a13e3426f68a06cf12d4292e8cc0d884b0838bd2ab5f4ade594b8a"
+    },
+    {
+      "bytes": 367216,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/control-trace.json",
+      "sha256": "fb2c372582275c633d01490bd72e0b2c8aff4a9b2fa70113a48ce0b4b6080261"
+    },
+    {
+      "bytes": 9395395,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/episode.hdf5",
+      "sha256": "3b307e752ff96deefbdd67f2aca0363d7b67440907076dd32ecbbcb74ae3f9ab"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/episode.json",
+      "sha256": "6c4f8dd8773dacd7b8836700b70c19bf08b364085d9af98d42fa2f33df32a091"
+    },
+    {
+      "bytes": 13024,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/expected-replay.json",
+      "sha256": "4b9326d73abee5562a1a1851aec94c341d0fd9ef2ce10d6d9230e10178c75eaf"
+    },
+    {
+      "bytes": 246480,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/initial-full-state/arrays.npz",
+      "sha256": "6b6be54849f1371548802eb48110f4701c41e766e182c811d29562e75b80adb4"
+    },
+    {
+      "bytes": 69093,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/initial-full-state/snapshot.json",
+      "sha256": "248c7737aecc48208c8b6b74c86f8fe9006c0e1672adc4b659419fa3454bad76"
+    },
+    {
+      "bytes": 347661,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/preview.mp4",
+      "sha256": "5fc989b6ac7b5b59ba5dc8eadd15d6571a83533c0d6d195e5cad07c1aff5bff7"
+    },
+    {
+      "bytes": 1582,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/receipt.json",
+      "sha256": "a913afa7ad090d855b4b4f7c61e929f9b638b1b2603836d1b12a8fbf97c44a94"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0028/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 145,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/attempt.json",
+      "sha256": "5ef70c83f5fffe0e84a88b3549c83d7d8c82538fcc6f7867a71711bb3d418f3e"
+    },
+    {
+      "bytes": 1910,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/bundle/ASTRA_SCENEDF98EE270642_push_the_block_left_of_the_marker_to_the_left_target._leave_the_other_block_in_place..bddl",
+      "sha256": "c774a89139507f26ac7572691de9e7091a5cfa3477393036190144372e325ee8"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/bundle/compiler.json",
+      "sha256": "d5bd17e18efd93ad0178cd2ec2ff04f8deaf4e0ad45be7b60dd2bac5b0a87b22"
+    },
+    {
+      "bytes": 39921,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/bundle/resolved.xml",
+      "sha256": "d5509a0db9752ed73f00be82ce0590b870d08a4ee3ad339ed4340adc40c7720d"
+    },
+    {
+      "bytes": 957,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/bundle/scene.json",
+      "sha256": "846ae9d4417610c1b3918af23fb64703ab57300ce154963df8e49fe0e3c7fea2"
+    },
+    {
+      "bytes": 1891,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/bundle/task.bddl",
+      "sha256": "4ae53b145f96f6bb913e0b7f7e02c586dd5ffb2deb07ea04e7a026c4412668d8"
+    },
+    {
+      "bytes": 319,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/bundle/task.json",
+      "sha256": "f79e3404c9ccbb0f0e71e7b0eb346bd6c4f2a17bdb65e79a5144b280dd342585"
+    },
+    {
+      "bytes": 367939,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/control-trace.json",
+      "sha256": "076283bbf558b99303180135d6235975d86006396565e697e8162231450b4070"
+    },
+    {
+      "bytes": 9337408,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/episode.hdf5",
+      "sha256": "6d4aa6299e8fd62b176db794c63b7bfe0ee3a09449bd286dbccd739a8db66576"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/episode.json",
+      "sha256": "dd644802f702a33b21921e7dde8ac21330738aabb132dc5e4609b8e67e2cd6fb"
+    },
+    {
+      "bytes": 13031,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/expected-replay.json",
+      "sha256": "ba4b38c4ae987b37e673a84c1601984c2e325a8a829d8aa169e18bd3e384a32b"
+    },
+    {
+      "bytes": 245136,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/initial-full-state/arrays.npz",
+      "sha256": "11a86d2ce1fb95a65157654053dec5fbe8aa3c14d5bee9fffec550958f6d16f3"
+    },
+    {
+      "bytes": 69080,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/initial-full-state/snapshot.json",
+      "sha256": "d525c9371061c83bff334d96a6b17632d2ca70ee3a6b1d0a3a9ecc2f75c77995"
+    },
+    {
+      "bytes": 344803,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/preview.mp4",
+      "sha256": "7bf8f2ea93809295ab70291ce9182d77654a77c0b737fdbc0a8d0cef2fcef784"
+    },
+    {
+      "bytes": 1581,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/receipt.json",
+      "sha256": "1b9f5827d9fa686687e777c9ca1312eb8b1307580b15127d8aac329af5924a0a"
+    },
+    {
+      "bytes": 763,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0029/teacher.json",
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "bytes": 146,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/attempt.json",
+      "sha256": "fd66d9d49d8d28f496d5150aa36c3a7171e69ce07b778627aca68a1e1c2f995d"
+    },
+    {
+      "bytes": 1975,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/bundle/ASTRA_SCENEC184871AE03D_push_the_block_right_of_the_marker_to_the_right_target._leave_the_other_block_in_place..bddl",
+      "sha256": "23b1bee561b75f8b4592afba4d31883359e1801385ce610670566f07a0d562d2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/bundle/compiler.json",
+      "sha256": "6044008546df6c5d9422ded2c1082543bd487ce5f09bd2fb78f0f23072c76049"
+    },
+    {
+      "bytes": 39460,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/bundle/resolved.xml",
+      "sha256": "7694accb036bc762caf75fa66633b13734fb6d62c8e4ecefdbaa67236f9722ff"
+    },
+    {
+      "bytes": 860,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/bundle/scene.json",
+      "sha256": "fc21301b74d014a6196d41360c494a55b69ef12f2ccb1364a457b25e747559a7"
+    },
+    {
+      "bytes": 1956,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/bundle/task.bddl",
+      "sha256": "6508fa98e3c364529d0e2552eaea18a0b838e5d93166ef51e47d14f8eee27581"
+    },
+    {
+      "bytes": 324,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/bundle/task.json",
+      "sha256": "aa8191b19281a4ed982f2fad70dc27729c7be54d299069c1e37f87c5f6f2eb2b"
+    },
+    {
+      "bytes": 362670,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/control-trace.json",
+      "sha256": "f509b93f56a5433c71bca47d3c085d16288ddecafa21ec52357a36b24743f165"
+    },
+    {
+      "bytes": 9110775,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/episode.hdf5",
+      "sha256": "d629210b325b342a35c06340cdb1554703fee1f0fdb35516e2303d4239be20dc"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/episode.json",
+      "sha256": "188e441d2751fc83bf3e035c78b004f163d7725e74de002e656c42fb7f426ba7"
+    },
+    {
+      "bytes": 12960,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/expected-replay.json",
+      "sha256": "3f80a66614ea5d323002e184e051fb7da0beb5d1f27bbcc4c3269e7002d85cb3"
+    },
+    {
+      "bytes": 245797,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/initial-full-state/arrays.npz",
+      "sha256": "61458e45d440d3b8f7b67e90f5de765526e0c4137f5b8a512e3cb1d525564b77"
+    },
+    {
+      "bytes": 69107,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/initial-full-state/snapshot.json",
+      "sha256": "9435e21271947827f5f6dccf8d6e560c2a1674578c5442c7d60d86dfa03bf8d7"
+    },
+    {
+      "bytes": 345504,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/preview.mp4",
+      "sha256": "ad31c7575c8d5d7a47fb75632a4ea802168f7a2560ce3e2543007abd7e98c42a"
+    },
+    {
+      "bytes": 1581,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/receipt.json",
+      "sha256": "c79de7138a37383b09f214edf26ee0ddc95f3034d847c2ecc8f47ab4ca7c2278"
+    },
+    {
+      "bytes": 768,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0030/teacher.json",
+      "sha256": "bc81d5a070d4ec4f03d3de728e20ad75877fd0545d65bde94ec17756f6f5cb19"
+    },
+    {
+      "bytes": 145,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/attempt.json",
+      "sha256": "158358106a1c9057c7e9ae2eed6bc27297426b565371dba80ec01228a0aa175a"
+    },
+    {
+      "bytes": 1057,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/bundle/ASTRA_SCENEB51D6E717C8B_push_the_block_into_the_target..bddl",
+      "sha256": "b6ee9df2d08a8ca0d0db1ac9b9a536ef6911e0cbdd6e0b3ede2200f0f8566cb2"
+    },
+    {
+      "bytes": 564,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/bundle/compiler.json",
+      "sha256": "1ee0213b2f2b608c1ec078fd5e27f442f5d40e86b2e5f3f406dd45b402f2c1b0"
+    },
+    {
+      "bytes": 38348,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/bundle/resolved.xml",
+      "sha256": "7c215499680debd93c55d56afc786bc2394b45bbe41e8879ac1deeb163cca038"
+    },
+    {
+      "bytes": 454,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/bundle/scene.json",
+      "sha256": "78614dc0c12fe6391015345b4ab40ea13235d369e73c0c49faee727289f05678"
+    },
+    {
+      "bytes": 1038,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/bundle/task.bddl",
+      "sha256": "2a9f0c1ac785d9e989a6df21c6610a4292e96860b6826a19283e6ce8895deff2"
+    },
+    {
+      "bytes": 264,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/bundle/task.json",
+      "sha256": "ee8b4c7efad8f27d16749fb2159a27fdfd918e4fdfe7282a5a60cdc7a8a9cc5c"
+    },
+    {
+      "bytes": 311741,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/control-trace.json",
+      "sha256": "0cc3e6677ab7795197f9d44424334beffe03f57c5d8f425b89377e46f1a3017f"
+    },
+    {
+      "bytes": 9758040,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/episode.hdf5",
+      "sha256": "66099d6bdacd1dbb3a31d3bd33ec72e11b8e16c24e40ab6954dc98c9fa9f0d46"
+    },
+    {
+      "bytes": 737,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/episode.json",
+      "sha256": "24ff228701b2e480bcd280e35a7993702a0a8a7d9d2923916a7268c786e34b48"
+    },
+    {
+      "bytes": 10059,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/expected-replay.json",
+      "sha256": "95c1d198b77e4973bc3f0ca051730c5edff25b626f8a3b9879323b3529c2ba56"
+    },
+    {
+      "bytes": 243223,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/initial-full-state/arrays.npz",
+      "sha256": "2d0d419775f5bd885e0e829eb4fd6e46ea902a1bdd0eefede090db73d19a9989"
+    },
+    {
+      "bytes": 66035,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/initial-full-state/snapshot.json",
+      "sha256": "4cad500b109144b5cd52f8258f8d524930a0c4b03fa994e86b121d35e5675e92"
+    },
+    {
+      "bytes": 368484,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/preview.mp4",
+      "sha256": "a50776784817f9a1c6752ec5cf6022bc7ee7dc7e1e074706a7babb2ca66c9955"
+    },
+    {
+      "bytes": 1562,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/receipt.json",
+      "sha256": "3623599b13565eb55df4759242fc1da9db63e34a5719dda0db8cd497b60a0550"
+    },
+    {
+      "bytes": 773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/attempts/commissioning-0031/teacher.json",
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "bytes": 15313,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/generated-proposal.json",
+      "sha256": "9afc782788d3b0c60d8704965d3867f07535af1477dfc76da8de5807b160062f"
+    },
+    {
+      "bytes": 547,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/generator-receipt.json",
+      "sha256": "4304d971b3c8610af5031787f247288aaf3735d698c876c07ae70fb1aa8c4970"
+    },
+    {
+      "bytes": 30672,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/receipt.json",
+      "sha256": "1f2dfc2bf64dec5868ce1d70cc70151d09a8ce0d0bbb76c43364d40f2464ba22"
+    },
+    {
+      "bytes": 770901,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning/stock-inventory.json",
+      "sha256": "0ed0615d8c6dc067f315b6725f9363d7f569c4f4edcbe4b998239fd95dd423de"
+    },
+    {
+      "bytes": 2712,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning-learner-audit/frozen-proprioception.json",
+      "sha256": "0f06466ce993481aa511daebe49288828ee17ff8c5a150db6d0f6c6912acf0c9"
+    },
+    {
+      "bytes": 184095773,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning-learner-audit/initial.pt",
+      "sha256": "f274a13350e5e3b47f50c0737416bdefaa8d5cdffd6abba9a11241b510448bd8"
+    },
+    {
+      "bytes": 138883,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning-learner-audit/receipt.json",
+      "sha256": "931bd217011b18ddd4a5750467618f60f9012770b9b2fceea9e7fdb297739021"
+    },
+    {
+      "bytes": 654,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning-learner-audit.log",
+      "sha256": "fbc37c1e76272ac2ff746de268c1abebc077fd03ce763c9d7867e332ad17a297"
+    },
+    {
+      "bytes": 11317,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/commissioning.log",
+      "sha256": "25ef26b4e8b91d871048980613c898f877b37747bc98f87f0a46b5d41dc4c7b7"
+    },
+    {
+      "bytes": 122,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/gpu.csv",
+      "sha256": "b4658c2784baa38c6311444abd5959d3e110ef20f540385e8d8c8eec09319fed"
+    },
+    {
+      "bytes": 7882,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/learner-packages.json",
+      "sha256": "fb4a31f584594a610cff1ec9c3d93a6d5ab61ada8612fdb39a3a2a6a7d1e2bf7"
+    },
+    {
+      "bytes": 1559672,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/learner.lock",
+      "sha256": "c07a8d55f14002c047cf7f635c311f1d49e7f0aed3472950a8a6c3650caa7dc6"
+    },
+    {
+      "bytes": 41,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/libero-source-commit.txt",
+      "sha256": "0dfca9696c897ad468d249c60d4cf2bd2fda7f4d78d8a0945088e715641be9bd"
+    },
+    {
+      "bytes": 3513,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/simulator-packages.json",
+      "sha256": "4439bc40e06ef850a4cd02b1c359ea55c3e2d5c2a58501bca96e7601b6019493"
+    },
+    {
+      "bytes": 106375,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/simulator.lock",
+      "sha256": "e30dfb76371cae64916c26b9706eecf71f27235825e25ed531b7350f54bd5d37"
+    },
+    {
+      "bytes": 41,
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-subagent-commissioning-20260928-v1/81ebaf3bf7f7a01f69095bc2a64a270e5fe81b54/preflight/source-commit.txt",
+      "sha256": "bd54afe6c877bee91d725e8093c4ec9d930379a3eae2c6dfbae398c85669c3fa"
+    }
+  ],
+  "log_sha256": "6798e4d7f96b8f5c8040a9eb2e64067c33cbdaeeafc09cf9b08e9f43a71f8842",
+  "provenance": "PRESERVE_ARTIFACT lines from completed uploader; immutable R2 artifact-receipt.json is also at the saved prefix"
+}

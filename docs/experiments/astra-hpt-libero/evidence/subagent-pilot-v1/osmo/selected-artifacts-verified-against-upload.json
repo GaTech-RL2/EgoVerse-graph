@@ -1,0 +1,32 @@
+{
+  "hashes": {
+    "commissioning-learner-audit/frozen-proprioception.json": "0f06466ce993481aa511daebe49288828ee17ff8c5a150db6d0f6c6912acf0c9",
+    "commissioning-learner-audit/receipt.json": "931bd217011b18ddd4a5750467618f60f9012770b9b2fceea9e7fdb297739021",
+    "commissioning/acquisition.json": "2e406f5cca3e5ef2f9fb884f1ef4c8345d83a3f47f046fef2e581320f470d6c8",
+    "commissioning/attempts/commissioning-0001/fresh-process-reload.json": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+    "commissioning/attempts/commissioning-0001/preview.mp4": "d5fb6722f47c37c28a24da809fe29cadd522c902eab03788103d4d37015a7300",
+    "commissioning/attempts/commissioning-0001/receipt.json": "1f9bdd2308b74ece4ef730573e3522f4decb19921a5e1a5c304f39435d670da7",
+    "commissioning/attempts/commissioning-0002/fresh-process-reload.json": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+    "commissioning/attempts/commissioning-0002/preview.mp4": "fef55ffe677c892ae7f80db692d6f62fa35ef7d2b9b96b21db97a6781aa86750",
+    "commissioning/attempts/commissioning-0002/receipt.json": "8f783a8d1549e900e29a5290a314718a8dcc37f004ec17917edd3b73871fe664",
+    "commissioning/attempts/commissioning-0003/fresh-process-reload.json": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+    "commissioning/attempts/commissioning-0003/preview.mp4": "15b1ca959312249b91516e8901fcd74662f8115e18edd84f4cdb96465a8906de",
+    "commissioning/attempts/commissioning-0003/receipt.json": "138d6e91ee26c788e0999e5aab362fc19cb12bca248d091d06ccbe66370ae162",
+    "commissioning/attempts/commissioning-0004/fresh-process-reload.json": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+    "commissioning/attempts/commissioning-0004/preview.mp4": "38ab3047c15695061b9379ddc1ab5953a9d7c04f6b9a4f0d37c4264590f57aa3",
+    "commissioning/attempts/commissioning-0004/receipt.json": "b149c3923e27a2d754a179eef2b9994d4defa1ab6420556f06268b12d28aca6d",
+    "commissioning/attempts/commissioning-0005/fresh-process-reload.json": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+    "commissioning/attempts/commissioning-0005/preview.mp4": "a2395b0f8f95a1bab82ead1254206e1cbbd361756637a347683d278b0457d922",
+    "commissioning/attempts/commissioning-0005/receipt.json": "0b2fb7a72fcc60d725da99681c1528eccab9e02b9f63d9b9e5317057f712fb34",
+    "commissioning/attempts/commissioning-0006/fresh-process-reload.json": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587",
+    "commissioning/attempts/commissioning-0006/preview.mp4": "acf8608752902607b63aa78a059e4a932c80e0eb98ef2557d5720c056e7ca75d",
+    "commissioning/attempts/commissioning-0006/receipt.json": "31719e9e0fac16f569821cf0ea8e3072b6746e30987aaa2ce109aec3eeb11458",
+    "commissioning/attempts/commissioning-0026/preview.mp4": "6a6fc5b22e06796c98bf46275b4a4dfb1927e25509d5ecdb53433b9fbf2cbb33",
+    "commissioning/attempts/commissioning-0026/receipt.json": "adf1c112f742e7cfb2a87ca10c23f1195a1bcb1f8630bf4556af38bc8d92fe71",
+    "commissioning/receipt.json": "1f2dfc2bf64dec5868ce1d70cc70151d09a8ce0d0bbb76c43364d40f2464ba22",
+    "commissioning/stock-inventory.json": "0ed0615d8c6dc067f315b6725f9363d7f569c4f4edcbe4b998239fd95dd423de",
+    "gpu.csv": "b4658c2784baa38c6311444abd5959d3e110ef20f540385e8d8c8eec09319fed",
+    "source-commit.txt": "bd54afe6c877bee91d725e8093c4ec9d930379a3eae2c6dfbae398c85669c3fa"
+  },
+  "verified_count": 27
+}

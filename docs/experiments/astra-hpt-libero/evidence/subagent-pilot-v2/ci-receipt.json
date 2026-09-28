@@ -1,0 +1,14 @@
+{
+  "conclusion": "success",
+  "cpu_test_seconds": 377.67,
+  "cpu_tests_passed": 1489,
+  "jobs": {
+    "cpu-and-wheel": "success",
+    "static": "success"
+  },
+  "log_sha256": "4753db0b39c99cfcb5339aefb0cf6ddfd08c77396393802bbdf1acf7af830745",
+  "run_id": 36463070158,
+  "source_commit": "41778ab32bb84d10bea8745763bfe8107f152b56",
+  "url": "https://github.com/GaTech-RL2/EgoVerse-graph/actions/runs/36463070158",
+  "warnings": 43
+}

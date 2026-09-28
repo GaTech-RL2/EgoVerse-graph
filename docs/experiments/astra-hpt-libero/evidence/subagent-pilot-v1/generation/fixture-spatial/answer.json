@@ -1,0 +1,515 @@
+{
+  "allocations": {
+    "S1": 5,
+    "S2": 10,
+    "S3": 60
+  },
+  "arm": "A",
+  "predicted_change": "The intended hypothesis is improved spatial object selection from explicit left/right-of-marker supervision, with color selection and basic displacement retained through smaller S2 and S1 allocations. Marker translation and varied separations should encourage relational selection instead of a fixed location rule. No learning gain or rollout success has been measured; the synthetic fixture only motivates this proposed allocation.",
+  "rationale": "This is a synthetic engineering fixture, not measured learner performance. The constructed report concentrates wrong-object errors in S3 (12 of 12 trials), with two wrong-object errors in S2 and one displacement failure in S1. Allocate 60 episodes to spatial referent practice, 10 to color selection, and 5 to basic pushing. Three spatial templates alternate the requested side and vary marker position, lateral separation, and push length while keeping the other cube clear. S1 retains a short straight push; S2 requests blue on the smaller-Y side to separate color identity from spatial side. These are proposed accepted-episode quotas, not observed acceptance or physics success.",
+  "report_hash": "0561f29cfdbcfb3a1212b1ce4ad7076b55eeec9f47dc179c9849a61586725a51",
+  "round": 1,
+  "schema_version": "astrapush-decision-1",
+  "stage_intent": {
+    "S1": "consolidate",
+    "S2": "consolidate",
+    "S3": "revisit"
+  },
+  "templates": [
+    {
+      "accepted_episodes": 5,
+      "scene": {
+        "cubes": [
+          {
+            "color": "red",
+            "name": "cube_a",
+            "placement": {
+              "center_xy": [
+                -0.02,
+                0.02
+              ],
+              "half_width": 0.03
+            }
+          }
+        ],
+        "fixtures": [],
+        "scene_id": "basic_short_scene",
+        "schema_version": "astrapush-1",
+        "stage": "S1",
+        "targets": [
+          {
+            "center_xy": [
+              0.08,
+              0.02
+            ],
+            "half_width": 0.04,
+            "name": "target"
+          }
+        ]
+      },
+      "task": {
+        "destination": "target",
+        "instruction": "Push the block into the target.",
+        "referent": "block",
+        "task_id": "basic_short_task"
+      },
+      "teacher": {
+        "schema_version": "astrapush-1",
+        "skills": [
+          {
+            "object": "cube_a",
+            "skill": "approach",
+            "speed_m_s": 0.1,
+            "target": "target",
+            "timeout_steps": 50
+          },
+          {
+            "object": "cube_a",
+            "skill": "align_behind",
+            "speed_m_s": 0.08,
+            "target": "target",
+            "timeout_steps": 30
+          },
+          {
+            "object": "cube_a",
+            "skill": "contact",
+            "speed_m_s": 0.08,
+            "target": "target",
+            "timeout_steps": 15
+          },
+          {
+            "object": "cube_a",
+            "skill": "push_toward",
+            "speed_m_s": 0.1,
+            "target": "target",
+            "timeout_steps": 40
+          },
+          {
+            "object": "cube_a",
+            "skill": "settle",
+            "speed_m_s": 0.03,
+            "target": "target",
+            "timeout_steps": 15
+          }
+        ]
+      },
+      "template_id": "basic_short_push"
+    },
+    {
+      "accepted_episodes": 10,
+      "scene": {
+        "cubes": [
+          {
+            "color": "red",
+            "name": "cube_a",
+            "placement": {
+              "center_xy": [
+                -0.01,
+                0.1
+              ],
+              "half_width": 0.03
+            }
+          },
+          {
+            "color": "blue",
+            "name": "cube_b",
+            "placement": {
+              "center_xy": [
+                -0.04,
+                -0.1
+              ],
+              "half_width": 0.03
+            }
+          }
+        ],
+        "fixtures": [],
+        "scene_id": "blue_left_scene",
+        "schema_version": "astrapush-1",
+        "stage": "S2",
+        "targets": [
+          {
+            "center_xy": [
+              0.08,
+              -0.1
+            ],
+            "half_width": 0.04,
+            "name": "left"
+          },
+          {
+            "center_xy": [
+              0.1,
+              0.1
+            ],
+            "half_width": 0.04,
+            "name": "right"
+          }
+        ]
+      },
+      "task": {
+        "destination": "left",
+        "instruction": "Push the blue block to the left target. Leave the red block in place.",
+        "referent": "blue",
+        "task_id": "blue_left_task"
+      },
+      "teacher": {
+        "schema_version": "astrapush-1",
+        "skills": [
+          {
+            "object": "cube_b",
+            "skill": "approach",
+            "speed_m_s": 0.1,
+            "target": "left",
+            "timeout_steps": 50
+          },
+          {
+            "object": "cube_b",
+            "skill": "align_behind",
+            "speed_m_s": 0.08,
+            "target": "left",
+            "timeout_steps": 30
+          },
+          {
+            "object": "cube_b",
+            "skill": "contact",
+            "speed_m_s": 0.08,
+            "target": "left",
+            "timeout_steps": 15
+          },
+          {
+            "object": "cube_b",
+            "skill": "push_toward",
+            "speed_m_s": 0.1,
+            "target": "left",
+            "timeout_steps": 40
+          },
+          {
+            "object": "cube_b",
+            "skill": "settle",
+            "speed_m_s": 0.03,
+            "target": "left",
+            "timeout_steps": 15
+          }
+        ]
+      },
+      "template_id": "blue_left_lane"
+    },
+    {
+      "accepted_episodes": 20,
+      "scene": {
+        "cubes": [
+          {
+            "color": "red",
+            "name": "cube_a",
+            "placement": {
+              "center_xy": [
+                -0.03,
+                -0.1
+              ],
+              "half_width": 0.03
+            }
+          },
+          {
+            "color": "red",
+            "name": "cube_b",
+            "placement": {
+              "center_xy": [
+                -0.03,
+                0.1
+              ],
+              "half_width": 0.03
+            }
+          }
+        ],
+        "fixtures": [
+          {
+            "center_xy": [
+              -0.18,
+              0.0
+            ],
+            "name": "marker"
+          }
+        ],
+        "scene_id": "spatial_left_scene",
+        "schema_version": "astrapush-1",
+        "stage": "S3",
+        "targets": [
+          {
+            "center_xy": [
+              0.09,
+              -0.1
+            ],
+            "half_width": 0.04,
+            "name": "left"
+          },
+          {
+            "center_xy": [
+              0.09,
+              0.1
+            ],
+            "half_width": 0.04,
+            "name": "right"
+          }
+        ]
+      },
+      "task": {
+        "destination": "left",
+        "instruction": "Push the block left of the marker to the left target. Leave the other block in place.",
+        "referent": "left",
+        "task_id": "spatial_left_task"
+      },
+      "teacher": {
+        "schema_version": "astrapush-1",
+        "skills": [
+          {
+            "object": "cube_a",
+            "skill": "approach",
+            "speed_m_s": 0.1,
+            "target": "left",
+            "timeout_steps": 50
+          },
+          {
+            "object": "cube_a",
+            "skill": "align_behind",
+            "speed_m_s": 0.08,
+            "target": "left",
+            "timeout_steps": 30
+          },
+          {
+            "object": "cube_a",
+            "skill": "contact",
+            "speed_m_s": 0.08,
+            "target": "left",
+            "timeout_steps": 15
+          },
+          {
+            "object": "cube_a",
+            "skill": "push_toward",
+            "speed_m_s": 0.1,
+            "target": "left",
+            "timeout_steps": 40
+          },
+          {
+            "object": "cube_a",
+            "skill": "settle",
+            "speed_m_s": 0.03,
+            "target": "left",
+            "timeout_steps": 15
+          }
+        ]
+      },
+      "template_id": "spatial_left_centered"
+    },
+    {
+      "accepted_episodes": 20,
+      "scene": {
+        "cubes": [
+          {
+            "color": "red",
+            "name": "cube_a",
+            "placement": {
+              "center_xy": [
+                -0.04,
+                -0.06
+              ],
+              "half_width": 0.03
+            }
+          },
+          {
+            "color": "red",
+            "name": "cube_b",
+            "placement": {
+              "center_xy": [
+                -0.01,
+                0.14
+              ],
+              "half_width": 0.03
+            }
+          }
+        ],
+        "fixtures": [
+          {
+            "center_xy": [
+              -0.17,
+              0.04
+            ],
+            "name": "marker"
+          }
+        ],
+        "scene_id": "spatial_right_scene",
+        "schema_version": "astrapush-1",
+        "stage": "S3",
+        "targets": [
+          {
+            "center_xy": [
+              0.08,
+              -0.06
+            ],
+            "half_width": 0.04,
+            "name": "left"
+          },
+          {
+            "center_xy": [
+              0.09,
+              0.14
+            ],
+            "half_width": 0.04,
+            "name": "right"
+          }
+        ]
+      },
+      "task": {
+        "destination": "right",
+        "instruction": "Push the block right of the marker to the right target. Leave the other block in place.",
+        "referent": "right",
+        "task_id": "spatial_right_task"
+      },
+      "teacher": {
+        "schema_version": "astrapush-1",
+        "skills": [
+          {
+            "object": "cube_b",
+            "skill": "approach",
+            "speed_m_s": 0.1,
+            "target": "right",
+            "timeout_steps": 50
+          },
+          {
+            "object": "cube_b",
+            "skill": "align_behind",
+            "speed_m_s": 0.08,
+            "target": "right",
+            "timeout_steps": 30
+          },
+          {
+            "object": "cube_b",
+            "skill": "contact",
+            "speed_m_s": 0.08,
+            "target": "right",
+            "timeout_steps": 15
+          },
+          {
+            "object": "cube_b",
+            "skill": "push_toward",
+            "speed_m_s": 0.1,
+            "target": "right",
+            "timeout_steps": 40
+          },
+          {
+            "object": "cube_b",
+            "skill": "settle",
+            "speed_m_s": 0.03,
+            "target": "right",
+            "timeout_steps": 15
+          }
+        ]
+      },
+      "template_id": "spatial_right_shifted"
+    },
+    {
+      "accepted_episodes": 20,
+      "scene": {
+        "cubes": [
+          {
+            "color": "red",
+            "name": "cube_a",
+            "placement": {
+              "center_xy": [
+                -0.04,
+                -0.16
+              ],
+              "half_width": 0.03
+            }
+          },
+          {
+            "color": "red",
+            "name": "cube_b",
+            "placement": {
+              "center_xy": [
+                0.0,
+                0.08
+              ],
+              "half_width": 0.03
+            }
+          }
+        ],
+        "fixtures": [
+          {
+            "center_xy": [
+              -0.18,
+              -0.04
+            ],
+            "name": "marker"
+          }
+        ],
+        "scene_id": "spatial_wide_scene",
+        "schema_version": "astrapush-1",
+        "stage": "S3",
+        "targets": [
+          {
+            "center_xy": [
+              0.09,
+              -0.16
+            ],
+            "half_width": 0.04,
+            "name": "left"
+          },
+          {
+            "center_xy": [
+              0.1,
+              0.08
+            ],
+            "half_width": 0.04,
+            "name": "right"
+          }
+        ]
+      },
+      "task": {
+        "destination": "left",
+        "instruction": "Push the block left of the marker to the left target. Leave the other block in place.",
+        "referent": "left",
+        "task_id": "spatial_wide_task"
+      },
+      "teacher": {
+        "schema_version": "astrapush-1",
+        "skills": [
+          {
+            "object": "cube_a",
+            "skill": "approach",
+            "speed_m_s": 0.1,
+            "target": "left",
+            "timeout_steps": 50
+          },
+          {
+            "object": "cube_a",
+            "skill": "align_behind",
+            "speed_m_s": 0.08,
+            "target": "left",
+            "timeout_steps": 30
+          },
+          {
+            "object": "cube_a",
+            "skill": "contact",
+            "speed_m_s": 0.08,
+            "target": "left",
+            "timeout_steps": 15
+          },
+          {
+            "object": "cube_a",
+            "skill": "push_toward",
+            "speed_m_s": 0.1,
+            "target": "left",
+            "timeout_steps": 40
+          },
+          {
+            "object": "cube_a",
+            "skill": "settle",
+            "speed_m_s": 0.03,
+            "target": "left",
+            "timeout_steps": 15
+          }
+        ]
+      },
+      "template_id": "spatial_left_wide"
+    }
+  ]
+}

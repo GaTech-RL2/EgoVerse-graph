@@ -1,0 +1,7 @@
+{
+  "fork_turns": "none",
+  "reasoning_effort": "low",
+  "requested_model": "gpt-6-astra",
+  "task_name": "/root/astra_commissioning_001",
+  "tool": "collaboration.spawn_agent"
+}

@@ -9,12 +9,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def workflow(commit, name):
+def workflow(commit, name, *, provider_probe=True):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("A full immutable source commit is required")
     if not re.fullmatch(r"[a-z][a-z0-9-]{0,60}", name):
         raise ValueError("Invalid workflow name")
-    return {
+    result = {
         "workflow": {
             "name": name,
             "tasks": [
@@ -35,6 +35,7 @@ def workflow(commit, name):
                     },
                     "environment": {
                         "SOURCE_COMMIT": commit,
+                        "RUN_PROVIDER_PROBE": "1" if provider_probe else "0",
                         "GATE_OUTPUT": "{{output}}",
                         "ARTIFACT_PREFIX": f"experiments/astra-hpt-libero-20260928/{name}/{commit}/preflight",
                     },
@@ -62,6 +63,11 @@ def workflow(commit, name):
             "timeout": {"queue_timeout": "1h", "exec_timeout": "3h"},
         }
     }
+    if not provider_probe:
+        del result["workflow"]["tasks"][0]["credentials"][
+            "astra-reversal-inference-20260924"
+        ]
+    return result
 
 
 if __name__ == "__main__":
@@ -69,6 +75,17 @@ if __name__ == "__main__":
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--skip-provider",
+        action="store_true",
+        help="Run engineering checks while the confirmed provider budget blocker is unresolved",
+    )
     args = parser.parse_args()
     with args.output.open("x") as stream:
-        yaml.safe_dump(workflow(args.source_commit, args.name), stream, sort_keys=False)
+        yaml.safe_dump(
+            workflow(
+                args.source_commit, args.name, provider_probe=not args.skip_provider
+            ),
+            stream,
+            sort_keys=False,
+        )

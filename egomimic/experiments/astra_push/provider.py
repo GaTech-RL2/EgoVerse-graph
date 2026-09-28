@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -37,6 +38,8 @@ def strict_json(text):
 
 class AstraProvider:
     def __init__(self, archive, *, model=MODEL, timeout=170):
+        if model != MODEL:
+            raise ValueError("This manifest permits only the specified Astra model")
         self.archive = Path(archive)
         self.model, self.timeout = model, timeout
         self.key = os.environ.get("NVIDIA_INFERENCE_API_KEY")
@@ -104,7 +107,9 @@ class AstraProvider:
     def request(self, request_id, *, system, user, max_tokens=8192):
         if type(max_tokens) is not int or not 1 <= max_tokens <= 8192:
             raise ValueError("Provider output token cap must be in [1,8192]")
-        if not request_id or Path(request_id).name != request_id:
+        if not isinstance(request_id, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_-]{0,95}", request_id
+        ):
             raise ValueError("Request ID must be a path component")
         path = self.archive / request_id
         # Existence blocks duplicate billed requests after an interrupted call.

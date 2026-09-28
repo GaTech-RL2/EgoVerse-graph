@@ -9,11 +9,17 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def workflow(commit, name, *, provider_probe=True, generation_archive=None):
+def workflow(
+    commit, name, *, provider_probe=True, generation_archive=None, full_experiment=False
+):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("A full immutable source commit is required")
     if not re.fullmatch(r"[a-z][a-z0-9-]{0,60}", name):
         raise ValueError("Invalid workflow name")
+    if full_experiment and (provider_probe or generation_archive):
+        raise ValueError(
+            "Full experiment uses the frozen commissioning evidence and Codex transport"
+        )
     if generation_archive is not None:
         if (
             provider_probe
@@ -83,6 +89,14 @@ def workflow(commit, name, *, provider_probe=True, generation_archive=None):
         result["workflow"]["tasks"][0]["environment"]["ASTRA_GENERATION_ARCHIVE"] = (
             generation_archive
         )
+    if full_experiment:
+        task = result["workflow"]["tasks"][0]
+        task["name"] = "learner-curriculum"
+        task["environment"]["ASTRA_FULL_RUN"] = "1"
+        task["environment"]["ARTIFACT_PREFIX"] = (
+            f"experiments/astra-hpt-libero-20260928/{name}/{commit}/full"
+        )
+        result["workflow"]["timeout"]["exec_timeout"] = "24h"
     return result
 
 
@@ -91,6 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--full-experiment", action="store_true")
     parser.add_argument(
         "--generation-archive", help="Source-pinned Codex Astra commissioning exchange"
     )
@@ -107,6 +122,7 @@ if __name__ == "__main__":
                 args.name,
                 provider_probe=not args.skip_provider,
                 generation_archive=args.generation_archive,
+                full_experiment=args.full_experiment,
             ),
             stream,
             sort_keys=False,

@@ -35,13 +35,17 @@ uv pip list --format json > "$GATE_OUTPUT/learner-packages.json"
 nvidia-smi --query-gpu=name,uuid,driver_version,memory.total --format=csv > "$GATE_OUTPUT/gpu.csv"
 upload() {
   source /tmp/egoverse/emimic/bin/activate
-  python -m scripts.integration.upload_artifacts --root "$GATE_OUTPUT" --prefix "$ARTIFACT_PREFIX"
+  if [[ "${ASTRA_FULL_RUN:-0}" == "1" ]]; then
+    python -m scripts.astra_push.preserve --root "$GATE_OUTPUT" --prefix "$ARTIFACT_PREFIX"
+  else
+    python -m scripts.integration.upload_artifacts --root "$GATE_OUTPUT" --prefix "$ARTIFACT_PREFIX"
+  fi
 }
 trap upload EXIT
 status=0
 if [[ "${RUN_PROVIDER_PROBE:-1}" == "1" ]]; then
   python -m egomimic.experiments.astra_push.provider --output "$GATE_OUTPUT/provider" 2>&1 | tee "$GATE_OUTPUT/provider.log" || status=1
-elif [[ -z "${ASTRA_GENERATION_ARCHIVE:-}" ]]; then
+elif [[ -z "${ASTRA_GENERATION_ARCHIVE:-}" && "${ASTRA_FULL_RUN:-0}" != "1" ]]; then
   python - <<'PY'
 import os
 from pathlib import Path
@@ -75,6 +79,11 @@ cfg.mkdir(exist_ok=False)
 paths={'benchmark_root':str(root),'bddl_files':str(root/'bddl_files'),'init_states':str(root/'init_files'),'datasets':str(root.parent/'datasets'),'assets':str(root/'assets')}
 (cfg/'config.yaml').write_text(yaml.safe_dump(paths))
 PY
+if [[ "${ASTRA_FULL_RUN:-0}" == "1" ]]; then
+  source /tmp/egoverse/emimic/bin/activate
+  python -m egomimic.experiments.astra_push.campaign --output "$GATE_OUTPUT/full" --source-commit "$SOURCE_COMMIT" 2>&1 | tee "$GATE_OUTPUT/campaign.log"
+  exit 0
+fi
 if [[ -n "${ASTRA_GENERATION_ARCHIVE:-}" ]]; then
   prior_args=()
   if [[ -n "${ASTRA_PRIOR_RECEIPT:-}" ]]; then

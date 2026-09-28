@@ -40,6 +40,12 @@ independent implementation; never substitute another generator or curriculum.
 
 ## Current status
 
+Full learner training and adaptive-versus-uniform evaluation have now been
+authorized. The coordinator implementation and current launch status are in
+[FULL-RUN-PLAN.md](FULL-RUN-PLAN.md), on the fifth stack layer. The measured
+commissioning results below remain the completed evidence until production
+receipts arrive; source implementation alone is not a learner result.
+
 The user-authorized Codex `gpt-6-astra` route has passed the generated-data
 commissioning and learner integration test on one OSMO L40. The corrected
 source is `41778ab32bb84d10bea8745763bfe8107f152b56`, in draft PR #181 on top of

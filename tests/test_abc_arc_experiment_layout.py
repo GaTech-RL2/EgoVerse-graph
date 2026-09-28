@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+from hydra import compose, initialize_config_dir
+
 ROOT = Path(__file__).resolve().parents[1]
 EXPERIMENT_ROOT = ROOT / "egomimic/hydra_configs/experiment/abc_arc"
 
@@ -19,6 +22,32 @@ EXPECTED_YAMLS = {
     },
     "cotrain": set(),
 }
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        "abc_visual",
+        "stationery_rl2_hpt_baseline",
+        "stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg",
+        "mecka_fold_clothes_40h_human_baseline",
+        "mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg",
+    ],
+)
+def test_retained_data_components_do_not_request_language_inputs(data):
+    with initialize_config_dir(
+        version_base=None,
+        config_dir=str(ROOT / "egomimic/hydra_configs"),
+    ):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[f"data=abc_arc/{data}"],
+        )
+
+    for split in ("train_datasets", "valid_datasets"):
+        for dataset in cfg.data[split].values():
+            assert "annotations" not in dataset.batch_keys
+            assert dataset.resolver.key_map.get("annotation_key") is None
 
 
 def test_abc_arc_experiments_are_grouped_by_training_population():

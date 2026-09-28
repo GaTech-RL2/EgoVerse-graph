@@ -4,7 +4,7 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
   yam_bimanual:
-    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    batch_keys: [observations.state.ee_pose, actions_cartesian]
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
@@ -13,7 +13,7 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
         keymap_mode: cartesian
-        annotation_key: annotations
+        annotation_key: null
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
         action_mode: cartesian
@@ -34,7 +34,7 @@ train_datasets:
 
 valid_datasets:
   yam_bimanual:
-    batch_keys: [observations.state.ee_pose, actions_cartesian, annotations]
+    batch_keys: [observations.state.ee_pose, actions_cartesian]
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
@@ -43,7 +43,7 @@ valid_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
         keymap_mode: cartesian
-        annotation_key: annotations
+        annotation_key: null
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
         action_mode: cartesian

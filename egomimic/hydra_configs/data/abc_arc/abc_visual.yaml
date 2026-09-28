@@ -15,6 +15,7 @@ train_datasets:
         annotation_key: null
         min_distance_unit: ${abc.arc_distance}
         rotation_distance_unit: ${abc.arc_rotation_distance}
+        arc_chunking_mode: ${abc.arc_chunking_mode}
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
         action_mode: ${abc.action_mode}
@@ -22,6 +23,7 @@ train_datasets:
         rotation_mode: euler
         min_distance_unit: ${abc.arc_distance}
         rotation_distance_unit: ${abc.arc_rotation_distance}
+        arc_chunking_mode: ${abc.arc_chunking_mode}
         resampled_vector_length: ${abc.arc_waypoints}
         velocity_mode: per_waypoint
     filters:

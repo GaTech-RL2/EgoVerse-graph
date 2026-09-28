@@ -76,7 +76,11 @@ paths={'benchmark_root':str(root),'bddl_files':str(root/'bddl_files'),'init_stat
 (cfg/'config.yaml').write_text(yaml.safe_dump(paths))
 PY
 if [[ -n "${ASTRA_GENERATION_ARCHIVE:-}" ]]; then
-  python -m egomimic.experiments.astra_push.collect --generation "$ASTRA_GENERATION_ARCHIVE" --stock-root /tmp/libero/libero/libero/bddl_files --output "$GATE_OUTPUT/commissioning" 2>&1 | tee "$GATE_OUTPUT/commissioning.log"
+  prior_args=()
+  if [[ -n "${ASTRA_PRIOR_RECEIPT:-}" ]]; then
+    prior_args=(--prior-receipt "$ASTRA_PRIOR_RECEIPT")
+  fi
+  python -m egomimic.experiments.astra_push.collect --generation "$ASTRA_GENERATION_ARCHIVE" --stock-root /tmp/libero/libero/libero/bddl_files --output "$GATE_OUTPUT/commissioning" "${prior_args[@]}" 2>&1 | tee "$GATE_OUTPUT/commissioning.log"
   source /tmp/egoverse/emimic/bin/activate
   python -m egomimic.experiments.astra_push.init_audit --output "$GATE_OUTPUT/commissioning-learner-audit" --commissioning "$GATE_OUTPUT/commissioning/receipt.json" 2>&1 | tee "$GATE_OUTPUT/commissioning-learner-audit.log"
   exit 0

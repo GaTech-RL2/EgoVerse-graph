@@ -166,11 +166,17 @@ def publish_or_verify(path, record):
     return publish_json(path, record)
 
 
-def run(output, generation, stock_root):
+def run(output, generation, stock_root, prior_receipt=None):
     from egomimic.experiments.astra_push.teacher_probe import run_teacher_attempt
 
     output = Path(output)
     started = time.monotonic()
+    prior = strict_json(Path(prior_receipt).read_text()) if prior_receipt else None
+    prior_attempts = prior["attempts"] if prior else 0
+    if type(prior_attempts) is not int or not 0 <= prior_attempts < 120:
+        raise ValueError(
+            "Prior attempts must retain room inside the shared 120-attempt cap"
+        )
     proposal, generator = load_generated(generation)
     inventory = stock_inventory(stock_root, [t.scene for t in proposal.templates])
     publish_or_verify(output / "stock-inventory.json", inventory)
@@ -178,6 +184,8 @@ def run(output, generation, stock_root):
         output / "generated-proposal.json", proposal.model_dump(mode="json")
     )
     publish_or_verify(output / "generator-receipt.json", generator)
+    if prior:
+        publish_or_verify(output / "prior-version-receipt.json", prior)
     if not inventory["passed"]:
         raise ValueError("Stock-scene novelty comparison failed; do not collect")
 
@@ -193,13 +201,19 @@ def run(output, generation, stock_root):
             teacher_authorship="codex_subagent:gpt-6-astra",
         )
 
-    result = collect_attempts(output, proposal, executor=execute)
+    result = collect_attempts(
+        output, proposal, executor=execute, attempt_cap=120 - prior_attempts
+    )
     result.update(
         schema_version="astrapush-commissioning-result-1",
         proposal_hash=canonical_hash(proposal),
         generator_receipt_hash=file_hash(output / "generator-receipt.json"),
         inventory_hash=file_hash(output / "stock-inventory.json"),
         production_optimizer_updates=0,
+        visual_catalog_version=2,
+        prior_attempts=prior_attempts,
+        cumulative_attempts=prior_attempts + result["attempts"],
+        prior_receipt_sha256=file_hash(prior_receipt) if prior_receipt else None,
     )
     publish_or_verify(output / "acquisition.json", result)
     final_path = output / "receipt.json"
@@ -276,5 +290,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True)
     parser.add_argument("--generation", required=True)
     parser.add_argument("--stock-root", required=True)
+    parser.add_argument("--prior-receipt")
     args = parser.parse_args()
-    run(args.output, args.generation, args.stock_root)
+    run(args.output, args.generation, args.stock_root, args.prior_receipt)

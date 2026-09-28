@@ -112,7 +112,10 @@ def stock_inventory(root, scenes):
         # scene/object IDs. Both colors are checked against stock explicitly.
         assets = Counter(["table"])
         assets.update(f"astra_{c.color}_cube" for c in scene.cubes)
-        assets.update(["astra_reference"] * len(scene.fixtures))
+        assets.update(
+            "astra_marker" if f.name == "marker" else "astra_reference"
+            for f in scene.fixtures
+        )
         same_assets = [
             r["path"] for r in records if r["inventory"]["asset_multiset"] == assets
         ]

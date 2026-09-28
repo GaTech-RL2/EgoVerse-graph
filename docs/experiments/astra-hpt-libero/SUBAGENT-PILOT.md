@@ -30,3 +30,31 @@ path. It does not count as warm-start training or the U-versus-A comparison.
 Production training still requires frozen evaluation partitions and the
 remaining ordered work items. Commissioning episodes never enter imitation
 replay. Use one OSMO L40/L40S and preserve all prior branches and artifacts.
+
+## Measured first test and visual correction
+
+The first OSMO run at `81ebaf3b` collected 30 accepted demonstrations in 31
+attempts (one retained S1 approach timeout), passed all six exact fresh-process
+replays, and passed the full HPT real-data update with gradients in all six
+component groups. The normalizer used exactly five episodes per scene and ten
+per stage. Production optimizer updates remain zero.
+
+Visual inspection then identified a language-grounding issue: the optional
+reference fixture had the same appearance as the yellow S3 marker. Those data
+remain immutable evidence of the mechanical checks, but are superseded for
+commissioning. Visual catalog version 2 makes the optional fixture neutral gray
+and retains the yellow marker, without changing geometry, dynamics or teacher
+control. The compiler records and verifies its source/asset hash in each bundle.
+
+Rerun the same saved Astra proposals under the new source revision; do not call
+Astra again. The first 31 acquisition attempts remain charged, leaving at most
+89 attempts for the replacement commissioning test under the shared 120 cap.
+The new normalizer must use only the replacement thirty-episode corpus. Report
+both runs' compute, acquisition and accepted-data counts explicitly.
+
+Three additional, isolated Astra requests tested W07 against synthetic report
+fixtures. Allocations were S1/S2/S3 = 25/30/20 when all stages had constructed
+zero success, 5/10/60 with constructed S1/S2 competence and S3 failures, and
+25/25/25 for uniform with no report. All were valid without repair. These are
+generation-contract evidence, not measured learner learning or curriculum
+benefit. Total logical generation calls so far: four, with unknown billing.

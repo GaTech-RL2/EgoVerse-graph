@@ -59,3 +59,18 @@ uses LIBERO's explicit source import path, and measures the real three-stage
 HDF5 batch update plus all physical checks in the Linux lock. No Astra-authored
 commissioning demonstrations, production updates, or policy evaluation results
 exist yet. W03 split freezing, W04 novelty/commissioning, W06–W10 remain open.
+
+OSMO v2 confirmed a concrete external blocker: the existing Astra credential
+had already exceeded its configured gateway budget (HTTP 429,
+`budget_exceeded`). Three catalog attempts were archived; zero generation
+calls occurred. The user has been asked to replenish that credential or name
+another approved credential. Do not retry generation until access changes.
+The simulator lock also required explicit matplotlib/imageio dependencies;
+those are now pinned. Run independent engineering checks with
+`build_workflow --skip-provider`, which omits the Astra credential and writes
+an explicit failed/not-run provider gate receipt.
+
+The protocol layer now has tested typed round decisions, a blinded uniform
+generation context, fixed quota validation and a single-writer SQLite ledger
+that preserves incurred attempts across crashes. It does not yet constitute
+the complete round runner or satisfy W07's actual-provider fixture test.

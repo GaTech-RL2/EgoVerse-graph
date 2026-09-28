@@ -100,6 +100,28 @@ No production training is enabled here. Astra commissioning, the frozen split
 firewall, complete checkpoint/round coordinator, paired policy evaluation and
 gradient diagnostic still need implementation and measured gates.
 
+## Protocol layer and current blocker
+
+The next stack layer adds strict decisions with five positive templates,
+exact 75-episode quotas, and immutable per-template allocations during repair.
+Uniform context rejects learner reports and adaptive-arm archives; adaptive
+decisions bind to a frozen training-control report. The SQLite ledger locks
+ownership to one coordinator, reserves cost before external work, preserves
+pending attempts across crashes, rejects changed outcomes/caps, and records
+ordered transitions. These pieces are tested; the end-to-end round runner
+and actual-provider W07 fixtures are still pending.
+
+The v2 catalog responses identify **budget_exceeded**, not transient capacity.
+The existing credential had reached its 5000-unit budget before this pilot;
+zero generation calls occurred. A renewed or alternate approved OSMO
+credential is needed. Independent OSMO checks use `--skip-provider`, exclude
+that credential entirely, and explicitly leave the provider gate unpassed.
+
+The simulator lock now explicitly includes matplotlib 3.11.2 and imageio
+2.37.4, which upstream LIBERO imports without declaring in its package.
+The local environment had masked those missing dependencies; v2 failures
+remain archived and motivate the next locked-environment validation.
+
 From an activated project environment:
 
 ```bash

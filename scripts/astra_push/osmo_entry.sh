@@ -39,7 +39,16 @@ upload() {
 }
 trap upload EXIT
 status=0
-python -m egomimic.experiments.astra_push.provider --output "$GATE_OUTPUT/provider" 2>&1 | tee "$GATE_OUTPUT/provider.log" || status=1
+if [[ "${RUN_PROVIDER_PROBE:-1}" == "1" ]]; then
+  python -m egomimic.experiments.astra_push.provider --output "$GATE_OUTPUT/provider" 2>&1 | tee "$GATE_OUTPUT/provider.log" || status=1
+else
+  python - <<'PY'
+import os
+from pathlib import Path
+from egomimic.experiments.astra_push.artifacts import publish_json
+publish_json(Path(os.environ['GATE_OUTPUT'])/'provider-skipped.json', {'reason':'confirmed_gateway_budget_exhaustion', 'provider_gate_passed':False, 'generation_calls':0})
+PY
+fi
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 WANDB_MODE=disabled OMP_NUM_THREADS=4
 # The synthetic update is already measured in v1. This revision verifies real
 # three-stage teacher data after constructing the separate simulator below.

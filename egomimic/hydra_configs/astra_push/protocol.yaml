@@ -1,0 +1,40 @@
+schema_version: astra-hpt-protocol-2
+seed: 17
+generation:
+  logical_calls_per_phase: 8
+  output_tokens_per_call: 8192
+  repairs_per_proposal: 2
+  transport_retries: 2
+commissioning:
+  accepted_episodes: 30
+  attempt_cap: 120
+  scenes_per_stage: 2
+  episodes_per_scene: 5
+seed_pool:
+  accepted_episodes: 120
+  attempt_cap: 480
+  updates: 1000
+rounds:
+  per_arm: 4
+  accepted_episodes: 75
+  attempt_cap: 300
+  updates: 500
+  positive_templates: 5
+  minimum_new_templates: 2
+  uniform_allocations: {S1: 25, S2: 25, S3: 25}
+replay:
+  current: 2
+  history: 2
+evaluation:
+  control_per_stage: 12
+  development_templates_per_stage: 4
+  development_resets: 2
+  sealed_templates_per_stage: 8
+  sealed_resets: 3
+  bootstrap_resamples: 10000
+diagnostic:
+  candidates_per_stage: 4
+  windows_per_candidate: 4
+  noise_draws: 2
+  updates_per_candidate: 20
+  transfer_windows_per_stage: 16

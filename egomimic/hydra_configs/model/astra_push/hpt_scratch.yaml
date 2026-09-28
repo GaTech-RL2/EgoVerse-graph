@@ -121,6 +121,7 @@ data_requirements:
       action_horizon: 10
       action_offset: 0
       action_type: normalized_OSC_POSE
+      action_frame: world
       proprioception_dim: 9
       rgb_scaling: minus_one_to_one
       normalization_source: commissioning_only
@@ -139,13 +140,13 @@ inference:
       - observations.state.proprioception
     constants: {embodiment: libero_push}
   native_output:
-    frame: controller_input
+    frame: world
     key: pred_action
     representation: normalized_OSC_POSE
     shape: [10, 7]
     timing: {kind: control_period, temporally_resolved: true, dt: 0.1}
   output:
-    frame: controller_input
+    frame: world
     key: actions
     representation: normalized_OSC_POSE
     shape: [10, 7]

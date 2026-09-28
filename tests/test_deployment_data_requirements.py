@@ -107,8 +107,30 @@ def test_every_shipped_ready_model_declares_data_semantics():
             if build_inference_config(cfg)["status"] == "ready":
                 assert OmegaConf.select(cfg, "model.data_requirements"), path
                 graph = build_inference_config(cfg)["inference_graph"]
-                assert graph["native_output"]["frame"] in ("camframe", "eef_frame")
+                native = graph["native_output"]
+                if native["representation"] == "normalized_OSC_POSE":
+                    assert native["frame"] == "world"
+                    assert native["shape"][1] == 7
+                else:
+                    assert native["frame"] in ("camframe", "eef_frame")
                 assert graph["output"]["frame"] == graph["native_output"]["frame"]
+
+
+def test_normalized_osc_requires_world_frame_future_commands():
+    with compose_for_audit(CONFIGS / "model/astra_push/hpt_scratch.yaml") as cfg:
+        preprocessing = OmegaConf.to_container(
+            cfg.model.data_requirements.preprocessing, resolve=True
+        )
+        context = DataContext(None, {}, (), {"preprocessing": preprocessing})
+        validate_model_data_context(cfg, context)
+        wrong = deepcopy(context.state)
+        wrong["preprocessing"]["libero_push"]["action_frame"] = "eef_frame"
+        with pytest.raises(ValueError, match="action_frame"):
+            validate_model_data_context(cfg, DataContext(None, {}, (), wrong))
+        native = build_inference_config(cfg)["inference_graph"]["native_output"]
+        assert native["frame"] == "world" and native["shape"] == [10, 7]
+        assert native["timing"]["dt"] == 0.1
+        assert preprocessing["libero_push"]["action_offset"] == 0
 
 
 def test_changing_data_alone_cannot_rewrite_pi_model_frame():

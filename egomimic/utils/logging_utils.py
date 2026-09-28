@@ -103,20 +103,30 @@ def _configure_lightning_wandb(cfg, wandb_configs, env) -> None:
         raise ValueError("SLURM_RESTART_COUNT must be nonnegative")
     output_dir = Path(str(OmegaConf.select(cfg, "paths.output_dir")))
     identity_file = output_dir / "wandb-run-id.txt"
-    checkpoint = env.get("ICE_RESUME_CHECKPOINT") or cfg.get("ckpt_path")
+    # A user-provided ckpt_path initializes a new experiment's weights. It is
+    # not evidence that its W&B run should be resumed. Only the runner's
+    # explicit requeue checkpoint or a Slurm restart carries W&B identity.
+    automatic_checkpoint = env.get("ICE_RESUME_CHECKPOINT")
+    automatic_resume = bool(automatic_checkpoint) or restart_count > 0
+    checkpoint = automatic_checkpoint
     inferred_checkpoint = output_dir / "checkpoints" / "last.ckpt"
     local_id = _local_wandb_run_id(output_dir)
     sidecar_id = identity_file.read_text().strip() if identity_file.is_file() else None
-    if not checkpoint and (restart_count > 0 or sidecar_id or local_id):
+    if not checkpoint and automatic_resume:
         if inferred_checkpoint.is_file():
             checkpoint = str(inferred_checkpoint)
             with open_dict(cfg):
                 cfg.ckpt_path = checkpoint
-        elif restart_count > 0:
+        else:
             raise ValueError(
-                "automatic W&B resume requires the previous last.ckpt; "
+                "automatic W&B resume requires a previous last.ckpt; "
                 f"none exists at {inferred_checkpoint}"
             )
+
+    # Fresh experiments may initialize model weights with cfg.ckpt_path, but
+    # retain their new W&B identity and configured resume='never'.
+    if not automatic_resume:
+        return
 
     for logger in wandb_configs:
         raw_id = OmegaConf.to_container(logger, resolve=False).get("id")

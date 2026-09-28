@@ -63,8 +63,8 @@ not cancel or replace the existing recovery/evaluation workflows. The original
 
 Current score snapshots (with unresolved issues explicitly marked):
 
-- [All four suites, including completed plain-DP controls](results/arc_vs_oat_libero_20260926_night.md)
-- [Current ARC/FAST training and recovery progress](results/libero_progress_20260926_night.md)
+- [All four suites, including completed plain-DP controls](results/arc_vs_oat_libero_20260928.md)
+- [Current ARC/FAST training and recovery progress](results/libero_progress_20260928.md)
 - [Spatial](results/arc_vs_oat_libero_spatial_20260924.md)
 - [Object, Goal and LIBERO-10](results/arc_vs_oat_libero_rest_20260924.md)
 - [ARC + OAT implementation](LIBERO_ARC_OAT_HYBRID.md)

@@ -1,0 +1,1225 @@
+{
+  "status": "preserved",
+  "files": [
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-00.json",
+      "bytes": 91,
+      "sha256": "d0236128c3fc10122d0c8f1317a0e6cb01d0f7f62cc4a0ea60a2c6cd16905b5d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-01.json",
+      "bytes": 91,
+      "sha256": "1826b54ce822842b715f33c38c5cf7e164a69bd40c8ebb6369e26c33836e4bb1"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-02.json",
+      "bytes": 89,
+      "sha256": "3e62107f7030ecc45ff6e1da117e5b47f52cbe74c514ebe694e72fdc20569f45"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-03.json",
+      "bytes": 91,
+      "sha256": "e9baef7b27b4207073d9862f7dc84a9f7889b6d5a6af96b8a1a6ed6751ef839c"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-04.json",
+      "bytes": 91,
+      "sha256": "b97fd3f3e49a24273067a87c28e83638dd8204f16de71099d289658ee9f58dcc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-05.json",
+      "bytes": 91,
+      "sha256": "c94d567bd5852483d631471e40a58207af707a65890e1157106bcac96ef53e1e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-06.json",
+      "bytes": 91,
+      "sha256": "1d42b510d158876f15c524ce15ec62d7ffa8584ca84e017bbac84ef16e35f7ce"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-07.json",
+      "bytes": 91,
+      "sha256": "bcaf0c416f3606b936958dd67e00e6885d279a443e2877bfd1a9d82c47bd94fd"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-08.json",
+      "bytes": 91,
+      "sha256": "d713bb75fc4893db27870404bc81c8a0b8227d88a46091aa2d2bae53daf08376"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-09.json",
+      "bytes": 91,
+      "sha256": "a5ef6d9258f05ffb2a28a1020a2daf64a70859caae1e433676b167bee029d1fe"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-10.json",
+      "bytes": 91,
+      "sha256": "f02a00d6c3f955d061618f49295bf50d4c5810d7dfa9ef105676cc8d118a0d19"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-11.json",
+      "bytes": 92,
+      "sha256": "021035df6908833eaccc5aec8330fa7dc94ac8aafa6fee7764b6b069d226c91f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-12.json",
+      "bytes": 92,
+      "sha256": "f1d119f70ea2b72e936d607307e5ca575835a64cf38474a85a6d2b2659b05a77"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-13.json",
+      "bytes": 92,
+      "sha256": "cc789333462b3019d675f0e253e85355b6c1abb81797f052f8260be1ae795b14"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-14.json",
+      "bytes": 91,
+      "sha256": "ae843749ca5a07cc8ffc71dc0c89f44f2b0adace8ac4eae5129505083fc74dac"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-15.json",
+      "bytes": 92,
+      "sha256": "c7e2af288d7a311633e067a649f01bcbb5ab1a4ec5fb8cf7c2798b80cfca9766"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-16.json",
+      "bytes": 92,
+      "sha256": "414d3f221902b12a5e95a6396e543599986c92caee0a418347d3ee02c77c9739"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-17.json",
+      "bytes": 91,
+      "sha256": "551091ebb42e557ee69d43af56deb49113de79ff5e27706aa38be600817a4ed2"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-18.json",
+      "bytes": 91,
+      "sha256": "7e7ce3f974dce1edecf14f13a7ab27afaca99eae7d6bfb53ae6b59f2e7d7d865"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/attempt-19.json",
+      "bytes": 91,
+      "sha256": "883ff1c172f5143f1e8d2846a7885740703baa9509dbe67b5cb9123240098a20"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/bundle/ASTRA_SCENE4CBA7B84CAD6_push_the_block_into_the_target..bddl",
+      "bytes": 1053,
+      "sha256": "b69d93b1f2e46f5f1f68d3063772cfcc628477764bd4ff1b5c8b46c787e8cd84"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "df47d9db8016d2bf980a3a7c48c7609d64bfb872b2ce9bbbae032569f39945e9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/bundle/scene.json",
+      "bytes": 439,
+      "sha256": "f2fe944d4c7870a04ef19740de29f9aa1359684742c422995ab6afd1019e8b66"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/bundle/task.bddl",
+      "bytes": 1034,
+      "sha256": "22db3e85993effc231448dd833493da84482575819d5224104c6a18928b03b1d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/bundle/task.json",
+      "bytes": 255,
+      "sha256": "39df449fbc37642f7c87e59811b83ca614cac0fafde0e47633ca063c0e178dbc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/calibration.json",
+      "bytes": 737,
+      "sha256": "1987bb399858210e3b87535d9c1c6dc90438b7476f4cc25a7b36f75848f9d1b8"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/expected-replay.json",
+      "bytes": 9482,
+      "sha256": "e0b2af617fd199614f74cc4b2bd0392183722b30190effcdbf74d9fe26d991d5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/frame-calibration.png",
+      "bytes": 44245,
+      "sha256": "796589518c9755d6614b3683543053a4546a62cffc2e125a61eef3d6649fc8f4"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/fresh-restore.json",
+      "bytes": 108,
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/full-state/arrays.npz",
+      "bytes": 243189,
+      "sha256": "e7e953f7c080db57e15f209e732296ae6470973f8d79c888e07cf9fbfe17b968"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/full-state/snapshot.json",
+      "bytes": 66047,
+      "sha256": "efb7c241ca07c0703075a4429d69c0665b7278bb0a34c3703cca6e271462e2a2"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-00.json",
+      "bytes": 157,
+      "sha256": "0ebd77941b5b777611418009f19338fa757347d0d450cb3f1ef97959877fc61c"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-01.json",
+      "bytes": 157,
+      "sha256": "bbca0300a1fc9fb265ad5b0e4ef95cbe72ac36080417af8df695c17366f3e76b"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-02.json",
+      "bytes": 155,
+      "sha256": "ea5371db564e9bf896dc0d4526c75a0b286f896d3e635765da309793e363fab4"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-03.json",
+      "bytes": 157,
+      "sha256": "6d2e21635cdac4b16666ecee9da0b1281adb4bf396fd580b24fe1c78d85e1511"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-04.json",
+      "bytes": 157,
+      "sha256": "0e1b9e7fb2ef65bd0459163fd88e3aecb1977aca9743ee1c2e0ad2f7c1a24e03"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-05.json",
+      "bytes": 157,
+      "sha256": "254e9de06edbf04b91d6f8c81ee585d620729de0e34a345d73164ba25d680b0e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-06.json",
+      "bytes": 157,
+      "sha256": "e54073c39c9223ec9d49d3288b12380270493607de49f0c66bff66cc2fa2d7eb"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-07.json",
+      "bytes": 157,
+      "sha256": "db85dacc2c3d6048d7624fbb0001cf1637bf452244ed8e22e1b84df1b100e9f5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-08.json",
+      "bytes": 157,
+      "sha256": "53c066c7623ab73074996b5300b8c87254a671b9404508be55c04a8c31be0204"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-09.json",
+      "bytes": 157,
+      "sha256": "1ec766979dea45ab92353a4098dbd26395fac79be30d126125f38e4018f1399b"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-10.json",
+      "bytes": 157,
+      "sha256": "9fc6ee364798ac26b0eb7bfe12821507a3cf05ca93ea910c149dbfcb42993d48"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-11.json",
+      "bytes": 158,
+      "sha256": "e6a97771350db2456c2cde2711d821a7bcc2284dbdab578505280419b6550ec9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-12.json",
+      "bytes": 158,
+      "sha256": "d40a55b64025eb4b35d52134f8cd199ec2b8a0c82e984d66d661f854082189a5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-13.json",
+      "bytes": 158,
+      "sha256": "48573bcb4bf1e6b204693a0de1e99a19d0e0a2a74f6c9e6f7bd6a3f7010111f7"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-14.json",
+      "bytes": 157,
+      "sha256": "31699b9478ba9755e7f458e780854facc39f7ee6cf5e42ad879b7ef8becc3fe2"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-15.json",
+      "bytes": 158,
+      "sha256": "ac0e6fe7330b5845de7efbb9ab9fbef1bb21688bd57930ea6daed9eef359aa42"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-16.json",
+      "bytes": 158,
+      "sha256": "8b1224cc35ef8332033c7dcd82d899ad26fce3c9e88acd246588f012f0f56a2f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-17.json",
+      "bytes": 157,
+      "sha256": "833c573b00cd3fa3b2e7ef53255b571ce91c3551e2b33849fd836ba1014dd71c"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-18.json",
+      "bytes": 157,
+      "sha256": "01b4374dcb29b926997029edbd84fcbbe50346f519ff5f81c526717cc07c364c"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S1/reset-19.json",
+      "bytes": 157,
+      "sha256": "16ce1f7f36aa6e866294883fb2a0d995c376847550680670b0513848646b3b77"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-00.json",
+      "bytes": 91,
+      "sha256": "4c7705f307b4c4f3d207e179673579c51625d2bb39c7cb7476a3a5db369dc2fa"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-01.json",
+      "bytes": 91,
+      "sha256": "189786a55c07632d4c609f2ddd699d6d19708a462a9123457a6613213337955d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-02.json",
+      "bytes": 91,
+      "sha256": "88c5d0d60ecb8edfeff301aeeb442b75bfa3b02798706f8e55210b54e536846a"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-03.json",
+      "bytes": 91,
+      "sha256": "2a5cb9e030d64cb27016585790f815c01f6ad6345f1387f365a7a1f5d06fe56d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-04.json",
+      "bytes": 90,
+      "sha256": "ed5659d6625ed958fe1366a503326b251458a96b55e70ac64188ada51c0125cc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-05.json",
+      "bytes": 91,
+      "sha256": "56f745ff7c7faacae5fc7e7da3ca9351a7fde67439156d5b9e5a9adc961aeff2"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-06.json",
+      "bytes": 91,
+      "sha256": "cae17ec9fb8495580163a57876ec1ecab6dcbf4eb7ade3bef0d309b871c31154"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-07.json",
+      "bytes": 91,
+      "sha256": "e49206534992aa3ae0ffea553e5f159efb78abb5f9b30ba2d4547027a000a43d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-08.json",
+      "bytes": 90,
+      "sha256": "285d7a9f02e3ce746ab8cf0311a850aa8677d46a1e233636bc44a39bc932ed3b"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-09.json",
+      "bytes": 91,
+      "sha256": "6f2669bda87d0018b62352a6dca452c343a0f87d1a6de3c21129501084a16e33"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-10.json",
+      "bytes": 92,
+      "sha256": "e8e41846c995340330af73f9f7f1546ff05a423e893253d3b956d6a1c287752f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-11.json",
+      "bytes": 92,
+      "sha256": "245313ff304ea86d4054d09dd28bb49ac2c7ede72d29e31029f0b0187859e0ef"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-12.json",
+      "bytes": 92,
+      "sha256": "2c75221aa2636bc58c0ffef8fec450ad208111176a2606702ba3b56fe37c42c8"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-13.json",
+      "bytes": 92,
+      "sha256": "fd5b721eacc87806ca4fbb45705eaf13e92fc1cf1cc19c961da5159f85710026"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-14.json",
+      "bytes": 90,
+      "sha256": "d8ec7b77d068955dc83225735814dde744ca09e2412b20ac6dc4a4439924d8a5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-15.json",
+      "bytes": 92,
+      "sha256": "310a44b086f1f0dd31bc8fe678e70754a4358cb09fb013ce9228f0068fb76ec5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-16.json",
+      "bytes": 92,
+      "sha256": "1fb292202e2108c521d99c39c4084a62b6bf0d8fef97fd2890635d608af4a8d0"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-17.json",
+      "bytes": 92,
+      "sha256": "66728c99c5828d68b8a01c36d5381bd7cc9ddb8d6d3510ced450c0a886cfb081"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-18.json",
+      "bytes": 91,
+      "sha256": "5e6b8c4a7187cca288d43dc6636e25701283afcd79ef545be956063cee8244e9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/attempt-19.json",
+      "bytes": 92,
+      "sha256": "2fb9dd967ac1d6416fae41714639365b9e5e1bb72b7e661427f81cdbbf620088"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/bundle/ASTRA_SCENED738848676F3_push_the_red_block_to_the_left_target._leave_the_blue_block_in_place..bddl",
+      "bytes": 1908,
+      "sha256": "92a721be4b59eba2f732bd044efab42542385a267fc39e0ea1126aa72fbde926"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "13744ecc7932eda7782bc1a7d311f831da7cf7fafb00778aeeace686f402fe28"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/bundle/scene.json",
+      "bytes": 741,
+      "sha256": "499101427e8cc90274f174064929e50d52096e47a1a9f228df01188b34768fb1"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/bundle/task.bddl",
+      "bytes": 1889,
+      "sha256": "19d3961b06fced696d4068b950c062b016117c7a6a2c27ca76422b8f0bc7d23d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/bundle/task.json",
+      "bytes": 289,
+      "sha256": "1cb320ebd6a580b5eb120f5c927c9ad6ee3b7c210341dc621748c1de877301bc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/calibration.json",
+      "bytes": 736,
+      "sha256": "07ae4ed5741240b49d99a6e1c25d9a2d631bae429013dee8312aef9c2ecc3b1a"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/expected-replay.json",
+      "bytes": 12354,
+      "sha256": "26eaf1be09baff6054885fe18dfb16c2d2f5c7d22e6624b82f03cc230b059209"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/frame-calibration.png",
+      "bytes": 44361,
+      "sha256": "d18fb6c61463b1a515c4ef74ede3ec043e1508ed5278cada72fdd32e3fedd657"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/fresh-restore.json",
+      "bytes": 108,
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/full-state/arrays.npz",
+      "bytes": 246246,
+      "sha256": "f8e71727542b35d54ae07675e2594229114227c6c188bfa051ebba04cd80b252"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/full-state/snapshot.json",
+      "bytes": 69101,
+      "sha256": "d9c732698627e0a3d210d5be010b7f9ae0af892bcd63a761b9be5601c82e8e5f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-00.json",
+      "bytes": 157,
+      "sha256": "963ad4651449e5d2fc241c4038a31b8dbf93b67d70d8d852cec410288799c1bb"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-01.json",
+      "bytes": 157,
+      "sha256": "fa3ed24da46326c9d26f2c6be7a028843df0103faa0661048b1351ab6914450e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-02.json",
+      "bytes": 157,
+      "sha256": "93fd8225ceedaf00f5ce4bcf02a6e5c01c08683af051f4ea57d8f74444ef283e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-03.json",
+      "bytes": 157,
+      "sha256": "ff24f3fb7345ab47cf82f82585474ad80dbeb40ba1227de8540674d9ca58ab1f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-04.json",
+      "bytes": 156,
+      "sha256": "c7989fb35d10dde6d4596c508991a67131667ab22cca21df0cf0f3b475a9d959"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-05.json",
+      "bytes": 157,
+      "sha256": "7ddb5c46f5ecba3e6c9620728e8d0d8de2f8ea713f09c1ab9a2f19127a954691"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-06.json",
+      "bytes": 157,
+      "sha256": "a76ff8fb0f3d45bcf106805b3fbff9f5478a52a13c71d0e1b90cd560a2ae1bf6"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-07.json",
+      "bytes": 157,
+      "sha256": "05d73a2ccc9aff7595bfafeff43a112de8460d016dbb8c23466c356ff7bd43a2"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-08.json",
+      "bytes": 156,
+      "sha256": "521c82ac829e5dba525cce110545a85e2ba209db8cc81487c00d26b99dc31869"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-09.json",
+      "bytes": 157,
+      "sha256": "35de3a595f0382cb8f49ac0b142161c2eb012902d58d063c5b2f6bfc62174db9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-10.json",
+      "bytes": 158,
+      "sha256": "5805cf17013f8c174e0303b2bdd91477e82a312bc20bc068f0c8c1b829f416c9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-11.json",
+      "bytes": 158,
+      "sha256": "3a95a7042fc948796c1ddb712d5e9673e47db16ccd443787e7a8cc143ab93184"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-12.json",
+      "bytes": 158,
+      "sha256": "b914012861fb7d0a6d2c87c5c281cf0d990fdb8296416084d2d0469644715301"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-13.json",
+      "bytes": 158,
+      "sha256": "78e22e6fad5af95c3e00961248996f7f72d4e32637f5b5b65d93095742cefd41"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-14.json",
+      "bytes": 156,
+      "sha256": "fb4561808c98d771d28eb67ef8b25bb90ebfbf3e3424716a9b2fdc12ede872d1"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-15.json",
+      "bytes": 158,
+      "sha256": "fa646237fe3425c993dc189f15a22f505285ed0ccc5ddab7608b767f686b2d5b"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-16.json",
+      "bytes": 158,
+      "sha256": "8c9250078a3685e8303200a4aaa7f7017e5bcf2b2c970f7605e5c519ed964d4f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-17.json",
+      "bytes": 158,
+      "sha256": "96a66650310cba76a333832612af518afeb0e68f0d275862e98cd95d311abdc3"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-18.json",
+      "bytes": 157,
+      "sha256": "79cfd2c3db6bd8072fa26d714668428df3218dc63661b1b0a1fa9bd19b49a474"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S2/reset-19.json",
+      "bytes": 158,
+      "sha256": "5ab5f35eab8d0db8c7bd94162056eac5b7e0f050f046e6d5228a7af6e9506505"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-00.json",
+      "bytes": 91,
+      "sha256": "a1247a23afac04775900ccddd2db46b4c243c84f9de8df05db9df4a5980fc37f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-01.json",
+      "bytes": 91,
+      "sha256": "54f4008efccaf877c9eabbe0965a89b3b56528fd24aa8f3cbbbb72f0fb6730e2"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-02.json",
+      "bytes": 91,
+      "sha256": "f4b0cf7ade3ef2806ec6e4f146c03d18ea220c08746b22fa519f0d4403b26ef8"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-03.json",
+      "bytes": 91,
+      "sha256": "534a7b454d0bf0d444070e647b68ceace61b886a9b33266f8e093f834d1222c5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-04.json",
+      "bytes": 91,
+      "sha256": "6841e18206ca690764fe78c73cc6175246b679836963f08cf0ce4d4cf1c00365"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-05.json",
+      "bytes": 91,
+      "sha256": "a7c82e15687bf8247f62de236073fad89e29207db1449fe40b93c4e82f07185b"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-06.json",
+      "bytes": 91,
+      "sha256": "8b9db0c94c5aa343988efde95737ea6610346cabc64809941f80f50a7f968f14"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-07.json",
+      "bytes": 91,
+      "sha256": "8168df671023582be9495401e37f8a70edafb35ca4267dd3e4f1b925fc6b7706"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-08.json",
+      "bytes": 91,
+      "sha256": "1760f0f501c8fe65d29ef408bcbedb54dcd947387844b5dd4177a6b97e3d7bbf"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-09.json",
+      "bytes": 91,
+      "sha256": "c737e9cef17ce0f738298fc7c2ecd01dd61adbae16995a0e96d14671261a00f9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-10.json",
+      "bytes": 92,
+      "sha256": "220783cb6ee7b1c5a31199abac6577dcd7fd7039622af8ab7ab89026952d284d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-11.json",
+      "bytes": 92,
+      "sha256": "780cdc23e663fd32741e0818b44aed7217d56999fee0cb0c0da179688621f639"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-12.json",
+      "bytes": 92,
+      "sha256": "747a00c212770e27b961c6643f3598a33b72c85d8459f345018ec058dc94b19e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-13.json",
+      "bytes": 91,
+      "sha256": "2317bb38a86ecd6da9de421099dd893b27220b3340ae50188be15b61bb14d387"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-14.json",
+      "bytes": 92,
+      "sha256": "4e2c6c4abdf185b8e14fbb2cd1c5dde7895df2e53cf5261ed22c337e6cf2da01"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-15.json",
+      "bytes": 92,
+      "sha256": "b60afc04a173e4c1519809798fc981620b4567ca74ef4a9f579c31e085b14c13"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-16.json",
+      "bytes": 92,
+      "sha256": "30fe9c245884d034fe48c3e9882ca88f43ebb448295b58e2c661d50a79eca5c9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-17.json",
+      "bytes": 92,
+      "sha256": "65589f17ab583c52a3ef9f478c2a4bfa99078a9eec7cfbcace6a3295dfa1aa25"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-18.json",
+      "bytes": 92,
+      "sha256": "fd4901aa89e7da9feaf0e661a2c683ae0028b5919896a305a84f1571693c64b9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/attempt-19.json",
+      "bytes": 91,
+      "sha256": "7ae42c113c1a276ee78ffa08552fa7da4da7bae81fbf434e65084deafdc5020b"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/bundle/ASTRA_SCENE54A4B8D2CA7F_push_the_block_left_of_the_marker_to_the_left_target._leave_the_other_block_in_place..bddl",
+      "bytes": 1931,
+      "sha256": "229925566e93d17c4f0ec9104bb1c67ee23f668e00d28411db81effe4a1b6d36"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "dd22b10d1d0ae61a6591688780aa485946aefe8d1b78a6acea3b9bcef0b0573e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/bundle/scene.json",
+      "bytes": 835,
+      "sha256": "275dc3fda8e07cf991fcda55c0299b563825e806df7ce7dfe817ce56730f6ebc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/bundle/task.bddl",
+      "bytes": 1912,
+      "sha256": "4328720e9648b8c921e2893674bfcffc2a209d44eee92c9da578ec22d616d0e8"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/bundle/task.json",
+      "bytes": 306,
+      "sha256": "2c903c6f2b7d606b1751f224ae9e5f92ac5802dd573de0ef24af0c03b90aae8d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/calibration.json",
+      "bytes": 737,
+      "sha256": "ab97815196b114591f9d3c4025afe92435371c5a4ef9d475c6c473b1be98cb86"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/expected-replay.json",
+      "bytes": 12340,
+      "sha256": "c5888d04adaa28d0715a6447b0e04ef79258680eec5e231ed4a016c52040fa1d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/frame-calibration.png",
+      "bytes": 44439,
+      "sha256": "7ab5541f2c458078d8a9d977ecbd655d250968392db1ad08b739c02f2dde67cc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/fresh-restore.json",
+      "bytes": 108,
+      "sha256": "c3ebf330b6e3f1f81275c68319b46b0a3a6b056b0f7ed14c38a813338c07f587"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/full-state/arrays.npz",
+      "bytes": 246509,
+      "sha256": "7ec98e4d0017886fa1fd6095780d7c31dfc8b6be1ec8b36fc9b32c3f7e0a7161"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/full-state/snapshot.json",
+      "bytes": 69120,
+      "sha256": "3a456f6bf092bf130246ed403c0a21c7176935d85a3eef0fa29b091061a775ad"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-00.json",
+      "bytes": 157,
+      "sha256": "f9235e6ba6c671ac947162b942a1b2396cd3f9d8c91e247212a4dc8c325817bc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-01.json",
+      "bytes": 157,
+      "sha256": "5bf2b5551db40f5fa3e1d80cbce1f91dbc82ada4731f1133a8eb4432ddd83932"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-02.json",
+      "bytes": 157,
+      "sha256": "ed407918da0ecc322d7bafa613cb89de1e8dce20e0ebb5db8749ce9adb356428"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-03.json",
+      "bytes": 157,
+      "sha256": "6adfc28ec09ed39c8f7c5a54a00efeefebb45011504f0c2b5682e5f565f4cd09"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-04.json",
+      "bytes": 157,
+      "sha256": "3b3127b5d3632883c384374bedf2513a360936d91c454503473d032799192526"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-05.json",
+      "bytes": 157,
+      "sha256": "c4d29949c5e52365f1ec78675d05efbef9f142bffc4eadf42b0812e5428fa74e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-06.json",
+      "bytes": 157,
+      "sha256": "66b44c67b734911ca89c3d5a6c321d5c98ca995f8bda12a27e1ae2455f336a01"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-07.json",
+      "bytes": 157,
+      "sha256": "92d8a3fc61be4da7ed4f0711093017fae69122ea5cea8b835fe1644aadb5ba94"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-08.json",
+      "bytes": 157,
+      "sha256": "fb695a61b920e4d1a70bc3ca1da81cb3f5b0a92fb8034dca45225242b04df0c5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-09.json",
+      "bytes": 157,
+      "sha256": "d51e273a375ac953af98fda12a536969bea7e181e6a9fe950ef73bf8bb31d7ae"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-10.json",
+      "bytes": 158,
+      "sha256": "31541a535bc3bd865dbf20189c80ab9717462b07a5085734013e8ffb179c1cf3"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-11.json",
+      "bytes": 158,
+      "sha256": "6728b34bf0c949a7e15369060eb25171665bda09b49e016e3966b28694802bc5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-12.json",
+      "bytes": 158,
+      "sha256": "797a90fdda69103460d753bcb6f813391a43fb0d868143825469975686bcd5d4"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-13.json",
+      "bytes": 157,
+      "sha256": "4485782f1284538fd59a5e00af614cbad6b924917d272e5a6a136bb26d2be14d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-14.json",
+      "bytes": 158,
+      "sha256": "b301352cc3230ee673e766582e907c1d6b2ae91f9e0497b7f0dcb498eb0e6fa9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-15.json",
+      "bytes": 158,
+      "sha256": "6c1ae4d6c361005afa738a65c73624a96c960372acca73644c682624a20d5809"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-16.json",
+      "bytes": 158,
+      "sha256": "39e04a6522d5689b6093de23f8ffb28f1de712545ad556eccca609c34c5e4a1f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-17.json",
+      "bytes": 158,
+      "sha256": "9cc39b38f2eeb8471bfa3ffbee4c9df574047ca1242978f610cd3dfe31cf265c"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-18.json",
+      "bytes": 158,
+      "sha256": "b3433f6de56eac3aea2426a1a8f7ca6bc3cc8017c26d58cfe4eaa59efcbdf3c3"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/S3/reset-19.json",
+      "bytes": 157,
+      "sha256": "d71caa51e295025ba364ee63fcdb266461777d221b22697333654b7ef60ee11d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration/receipt.json",
+      "bytes": 11600,
+      "sha256": "205ad1a26cda59f9afe0ba28348ab0454a3440665a099b6fe6af83265085b6ba"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/calibration.log",
+      "bytes": 2878,
+      "sha256": "0e80646f03f7bbb09c64234ac91ca96fbd553a573e20c692f9a462174718b5cb"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/gpu.csv",
+      "bytes": 122,
+      "sha256": "1fb7a3bbb35f68ffb959020adf57b3f12634488ad779f669e025b09a759a434f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/learner-packages.json",
+      "bytes": 7882,
+      "sha256": "fb4a31f584594a610cff1ec9c3d93a6d5ab61ada8612fdb39a3a2a6a7d1e2bf7"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/learner.lock",
+      "bytes": 1559672,
+      "sha256": "c07a8d55f14002c047cf7f635c311f1d49e7f0aed3472950a8a6c3650caa7dc6"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/libero-source-commit.txt",
+      "bytes": 41,
+      "sha256": "0dfca9696c897ad468d249c60d4cf2bd2fda7f4d78d8a0945088e715641be9bd"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/provider-skipped.json",
+      "bytes": 112,
+      "sha256": "00834ae8039e548537c9230799b97d1f5d2681e223157c1928e59266cca5df5e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/real-learner-audit/initial.pt",
+      "bytes": 184095709,
+      "sha256": "8eb7ef462f9489ff3efb91ec7eb45fd08b71d3764084db101c5b2448e0452c23"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/real-learner-audit/receipt.json",
+      "bytes": 136760,
+      "sha256": "2cbecb2eabe57628616ee301247fe0565d5eb37507ceedce81b21c0587a2e5a7"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/real-learner-audit.log",
+      "bytes": 651,
+      "sha256": "11557d1f1f690d432c92ad6d5a2d3f38d71689175ad2433e1be6a9f3c22c2262"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/bundle/ASTRA_SCENE4CBA7B84CAD6_push_the_block_into_the_target..bddl",
+      "bytes": 1053,
+      "sha256": "b69d93b1f2e46f5f1f68d3063772cfcc628477764bd4ff1b5c8b46c787e8cd84"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "df47d9db8016d2bf980a3a7c48c7609d64bfb872b2ce9bbbae032569f39945e9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/bundle/scene.json",
+      "bytes": 439,
+      "sha256": "f2fe944d4c7870a04ef19740de29f9aa1359684742c422995ab6afd1019e8b66"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/bundle/task.bddl",
+      "bytes": 1034,
+      "sha256": "22db3e85993effc231448dd833493da84482575819d5224104c6a18928b03b1d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/bundle/task.json",
+      "bytes": 255,
+      "sha256": "39df449fbc37642f7c87e59811b83ca614cac0fafde0e47633ca063c0e178dbc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/external_rgb.png",
+      "bytes": 43252,
+      "sha256": "be06722b80e9d49bb48131e619aee6062e46c8cb450f46e3b110c3a701784a30"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/observation.npz",
+      "bytes": 109614,
+      "sha256": "6b891cdc5b850868dd214d7f8da36acc9ff56008a166f5d6c7156beed6dc4732"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/receipt.json",
+      "bytes": 992,
+      "sha256": "e3596620163882bc93782fecdf8ff1bcec5a0ae0527fd04788bc85710343dcf9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/resolved.xml",
+      "bytes": 38341,
+      "sha256": "57c8a843f963750a551cee2374a13b339592557264cb774d693fb2ae6bef37e4"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1/wrist_rgb.png",
+      "bytes": 32196,
+      "sha256": "facf6bb4f41a9cb0bbcdb36d15c4c84971c90677094f5a2d2d12920be8516348"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S1.log",
+      "bytes": 671,
+      "sha256": "55d22235c809172171a5bf440f995b4a6349893f1064224a88fa87162f09d649"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/bundle/ASTRA_SCENED738848676F3_push_the_red_block_to_the_left_target._leave_the_blue_block_in_place..bddl",
+      "bytes": 1908,
+      "sha256": "92a721be4b59eba2f732bd044efab42542385a267fc39e0ea1126aa72fbde926"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "13744ecc7932eda7782bc1a7d311f831da7cf7fafb00778aeeace686f402fe28"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/bundle/scene.json",
+      "bytes": 741,
+      "sha256": "499101427e8cc90274f174064929e50d52096e47a1a9f228df01188b34768fb1"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/bundle/task.bddl",
+      "bytes": 1889,
+      "sha256": "19d3961b06fced696d4068b950c062b016117c7a6a2c27ca76422b8f0bc7d23d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/bundle/task.json",
+      "bytes": 289,
+      "sha256": "1cb320ebd6a580b5eb120f5c927c9ad6ee3b7c210341dc621748c1de877301bc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/external_rgb.png",
+      "bytes": 43315,
+      "sha256": "a0f730815817733c10a8fa057bb49ba353bc2a93b51c4f10bab891e90c2bb5c4"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/observation.npz",
+      "bytes": 110181,
+      "sha256": "c644a54319fa1692d7d1a2ecc024560ac02e64a07288c9f524da87f0164c1a93"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/receipt.json",
+      "bytes": 992,
+      "sha256": "3f4fc044211adcd4ccfeafb2d4f6b893c1b34441bdd8850d9a8d1318fea7eefa"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/resolved.xml",
+      "bytes": 39032,
+      "sha256": "5d4b1ce719004a6da559f4cdf18ca75af7794415a0c08ef48c85e5b0f5713e6b"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2/wrist_rgb.png",
+      "bytes": 32445,
+      "sha256": "da7587393c239b3446989fe1aa89c1bb19773a7bbfb3410fb9e87bd1142c3bf6"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S2.log",
+      "bytes": 671,
+      "sha256": "55d22235c809172171a5bf440f995b4a6349893f1064224a88fa87162f09d649"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/bundle/ASTRA_SCENE54A4B8D2CA7F_push_the_block_left_of_the_marker_to_the_left_target._leave_the_other_block_in_place..bddl",
+      "bytes": 1931,
+      "sha256": "229925566e93d17c4f0ec9104bb1c67ee23f668e00d28411db81effe4a1b6d36"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "dd22b10d1d0ae61a6591688780aa485946aefe8d1b78a6acea3b9bcef0b0573e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/bundle/scene.json",
+      "bytes": 835,
+      "sha256": "275dc3fda8e07cf991fcda55c0299b563825e806df7ce7dfe817ce56730f6ebc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/bundle/task.bddl",
+      "bytes": 1912,
+      "sha256": "4328720e9648b8c921e2893674bfcffc2a209d44eee92c9da578ec22d616d0e8"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/bundle/task.json",
+      "bytes": 306,
+      "sha256": "2c903c6f2b7d606b1751f224ae9e5f92ac5802dd573de0ef24af0c03b90aae8d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/external_rgb.png",
+      "bytes": 43384,
+      "sha256": "d82d4a3df023b6b549a44da295b2f0bb181fc774ad65e2ef3f53fe4d26ceb790"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/observation.npz",
+      "bytes": 110391,
+      "sha256": "0a852774c5fc70fc2671a829b9f86207c05dc8663259fbcf0f7070b3e2bcb9fc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/receipt.json",
+      "bytes": 992,
+      "sha256": "be14ff6c9b216399b0d00a120822b387b40bb2cff10e991ce89882aadc83e670"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/resolved.xml",
+      "bytes": 39451,
+      "sha256": "ccf9dac45651854a29267acf42dfad1b4e1e4aef82c0dd5d53c32e6b52663ba5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3/wrist_rgb.png",
+      "bytes": 32856,
+      "sha256": "1271a9e83c35081b458af083570cebab720a45bd8201206879c2ca100d127cc3"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/render-S3.log",
+      "bytes": 671,
+      "sha256": "55d22235c809172171a5bf440f995b4a6349893f1064224a88fa87162f09d649"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/simulator-packages.json",
+      "bytes": 3513,
+      "sha256": "4439bc40e06ef850a4cd02b1c359ea55c3e2d5c2a58501bca96e7601b6019493"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/simulator.lock",
+      "bytes": 106375,
+      "sha256": "e30dfb76371cae64916c26b9706eecf71f27235825e25ed531b7350f54bd5d37"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/source-commit.txt",
+      "bytes": 41,
+      "sha256": "29777c0c429017ed0eb6a605364c3396498a1edeb06e6aee137dfdc482744bd5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/attempt.json",
+      "bytes": 115,
+      "sha256": "ff6256be46f85536f2d2b30b94bcd2c28e937e921928c5994e491dfdcfafb1c4"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/bundle/ASTRA_SCENE4CBA7B84CAD6_push_the_block_into_the_target..bddl",
+      "bytes": 1053,
+      "sha256": "b69d93b1f2e46f5f1f68d3063772cfcc628477764bd4ff1b5c8b46c787e8cd84"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "df47d9db8016d2bf980a3a7c48c7609d64bfb872b2ce9bbbae032569f39945e9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/bundle/scene.json",
+      "bytes": 439,
+      "sha256": "f2fe944d4c7870a04ef19740de29f9aa1359684742c422995ab6afd1019e8b66"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/bundle/task.bddl",
+      "bytes": 1034,
+      "sha256": "22db3e85993effc231448dd833493da84482575819d5224104c6a18928b03b1d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/bundle/task.json",
+      "bytes": 255,
+      "sha256": "39df449fbc37642f7c87e59811b83ca614cac0fafde0e47633ca063c0e178dbc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/control-trace.json",
+      "bytes": 299606,
+      "sha256": "48ebf6f86ba3d41608c65c6420a06163dbbe5db5770bb918327c5f89d96c97c1"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/episode.hdf5",
+      "bytes": 8581785,
+      "sha256": "a3cf4eecf0e633d84e1ed6086f1ba34cf4990144103c6797448a084a3abd7e25"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/episode.json",
+      "bytes": 706,
+      "sha256": "4c27e3c41cc4f4a065e52ded9bc2b720c32f2f06d2ad7677eeb72a99857d5667"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/initial-full-state/arrays.npz",
+      "bytes": 242942,
+      "sha256": "45944dd85b46b63241ce077e414f3f240bab0fff33c902c0d3bb4d77e2a710ca"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/initial-full-state/snapshot.json",
+      "bytes": 66028,
+      "sha256": "b85b99a8ec16ed101211a98a21c0b9037f711720864a43792f7304c496e4cbba"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/preview.mp4",
+      "bytes": 262956,
+      "sha256": "a3801ab70a10a3f69738765bf75a13a7d760dd313f95e1de79bcdd64ace0f926"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/receipt.json",
+      "bytes": 1516,
+      "sha256": "b1db54159f9781aacdce3d5a7ed1bda48e99187016fe24faddf3d72caac222d2"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1/teacher.json",
+      "bytes": 773,
+      "sha256": "9f98fd7b69f9cd96aafd4873247bf1268ef1bedcda17f9b03ca146cf5775b3b9"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S1.log",
+      "bytes": 2025,
+      "sha256": "dd3bf799287b3cc5278b76135b4b8029e1dc4b2ea3159085c3c3bbbb52686899"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/attempt.json",
+      "bytes": 115,
+      "sha256": "bd1cb5ce95a72927c8067afadff3f3807ffe7a7a829b60905d069c56cd6edb2e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/bundle/ASTRA_SCENED738848676F3_push_the_red_block_to_the_left_target._leave_the_blue_block_in_place..bddl",
+      "bytes": 1908,
+      "sha256": "92a721be4b59eba2f732bd044efab42542385a267fc39e0ea1126aa72fbde926"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "13744ecc7932eda7782bc1a7d311f831da7cf7fafb00778aeeace686f402fe28"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/bundle/scene.json",
+      "bytes": 741,
+      "sha256": "499101427e8cc90274f174064929e50d52096e47a1a9f228df01188b34768fb1"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/bundle/task.bddl",
+      "bytes": 1889,
+      "sha256": "19d3961b06fced696d4068b950c062b016117c7a6a2c27ca76422b8f0bc7d23d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/bundle/task.json",
+      "bytes": 289,
+      "sha256": "1cb320ebd6a580b5eb120f5c927c9ad6ee3b7c210341dc621748c1de877301bc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/control-trace.json",
+      "bytes": 386114,
+      "sha256": "370a7cb62d620708255cbb529c68a2ff669ee670f45aa04729e22367146206d7"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/episode.hdf5",
+      "bytes": 9947706,
+      "sha256": "3cb74661b45e949ae77b4b082eede5216ca3c422590b4e91ddbbf388d87ab698"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/episode.json",
+      "bytes": 706,
+      "sha256": "e6207d96838b59091196ff708880b2d747fb1499484b1bb91b6b4ebbd56a3efa"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/initial-full-state/arrays.npz",
+      "bytes": 245931,
+      "sha256": "5817838949693b2800562dd09a20d31d33b6ec85cfe6396d09dafa8ae55862fb"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/initial-full-state/snapshot.json",
+      "bytes": 69096,
+      "sha256": "b29590f39c45d169f9dc1bc41d2edaf2154357dd86bb90822303512dace78266"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/preview.mp4",
+      "bytes": 357831,
+      "sha256": "8b45517ba16fa5eb5bc1faa89b055eaa301166cccd8f0e507a88c11358cb2122"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/receipt.json",
+      "bytes": 1535,
+      "sha256": "35a7c4ef37e0e94e7edf7ced4132a3ff8e70ce3edd6d92b77a9d9dbd083098b7"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2/teacher.json",
+      "bytes": 763,
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S2.log",
+      "bytes": 2044,
+      "sha256": "7a28d3b79a7dacabc81d495e2502e95bf9bb6f6b82d972a5dab259f85272880f"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/attempt.json",
+      "bytes": 115,
+      "sha256": "88472d607883813956463223ef6395c6b2c8492621c78451f512de148252ab7d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/bundle/ASTRA_SCENE54A4B8D2CA7F_push_the_block_left_of_the_marker_to_the_left_target._leave_the_other_block_in_place..bddl",
+      "bytes": 1931,
+      "sha256": "229925566e93d17c4f0ec9104bb1c67ee23f668e00d28411db81effe4a1b6d36"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/bundle/compiler.json",
+      "bytes": 564,
+      "sha256": "dd22b10d1d0ae61a6591688780aa485946aefe8d1b78a6acea3b9bcef0b0573e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/bundle/scene.json",
+      "bytes": 835,
+      "sha256": "275dc3fda8e07cf991fcda55c0299b563825e806df7ce7dfe817ce56730f6ebc"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/bundle/task.bddl",
+      "bytes": 1912,
+      "sha256": "4328720e9648b8c921e2893674bfcffc2a209d44eee92c9da578ec22d616d0e8"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/bundle/task.json",
+      "bytes": 306,
+      "sha256": "2c903c6f2b7d606b1751f224ae9e5f92ac5802dd573de0ef24af0c03b90aae8d"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/control-trace.json",
+      "bytes": 386114,
+      "sha256": "370a7cb62d620708255cbb529c68a2ff669ee670f45aa04729e22367146206d7"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/episode.hdf5",
+      "bytes": 9954737,
+      "sha256": "edae7e0d4dc7e7e7ff9f6c543924a9430022817223e856959b109f55a3562cff"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/episode.json",
+      "bytes": 706,
+      "sha256": "280aa46a6a5ebcb080722fdb943b24830265fa9cdd44d7526f0c273441e00872"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/initial-full-state/arrays.npz",
+      "bytes": 246295,
+      "sha256": "9247a386e76327a9c1c36678db0d83138d2403f8a68f5e18a61136a8fab2c050"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/initial-full-state/snapshot.json",
+      "bytes": 69096,
+      "sha256": "a5e283da3d4ee7802f6c75d29022f607e1861211511418c2a24856b723f0a1b5"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/preview.mp4",
+      "bytes": 365864,
+      "sha256": "80db014605c13f884ed4bcc231e8902a036359ebda9b5b87f1f814aff049e396"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/receipt.json",
+      "bytes": 1535,
+      "sha256": "b248778b797dff4ae8e1fdf3b9b241376b5b66a7a48300885b34115f8eefbf14"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3/teacher.json",
+      "bytes": 763,
+      "sha256": "5c4608403f55fd0bb6c90be201f8da72ca0ace98abecc5afb04721f1eb3c178e"
+    },
+    {
+      "key": "experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/teacher-S3.log",
+      "bytes": 2044,
+      "sha256": "acd42ae298cec37ff5c405a1f96cc26058f904df89e0c8c8176b5fba6f63dbed"
+    }
+  ]
+}

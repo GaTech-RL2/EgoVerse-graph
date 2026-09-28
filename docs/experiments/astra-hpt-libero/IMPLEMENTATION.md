@@ -100,6 +100,51 @@ No production training is enabled here. Astra commissioning, the frozen split
 firewall, complete checkpoint/round coordinator, paired policy evaluation and
 gradient diagnostic still need implementation and measured gates.
 
+## Protocol layer and current blocker
+
+The next stack layer adds strict decisions with five positive templates,
+exact 75-episode quotas, and immutable per-template allocations during repair.
+Uniform context rejects learner reports and adaptive-arm archives; adaptive
+decisions bind to a frozen training-control report. The SQLite ledger locks
+ownership to one coordinator, reserves cost before external work, preserves
+pending attempts across crashes, rejects changed outcomes/caps, and records
+ordered transitions. These pieces are tested; the end-to-end round runner
+and actual-provider W07 fixtures are still pending.
+
+The v2 catalog responses identify **budget_exceeded**, not transient capacity.
+The existing credential had reached its 5000-unit budget before this pilot;
+zero generation calls occurred. A renewed or alternate approved OSMO
+credential is needed. Independent OSMO checks use `--skip-provider`, exclude
+that credential entirely, and explicitly leave the provider gate unpassed.
+
+The simulator lock now explicitly includes matplotlib 3.11.2 and imageio
+2.37.4, which upstream LIBERO imports without declaring in its package.
+The local environment had masked those missing dependencies; v2 failures
+remain archived and motivate the next locked-environment validation.
+
+That validation completed as `astra-hpt-calibration-20260928-v3-1` on one
+NVIDIA L40: 60/60 resets, three exact fresh-process restores, successful
+engineering teachers in all stages, and the exact learner's real-data
+forward/backward and `[4,10,7]` flow inference passed. The real update measured
+2.954 seconds and 950,507,520 peak allocated CUDA bytes. All six component
+groups received gradients. The identity engineering normalizer was used;
+commissioning and production training remain unstarted. The workflow took
+488.54 seconds including setup and artifact preservation, and has completed.
+
+See `evidence/osmo-calibration-v3/summary.json` and `compute-receipt.json` for
+the source/lock/checkpoint provenance and the immutable R2 artifact prefix.
+The original source commit is retained as `astra-hpt-source-e432b53b`. The
+published YAML now calls the verified OSC coordinate frame `world`; that
+metadata correction passed the deployment contract tests and does not change
+the model or physical execution used in the receipt.
+
+All three published source layers passed repository CI. The complete protocol
+tree at `5e7bd472e0882ac09a2f9805bc48dc4c69d15870` passed 1,481 CPU tests,
+recursive configuration and installed-wheel gates, Ruff, and lock checks in
+[run 36456471469](https://github.com/GaTech-RL2/EgoVerse-graph/actions/runs/36456471469).
+The following evidence-only commit does not change executable code. These
+checks establish integration behavior, not learned task success.
+
 From an activated project environment:
 
 ```bash

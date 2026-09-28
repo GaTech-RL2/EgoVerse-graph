@@ -41,6 +41,7 @@ not imply a separate runtime for that task or model.
 | ARC and tempo evaluation | `egomimic/eval/{arc_bimanual_cartesian_eval,bimanual_tempo_eval,arc_metrics,e1_metrics}.py` |
 | Dataset filters, task prompts, camera/frame choices and experiment parameters | `egomimic/hydra_configs/`; calibration matrices in `hydra_configs/calibration/` |
 | Shared Eva/Yam collection, local graph rollout, Zarr replay and upload | [robot/AGENTS.md](egomimic/robot/AGENTS.md), [docs/YAM_RUNTIME.md](docs/YAM_RUNTIME.md) |
+| AstraPush random HPT / LIBERO curriculum pilot and measured gate status | [pilot plan](docs/experiments/astra-hpt-libero/PLAN.md), `egomimic/experiments/astra_push/`, `hydra_configs/{astra_push,model/astra_push}/` |
 | Offline normalization export for any model | [scripts/data/precompute_norm_stats.py](scripts/data/precompute_norm_stats.py), or `trainHydra.py norm_stats_only=true` |
 | Focused CPU regression checks | `tests/test_pipeline*.py`, `test_hpt*.py`, `test_arc*.py`, `test_e1*.py`, `test_pi05*.py`, `test_wrist6d_roundtrip.py`, `test_robot_runtime.py`, `test_robot_graph_policy.py` |
 

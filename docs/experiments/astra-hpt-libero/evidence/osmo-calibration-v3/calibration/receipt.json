@@ -1,0 +1,489 @@
+{
+  "category": "engineering_calibration",
+  "counts_as_commissioning": false,
+  "reset_attempts": 60,
+  "reset_records": [
+    {
+      "category": "engineering_reset",
+      "index": 0,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2670571908,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 1,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3453437165,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 2,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 89721990,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 3,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1517964504,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 4,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3684294336,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 5,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 4274672022,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 6,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1526528090,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 7,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3968403905,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 8,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2807551198,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 9,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 4246593744,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 10,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 208288246,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 11,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2483609108,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 12,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1956755565,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 13,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2096425263,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 14,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 536380582,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 15,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1623410199,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 16,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2669435237,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 17,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 792942677,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 18,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 690486068,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 19,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 562794217,
+      "stage": "S1",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 0,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2512741029,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 1,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1390288235,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 2,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3454248416,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 3,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3828277234,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 4,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 971610503,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 5,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2904265763,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 6,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1300326086,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 7,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3449161040,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 8,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 233461045,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 9,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1977947957,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 10,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1523054293,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 11,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3684176986,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 12,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2023654470,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 13,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1336544689,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 14,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 71399090,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 15,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1077255110,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 16,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3837987650,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 17,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1833811462,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 18,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 188111348,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 19,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3753139011,
+      "stage": "S2",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 0,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3248993100,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 1,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1671787985,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 2,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2177217905,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 3,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3611371533,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 4,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1883010930,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 5,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3957113167,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 6,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1530467975,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 7,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2168018622,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 8,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1140905612,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 9,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3217985380,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 10,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1371939211,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 11,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 2045056087,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 12,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3880059930,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 13,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 362580014,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 14,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1404091286,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 15,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 4121021613,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 16,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 3132438386,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 17,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1166906406,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 18,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 1876676528,
+      "stage": "S3",
+      "status": "passed"
+    },
+    {
+      "category": "engineering_reset",
+      "index": 19,
+      "maximum_drift_m": 7.582505956449381e-09,
+      "seed": 797179305,
+      "stage": "S3",
+      "status": "passed"
+    }
+  ],
+  "resets_passed": 60,
+  "seconds": 94.88828215911053
+}

@@ -1,0 +1,45 @@
+{
+  "kind": "real_engineering_initialization_update",
+  "real_data_gate_passed": true,
+  "commissioning_gate_passed": false,
+  "production_updates": 0,
+  "parameter_count": 45934983,
+  "initial_state_sha256": "4a82ef05e7d622da39527cf6748d922221a774f6a307a2b27ef8cdc071bfd00c",
+  "initial_checkpoint_sha256": "8eb7ef462f9489ff3efb91ec7eb45fd08b71d3764084db101c5b2448e0452c23",
+  "config_sha256": "a21940acab87f7e36dee8475e440f8766a8e11301f799118852addbaedffcb37",
+  "engineering_episode_hashes": [
+    "a3cf4eecf0e633d84e1ed6086f1ba34cf4990144103c6797448a084a3abd7e25",
+    "3cb74661b45e949ae77b4b082eede5216ca3c422590b4e91ddbbf388d87ab698",
+    "edae7e0d4dc7e7e7ff9f6c543924a9430022817223e856959b109f55a3562cff"
+  ],
+  "normalization": "identity_engineering_only",
+  "gradient_components": {
+    "external_vision": true,
+    "flow_head": true,
+    "language": true,
+    "proprioception": true,
+    "trunk": true,
+    "wrist_vision": true
+  },
+  "loss": 1.7616711854934692,
+  "update_seconds": 2.9538809289224446,
+  "peak_cuda_bytes": 950507520,
+  "device": "NVIDIA L40",
+  "torch": "2.7.1+cu126",
+  "torchvision": "0.22.1+cu126",
+  "inference_shape": [
+    4,
+    10,
+    7
+  ],
+  "execution_prefix": 1,
+  "workflow": "astra-hpt-calibration-20260928-v3-1",
+  "workflow_status": "COMPLETED",
+  "source_commit": "e432b53b50c461e6b2054665baf9685a299b8c69",
+  "source_tag": "astra-hpt-source-e432b53b",
+  "provider_gate_passed": false,
+  "provider_status": "budget_exceeded; skipped in v3",
+  "artifacts_preserved": 244,
+  "full_receipt_sha256": "2cbecb2eabe57628616ee301247fe0565d5eb37507ceedce81b21c0587a2e5a7",
+  "artifact_prefix": "s3://rldb/experiments/astra-hpt-libero-20260928/astra-hpt-calibration-20260928-v3/e432b53b50c461e6b2054665baf9685a299b8c69/preflight/"
+}

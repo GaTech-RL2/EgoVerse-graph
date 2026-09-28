@@ -1,0 +1,11 @@
+{
+  "provider_gate_passed": false,
+  "http_status": 429,
+  "reason": "budget_exceeded",
+  "configured_budget": 5000.0,
+  "reported_existing_cost": 5000.200254028514,
+  "catalog_attempts": 3,
+  "generation_calls": 0,
+  "raw_response_archive": "s3://rldb/experiments/astra-hpt-libero-20260928/astra-hpt-foundation-20260928-v2/dc63a9f0e2bc29e8cc10f856ad85904852f06377/preflight/provider/",
+  "note": "The account budget was already exhausted; this preflight made no generation call."
+}

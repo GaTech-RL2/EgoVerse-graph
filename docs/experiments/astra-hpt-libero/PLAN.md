@@ -59,3 +59,52 @@ uses LIBERO's explicit source import path, and measures the real three-stage
 HDF5 batch update plus all physical checks in the Linux lock. No Astra-authored
 commissioning demonstrations, production updates, or policy evaluation results
 exist yet. W03 split freezing, W04 novelty/commissioning, W06–W10 remain open.
+
+OSMO v2 confirmed a concrete external blocker: the existing Astra credential
+had already exceeded its configured gateway budget (HTTP 429,
+`budget_exceeded`). Three catalog attempts were archived; zero generation
+calls occurred. The user has been asked to replenish that credential or name
+another approved credential. Do not retry generation until access changes.
+The simulator lock also required explicit matplotlib/imageio dependencies;
+those are now pinned. Run independent engineering checks with
+`build_workflow --skip-provider`, which omits the Astra credential and writes
+an explicit failed/not-run provider gate receipt.
+
+The protocol layer now has tested typed round decisions, a blinded uniform
+generation context, fixed quota validation and a single-writer SQLite ledger
+that preserves incurred attempts across crashes. It does not yet constitute
+the complete round runner or satisfy W07's actual-provider fixture test.
+
+## Latest measured gate (2026-09-28)
+
+OSMO `astra-hpt-calibration-20260928-v3-1` completed on one L40 in 488.54
+seconds. All 60 reset checks and three fresh-process replay checks passed;
+physics states and camera frames matched exactly. All three engineering
+teachers succeeded. The real three-stage HDF5 batch completed a full random
+HPT update and 50-step flow inference, with gradients in every component.
+There are 244 preserved artifact files; hashes and the compute receipt are
+under `evidence/osmo-calibration-v3/`.
+
+This passes the available simulator/learner engineering checks. W01 still
+lacks authenticated Astra generation, W04 has zero generated commissioning
+episodes, and there are zero production optimizer updates or learner rollout
+scores. The actual curriculum runner, frozen holdouts and final analyses remain
+unfinished. The existing credential must be replenished or an approved
+alternate credential named before generator-dependent work can proceed.
+
+Published stack: #178 foundation → #179 simulator → #180 protocol. The original
+OSMO source commits are retained under `astra-hpt-source-*` tags. A later
+metadata correction names the verified controller coordinate frame `world`
+instead of `controller_input`; its dedicated deployment tests passed. No
+model weights, action scaling or physical controller behavior changed in that
+correction.
+
+The self-contained OSMO teacher-video preview is at
+`/Users/rpunamiya/Desktop/GEAR/handover_figures/astra-hpt-libero-20260928/engineering-preview.html`.
+
+Repository CI passed on all three layers. The protocol code at `5e7bd472`
+passed 1,481 CPU tests plus configuration, installed-wheel, static and lock
+checks in GitHub Actions run `36456471469`. The pending checkpoint/round
+coordinator and final analyses are not covered by that claim. Provider access
+must be restored to complete W01/W04/W07; W08 cannot begin before W01–W07 pass
+under the supplied manifest.

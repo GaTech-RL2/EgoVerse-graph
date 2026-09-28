@@ -235,4 +235,5 @@ def test_hybrid_hpt_experiment_wires_one_rotation_cap_everywhere():
         == pytest.approx(expected)
     )
     assert cfg.abc.arc_velocity_mode == "per_waypoint"
-    assert cfg.hpt.action_horizon == 200
+    assert cfg.hpt.action_horizon == 100
+    assert cfg.hpt.action_dim == 28

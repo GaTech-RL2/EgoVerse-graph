@@ -25,6 +25,7 @@ train_datasets:
         rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,0.4188790204786391}
         resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
         velocity_mode: per_waypoint
+        token_layout: ${abc.arc_token_layout}
         arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,joint_distance}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
@@ -58,6 +59,7 @@ valid_datasets:
         rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,0.4188790204786391}
         resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
         velocity_mode: per_waypoint
+        token_layout: ${abc.arc_token_layout}
         arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,joint_distance}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter

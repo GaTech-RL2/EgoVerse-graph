@@ -110,6 +110,9 @@ def inference_contract_sha256(
                 "arc_velocity_mode",
             )
         }
+        token_layout = OmegaConf.select(config, "abc.arc_token_layout", default=None)
+        if token_layout is not None:
+            source["abc"]["arc_token_layout"] = token_layout
         action_contract = _plain_node(config, "run_provenance.action_contract")
         if action_contract is not None:
             source["action_contract"] = action_contract

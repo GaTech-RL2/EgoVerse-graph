@@ -1,10 +1,8 @@
 """Arc-tokenized twin of :class:`BimanualCartesianEval`.
 
-An arc-tokenized run predicts (M+1, 14) rows that are NOT all poses: rows
-0..M-1 are waypoints and row M is a velocity token. Every consumer downstream
-of the model -- the revert transforms and the viz func -- assumes a stack of
-poses, so the token has to be turned back into a time-indexed chunk before any
-of them see it.
+ARC predictions contain both pose and timing values: either legacy timing
+rows or trailing timing columns in (M, 28). Revert transforms and visualization
+consume only poses, so detokenize before passing predictions to them.
 
 That conversion is the whole reason this class exists. The revert transform
 rotates AND translates each row it is handed; applied to a velocity row it
@@ -26,7 +24,7 @@ import torch
 
 from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
 
-# Canonical bimanual cartesian width; an arc token keeps it.
+# Canonical bimanual Cartesian width, excluding any timing features.
 _BIMANUAL_DIM = 14
 
 
@@ -49,6 +47,8 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         action_horizon: int = 100,
         dt: float = 1.0 / 30.0,
         velocity_mode: str = "mean",
+        token_layout: str = "rows",
+        arc_chunking_mode: str | None = None,
         arc_metrics: bool = True,
         **kwargs,
     ):
@@ -68,6 +68,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
+        self.token_layout = token_layout
         self.action_horizon = int(action_horizon)
         # Defaults ON here: an arc run is exactly the case the arc metric
         # families were built for. The base class owns the knobs, and it also
@@ -96,6 +97,8 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
             dt=float(dt),
             preserve_action_key=None,
             velocity_mode=self.velocity_mode,
+            token_layout=self.token_layout,
+            arc_chunking_mode=arc_chunking_mode,
         )
 
     def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:
@@ -116,6 +119,14 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
             expected_rows = bimanual_arc_token_rows(
                 self.resampled_vector_length, self.velocity_mode
             )
+            if (
+                getattr(self, "token_layout", "rows") == "channels"
+                and actions.ndim == 3
+                and tuple(actions.shape[-2:]) == (expected_rows, _BIMANUAL_DIM)
+            ):
+                raise ValueError(
+                    "ARC evaluator token_layout='channels' received legacy timing rows"
+                )
             if actions.ndim == 3 and int(actions.shape[-1]) != _BIMANUAL_DIM:
                 # Not a bimanual chunk at all: that IS a misconfiguration.
                 raise ValueError(
@@ -160,25 +171,22 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
 
         One evaluator serves both arms of the ablation, so the run type is
         detected from the shape instead of configured twice: an arc token has
-        exactly the row count this D/M and velocity mode imply, and the
-        canonical bimanual width. A baseline chunk has the action horizon's
+        exactly the shape this D/M, velocity mode and token layout imply.
+        A baseline chunk has the action horizon's
         rows, which only collides with the token count by coincidence -- and if
         it ever did, both readings would be the same rows anyway.
         """
         from egomimic.rldb.zarr.arc_length_tokenizer import (
-            ARC_TOK_BIMANUAL_DIM,
-            bimanual_arc_token_rows,
+            bimanual_arc_token_shape,
         )
 
         if actions is None or actions.ndim != 3:
             return False
-        expected = bimanual_arc_token_rows(
-            self.resampled_vector_length, self.velocity_mode
+        expected = bimanual_arc_token_shape(
+            self.resampled_vector_length, self.velocity_mode,
+            getattr(self, "token_layout", "rows"),
         )
-        return (
-            int(actions.shape[-2]) == expected
-            and int(actions.shape[-1]) == ARC_TOK_BIMANUAL_DIM
-        )
+        return tuple(actions.shape[-2:]) == expected
 
     def _arc_pred_time_indexed(self, prediction, embodiment_id: int):
         """Time-indexed prediction for DTW/chunk (and L_gt < D arcmatch).
@@ -226,5 +234,5 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
                         f"ARC token has {pred_i.shape[0]} rows; need >= {M} "
                         "waypoint rows for shared-D arcmatch"
                     )
-                out.append(pred_i[:M].copy())
+                out.append(pred_i[:M, :_BIMANUAL_DIM].copy())
         return out

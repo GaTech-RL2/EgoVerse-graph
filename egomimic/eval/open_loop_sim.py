@@ -49,7 +49,9 @@ from egomimic.eval.distance_budget_dtw import (
 from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
-    bimanual_arc_token_rows,
+    bimanual_arc_from_rows,
+    bimanual_arc_to_rows,
+    bimanual_arc_token_shape,
     cumulative_rotation_length,
     slerp_pair_ypr,
     validate_bimanual_velocity_mode,
@@ -124,6 +126,8 @@ def truncate_arc_token_by_waypoints(
     token: np.ndarray,
     execute_fraction: float,
     velocity_mode: str,
+    *,
+    token_layout: str = "rows",
 ) -> np.ndarray:
     """Keep exactly ``execute_fraction * M`` waypoints and timing rows."""
     mode = validate_bimanual_velocity_mode(velocity_mode)
@@ -131,19 +135,14 @@ def truncate_arc_token_by_waypoints(
         raise ValueError(
             f"M-based ARC execution requires velocity_mode='per_waypoint', got {mode!r}"
         )
-    value = np.asarray(token, dtype=np.float64)
-    if value.ndim != 2 or value.shape[1] != 14:
-        raise ValueError(f"ARC token must have shape (rows, 14), got {value.shape}")
-    rows = int(value.shape[0])
-    M = rows // 2
-    if rows != bimanual_arc_token_rows(M, mode):
-        raise ValueError(
-            f"ARC token has {rows} rows, inconsistent with M={M} and mode={mode!r}"
-        )
+    value = bimanual_arc_to_rows(np.asarray(token, dtype=np.float64), mode, token_layout)
+    M = len(value) // 2
     count = executed_arc_waypoints(M, execute_fraction)
     waypoints = value[:count].copy()
     timing = value[M : M + count].copy()
-    return np.concatenate((waypoints, timing), axis=0)
+    return bimanual_arc_from_rows(
+        np.concatenate((waypoints, timing), axis=0), mode, token_layout
+    )
 
 
 def truncate_arc_token(
@@ -155,6 +154,7 @@ def truncate_arc_token(
     arc_chunking_mode: str = "joint_distance",
     rotation_distance_unit: float | None = None,
     control_dt: float = 1.0 / 30.0,
+    token_layout: str = "rows",
 ) -> np.ndarray:
     """Cap translation at fD using the selected clocks and rotation at fR.
 
@@ -165,16 +165,10 @@ def truncate_arc_token(
     """
 
     mode = validate_bimanual_velocity_mode(velocity_mode)
-    value = np.asarray(token, dtype=np.float64)
-    if value.ndim != 2 or value.shape[1] != 14:
-        raise ValueError(f"ARC token must have shape (rows, 14), got {value.shape}")
+    value = bimanual_arc_to_rows(np.asarray(token, dtype=np.float64), mode, token_layout)
     rows = int(value.shape[0])
     granular = mode in ("per_waypoint", "duration")
     M = rows // 2 if granular else rows - 1
-    if rows != bimanual_arc_token_rows(M, mode):
-        raise ValueError(
-            f"ARC token has {rows} rows, inconsistent with M={M} and mode={mode!r}"
-        )
     fraction = float(execute_fraction)
     if not 0.0 < fraction <= 1.0:
         raise ValueError("execute_fraction must be in (0, 1]")
@@ -268,7 +262,9 @@ def truncate_arc_token(
             timing[rows:, columns] = rates[-1, columns]
         else:
             timing[:, columns] = all_timing[:, columns]
-    return np.concatenate((waypoints, timing), axis=0)
+    return bimanual_arc_from_rows(
+        np.concatenate((waypoints, timing), axis=0), mode, token_layout
+    )
 
 
 def _distance_boundary(cumulative: np.ndarray, target: float) -> float:
@@ -596,11 +592,14 @@ def arc_execution_prefix(
     arc_chunking_mode: str = "joint_distance",
     rotation_distance_unit: float | None = None,
     control_dt: float = 1.0 / 30.0,
+    token_layout: str = "rows",
 ) -> np.ndarray:
     """Apply either exact M-based or interpolated distance-based capping."""
     cap_mode = validate_arc_execution_cap_mode(arc_execution_cap_mode)
     if cap_mode == "waypoints":
-        return truncate_arc_token_by_waypoints(token, execute_fraction, velocity_mode)
+        return truncate_arc_token_by_waypoints(
+            token, execute_fraction, velocity_mode, token_layout=token_layout
+        )
     return truncate_arc_token(
         token,
         execute_fraction,
@@ -609,6 +608,7 @@ def arc_execution_prefix(
         arc_chunking_mode=arc_chunking_mode,
         rotation_distance_unit=rotation_distance_unit,
         control_dt=control_dt,
+        token_layout=token_layout,
     )
 
 
@@ -623,6 +623,7 @@ def arc_prefix_control_steps(
     arc_chunking_mode: str = "joint_distance",
     arc_execution_cap_mode: str = "waypoints",
     max_steps: int | None = None,
+    token_layout: str = "rows",
 ) -> int:
     """Recover the control-frame stride for the configured ARC prefix."""
 
@@ -643,7 +644,9 @@ def arc_prefix_control_steps(
         arc_chunking_mode=arc_chunking_mode,
         rotation_distance_unit=rotation_distance_unit,
         control_dt=control_dt,
+        token_layout=token_layout,
     )
+    partial = bimanual_arc_to_rows(partial, velocity_mode, token_layout)
     mode = validate_bimanual_velocity_mode(velocity_mode)
     granular = mode in ("per_waypoint", "duration")
     M = len(partial) // 2 if granular else len(partial) - 1
@@ -712,6 +715,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 100,
         velocity_mode: str = "per_waypoint",
+        token_layout: str = "rows",
         log_step: int | None = None,
         results_path: str | None = None,
         trajectory_snapshot_path: str | None = None,
@@ -774,6 +778,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
         )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
+        bimanual_arc_token_shape(
+            self.resampled_vector_length, self.velocity_mode, token_layout
+        )
+        self.token_layout = token_layout
         self.execute_arc_waypoints = (
             executed_arc_waypoints(self.resampled_vector_length, self.execute_fraction)
             if mode == "arc" and self.arc_execution_cap_mode == "waypoints"
@@ -1264,6 +1272,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             action_mode=np.asarray(str(self.action_mode)),
             arc_execution_cap_mode=np.asarray(str(self.arc_execution_cap_mode)),
             arc_chunking_mode=np.asarray(evaluator_chunking_mode(self)),
+            arc_token_layout=np.asarray(getattr(self, "token_layout", "rows")),
         )
         self._trajectory_snapshot_written = True
 
@@ -1329,10 +1338,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
         return self.normalizer.unnormalize({key: value}, embodiment_id).get(key, value)
 
     def _is_arc_prediction(self, prediction: np.ndarray) -> bool:
-        expected = bimanual_arc_token_rows(
-            self.resampled_vector_length, self.velocity_mode
+        expected = bimanual_arc_token_shape(
+            self.resampled_vector_length, self.velocity_mode,
+            getattr(self, "token_layout", "rows"),
         )
-        return prediction.ndim == 2 and prediction.shape == (expected, 14)
+        return prediction.ndim == 2 and prediction.shape == expected
 
     def _decode_prediction_with_steps(
         self, prediction: np.ndarray, *, max_steps: int | None = None
@@ -1380,6 +1390,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 resampled_vector_length=self.resampled_vector_length,
                 dt=self.control_dt,
                 velocity_mode=self.velocity_mode,
+                token_layout=getattr(self, "token_layout", "rows"),
             )
         partial = arc_execution_prefix(
             prediction,
@@ -1390,6 +1401,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             arc_chunking_mode=evaluator_chunking_mode(self),
             rotation_distance_unit=getattr(self, "rotation_distance_unit", None),
             control_dt=self.control_dt,
+            token_layout=getattr(self, "token_layout", "rows"),
         )
         steps = arc_prefix_control_steps(
             prediction,
@@ -1401,6 +1413,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             arc_chunking_mode=evaluator_chunking_mode(self),
             arc_execution_cap_mode=self.arc_execution_cap_mode,
             max_steps=max_steps,
+            token_layout=getattr(self, "token_layout", "rows"),
         )
         decoded = self._arc_tokenizer.detokenize(partial, action_horizon=steps).astype(
             np.float64, copy=False
@@ -1713,6 +1726,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     self.arc_execution_cap_mode if self.action_mode == "arc" else None
                 ),
                 "arc_chunking_mode": evaluator_chunking_mode(self),
+                "arc_token_layout": getattr(self, "token_layout", "rows"),
                 "arc_episode_progress_semantics": ARC_DISTANCE_SEMANTICS[
                     evaluator_chunking_mode(self)
                 ],

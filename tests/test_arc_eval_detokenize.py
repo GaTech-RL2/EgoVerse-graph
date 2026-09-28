@@ -186,19 +186,20 @@ def test_arc_experiment_evaluator_matches_its_data_tokenizer():
 
 
 def test_arc_experiment_model_horizon_matches_the_token_row_count():
-    from egomimic.rldb.zarr.arc_length_tokenizer import bimanual_arc_token_rows
+    from egomimic.rldb.zarr.arc_length_tokenizer import bimanual_arc_token_shape
 
     cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
     tok = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
     # Row count follows the velocity mode, so derive it rather than assume M+1.
-    expected_rows = bimanual_arc_token_rows(
-        int(tok.resampled_vector_length), cfg.abc.arc_velocity_mode
+    expected_rows, expected_dims = bimanual_arc_token_shape(
+        int(tok.resampled_vector_length), cfg.abc.arc_velocity_mode, tok.token_layout
     )
     assert cfg.abc.arc_token_rows == expected_rows
     # All three diffusion stages must agree, or training aborts on batch one.
     for stage in cfg.model.pipeline.stages:
         if "action_horizon" in stage:
             assert int(stage.action_horizon) == expected_rows
+            assert int(stage.action_dim) == expected_dims
 
 
 def test_arc_experiment_uses_the_arc_evaluator_not_the_baseline_one():

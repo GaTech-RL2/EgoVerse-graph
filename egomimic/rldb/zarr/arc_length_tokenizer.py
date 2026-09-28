@@ -1095,6 +1095,15 @@ ARC_TOK_BIMANUAL_DIM = 2 * ARC_TOK_PER_ARM_DIM  # bimanual total (fourteen)
 # whole token.
 BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
 ARC_CHUNKING_MODES = ("race", "multistream", "joint_distance")
+ARC_TOKEN_LAYOUTS = ("rows", "channels")
+
+
+def validate_arc_token_layout(token_layout: str) -> str:
+    if token_layout not in ARC_TOKEN_LAYOUTS:
+        raise ValueError(
+            f"token_layout must be one of {ARC_TOKEN_LAYOUTS}, got {token_layout!r}"
+        )
+    return token_layout
 
 
 def resolve_arc_chunking_mode(mode=None, rotation_distance_unit=None) -> str:
@@ -1117,20 +1126,82 @@ def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
 
 
 def bimanual_arc_token_rows(
-    resampled_vector_length: int, velocity_mode: str = "mean"
+    resampled_vector_length: int, velocity_mode: str = "mean", token_layout: str = "rows"
 ) -> int:
     """Rows in one bimanual arc token -- the single source of truth."""
     validate_bimanual_velocity_mode(velocity_mode)
     num_waypoints = int(resampled_vector_length)
     if num_waypoints < 2:
         raise ValueError("resampled_vector_length must be at least two")
+    if validate_arc_token_layout(token_layout) == "channels":
+        if velocity_mode == "mean":
+            raise ValueError(
+                "token_layout='channels' requires per_waypoint or duration timing"
+            )
+        return num_waypoints
     return num_waypoints + 1 if velocity_mode == "mean" else 2 * num_waypoints
 
 
-class TokenizeBimanualArcLengthCartesian:
-    """Transform: (T, 14) actions_cartesian -> (M+1, 14) arc-tokenized layout.
+def bimanual_arc_token_shape(
+    resampled_vector_length: int, velocity_mode: str = "mean", token_layout: str = "rows"
+) -> tuple[int, int]:
+    """Model target shape; channel layout puts all 14 timing values after pose."""
+    rows = bimanual_arc_token_rows(resampled_vector_length, velocity_mode, token_layout)
+    return rows, ARC_TOK_BIMANUAL_DIM * (2 if token_layout == "channels" else 1)
 
-    Layout per row (same 14-dim as the canonical bimanual cartesian chunk):
+
+def bimanual_arc_to_rows(
+    token: np.ndarray, velocity_mode: str, token_layout: str = "rows"
+) -> np.ndarray:
+    """Validate an explicit layout and expose pose/timing rows to clock math.
+
+    Do not infer layout from width: a mismatched saved config must fail rather
+    than reinterpret a checkpoint or cached normalization statistics.
+    """
+    value = np.asarray(token)
+    validate_arc_token_layout(token_layout)
+    validate_bimanual_velocity_mode(velocity_mode)
+    width = ARC_TOK_BIMANUAL_DIM * (2 if token_layout == "channels" else 1)
+    if value.ndim != 2 or value.shape[1] != width:
+        raise ValueError(
+            f"ARC token_layout={token_layout!r} expects (rows, {width}), got {value.shape}"
+        )
+    if token_layout == "channels":
+        count = len(value)
+    else:
+        count = len(value) - 1 if velocity_mode == "mean" else len(value) // 2
+    expected = bimanual_arc_token_shape(count, velocity_mode, token_layout)
+    if value.shape != expected:
+        raise ValueError(f"ARC token has shape {value.shape}, expected {expected}")
+    if token_layout == "channels":
+        return np.concatenate(
+            (value[:, :ARC_TOK_BIMANUAL_DIM], value[:, ARC_TOK_BIMANUAL_DIM:]), axis=0
+        )
+    return value
+
+
+def bimanual_arc_from_rows(
+    token: np.ndarray, velocity_mode: str, token_layout: str = "rows"
+) -> np.ndarray:
+    """Pack the existing clock representation without changing any values."""
+    value = bimanual_arc_to_rows(token, velocity_mode)
+    validate_arc_token_layout(token_layout)
+    if token_layout == "channels":
+        count = len(value) // 2
+        bimanual_arc_token_shape(count, velocity_mode, token_layout)
+        return np.concatenate((value[:count], value[count:]), axis=-1)
+    return value
+
+
+class TokenizeBimanualArcLengthCartesian:
+    """Transform a (T, 14) Cartesian chunk into geometry and timing targets.
+
+    ``token_layout="channels"`` packs per-waypoint timing after pose/gripper
+    features: (M, 28) = [pose(14), timing(14)]. ``rows`` preserves the legacy
+    (2M, 14) per-waypoint layout or (M+1, 14) mean-timing layout. API omission
+    remains ``rows`` so saved configurations keep their original semantics.
+
+    Layout of each 14-dimensional pose block:
         [L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)]
     Rows 0..M-1 are the M waypoints uniform in each arm's arc length over
     the first ``min_distance_unit`` meters of that arm's translational
@@ -1145,7 +1216,7 @@ class TokenizeBimanualArcLengthCartesian:
     independently at D. Per-waypoint velocities reconstruct these clocks, with
     terminal holds for finished streams. Rotation reads the complete source.
 
-    Row M is the velocity token. Per arm the slots hold:
+    In the historical mean layout, row M is the velocity token. Per arm the slots hold:
         [xyz_vel(3), ypr_vel(3), grip_vel(1)]
     where xyz_vel is the mean per-axis translational rate (from the
     underlying tokenizer's MEAN_PER_DIM mode), ypr_vel is
@@ -1166,7 +1237,7 @@ class TokenizeBimanualArcLengthCartesian:
 
     Args:
         action_key: input batch key holding the (T, 14) chunk.
-        output_action_key: where to write the (M+1, 14) tokenized chunk.
+        output_action_key: where to write the tokenized chunk.
         min_distance_unit: per-arm arc length span of the token, in meters
             (i.e. the D parameter in the sweep script; the tokenizer covers
             the first ``min_distance_unit`` meters of each arm's translational
@@ -1192,6 +1263,7 @@ class TokenizeBimanualArcLengthCartesian:
         preserve_action_rows: int | None = None,
         velocity_mode: str = "mean",
         arc_chunking_mode: str | None = None,
+        token_layout: str = "rows",
     ):
         self.action_key = action_key
         self.output_action_key = output_action_key
@@ -1210,6 +1282,10 @@ class TokenizeBimanualArcLengthCartesian:
         if self.preserve_action_rows is not None and self.preserve_action_rows <= 0:
             raise ValueError("preserve_action_rows must be positive when provided")
         self.velocity_mode = validate_bimanual_velocity_mode(velocity_mode)
+        self.token_layout = validate_arc_token_layout(token_layout)
+        bimanual_arc_token_shape(
+            resampled_vector_length, self.velocity_mode, self.token_layout
+        )
         if rotation_distance_unit is not None:
             rotation_distance_unit = float(rotation_distance_unit)
             if not np.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0.0:
@@ -1355,7 +1431,9 @@ class TokenizeBimanualArcLengthCartesian:
                 f"{(expected_rows, ARC_TOK_BIMANUAL_DIM)} for velocity_mode="
                 f"{self.velocity_mode!r}"
             )
-        batch[self.output_action_key] = out
+        batch[self.output_action_key] = bimanual_arc_from_rows(
+            out, self.velocity_mode, self.token_layout
+        )
         return batch
 
     def _translation_bracket(self, cumulative, target):
@@ -1718,22 +1796,12 @@ class TokenizeBimanualArcLengthCartesian:
         and by the deploy path in rollout-arc.py.
         """
         arc_actions = np.asarray(arc_actions, dtype=np.float64)
-        if arc_actions.ndim != 2 or arc_actions.shape[1] != ARC_TOK_BIMANUAL_DIM:
-            raise ValueError(
-                f"detokenize expects (rows, {ARC_TOK_BIMANUAL_DIM}), got "
-                f"{arc_actions.shape}"
-            )
+        arc_actions = bimanual_arc_to_rows(
+            arc_actions, self.velocity_mode, self.token_layout
+        )
         rows = arc_actions.shape[0]
         granular = self.velocity_mode in ("per_waypoint", "duration")
         M = rows // 2 if granular else rows - 1
-        if M < 2:
-            raise ValueError(f"Need M >= 2 waypoints, got {rows} rows")
-        if rows != bimanual_arc_token_rows(M, self.velocity_mode):
-            raise ValueError(
-                f"detokenize got {rows} rows, expected "
-                f"{bimanual_arc_token_rows(M, self.velocity_mode)} for "
-                f"velocity_mode={self.velocity_mode!r}"
-            )
 
         waypoints = arc_actions[:M]  # (M, 14)
         vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular

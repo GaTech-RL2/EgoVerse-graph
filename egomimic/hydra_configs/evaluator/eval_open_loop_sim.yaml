@@ -8,7 +8,7 @@
 # For baseline runs, actions_cartesian is already a time-indexed control chunk.
 # For ARC runs, actions_cartesian_untokenized is the preserved control-space
 # ground-truth chunk. ARC capping happens before detokenization. Waypoint mode
-# keeps exactly execute_fraction * M waypoint and matching velocity rows;
+# keeps exactly execute_fraction * M waypoints and their matching timing;
 # distance mode follows the selected translation chunking mode at fD. Rotation
 # uses its own shared bimanual fR target and clock.
 
@@ -22,15 +22,15 @@ action_key: actions_cartesian
 ground_truth_action_key: actions_cartesian_untokenized
 
 # Main sweep knob. With the default waypoint cap, 0.30 and M=100 retain exactly
-# the first 30 waypoint rows and their 30 per-waypoint velocity rows. M times
+# the first 30 waypoints with their velocity features. M times
 # execute_fraction must be an integer. Baseline mode executes 30/100 frames.
 execute_fraction: 0.30
 control_horizon: 100
 control_dt: 0.03333333333333333
 
-# auto detects (M+1, 14) / (2M, 14) ARC predictions and otherwise treats the
-# prediction as a (T, 14) baseline control chunk. Set explicitly when a custom
-# token row count could collide with the baseline horizon.
+# auto matches the explicitly configured ARC layout: legacy (M+1, 14) /
+# (2M, 14) rows, or (M, 28) channels. Baselines remain (T, 14). Set action_mode
+# explicitly when a legacy row count could collide with the baseline horizon.
 action_mode: auto
 arc_chunking_mode: ${oc.select:abc.arc_chunking_mode,null}
 arc_execution_cap_mode: waypoints
@@ -44,6 +44,7 @@ resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
 # M-based execution requires the per-waypoint velocity layout. Distance mode
 # remains available explicitly and interpolates its terminal waypoint.
 velocity_mode: ${oc.select:abc.arc_velocity_mode,per_waypoint}
+token_layout: ${oc.select:abc.arc_token_layout,rows}
 
 # Optional post-hoc checkpoint step used for logger x-axis alignment. Training
 # leaves this null and uses trainer.global_step.

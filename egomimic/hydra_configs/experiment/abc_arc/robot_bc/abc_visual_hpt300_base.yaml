@@ -13,6 +13,7 @@ hpt:
   num_blocks: 19
   num_heads: 10
   action_dim: 14
+  proprio_dim: 14
   action_horizon: 100
   flow_blocks: 6
   flow_hidden_dim: 320
@@ -30,7 +31,9 @@ abc:
   arc_distance: 0.40
   arc_rotation_distance: null
   arc_waypoints: 100
-  arc_token_rows: 200
+  arc_token_layout: channels
+  arc_token_rows: ${abc.arc_waypoints}
+  arc_token_dim: 28
   arc_velocity_mode: per_waypoint
   arc_chunking_mode: joint_distance
   task_predicate: ???
@@ -43,6 +46,7 @@ run_provenance:
     rotation_distance_radians: ${abc.arc_rotation_distance}
     waypoints: ${abc.arc_waypoints}
     velocity_mode: ${abc.arc_velocity_mode}
+    token_layout: ${abc.arc_token_layout}
     control_dt: ${evaluator.control_dt}
 trainer:
   max_steps: 240000
@@ -68,6 +72,7 @@ evaluator:
   rotation_distance_unit: ${abc.arc_rotation_distance}
   resampled_vector_length: ${abc.arc_waypoints}
   velocity_mode: per_waypoint
+  token_layout: ${abc.arc_token_layout}
   limit_val_episodes: 16
   requires_ordered_validation: true
 logger:

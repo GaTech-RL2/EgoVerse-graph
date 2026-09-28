@@ -61,6 +61,7 @@ establish that restriction.
 The newer `main` exports model-owned robot inference sidecars for Cartesian and
 E1 codecs. The three ABC hybrid ARC modes require their own mode-aware robot
 adapter, so automatic robot export explicitly reports `unsupported` for them.
-It must never label the 200 waypoint/rate rows as 200 Cartesian control frames.
+It must never label either legacy waypoint/rate rows or the new 28-dimensional
+waypoint/timing vectors as Cartesian control frames.
 This guard does not disable ARC training, detokenization, validation metrics,
 or validation videos.

@@ -57,6 +57,8 @@ def test_retained_visual_recipes_forward_mode_and_caps(recipe, mode, monkeypatch
             tokenizer = tokenizers[0]
             assert tokenizer.arc_chunking_mode == mode
             assert tokenizer.velocity_mode == "per_waypoint"
+            assert tokenizer.token_layout == cfg.evaluator.token_layout == "channels"
+            assert cfg.hpt.action_dim == 28
             assert cfg.abc.arc_rotation_distance > 0
             assert tokenizer.rotation_distance_unit == pytest.approx(cfg.abc.arc_rotation_distance)
             for spec in keymap.values():
@@ -296,6 +298,44 @@ def test_norm_cache_rejects_same_mode_different_cap(tmp_path):
             [], dataset_name=0, precomputed_norm_path=path,
             action_contract=_norm_contract("joint_distance", distance=0.81),
         )
+
+
+@pytest.mark.parametrize("cached_mode", [None, "joint_distance"])
+def test_channel_layout_rejects_legacy_row_norm_cache(tmp_path, cached_mode):
+    _, path = _write_norm_cache(tmp_path, cached_mode)
+    requested = dict(_norm_contract("joint_distance"), token_layout="channels")
+    with pytest.raises(ValueError, match="action contract"):
+        _normalizer().infer_norm_from_dataset(
+            [], dataset_name=0, precomputed_norm_path=path, action_contract=requested,
+        )
+
+
+def test_explicit_rows_remain_compatible_with_old_tagged_row_cache(tmp_path):
+    _, path = _write_norm_cache(tmp_path, "joint_distance")
+    requested = dict(_norm_contract("joint_distance"), token_layout="rows")
+    consumer = _normalizer()
+    consumer.infer_norm_from_dataset(
+        [], dataset_name=0, precomputed_norm_path=path, action_contract=requested,
+    )
+    assert consumer.action_contracts[0] == requested
+
+
+def test_channel_normalization_keeps_pose_and_velocity_statistics_separate(tmp_path):
+    action = np.tile(np.arange(28, dtype=float), (4, 1))
+    contract = dict(_norm_contract("joint_distance"), token_layout="channels", waypoints=4)
+    normalizer = _normalizer()
+    normalizer.infer_norm_from_dataset(
+        [{"actions_cartesian": action}], dataset_name=0, num_workers=0,
+        sample_frac=1.0, action_contract=contract,
+    )
+    normalizer.cache_stats(str(tmp_path))
+    restored = _normalizer()
+    restored.infer_norm_from_dataset(
+        [], dataset_name=0, precomputed_norm_path=str(tmp_path / "norm_stats/norm_stats.json"),
+        action_contract=contract,
+    )
+    np.testing.assert_allclose(restored.norm_stats[0]["actions_cartesian"]["mean"], action)
+    assert restored.to_state()["action_contracts"][0]["token_layout"] == "channels"
 
 
 @pytest.mark.parametrize("tagged", [False, True])

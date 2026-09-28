@@ -29,7 +29,7 @@ pipeline:
             specs: ${hpt.stem_specs}
           observations.state.ee_pose:
             _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
-            input_dim: ${hpt.action_dim}
+            input_dim: ${hpt.proprio_dim}
             output_dim: ${hpt.embed_dim}
             widths: ["${hpt.embed_dim}"]
             specs: ${hpt.stem_specs}

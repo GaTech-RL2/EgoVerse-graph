@@ -11,6 +11,7 @@ abc:
   arc_distance: 0.81
   arc_rotation_distance: 0.4188790204786391
 hpt:
+  action_dim: ${abc.arc_token_dim}
   action_horizon: ${abc.arc_token_rows}
 evaluator:
   action_mode: arc

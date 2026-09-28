@@ -7,6 +7,28 @@ representation, a positive rotation target R, and `per_waypoint` timing.
 Cartesian baseline recipes accept the override for evaluation and provenance;
 their training targets remain Cartesian.
 
+ARC visual recipes use `abc.arc_token_layout=channels`: each waypoint contains
+`[left pose(7), right pose(7), left timing(7), right timing(7)]`. All velocity
+features follow the 14 pose/gripper features along the **action dimension**.
+For M=100, the model target is `(100, 28)` instead of `(200, 14)`. The sequence
+length counts waypoints, while the 14-dimensional proprioceptive input and
+decoded Cartesian actions retain their native layouts.
+
+The timing values and decoder math are unchanged. Race, multistream and
+joint-distance translation still use their existing clocks, and hybrid
+rotation remains independently timed. Executing 30% of M retains 30 waypoint
+rows with their corresponding trailing timing columns. Separate shape/clock
+flow heads support the same layout with `token_layout=channels`; their
+`action_dim` remains the width of one stream (14).
+
+The codec, embodiment transforms and evaluators also accept
+`token_layout=rows` for existing saved configurations. Omitted API arguments
+retain that legacy behavior. Channel packing supports `per_waypoint` and
+`duration`; historical one-row `mean` timing remains a row-layout mode.
+Changing from rows to channels requires a new training run and normalization
+statistics: the model input/output projections and positional embeddings have
+different shapes. This change does not convert old checkpoint weights.
+
 Supported experiment entrypoints are listed in
 `egomimic/hydra_configs/experiment/abc_arc/README.md`. Unreferenced legacy ABC
 Qwen, diffusion-policy, non-hybrid, and cotrain templates were removed; the
@@ -53,7 +75,7 @@ their existing fixed source window and stride settings.
 Old no-R resolver specs with `require_all_arms: false` retain race selection.
 
 The shared visual recipe saves representation, mode, D, R, waypoint count,
-timing mode, and control interval in `run_provenance.action_contract`, which
+timing mode, token layout, and control interval in `run_provenance.action_contract`, which
 training retains in Lightning checkpoint configuration. The full Hydra config
 also records the mode passed to each resolver, transform, and evaluator.
 
@@ -64,14 +86,15 @@ store it per embodiment in `provenance.action_contracts`; normalizer state also
 retains it across checkpoint/state round trips and cache rewrites.
 
 When loading precomputed statistics, a tagged contract must match the requested
-representation, mode, D, R, waypoint count, timing mode, and control interval.
+representation, mode, D, R, waypoint count, timing mode, token layout, and control interval.
 A mismatch raises before any statistics are applied. Race and multistream
 reject untagged caches. Existing normalization-mode and key-set checks still
 apply.
 
-Legacy **joint_distance** caches without action-contract metadata remain
-eligible, with a warning, so established compatible runs do not need to
-recompute normalization. Their existing data, D/R, and representation
+Legacy **joint_distance row-layout** caches without action-contract metadata
+remain eligible, with a warning, for established compatible row-layout runs.
+Channel-layout runs require an explicitly tagged matching cache. An older
+tagged contract without `token_layout` means `rows`. Existing data, D/R, and representation
 compatibility must already have been verified; missing metadata cannot prove
 those facts. Baseline and old configurations without an ARC contract retain
 their prior behavior.

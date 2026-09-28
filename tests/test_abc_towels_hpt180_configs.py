@@ -20,7 +20,7 @@ def _compose(experiment: str):
     ("experiment", "is_arc", "expected_horizon"),
     [
         ("robot_bc/abc_towels_hpt180_baseline_visual_openloop", False, 100),
-        ("robot_bc/abc_towels_hpt180_hybrid_visual_openloop", True, 200),
+        ("robot_bc/abc_towels_hpt180_hybrid_visual_openloop", True, 100),
     ],
 )
 def test_abc_towel_pair_preserves_hpt180_contract(experiment, is_arc, expected_horizon):
@@ -29,6 +29,8 @@ def test_abc_towel_pair_preserves_hpt180_contract(experiment, is_arc, expected_h
     assert cfg.hpt.num_blocks == 19
     assert cfg.hpt.num_heads == 8
     assert cfg.hpt.action_horizon == expected_horizon
+    assert cfg.hpt.action_dim == (28 if is_arc else 14)
+    assert cfg.hpt.proprio_dim == 14
     assert cfg.trainer.val_check_interval == 10000
     assert cfg.norm_stats.sample_frac == 0.10
     assert cfg.evaluator.limit_val_episodes == 4

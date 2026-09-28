@@ -58,6 +58,7 @@ class Eva(Embodiment):
         resampled_vector_length: int = 100,
         velocity_mode: str = "mean",
         arc_chunking_mode: str | None = None,
+        token_layout: str = "rows",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -95,6 +96,7 @@ class Eva(Embodiment):
             rotation_mode=rotation_mode,
             velocity_mode=velocity_mode,
             arc_chunking_mode=arc_chunking_mode,
+            token_layout=token_layout,
             preserve_action_rows=100,
         )
 
@@ -612,6 +614,7 @@ def _append_arc_tokenizer(
     preserve_action_rows: int | None = None,
     velocity_mode: str = "mean",
     arc_chunking_mode: str | None = None,
+    token_layout: str = "rows",
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
 
@@ -646,6 +649,7 @@ def _append_arc_tokenizer(
         preserve_action_rows=preserve_action_rows,
         velocity_mode=velocity_mode,
         arc_chunking_mode=arc_chunking_mode,
+        token_layout=token_layout,
         **kwargs,
     )
     for i in range(len(transform_list) - 1, -1, -1):

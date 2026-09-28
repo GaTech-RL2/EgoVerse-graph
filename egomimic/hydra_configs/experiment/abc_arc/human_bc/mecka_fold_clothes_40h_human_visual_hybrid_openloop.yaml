@@ -12,6 +12,7 @@ run_provenance:
   action_contract:
     source_sampling: native_30hz_v1
 hpt:
+  action_dim: ${abc.arc_token_dim}
   action_horizon: ${abc.arc_token_rows}
 evaluator:
   action_mode: arc

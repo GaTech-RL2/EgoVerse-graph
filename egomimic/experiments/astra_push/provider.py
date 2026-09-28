@@ -50,8 +50,47 @@ class AstraProvider:
         req = urllib.request.Request(
             ENDPOINT + "/models", headers={"Authorization": f"Bearer {self.key}"}
         )
-        with self.opener.open(req, timeout=self.timeout) as response:
-            catalog = strict_json(response.read().decode())
+        for attempt in range(3):
+            try:
+                with self.opener.open(req, timeout=self.timeout) as response:
+                    raw = (
+                        response.read(8 * 1024 * 1024)
+                        .decode()
+                        .replace(self.key, "[REDACTED]")
+                    )
+                publish_json(
+                    self.archive / f"catalog-attempt-{attempt}.json",
+                    {"status": "response", "raw_response": raw},
+                )
+                catalog = strict_json(raw)
+                break
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+                code = getattr(exc, "code", 0)
+                record = {
+                    "status": "transport_failure",
+                    "http_status": code,
+                    "exception": type(exc).__name__,
+                }
+                if isinstance(exc, urllib.error.HTTPError):
+                    record["provider_error"] = (
+                        exc.read(1024 * 1024)
+                        .decode(errors="replace")
+                        .replace(self.key, "[REDACTED]")
+                    )
+                    record["retry_after"] = exc.headers.get("Retry-After")
+                publish_json(self.archive / f"catalog-attempt-{attempt}.json", record)
+                if attempt == 2 or (
+                    code and code not in {408, 429, 500, 502, 503, 504}
+                ):
+                    raise RuntimeError(
+                        f"Astra catalog unavailable (HTTP {code}); no generation call made"
+                    ) from None
+                delay = record.get("retry_after", "")
+                time.sleep(
+                    min(30, max(2**attempt, int(delay)))
+                    if str(delay).isdigit()
+                    else 2**attempt
+                )
         ids = [entry["id"] for entry in catalog["data"]]
         publish_json(
             self.archive / "catalog.json",

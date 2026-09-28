@@ -1,0 +1,25 @@
+# Fixed engineering controller. Freeze its hash before commissioning/arms.
+control_hz: 10
+horizon: 150
+reset_settle_steps: 10
+reset_max_drift_m: 0.003
+teacher:
+  closed_gripper: 1.0
+  approach_height_m: 0.12
+  contact_height_m: 0.017
+  behind_distance_m: 0.065
+  contact_distance_m: 0.029
+  position_tolerance_m: 0.007
+  target_center_tolerance_m: 0.008
+  release_distance_m: 0.009
+  settle_steps: 12
+  translation_output_scale: 0.05
+  rotation_output_scale: 0.5
+  rotation_limit_rad: 0.05
+  desired_quaternion_xyzw: [1.0, 0.0, 0.0, 0.0]
+  engineering_program:
+    - {skill: approach, speed_m_s: 0.1, timeout_steps: 50}
+    - {skill: align_behind, speed_m_s: 0.08, timeout_steps: 30}
+    - {skill: contact, speed_m_s: 0.08, timeout_steps: 15}
+    - {skill: push_toward, speed_m_s: 0.1, timeout_steps: 40}
+    - {skill: settle, speed_m_s: 0.03, timeout_steps: 15}

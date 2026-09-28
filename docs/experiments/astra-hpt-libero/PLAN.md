@@ -40,5 +40,22 @@ independent implementation; never substitute another generator or curriculum.
 
 ## Current status
 
-Specification imported and checksums verified; implementation in progress.
-No AstraPush demonstrations, production updates, or evaluation results yet.
+Foundation is published in draft PR #178 on top of integration PR #159.
+The one-L40 OSMO v1 run passed random full-model update/inference; provider
+catalog access returned HTTP 429 and simulator imports failed. All fourteen
+outputs were preserved on R2, including the model audit receipt. OSMO's own
+output collector could not read one mode-0600 JSON file; publication now uses
+mode 0644 for credential-free artifacts.
+
+The follow-up implements closed-loop typed teacher control and full simulator
+state snapshots. Local calibration passed 60/60 resets, exact state/image
+replay, world-frame axis and camera-left checks, and gripper polarity. Each
+stage has a successful hand-authored engineering teacher fixture; failures
+and controller iterations remain under scratch/astra_push. These episodes
+are excluded from production replay and from Astra novelty/commissioning.
+
+The next source-pinned OSMO preflight rechecks the catalog with bounded retries,
+uses LIBERO's explicit source import path, and measures the real three-stage
+HDF5 batch update plus all physical checks in the Linux lock. No Astra-authored
+commissioning demonstrations, production updates, or policy evaluation results
+exist yet. W03 split freezing, W04 novelty/commissioning, W06–W10 remain open.

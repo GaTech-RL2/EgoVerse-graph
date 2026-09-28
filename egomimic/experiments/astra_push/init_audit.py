@@ -115,7 +115,33 @@ def fixture_batch(device):
     }
 
 
-def audit(output, *, device="cuda", config_path=MODEL_CONFIG):
+def real_fixture_batch(receipts, device):
+    from torch.utils._pytree import tree_map
+
+    from egomimic.experiments.astra_push.data import (
+        EpisodeWindows,
+        ProprioceptionStats,
+        collate_windows,
+    )
+
+    records = [json.loads(Path(p).read_text())["episode"] for p in receipts]
+    if {r["provenance"]["stage"] for r in records} != {"S1", "S2", "S3"}:
+        raise ValueError("Real engineering batch requires all three stages")
+    # This discarded engineering update tests real interfaces before W04.
+    # Production will require the frozen thirty-episode commissioning normalizer.
+    dataset = EpisodeWindows(
+        records, ProprioceptionStats(np.zeros(9), np.ones(9), []), purpose="engineering"
+    )
+    indices = [int(i) for i in dataset.offsets[:-1]] + [len(dataset) - 1]
+    if len(indices) != 4:
+        raise ValueError("Supply one engineering episode per stage")
+    batch = collate_windows([dataset[i] for i in indices])["libero_push"]
+    return tree_map(
+        lambda x: x.to(device) if isinstance(x, torch.Tensor) else x, batch
+    ), records
+
+
+def audit(output, *, device="cuda", config_path=MODEL_CONFIG, real_episodes=None):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     if device != "cuda" or not torch.cuda.is_available():
@@ -154,7 +180,10 @@ def audit(output, *, device="cuda", config_path=MODEL_CONFIG):
     assert all(p.dtype == torch.float32 for p in members)
     before = {name: p.detach().flatten()[:8].clone() for name, p in params.items()}
     torch.cuda.reset_peak_memory_stats()
-    batch = fixture_batch(device)
+    if real_episodes:
+        batch, records = real_fixture_batch(real_episodes, device)
+    else:
+        batch, records = fixture_batch(device), []
     torch.cuda.synchronize()
     update_start = time.monotonic()
     with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -204,8 +233,15 @@ def audit(output, *, device="cuda", config_path=MODEL_CONFIG):
         ]
     assert prediction.shape == (4, 10, 7) and bool(torch.isfinite(prediction).all())
     receipt = {
-        "kind": "synthetic_engineering_initialization_update",
-        "real_data_gate_passed": False,
+        "kind": "real_engineering_initialization_update"
+        if records
+        else "synthetic_engineering_initialization_update",
+        "real_data_gate_passed": bool(records),
+        "commissioning_gate_passed": False,
+        "engineering_episode_hashes": [r["sha256"] for r in records],
+        "normalization": "identity_engineering_only"
+        if records
+        else "synthetic_fixture",
         "production_updates": 0,
         "seed": 17,
         "initialization_seed": named_seed("learner_initialization"),
@@ -259,5 +295,6 @@ def audit(output, *, device="cuda", config_path=MODEL_CONFIG):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--real-episodes", nargs=3)
     args = parser.parse_args()
-    audit(args.output)
+    audit(args.output, real_episodes=args.real_episodes)

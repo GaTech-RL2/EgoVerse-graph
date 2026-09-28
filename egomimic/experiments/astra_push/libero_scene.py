@@ -5,6 +5,7 @@ is executed and no upstream source files or global user config are modified.
 """
 
 import json
+import random
 from pathlib import Path
 
 import numpy as np
@@ -227,6 +228,7 @@ def load_environment(bundle, *, seed=17):
     ):
         raise ValueError("Scene bundle content changed")
     np.random.seed(seed)
+    random.seed(seed)
     return OffScreenRenderEnv(
         bddl_file_name=str(bundle / "task.bddl"),
         scene_spec=scene.model_dump(mode="json"),

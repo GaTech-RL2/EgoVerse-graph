@@ -41,7 +41,8 @@ trap upload EXIT
 status=0
 python -m egomimic.experiments.astra_push.provider --output "$GATE_OUTPUT/provider" 2>&1 | tee "$GATE_OUTPUT/provider.log" || status=1
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 WANDB_MODE=disabled OMP_NUM_THREADS=4
-python -m egomimic.experiments.astra_push.init_audit --output "$GATE_OUTPUT/learner-audit" 2>&1 | tee "$GATE_OUTPUT/learner-audit.log" || status=1
+# The synthetic update is already measured in v1. This revision verifies real
+# three-stage teacher data after constructing the separate simulator below.
 git init -q /tmp/libero
 git -C /tmp/libero remote add origin https://github.com/Lifelong-Robot-Learning/LIBERO.git
 git -C /tmp/libero fetch --quiet --depth=1 origin f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
@@ -51,6 +52,7 @@ uv venv /tmp/simulator-env --python 3.11
 source /tmp/simulator-env/bin/activate
 uv pip install --require-hashes -r scripts/astra_push/simulator.lock
 uv pip install --no-deps -e /tmp/libero
+export PYTHONPATH="/tmp/libero:/tmp/egoverse"
 git -C /tmp/libero rev-parse HEAD > "$GATE_OUTPUT/libero-source-commit.txt"
 uv pip list --format json > "$GATE_OUTPUT/simulator-packages.json"
 export LIBERO_CONFIG_PATH=/tmp/astrapush-libero-config MUJOCO_GL=egl PYOPENGL_PLATFORM=egl
@@ -66,5 +68,9 @@ paths={'benchmark_root':str(root),'bddl_files':str(root/'bddl_files'),'init_stat
 PY
 for stage in S1 S2 S3; do
   python -m egomimic.experiments.astra_push.render_probe --stage "$stage" --output "$GATE_OUTPUT/render-$stage" 2>&1 | tee "$GATE_OUTPUT/render-$stage.log" || status=1
+  python -m egomimic.experiments.astra_push.teacher_probe --stage "$stage" --output "$GATE_OUTPUT/teacher-$stage" 2>&1 | tee "$GATE_OUTPUT/teacher-$stage.log" || status=1
 done
+python -m egomimic.experiments.astra_push.calibration --output "$GATE_OUTPUT/calibration" 2>&1 | tee "$GATE_OUTPUT/calibration.log" || status=1
+source /tmp/egoverse/emimic/bin/activate
+python -m egomimic.experiments.astra_push.init_audit --output "$GATE_OUTPUT/real-learner-audit" --real-episodes "$GATE_OUTPUT/teacher-S1/receipt.json" "$GATE_OUTPUT/teacher-S2/receipt.json" "$GATE_OUTPUT/teacher-S3/receipt.json" 2>&1 | tee "$GATE_OUTPUT/real-learner-audit.log" || status=1
 exit "$status"

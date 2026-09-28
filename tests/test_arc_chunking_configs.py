@@ -19,6 +19,21 @@ from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, ZarrDataset
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_ROOT = ROOT / "egomimic/hydra_configs"
 MODES = ("race", "multistream", "joint_distance")
+# A recipe is an ARC recipe when the composed config selects the tokenizer
+# action mode. Filenames are not a classifier: the organize recipes are named
+# ..._arc_<mode>_openloop and carry no "hybrid" in the name.
+ARC_ACTION_MODE = "hybrid_arc_tokenizer_cartesian"
+# Each embodiment owns its ARC source window. A config must forward the cap of
+# the embodiment that built the keymap, not another embodiment's.
+SOURCE_BUFFER_FRAMES = {"Yam": 200, "Human": 600, "Eva": 600}
+# Recipes that pin a chunking mode on purpose, because the mode is the whole
+# point of the variant. Every other recipe must take the joint_distance
+# default, so a new entry here is a deliberate contract change.
+PINNED_MODES = {
+    "abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_joint_distance_openloop": "joint_distance",
+    "abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_multistream_openloop": "multistream",
+    "abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_race_openloop": "race",
+}
 RECIPES = sorted(
     str(path.relative_to(CONFIG_ROOT / "experiment").with_suffix(""))
     for population in ("robot_bc", "human_bc")
@@ -49,7 +64,7 @@ def test_retained_visual_recipes_forward_mode_and_caps(recipe, mode, monkeypatch
             keymap = hydra.utils.instantiate(resolver.key_map)
             transforms = hydra.utils.instantiate(resolver.transform_list)
             tokenizers = [t for t in transforms if isinstance(t, TokenizeBimanualArcLengthCartesian)]
-            if "hybrid" not in recipe:
+            if cfg.abc.action_mode != ARC_ACTION_MODE:
                 assert not tokenizers
                 assert all(not isinstance(s.get("horizon"), dict) for s in keymap.values())
                 continue
@@ -64,12 +79,17 @@ def test_retained_visual_recipes_forward_mode_and_caps(recipe, mode, monkeypatch
                     assert spec["horizon"]["arc_chunking_mode"] == mode
                     assert spec["horizon"]["distance"] == cfg.abc.arc_distance
                     assert spec["horizon"]["rotation_distance"] == cfg.abc.arc_rotation_distance
-                    assert spec["horizon"]["source_buffer_frames"] == 200
+                    embodiment = resolver.key_map._target_.split(".")[-2]
+                    assert (
+                        spec["horizon"]["source_buffer_frames"]
+                        == SOURCE_BUFFER_FRAMES[embodiment]
+                    )
 
 
 @pytest.mark.parametrize("recipe", RECIPES)
 def test_visual_recipes_default_to_joint_distance(recipe):
-    assert _compose(recipe).abc.arc_chunking_mode == "joint_distance"
+    expected = PINNED_MODES.get(recipe, "joint_distance")
+    assert _compose(recipe).abc.arc_chunking_mode == expected
 
 
 @pytest.mark.parametrize("embodiment", (Yam, Human, Eva))
@@ -338,11 +358,14 @@ def test_norm_contract_survives_state_roundtrip_and_recache(tmp_path):
         )
 
 
-@pytest.mark.parametrize("recipe", [name for name in RECIPES if "hybrid" in name])
+@pytest.mark.parametrize("recipe", RECIPES)
 def test_train_normalization_uses_resolved_arc_contract(recipe):
     from egomimic.trainHydra import _arc_normalization_contract
 
-    contract = _arc_normalization_contract(_compose(recipe, "multistream"))
+    cfg = _compose(recipe, "multistream")
+    if cfg.abc.action_mode != ARC_ACTION_MODE:
+        pytest.skip("baseline recipe, no ARC contract to resolve")
+    contract = _arc_normalization_contract(cfg)
     assert contract["arc_chunking_mode"] == "multistream"
     assert contract["rotation_distance_radians"] > 0
     assert contract["velocity_mode"] == "per_waypoint"

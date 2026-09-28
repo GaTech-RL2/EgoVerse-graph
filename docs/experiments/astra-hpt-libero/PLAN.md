@@ -40,6 +40,31 @@ independent implementation; never substitute another generator or curriculum.
 
 ## Current status
 
+The user-authorized Codex `gpt-6-astra` route has passed the generated-data
+commissioning and learner integration test on one OSMO L40. The corrected
+source is `41778ab32bb84d10bea8745763bfe8107f152b56`, in draft PR #181 on top of
+#178 foundation → #179 simulator → #180 protocol. Read
+[SUBAGENT-PILOT.md](SUBAGENT-PILOT.md) for the transport amendment and measured
+receipts; the unavailable gateway is no longer a blocker for this route.
+
+Four actual, context-isolated Astra children returned valid responses without
+repair: six commissioning templates, two adaptive synthetic-report decisions,
+and one blinded uniform decision. Corrected commissioning produced 30 accepted
+demonstrations in 31 attempts, five per scene and ten per stage. All six exact
+fresh-process restores and the full random HPT real-data update/inference
+passed. Visual review prompted a distinct gray optional fixture while retaining
+the yellow reference marker. The first run remains preserved and charged:
+31 earlier plus 31 corrected acquisitions use 62 of the 120-attempt cap.
+
+Production optimizer updates and student policy rollouts are **zero**. Frozen
+evaluation partitions, common seed collection/training, complete resumable
+round orchestration, matched U/A learner evaluation and the gradient diagnostic
+remain open. Teacher acceptance and synthetic decision fixtures do not measure
+learner competence or an adaptive-curriculum advantage. Commissioning episodes
+are excluded from production imitation replay.
+
+## Historical engineering gates and gateway blocker
+
 Foundation is published in draft PR #178 on top of integration PR #159.
 The one-L40 OSMO v1 run passed random full-model update/inference; provider
 catalog access returned HTTP 429 and simulator imports failed. All fourteen
@@ -75,7 +100,7 @@ generation context, fixed quota validation and a single-writer SQLite ledger
 that preserves incurred attempts across crashes. It does not yet constitute
 the complete round runner or satisfy W07's actual-provider fixture test.
 
-## Latest measured gate (2026-09-28)
+## Earlier measured calibration gate (2026-09-28)
 
 OSMO `astra-hpt-calibration-20260928-v3-1` completed on one L40 in 488.54
 seconds. All 60 reset checks and three fresh-process replay checks passed;
@@ -85,12 +110,11 @@ HPT update and 50-step flow inference, with gradients in every component.
 There are 244 preserved artifact files; hashes and the compute receipt are
 under `evidence/osmo-calibration-v3/`.
 
-This passes the available simulator/learner engineering checks. W01 still
-lacks authenticated Astra generation, W04 has zero generated commissioning
-episodes, and there are zero production optimizer updates or learner rollout
-scores. The actual curriculum runner, frozen holdouts and final analyses remain
-unfinished. The existing credential must be replenished or an approved
-alternate credential named before generator-dependent work can proceed.
+At this earlier point the simulator/learner engineering checks had passed,
+but authenticated Astra generation and generated commissioning were absent.
+The later user-authorized subagent route addresses those two limitations while
+leaving the full curriculum runner, frozen holdouts and final analyses open.
+The original gateway credential remains exhausted and must not be retried.
 
 Published stack: #178 foundation → #179 simulator → #180 protocol. The original
 OSMO source commits are retained under `astra-hpt-source-*` tags. A later
@@ -105,9 +129,8 @@ The self-contained OSMO teacher-video preview is at
 Repository CI passed on all three layers. The protocol code at `5e7bd472`
 passed 1,481 CPU tests plus configuration, installed-wheel, static and lock
 checks in GitHub Actions run `36456471469`. The pending checkpoint/round
-coordinator and final analyses are not covered by that claim. Provider access
-must be restored to complete W01/W04/W07; W08 cannot begin before W01–W07 pass
-under the supplied manifest.
+coordinator and final analyses are not covered by that claim. W08 cannot begin
+before the remaining W01–W07 prerequisites pass under the amended manifest.
 
 ## User-authorized subagent test
 
@@ -122,9 +145,9 @@ The generated layouts pass typed geometry, unique-signature and composition
 checks. The pinned stock inventory contains 130 BDDL files; all have different
 physical asset composition. Ten files retain explicitly recorded dangling,
 unused affordance-region references. This does not claim those region graphs
-were fully normalized. The next one-L40 OSMO job must measure actual teacher
+were fully normalized. The corrected one-L40 OSMO run measured actual teacher
 yield, all thirty commissioning episodes, six fresh-process reloads, frozen
-normalization and a discarded HPT engineering update before this test passes.
+normalization and a discarded HPT engineering update; those checks passed.
 
 The generator exchange and collector passed 29 focused CPU checks, including
 induced interruption without repeated acquisitions, exact five-per-scene

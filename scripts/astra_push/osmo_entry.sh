@@ -41,7 +41,7 @@ trap upload EXIT
 status=0
 if [[ "${RUN_PROVIDER_PROBE:-1}" == "1" ]]; then
   python -m egomimic.experiments.astra_push.provider --output "$GATE_OUTPUT/provider" 2>&1 | tee "$GATE_OUTPUT/provider.log" || status=1
-else
+elif [[ -z "${ASTRA_GENERATION_ARCHIVE:-}" ]]; then
   python - <<'PY'
 import os
 from pathlib import Path
@@ -75,6 +75,12 @@ cfg.mkdir(exist_ok=False)
 paths={'benchmark_root':str(root),'bddl_files':str(root/'bddl_files'),'init_states':str(root/'init_files'),'datasets':str(root.parent/'datasets'),'assets':str(root/'assets')}
 (cfg/'config.yaml').write_text(yaml.safe_dump(paths))
 PY
+if [[ -n "${ASTRA_GENERATION_ARCHIVE:-}" ]]; then
+  python -m egomimic.experiments.astra_push.collect --generation "$ASTRA_GENERATION_ARCHIVE" --stock-root /tmp/libero/libero/libero/bddl_files --output "$GATE_OUTPUT/commissioning" 2>&1 | tee "$GATE_OUTPUT/commissioning.log"
+  source /tmp/egoverse/emimic/bin/activate
+  python -m egomimic.experiments.astra_push.init_audit --output "$GATE_OUTPUT/commissioning-learner-audit" --commissioning "$GATE_OUTPUT/commissioning/receipt.json" 2>&1 | tee "$GATE_OUTPUT/commissioning-learner-audit.log"
+  exit 0
+fi
 for stage in S1 S2 S3; do
   python -m egomimic.experiments.astra_push.render_probe --stage "$stage" --output "$GATE_OUTPUT/render-$stage" 2>&1 | tee "$GATE_OUTPUT/render-$stage.log" || status=1
   python -m egomimic.experiments.astra_push.teacher_probe --stage "$stage" --output "$GATE_OUTPUT/teacher-$stage" 2>&1 | tee "$GATE_OUTPUT/teacher-$stage.log" || status=1

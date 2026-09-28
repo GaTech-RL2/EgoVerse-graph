@@ -9,11 +9,23 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def workflow(commit, name, *, provider_probe=True):
+def workflow(commit, name, *, provider_probe=True, generation_archive=None):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("A full immutable source commit is required")
     if not re.fullmatch(r"[a-z][a-z0-9-]{0,60}", name):
         raise ValueError("Invalid workflow name")
+    if generation_archive is not None:
+        if (
+            provider_probe
+            or not re.fullmatch(
+                r"docs/experiments/astra-hpt-libero/evidence/[a-zA-Z0-9_/-]+",
+                generation_archive,
+            )
+            or ".." in generation_archive.split("/")
+        ):
+            raise ValueError(
+                "Subagent input must be a pinned evidence directory; disable gateway probe"
+            )
     result = {
         "workflow": {
             "name": name,
@@ -67,6 +79,10 @@ def workflow(commit, name, *, provider_probe=True):
         del result["workflow"]["tasks"][0]["credentials"][
             "astra-reversal-inference-20260924"
         ]
+    if generation_archive:
+        result["workflow"]["tasks"][0]["environment"]["ASTRA_GENERATION_ARCHIVE"] = (
+            generation_archive
+        )
     return result
 
 
@@ -76,6 +92,9 @@ if __name__ == "__main__":
     parser.add_argument("--name", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
+        "--generation-archive", help="Source-pinned Codex Astra commissioning exchange"
+    )
+    parser.add_argument(
         "--skip-provider",
         action="store_true",
         help="Run engineering checks while the confirmed provider budget blocker is unresolved",
@@ -84,7 +103,10 @@ if __name__ == "__main__":
     with args.output.open("x") as stream:
         yaml.safe_dump(
             workflow(
-                args.source_commit, args.name, provider_probe=not args.skip_provider
+                args.source_commit,
+                args.name,
+                provider_probe=not args.skip_provider,
+                generation_archive=args.generation_archive,
             ),
             stream,
             sort_keys=False,

@@ -141,7 +141,45 @@ def real_fixture_batch(receipts, device):
     ), records
 
 
-def audit(output, *, device="cuda", config_path=MODEL_CONFIG, real_episodes=None):
+def commissioning_fixture_batch(receipt_path, device):
+    from torch.utils._pytree import tree_map
+
+    from egomimic.experiments.astra_push.data import (
+        EpisodeWindows,
+        ProprioceptionStats,
+        collate_windows,
+    )
+
+    receipt = json.loads(Path(receipt_path).read_text())
+    if not receipt["complete"] or receipt.get("fresh_process_reloads") != 6:
+        raise ValueError("Commissioning must pass all six scene/reload gates")
+    records = [r["episode"] for r in receipt["accepted"]]
+    stats = ProprioceptionStats.fit_commissioning(records)
+    dataset = EpisodeWindows(records, stats, purpose="commissioning_audit")
+    indices = [
+        int(
+            dataset.offsets[
+                next(i for i, p in enumerate(dataset.provenance) if p["stage"] == stage)
+            ]
+        )
+        for stage in ("S1", "S2", "S3")
+    ] + [len(dataset) - 1]
+    batch = collate_windows([dataset[i] for i in indices])["libero_push"]
+    return (
+        tree_map(lambda x: x.to(device) if isinstance(x, torch.Tensor) else x, batch),
+        records,
+        stats.snapshot(),
+    )
+
+
+def audit(
+    output,
+    *,
+    device="cuda",
+    config_path=MODEL_CONFIG,
+    real_episodes=None,
+    commissioning=None,
+):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     if device != "cuda" or not torch.cuda.is_available():
@@ -180,7 +218,17 @@ def audit(output, *, device="cuda", config_path=MODEL_CONFIG, real_episodes=None
     assert all(p.dtype == torch.float32 for p in members)
     before = {name: p.detach().flatten()[:8].clone() for name, p in params.items()}
     torch.cuda.reset_peak_memory_stats()
-    if real_episodes:
+    normalization_hash = None
+    if commissioning:
+        if real_episodes:
+            raise ValueError("Choose engineering fixtures or generated commissioning")
+        batch, records, normalization = commissioning_fixture_batch(
+            commissioning, device
+        )
+        normalization_hash = publish_json(
+            output / "frozen-proprioception.json", normalization
+        )
+    elif real_episodes:
         batch, records = real_fixture_batch(real_episodes, device)
     else:
         batch, records = fixture_batch(device), []
@@ -233,13 +281,21 @@ def audit(output, *, device="cuda", config_path=MODEL_CONFIG, real_episodes=None
         ]
     assert prediction.shape == (4, 10, 7) and bool(torch.isfinite(prediction).all())
     receipt = {
-        "kind": "real_engineering_initialization_update"
+        "kind": "generated_commissioning_engineering_update"
+        if commissioning
+        else "real_engineering_initialization_update"
         if records
         else "synthetic_engineering_initialization_update",
         "real_data_gate_passed": bool(records),
-        "commissioning_gate_passed": False,
+        "commissioning_gate_passed": bool(commissioning),
+        "commissioning_receipt_sha256": file_hash(commissioning)
+        if commissioning
+        else None,
+        "normalization_sha256": normalization_hash,
         "engineering_episode_hashes": [r["sha256"] for r in records],
-        "normalization": "identity_engineering_only"
+        "normalization": "frozen_thirty_episode_commissioning"
+        if commissioning
+        else "identity_engineering_only"
         if records
         else "synthetic_fixture",
         "production_updates": 0,
@@ -296,5 +352,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True)
     parser.add_argument("--real-episodes", nargs=3)
+    parser.add_argument("--commissioning")
     args = parser.parse_args()
-    audit(args.output, real_episodes=args.real_episodes)
+    audit(
+        args.output, real_episodes=args.real_episodes, commissioning=args.commissioning
+    )

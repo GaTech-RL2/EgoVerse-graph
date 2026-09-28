@@ -1,8 +1,10 @@
-"""Measured engineering teacher rollout; never counted as generated supervision."""
+"""Measured teacher execution shared by engineering and generated commissioning."""
 
 import argparse
+import hashlib
 import json
 import time
+import traceback
 from pathlib import Path
 
 import imageio.v2 as imageio
@@ -24,7 +26,20 @@ from egomimic.experiments.astra_push.semantics import SuccessEvaluator
 from egomimic.experiments.astra_push.sim_state import snapshot
 
 
-def probe(output, *, stage="S1", seed=17):
+def run_teacher_attempt(
+    output,
+    *,
+    scene,
+    task,
+    program,
+    seed,
+    episode_id,
+    phase,
+    teacher_authorship,
+    arm="common",
+    round_index=0,
+    video=True,
+):
     from egomimic.experiments.astra_push.libero_scene import (
         compile_scene,
         load_environment,
@@ -32,26 +47,29 @@ def probe(output, *, stage="S1", seed=17):
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    scene, task = starter(stage)
-    program = engineering_program(scene, task)
+    if phase not in {"engineering", "commissioning", "seed", "round"}:
+        raise ValueError("Unknown acquisition purpose")
+    task.validate_scene(scene)
+    program.validate_scene(scene, task)
     cfg = settings()
     started = time.monotonic()
     publish_json(
         output / "attempt.json",
         {
-            "category": "engineering",
-            "attempt": 1,
+            "category": phase,
+            "attempt_id": episode_id,
             "seed": seed,
-            "stage": stage,
-            "counts_as_commissioning": False,
+            "stage": scene.stage,
+            "counts_as_commissioning": phase == "commissioning",
         },
     )
-    bundle = compile_scene(scene, task, output / "bundle")
-    env = load_environment(bundle, seed=seed)
-    rows, actions, audit = [], [], []
+    env = None
+    rows, actions, audit, replay = [], [], [], []
     evaluator = None
     failure = None
     try:
+        bundle = compile_scene(scene, task, output / "bundle")
+        env = load_environment(bundle, seed=seed)
         observation = env.env.reset()
         for _ in range(cfg["reset_settle_steps"]):
             observation, _, _, _ = env.step(
@@ -60,6 +78,8 @@ def probe(output, *, stage="S1", seed=17):
         positions, rotations = cube_poses(env, scene)
         state = output / "initial-full-state"
         state_hash = snapshot(env, state)
+        with (bundle / "resolved.xml").open("x") as stream:
+            stream.write(env.sim.model.get_xml())
         evaluator = SuccessEvaluator(scene, task, positions)
         controller = PushController(scene, task, program)
         publish_json(output / "teacher.json", program.model_dump(mode="json"))
@@ -68,8 +88,7 @@ def probe(output, *, stage="S1", seed=17):
             action, control = controller.command(
                 observation, positions, table_height=env.env.table_offset[2]
             )
-            rows.append(student_observation(observation))
-            actions.append(action)
+            student_row = student_observation(observation)
             contact = [
                 {"geoms": [int(c.geom1), int(c.geom2)], "distance": float(c.dist)}
                 for c in env.sim.data.contact[: env.sim.data.ncon]
@@ -78,6 +97,7 @@ def probe(output, *, stage="S1", seed=17):
                 {
                     **control,
                     "step": t,
+                    "executed": False,
                     "cube_positions": {k: v.tolist() for k, v in positions.items()},
                     "eef_xyz": observation["robot0_eef_pos"].tolist(),
                     "contacts": contact,
@@ -90,6 +110,20 @@ def probe(output, *, stage="S1", seed=17):
                 }
             )
             observation, _, _, _ = env.step(action)
+            audit[-1]["executed"] = True
+            rows.append(student_row)
+            actions.append(action)
+            if t < 8:
+                frame = student_observation(observation)
+                replay.append(
+                    {
+                        "state": env.sim.get_state().flatten().tolist(),
+                        "images": [
+                            hashlib.sha256(frame[k].tobytes()).hexdigest()
+                            for k in ("external_rgb", "wrist_rgb")
+                        ],
+                    }
+                )
             positions, rotations = cube_poses(env, scene)
             metrics = evaluator.update(positions, rotations)
             if metrics["lift_violation"] or metrics["preservation_violation"]:
@@ -97,18 +131,20 @@ def probe(output, *, stage="S1", seed=17):
                 break
             if controller.finished:
                 break
-    except (TimeoutError, ValueError, RuntimeError) as exc:
+    except Exception as exc:
         failure = f"{type(exc).__name__}: {exc}"
+        (output / "failure-traceback.txt").write_text(traceback.format_exc())
     finally:
-        env.close()
+        if env is not None:
+            env.close()
     metrics = evaluator.result() if evaluator else {"success": False}
     accepted = bool(metrics["success"] and failure is None)
     receipt = {
-        "category": "engineering_teacher",
-        "stage": stage,
+        "category": f"{phase}_teacher",
+        "stage": scene.stage,
         "seed": seed,
-        "teacher_authorship": "hand_authored_fixture",
-        "commissioning_accepted": 0,
+        "teacher_authorship": teacher_authorship,
+        "commissioning_accepted": int(phase == "commissioning" and accepted),
         "accepted": accepted,
         "metrics": metrics,
         "failure": failure,
@@ -131,34 +167,59 @@ def probe(output, *, stage="S1", seed=17):
             actions=np.stack(actions),
             instruction=task.instruction,
             provenance={
-                "episode_id": f"engineering_{stage}_{seed}",
+                "episode_id": episode_id,
                 "scene_hash": canonical_hash(scene),
                 "task_hash": canonical_hash(task),
                 "teacher_hash": canonical_hash(program),
                 "initial_state_hash": state_hash,
-                "phase": "engineering",
-                "arm": "common",
-                "round": 0,
-                "stage": stage,
-                "partition": "engineering",
+                "phase": phase,
+                "arm": arm,
+                "round": round_index,
+                "stage": scene.stage,
+                "partition": "engineering" if phase == "engineering" else "training",
                 "accepted": accepted,
             },
             audit={"steps": audit, "metrics": metrics, "failure": failure},
         )
         receipt["episode"] = record
-        with imageio.get_writer(
-            output / "preview.mp4",
-            fps=cfg["control_hz"],
-            codec="libx264",
-            quality=7,
-            macro_block_size=None,
-        ) as video:
-            for row in rows:
-                video.append_data(
-                    np.concatenate([row["external_rgb"], row["wrist_rgb"]], axis=1)
-                )
+        if video:
+            with imageio.get_writer(
+                output / "preview.mp4",
+                fps=cfg["control_hz"],
+                codec="libx264",
+                quality=7,
+                macro_block_size=None,
+            ) as writer:
+                for row in rows:
+                    writer.append_data(
+                        np.concatenate([row["external_rgb"], row["wrist_rgb"]], axis=1)
+                    )
         publish_json(output / "control-trace.json", audit)
+        if len(replay) == 8:
+            publish_json(
+                output / "expected-replay.json",
+                {
+                    "actions": np.stack(actions[:8]).tolist(),
+                    "states": [r["state"] for r in replay],
+                    "images": [r["images"] for r in replay],
+                },
+            )
     publish_json(output / "receipt.json", receipt)
+    return receipt
+
+
+def probe(output, *, stage="S1", seed=17):
+    scene, task = starter(stage)
+    receipt = run_teacher_attempt(
+        output,
+        scene=scene,
+        task=task,
+        program=engineering_program(scene, task),
+        seed=seed,
+        episode_id=f"engineering_{stage}_{seed}",
+        phase="engineering",
+        teacher_authorship="hand_authored_fixture",
+    )
     print(json.dumps(receipt))
     return receipt
 

@@ -108,3 +108,25 @@ checks in GitHub Actions run `36456471469`. The pending checkpoint/round
 coordinator and final analyses are not covered by that claim. Provider access
 must be restored to complete W01/W04/W07; W08 cannot begin before W01–W07 pass
 under the supplied manifest.
+
+## User-authorized subagent test
+
+The user subsequently requested testing the pilot with Astra directly as a
+Codex subagent. [SUBAGENT-PILOT.md](SUBAGENT-PILOT.md) records this new transport
+version, its limits, and the first live commissioning test. An isolated
+`gpt-6-astra` child returned six valid scene/task/teacher templates in one
+logical request. Its raw response and exact request are preserved under
+`evidence/subagent-pilot-v1/generation/commissioning-001/`.
+
+The generated layouts pass typed geometry, unique-signature and composition
+checks. The pinned stock inventory contains 130 BDDL files; all have different
+physical asset composition. Ten files retain explicitly recorded dangling,
+unused affordance-region references. This does not claim those region graphs
+were fully normalized. The next one-L40 OSMO job must measure actual teacher
+yield, all thirty commissioning episodes, six fresh-process reloads, frozen
+normalization and a discarded HPT engineering update before this test passes.
+
+The generator exchange and collector passed 29 focused CPU checks, including
+induced interruption without repeated acquisitions, exact five-per-scene
+quotas, immutable request/response binding, and commissioning exclusion from
+production imitation replay. No production optimizer updates have occurred.

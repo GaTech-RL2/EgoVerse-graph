@@ -1,0 +1,67 @@
+{
+  "action_shape": [
+    7
+  ],
+  "control_hz": 10,
+  "controller_scaling": {
+    "input_max": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "input_min": [
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0
+    ],
+    "output_max": [
+      0.05,
+      0.05,
+      0.05,
+      0.5,
+      0.5,
+      0.5
+    ],
+    "output_min": [
+      -0.05,
+      -0.05,
+      -0.05,
+      -0.5,
+      -0.5,
+      -0.5
+    ]
+  },
+  "image_shapes": {
+    "external_rgb": [
+      224,
+      224,
+      3
+    ],
+    "wrist_rgb": [
+      224,
+      224,
+      3
+    ]
+  },
+  "kind": "engineering_starter_render",
+  "novelty_witness": false,
+  "proprioception_shape": [
+    9
+  ],
+  "render_backend": "cgl",
+  "scene_signature": "4455525f42aed65773b58cd72350f776e42aba91d3f2216a88c6f6074191c163",
+  "stage": "S1",
+  "teacher_success": null,
+  "versions": {
+    "mujoco": "3.2.3",
+    "numpy": "1.26.4",
+    "pydantic": "2.13.5",
+    "robosuite": "1.4.1"
+  }
+}

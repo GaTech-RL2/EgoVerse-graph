@@ -1,0 +1,24 @@
+.............                                                            [100%]
+=============================== warnings summary ===============================
+../EgoVerse-graph-integration-20260924/emimic/lib/python3.11/site-packages/torch/cuda/__init__.py:61
+  /Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-integration-20260924/emimic/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+    import pynvml  # type: ignore[import]
+
+../EgoVerse-graph-integration-20260924/emimic/lib/python3.11/site-packages/pyparsing.py:108
+  /Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-integration-20260924/emimic/lib/python3.11/site-packages/pyparsing.py:108: DeprecationWarning: module 'sre_constants' is deprecated
+    import sre_constants
+
+tests/test_recursive_config_audit.py::test_every_shipped_component_constructs_without_network_or_weights
+  /Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-integration-20260924/emimic/lib/python3.11/site-packages/torch/nn/modules/transformer.py:382: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+    warnings.warn(
+
+tests/test_recursive_config_audit.py::test_every_shipped_component_constructs_without_network_or_weights
+  /Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-integration-20260924/emimic/lib/python3.11/site-packages/diffusers/configuration_utils.py:140: FutureWarning: Accessing config attribute `prediction_type` directly via 'DDPMScheduler' object attribute is deprecated. Please access 'prediction_type' over 'DDPMScheduler's config object instead, e.g. 'scheduler.config.prediction_type'.
+    deprecate("direct config name access", "1.0.0", deprecation_message, standard_warn=False)
+
+tests/test_recursive_config_audit.py::test_every_shipped_component_constructs_without_network_or_weights
+  /Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-integration-20260924/emimic/lib/python3.11/site-packages/diffusers/configuration_utils.py:140: FutureWarning: Accessing config attribute `num_train_timesteps` directly via 'DDPMScheduler' object attribute is deprecated. Please access 'num_train_timesteps' over 'DDPMScheduler's config object instead, e.g. 'scheduler.config.num_train_timesteps'.
+    deprecate("direct config name access", "1.0.0", deprecation_message, standard_warn=False)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+13 passed, 5 warnings in 64.49s (0:01:04)

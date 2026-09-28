@@ -1,0 +1,62 @@
+{
+  "inspection_date_utc": "2026-09-27",
+  "files": [
+    {
+      "source_path": "/storage/project/r-dxu345-0/acheluva3/EgoVerse/egomimic/algo/hpt.py",
+      "repository_head": "b8328ab2be9617501974d31c259aa3008df76c16",
+      "repository_relative_path": "egomimic/algo/hpt.py",
+      "sha256": "4b00c438172924ee7a16ef64e8bd9a66ce1fb4f3624fe486acd5f5a9b4324661",
+      "evidence": "local_file_inspection_not_runtime_validation"
+    },
+    {
+      "source_path": "/storage/project/r-dxu345-0/acheluva3/EgoVerse/egomimic/models/hpt_nets.py",
+      "repository_head": "b8328ab2be9617501974d31c259aa3008df76c16",
+      "repository_relative_path": "egomimic/models/hpt_nets.py",
+      "sha256": "ea4644703c8c1b3ed886299982dacf75acfaaabfcb2fddbdba339be8885f99b9",
+      "evidence": "local_file_inspection_not_runtime_validation"
+    },
+    {
+      "source_path": "/storage/project/r-dxu345-0/acheluva3/EgoVerse/egomimic/models/fm_policy.py",
+      "repository_head": "b8328ab2be9617501974d31c259aa3008df76c16",
+      "repository_relative_path": "egomimic/models/fm_policy.py",
+      "sha256": "f70de016db8dd49dbb38e67bd5abef488a3474767f96693e272da52b9270ed5b",
+      "evidence": "local_file_inspection_not_runtime_validation"
+    },
+    {
+      "source_path": "/storage/project/r-dxu345-0/acheluva3/EgoVerse/egomimic/models/denoising_policy.py",
+      "repository_head": "b8328ab2be9617501974d31c259aa3008df76c16",
+      "repository_relative_path": "egomimic/models/denoising_policy.py",
+      "sha256": "b95456042e09235201d8e4ca91b18dd3c2b0f1cf79f1073f2e27225bf0e69e73",
+      "evidence": "local_file_inspection_not_runtime_validation"
+    },
+    {
+      "source_path": "/storage/project/r-dxu345-0/acheluva3/EgoVerse/egomimic/models/denoising_nets.py",
+      "repository_head": "b8328ab2be9617501974d31c259aa3008df76c16",
+      "repository_relative_path": "egomimic/models/denoising_nets.py",
+      "sha256": "38897ba0036ef6bcdfe3b66e438ab6457c43cbd47ade99ea94b64488eee86bcd",
+      "evidence": "local_file_inspection_not_runtime_validation"
+    },
+    {
+      "source_path": "/storage/project/r-dxu345-0/acheluva3/EgoVerse/egomimic/hydra_configs/model/hpt_bc_flow_eva.yaml",
+      "repository_head": "b8328ab2be9617501974d31c259aa3008df76c16",
+      "repository_relative_path": "egomimic/hydra_configs/model/hpt_bc_flow_eva.yaml",
+      "sha256": "c2dce5eac8e74d5542446dfd4d28c3088c5b86c8b256ab8772658c70be82502d",
+      "evidence": "local_file_inspection_not_runtime_validation"
+    },
+    {
+      "source_path": "/storage/project/r-dxu345-0/acheluva3/EgoVerse/egomimic/hydra_configs/model/hpt_bc_pickplace_qwen_pooled.yaml",
+      "repository_head": "b8328ab2be9617501974d31c259aa3008df76c16",
+      "repository_relative_path": "egomimic/hydra_configs/model/hpt_bc_pickplace_qwen_pooled.yaml",
+      "sha256": "88c0164369fb8400fdd2d209e7740661393b7555c85a8c1132b738ab1f7709fb",
+      "evidence": "local_file_inspection_not_runtime_validation"
+    },
+    {
+      "source_path": "/storage/project/r-dxu345-0/acheluva3/oat/third_party/LIBERO/libero/libero/utils/task_generation_utils.py",
+      "repository_head": "6090ff21837566fed47b7c9061c9899f4749d36b",
+      "repository_relative_path": "libero/libero/utils/task_generation_utils.py",
+      "sha256": "262c952f6484bbc2f39ee33e634662ed47b8e564509df737a3dbad01cb23301a",
+      "evidence": "local_file_inspection_not_runtime_validation"
+    }
+  ],
+  "note": "HEAD and local content hash are separate provenance; this is not a dependency lock."
+}

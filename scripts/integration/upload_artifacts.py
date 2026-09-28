@@ -11,11 +11,11 @@ from botocore.config import Config
 
 
 def upload(root, prefix):
-    if not prefix.startswith("experiments/graph-integration-") or ".." in prefix.split(
-        "/"
-    ):
+    if not prefix.startswith(
+        ("experiments/graph-integration-", "experiments/astra-hpt-libero-")
+    ) or ".." in prefix.split("/"):
         raise ValueError(
-            "Artifact uploads must use a graph-integration experiment prefix"
+            "Artifact uploads must use a graph-integration or Astra HPT experiment prefix"
         )
     client = boto3.client(
         "s3",

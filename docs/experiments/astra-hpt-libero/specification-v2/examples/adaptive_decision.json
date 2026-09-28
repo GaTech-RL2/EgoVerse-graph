@@ -1,0 +1,61 @@
+{
+  "schema_version": "proposed_v1",
+  "illustrative": true,
+  "arm": "A",
+  "round": 1,
+  "learner_report_ref": "learner_report.json",
+  "allocations": {
+    "S1": 15,
+    "S2": 40,
+    "S3": 20
+  },
+  "templates": [
+    {
+      "template_id": "EXAMPLE_A_1",
+      "stage": "S1",
+      "accepted_episodes": 15,
+      "scene_spec_ref": "PLACEHOLDER_scene_A_1.json",
+      "task_spec_ref": "PLACEHOLDER_task_A_1.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_A_1.json"
+    },
+    {
+      "template_id": "EXAMPLE_A_2",
+      "stage": "S2",
+      "accepted_episodes": 20,
+      "scene_spec_ref": "PLACEHOLDER_scene_A_2.json",
+      "task_spec_ref": "PLACEHOLDER_task_A_2.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_A_2.json"
+    },
+    {
+      "template_id": "EXAMPLE_A_3",
+      "stage": "S2",
+      "accepted_episodes": 20,
+      "scene_spec_ref": "PLACEHOLDER_scene_A_3.json",
+      "task_spec_ref": "PLACEHOLDER_task_A_3.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_A_3.json"
+    },
+    {
+      "template_id": "EXAMPLE_A_4",
+      "stage": "S3",
+      "accepted_episodes": 10,
+      "scene_spec_ref": "PLACEHOLDER_scene_A_4.json",
+      "task_spec_ref": "PLACEHOLDER_task_A_4.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_A_4.json"
+    },
+    {
+      "template_id": "EXAMPLE_A_5",
+      "stage": "S3",
+      "accepted_episodes": 10,
+      "scene_spec_ref": "PLACEHOLDER_scene_A_5.json",
+      "task_spec_ref": "PLACEHOLDER_task_A_5.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_A_5.json"
+    }
+  ],
+  "rationale": "Illustrative: S2 object-choice errors motivate extra S2 practice; retain S1 and introduce spatial tasks.",
+  "predicted_change": "Illustrative hypothesis: fewer wrong-object errors on S2.",
+  "stage_intent": {
+    "S1": "consolidate",
+    "S2": "advance",
+    "S3": "advance"
+  }
+}

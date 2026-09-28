@@ -101,3 +101,9 @@ def test_published_episode_cannot_be_overwritten(tmp_path):
     with pytest.raises(FileExistsError):
         episode(tmp_path, "same", count=2)
     assert EpisodeWindows([original], norm()).lengths == [3]
+
+
+def test_training_records_cannot_be_relabeled_as_engineering(tmp_path):
+    record = episode(tmp_path, "seed")
+    with pytest.raises(ValueError):
+        EpisodeWindows([record], norm(), purpose="engineering")

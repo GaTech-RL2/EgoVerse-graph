@@ -30,6 +30,9 @@ def publish_json(path, record):
         temporary = Path(stream.name)
         stream.write(data)
         stream.flush()
+        # OSMO's output collector runs as a different UID. Artifacts contain
+        # no credentials and must be readable by that collector.
+        os.fchmod(stream.fileno(), 0o644)
         os.fsync(stream.fileno())
     try:
         os.link(temporary, path)

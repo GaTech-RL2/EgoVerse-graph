@@ -186,6 +186,32 @@ class TaskSpec(Contract):
         distance = math.dist(cube.placement.center_xy, target.center_xy)
         if not 0.05 <= distance <= 0.15:
             raise ValueError("Nominal direct push must be 5–15 cm")
+        start, end = cube.placement.center_xy, target.center_xy
+
+        def corridor_distance(point):
+            direction = [end[k] - start[k] for k in (0, 1)]
+            fraction = min(
+                1.0,
+                max(
+                    0.0,
+                    sum((point[k] - start[k]) * direction[k] for k in (0, 1))
+                    / distance**2,
+                ),
+            )
+            return math.dist(
+                point, [start[k] + fraction * direction[k] for k in (0, 1)]
+            )
+
+        for fixture in scene.fixtures:
+            if corridor_distance(fixture.center_xy) <= 0.02 + math.sqrt(2) * 0.02:
+                raise ValueError("A fixed fixture obstructs the direct push corridor")
+        for other in scene.cubes:
+            if other.name != cube.name and corridor_distance(
+                other.placement.center_xy
+            ) <= math.sqrt(2) * (other.placement.half_width + 0.02):
+                raise ValueError(
+                    "Push corridor overlaps the preserved cube's initial region"
+                )
         return self
 
 

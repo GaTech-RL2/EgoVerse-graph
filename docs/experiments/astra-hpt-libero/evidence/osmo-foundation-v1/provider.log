@@ -1,0 +1,25 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/tmp/egoverse/egomimic/experiments/astra_push/provider.py", line 203, in <module>
+    probe(args.output)
+  File "/tmp/egoverse/egomimic/experiments/astra_push/provider.py", line 163, in probe
+    client.catalog()
+  File "/tmp/egoverse/egomimic/experiments/astra_push/provider.py", line 53, in catalog
+    with self.opener.open(req, timeout=self.timeout) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/urllib/request.py", line 525, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/urllib/request.py", line 634, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/urllib/request.py", line 563, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/urllib/request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/urllib/request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 429: Too Many Requests

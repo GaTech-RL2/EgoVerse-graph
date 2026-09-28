@@ -1,0 +1,7 @@
+{
+    "name": "astra-hpt-foundation-20260928-v1-1",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/astra-hpt-foundation-20260928-v1-1",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/astra-hpt-foundation-20260928-v1-1/logs",
+    "spec": null,
+    "dashboard_url": "https://ovx-l40-01.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=c0a6121d158944cb"
+}

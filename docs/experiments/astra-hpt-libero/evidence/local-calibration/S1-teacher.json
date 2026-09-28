@@ -1,0 +1,42 @@
+{
+  "accepted": true,
+  "category": "engineering_teacher",
+  "commissioning_accepted": 0,
+  "controller_config_sha256": "9f56d1e7b04d809830d4a0328b469405dd8fbfdcd8ec0a3dd65b0fda3df70c32",
+  "episode": {
+    "path": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-astra-hpt-20260928/scratch/astra_push/teacher-S1-v2/episode.hdf5",
+    "provenance": {
+      "accepted": true,
+      "arm": "common",
+      "episode_id": "engineering_S1_17",
+      "initial_state_hash": "3c6d23ccd2541f976fc44dfb67a387b667a9b57681abfc0b5c11d1dad903186d",
+      "partition": "engineering",
+      "phase": "engineering",
+      "round": 0,
+      "scene_hash": "4cba7b84cad657f5e2c249075308ac569f33192fb0a7d656001287c11e2f6a04",
+      "stage": "S1",
+      "task_hash": "efe61386a86bd66141ee6c0783afbb0dae49cfe189c45d231325ba8f3d759fbc",
+      "teacher_hash": "6059602221732f515399dc72ffdd0c5a1167f4b77290b5cf2186b0951304a4fa"
+    },
+    "sha256": "166bcc9320d024d567236e2ec32d8a533312731232a51a3f775b3771de484f39",
+    "steps": 123
+  },
+  "executed_steps": 123,
+  "failure": null,
+  "full_state_restore_gate_passed": false,
+  "metrics": {
+    "lift_violation": false,
+    "max_hold_steps": 17,
+    "max_lift_m": 0.0021533992172972916,
+    "max_nonrequested_displacement_m": 0.0,
+    "preservation_violation": false,
+    "steps": 123,
+    "success": true,
+    "wrong_object": false,
+    "wrong_target": false
+  },
+  "seconds": 3.0059876249870285,
+  "seed": 17,
+  "stage": "S1",
+  "teacher_authorship": "hand_authored_fixture"
+}

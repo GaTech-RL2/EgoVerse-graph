@@ -1,0 +1,36 @@
+{
+  "closed_command": 1.0,
+  "closed_width_m": 0.0018356287773442534,
+  "negative_y_is_camera_left": true,
+  "open_width_m": 0.07816429191034703,
+  "positive_axis_displacements": [
+    [
+      0.009056074274880727,
+      2.4689799888214675e-10,
+      -0.0014878717708717293
+    ],
+    [
+      -0.00011581943153038399,
+      0.010408778332693124,
+      -9.025082739810841e-06
+    ],
+    [
+      -0.0006984712360797174,
+      9.609897655736661e-11,
+      0.010316904814599237
+    ]
+  ],
+  "projected_labels_yx": [
+    [
+      147,
+      78
+    ],
+    [
+      147,
+      146
+    ]
+  ],
+  "restored_images_equal": true,
+  "restored_state_max_error": 0.0,
+  "state_sha256": "b09378935a0369d43a6bc8e4cde58ccdc1ac4aa99e59bc4d8187a632217cdd39"
+}

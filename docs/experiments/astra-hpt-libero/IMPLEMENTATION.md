@@ -63,12 +63,42 @@ immutable episodes and exact replay-sampler restoration. Full-size offline
 construction succeeded with seed 17 and no network or weight-loading calls.
 S1 and S3 engineering starters compiled and rendered in both cameras locally.
 
-The OSMO foundation preflight allocates **one L40 GPU** and verifies provider
-access, a synthetic full-size update/inference, and locked-environment
-rendering. The synthetic update is explicitly not W01's real-data gate.
-No production training is enabled here. The teacher controller, commissioning,
-frozen split firewall, complete checkpoint/round coordinator, paired policy
-evaluation and gradient diagnostic still need implementation and measured gates.
+OSMO workflow `astra-hpt-foundation-20260928-v1-1` ran on **one L40 GPU**.
+The synthetic full-size update/inference passed: all six component groups
+received gradients, update time was 1.141 seconds, and peak allocated CUDA
+memory was 950,507,520 bytes. This is a single engineering measurement, not a
+steady-state training or evaluation throughput estimate. Actual hardware was
+an NVIDIA L40 with 49,140 MiB reported memory and driver 580.95.05.
+
+The workflow failed overall: catalog GET returned HTTP 429 before any
+generation call, and upstream LIBERO's editable package did not expose its
+namespace without an explicit source path. The follow-up adds bounded catalog
+retries, the verified import path, and readable artifact permissions for OSMO.
+R2 preserved all fourteen v1 artifacts independently of the output collector.
+
+The follow-up teacher implements the five typed phases with measured robot
+state, bounded world-frame OSC deltas, a closed gripper and wrist alignment
+with the initial push direction. It stores executed/raw commands, contacts,
+controller targets, torques and independent whole-trajectory metrics. No
+model-generated control code runs. Successful local engineering fixtures used
+123 steps for S1 and 130 for S2/S3; S3 preserved the other cube to below 1e-8 m.
+These are hand-authored fixtures; they are **not** Astra commissioning data.
+
+Local physical calibration passed 20 reset seeds per stage. Full state includes
+MuJoCo integration/warm-start fields, controller targets, gripper state, robot
+buffers, observation caches/timing and RNG. Eight subsequent commands replayed
+with zero state error and identical camera frames after restoration. The
+external-camera overlay confirms negative Y is left. Positive-axis control
+and closed-gripper polarity are measured in the saved receipts.
+
+The revised OSMO preflight runs these checks under the Linux lock and then
+tests the real three-stage HDF5 batch on the exact learner. Its identity
+proprioception transform is explicitly engineering-only; W04 must still freeze
+statistics from thirty accepted generated commissioning demonstrations.
+
+No production training is enabled here. Astra commissioning, the frozen split
+firewall, complete checkpoint/round coordinator, paired policy evaluation and
+gradient diagnostic still need implementation and measured gates.
 
 From an activated project environment:
 

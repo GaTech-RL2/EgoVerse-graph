@@ -1,10 +1,10 @@
 """Dual flow-matching stages for separated shape and clock predictions.
 
-The bimanual ARC tokenizer lays out ``per_waypoint`` and ``duration`` targets
-as ``[M shape rows, M clock rows]``.  These stages keep those streams separate:
-the shape head receives the first stream and the smaller clock head receives
-the second.  At inference the two generated streams are concatenated back to
-the tokenizer's canonical layout.
+The bimanual ARC tokenizer supports ``[shape channels, clock channels]`` and
+legacy ``[M shape rows, M clock rows]`` targets. These stages keep the streams
+separate: the shape head receives the first stream and the smaller clock head
+receives the second. At inference the two generated streams are concatenated
+back to the tokenizer's configured layout.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def _validate_shape(
 
 
 class DualFlowNoisingStage(Stage):
-    """Create independent flow paths for shape and clock targets."""
+    """Create independent flow paths; ``action_dim`` is one stream's width."""
 
     train_only = True
     reads = ("target",)
@@ -50,10 +50,14 @@ class DualFlowNoisingStage(Stage):
         beta_alpha: float = 1.5,
         beta_beta: float = 1.0,
         dtype: str = "float32",
+        token_layout: str = "rows",
     ):
         super().__init__()
         self.waypoint_horizon = int(waypoint_horizon)
         self.action_dim = int(action_dim)
+        if token_layout not in ("rows", "channels"):
+            raise ValueError("token_layout must be rows or channels")
+        self.token_layout = token_layout
         if self.waypoint_horizon <= 0 or self.action_dim <= 0:
             raise ValueError("waypoint_horizon and action_dim must be positive")
         if time_dist not in {"beta", "uniform"}:
@@ -83,16 +87,21 @@ class DualFlowNoisingStage(Stage):
             target = target.to(self.dtype)
             batch["target"] = target
         batch_size = int(target.shape[0])
-        full_horizon = 2 * self.waypoint_horizon
+        channels = self.token_layout == "channels"
+        full_horizon = self.waypoint_horizon * (1 if channels else 2)
         _validate_shape(
             target,
             batch_size=batch_size,
             horizon=full_horizon,
-            action_dim=self.action_dim,
+            action_dim=self.action_dim * (2 if channels else 1),
             label="Dual-flow target",
         )
-        shape_target = target[:, : self.waypoint_horizon]
-        clock_target = target[:, self.waypoint_horizon :]
+        if channels:
+            shape_target = target[..., : self.action_dim]
+            clock_target = target[..., self.action_dim :]
+        else:
+            shape_target = target[:, : self.waypoint_horizon]
+            clock_target = target[:, self.waypoint_horizon :]
         shape_noise = torch.randn_like(shape_target)
         clock_noise = torch.randn_like(clock_target)
         time = self._sample_time(batch_size, target.device, target.dtype)
@@ -110,7 +119,7 @@ class DualFlowNoisingStage(Stage):
 
 
 class DualFlowDenoiserStage(Stage):
-    """Train/integrate separate shape and clock flow heads."""
+    """Train/integrate separate heads; ``action_dim`` is one stream's width."""
 
     reads = (
         "condition",
@@ -137,12 +146,16 @@ class DualFlowDenoiserStage(Stage):
         condition_as_tokens: bool = True,
         shape_condition_key: str = "condition",
         clock_condition_key: str = "condition",
+        token_layout: str = "rows",
     ):
         super().__init__()
         self.shape_model = shape_model
         self.clock_model = clock_model
         self.waypoint_horizon = int(waypoint_horizon)
         self.action_dim = int(action_dim)
+        if token_layout not in ("rows", "channels"):
+            raise ValueError("token_layout must be rows or channels")
+        self.token_layout = token_layout
         self.condition_input_dim = int(condition_input_dim)
         self.num_inference_steps = int(num_inference_steps)
         self.condition_as_tokens = bool(condition_as_tokens)
@@ -233,7 +246,9 @@ class DualFlowDenoiserStage(Stage):
             shape = shape + step * self.shape_model(shape, time, shape_condition)
             clock = clock + step * self.clock_model(clock, time, clock_condition)
             time = time + step
-        batch["pred_action"] = torch.cat([shape, clock], dim=1)
+        batch["pred_action"] = torch.cat(
+            [shape, clock], dim=-1 if self.token_layout == "channels" else 1
+        )
         batch["log/DualFlowInferenceSteps"] = torch.tensor(
             float(self.num_inference_steps), device=device
         )

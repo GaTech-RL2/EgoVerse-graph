@@ -1779,7 +1779,7 @@ class MultiDataset(torch.utils.data.Dataset):
 
         The provenance checks normalization mode, key set, and any requested
         ARC action contract. Untagged legacy caches remain eligible for the
-        original joint_distance representation; new nonjoint modes require
+        original joint_distance row representation; new modes/layouts require
         matching contract metadata. Callers without a contract retain the
         legacy loading behavior.
         """
@@ -1802,11 +1802,13 @@ class MultiDataset(torch.utils.data.Dataset):
                 if (
                     wanted_contract.get("arc_chunking_mode") != "joint_distance"
                     or wanted_contract.get("source_sampling") is not None
+                    or wanted_contract.get("token_layout", "rows") != "rows"
                 ):
                     raise ValueError(
                         f"norm_stats file {precomputed_file} has no action contract for "
                         f"embodiment {embodiment}; arc_chunking_mode="
                         f"{wanted_contract.get('arc_chunking_mode')!r}, "
+                        f"token_layout={wanted_contract.get('token_layout', 'rows')!r}, "
                         f"source_sampling={wanted_contract.get('source_sampling')!r} requires matching "
                         "cache provenance. Recompute stats for this representation."
                     )
@@ -1815,7 +1817,11 @@ class MultiDataset(torch.utils.data.Dataset):
                     "without an action contract; existing data/cap compatibility "
                     "must have been checked by the caller.", precomputed_file,
                 )
-            elif file_contract != wanted_contract:
+            elif dict(
+                file_contract, token_layout=file_contract.get("token_layout", "rows")
+            ) != dict(
+                wanted_contract, token_layout=wanted_contract.get("token_layout", "rows")
+            ):
                 raise ValueError(
                     f"norm_stats file {precomputed_file} action contract for embodiment "
                     f"{embodiment} differs: cached={file_contract!r}, "
@@ -1845,7 +1851,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 "different keymap/transform mode — recompute the stats."
             )
         if file_contract is not None:
-            self.action_contracts[embodiment] = copy.deepcopy(file_contract)
+            self.action_contracts[embodiment] = copy.deepcopy(
+                wanted_contract or file_contract
+            )
         self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
         self._norm_run_metadata = payload.get("norm_run_metadata", None)
 

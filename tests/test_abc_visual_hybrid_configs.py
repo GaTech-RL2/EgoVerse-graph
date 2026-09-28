@@ -50,7 +50,9 @@ def test_single_task_visual_launch_contract(name, embodiment, hybrid, monkeypatc
     monkeypatch.setenv("EGOVERSE_ABC_DATASET_DIR", "/tmp/unused-abc-data")
     cfg = config(name)
     assert "qwen" not in OmegaConf.to_yaml(cfg.model, resolve=True).lower()
-    assert cfg.hpt.action_horizon == (200 if hybrid else 100)
+    assert cfg.hpt.action_horizon == 100
+    assert cfg.hpt.action_dim == (28 if hybrid else 14)
+    assert cfg.hpt.proprio_dim == 14
     assert cfg.norm_stats.sample_frac == 0.10
     assert cfg.evaluator.distance_dtw_enabled
     assert cfg.evaluator.velocity_mode == "per_waypoint"
@@ -69,7 +71,7 @@ def test_single_task_visual_launch_contract(name, embodiment, hybrid, monkeypatc
         if stage._target_.endswith("ActionTargetBuilder")
     ]
     stage = hydra.utils.instantiate(targets[0])
-    actions = torch.zeros((1, cfg.hpt.action_horizon, 14))
+    actions = torch.zeros((1, cfg.hpt.action_horizon, cfg.hpt.action_dim))
     assert stage({"actions_cartesian": actions})["target"] is actions
 
 
@@ -78,7 +80,9 @@ def test_visual_config_contract(name, hybrid, width, episodes, monkeypatch):
     monkeypatch.setenv("EGOVERSE_ABC_DATASET_DIR", "/tmp/unused-abc-data")
     cfg = config(name)
     assert cfg.hpt.embed_dim == width
-    assert cfg.hpt.action_horizon == (200 if hybrid else 100)
+    assert cfg.hpt.action_horizon == 100
+    assert cfg.hpt.action_dim == (28 if hybrid else 14)
+    assert cfg.hpt.proprio_dim == 14
     assert cfg.norm_stats.sample_frac == 0.10
     targets = [
         stage

@@ -26,6 +26,7 @@ train_datasets:
         arc_chunking_mode: ${abc.arc_chunking_mode}
         resampled_vector_length: ${abc.arc_waypoints}
         velocity_mode: per_waypoint
+        token_layout: ${abc.arc_token_layout}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

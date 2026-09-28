@@ -449,6 +449,7 @@ class Human(Embodiment):
         pad_proprio_gripper: bool = False,
         keypoint_gripper: bool = False,
         arc_chunking_mode: str | None = None,
+        token_layout: str = "rows",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -546,6 +547,7 @@ class Human(Embodiment):
                 dt=1.0 / 30.0 if native_arc else float(stride) / 30.0,
                 velocity_mode=velocity_mode,
                 arc_chunking_mode=arc_chunking_mode,
+                token_layout=token_layout,
                 preserve_action_rows=100 if native_arc else None,
             )
         prefix = []

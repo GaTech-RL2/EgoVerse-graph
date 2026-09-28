@@ -153,15 +153,20 @@ def test_legacy_mean_timing_and_noncartesian_models_fail_closed():
     assert "actions_cartesian" in artifact["reason"]
 
 
+@pytest.mark.parametrize("token_layout", ["rows", "channels"])
 @pytest.mark.parametrize("mode", ["race", "multistream", "joint_distance"])
 @pytest.mark.parametrize("saved_contract", [False, True])
-def test_abc_arc_tokens_are_never_exported_as_cartesian_frames(mode, saved_contract):
-    training = training_config(horizon=200)
+def test_abc_arc_tokens_are_never_exported_as_cartesian_frames(mode, saved_contract, token_layout):
+    training = training_config(
+        horizon=100 if token_layout == "channels" else 200,
+        action_dim=28 if token_layout == "channels" else 14,
+    )
     if saved_contract:
         training.run_provenance = {
             "action_contract": {
                 "representation": "hybrid_arc_tokenizer_cartesian",
                 "arc_chunking_mode": mode,
+                "token_layout": token_layout,
             }
         }
     else:
@@ -169,6 +174,7 @@ def test_abc_arc_tokens_are_never_exported_as_cartesian_frames(mode, saved_contr
             "action_mode": "hybrid_arc_tokenizer_cartesian",
             "arc_chunking_mode": mode,
             "arc_velocity_mode": "per_waypoint",
+            "arc_token_layout": token_layout,
         }
     artifact = build_inference_config(training)
     assert artifact["status"] == "unsupported"

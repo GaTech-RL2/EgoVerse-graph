@@ -1,0 +1,71 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+enable_grad_norm: false
+training_behavior:
+  _target_: egomimic.pl_utils.oat_training.OATDiffusionTrainingBehavior
+  learning_rate: 5.0e-05
+  obs_enc_lr: 1.0e-05
+  weight_decay: 0.0
+  betas:
+  - 0.9
+  - 0.95
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+  - _target_: egomimic.pipeline.stages_oat.OATObservationStage
+    encoder:
+      _target_: egomimic.models.oat.factory.make_obs_encoder
+    obs_keys:
+    - agentview_rgb
+    - robot0_eye_in_hand_rgb
+    - robot0_eef_pos
+    - robot0_eef_quat
+    - robot0_gripper_qpos
+    - task_uid
+  - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    action_key: actions
+  - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+    action_horizon: ${benchmark.horizon}
+    action_dim: 7
+    noise_scheduler: &id001
+      _target_: diffusers.schedulers.scheduling_ddim.DDIMScheduler
+      num_train_timesteps: 100
+      beta_start: 0.0001
+      beta_end: 0.02
+      beta_schedule: squaredcos_cap_v2
+      clip_sample: true
+      set_alpha_to_one: true
+      steps_offset: 0
+      prediction_type: epsilon
+  - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+    action_horizon: ${benchmark.horizon}
+    action_dim: 7
+    condition_input_dim: 276
+    policy:
+      _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+      action_horizon: ${benchmark.horizon}
+      num_inference_steps: 10
+      model:
+        _target_: egomimic.models.oat.diffusion.GraphDiffusionTransformer
+        input_dim: 7
+        output_dim: 7
+        horizon: ${benchmark.horizon}
+        n_obs_steps: ${benchmark.n_obs_steps}
+        cond_dim: 138
+        n_layer: 4
+        n_head: 4
+        n_emb: 256
+        p_drop_emb: 0.1
+        p_drop_attn: 0.1
+        causal_attn: true
+        time_as_cond: true
+        obs_as_cond: true
+        n_cond_layers: 0
+      noise_scheduler: *id001
+  - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+benchmark_protocol:
+  suite: ${benchmark.suite}
+  horizon: ${benchmark.horizon}
+  n_obs_steps: ${benchmark.n_obs_steps}
+  n_action_steps: ${benchmark.n_action_steps}
+  action_representation: raw_actions
+  dp_backbone: oat_dp

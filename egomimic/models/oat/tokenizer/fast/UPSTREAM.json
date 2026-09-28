@@ -1,0 +1,8 @@
+{
+  "repository": "https://huggingface.co/physical-intelligence/fast",
+  "revision": "ec4d7aa71691cac0b8bed6942be45684db2110f4",
+  "license": "Apache-2.0",
+  "files": {
+    "processing_action_tokenizer.py": "6f021ca1f4c1b194ab6fa399d80baf3d642eadb17efb8f73301e4ac401522c20"
+  }
+}

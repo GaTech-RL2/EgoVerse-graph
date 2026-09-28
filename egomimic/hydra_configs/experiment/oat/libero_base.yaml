@@ -1,0 +1,52 @@
+# @package _global_
+defaults:
+  - override /data: libero/oat
+  - override /trainer: default
+  - override /evaluator: libero
+  - override /callbacks: oat
+  - override /logger: null
+
+name: arc_oat
+description: ${benchmark.suite}
+normalizer:
+  _target_: egomimic.rldb.zarr.libero_dataset.LiberoNormalizer
+norm_stats:
+  norm_mode: oat_limits
+  sample_frac: 1.0
+  num_workers: 0
+trainer:
+  accelerator: gpu
+  devices: 1
+  precision: bf16-mixed
+  max_epochs: 5001
+  min_epochs: null
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  check_val_every_n_epoch: 10
+  num_sanity_val_steps: 0
+  gradient_clip_val: 1.0
+  # Released launcher: 4 GPUs x 256 examples; preserve that optimizer batch on 1 GPU.
+  accumulate_grad_batches: 4
+  log_every_n_steps: 10
+
+benchmark:
+  suite: libero10
+  dataset: ???
+  decoded_replay_cache: true
+  batch_size: 256
+  horizon: 32
+  n_obs_steps: 2
+  n_action_steps: 16
+  tokenizer_checkpoint: null
+  arc_waypoints: 16
+  arc_mode: joint_dur
+  arc_action_dim: 11
+  # Magnitude bound for three componentwise [-1,1] OSC commands: sqrt(3).
+  arc_velocity_norm_bound: 1.7320508075688772
+  arc_encode_cache_size: 262144
+  arc_max_translation: null
+  arc_max_rotation_degrees: null
+  max_episode_steps: 550
+  trials_per_task: 50
+  repetitions: 5
+  start_seed: 1000

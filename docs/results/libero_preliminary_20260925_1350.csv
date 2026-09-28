@@ -1,0 +1,8 @@
+suite,method,run_id,successes,episodes,partial_success_rate_percent,oat_same_episode_success_rate_percent,tasks_started,tasks_complete,full_evaluation
+libero_spatial,ARC / OAT-DP STK1,arc-dpr-20260925-stk1-spatial,1532,1969,77.80599288979177,64.14423565261554,9,7,False
+libero_spatial,Plain DP / OAT-release,dp-plain-20260925-oat-spatial-eval,1411,2033,69.40482046237088,64.24003935071323,9,7,False
+libero_spatial,Plain DP / U-Net,dp-eval-r1-20260925-unet-spatial,23,130,17.692307692307693,63.07692307692308,1,0,False
+libero_object,Plain DP / U-Net,dp-plain-20260925-unet-object-eval,787,1632,48.22303921568628,0.36764705882352944,7,6,False
+libero_object,Plain DP / OAT-release,dp-plain-r1-20260925-oat-object-eval,0,723,0.0,0.6915629322268326,3,2,False
+libero_goal,Plain DP / U-Net,dp-eval-r1-20260925-unet-goal,2018,2350,85.87234042553192,75.23404255319149,10,9,False
+libero_10,Plain DP / OAT-release,dp-plain-20260925-oat-10-eval,43,120,35.833333333333336,59.166666666666664,1,0,False

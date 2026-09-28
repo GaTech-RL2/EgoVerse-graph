@@ -1,0 +1,531 @@
+{
+  "kind": "demonstration_replay_not_policy_scores",
+  "arc_mode": "joint_dur",
+  "superseded_as_main_comparison_by": [
+    "dur",
+    "stk"
+  ],
+  "best_tested_not_global_optimum": true,
+  "suites": [
+    {
+      "suite": "libero_spatial",
+      "arc_mode": "joint_dur",
+      "run_id": "arc-replay-rdm4-20260921-libero-spatial",
+      "codec": {
+        "max_rotation_degrees": 128,
+        "max_translation": 1.6,
+        "num_waypoints": 32
+      },
+      "selection": {
+        "R128_D1.6_M32": {
+          "episodes": 80,
+          "successes": 77,
+          "raw_successes": 72,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9625,
+          "action_mse": 0.00012318020412467346,
+          "eef_rmse_vs_raw_metres": 0.001260836557539271,
+          "max_action_mse": 0.0004981880316561035,
+          "max_state_l2_vs_raw_mean": 1.2938475609862303,
+          "gained_successes": 5
+        },
+        "raw": {
+          "episodes": 80,
+          "successes": 72,
+          "raw_successes": 72,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        }
+      },
+      "confirmation": {
+        "R128_D1.6_M32": {
+          "episodes": 150,
+          "successes": 144,
+          "raw_successes": 142,
+          "lost_raw_successes": 2,
+          "retention": 0.9859154929577465,
+          "success_rate": 0.96,
+          "action_mse": 0.00012692859825013493,
+          "eef_rmse_vs_raw_metres": 0.0011882056765069348,
+          "max_action_mse": 0.000512115112419825,
+          "max_state_l2_vs_raw_mean": 1.0549567847322192,
+          "gained_successes": 4
+        },
+        "raw": {
+          "episodes": 150,
+          "successes": 142,
+          "raw_successes": 142,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9466666666666667,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "dense": {
+          "episodes": 150,
+          "successes": 143,
+          "raw_successes": 142,
+          "lost_raw_successes": 1,
+          "retention": 0.9929577464788732,
+          "success_rate": 0.9533333333333334,
+          "action_mse": 7.166662290397445e-15,
+          "eef_rmse_vs_raw_metres": 0.00039976260661326533,
+          "max_action_mse": 1.3601309775041409e-14,
+          "max_state_l2_vs_raw_mean": 0.9152486705368315,
+          "gained_successes": 2
+        },
+        "previous_M16": {
+          "episodes": 150,
+          "successes": 144,
+          "raw_successes": 142,
+          "lost_raw_successes": 2,
+          "retention": 0.9859154929577465,
+          "success_rate": 0.96,
+          "action_mse": 0.0005690556609098378,
+          "eef_rmse_vs_raw_metres": 0.0016924378967676978,
+          "max_action_mse": 0.0017512526073243022,
+          "max_state_l2_vs_raw_mean": 1.361912056004555,
+          "gained_successes": 4
+        }
+      },
+      "artifact_sha256": {
+        "status.json": "d6f594044aa745e98abe2f6d561112aad905a86071e7cd69e7f9fdf9111a7f61",
+        "runtime.json": "219a599431e0bf0b888fa87df87ca86ee0ccea1d8f05b431aed01e3a7c4d50f8",
+        "spec.json": "1de456a66ec3e5e2865cc3308da3d9a839c51bfcd0ee6846f59e0569f84b4d68",
+        "environment-audit.json": "6d4f92177d84b8a5ed2f6592c62fbe5b9c922ad57c3e1e4cffa66cb7a28b9dc6",
+        "selection.json": "c1a7ddb02cc50f58e262a3f4446656a784c6c2cb07bbc7415a38e800aae74b76",
+        "selected-before-confirmation.json": "6c97484f677f5c03582700e38ba744012831bd0db11f2b5c4b989397f71f5403",
+        "result.json": "1e0f7941945c289f5e2c0377340ae248c69da8c807dbb36b7c1dca6a1524f961"
+      },
+      "confirmation_inventory_sha256": "d9b68d6a2e3b0fd0fde882948377cdb0b5c93dcdbce9f79ff620c9b74100ae88",
+      "verified_episode_count": 150,
+      "source_commit": "e2dc217b31e6aca3c4f0078a118fab27de8b7e63"
+    },
+    {
+      "suite": "libero_object",
+      "arc_mode": "joint_dur",
+      "run_id": "arc-replay-rdm4-20260921-libero-object",
+      "codec": {
+        "max_rotation_degrees": 96,
+        "max_translation": 0.8,
+        "num_waypoints": 16
+      },
+      "selection": {
+        "R96_D0.8_M16": {
+          "episodes": 80,
+          "successes": 78,
+          "raw_successes": 77,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.975,
+          "action_mse": 0.00030640025245958613,
+          "eef_rmse_vs_raw_metres": 0.0016897029319487427,
+          "max_action_mse": 0.006335266641044743,
+          "max_state_l2_vs_raw_mean": 0.8570798075344483,
+          "gained_successes": 1
+        },
+        "raw": {
+          "episodes": 80,
+          "successes": 77,
+          "raw_successes": 77,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9625,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        }
+      },
+      "confirmation": {
+        "R96_D0.8_M16": {
+          "episodes": 150,
+          "successes": 141,
+          "raw_successes": 139,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.94,
+          "action_mse": 0.000248132925385989,
+          "eef_rmse_vs_raw_metres": 0.0017101890616865007,
+          "max_action_mse": 0.002944057555879619,
+          "max_state_l2_vs_raw_mean": 0.9160569805645578,
+          "gained_successes": 2
+        },
+        "raw": {
+          "episodes": 150,
+          "successes": 139,
+          "raw_successes": 139,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9266666666666666,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "dense": {
+          "episodes": 150,
+          "successes": 139,
+          "raw_successes": 139,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9266666666666666,
+          "action_mse": 6.598057952674045e-15,
+          "eef_rmse_vs_raw_metres": 0.00029341759041578687,
+          "max_action_mse": 1.1223033913571973e-14,
+          "max_state_l2_vs_raw_mean": 0.9169824563436393,
+          "gained_successes": 0
+        },
+        "previous_M16": {
+          "episodes": 150,
+          "successes": 140,
+          "raw_successes": 139,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9333333333333333,
+          "action_mse": 0.0003436875813595945,
+          "eef_rmse_vs_raw_metres": 0.002439179908215283,
+          "max_action_mse": 0.0010922960982772717,
+          "max_state_l2_vs_raw_mean": 1.1474774020107963,
+          "gained_successes": 1
+        }
+      },
+      "artifact_sha256": {
+        "status.json": "d6f594044aa745e98abe2f6d561112aad905a86071e7cd69e7f9fdf9111a7f61",
+        "runtime.json": "ca4322fedcb972af59298d1eda05ecc9b7bb768f082208bceb33d1e8862693e5",
+        "spec.json": "1de456a66ec3e5e2865cc3308da3d9a839c51bfcd0ee6846f59e0569f84b4d68",
+        "environment-audit.json": "6d4f92177d84b8a5ed2f6592c62fbe5b9c922ad57c3e1e4cffa66cb7a28b9dc6",
+        "selection.json": "6b40a5fab872492680dd347704a9934a7abc22686284eca0a735867c39d6e20e",
+        "selected-before-confirmation.json": "398b9a129272b47f8e47b12c62cffd0e098a0b912284922d8a6d2ad48caf17cb",
+        "result.json": "9730eb8d3fd1faa02340794a3dc4a5b2ca73a8080cd00df680741fa2c5717988"
+      },
+      "confirmation_inventory_sha256": "2346cf94bb214c590e0274bd74fa32efe2e3a0560d2abc6dec1c6e369c887f28",
+      "verified_episode_count": 150,
+      "source_commit": "e2dc217b31e6aca3c4f0078a118fab27de8b7e63"
+    },
+    {
+      "suite": "libero_goal",
+      "arc_mode": "joint_dur",
+      "run_id": "arc-replay-rdm4-20260921-libero-goal",
+      "codec": {
+        "max_rotation_degrees": 384,
+        "max_translation": null,
+        "num_waypoints": 36
+      },
+      "selection": {
+        "R384_Dfull_M36": {
+          "episodes": 80,
+          "successes": 79,
+          "raw_successes": 79,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9875,
+          "action_mse": 6.716310493353182e-15,
+          "eef_rmse_vs_raw_metres": 0.00032364219183688363,
+          "max_action_mse": 1.4124159521837195e-14,
+          "max_state_l2_vs_raw_mean": 0.748655561428765,
+          "gained_successes": 0
+        },
+        "raw": {
+          "episodes": 80,
+          "successes": 79,
+          "raw_successes": 79,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9875,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        }
+      },
+      "confirmation": {
+        "R384_Dfull_M36": {
+          "episodes": 150,
+          "successes": 142,
+          "raw_successes": 143,
+          "lost_raw_successes": 1,
+          "retention": 0.993006993006993,
+          "success_rate": 0.9466666666666667,
+          "action_mse": 6.315926567019423e-15,
+          "eef_rmse_vs_raw_metres": 0.0004059057704845574,
+          "max_action_mse": 1.7036926680118727e-14,
+          "max_state_l2_vs_raw_mean": 1.0384448576713654,
+          "gained_successes": 0
+        },
+        "raw": {
+          "episodes": 150,
+          "successes": 143,
+          "raw_successes": 143,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9533333333333334,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "dense": {
+          "episodes": 150,
+          "successes": 142,
+          "raw_successes": 143,
+          "lost_raw_successes": 1,
+          "retention": 0.993006993006993,
+          "success_rate": 0.9466666666666667,
+          "action_mse": 6.315926567019423e-15,
+          "eef_rmse_vs_raw_metres": 0.0004059057704845574,
+          "max_action_mse": 1.7036926680118727e-14,
+          "max_state_l2_vs_raw_mean": 1.0384448576713654,
+          "gained_successes": 0
+        },
+        "previous_M16": {
+          "episodes": 150,
+          "successes": 136,
+          "raw_successes": 143,
+          "lost_raw_successes": 7,
+          "retention": 0.951048951048951,
+          "success_rate": 0.9066666666666666,
+          "action_mse": 0.00047205048157942224,
+          "eef_rmse_vs_raw_metres": 0.0017277535290173077,
+          "max_action_mse": 0.0017292629228712534,
+          "max_state_l2_vs_raw_mean": 1.0665433971538871,
+          "gained_successes": 0
+        }
+      },
+      "artifact_sha256": {
+        "status.json": "853d7ae0031b7eba4928046fec19141f6fbdf8e3db8ddf770fdf8ff046d2e28f",
+        "runtime.json": "cb3f98f23c3d2e4f58ab41a8fe9b406f81b7c03db23702e8c0237349dc5e1de9",
+        "spec.json": "1de456a66ec3e5e2865cc3308da3d9a839c51bfcd0ee6846f59e0569f84b4d68",
+        "environment-audit.json": "6d4f92177d84b8a5ed2f6592c62fbe5b9c922ad57c3e1e4cffa66cb7a28b9dc6",
+        "selection.json": "5e86582e7f8104e8ef01945f9296d083f896e8a94c797a2ed416adb9fd702196",
+        "selected-before-confirmation.json": "f929bcc248d47b0534962d1a733dd360f0b59144658e16a359ff40c80d75621b",
+        "result.json": "83920735581690a66b3e8a7113d2bd4f857db03bf4d4115c4d1e23bbaa1a01f0"
+      },
+      "confirmation_inventory_sha256": "13d72c8c1a63a2053bf6f3989c6a1693d8a6eab6977976a9bebbc15ea6436e77",
+      "verified_episode_count": 150,
+      "source_commit": "e2dc217b31e6aca3c4f0078a118fab27de8b7e63"
+    },
+    {
+      "suite": "libero_10",
+      "arc_mode": "joint_dur",
+      "run_id": "arc-replay-rdm4-20260921-libero-10",
+      "codec": {
+        "max_rotation_degrees": 192,
+        "max_translation": 1.6,
+        "num_waypoints": 36
+      },
+      "selection": {
+        "R192_D1.6_M36": {
+          "episodes": 80,
+          "successes": 71,
+          "raw_successes": 67,
+          "lost_raw_successes": 2,
+          "retention": 0.9701492537313433,
+          "success_rate": 0.8875,
+          "action_mse": 4.786460077160424e-15,
+          "eef_rmse_vs_raw_metres": 0.0032252165058173506,
+          "max_action_mse": 7.905262864974297e-15,
+          "max_state_l2_vs_raw_mean": 1.2232667102980213,
+          "gained_successes": 6
+        },
+        "raw": {
+          "episodes": 80,
+          "successes": 67,
+          "raw_successes": 67,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.8375,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        }
+      },
+      "confirmation": {
+        "R192_D1.6_M36": {
+          "episodes": 150,
+          "successes": 121,
+          "raw_successes": 125,
+          "lost_raw_successes": 8,
+          "retention": 0.936,
+          "success_rate": 0.8066666666666666,
+          "action_mse": 4.622283972817247e-15,
+          "eef_rmse_vs_raw_metres": 0.0020670974754685672,
+          "max_action_mse": 1.0225007972567842e-14,
+          "max_state_l2_vs_raw_mean": 1.54469514018107,
+          "gained_successes": 4
+        },
+        "raw": {
+          "episodes": 150,
+          "successes": 125,
+          "raw_successes": 125,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.8333333333333334,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "dense": {
+          "episodes": 150,
+          "successes": 121,
+          "raw_successes": 125,
+          "lost_raw_successes": 8,
+          "retention": 0.936,
+          "success_rate": 0.8066666666666666,
+          "action_mse": 4.6222842081182905e-15,
+          "eef_rmse_vs_raw_metres": 0.00208461953143982,
+          "max_action_mse": 1.0225007972567842e-14,
+          "max_state_l2_vs_raw_mean": 1.5446951401809268,
+          "gained_successes": 4
+        },
+        "previous_M16": {
+          "episodes": 150,
+          "successes": 123,
+          "raw_successes": 125,
+          "lost_raw_successes": 7,
+          "retention": 0.944,
+          "success_rate": 0.82,
+          "action_mse": 0.0002468096710583886,
+          "eef_rmse_vs_raw_metres": 0.004364344769186418,
+          "max_action_mse": 0.0006626984581259295,
+          "max_state_l2_vs_raw_mean": 1.6568049827736049,
+          "gained_successes": 5
+        }
+      },
+      "artifact_sha256": {
+        "status.json": "853d7ae0031b7eba4928046fec19141f6fbdf8e3db8ddf770fdf8ff046d2e28f",
+        "runtime.json": "427db78ef77e5c4266dbd94f12521c9ab4dde0eb8c1aaab8ff2dd6aa2acf0d4d",
+        "spec.json": "1de456a66ec3e5e2865cc3308da3d9a839c51bfcd0ee6846f59e0569f84b4d68",
+        "environment-audit.json": "6d4f92177d84b8a5ed2f6592c62fbe5b9c922ad57c3e1e4cffa66cb7a28b9dc6",
+        "selection.json": "b1aa98b2575c02558f244c8681d8b571283011dac9a6d817d8140b3f62264ef6",
+        "selected-before-confirmation.json": "5c13dd3a9ad665cc7a61e36c71a5eebfddb8e02690a03d8019029f931099abd7",
+        "result.json": "2244f9e231757cf1c64d47c753e7d0177babdb78231a32ea5e732b58c25f0a53"
+      },
+      "confirmation_inventory_sha256": "fa8e5fd6456b7d9e30ad7cbb21539a7488a50c0e040ab63f62525665b4b57102",
+      "verified_episode_count": 150,
+      "source_commit": "e2dc217b31e6aca3c4f0078a118fab27de8b7e63"
+    },
+    {
+      "suite": "libero_90",
+      "arc_mode": "joint_dur",
+      "run_id": "arc-replay-rdm5-20260921-libero-90",
+      "codec": {
+        "max_rotation_degrees": 384,
+        "max_translation": 1.6,
+        "num_waypoints": 32
+      },
+      "selection": {
+        "R384_D1.6_M32": {
+          "episodes": 720,
+          "successes": 683,
+          "raw_successes": 678,
+          "lost_raw_successes": 9,
+          "retention": 0.9867256637168141,
+          "success_rate": 0.9486111111111111,
+          "action_mse": 6.613735129846907e-05,
+          "eef_rmse_vs_raw_metres": 0.0012978137583957781,
+          "max_action_mse": 0.0003871472546875892,
+          "max_state_l2_vs_raw_mean": 1.3263329215642694,
+          "gained_successes": 14
+        },
+        "raw": {
+          "episodes": 720,
+          "successes": 678,
+          "raw_successes": 678,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.9416666666666667,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        }
+      },
+      "confirmation": {
+        "R384_D1.6_M32": {
+          "episodes": 1350,
+          "successes": 1271,
+          "raw_successes": 1265,
+          "lost_raw_successes": 15,
+          "retention": 0.9881422924901185,
+          "success_rate": 0.9414814814814815,
+          "action_mse": 6.670306578524681e-05,
+          "eef_rmse_vs_raw_metres": 0.0011476020449371612,
+          "max_action_mse": 0.00046636780466882536,
+          "max_state_l2_vs_raw_mean": 0.9991701586055097,
+          "gained_successes": 21
+        },
+        "raw": {
+          "episodes": 1350,
+          "successes": 1265,
+          "raw_successes": 1265,
+          "lost_raw_successes": 0,
+          "retention": 1.0,
+          "success_rate": 0.937037037037037,
+          "action_mse": 0.0,
+          "eef_rmse_vs_raw_metres": 0.0,
+          "max_action_mse": 0.0,
+          "max_state_l2_vs_raw_mean": 0.0,
+          "gained_successes": 0
+        },
+        "dense": {
+          "episodes": 1350,
+          "successes": 1272,
+          "raw_successes": 1265,
+          "lost_raw_successes": 9,
+          "retention": 0.9928853754940712,
+          "success_rate": 0.9422222222222222,
+          "action_mse": 5.2086630391283655e-15,
+          "eef_rmse_vs_raw_metres": 0.0005514234756613891,
+          "max_action_mse": 1.2108846780835424e-14,
+          "max_state_l2_vs_raw_mean": 0.9488080210701992,
+          "gained_successes": 16
+        },
+        "previous_M16": {
+          "episodes": 1350,
+          "successes": 1268,
+          "raw_successes": 1265,
+          "lost_raw_successes": 29,
+          "retention": 0.9770750988142293,
+          "success_rate": 0.9392592592592592,
+          "action_mse": 0.00027457834331415346,
+          "eef_rmse_vs_raw_metres": 0.0019783081027817994,
+          "max_action_mse": 0.001966923915955603,
+          "max_state_l2_vs_raw_mean": 0.9297779630475158,
+          "gained_successes": 32
+        }
+      },
+      "artifact_sha256": {
+        "status.json": "d6f594044aa745e98abe2f6d561112aad905a86071e7cd69e7f9fdf9111a7f61",
+        "runtime.json": "b90df6b99a22ddb81ef00d9a3ed3fb73140415583e299651912e18025574c896",
+        "spec.json": "4af09262203e485197dc89063ae317ad0d1f2da5bf48aba575afa9667fa947d7",
+        "environment-audit.json": "30e3803b99bd48a3ca4cfad53ba694dfb7d2766207334f81c1c294cf64c6a406",
+        "selection.json": "8a3e3d34055b6b2d6e1b27741166299ccaaa69c1d71c5752c9e9d0989aa72f6c",
+        "selected-before-confirmation.json": "07076da0303af148ca86c441b87f2fb15acddf7384085be030d6bbc06d594619",
+        "result.json": "e5d8e0f0ec444fc186c902ed489f7eb019a8df0a3451f23fdcc19214de2bc646"
+      },
+      "confirmation_inventory_sha256": "3a72c60336b1ab0036ae501f426a2477af34f9e9ae4b5fbfda4635a84dd72849",
+      "verified_episode_count": 1350,
+      "source_commit": "3be7e33fe929eaa484a6896b6aef6c0988a664bf"
+    }
+  ]
+}

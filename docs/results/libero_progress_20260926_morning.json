@@ -1,0 +1,1734 @@
+{
+  "at": "2026-09-26T16:33:52.908048+00:00",
+  "full_scores": 40,
+  "total_cells": 60,
+  "score_artifact": {
+    "sha256": "0879d6bc22a9cbabd26f8cf8e65a746c2c14e96217c132e3dac50d8c149aeda6",
+    "bytes": 915991,
+    "uploaded_at": "2026-09-26T16:13:53+00:00",
+    "parts": 28
+  },
+  "preempted_scheduler": {
+    "at": "2026-09-26T16:16:40.583979+00:00",
+    "runs": [
+      {
+        "workflow": "dp-eval-r2-20260926-oat-goal-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-dur1-goal-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 73d0e22debe844b6a817160bbc6c9d83: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-shared-stk-spatial-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 73d0e22debe844b6a817160bbc6c9d83: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-dur1-object-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 73d0e22debe844b6a817160bbc6c9d83: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-dur2-object-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: lower-priority P2 shared demand competes with P1 quota demand in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-shared-dur-goal-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: lower-priority P2 shared demand competes with P1 quota demand in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-dur2-spatial-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: lower-priority P2 shared demand competes with P1 quota demand in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-shared-dur-spatial-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: lower-priority P2 shared demand competes with P1 quota demand in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-shared-dur-object-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: lower-priority P2 shared demand competes with P1 quota demand in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-shared-stk-goal-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: lower-priority P2 shared demand competes with P1 quota demand in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-stk1-object-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: lower-priority P2 shared demand competes with P1 quota demand in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr2-20260926-shared-stk-object-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: lower-priority P2 shared demand competes with P1 quota demand in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "dp-eval-r3-20260926-unet-goal-1",
+        "status": "COMPLETED",
+        "cancelled_by": null,
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "COMPLETED",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "workflow": "dp-eval-r3-20260926-unet-10-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "dp-eval-r3-20260926-oat-10-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "dp-eval-r3-20260926-unet-object-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "dp-eval-r3-20260926-oat-object-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "dp-eval-r3-20260926-unet-spatial-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "dp-eval-r3-20260926-oat-spatial-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 32d729ac9f7a4081919d9fbbfc94410f: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr-20260925-shared-stk-10-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 73d0e22debe844b6a817160bbc6c9d83: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "arc-dpr-20260925-shared-dur-10-1",
+        "status": "FAILED_CANCELED",
+        "cancelled_by": "groot-idle-job-shutdown",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "FAILED_CANCELED",
+            "failure_message": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 73d0e22debe844b6a817160bbc6c9d83: reclaims lower-priority P2 shared capacity for nano-stereo-run017-real151-cos80k-260925-r3-1 in groot-l40s-03"
+          }
+        ]
+      },
+      {
+        "workflow": "libero-table-evening-20260926-1",
+        "status": "RUNNING",
+        "cancelled_by": null,
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "RUNNING",
+            "failure_message": null
+          }
+        ]
+      }
+    ]
+  },
+  "accepted_recoveries": [
+    {
+      "suite": "libero_spatial",
+      "architecture": "raw_oat_dp",
+      "profile": null,
+      "arc_mode": null,
+      "run_id": "dp-eval-r4-20260926-oat-spatial",
+      "replaces_run": "dp-eval-r3-20260926-oat-spatial",
+      "replaces_evaluation": "dp-eval-r3-20260926-oat-spatial",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 2270,
+      "resume_evaluation_from": "dp-eval-r3-20260926-oat-spatial",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "e9ba3e3af2a4e4cb27830a070725d1e87dc0d0941cf5e5298afa39e1b3f0fdfd"
+    },
+    {
+      "suite": "libero_object",
+      "architecture": "raw_unet",
+      "profile": null,
+      "arc_mode": null,
+      "run_id": "dp-eval-r4-20260926-unet-object",
+      "replaces_run": "dp-eval-r3-20260926-unet-object",
+      "replaces_evaluation": "dp-eval-r3-20260926-unet-object",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 1971,
+      "resume_evaluation_from": "dp-eval-r3-20260926-unet-object",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "cc4af1f0c27f0fdf2f4c0e2f51369b38e069ef4269e7e64f9961859f92cc2625"
+    },
+    {
+      "suite": "libero_10",
+      "architecture": "raw_unet",
+      "profile": null,
+      "arc_mode": null,
+      "run_id": "dp-eval-r4-20260926-unet-10",
+      "replaces_run": "dp-eval-r3-20260926-unet-10",
+      "replaces_evaluation": "dp-eval-r3-20260926-unet-10",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 1603,
+      "resume_evaluation_from": "dp-eval-r3-20260926-unet-10",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "f753b8415ae920f3ef6ad9fe32f0fc0e5629510bca68bae603e837493e8a8aea"
+    },
+    {
+      "suite": "libero_object",
+      "architecture": "raw_oat_dp",
+      "profile": null,
+      "arc_mode": null,
+      "run_id": "dp-eval-r4-20260926-oat-object",
+      "replaces_run": "dp-eval-r3-20260926-oat-object",
+      "replaces_evaluation": "dp-eval-r3-20260926-oat-object",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 954,
+      "resume_evaluation_from": "dp-eval-r3-20260926-oat-object",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "467115b60b993499dbee3985d58d1e84bdcb4d90062dbe5b5b62fd87e2905b47"
+    },
+    {
+      "suite": "libero_goal",
+      "architecture": "raw_oat_dp",
+      "profile": null,
+      "arc_mode": null,
+      "run_id": "dp-eval-r4-20260926-oat-goal",
+      "replaces_run": "dp-eval-r2-20260926-oat-goal",
+      "replaces_evaluation": "dp-eval-r2-20260926-oat-goal",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 524,
+      "resume_evaluation_from": "dp-eval-r2-20260926-oat-goal",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "6ffd7adf1077a22efc23d6e9eeac857b576e0ceafa7018816dde41bcdab9cd7d"
+    },
+    {
+      "suite": "libero_10",
+      "architecture": "raw_oat_dp",
+      "profile": null,
+      "arc_mode": null,
+      "run_id": "dp-eval-r4-20260926-oat-10",
+      "replaces_run": "dp-eval-r3-20260926-oat-10",
+      "replaces_evaluation": "dp-eval-r3-20260926-oat-10",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 346,
+      "resume_evaluation_from": "dp-eval-r3-20260926-oat-10",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "4bc7572042dacd72d5bb4fbd69487d2e8c96c3d168f2af2b0ee312bb5dc306d6"
+    },
+    {
+      "suite": "libero_spatial",
+      "architecture": "raw_unet",
+      "profile": null,
+      "arc_mode": null,
+      "run_id": "dp-eval-r4-20260926-unet-spatial",
+      "replaces_run": "dp-eval-r3-20260926-unet-spatial",
+      "replaces_evaluation": "dp-eval-r3-20260926-unet-spatial",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 292,
+      "resume_evaluation_from": "dp-eval-r3-20260926-unet-spatial",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "e9b9fa7a6f05e99dfd77bf837ff521966d44078ebc04fba46aecd3c12c846a3f"
+    },
+    {
+      "suite": "libero_10",
+      "architecture": "oat_dp",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "run_id": "arc-eval-r1-20260926-shared-stk-10",
+      "replaces_run": "arc-dpr-20260925-shared-stk-10",
+      "replaces_evaluation": "arc-dpr-20260925-shared-stk-10",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 1727,
+      "resume_evaluation_from": "arc-dpr-20260925-shared-stk-10",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "38251fdea15a3eaa1d9c3fd515866498206596eb9920c1f2509314c7ae6d1b0f"
+    },
+    {
+      "suite": "libero_10",
+      "architecture": "oat_dp",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "run_id": "arc-eval-r1-20260926-shared-dur-10",
+      "replaces_run": "arc-dpr-20260925-shared-dur-10",
+      "replaces_evaluation": "arc-dpr-20260925-shared-dur-10",
+      "recovery_kind": "evaluation",
+      "gpus": 1,
+      "saved_episodes": 977,
+      "resume_evaluation_from": "arc-dpr-20260925-shared-dur-10",
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "1cafbcdd1e6a6c1b692875d88196e20183de6143beac11ea03c5bc231a4a52e4"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "stk_1",
+      "arc_mode": "stk",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-stk1-object",
+      "replaces_run": "arc-dpr2-20260926-stk1-object",
+      "replaces_evaluation": "arc-dpr2-20260926-stk1-object",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-stk1-object",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "4c07f5d7c58f60e772278025806a824b9d164e6766d5d9056b16768bfe8360b8"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-dur1-object",
+      "replaces_run": "arc-dpr2-20260926-dur1-object",
+      "replaces_evaluation": "arc-dpr2-20260926-dur1-object",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr2-20260926-dur1-object",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "fbf7a8b3e305eb5fd1f8ff43bfcd3f1e5af7699745a9d3a6b9fb8e6c93bebed3"
+    },
+    {
+      "suite": "libero_goal",
+      "profile": "dur_1",
+      "arc_mode": "dur",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-dur1-goal",
+      "replaces_run": "arc-dpr2-20260926-dur1-goal",
+      "replaces_evaluation": "arc-dpr2-20260926-dur1-goal",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr2-20260926-dur1-goal",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "91382e66c9df7b1dadffa3a190c399e356fd9ae267f4a980752c1b7cee2a5e15"
+    },
+    {
+      "suite": "libero_spatial",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-dur2-spatial",
+      "replaces_run": "arc-dpr2-20260926-dur2-spatial",
+      "replaces_evaluation": "arc-dpr2-20260926-dur2-spatial",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-dur2-spatial",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "ab879c1857f5ca0602e6ec0861514e863e29101b7770ec91144ea2dc9509b84f"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "dur_2",
+      "arc_mode": "dur",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-dur2-object",
+      "replaces_run": "arc-dpr2-20260926-dur2-object",
+      "replaces_evaluation": "arc-dpr2-20260926-dur2-object",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-dur2-object",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "21215d5d23504f20bcdc9d7486bf5ba9adb01d2fda54d385073701b05a9737a4"
+    },
+    {
+      "suite": "libero_spatial",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-shared-stk-spatial",
+      "replaces_run": "arc-dpr2-20260926-shared-stk-spatial",
+      "replaces_evaluation": "arc-dpr2-20260926-shared-stk-spatial",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr2-20260926-shared-stk-spatial",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "b27b2a707cb79569a3e6d1c50337124d6baa56ccffb824596ef13ff798ccac32"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-shared-stk-object",
+      "replaces_run": "arc-dpr2-20260926-shared-stk-object",
+      "replaces_evaluation": "arc-dpr2-20260926-shared-stk-object",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-shared-stk-object",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "20d817d6384cde88af773a3ff460643022b54a1e004034b39ad2043302d4de98"
+    },
+    {
+      "suite": "libero_goal",
+      "profile": "shared",
+      "arc_mode": "stk",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-shared-stk-goal",
+      "replaces_run": "arc-dpr2-20260926-shared-stk-goal",
+      "replaces_evaluation": "arc-dpr2-20260926-shared-stk-goal",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-shared-stk-goal",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "82a68bf8d34c6215d9da9ca8160997ec10c44e415ecd8dba2d339c501f0cc7bc"
+    },
+    {
+      "suite": "libero_spatial",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-shared-dur-spatial",
+      "replaces_run": "arc-dpr2-20260926-shared-dur-spatial",
+      "replaces_evaluation": "arc-dpr2-20260926-shared-dur-spatial",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-shared-dur-spatial",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "37421f3bc13eb087e76fd822df25db91d8dca79b1e9d637e15413f308c4b9ea6"
+    },
+    {
+      "suite": "libero_object",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-shared-dur-object",
+      "replaces_run": "arc-dpr2-20260926-shared-dur-object",
+      "replaces_evaluation": "arc-dpr2-20260926-shared-dur-object",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dp-20260924-shared-dur-object",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "27270408ffe393ba1279f732d783442add40a42a211bbeb425f6c21dab10456d"
+    },
+    {
+      "suite": "libero_goal",
+      "profile": "shared",
+      "arc_mode": "dur",
+      "architecture": "oat_dp",
+      "run_id": "arc-dpr3-20260926-shared-dur-goal",
+      "replaces_run": "arc-dpr2-20260926-shared-dur-goal",
+      "replaces_evaluation": "arc-dpr2-20260926-shared-dur-goal",
+      "recovery_kind": "resume_training",
+      "resume_from_run": "arc-dpr-20260925-shared-dur-goal",
+      "gpus": 4,
+      "source_commit": "7cd14bbc668333de1412f7e1d023344a6cd5894c",
+      "pool": "groot-l40s-03",
+      "gpu_type": "L40S",
+      "epochs": 5001,
+      "global_batch_size": 1024,
+      "evaluation_episodes": 2500,
+      "workflow_sha256": "989f82ab82b02b02ffd52bb903f70119491def18506d2c19fb4e0c8e7fcfbc44"
+    }
+  ],
+  "recovery_scheduler": {
+    "at": "2026-09-26T16:33:52.908048+00:00",
+    "runs": [
+      {
+        "run_id": "dp-eval-r4-20260926-oat-spatial",
+        "status": "RUNNING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "RUNNING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-unet-object",
+        "status": "RUNNING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "RUNNING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-unet-10",
+        "status": "RUNNING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "RUNNING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-oat-object",
+        "status": "RUNNING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "RUNNING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-oat-goal",
+        "status": "RUNNING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "RUNNING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-oat-10",
+        "status": "RUNNING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "RUNNING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-unet-spatial",
+        "status": "RUNNING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "RUNNING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-eval-r1-20260926-shared-stk-10",
+        "status": "PENDING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-eval-r1-20260926-shared-dur-10",
+        "status": "PENDING",
+        "kind": "evaluation",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-stk1-object",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-dur1-object",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-dur1-goal",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-dur2-spatial",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-dur2-object",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-shared-stk-spatial",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-shared-stk-object",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-shared-stk-goal",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-shared-dur-spatial",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "SCHEDULING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-shared-dur-object",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "PROCESSING",
+            "failure_message": null
+          }
+        ]
+      },
+      {
+        "run_id": "arc-dpr3-20260926-shared-dur-goal",
+        "status": "PENDING",
+        "kind": "resume_training",
+        "tasks": [
+          {
+            "name": "libero",
+            "status": "PROCESSING",
+            "failure_message": null
+          }
+        ]
+      }
+    ]
+  },
+  "latest_checkpoint_proofs": [
+    {
+      "source_run": "arc-dpr2-20260926-dur1-object",
+      "method": "arc_dur",
+      "suite": "libero_object",
+      "runtime": {
+        "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+        "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+        "torch": "2.7.1+cu126",
+        "cuda": "12.6",
+        "gpu": "NVIDIA L40S",
+        "gpu_type": "L40S",
+        "suite": "libero_object",
+        "mode": "full",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "training_layout": {
+          "world_size": 4,
+          "microbatch_size": 256,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024
+        },
+        "evaluate_from_run": null,
+        "resume_from_run": "arc-dpr-20260925-dur1-object",
+        "arc_replay_run": null,
+        "arc_modes": [
+          "dur"
+        ],
+        "arc_replay_runs": {
+          "dur": "arc-five-v2-20260921-dur1-libero-object-replay"
+        },
+        "arc_only": true,
+        "arc_profile": "dur_1",
+        "arc_backbone": "oat_dp",
+        "evaluation_workers": 5,
+        "oat_reference_run": "arc-oat-h1008-20260923-object",
+        "campaign_id": null,
+        "campaign_runs": null,
+        "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-dur1-object/"
+      },
+      "checkpoint": {
+        "sha256": "9241215ea3060556f79923266f2295c08418900a1c330c28ba9611fed705f299",
+        "bytes": 435435204,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-dur1-object/checkpoints/9241215ea3060556f79923266f2295c08418900a1c330c28ba9611fed705f299/last.ckpt"
+      },
+      "request": {
+        "source_run": "arc-dpr2-20260926-dur1-object",
+        "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "epochs": 5001,
+        "total_optimizer_steps": 325065,
+        "checkpoint": {
+          "sha256": "9241215ea3060556f79923266f2295c08418900a1c330c28ba9611fed705f299",
+          "bytes": 435435204,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-dur1-object/checkpoints/9241215ea3060556f79923266f2295c08418900a1c330c28ba9611fed705f299/last.ckpt"
+        }
+      },
+      "sha256_verified": true,
+      "epochs_completed": 2899,
+      "global_step": 188500,
+      "ema_num_updates": 188500,
+      "optimizer_steps": [
+        188500.0
+      ],
+      "budget": {
+        "train_examples": 66940,
+        "microbatch_size": 128,
+        "world_size": 8,
+        "gradient_accumulation": 1,
+        "global_batch_size": 1024,
+        "optimizer_steps_per_epoch": 65,
+        "microbatches_per_epoch": 65,
+        "epochs": 5001,
+        "total_optimizer_steps": 325065,
+        "dropped_examples_per_epoch": 380
+      },
+      "benchmark": {
+        "arc_mode": "dur",
+        "arc_action_dim": 12,
+        "arc_waypoints": 24,
+        "arc_max_translation": 1.6,
+        "arc_max_rotation_degrees": 192,
+        "arc_velocity_norm_bound": 1.7320508075688772,
+        "arc_backbone": "oat_dp"
+      },
+      "complete": false
+    },
+    {
+      "source_run": "arc-dpr2-20260926-dur1-goal",
+      "method": "arc_dur",
+      "suite": "libero_goal",
+      "runtime": {
+        "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+        "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+        "torch": "2.7.1+cu126",
+        "cuda": "12.6",
+        "gpu": "NVIDIA L40S",
+        "gpu_type": "L40S",
+        "suite": "libero_goal",
+        "mode": "full",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "training_layout": {
+          "world_size": 4,
+          "microbatch_size": 256,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024
+        },
+        "evaluate_from_run": null,
+        "resume_from_run": "arc-dpr-20260925-dur1-goal",
+        "arc_replay_run": null,
+        "arc_modes": [
+          "dur"
+        ],
+        "arc_replay_runs": {
+          "dur": "arc-five-v2-20260921-dur1-libero-goal-replay"
+        },
+        "arc_only": true,
+        "arc_profile": "dur_1",
+        "arc_backbone": "oat_dp",
+        "evaluation_workers": 5,
+        "oat_reference_run": "arc-oat-h1008-20260923-goal",
+        "campaign_id": null,
+        "campaign_runs": null,
+        "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-dur1-goal/"
+      },
+      "checkpoint": {
+        "sha256": "42f62b2beca85ecdfabe7a7569968af14b29aac5226d98908a56f4528949c85a",
+        "bytes": 435435140,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-dur1-goal/checkpoints/42f62b2beca85ecdfabe7a7569968af14b29aac5226d98908a56f4528949c85a/last.ckpt"
+      },
+      "request": {
+        "source_run": "arc-dpr2-20260926-dur1-goal",
+        "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "42f62b2beca85ecdfabe7a7569968af14b29aac5226d98908a56f4528949c85a",
+          "bytes": 435435140,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-dur1-goal/checkpoints/42f62b2beca85ecdfabe7a7569968af14b29aac5226d98908a56f4528949c85a/last.ckpt"
+        }
+      },
+      "sha256_verified": true,
+      "epochs_completed": 4639,
+      "global_step": 259840,
+      "ema_num_updates": 259840,
+      "optimizer_steps": [
+        259840.0
+      ],
+      "budget": {
+        "train_examples": 57763,
+        "microbatch_size": 256,
+        "world_size": 4,
+        "gradient_accumulation": 1,
+        "global_batch_size": 1024,
+        "optimizer_steps_per_epoch": 56,
+        "microbatches_per_epoch": 56,
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "dropped_examples_per_epoch": 419
+      },
+      "benchmark": {
+        "arc_mode": "dur",
+        "arc_action_dim": 12,
+        "arc_waypoints": 24,
+        "arc_max_translation": 1.6,
+        "arc_max_rotation_degrees": 192,
+        "arc_velocity_norm_bound": 1.7320508075688772,
+        "arc_backbone": "oat_dp"
+      },
+      "complete": false
+    },
+    {
+      "source_run": "arc-dpr2-20260926-shared-stk-spatial",
+      "method": "arc_stk",
+      "suite": "libero_spatial",
+      "runtime": {
+        "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+        "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+        "torch": "2.7.1+cu126",
+        "cuda": "12.6",
+        "gpu": "NVIDIA L40S",
+        "gpu_type": "L40S",
+        "suite": "libero_spatial",
+        "mode": "full",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "training_layout": {
+          "world_size": 4,
+          "microbatch_size": 256,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024
+        },
+        "evaluate_from_run": null,
+        "resume_from_run": "arc-dpr-20260925-shared-stk-spatial",
+        "arc_replay_run": null,
+        "arc_modes": [
+          "stk"
+        ],
+        "arc_replay_runs": {
+          "stk": "arc-five-v2-20260921-shared-stk-libero-spatial-replay"
+        },
+        "arc_only": true,
+        "arc_profile": "shared",
+        "arc_backbone": "oat_dp",
+        "evaluation_workers": 5,
+        "oat_reference_run": "arc-cache-oat-20260923-spatial",
+        "campaign_id": null,
+        "campaign_runs": null,
+        "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-shared-stk-spatial/"
+      },
+      "checkpoint": {
+        "sha256": "3269c96861b237d77819733caa7ee147bf025c9866206a128424a5d91cf64932",
+        "bytes": 435487300,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-shared-stk-spatial/checkpoints/3269c96861b237d77819733caa7ee147bf025c9866206a128424a5d91cf64932/last.ckpt"
+      },
+      "request": {
+        "source_run": "arc-dpr2-20260926-shared-stk-spatial",
+        "source_commit": "d230b22e9c4a9832a72e5f2e0d98d5bb8d1ea4ac",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "3269c96861b237d77819733caa7ee147bf025c9866206a128424a5d91cf64932",
+          "bytes": 435487300,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr2-20260926-shared-stk-spatial/checkpoints/3269c96861b237d77819733caa7ee147bf025c9866206a128424a5d91cf64932/last.ckpt"
+        }
+      },
+      "sha256_verified": true,
+      "epochs_completed": 4559,
+      "global_step": 246240,
+      "ema_num_updates": 246240,
+      "optimizer_steps": [
+        246240.0
+      ],
+      "budget": {
+        "train_examples": 55861,
+        "microbatch_size": 256,
+        "world_size": 4,
+        "gradient_accumulation": 1,
+        "global_batch_size": 1024,
+        "optimizer_steps_per_epoch": 54,
+        "microbatches_per_epoch": 54,
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "dropped_examples_per_epoch": 565
+      },
+      "benchmark": {
+        "arc_mode": "stk",
+        "arc_action_dim": 12,
+        "arc_waypoints": 36,
+        "arc_max_translation": 1.6,
+        "arc_max_rotation_degrees": 384,
+        "arc_velocity_norm_bound": 1.7320508075688772,
+        "arc_backbone": "oat_dp"
+      },
+      "complete": false
+    },
+    {
+      "source_run": "arc-dpr-20260925-shared-stk-10",
+      "method": "arc_stk",
+      "suite": "libero_10",
+      "runtime": {
+        "source_commit": "6590ab8a01dd2347b3659356d03c821fee318a76",
+        "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+        "torch": "2.7.1+cu126",
+        "cuda": "12.6",
+        "gpu": "NVIDIA L40S",
+        "gpu_type": "L40S",
+        "suite": "libero_10",
+        "mode": "full",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "training_layout": {
+          "world_size": 8,
+          "microbatch_size": 128,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024
+        },
+        "evaluate_from_run": null,
+        "resume_from_run": null,
+        "arc_replay_run": null,
+        "arc_modes": [
+          "stk"
+        ],
+        "arc_replay_runs": {
+          "stk": "arc-five-v2-20260921-shared-stk-libero-10-replay"
+        },
+        "arc_only": true,
+        "arc_profile": "shared",
+        "arc_backbone": "oat_dp",
+        "evaluation_workers": 5,
+        "oat_reference_run": "arc-oat-h1008-20260923-10",
+        "campaign_id": null,
+        "campaign_runs": null,
+        "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-dpr-20260925-shared-stk-10/"
+      },
+      "checkpoint": {
+        "sha256": "59343ec2490d21f3ec5332158252a63a1649b5899c98daa8da2c73e86e2367cd",
+        "bytes": 435487300,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr-20260925-shared-stk-10/checkpoints/59343ec2490d21f3ec5332158252a63a1649b5899c98daa8da2c73e86e2367cd/last.ckpt"
+      },
+      "request": {
+        "source_run": "arc-dpr-20260925-shared-stk-10",
+        "source_commit": "6590ab8a01dd2347b3659356d03c821fee318a76",
+        "suite": "libero_10",
+        "method": "arc_stk",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "59343ec2490d21f3ec5332158252a63a1649b5899c98daa8da2c73e86e2367cd",
+          "bytes": 435487300,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr-20260925-shared-stk-10/checkpoints/59343ec2490d21f3ec5332158252a63a1649b5899c98daa8da2c73e86e2367cd/last.ckpt"
+        }
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 605121,
+      "ema_num_updates": 605121,
+      "optimizer_steps": [
+        605121.0
+      ],
+      "budget": {
+        "train_examples": 124087,
+        "microbatch_size": 128,
+        "world_size": 8,
+        "gradient_accumulation": 1,
+        "global_batch_size": 1024,
+        "optimizer_steps_per_epoch": 121,
+        "microbatches_per_epoch": 121,
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "dropped_examples_per_epoch": 183
+      },
+      "benchmark": {
+        "arc_mode": "stk",
+        "arc_action_dim": 12,
+        "arc_waypoints": 36,
+        "arc_max_translation": 1.6,
+        "arc_max_rotation_degrees": 384,
+        "arc_velocity_norm_bound": 1.7320508075688772,
+        "arc_backbone": "oat_dp"
+      },
+      "complete": true
+    },
+    {
+      "source_run": "arc-dpr-20260925-shared-dur-10",
+      "method": "arc_dur",
+      "suite": "libero_10",
+      "runtime": {
+        "source_commit": "6590ab8a01dd2347b3659356d03c821fee318a76",
+        "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+        "torch": "2.7.1+cu126",
+        "cuda": "12.6",
+        "gpu": "NVIDIA L40S",
+        "gpu_type": "L40S",
+        "suite": "libero_10",
+        "mode": "full",
+        "epochs": 5001,
+        "global_batch_size": 1024,
+        "training_layout": {
+          "world_size": 8,
+          "microbatch_size": 128,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024
+        },
+        "evaluate_from_run": null,
+        "resume_from_run": null,
+        "arc_replay_run": null,
+        "arc_modes": [
+          "dur"
+        ],
+        "arc_replay_runs": {
+          "dur": "arc-five-v2-20260921-shared-dur-libero-10-replay"
+        },
+        "arc_only": true,
+        "arc_profile": "shared",
+        "arc_backbone": "oat_dp",
+        "evaluation_workers": 5,
+        "oat_reference_run": "arc-oat-h1008-20260923-10",
+        "campaign_id": null,
+        "campaign_runs": null,
+        "artifact_prefix": "s3://rldb/experiments/arc-oat-20260919/arc-dpr-20260925-shared-dur-10/"
+      },
+      "checkpoint": {
+        "sha256": "f4df8dd2f6e674b568b0d967405e84701359fe981e8ecb72478a294569a2b727",
+        "bytes": 435487300,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr-20260925-shared-dur-10/checkpoints/f4df8dd2f6e674b568b0d967405e84701359fe981e8ecb72478a294569a2b727/last.ckpt"
+      },
+      "request": {
+        "source_run": "arc-dpr-20260925-shared-dur-10",
+        "source_commit": "6590ab8a01dd2347b3659356d03c821fee318a76",
+        "suite": "libero_10",
+        "method": "arc_dur",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "f4df8dd2f6e674b568b0d967405e84701359fe981e8ecb72478a294569a2b727",
+          "bytes": 435487300,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-dpr-20260925-shared-dur-10/checkpoints/f4df8dd2f6e674b568b0d967405e84701359fe981e8ecb72478a294569a2b727/last.ckpt"
+        }
+      },
+      "sha256_verified": true,
+      "epochs_completed": 5001,
+      "global_step": 605121,
+      "ema_num_updates": 605121,
+      "optimizer_steps": [
+        605121.0
+      ],
+      "budget": {
+        "train_examples": 124087,
+        "microbatch_size": 128,
+        "world_size": 8,
+        "gradient_accumulation": 1,
+        "global_batch_size": 1024,
+        "optimizer_steps_per_epoch": 121,
+        "microbatches_per_epoch": 121,
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "dropped_examples_per_epoch": 183
+      },
+      "benchmark": {
+        "arc_mode": "dur",
+        "arc_action_dim": 12,
+        "arc_waypoints": 36,
+        "arc_max_translation": 1.6,
+        "arc_max_rotation_degrees": 384,
+        "arc_velocity_norm_bound": 1.7320508075688772,
+        "arc_backbone": "oat_dp"
+      },
+      "complete": true
+    }
+  ],
+  "inline_evaluation_restore_proofs": [
+    {
+      "source_run": "arc-dpr-20260925-shared-stk-10",
+      "checkpoint_sha256": "59343ec2490d21f3ec5332158252a63a1649b5899c98daa8da2c73e86e2367cd",
+      "episodes": 1727,
+      "per_repetition": [
+        342,
+        342,
+        348,
+        341,
+        354
+      ],
+      "artifacts": {
+        "runtime.json": {
+          "sha256": "2f79e147e48a5f89ba41b4f6374ac3f5062529e204d7bce6e31c38d5fea76141",
+          "bytes": 954
+        },
+        "training/arc_stk/training-budget.json": {
+          "sha256": "6ebdf5bddb16100b97ac763b5fa8e36fd66e0b57744c7a4498ea7955a1e1884f",
+          "bytes": 294
+        },
+        "checkpoint-receipts.json": {
+          "sha256": "5d9ec2847777e609623d79bd73528cbcae71e7315c300ba379d2f1e10af6fb23",
+          "bytes": 175608
+        },
+        "repetitions/0/arc_stk/libero_10/episodes.jsonl": {
+          "sha256": "931d012d3b1829779d6e615a44e116096386d77363861451d575db00a03a4a65",
+          "bytes": 269135
+        },
+        "repetitions/0/arc_stk/libero_10/protocol.json": {
+          "sha256": "7f3e78fa438aa970d2671f0e18553317c733400660b8fb22d56da2b98f030820",
+          "bytes": 86842
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000000.mp4": {
+          "sha256": "9877a70968b3e332e58f1b41c94d1341313c6f3f6a05868cf73b66f621395891",
+          "bytes": 164853
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000001.mp4": {
+          "sha256": "5aeae880557327b38983435075f0d8ed3554ce452c56d6ca4d4a9991ad748a52",
+          "bytes": 76464
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000050.mp4": {
+          "sha256": "4d6d3c81a498686ef267d720f8f8b783c2d49746eba54c0f3391ddfef9829216",
+          "bytes": 123356
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000051.mp4": {
+          "sha256": "73dabe91bd017cd6959daf101b31c1e0ec7763ed0390c670779934a3007fbcf8",
+          "bytes": 111906
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000100.mp4": {
+          "sha256": "34da749cbe7c2e4c3ef04b0f2409c4bfd0d6299b8dd3f4be2d90b60898c49dbf",
+          "bytes": 72220
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000101.mp4": {
+          "sha256": "43793ef76b41f321ac53513b11064d9b56fdc385007b353be2ef7b4ca251941c",
+          "bytes": 170284
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000150.mp4": {
+          "sha256": "f139e1ef70e9d1842256d2bc7a146a4b290b07111171a56c27d0c6b5ff67b0aa",
+          "bytes": 84250
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000151.mp4": {
+          "sha256": "0a2bf5eb0243161feb6f8210ef151d5bfcc3387672e4d7e71b61a367fec8361f",
+          "bytes": 82461
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000200.mp4": {
+          "sha256": "28c967b47152965920f75abda7f34243459e9c3e1200dcc57e5aabeba1031bb3",
+          "bytes": 147098
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000201.mp4": {
+          "sha256": "35bad50726029709086f6d807c8a33f77d2d1895aaaf420f56cc033a3e3c0581",
+          "bytes": 66915
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000250.mp4": {
+          "sha256": "dacd756049a98684685cc3f8221f551f4212e84c61d5a47d98acc1731d65321f",
+          "bytes": 45335
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000251.mp4": {
+          "sha256": "3adf19a81da70a78e8b8da368a0cd60085c50e3df9a4139fe6d93da5920874f2",
+          "bytes": 47264
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000300.mp4": {
+          "sha256": "f8f8646b170ba40d678d4402e3b8f84917eedfd82c9ce502d61d8c87882c76a0",
+          "bytes": 172075
+        },
+        "repetitions/0/arc_stk/libero_10/rollout_000301.mp4": {
+          "sha256": "2fcb8080d9c9c8c61f40af52852c6ef3930c990ebd0fa4d3ee3b52ec7000aff6",
+          "bytes": 102619
+        },
+        "repetitions/1/arc_stk/libero_10/episodes.jsonl": {
+          "sha256": "c067a3a91cc2247e889e91ebca96054c0e3991cfc1d850c55c9293e895b2c388",
+          "bytes": 269571
+        },
+        "repetitions/1/arc_stk/libero_10/protocol.json": {
+          "sha256": "00d9e97ec6c322dab62f50fcd225c46e79d1cd55fabf623f99c83bdae44a5aa5",
+          "bytes": 86842
+        },
+        "repetitions/2/arc_stk/libero_10/episodes.jsonl": {
+          "sha256": "9bed38587eb903ee4e901e5727bdc9de4670c581d1ce73432a31bf906eed9292",
+          "bytes": 270888
+        },
+        "repetitions/2/arc_stk/libero_10/protocol.json": {
+          "sha256": "2ccd6d0a81410c6185d7ddb3b6ca567e5d20f663247c637ee7a67828a064fa07",
+          "bytes": 86842
+        },
+        "repetitions/3/arc_stk/libero_10/episodes.jsonl": {
+          "sha256": "2d8919cfd70e933ac138f53521998a479c57357c5268af41e4326ef1fe412af1",
+          "bytes": 268577
+        },
+        "repetitions/3/arc_stk/libero_10/protocol.json": {
+          "sha256": "ded4025a26b7ec17fc2fa1b5cef270e447e938231cad8f0c42c64a1342f340b3",
+          "bytes": 86842
+        },
+        "repetitions/4/arc_stk/libero_10/episodes.jsonl": {
+          "sha256": "39629515ebb61ee77f0f0f57ac9f07e5a37a2c1fafaf25b2f1c22d09e327576e",
+          "bytes": 275195
+        },
+        "repetitions/4/arc_stk/libero_10/protocol.json": {
+          "sha256": "2615b75cb8217b4cf31312e2cd64b5aee99f29a8b7d850301a5466437b922a42",
+          "bytes": 86842
+        }
+      }
+    },
+    {
+      "source_run": "arc-dpr-20260925-shared-dur-10",
+      "checkpoint_sha256": "f4df8dd2f6e674b568b0d967405e84701359fe981e8ecb72478a294569a2b727",
+      "episodes": 977,
+      "per_repetition": [
+        181,
+        198,
+        194,
+        198,
+        206
+      ],
+      "artifacts": {
+        "runtime.json": {
+          "sha256": "e68394cd2faf21b673e5bec28642daa6a81e7624567577438eaa9bb0cf761838",
+          "bytes": 954
+        },
+        "training/arc_dur/training-budget.json": {
+          "sha256": "6ebdf5bddb16100b97ac763b5fa8e36fd66e0b57744c7a4498ea7955a1e1884f",
+          "bytes": 294
+        },
+        "checkpoint-receipts.json": {
+          "sha256": "d23d1e2affabe4088a3c326b449a75583cda456d3c189efdc2cd8be4e49f69d5",
+          "bytes": 175608
+        },
+        "repetitions/0/arc_dur/libero_10/episodes.jsonl": {
+          "sha256": "cc10c3044e36d9c8357d9e3be0d31dd12765efa13900ed8b0fa241994244e0bd",
+          "bytes": 151027
+        },
+        "repetitions/0/arc_dur/libero_10/protocol.json": {
+          "sha256": "31e2de9b4df9057900bb0ccbf6f842c1546f088be2b8908ff8ca9ac414653876",
+          "bytes": 86842
+        },
+        "repetitions/0/arc_dur/libero_10/rollout_000000.mp4": {
+          "sha256": "2e7cefdb649405a53673a06b92ee2850da5f2005c85babd729011a4bb6bbf730",
+          "bytes": 170522
+        },
+        "repetitions/0/arc_dur/libero_10/rollout_000001.mp4": {
+          "sha256": "4563cb9ac4bde24258b8fd2e8ffc48f67f10990a3417d8989f524753b6249573",
+          "bytes": 69246
+        },
+        "repetitions/0/arc_dur/libero_10/rollout_000050.mp4": {
+          "sha256": "4e369d07e921feca99aec8e6086c6ceb0e5fa122e32798338b467c023b823c84",
+          "bytes": 104571
+        },
+        "repetitions/0/arc_dur/libero_10/rollout_000051.mp4": {
+          "sha256": "c05640c441874a8fdadc02170788d3ef459f844584141781c85542dc73544290",
+          "bytes": 156889
+        },
+        "repetitions/0/arc_dur/libero_10/rollout_000100.mp4": {
+          "sha256": "14742b55eadcff56b2e7038f21079e7f81bfe6ec838d4d300933260a3e2ace7e",
+          "bytes": 169170
+        },
+        "repetitions/0/arc_dur/libero_10/rollout_000101.mp4": {
+          "sha256": "85994e5758a77b1f5a6bdb37a12eddfde8a004e3c4e94c26e4140e4f1e48aa25",
+          "bytes": 68214
+        },
+        "repetitions/0/arc_dur/libero_10/rollout_000150.mp4": {
+          "sha256": "44424866c756368943beb486345a1e48508bb819d33a815672a8cb3697e09d10",
+          "bytes": 75252
+        },
+        "repetitions/0/arc_dur/libero_10/rollout_000151.mp4": {
+          "sha256": "13e2b37e7a04cfe69ede7ecb7cfddaa3bad3af30bb25d0fe7274941fde34bab2",
+          "bytes": 92154
+        },
+        "repetitions/1/arc_dur/libero_10/episodes.jsonl": {
+          "sha256": "165a1bfef496939557b963e5109db724a598b76123bc3a697be22ee1c1b11fa9",
+          "bytes": 158137
+        },
+        "repetitions/1/arc_dur/libero_10/protocol.json": {
+          "sha256": "17a670f10e21fbe851cce45fe293a669a5a491a0a5f25b0e5fa3d679c78edfad",
+          "bytes": 86842
+        },
+        "repetitions/2/arc_dur/libero_10/episodes.jsonl": {
+          "sha256": "67c24046e3cd11866d0baae54d13425c783f1c8ae7e7deb7310a5fed532e4760",
+          "bytes": 155401
+        },
+        "repetitions/2/arc_dur/libero_10/protocol.json": {
+          "sha256": "c49cc8ac2cfb52eb382e276c30cad18586678a3b26250b9e9aaadd1218990b21",
+          "bytes": 86842
+        },
+        "repetitions/3/arc_dur/libero_10/episodes.jsonl": {
+          "sha256": "d9898593b3682eb55890d875053fc21c6a2412ae23c711970235b1d07d10fdd3",
+          "bytes": 157994
+        },
+        "repetitions/3/arc_dur/libero_10/protocol.json": {
+          "sha256": "bec9028f5e15899a088fd1512e1f33f554ee8f213e64ec56ab23d4504fb369bf",
+          "bytes": 86842
+        },
+        "repetitions/4/arc_dur/libero_10/episodes.jsonl": {
+          "sha256": "bfa2d8c3ba666f629ebccaf6a22633ffbb8cde410294ef396eae7edc5d0dec39",
+          "bytes": 160272
+        },
+        "repetitions/4/arc_dur/libero_10/protocol.json": {
+          "sha256": "ecba0ed6911360b047e6b9a949ba3b732222bf68a302ad56201201dd5de2d397",
+          "bytes": 86842
+        }
+      }
+    }
+  ],
+  "baseline_restoration": {
+    "at": "2026-09-26T16:30:28.899224+00:00",
+    "runs": [
+      {
+        "run_id": "dp-eval-r4-20260926-oat-spatial",
+        "restored-evaluation.json": {
+          "source_run": "dp-eval-r3-20260926-oat-spatial",
+          "checkpoint_sha256": "da15c49fad7850e8a752221ee3318ebc261fd45fb8d6d6be6237ab1f2348a121",
+          "episodes": 2270,
+          "per_repetition": [
+            454,
+            456,
+            450,
+            467,
+            443
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 2270,
+          "planned": 2500,
+          "per_repetition": [
+            454,
+            456,
+            450,
+            467,
+            443
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-unet-object",
+        "restored-evaluation.json": {
+          "source_run": "dp-eval-r3-20260926-unet-object",
+          "checkpoint_sha256": "7fdd4d00efa3c174bb906befd8f94083d827405ef890901aa4c90f1e9c0317e4",
+          "episodes": 1971,
+          "per_repetition": [
+            379,
+            395,
+            398,
+            400,
+            399
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 1978,
+          "planned": 2500,
+          "per_repetition": [
+            381,
+            397,
+            400,
+            400,
+            400
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-unet-10",
+        "restored-evaluation.json": {
+          "source_run": "dp-eval-r3-20260926-unet-10",
+          "checkpoint_sha256": "f833d6777b36e5d8d56b911f33f3553e021953b5c7b236cb62f86880888f0259",
+          "episodes": 1603,
+          "per_repetition": [
+            327,
+            319,
+            323,
+            321,
+            313
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 1608,
+          "planned": 2500,
+          "per_repetition": [
+            328,
+            320,
+            324,
+            322,
+            314
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-oat-object",
+        "restored-evaluation.json": {
+          "source_run": "dp-eval-r3-20260926-oat-object",
+          "checkpoint_sha256": "36b95626356ef8b9d3fe4858d0247e96fe1c9fdc9d23c41e786e221ff97d5372",
+          "episodes": 954,
+          "per_repetition": [
+            191,
+            192,
+            190,
+            190,
+            191
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 954,
+          "planned": 2500,
+          "per_repetition": [
+            191,
+            192,
+            190,
+            190,
+            191
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-oat-goal",
+        "restored-evaluation.json": {
+          "source_run": "dp-eval-r2-20260926-oat-goal",
+          "checkpoint_sha256": "91f3deca364f03abeeed4331985726631fee05f0c86e8933efae6bab32d39938",
+          "episodes": 524,
+          "per_repetition": [
+            108,
+            104,
+            103,
+            107,
+            102
+          ]
+        },
+        "evaluation-progress.json": {
+          "episodes": 538,
+          "planned": 2500,
+          "per_repetition": [
+            110,
+            107,
+            107,
+            109,
+            105
+          ],
+          "workers": 5
+        }
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-oat-10"
+      },
+      {
+        "run_id": "dp-eval-r4-20260926-unet-spatial"
+      }
+    ]
+  },
+  "collector": {
+    "workflow": "libero-table-morning-20260926-1",
+    "result": {
+      "at": "2026-09-26T16:34:49.866973+00:00",
+      "complete": false,
+      "scored_cells": 40,
+      "preferred_complete_cells": 40,
+      "total_cells": 60,
+      "sha256": "7f185bcd248db6631fbfc7632b5f2129f7168260d6355b1d9372e4c6ed4b65ae"
+    },
+    "result_prefix": "s3://rldb/experiments/arc-oat-20260919/campaigns/libero-table-morning-20260926/"
+  },
+  "previous_collector_retired": true
+}

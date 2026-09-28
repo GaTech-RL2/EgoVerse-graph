@@ -1,0 +1,9 @@
+# Pinned OAT train_fasttok / train_fastpolicy release settings.
+scale: 10
+vocab_size: 1024
+horizon: 32
+action_dim: 7
+max_seq_len: 128
+split_seed: 42
+valid_ratio: 0.1
+fit_units: raw_actions

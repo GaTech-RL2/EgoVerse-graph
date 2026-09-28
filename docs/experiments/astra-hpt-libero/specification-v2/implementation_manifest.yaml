@@ -1,0 +1,239 @@
+# Planning specification; not an executable upstream Hydra config.
+manifest_version: '2.0'
+status: plan_only_not_implemented
+experiment: astra_hpt_libero_signs_of_life
+seed: 17
+simulator:
+  backend: libero_push
+  task_family: AstraPush
+  robot: Panda
+  cameras:
+  - external_rgb
+  - wrist_rgb
+  image_size:
+  - 224
+  - 224
+  control_hz: 10
+  horizon: 150
+  action_dim: 7
+  action_type: normalized_OSC_POSE
+  action_horizon: 10
+  execute_prefix: 1
+  proprioception_dim: 9
+  workers: 1
+learner:
+  backend: egoverse_hpt_pytorch
+  domain: libero_push
+  initialization: all_random
+  pretrained: false
+  pretrained_checkpoint: null
+  all_parameters_trainable: true
+  freeze_repr: false
+  rotation_6dof_conversion: false
+  vision:
+    architecture: resnet18
+    encoders: 2
+    weights: null
+    freeze_backbone: false
+    output_dim: 256
+  language:
+    type: new_random_byte_transformer_stem
+    vocab_size: 259
+    max_tokens: 256
+    layers: 2
+    width: 256
+    heads: 8
+    ffn_dim: 1024
+    dropout: 0.1
+    latent_tokens: 16
+  modality_stems:
+    width: 256
+    latents_per_modality: 16
+    heads: 8
+    head_dim: 64
+  trunk:
+    width: 256
+    blocks: 16
+    heads: 8
+    observation_horizon: 1
+    action_horizon: 10
+    token_postprocessing: action_token
+    drop_path: 0.1
+  flow_head:
+    type: MaskedFMPolicy_adapter_to_implement
+    upstream: FMPolicy_CrossTransformer
+    blocks: 6
+    condition_dim: 256
+    hidden_dim: 128
+    heads: 4
+    dropout: 0.1
+    mlp_layers: 4
+    mlp_ratio: 4
+    action_dim: 7
+    action_horizon: 10
+    inference_steps: 50
+    time_distribution: beta
+    beta_parameters:
+    - 1.5
+    - 1.0
+    time_range:
+    - 0.001
+    - 1.0
+  loss: masked_flow_velocity_mse
+  precision: fp32_parameters_optimizer_bf16_autocast
+  ema: false
+training:
+  batch_size: 4
+  gradient_accumulation: 1
+  optimizer: AdamW
+  learning_rate: 0.0001
+  betas:
+  - 0.9
+  - 0.999
+  epsilon: 1.0e-08
+  weight_decay: 0.01
+  gradient_clip_norm: 1.0
+  warmup_common_updates: 100
+  post_warmup_schedule: constant
+  image_augmentation: false
+  replay:
+    current_round_windows: 2
+    historical_windows: 2
+    episode_balanced: true
+    historical_excludes_current_round: true
+  normalization:
+    rgb: x / 127.5 - 1
+    actions: identity_normalized_controller_units
+    proprioception: commissioning_mean_std
+    minimum_std: 1.0e-06
+stages:
+  S1: basic_push
+  S2: object_and_target_choice
+  S3: spatial_reference
+geometry:
+  cube_side_m: 0.04
+  push_distance_m:
+  - 0.05
+  - 0.15
+  target_half_width_m:
+  - 0.04
+  - 0.06
+  marker_side_margin_m: 0.05
+success:
+  hold_control_steps: 10
+  max_lift_m: 0.01
+  max_nonrequested_displacement_m: 0.015
+curriculum:
+  adaptive: agent_decides_allocations_and_templates
+  deterministic_promotion: false
+  uniform_quotas:
+    S1: 25
+    S2: 25
+    S3: 25
+  templates_per_round: 5
+  minimum_new_scene_templates_per_round: 2
+  learner_feedback_partitions:
+  - training_control
+  online_gradient_feedback: false
+budgets:
+  commissioning:
+    episodes: 30
+    episodes_per_stage: 10
+    episodes_per_gate_scene: 5
+    attempts: 120
+    novel_scenes: 6
+    novel_scenes_per_stage: 2
+    composition_or_relation_changes_minimum: 3
+    generation_calls: 8
+  seed_pool:
+    stage: S1
+    episodes: 120
+    attempts: 480
+    updates: 1000
+    generation_calls: 8
+  arms:
+  - U
+  - A
+  rounds_per_arm: 4
+  per_arm_round:
+    episodes: 75
+    attempts: 300
+    updates: 500
+    generation_calls: 8
+  provider:
+    max_output_tokens_per_call: 8192
+    repair_responses_per_invalid_proposal: 2
+    transport_retries: 2
+    actual_model_id: null
+  totals:
+    imitation_episodes: 720
+    commissioning_plus_imitation_episodes: 750
+    episodes_available_per_final_learner: 420
+    collection_attempts: 3000
+    main_optimizer_updates: 5000
+    diagnostic_updates: 240
+    optimizer_updates_with_diagnostic: 5240
+    logical_generation_calls: 80
+evaluation:
+  training_control_episodes_per_checkpoint: 36
+  training_control_checkpoints: 9
+  development_episodes_per_checkpoint: 32
+  sealed_episodes_per_checkpoint: 96
+  sealed_pair_instances_per_checkpoint: 48
+  sealed_pair_templates: 16
+  states_per_sealed_pair_template: 3
+  final_comparison_checkpoints:
+  - warm_start
+  - U_final
+  - A_final
+  totals:
+    training_control_episodes: 324
+    development_episodes: 96
+    sealed_episodes: 288
+    all_episodes: 708
+  primary_metric: joint_pair_success
+  bootstrap:
+    unit: scene_instruction_template_cluster
+    resamples: 10000
+    seed: 17
+    paired_across_checkpoints: true
+gradient_diagnostic:
+  candidates: 12
+  candidates_per_stage: 4
+  windows_per_candidate: 4
+  noise_time_draws: 2
+  score_draw_aggregation: mean_absolute_dot
+  lookback_branch_update: 1000
+  current_branch_update: 2000
+  updates_per_candidate: 20
+  transfer_windows: 48
+  transfer_windows_per_stage: 16
+  measurement_dropout: false
+  measurement_running_stats_updates: false
+  restore_full_snapshot_per_candidate: true
+signs_of_life:
+  learning_pair_gain_over_warm_start: 6
+  requires_success_in_stages:
+  - S2
+  - S3
+  adaptive_pair_gain_over_uniform: 5
+  gradient: positive_exploratory_rank_association_and_valid_numerics
+resource_target:
+  gpus: 1
+  minimum_vram_gb: 40
+  measured_fit: false
+  simulator_workers: 1
+  distributed_training: false
+implementation:
+  upstream_environment_lock_status: must_resolve_W01
+  gates:
+    W01: not_run
+    W02: not_run
+    W03: not_run
+    W04: not_run
+    W05: not_run
+    W06: not_run
+    W07: not_run
+    W08: not_run
+    W09: not_run
+    W10: not_run

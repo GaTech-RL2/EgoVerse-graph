@@ -1,0 +1,57 @@
+{
+  "schema_version": "proposed_v1",
+  "illustrative": true,
+  "arm": "U",
+  "round": 1,
+  "learner_report_ref": null,
+  "allocations": {
+    "S1": 25,
+    "S2": 25,
+    "S3": 25
+  },
+  "templates": [
+    {
+      "template_id": "EXAMPLE_U_1",
+      "stage": "S1",
+      "accepted_episodes": 25,
+      "scene_spec_ref": "PLACEHOLDER_scene_U_1.json",
+      "task_spec_ref": "PLACEHOLDER_task_U_1.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_U_1.json"
+    },
+    {
+      "template_id": "EXAMPLE_U_2",
+      "stage": "S2",
+      "accepted_episodes": 13,
+      "scene_spec_ref": "PLACEHOLDER_scene_U_2.json",
+      "task_spec_ref": "PLACEHOLDER_task_U_2.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_U_2.json"
+    },
+    {
+      "template_id": "EXAMPLE_U_3",
+      "stage": "S2",
+      "accepted_episodes": 12,
+      "scene_spec_ref": "PLACEHOLDER_scene_U_3.json",
+      "task_spec_ref": "PLACEHOLDER_task_U_3.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_U_3.json"
+    },
+    {
+      "template_id": "EXAMPLE_U_4",
+      "stage": "S3",
+      "accepted_episodes": 13,
+      "scene_spec_ref": "PLACEHOLDER_scene_U_4.json",
+      "task_spec_ref": "PLACEHOLDER_task_U_4.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_U_4.json"
+    },
+    {
+      "template_id": "EXAMPLE_U_5",
+      "stage": "S3",
+      "accepted_episodes": 12,
+      "scene_spec_ref": "PLACEHOLDER_scene_U_5.json",
+      "task_spec_ref": "PLACEHOLDER_task_U_5.json",
+      "teacher_program_ref": "PLACEHOLDER_teacher_U_5.json"
+    }
+  ],
+  "rationale": "Fixed equal allocation across all stages; no learner performance supplied.",
+  "predicted_change": null,
+  "stage_intent": null
+}

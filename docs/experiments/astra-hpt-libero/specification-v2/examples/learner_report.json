@@ -1,0 +1,33 @@
+{
+  "schema_version": "proposed_v1",
+  "illustrative": true,
+  "snapshot_id": "EXAMPLE_warm_start",
+  "round": 1,
+  "partition": "training_control",
+  "stages": {
+    "S1": {
+      "successes": 8,
+      "trials": 12
+    },
+    "S2": {
+      "successes": 2,
+      "trials": 12
+    },
+    "S3": {
+      "successes": 0,
+      "trials": 12
+    }
+  },
+  "previous_report": null,
+  "errors": {
+    "wrong_object": 12,
+    "wrong_target": 5,
+    "constraint_violation": 3
+  },
+  "error_counts_may_overlap": true,
+  "remaining_round_budget": {
+    "accepted_episodes": 75,
+    "attempts": 300,
+    "generation_calls": 8
+  }
+}

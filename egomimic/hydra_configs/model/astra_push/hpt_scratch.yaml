@@ -1,0 +1,191 @@
+# AstraPush specification v2. No pretrained encoders or weight initializers.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  eps: 0.00000001
+  weight_decay: 0.01
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 0.01
+  end_factor: 1.0
+  total_iters: 100
+scheduler_interval: step
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
+      preserve_config_order: true
+      stems:
+        observations.images.external_rgb: &visual
+          _target_: egomimic.models.stems.composed.EncodedPolicyStem
+          feature_position_encoding: true
+          stem:
+            _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+            input_dim: 256
+            output_dim: 256
+            widths: [256]
+            specs: &specs
+              random_horizon_masking: false
+              cross_attn:
+                crossattn_latent: 16
+                crossattn_heads: 8
+                crossattn_dim_head: 64
+                crossattn_modality_dropout: 0.1
+                modality_embed_dim: 256
+          encoder:
+            _target_: egomimic.models.stems.hpt_stems.ResNet
+            resnet_model: resnet18
+            output_dim: 256
+            weights: null
+            freeze_backbone: false
+            num_of_copy: 1
+        observations.images.wrist_rgb: *visual
+        observations.state.proprioception:
+          _target_: egomimic.models.stems.composed.EncodedPolicyStem
+          feature_position_encoding: true
+          stem:
+            _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+            input_dim: 9
+            output_dim: 256
+            widths: [256]
+            specs: *specs
+        language:
+          _target_: egomimic.models.stems.byte_language.ByteLanguageStem
+          width: 256
+          layers: 2
+          heads: 8
+          ffn_dim: 1024
+          dropout: 0.1
+          max_tokens: 256
+          specs: *specs
+    - _target_: egomimic.pipeline.stages_hpt.HPTTrunkStage
+      embed_dim: 256
+      token_postprocessing: action_token
+      action_token_count: 10
+      squeeze_action_token: false
+      use_domain_embedding: true
+      domains: [libero_push]
+      trunk:
+        _target_: egomimic.models.cores.hpt_transformer.SimpleTransformer
+        embed_dim: 256
+        num_blocks: 16
+        drop_path_rate: 0.1
+        weight_init_style: pytorch
+        attn_target:
+          _target_: egomimic.models.cores.hpt_transformer.MultiheadAttention
+          _partial_: true
+          embed_dim: 256
+          num_heads: 8
+          batch_first: true
+          bias: true
+          add_bias_kv: true
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+      action_key: actions
+    - _target_: egomimic.pipeline.stages_masked_flow.MaskedFlowNoisingStage
+      action_horizon: 10
+      action_dim: 7
+      mask_key: action_valid
+      time_dist: beta
+      beta_alpha: 1.5
+      beta_beta: 1.0
+    - _target_: egomimic.pipeline.stages_flow.FlowDenoiserStage
+      action_horizon: 10
+      action_dim: 7
+      condition_input_dim: 256
+      condition_ndim: 3
+      condition_as_tokens: false
+      num_inference_steps: 50
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 7
+        act_seq: 10
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+    - _target_: egomimic.pipeline.stages_masked_flow.MaskedFlowVelocityLossStage
+      mask_key: action_valid
+  stage_ids: {stems: 0, trunk: 1, sampler: 4}
+data_requirements:
+  preprocessing:
+    libero_push:
+      source_fps: 10
+      observation_horizon: 1
+      action_horizon: 10
+      action_offset: 0
+      action_type: normalized_OSC_POSE
+      proprioception_dim: 9
+      rgb_scaling: minus_one_to_one
+      normalization_source: commissioning_only
+inference:
+  input:
+    history_length: 1
+    keys:
+      - observations.images.external_rgb
+      - observations.images.wrist_rgb
+      - observations.state.proprioception
+      - language
+      - embodiment
+    history_keys:
+      - observations.images.external_rgb
+      - observations.images.wrist_rgb
+      - observations.state.proprioception
+    constants: {embodiment: libero_push}
+  native_output:
+    frame: controller_input
+    key: pred_action
+    representation: normalized_OSC_POSE
+    shape: [10, 7]
+    timing: {kind: control_period, temporally_resolved: true, dt: 0.1}
+  output:
+    frame: controller_input
+    key: actions
+    representation: normalized_OSC_POSE
+    shape: [10, 7]
+    timing: {kind: control_period, temporally_resolved: true, dt: 0.1}
+  compatibility:
+    normalizer_schema:
+      action_key: actions
+      native_shape: [10, 7]
+      embodiment: libero_push
+    tokenizer: {kind: utf8_bytes, vocab_size: 259, max_tokens: 256}
+  profiles:
+    default:
+      stage_id: sampler
+      native_shape: [10, 7]
+      adapter:
+        _target_: egomimic.pipeline.action_adapter.CanonicalSequenceAdapter
+        shape: [10, 7]
+        decoder:
+          _target_: egomimic.pipeline.sequence_decoder.UniformTimeGridDecoder
+          native_shape: [10, 7]
+          native_dt: 0.1
+          output_horizon: 10
+          output_dt: 0.1
+          angular_indices: []
+      overrides:
+        replan_every:
+          label: Actions before replanning
+          description: Frozen pilot execution prefix.
+          type: integer
+          min: 1
+          max: 1
+          step: 1
+          default: 1
+          target: {kind: policy_attribute, attribute_path: replan_every}
+        inference_steps:
+          label: Flow steps
+          description: Frozen pilot integration steps.
+          type: integer
+          min: 50
+          max: 50
+          step: 1
+          default: 50
+          target: {kind: stage_attribute, stage_id: sampler, attribute_path: num_inference_steps}

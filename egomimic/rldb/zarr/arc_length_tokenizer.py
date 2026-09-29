@@ -1131,6 +1131,20 @@ ARC_TOK_BIMANUAL_DIM = 2 * ARC_TOK_PER_ARM_DIM  # bimanual total (fourteen)
 # chord IS its arc length. That discrepancy only arises when one rate spans the
 # whole token.
 BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
+
+# How the waypoint rows and the velocity rows are joined into one token.
+#
+#   "wide"     velocity rows sit BESIDE the waypoints: (M, 28), columns 0..13
+#              shape and 14..27 velocity. Halves the sequence length and gives
+#              each stream its own normalization statistics. The default.
+#   "stacked"  velocity rows sit UNDER the waypoints: (2M, 14). The historical
+#              layout. Shape and velocity share a column, so a per-column
+#              normalizer pools metres with metres/second.
+#
+# "wide" needs one velocity row per waypoint, so it is undefined for the "mean"
+# velocity mode, which emits a single row for the whole token. That is the only
+# place "stacked" is still the default.
+BIMANUAL_VELOCITY_LAYOUTS = ("wide", "stacked")
 ARC_CHUNKING_MODES = ("race", "multistream", "joint_distance")
 
 
@@ -1155,6 +1169,31 @@ def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
     return velocity_mode
 
 
+def default_bimanual_velocity_layout(velocity_mode: str) -> str:
+    """Wide wherever wide is defined.
+
+    "mean" emits one velocity row for the whole token, so there is no
+    per-waypoint row to sit beside each waypoint and wide has no meaning there.
+    """
+    return "stacked" if velocity_mode == "mean" else "wide"
+
+
+def validate_bimanual_velocity_layout(
+    velocity_layout: str, velocity_mode: str = "mean"
+) -> str:
+    if velocity_layout not in BIMANUAL_VELOCITY_LAYOUTS:
+        raise ValueError(
+            f"velocity_layout must be one of {BIMANUAL_VELOCITY_LAYOUTS}, "
+            f"got {velocity_layout!r}"
+        )
+    if velocity_layout == "wide" and velocity_mode == "mean":
+        raise ValueError(
+            "velocity_layout='wide' needs one velocity row per waypoint; "
+            "velocity_mode='mean' emits a single row for the whole token"
+        )
+    return velocity_layout
+
+
 def bimanual_arc_token_rows(
     resampled_vector_length: int, velocity_mode: str = "mean"
 ) -> int:
@@ -1164,6 +1203,21 @@ def bimanual_arc_token_rows(
     if num_waypoints < 2:
         raise ValueError("resampled_vector_length must be at least two")
     return num_waypoints + 1 if velocity_mode == "mean" else 2 * num_waypoints
+
+
+def bimanual_arc_token_shape(
+    resampled_vector_length: int,
+    velocity_mode: str = "mean",
+    velocity_layout: str | None = None,
+) -> tuple[int, int]:
+    """(rows, dim) of one bimanual arc token -- the single source of truth."""
+    if velocity_layout is None:
+        velocity_layout = default_bimanual_velocity_layout(velocity_mode)
+    validate_bimanual_velocity_layout(velocity_layout, velocity_mode)
+    rows = bimanual_arc_token_rows(resampled_vector_length, velocity_mode)
+    if velocity_layout == "stacked":
+        return rows, ARC_TOK_BIMANUAL_DIM
+    return rows // 2, 2 * ARC_TOK_BIMANUAL_DIM
 
 
 class TokenizeBimanualArcLengthCartesian:
@@ -1177,12 +1231,17 @@ class TokenizeBimanualArcLengthCartesian:
     targets; ypr is SLERPed through the resampled rotation sequence (via
     ``slerp_through_ypr``) so orientation is unconditionally supervised.
 
-    With ``rotation_distance_unit``, rotation has a separate R cap and clock
-    (left + right SO(3) travel). Translation mode ``joint_distance`` shares a
-    summed-distance clock. ``race`` stops at the first arm's D crossing, then
-    interpolates each arm on its own distance. ``multistream`` caps each arm
-    independently at D. Per-waypoint velocities reconstruct these clocks, with
-    terminal holds for finished streams. Rotation reads the complete source.
+    With ``rotation_distance_unit``, rotation has a separate R cap and its own
+    clock PER ARM: each arm spends R on its own SO(3) travel, in every chunking
+    mode. Left and right rotation are never summed into one clock.
+
+    Translation mode ``joint_distance`` shares a summed-distance clock;
+    ``multistream`` caps each arm independently at D. Both spend a budget per
+    stream and read the complete source. ``race`` is a stopping time instead:
+    four streams race for the chunk's end frame -- each arm's translation for D
+    and each arm's rotation for R -- and each is interpolated on its own
+    cumulative length through that shared frame. Per-waypoint velocities
+    reconstruct these clocks, with terminal holds for finished streams.
 
     Row M is the velocity token. Per arm the slots hold:
         [xyz_vel(3), ypr_vel(3), grip_vel(1)]
@@ -1231,6 +1290,7 @@ class TokenizeBimanualArcLengthCartesian:
         preserve_action_rows: int | None = None,
         velocity_mode: str = "mean",
         arc_chunking_mode: str | None = None,
+        velocity_layout: str | None = None,
     ):
         self.action_key = action_key
         self.output_action_key = output_action_key
@@ -1249,6 +1309,12 @@ class TokenizeBimanualArcLengthCartesian:
         if self.preserve_action_rows is not None and self.preserve_action_rows <= 0:
             raise ValueError("preserve_action_rows must be positive when provided")
         self.velocity_mode = validate_bimanual_velocity_mode(velocity_mode)
+        self.velocity_layout = validate_bimanual_velocity_layout(
+            default_bimanual_velocity_layout(self.velocity_mode)
+            if velocity_layout is None
+            else velocity_layout,
+            self.velocity_mode,
+        )
         if rotation_distance_unit is not None:
             rotation_distance_unit = float(rotation_distance_unit)
             if not np.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0.0:
@@ -1317,15 +1383,7 @@ class TokenizeBimanualArcLengthCartesian:
             # "duration" and "mean" velocity modes still consume that token.
             waypoints = self._hybrid_waypoints(raw)
             velocity_rows = self._hybrid_per_waypoint_velocity(raw, waypoints)
-            out = np.concatenate([waypoints, velocity_rows], axis=0)
-            expected_rows = bimanual_arc_token_rows(self.M, self.velocity_mode)
-            if out.shape != (expected_rows, ARC_TOK_BIMANUAL_DIM):
-                raise AssertionError(
-                    f"{type(self).__name__} produced {out.shape}, expected "
-                    f"{(expected_rows, ARC_TOK_BIMANUAL_DIM)} for velocity_mode="
-                    f"{self.velocity_mode!r}"
-                )
-            batch[self.output_action_key] = out
+            batch[self.output_action_key] = self._join_token(waypoints, velocity_rows)
             return batch
 
         arc = self.tokenizer.tokenize(raw)
@@ -1402,22 +1460,34 @@ class TokenizeBimanualArcLengthCartesian:
                 if self.rotation_distance_unit is not None
                 else self._per_waypoint_velocity(raw, waypoints)
             )
-            out = np.concatenate([waypoints, velocity_rows], axis=0)  # (2M, 14)
         elif self.velocity_mode == "duration":
-            out = np.concatenate(
-                [waypoints, self._per_waypoint_duration(raw, waypoints)], axis=0
-            )  # (2M, 14)
+            velocity_rows = self._per_waypoint_duration(raw, waypoints)
         else:
-            out = np.concatenate([waypoints, vel_token], axis=0)  # (M+1, 14)
-        expected_rows = bimanual_arc_token_rows(M, self.velocity_mode)
-        if out.shape != (expected_rows, ARC_TOK_BIMANUAL_DIM):
+            velocity_rows = vel_token
+        batch[self.output_action_key] = self._join_token(waypoints, velocity_rows, M)
+        return batch
+
+    def _join_token(self, waypoints, velocity_rows, num_waypoints=None):
+        """Join the two halves into one token and check the result's shape.
+
+        "stacked" puts the velocity rows under the waypoints, "wide" puts them
+        beside. Both output paths go through here so the two layouts cannot
+        drift apart.
+        """
+        axis = 0 if self.velocity_layout == "stacked" else 1
+        out = np.concatenate([waypoints, velocity_rows], axis=axis)
+        expected = bimanual_arc_token_shape(
+            self.M if num_waypoints is None else num_waypoints,
+            self.velocity_mode,
+            self.velocity_layout,
+        )
+        if out.shape != expected:
             raise AssertionError(
                 f"{type(self).__name__} produced {out.shape}, expected "
-                f"{(expected_rows, ARC_TOK_BIMANUAL_DIM)} for velocity_mode="
-                f"{self.velocity_mode!r}"
+                f"{expected} for velocity_mode={self.velocity_mode!r} "
+                f"velocity_layout={self.velocity_layout!r}"
             )
-        batch[self.output_action_key] = out
-        return batch
+        return out
 
     def _translation_brackets(self, cumulative, targets):
         """Vectorized :meth:`_translation_bracket` over many targets.
@@ -1642,7 +1712,7 @@ class TokenizeBimanualArcLengthCartesian:
     def _hybrid_per_waypoint_velocity(
         self, raw: np.ndarray, waypoints: np.ndarray
     ) -> np.ndarray:
-        """Per-waypoint rates for independent joint translation/rotation clocks."""
+        """Per-waypoint rates for the independent translation/rotation clocks."""
         rows = np.zeros((self.M, ARC_TOK_BIMANUAL_DIM), dtype=np.float64)
         dt = self.tokenizer.config.dt
 
@@ -1918,25 +1988,41 @@ class TokenizeBimanualArcLengthCartesian:
         and by the deploy path in rollout-arc.py.
         """
         arc_actions = np.asarray(arc_actions, dtype=np.float64)
-        if arc_actions.ndim != 2 or arc_actions.shape[1] != ARC_TOK_BIMANUAL_DIM:
+        expected_dim = (
+            ARC_TOK_BIMANUAL_DIM
+            if self.velocity_layout == "stacked"
+            else 2 * ARC_TOK_BIMANUAL_DIM
+        )
+        if arc_actions.ndim != 2 or arc_actions.shape[1] != expected_dim:
             raise ValueError(
-                f"detokenize expects (rows, {ARC_TOK_BIMANUAL_DIM}), got "
-                f"{arc_actions.shape}"
+                f"detokenize expects (rows, {expected_dim}) for "
+                f"velocity_layout={self.velocity_layout!r}, got {arc_actions.shape}"
             )
         rows = arc_actions.shape[0]
-        granular = self.velocity_mode in ("per_waypoint", "duration")
-        M = rows // 2 if granular else rows - 1
+        if self.velocity_layout == "wide":
+            M = rows
+        else:
+            granular = self.velocity_mode in ("per_waypoint", "duration")
+            M = rows // 2 if granular else rows - 1
         if M < 2:
             raise ValueError(f"Need M >= 2 waypoints, got {rows} rows")
-        if rows != bimanual_arc_token_rows(M, self.velocity_mode):
+        expected_shape = bimanual_arc_token_shape(
+            M, self.velocity_mode, self.velocity_layout
+        )
+        if arc_actions.shape != expected_shape:
             raise ValueError(
-                f"detokenize got {rows} rows, expected "
-                f"{bimanual_arc_token_rows(M, self.velocity_mode)} for "
-                f"velocity_mode={self.velocity_mode!r}"
+                f"detokenize got {arc_actions.shape}, expected {expected_shape} "
+                f"for velocity_mode={self.velocity_mode!r} "
+                f"velocity_layout={self.velocity_layout!r}"
             )
 
-        waypoints = arc_actions[:M]  # (M, 14)
-        vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular
+        if self.velocity_layout == "wide":
+            # Columns 0..13 are the waypoint, 14..27 the velocity riding on it.
+            waypoints = arc_actions[:, :ARC_TOK_BIMANUAL_DIM]  # (M, 14)
+            vel_rows = arc_actions[:, ARC_TOK_BIMANUAL_DIM:]  # (M, 14)
+        else:
+            waypoints = arc_actions[:M]  # (M, 14)
+            vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular
         vel_token = vel_rows[0]
         dt = self.tokenizer.config.dt
         h = int(action_horizon)

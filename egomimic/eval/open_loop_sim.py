@@ -50,8 +50,10 @@ from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     bimanual_arc_token_rows,
+    bimanual_arc_token_shapes,
     cumulative_rotation_length,
     slerp_pair_ypr,
+    stack_arc_token,
     validate_bimanual_velocity_mode,
 )
 
@@ -1334,10 +1336,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
         return self.normalizer.unnormalize({key: value}, embodiment_id).get(key, value)
 
     def _is_arc_prediction(self, prediction: np.ndarray) -> bool:
-        expected = bimanual_arc_token_rows(
+        """Either velocity layout counts: (2M, 14) stacked or (M, 28) wide."""
+        return prediction.ndim == 2 and prediction.shape in bimanual_arc_token_shapes(
             self.resampled_vector_length, self.velocity_mode
         )
-        return prediction.ndim == 2 and prediction.shape == (expected, 14)
 
     def _decode_prediction_with_steps(
         self, prediction: np.ndarray, *, max_steps: int | None = None
@@ -1368,6 +1370,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 steps = min(steps, int(max_steps))
             return prediction[:steps].copy(), steps
 
+        # The token helpers below index rows, so a wide prediction is
+        # restacked once here and the codec is pinned to the stacked layout.
+        # Converting at this single boundary keeps the layout out of the
+        # evaluator's config: the shape says which layout arrived.
+        prediction = stack_arc_token(prediction)
         if self._arc_tokenizer is None:
             from egomimic.rldb.zarr.arc_length_tokenizer import (
                 TokenizeBimanualArcLengthCartesian,
@@ -1385,6 +1392,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 resampled_vector_length=self.resampled_vector_length,
                 dt=self.control_dt,
                 velocity_mode=self.velocity_mode,
+                velocity_layout="stacked",
             )
         partial = arc_execution_prefix(
             prediction,

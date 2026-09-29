@@ -1220,6 +1220,41 @@ def bimanual_arc_token_shape(
     return rows // 2, 2 * ARC_TOK_BIMANUAL_DIM
 
 
+def bimanual_arc_token_shapes(
+    resampled_vector_length: int, velocity_mode: str = "mean"
+) -> tuple[tuple[int, int], ...]:
+    """Every token shape this M and velocity mode can produce.
+
+    Shape is how the evaluators tell an arc token from a pose chunk, and one
+    evaluator serves runs tokenized in either velocity layout, so detection has
+    to accept both. "wide" is undefined for the "mean" mode (see
+    ``validate_bimanual_velocity_layout``), which leaves it a single shape.
+    """
+    layouts = ("stacked",) if velocity_mode == "mean" else BIMANUAL_VELOCITY_LAYOUTS
+    return tuple(
+        bimanual_arc_token_shape(resampled_vector_length, velocity_mode, layout)
+        for layout in layouts
+    )
+
+
+def stack_arc_token(token: np.ndarray) -> np.ndarray:
+    """Restack a wide arc token into the stacked layout.
+
+    Wide keeps each velocity row beside its waypoint, (..., M, 28); stacked
+    keeps it underneath, (..., 2M, 14). Everything that indexes token ROWS --
+    the evaluators' truncation and arcmatch helpers -- only speaks stacked, so
+    it converts once at its boundary instead of learning both layouts. A
+    stacked token passes through unchanged. Accepts one token or a batch.
+    """
+    value = np.asarray(token, dtype=np.float64)
+    if value.ndim >= 2 and value.shape[-1] == 2 * ARC_TOK_BIMANUAL_DIM:
+        return np.concatenate(
+            (value[..., :ARC_TOK_BIMANUAL_DIM], value[..., ARC_TOK_BIMANUAL_DIM:]),
+            axis=-2,
+        )
+    return value
+
+
 class TokenizeBimanualArcLengthCartesian:
     """Transform: (T, 14) actions_cartesian -> (M+1, 14) arc-tokenized layout.
 

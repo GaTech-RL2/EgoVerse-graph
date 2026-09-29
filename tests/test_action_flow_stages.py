@@ -178,6 +178,57 @@ def test_bridge_reuses_one_base_noise_and_drop_mask_across_independent_times():
     assert float(clean.grad.abs().sum()) > 0.0
 
 
+def test_bridge_repeated_clean_and_condition_use_original_index_select_backward():
+    clean = torch.randn(2, 3, 4, requires_grad=True)
+    condition = torch.randn(2, 5, requires_grad=True)
+    noise = torch.randn_like(clean)
+    stage = LatentBridgeStage(
+        samples_per_content=14,
+        condition_dropout_probability=0.0,
+    )
+    torch.manual_seed(42)
+    output = stage(
+        {
+            "action_flow/clean_latent": clean,
+            "sampler/noise": noise,
+            "condition": condition,
+        }
+    )
+    index = output["action_flow/base_index"]
+    direct_clean = clean.index_select(0, index)
+    direct_condition = condition.index_select(0, index)
+    torch.testing.assert_close(output["action_flow/condition"], direct_condition)
+    assert type(output["action_flow/condition"].grad_fn) is type(
+        direct_condition.grad_fn
+    )
+
+    # The bridge state and target velocity both depend on the repeated clean
+    # latent. Verify their full gradient route against the original gather.
+    time = output["action_flow/time"].reshape(-1, 1, 1)
+    direct_noise = noise.index_select(0, index)
+    direct_state = (1.0 - time) * direct_clean + time * direct_noise
+    direct_velocity = direct_noise - direct_clean
+    state_weights = torch.randn_like(direct_state)
+    velocity_weights = torch.randn_like(direct_velocity)
+    condition_weights = torch.randn_like(direct_condition)
+    actual_loss = (
+        (output["action_flow/state"] * state_weights).sum()
+        + (output["action_flow/target_velocity"] * velocity_weights).sum()
+        + (output["action_flow/condition"] * condition_weights).sum()
+    )
+    direct_loss = (
+        (direct_state * state_weights).sum()
+        + (direct_velocity * velocity_weights).sum()
+        + (direct_condition * condition_weights).sum()
+    )
+    actual_gradients = torch.autograd.grad(
+        actual_loss, (clean, condition), retain_graph=True
+    )
+    direct_gradients = torch.autograd.grad(direct_loss, (clean, condition))
+    for actual, direct in zip(actual_gradients, direct_gradients):
+        torch.testing.assert_close(actual, direct, rtol=0, atol=0)
+
+
 def test_base_noise_and_bridge_times_are_resampled_online():
     sampler = GaussianLatentNoise(num_tokens=4, latent_dim=3)
     bridge = LatentBridgeStage(

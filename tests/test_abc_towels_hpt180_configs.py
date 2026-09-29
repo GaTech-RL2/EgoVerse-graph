@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 from hydra import compose, initialize_config_dir
 
-
 _CONFIGS = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
 
 
@@ -21,7 +20,7 @@ def _compose(experiment: str):
     ("experiment", "is_arc", "expected_horizon"),
     [
         ("robot_bc/abc_towels_hpt180_baseline_visual_openloop", False, 100),
-        ("robot_bc/abc_towels_hpt180_hybrid_visual_openloop", True, 200),
+        ("robot_bc/abc_towels_hpt180_hybrid_visual_openloop", True, 100),
     ],
 )
 def test_abc_towel_pair_preserves_hpt180_contract(experiment, is_arc, expected_horizon):

@@ -21,6 +21,7 @@ import pytest
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
+    bimanual_arc_token_shape,
     cumulative_rotation_length,
 )
 
@@ -186,7 +187,11 @@ def test_round_trip_shapes_and_finiteness(mode):
         right_rotation_per_frame=0.01,
     )
     batch = codec(mode).transform({"actions_cartesian": raw.copy()})
-    assert batch["actions_cartesian"].shape == (20, 14)
+    # Layout-agnostic: this file is about the rotation clock, so read the shape
+    # from the same helper the tokenizer checks itself against.
+    assert batch["actions_cartesian"].shape == bimanual_arc_token_shape(
+        10, "per_waypoint"
+    )
     chunk = codec(mode).detokenize(batch["actions_cartesian"], 30)
     assert chunk.shape == (30, 14)
     assert np.isfinite(chunk).all()

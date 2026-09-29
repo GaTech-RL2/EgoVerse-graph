@@ -329,13 +329,11 @@ def _arc_clock_durations(
     horizon = max_steps if max_steps is not None else 1
     if rotation_distance_unit is not None and chunking_mode == "joint_distance":
         clocks = [
-            codec._hybrid_clock_durations(
-                waypoints, timing, rotation=False, action_horizon=horizon
-            )
+            codec._hybrid_clock_durations(waypoints, timing, action_horizon=horizon)
         ]
     elif velocity_mode == "per_waypoint":
         clocks = [
-            codec._translation_arm_durations(waypoints, timing, offset, horizon)
+            codec._arm_durations(waypoints, timing, offset, horizon)
             for offset in (0, 7)
         ]
     else:
@@ -388,11 +386,18 @@ def _arc_clock_durations(
     ]
     rotation_clock = None
     if rotation_distance_unit is not None:
-        rotation_clock = codec._hybrid_clock_durations(
-            waypoints, timing, rotation=True, action_horizon=horizon
-        )
+        # One rotation clock per arm, never a summed left-plus-right clock: the
+        # tokenizer gives each arm its own R budget in every chunking mode, so
+        # the replan boundary has to wait on whichever arm is slower.
         masks = invalid_intervals(rotation=True)
-        rotation_clock = np.where(masks[0] | masks[1], invalid_duration, rotation_clock)
+        rotation_clock = [
+            np.where(
+                mask,
+                invalid_duration,
+                codec._arm_durations(waypoints, timing, offset, horizon, rotation=True),
+            )
+            for offset, mask in zip((0, 7), masks)
+        ]
     return clocks, rotation_clock
 
 
@@ -666,7 +671,7 @@ def arc_prefix_control_steps(
     # per-arm clocks may disagree; rotation remains independently timed.
     duration = max(durations, default=0.0)
     if rotation_clock is not None:
-        duration = max(duration, float(np.sum(rotation_clock)))
+        duration = max(duration, *(float(np.sum(clock)) for clock in rotation_clock))
     if math.isfinite(duration):
         steps = max(1, int(math.ceil(duration / dt - 1e-9)))
     elif max_steps is not None:
@@ -1720,7 +1725,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     self, "rotation_distance_unit", None
                 ),
                 "arc_rotation_clock": (
-                    "shared_independent"
+                    "per_arm_independent"
                     if getattr(self, "rotation_distance_unit", None) is not None
                     else None
                 ),

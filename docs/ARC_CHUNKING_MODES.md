@@ -21,7 +21,7 @@ the loader's ARC action-contract check is not a dataset/sampling provenance chec
 
 | Mode | Translation target and timing |
 | --- | --- |
-| `race` | End when the first arm travels D. Interpolate each arm by its own distance through that shared end time. |
+| `race` | End when the first of four streams spends its budget: either arm travelling D, or either arm's rotation turning R. Interpolate all four streams through that shared end frame. |
 | `multistream` | Each arm targets D with its own translation clock and resamples its available path to M waypoints. An arm with less than D travels its available distance, then holds its last absolute pose. |
 | `joint_distance` | Sum both arms' travel to D using one shared translation clock. |
 
@@ -32,9 +32,26 @@ predicted velocities to execute the 10 cm, then holds the last absolute pose
 through the remaining bounded rollout horizon. The two arms resample their
 own paths independently to the same M.
 
-All three modes keep the existing **separate R target and independent joint
-rotation clock**, which sums both arms' angular travel. Translation reaching D
-does not truncate the raw rotation trajectory.
+All three modes keep the **separate R target**, and in all three that target is
+spent **per arm** on that arm's own SO(3) travel. Left and right rotation are
+never summed into one clock. An arm that does not rotate therefore keeps
+collapsed rotation waypoints instead of inheriting the other arm's angular
+travel, and two arms each turning 0.3 rad under R=0.5 each keep their own 0.3
+rather than jointly hitting the cap at 0.25 apiece.
+
+Independent means each stream spends its own budget, not that a stream may read
+outside the chunk. Under `multistream` and `joint_distance` no frame ends the
+chunk, so reaching D does not truncate the raw rotation trajectory.
+
+`race` is a stopping time rather than a budget, so it does define an end frame,
+and rotation there is also a racer. Four streams compete: left translation for
+D, right translation for D, left rotation for R, right rotation for R. The first
+budget spent ends the chunk, and all four streams are then interpolated on their
+own cumulative length through that frame. A race chunk consequently gives up
+some translation when a rotation wins, and some rotation when a translation
+wins, which is what keeps a waypoint's orientation inside the frames its
+position came from. An arm that never spends its budget inside the window does
+not enter the race.
 
 The generic Zarr horizon resolver reads the bounded native source buffer and
 selects enough rows to cover both translation and rotation endpoints. A missing

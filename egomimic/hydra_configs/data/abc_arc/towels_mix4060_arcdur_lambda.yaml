@@ -1,0 +1,155 @@
+# MIXED ABC + RL2 fold towels, 40 % ABC / 60 % RL2 of the samples the model sees (Aidan 2026-09-25: "a 40/60 split
+# between abc and rl2, prioritizing our data", with Ryan Punamiya's weighted mixtures, EgoVerse-graph PR #141).
+# Sources: yam_bimanual = the RL2 towels394 pool with the scratch runs' exact split (375 train / 19 valid, same pins),
+# abc_yam_bimanual = all 389 ABC 'fold and stack the towels' episodes, train only. WeightedDataset draws the SOURCE by
+# weight (0.6 / 0.4), frames uniformly within it; batch 16 per rank x 2 GPUs = 32 per step;
+# samples_per_epoch = 3200 global = 100 steps per epoch, as in the grid.
+# Validation is the RL2 split only, so Valid/* is directly comparable with scratch_rl2_towels394_arcdur_lambda.
+# Normalisation: one shared normaliser per embodiment, fit over both sources (the same pooled regime as mix5050).
+# train_dataloader_params are unused in weighted mode (weighted_dataloader_params apply); kept for the wrapper.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /workspace/users/agao81/datasets/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+      expected_episode_count: 394
+      expected_episode_names_sha256: 9aa2c859f23324cf942e01d843c81c5ebb6659a25e68356d2c39f2b83aef928b
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row, allowed=frozenset(open(''/workspace/users/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/rl2_towels394_episodes.txt'').read().split()):
+        str(row[''episode_hash'']) in allowed'
+    mode: train
+    valid_ratio: 0.05
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: 375
+    expected_valid_episode_count: 19
+    expected_train_episode_names_sha256: ffe1c84955e4c81e2c316806925d9a14f302300a0e251a5a5c49eac56f8b5e26
+    expected_valid_episode_names_sha256: 42d6798907567d9ac88f30ffc50670fe4527fde59ccb0bc2d18887d9af2978c2
+  abc_yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /workspace/users/agao81/datasets/abc_towels389
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+      expected_episode_count: 389
+      expected_episode_names_sha256: f55cd4b4dcda9c72864458822cda916a3aeea1f83902caed17c24a9b9c504a6b
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row, allowed=frozenset(open(''/workspace/users/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/abc_towels389_episodes.txt'').read().split()):
+        str(row[''episode_hash'']) in allowed'
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: 389
+    expected_valid_episode_count: 0
+    expected_train_episode_names_sha256: f55cd4b4dcda9c72864458822cda916a3aeea1f83902caed17c24a9b9c504a6b
+    expected_valid_episode_names_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /workspace/users/agao81/datasets/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+      expected_episode_count: 394
+      expected_episode_names_sha256: 9aa2c859f23324cf942e01d843c81c5ebb6659a25e68356d2c39f2b83aef928b
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row, allowed=frozenset(open(''/workspace/users/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/rl2_towels394_episodes.txt'').read().split()):
+        str(row[''episode_hash'']) in allowed'
+    mode: valid
+    valid_ratio: 0.05
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: 375
+    expected_valid_episode_count: 19
+    expected_train_episode_names_sha256: ffe1c84955e4c81e2c316806925d9a14f302300a0e251a5a5c49eac56f8b5e26
+    expected_valid_episode_names_sha256: 42d6798907567d9ac88f30ffc50670fe4527fde59ccb0bc2d18887d9af2978c2
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 16
+    num_workers: 7
+    persistent_workers: true
+  abc_yam_bimanual:
+    batch_size: 16
+    num_workers: 7
+    persistent_workers: true
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 16
+    num_workers: 7
+    persistent_workers: true
+dataset_weights:
+  yam_bimanual: 0.6
+  abc_yam_bimanual: 0.4
+weighted_dataloader_params:
+  batch_size: 16
+  num_workers: 7
+  persistent_workers: true
+samples_per_epoch: 3200
+sampling_seed: 42

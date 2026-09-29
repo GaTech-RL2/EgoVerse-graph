@@ -6,13 +6,9 @@ from collections import OrderedDict
 from typing import Literal
 
 import numpy as np
-import openpi
-import openpi.models.pi0_config
-import openpi.models_pytorch.pi0_pytorch
 import safetensors
 import torch
 import torch.nn as nn
-from openpi.shared.image_tools import resize_with_pad_torch
 from transformers import AutoTokenizer
 
 from egomimic.models.pi05.observations import (
@@ -29,6 +25,11 @@ from egomimic.utils.action_encoding import (
     PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D,
     PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D,
     ConverterRegistry,
+)
+from egomimic.utils.batch_utils import (
+    compatible_groups,
+    concatenate_batches,
+    sample_mean,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,9 @@ class PI:
         action_encoding: str = PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
         **kwargs,
     ):
+        import openpi.models.pi0_config
+        import openpi.models_pytorch.pi0_pytorch
+
         self.nets = nn.ModuleDict()
         self.norm_stats = norm_stats
 
@@ -385,44 +389,57 @@ class PI:
 
         return processed_batch
 
-    def forward_training(self, batch):
+    def training_losses(self, sources):
+        """Normalize/convert separately, then call OpenPI on compatible samples.
+
+        ``sources`` maps opaque source names to (embodiment_id, prepared_batch),
+        including multiple independently sampled datasets of the same embodiment.
         """
-        One iteration of training. Sequentially, forward pass loss, Compute forward pass and compute losses.  Return predictions dictionary.  HPT also calculates loss here.
-        Args:
-            batch (dict): dictionary with torch.Tensors sampled
-                from a data loader and filtered by @process_batch_for_training (see docstring for expected keys/shapes)
-        Returns:
-            predictions (dict): {ac_key: torch.Tensor (B, Seq, D), loss_key_name: torch.Tensor (1)}
-        """
-        # self.nets["policy"].train()
-        predictions = OrderedDict()
-        for embodiment_id, _batch in batch.items():
-            proprio_keys = self.proprio_keys[embodiment_id]
-            lang_keys = self.lang_keys[embodiment_id]
-            ac_key = self.ac_keys[embodiment_id]
-            camera_keys = self.camera_keys.get(embodiment_id, self.pi_cam_keys)
-            embodiment_name = get_embodiment(embodiment_id).lower()
-            processed_obs, action = self._robomimic_to_pi_data(
-                _batch,
-                camera_keys,
-                proprio_keys,
-                lang_keys,
-                ac_key,
-                embodiment_name,
+        inputs = {}
+        for source, (embodiment_id, values) in sources.items():
+            observation, action = self._robomimic_to_pi_data(
+                values,
+                self.camera_keys.get(embodiment_id, self.pi_cam_keys),
+                self.proprio_keys[embodiment_id],
+                self.lang_keys[embodiment_id],
+                self.ac_keys[embodiment_id],
+                get_embodiment(embodiment_id).lower(),
             )
-
-            losses = self.nets["policy"].forward(processed_obs, action)
-
-            if isinstance(losses, list | tuple):
+            inputs[source] = {"observation": vars(observation), "action": action}
+        result = {}
+        for group in compatible_groups(inputs):
+            merged = concatenate_batches([inputs[source] for source in group])
+            losses = self.nets["policy"](
+                _SimpleObservation(**merged["observation"]), merged["action"]
+            )
+            if isinstance(losses, (list, tuple)):
                 losses = torch.stack(losses)
-            elif not isinstance(losses, torch.Tensor):
-                losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
+            elif not torch.is_tensor(losses):
+                losses = torch.as_tensor(losses, device=merged["action"].device)
+            sizes = [len(inputs[source]["action"]) for source in group]
+            if len(group) == 1:
+                parts = [losses.mean()]
+            else:
+                if not losses.ndim or losses.shape[0] != sum(sizes):
+                    raise ValueError(
+                        "Homogeneous PI training requires per-sample policy losses"
+                    )
+                parts = [part.mean() for part in losses.split(sizes)]
+            result.update(zip(group, parts))
+        return result
 
-            loss = losses.mean()
-
-            predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
-            predictions[f"{embodiment_name}_loss"] = loss
-
+    def forward_training(self, batch):
+        losses = self.training_losses(
+            {embodiment: (embodiment, values) for embodiment, values in batch.items()}
+        )
+        predictions = OrderedDict()
+        for embodiment, values in batch.items():
+            name, action_key = (
+                get_embodiment(embodiment).lower(),
+                self.ac_keys[embodiment],
+            )
+            predictions[f"{name}_{action_key}"] = values[action_key]
+            predictions[f"{name}_loss"] = losses[embodiment]
         return predictions
 
     def forward_eval(self, batch):
@@ -557,18 +574,16 @@ class PI:
                 loss_key_name: torch.Tensor (1)
         """
         loss_dict = OrderedDict()
-        total_action_loss = None
+        losses, sizes = [], []
 
         for embodiment_id, _batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
             bc_loss = predictions[f"{embodiment_name}_loss"]
-            if total_action_loss is None:
-                total_action_loss = torch.tensor(0.0, device=bc_loss.device)
-            total_action_loss += bc_loss
+            losses.append(bc_loss)
+            sizes.append(len(_batch[self.ac_keys[embodiment_id]]))
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
 
-        # in the case we put all embodiments in one batch, get rid of this norm.
-        loss_dict["action_loss"] = total_action_loss / len(self.domains)
+        loss_dict["action_loss"] = sample_mean(losses, sizes)
 
         return loss_dict
 
@@ -643,6 +658,8 @@ class PI:
             img = _ensure_bchw(raw_images[k])
             img = _to_minus1_1(img)
             if img.shape[2:] != tuple(image_resolution):
+                from openpi.shared.image_tools import resize_with_pad_torch
+
                 img = resize_with_pad_torch(img, *image_resolution)
             if img.ndim != 4:
                 raise ValueError(
@@ -660,6 +677,14 @@ class PI:
             state = torch.zeros(B, 0, device=device)
         else:
             B = state.shape[0]
+
+        # Match the policy's fixed state width after per-embodiment conversion.
+        state = state.reshape(B, -1)
+        if state.shape[-1] > action32.shape[-1]:
+            raise ValueError("Proprio width exceeds PI state width")
+        state = torch.nn.functional.pad(
+            state, (0, action32.shape[-1] - state.shape[-1])
+        )
 
         # ---- Masks for duplicated images + empty language fields ----
         image_masks = {

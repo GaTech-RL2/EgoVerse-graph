@@ -18,39 +18,55 @@ def source_chunk():
 
 def codec(mode, **overrides):
     options = dict(
-        min_distance_unit=0.4, rotation_distance_unit=0.6,
-        resampled_vector_length=31, velocity_mode="per_waypoint",
+        min_distance_unit=0.4,
+        rotation_distance_unit=0.6,
+        resampled_vector_length=31,
+        velocity_mode="per_waypoint",
         arc_chunking_mode=mode,
     )
     options.update(overrides)
     return TokenizeBimanualArcLengthCartesian(**options)
 
 
-@pytest.mark.parametrize("mode,end", [
-    ("race", (0.4, 0.2)), ("multistream", (0.4, 0.4)),
-    ("joint_distance", (0.4 * 2 / 3, 0.4 / 3)),
-])
+@pytest.mark.parametrize(
+    "mode,end",
+    [
+        ("race", (0.4, 0.2)),
+        ("multistream", (0.4, 0.4)),
+        ("joint_distance", (0.4 * 2 / 3, 0.4 / 3)),
+    ],
+)
 def test_translation_mode_caps_and_independent_rotation_target(mode, end):
     tokenizer = codec(mode)
-    token = tokenizer.transform({"actions_cartesian": source_chunk()})["actions_cartesian"]
-    assert token.shape == (62, 14)
+    token = tokenizer.transform({"actions_cartesian": source_chunk()})[
+        "actions_cartesian"
+    ]
+    assert token.shape == (31, 28)
     np.testing.assert_allclose(token[30, [0, 7]], end, atol=1e-10)
-    # R=0.6 needs SIX seconds, after every translation mode finishes.
-    # Truncating rotation at a translation D crossing must fail this test.
-    np.testing.assert_allclose(token[30, [3, 10]], [0.3, 0.3], atol=1e-10)
+    # Race stops at the first translation clock (2 s); the other modes retain
+    # the source tail through its available 0.4 rad per arm.
+    expected_rotation = 0.1 if mode == "race" else 0.4
+    np.testing.assert_allclose(
+        token[30, [3, 10]], [expected_rotation, expected_rotation], atol=1e-10
+    )
     decoded = tokenizer.detokenize(token, 211)
     np.testing.assert_allclose(decoded[30, [0, 7]], [0.2, 0.1], atol=1e-9)
-    np.testing.assert_allclose(decoded[180, [3, 10]], [0.3, 0.3], atol=1e-9)
+    decoded_rotation = 0.1 if mode == "race" else 0.3
+    np.testing.assert_allclose(
+        decoded[180, [3, 10]], [decoded_rotation, decoded_rotation], atol=1e-9
+    )
     np.testing.assert_allclose(decoded[210, [0, 7]], end, atol=1e-9)
 
 
 @pytest.mark.parametrize("mode", ["race", "multistream", "joint_distance"])
 def test_rotation_finishes_early_and_holds_independent_of_translation(mode):
     tokenizer = codec(mode, rotation_distance_unit=0.05)
-    token = tokenizer.transform({"actions_cartesian": source_chunk()})["actions_cartesian"]
+    token = tokenizer.transform({"actions_cartesian": source_chunk()})[
+        "actions_cartesian"
+    ]
     decoded = tokenizer.detokenize(token, 121)
-    np.testing.assert_allclose(decoded[15:, 3], 0.025, atol=1e-9)
-    np.testing.assert_allclose(decoded[15:, 10], 0.025, atol=1e-9)
+    np.testing.assert_allclose(decoded[30:, 3], 0.05, atol=1e-9)
+    np.testing.assert_allclose(decoded[30:, 10], 0.05, atol=1e-9)
     assert decoded[30, 0] > decoded[15, 0]
 
 
@@ -61,22 +77,35 @@ def test_stationary_arm_holds_while_rotation_uses_its_own_clock(mode):
     tokenizer = codec(mode)
     token = tokenizer.transform({"actions_cartesian": raw})["actions_cartesian"]
     np.testing.assert_allclose(token[:31, 7:10], np.tile([0.2, 0.3, 0.4], (31, 1)))
-    np.testing.assert_allclose(token[31:, 7:10], 0.0)
+    np.testing.assert_allclose(token[:, 21:24], 0.0)
     decoded = tokenizer.detokenize(token, 211)
     assert np.isfinite(decoded).all()
     np.testing.assert_allclose(decoded[:, 7:10], np.tile([0.2, 0.3, 0.4], (211, 1)))
-    np.testing.assert_allclose(decoded[180, [3, 10]], [0.3, 0.3], atol=1e-9)
+    expected_rotation = 0.1 if mode == "race" else 0.3
+    np.testing.assert_allclose(
+        decoded[180, [3, 10]], [expected_rotation, expected_rotation], atol=1e-9
+    )
 
 
 def test_existing_hybrid_default_is_joint_distance_bitwise():
-    options = dict(min_distance_unit=0.4, rotation_distance_unit=0.6,
-                   resampled_vector_length=31, velocity_mode="per_waypoint")
+    options = dict(
+        min_distance_unit=0.4,
+        rotation_distance_unit=0.6,
+        resampled_vector_length=31,
+        velocity_mode="per_waypoint",
+    )
     implicit = TokenizeBimanualArcLengthCartesian(**options)
     explicit = codec("joint_distance")
-    old_token = implicit.transform({"actions_cartesian": source_chunk()})["actions_cartesian"]
-    new_token = explicit.transform({"actions_cartesian": source_chunk()})["actions_cartesian"]
+    old_token = implicit.transform({"actions_cartesian": source_chunk()})[
+        "actions_cartesian"
+    ]
+    new_token = explicit.transform({"actions_cartesian": source_chunk()})[
+        "actions_cartesian"
+    ]
     np.testing.assert_array_equal(old_token, new_token)
-    np.testing.assert_array_equal(implicit.detokenize(old_token, 211), explicit.detokenize(new_token, 211))
+    np.testing.assert_array_equal(
+        implicit.detokenize(old_token, 211), explicit.detokenize(new_token, 211)
+    )
 
 
 def test_invalid_mode_is_rejected():
@@ -89,14 +118,13 @@ def test_race_uses_first_crossing_time_but_independent_arc_coordinates():
     raw[:, 0] = [0.0, 0.8, 0.8, 1.6, 1.6]
     raw[:, 7] = [0.0, 0.1, 0.6, 0.7, 1.2]
     raw[:, [3, 10]] = np.arange(5)[:, None] * 0.1
-    tokenizer = codec("race", min_distance_unit=1.0,
-                      resampled_vector_length=5, dt=1.0)
+    tokenizer = codec("race", min_distance_unit=1.0, resampled_vector_length=5, dt=1.0)
     token = tokenizer.transform({"actions_cartesian": raw})["actions_cartesian"]
     # Left reaches 1 at source frame 2.25; right is then at 0.625.
     np.testing.assert_allclose(token[:5, 0], [0, 0.25, 0.5, 0.75, 1])
     np.testing.assert_allclose(token[:5, 7], [0, 0.15625, 0.3125, 0.46875, 0.625])
-    # Rotation reaches its independent cap at source frame 3, not 2.25.
-    np.testing.assert_allclose(token[4, [3, 10]], [0.3, 0.3])
+    # The first translation stream wins at frame 1.25, ahead of both R clocks.
+    np.testing.assert_allclose(token[4, [3, 10]], [0.225, 0.225])
 
 
 @pytest.mark.parametrize("mode", ["race", "multistream", "joint_distance"])
@@ -137,17 +165,19 @@ def test_multistream_short_arm_resamples_all_100_waypoints_then_holds_on_decode(
     raw[:, 0] = np.minimum(0.1 * time, 0.1)
     raw[:, 7] = np.minimum(0.1 * time, 0.4)
     raw[:, [3, 10]] = 0.01 * time[:, None]
-    tokenizer = codec("multistream", resampled_vector_length=100,
-                      rotation_distance_unit=0.2)
+    tokenizer = codec(
+        "multistream", resampled_vector_length=100, rotation_distance_unit=0.2
+    )
     token = tokenizer.transform({"actions_cartesian": raw})["actions_cartesian"]
-    assert token.shape == (200, 14)
+    assert token.shape == (100, 28)
     np.testing.assert_allclose(token[:100, 0], np.linspace(0.0, 0.1, 100))
     assert np.all(np.diff(token[:100, 0]) > 0.0)
     np.testing.assert_allclose(token[:100, 7], np.linspace(0.0, 0.4, 100))
     decoded = tokenizer.detokenize(token, 600)
     np.testing.assert_allclose(decoded[:, 0], np.minimum(0.1 * time, 0.1), atol=1e-9)
     np.testing.assert_allclose(decoded[:, 7], np.minimum(0.1 * time, 0.4), atol=1e-9)
-    np.testing.assert_allclose(decoded[300:, 3], 0.1, atol=1e-9)
+    np.testing.assert_allclose(decoded[300, 3], 0.1, atol=1e-9)
+    np.testing.assert_allclose(decoded[-1, 3], 0.01 * time[-1], atol=1e-9)
     assert decoded[120, 3] < decoded[300, 3]
 
 
@@ -167,13 +197,19 @@ def test_stationary_arm_hold_token_still_carries_its_gripper(mode):
     raw[:, 7:10] = [0.2, 0.3, 0.4]
     tokenizer = codec(mode)
     token = tokenizer.transform({"actions_cartesian": raw})["actions_cartesian"]
+    # A held arm carries the whole source-window gripper timeline even when
+    # another translation stream wins the race earlier.
+    expected_gripper_end = raw[-1, 13]
     np.testing.assert_allclose(token[:31, 7:10], np.tile([0.2, 0.3, 0.4], (31, 1)))
     np.testing.assert_allclose(
-        token[:31, 13], np.linspace(raw[0, 13], raw[-1, 13], 31), atol=1e-12
+        token[:31, 13], np.linspace(raw[0, 13], expected_gripper_end, 31), atol=1e-12
     )
-    # Translation is held, so the arm carries no translational or gripper rate.
-    np.testing.assert_allclose(token[31:, 7:10], 0.0)
-    np.testing.assert_allclose(token[31:, 13], 0.0)
-    # The rotation clock is untouched by the translation hold.
-    assert np.any(np.abs(token[31:, 10:13]) > 1e-9)
-    np.testing.assert_allclose(token[30, 10], 0.3, atol=1e-10)
+    # The held arm has no translation rate, while rotation and gripper retain
+    # their source-time rates instead of jumping to their terminal values.
+    np.testing.assert_allclose(token[:, 21:24], 0.0)
+    assert np.any(np.abs(token[:, 24:27]) > 1e-9)
+    assert np.any(np.abs(token[:, 27]) > 1e-9)
+    expected_rotation = 0.1 if mode == "race" else 0.4
+    np.testing.assert_allclose(token[30, 10], expected_rotation, atol=1e-10)
+    decoded = tokenizer.detokenize(token, 121)
+    assert decoded[5, 13] > decoded[0, 13]

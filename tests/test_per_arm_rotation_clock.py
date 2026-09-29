@@ -224,3 +224,36 @@ def test_rotation_streams_carry_no_hold_index(mode):
     assert all(stream[2] is not None for stream in translation)
     _, rotation_ends = ends(mode, raw)
     assert rotation_ends[0] > rotation_ends[1] > 0.0
+
+
+def test_stationary_arm_gripper_uses_its_source_time_clock():
+    raw = np.zeros((T, 14), dtype=np.float64)
+    raw[:, 0] = np.linspace(0.0, 0.99, T)
+    raw[:, 13] = np.linspace(0.0, 1.0, T)
+    tokenizer = codec("multistream")
+    token = tokenizer.transform({"actions_cartesian": raw})["actions_cartesian"]
+
+    decoded = tokenizer.detokenize(token, action_horizon=T)
+    right_gripper = decoded[:, 13]
+    assert right_gripper[0] == pytest.approx(0.0, abs=1e-8)
+    assert right_gripper[T // 2] == pytest.approx(0.5, abs=0.02)
+    assert right_gripper[-1] == pytest.approx(1.0, abs=1e-8)
+
+
+def test_terminal_rotation_with_missing_rate_completes_then_holds():
+    tokenizer = TokenizeBimanualArcLengthCartesian(
+        min_distance_unit=1.0,
+        rotation_distance_unit=ROTATION,
+        resampled_vector_length=5,
+        velocity_mode="per_waypoint",
+        arc_chunking_mode="multistream",
+    )
+    waypoints = np.zeros((5, 14), dtype=np.float64)
+    waypoints[:, 3] = waypoints[:, 10] = [0.0, 0.1, 0.2, 0.3, 0.3]
+    velocity = np.zeros_like(waypoints)
+    velocity[:2, 3] = velocity[:2, 10] = 3.0
+    token = np.concatenate((waypoints, velocity), axis=1)
+
+    decoded = tokenizer.detokenize(token, action_horizon=10)
+    np.testing.assert_allclose(decoded[3:, 3], 0.3, atol=1e-8)
+    np.testing.assert_allclose(decoded[3:, 10], 0.3, atol=1e-8)

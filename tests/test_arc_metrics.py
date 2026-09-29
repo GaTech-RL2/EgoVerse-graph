@@ -206,9 +206,7 @@ def test_tokenize_span_rejects_degenerate_settings(bad):
     full = _path()
     kwargs = {"num_points": _M, "dt": _DT, **bad}
     with pytest.raises(ValueError):
-        tokenize_span(
-            full, combined_travel(full), kwargs["num_points"], kwargs["dt"]
-        )
+        tokenize_span(full, combined_travel(full), kwargs["num_points"], kwargs["dt"])
 
 
 # -- dtw --------------------------------------------------------------------
@@ -484,6 +482,7 @@ def _arc_evaluator(velocity_mode="mean", action_horizon=45):
         resampled_vector_length=_M,
         preserve_action_key=None,
         velocity_mode=velocity_mode,
+        velocity_layout="stacked",
     )
 
     class _Passthrough:

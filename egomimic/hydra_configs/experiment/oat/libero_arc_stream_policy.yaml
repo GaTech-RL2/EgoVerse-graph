@@ -1,0 +1,10 @@
+# @package _global_
+# Decoder topology ablation; the external timed ARC codec is unchanged.
+defaults:
+  - /experiment/oat/libero_arc_stk_2_r192_d0p8_m32
+  - override /model: oat/arc_stream_policy
+  - _self_
+benchmark:
+  arc_backbone: oat_dp
+  arc_profile: stk_2
+  arc_decoder_variant: shared

@@ -30,7 +30,10 @@ abc:
   arc_distance: 0.40
   arc_rotation_distance: null
   arc_waypoints: 100
-  arc_token_rows: 200
+  # Wide velocity layout: each velocity row sits BESIDE its waypoint, so the
+  # token is (M, 28) -- M rows of 28 columns, not the historical (2M, 14).
+  arc_token_rows: 100
+  arc_token_dim: 28
   arc_velocity_mode: per_waypoint
   arc_chunking_mode: joint_distance
   task_predicate: ???

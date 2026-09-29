@@ -2,96 +2,16 @@
 # resolution: no SQL on the loaner, so a LocalEpisodeResolver reads the verified R2 copies in /workspace/users/agao81/datasets/egoverseS3ZarrDatasets and keeps
 # exactly the 394 hashes listed in rl2_towels394_episodes.txt (resolver pin 394 + split pins 375 / 19).
 # Loader batch is 16 PER RANK: these runs are 2-GPU DDP (Aidan 2026-09-25), so the global batch stays 32 as in the grid.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+defaults:
+- /data/abc_arc/towels_rl2_394_arcdur_lambda@_here_
+- _self_
 train_datasets:
   yam_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      embodiment_override: yam_bimanual
-      folder_path: /workspace/users/agao81/datasets/egoverseS3ZarrDatasets
-      image_hw:
-      - 480
-      - 640
-      key_map:
-        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
-        horizon: 200
-        embodiment: yam
-        drop_wrist_images: false
       transform_list:
-        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
         variant: time
-        chunk_length: 200
-        time_rows: 100
-        min_distance_unit: 0.4
-        resampled_vector_length: 100
-        stride: 1
-        rotation_mode: euler
-        velocity_norm: path
-        embodiment: yam
-      expected_episode_count: 394
-      expected_episode_names_sha256: 9aa2c859f23324cf942e01d843c81c5ebb6659a25e68356d2c39f2b83aef928b
-    filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
-      filter_lambdas:
-      - 'lambda row, allowed=frozenset(open(''/workspace/users/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/rl2_towels394_episodes.txt'').read().split()):
-        str(row[''episode_hash'']) in allowed'
-    mode: train
-    valid_ratio: 0.05
-    bounds_check: false
-    split_seed: 42
-    expected_train_episode_count: 375
-    expected_valid_episode_count: 19
-    expected_train_episode_names_sha256: ffe1c84955e4c81e2c316806925d9a14f302300a0e251a5a5c49eac56f8b5e26
-    expected_valid_episode_names_sha256: 42d6798907567d9ac88f30ffc50670fe4527fde59ccb0bc2d18887d9af2978c2
 valid_datasets:
   yam_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      embodiment_override: yam_bimanual
-      folder_path: /workspace/users/agao81/datasets/egoverseS3ZarrDatasets
-      image_hw:
-      - 480
-      - 640
-      key_map:
-        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
-        horizon: 200
-        embodiment: yam
-        drop_wrist_images: false
       transform_list:
-        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
         variant: time
-        chunk_length: 200
-        time_rows: 100
-        min_distance_unit: 0.4
-        resampled_vector_length: 100
-        stride: 1
-        rotation_mode: euler
-        velocity_norm: path
-        embodiment: yam
-      expected_episode_count: 394
-      expected_episode_names_sha256: 9aa2c859f23324cf942e01d843c81c5ebb6659a25e68356d2c39f2b83aef928b
-    filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
-      filter_lambdas:
-      - 'lambda row, allowed=frozenset(open(''/workspace/users/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/rl2_towels394_episodes.txt'').read().split()):
-        str(row[''episode_hash'']) in allowed'
-    mode: valid
-    valid_ratio: 0.05
-    bounds_check: false
-    split_seed: 42
-    expected_train_episode_count: 375
-    expected_valid_episode_count: 19
-    expected_train_episode_names_sha256: ffe1c84955e4c81e2c316806925d9a14f302300a0e251a5a5c49eac56f8b5e26
-    expected_valid_episode_names_sha256: 42d6798907567d9ac88f30ffc50670fe4527fde59ccb0bc2d18887d9af2978c2
-train_dataloader_params:
-  yam_bimanual:
-    batch_size: 16
-    num_workers: 7
-    persistent_workers: true
-valid_dataloader_params:
-  yam_bimanual:
-    batch_size: 16
-    num_workers: 7
-    persistent_workers: true

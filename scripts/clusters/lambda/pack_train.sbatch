@@ -43,10 +43,7 @@ for exp in "${runs[@]}"; do
   port=$(( ${PORT_BASE:-29500} + 10 * i )); i=$(( i + 1 ))
   run="$RUN_ROOT/$name"
   mkdir -p "$run"
-  resume=""
-  if [ -s "$run/checkpoints/last.ckpt" ]; then
-    resume="ckpt_path=$run/checkpoints/last.ckpt"
-  fi
+  resume=""; [ -s "$run/checkpoints/last.ckpt" ] && resume="ckpt_path=$run/checkpoints/last.ckpt"
   echo "--- $name -> $run ${resume:+(resuming)}"
   srun --exact --ntasks=$G --ntasks-per-node=$G --gres=gpu:h100:$G --gpu-bind=none --cpus-per-task=$CPUS --mem=200G \
     --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw --container-workdir="$SRC" \

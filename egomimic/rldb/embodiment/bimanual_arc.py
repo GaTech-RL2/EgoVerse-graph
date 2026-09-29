@@ -65,14 +65,11 @@ def get_keymap(
         # ``chunk_length=45`` setting.
         if isinstance(spec["horizon"], dict):
             continue
-        if yam_cls is not None and keymap_mode == "cartesian":
-            spec["horizon"] = int(
-                yam_cls.ACTION_HORIZON
-                if yam_source_frames is None
-                else yam_source_frames
-            )
-        else:
-            spec["horizon"] = int(horizon)
+        spec["horizon"] = int(
+            (yam_source_frames or yam_cls.ACTION_HORIZON)
+            if yam_cls is not None and keymap_mode == "cartesian"
+            else horizon
+        )
     return key_map
 
 

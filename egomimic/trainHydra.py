@@ -3,6 +3,7 @@ import hashlib
 import os
 import re
 import signal
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -558,10 +559,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         name: _source_embodiment(name, dataset)
         for name, dataset in datamodule.train_datasets.items()
     }
-    shared = [
-        emb for emb in set(map(str, source_embodiments.values()))
-        if list(map(str, source_embodiments.values())).count(emb) > 1
-    ]
+    shared = [e for e, n in Counter(map(str, source_embodiments.values())).items() if n > 1]
     if shared and not OmegaConf.select(cfg, "norm_stats.precomputed_norm_path", default=None):
         # Stats are keyed by embodiment, so each later source would overwrite the
         # earlier one's (a weighted ABC + RL2 mix silently got ABC-only stats).

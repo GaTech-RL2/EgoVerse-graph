@@ -31,7 +31,7 @@ dependencies = [
     "av==12.0.0",
     "opencv-python",
     "dm-control==1.0.8",
-    "mink==0.0.13",
+    "mink==1.1.0",
     "mujoco==3.4.0",
     "submitit",
     "arm_pytorch_utilities",
@@ -64,11 +64,24 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+oat = ["robomimic==0.2.0", "imageio", "imageio-ffmpeg"]
+libero = [
+    "libero @ git+https://github.com/Chaoqi-LIU/LIBERO.git@6090ff21837566fed47b7c9061c9899f4749d36b",
+    "robosuite==1.4.0",
+    "bddl==3.6.0",
+    "easydict",
+    "gymnasium>=1.2,<2",
+    "gym==0.26.2",
+    "numpy==2.3.5",
+    "numba==0.63.1",
+]
 robot = ["pure-python-adb"]
 aria = ["projectaria-tools[all]==2.0.0"]
 yam = [
     "pure-python-adb",
     "pyrealsense2",
+    "dynamixel-sdk==4.0.5",
+    "aiohttp",
     "i2rt @ git+https://github.com/rohan-bansal/i2rt.git@2b851d7f4511b6bda442db85e98ec1122835221b",
 ]
 pi05 = [
@@ -78,7 +91,8 @@ pi05 = [
 
 # Project Aria 2.0.0 pins rerun-sdk==0.22.1, while i2rt (the Yam SDK)
 # requires rerun-sdk>=0.32.2. i2rt also pins numpy==2.2.6, while Pi05's
-# OpenPI requires numpy<2. Keep these environments separate.
+# OpenPI requires numpy<2. LIBERO retains OAT's numpy==2.3.5/numba==0.63.1
+# simulator runtime. Keep these environments separate.
 [tool.uv]
 conflicts = [
     [
@@ -89,6 +103,14 @@ conflicts = [
         { extra = "pi05" },
         { extra = "yam" },
     ],
+    [
+        { extra = "libero" },
+        { extra = "yam" },
+    ],
+    [
+        { extra = "libero" },
+        { extra = "pi05" },
+    ],
 ]
 
 [tool.setuptools.packages.find]
@@ -96,7 +118,21 @@ where = ["."]
 include = ["egomimic*"]
 
 [tool.setuptools.package-data]
-egomimic = ["hydra_configs/**/*.yaml", "hydra_configs/**/*.json"]
+egomimic = [
+    "hydra_configs/**/*.yaml",
+    "hydra_configs/**/*.json",
+    "benchmarks/libero/*.json",
+    "benchmarks/libero/*LICENSE*",
+    "models/oat/*.json",
+    "models/oat/LICENSE*",
+    "models/oat/NOTICE*",
+    "robot/teleop_dashboard_static/*.html",
+    "robot/teleop_dashboard_static/*.js",
+    "robot/teleop_dashboard_static/*.css",
+    "robot/rollout_dashboard_static/*.html",
+    "robot/rollout_dashboard_static/*.js",
+    "robot/rollout_dashboard_static/*.css",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

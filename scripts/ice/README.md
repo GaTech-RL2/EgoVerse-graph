@@ -38,7 +38,8 @@ Export these before `sbatch --export=ALL`:
 - `ICE_EXPERIMENT`, exactly one of
   `pusht/planar_v2_usocket_direct_bc`,
   `pusht/planar_v2_usocket_arc_bc`, or
-  `pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc`
+  `pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc`, or
+  `pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg`
 - `ICE_WANDB_ENTITY`, `ICE_WANDB_PROJECT`, and a unique
   `ICE_WANDB_RUN_ID`
 - one GPU selected by the launcher's `H100|H200` Slurm constraint
@@ -51,6 +52,11 @@ Optional settings include `ICE_WANDB_NAME`, `ICE_WANDB_GROUP`,
 `ICE_WANDB_TAGS`, `ICE_NORM_STATS_PATH`, `ICE_SEED`, and
 `ICE_MAX_RESTARTS`. Authentication remains in the user's normal W&B
 environment; never place credentials in a submission script.
+
+Validation is on by default. Only when validation has been explicitly deferred
+may a run set both `ICE_VALIDATION_DEFERRED=true` and
+`ICE_LIMIT_VAL_BATCHES=0`; the launcher rejects every other deferred-value
+combination and records the override in the resolved run provenance.
 
 On the first attempt, omitting `ICE_NORM_STATS_PATH` computes fresh statistics
 from the pinned training split and writes

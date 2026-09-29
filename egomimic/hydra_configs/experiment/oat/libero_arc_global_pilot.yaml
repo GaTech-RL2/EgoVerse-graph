@@ -1,0 +1,30 @@
+# @package _global_
+defaults:
+  - /experiment/oat/libero_arc_global_common
+  - _self_
+
+# Same model/data/optimizer contract for all bases; select benchmark.arc_basis.
+trainer:
+  max_epochs: -1
+  max_steps: 10000
+  check_val_every_n_epoch: null
+  # 4 microbatches per update in the one-GPU default => every 2500 updates.
+  # Launcher must resolve this with its accumulation factor (tested).
+  val_check_interval: 10000
+  log_every_n_steps: 1
+
+model:
+  train_log_on_step: true
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 0
+    every_n_train_steps: 2500
+    save_on_train_epoch_end: false
+    save_last: false
+    save_top_k: -1
+    save_weights_only: true
+    auto_insert_metric_name: false
+    filename: "epoch_{epoch:04d}-step_{step:09d}"
+  ema:
+    final_checkpoint_path: null

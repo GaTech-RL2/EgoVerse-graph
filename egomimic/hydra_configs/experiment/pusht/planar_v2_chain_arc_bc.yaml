@@ -10,6 +10,7 @@ planar:
     _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
     resampled_vector_length: 100
     native_action_dim: 4
+    velocity_mode: ${planar.arc_velocity_mode}
   raw_action_horizon: 200
-  action_horizon: 101
+  action_horizon: 200
   transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list

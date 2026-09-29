@@ -1,0 +1,5 @@
+# @package _global_
+defaults: [/experiment/oat/libero_arc_policy, _self_]
+benchmark:
+  arc_mode: dur
+  arc_action_dim: 12

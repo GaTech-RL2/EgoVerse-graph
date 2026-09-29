@@ -7,14 +7,14 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 ROWS = {
-    "usocket_arc_bc": ("pushshapes_sim_u_socket", 101, 1, "PlanarFlowSampler"),
+    "usocket_arc_bc": ("pushshapes_sim_u_socket", 200, 1, "PlanarFlowSampler"),
     "usocket_arc_hybrid_D40_M16_R24deg_bc": (
         "pushshapes_sim_u_socket",
-        17,
+        32,
         1,
         "PlanarFlowSampler",
     ),
-    "chain_arc_bc": ("pushshapes_sim_chain_gripper", 101, 1, "PlanarFlowSampler"),
+    "chain_arc_bc": ("pushshapes_sim_chain_gripper", 200, 1, "PlanarFlowSampler"),
     "usocket_direct_bc": ("pushshapes_sim_u_socket", 16, 1, "PlanarFlowSampler"),
     "chain_direct_bc": ("pushshapes_sim_chain_gripper", 16, 1, "PlanarFlowSampler"),
     "usocket_dp_standard": ("pushshapes_sim_u_socket", 16, 1, "ConditionalUnet1D"),
@@ -216,6 +216,25 @@ def test_diffusion_mse_is_visible_during_long_training_epochs():
     per_source = model_wrapper.index('f"Train/MSE/{source}",')
     assert "on_step=True" in model_wrapper[aggregate : aggregate + 220]
     assert "on_step=True" in model_wrapper[per_source : per_source + 220]
+
+
+def test_duration_arc_explicitly_separates_raw_and_token_horizons():
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "+experiment=pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
+                "++paths.root_dir=.",
+            ],
+        )
+        OmegaConf.resolve(cfg.data)
+        dataset = cfg.data.train_datasets.pushshapes_sim_u_socket
+        transform = dataset.resolver.transform_list
+        assert dataset.resolver.key_map.action_horizon == 40
+        assert transform.action_horizon == 32
+        assert transform.raw_action_horizon == 40
+        assert transform.action_target_offset == 1
 
 
 def test_ddp_device_count_is_per_node_without_eval_resolver():

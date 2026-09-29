@@ -37,13 +37,23 @@ def _straight_line(steps: int = 20, span: float = 100.0) -> torch.Tensor:
 
 
 def _tokenizer(**kwargs) -> ArcTokenizeStage:
-    params = dict(min_distance_unit=50.0, resampled_vector_length=_M, dt=_DT)
+    params = dict(
+        min_distance_unit=50.0,
+        resampled_vector_length=_M,
+        dt=_DT,
+        velocity_mode="mean",
+    )
     params.update(kwargs)
     return ArcTokenizeStage(**params)
 
 
 def _detokenizer(**kwargs) -> ArcDetokenizeStage:
-    params = dict(resampled_vector_length=_M, action_horizon=16, dt=_DT)
+    params = dict(
+        resampled_vector_length=_M,
+        action_horizon=16,
+        dt=_DT,
+        velocity_mode="mean",
+    )
     params.update(kwargs)
     return ArcDetokenizeStage(**params)
 
@@ -112,7 +122,10 @@ def test_tokenize_matches_the_loader_side_transform_exactly():
     actions = _straight_line()
     graph = _tokenizer().forward({"actions": actions})["target"][0].numpy()
     loader = TokenizePlanarArcLength(
-        min_distance_unit=50.0, resampled_vector_length=_M, dt=_DT
+        min_distance_unit=50.0,
+        resampled_vector_length=_M,
+        dt=_DT,
+        velocity_mode="mean",
     ).tokenize(actions[0].numpy().astype(np.float64))
     np.testing.assert_allclose(graph, loader)
 
@@ -283,6 +296,7 @@ def _rotating_token(waypoints: int = 100):
         resampled_vector_length=waypoints,
         rotation_radius=_RR,
         dt=_DT,
+        velocity_mode="mean",
     )
     return stage.forward({"actions": _rotating_window()})["target"]
 
@@ -297,7 +311,11 @@ def test_detokenize_walks_the_se2_metric_the_token_speed_is_expressed_in():
     # that many steps, not a third of them.
     token = _rotating_token()
     native = ArcDetokenizeStage(
-        resampled_vector_length=100, action_horizon=60, dt=_DT, rotation_radius=_RR
+        resampled_vector_length=100,
+        action_horizon=60,
+        dt=_DT,
+        rotation_radius=_RR,
+        velocity_mode="mean",
     ).forward({"pred_action": token})["pred_action_native"]
     assert _saturation_step(native) == pytest.approx(39, abs=2)
 
@@ -307,10 +325,18 @@ def test_ignoring_the_rotation_term_replays_a_rotating_path_too_fast():
     # so it outruns an SE(2) rate and saturates early.
     token = _rotating_token()
     fast = ArcDetokenizeStage(
-        resampled_vector_length=100, action_horizon=60, dt=_DT, rotation_radius=0.0
+        resampled_vector_length=100,
+        action_horizon=60,
+        dt=_DT,
+        rotation_radius=0.0,
+        velocity_mode="mean",
     ).forward({"pred_action": token})["pred_action_native"]
     correct = ArcDetokenizeStage(
-        resampled_vector_length=100, action_horizon=60, dt=_DT, rotation_radius=_RR
+        resampled_vector_length=100,
+        action_horizon=60,
+        dt=_DT,
+        rotation_radius=_RR,
+        velocity_mode="mean",
     ).forward({"pred_action": token})["pred_action_native"]
     assert _saturation_step(fast) < _saturation_step(correct) / 2
 
@@ -491,11 +517,11 @@ def test_validate_velocity_mode_accepts_every_declared_mode():
         assert validate_velocity_mode(mode) == mode
 
 
-def test_mean_stays_the_default_so_existing_runs_are_untouched():
-    assert ArcTokenizeStage().velocity_mode == "mean"
-    assert ArcDetokenizeStage().velocity_mode == "mean"
-    token, _, _ = _round_trip("constant", "mean")
-    assert token.shape[1] == arc_token_rows(32, "mean")
+def test_duration_is_the_default_timing_contract():
+    assert TokenizePlanarArcLength().velocity_mode == "duration"
+    assert ArcTokenizeStage().velocity_mode == "duration"
+    assert ArcDetokenizeStage().velocity_mode == "duration"
+    assert arc_token_rows(32) == 64
 
 
 @pytest.mark.parametrize("mode", VELOCITY_MODES)
@@ -619,7 +645,11 @@ def test_duration_stalled_interval_cannot_traverse_the_path():
 
 
 def test_detokenize_rejects_the_other_modes_token_width():
-    mean_det = ArcDetokenizeStage(resampled_vector_length=32, action_horizon=16)
+    mean_det = ArcDetokenizeStage(
+        resampled_vector_length=32,
+        action_horizon=16,
+        velocity_mode="mean",
+    )
     with pytest.raises(ValueError, match="velocity_mode='mean'"):
         mean_det.forward({"pred_action": torch.zeros(1, 64, PLANAR_ACTION_DIM)})
     gran_det = ArcDetokenizeStage(

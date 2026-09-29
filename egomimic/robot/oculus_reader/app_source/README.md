@@ -1,3 +1,10 @@
+The controller-pose path in `Src/OculusTeleop.cpp` mirrors the RAIL/Yam
+world-frame modification from `rohan-bansal/rohan-gello` commit
+`e23154aa625fea10d934ffcec6c72c31db95da29`. It publishes the raw VR
+tracking-origin hand pose under `wE9ryARX`; it does not pre-multiply by the
+inverse head pose. The checked-in APK was built from that modification and is
+ready to install. Rebuilding is only necessary after changing the app source.
+
 This folder includes the source code of the Oculus Quest APK delivered in the repository. Use it if you intend to customize the app. Before following this instruction, please read the [README.md](../README.md) in the repository root folder.
 
 In order to compile the code you need to download the Oculus Quest SDK version 1.50.0 ([link](https://developer.oculus.com/downloads/package/oculus-mobile-sdk/1.50.0/)) and **place this repository in the root folder of the unpacked SDK**. Please keep the repository name as 'oculus_reader' to conform to the predefined project configuration.

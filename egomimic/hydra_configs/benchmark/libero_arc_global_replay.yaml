@@ -1,0 +1,24 @@
+# Fixed paired comparison. Geometry count is frozen from offline train data;
+# no basis or coefficient budget is chosen from simulator confirmation scores.
+comparison_only: true
+arc_mode: global_basis
+horizon: 32
+execute_steps: 16
+dt: 0.05
+seed: 20260924
+workers: 6
+max_tasks_per_worker: 2
+calibration_demos: [0]
+selection_demos: [1]  # Disjoint reserved IDs; not used for this fixed comparison.
+confirmation_demos: [35, 36]
+candidates:
+  - {mode: global_basis, basis: uniform, geometry: 32, clock: 31, num_waypoints: 32, max_translation: 1.6, max_rotation_degrees: 384}
+  - {mode: global_basis, basis: fourier, geometry: 32, clock: 31, num_waypoints: 32, max_translation: 1.6, max_rotation_degrees: 384}
+  - {mode: global_basis, basis: chebyshev, geometry: 32, clock: 31, num_waypoints: 32, max_translation: 1.6, max_rotation_degrees: 384}
+minimum_execution_coverage: 0.99
+minimum_raw_success: 0.5
+minimum_retention: 0.9
+maximum_success_rate_drop: 0.05
+action_dtype: float32
+max_dense_action_mse: 1.0e-12
+max_raw_repeat_state_error: 0.0

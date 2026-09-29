@@ -40,6 +40,8 @@ uv pip install --no-deps -e "$LIBERO_SOURCE_ROOT"
 export LIBERO_CONFIG_PATH=/workspace/libero/config
 if [[ "${RUN_KIND:-benchmark}" == policy_evaluation ]]; then
     python -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id "$RUN_ID" --request /tmp/evaluation-request.json
+elif [[ "${RUN_KIND:-benchmark}" == arc_decoders ]]; then
+    python -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$ARC_DECODER_OUTPUT" --variant "$ARC_DECODER_VARIANT" --profile "$ARC_PROFILE" --arc-mode "$ARC_DECODER_MODE" --replay-run "$ARC_REPLAY_RUN" --reference-run "$ARC_DECODER_REFERENCE_RUN"
 elif [[ "${RUN_KIND:-benchmark}" == dp_baseline ]]; then
     python -m egomimic.benchmarks.libero.baseline --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --backbone "$DP_BACKBONE" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$DP_OUTPUT"
 elif [[ "${RUN_KIND:-benchmark}" == fast ]]; then

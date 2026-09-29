@@ -104,6 +104,18 @@ def checkpoint_completion(payload, request):
         validate_raw_dp_config(
             payload["hyper_parameters"]["config_tree"], request["method"]
         )
+    config = payload["hyper_parameters"]["config_tree"]
+    variant = config["model"]["benchmark_protocol"].get("arc_decoder_variant")
+    if variant is not None or request.get("arc_decoder_variant") is not None:
+        from egomimic.benchmarks.libero.arc_decoders import validate_decoder_config
+
+        if request["method"] not in ("arc_stk", "arc_dur"):
+            raise ValueError("ARC decoder evaluation requires its timed codec method")
+        validate_decoder_config(
+            config, suite=request["suite"],
+            variant=request.get("arc_decoder_variant"), profile=request.get("arc_profile"),
+            arc_mode=request["method"].removeprefix("arc_"),
+        )
     return {"epochs_completed": epochs, "global_step": steps, "ema_num_updates": ema}
 
 
@@ -123,6 +135,11 @@ def restore_policy(client, request, root, evidence):
         "global_batch_size": 1024,
         "mode": "full",
     }
+    if request.get("arc_decoder_variant") is not None:
+        expected.update(
+            arc_decoder_variant=request["arc_decoder_variant"],
+            arc_profile=request["arc_profile"],
+        )
     if any(runtime.get(key) != value for key, value in expected.items()):
         raise ValueError("Evaluation source runtime differs from the request")
     receipt = request["checkpoint"]
@@ -482,6 +499,13 @@ def main():
         ):
             raise ValueError("Rollout policy differs from the evaluation request")
         write_json(evidence / "scores.json", summarize(records))
+        if request.get("paired_reference"):
+            from egomimic.benchmarks.libero.arc_decoders import audit_reference
+
+            write_json(
+                evidence / "paired-comparison.json",
+                audit_reference(uploader.client, request, output, evidence),
+            )
         write_json(
             evidence / "status.json",
             {

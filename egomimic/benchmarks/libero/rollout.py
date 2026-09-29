@@ -222,7 +222,7 @@ def load_policy(checkpoint, *, device="cuda", use_ema=True, use_k_tokens=None):
         if len(oat) != 1:
             raise ValueError("OAT prefix control requires an OAT policy checkpoint")
         oat[0].use_k_tokens = use_k_tokens
-    protocol = dict(config.model.benchmark_protocol)
+    protocol = OmegaConf.to_container(config.model.benchmark_protocol, resolve=True)
     if protocol["suite"] != normalizer.context["suite"]:
         raise ValueError("Checkpoint protocol/data suite differs")
     return GraphPolicy(

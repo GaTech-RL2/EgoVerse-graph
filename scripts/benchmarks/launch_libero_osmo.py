@@ -359,6 +359,43 @@ def fast_workflow(
     return spec
 
 
+def arc_decoder_workflow(
+    commit, run_id, suite, *, variant, profile, arc_mode, replay_run=None,
+    mode="full", epochs=5001, gpus=8, gpu_type="L40S", resume_from_run=None,
+    reference_run=None,
+):
+    """Matched ARC training with a dependent five-worker, one-GPU evaluation."""
+    from egomimic.benchmarks.libero.arc_sweep import profile_settings
+    from egomimic.models.arc_diffusion import DECODER_VARIANTS
+
+    if variant not in DECODER_VARIANTS:
+        raise ValueError("Unknown ARC decoder variant")
+    profile_settings(profile, arc_mode)
+    if mode == "full" and not replay_run:
+        raise ValueError("Full ARC decoder runs require their audited replay")
+    if replay_run and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", replay_run):
+        raise ValueError("Invalid ARC decoder replay run")
+    if reference_run and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", reference_run):
+        raise ValueError("Invalid ARC decoder reference run")
+    spec = baseline_workflow(
+        commit, run_id, suite, backbone="oat_dp", mode=mode, epochs=epochs,
+        gpus=gpus, gpu_type=gpu_type, resume_from_run=resume_from_run,
+    )
+    task = spec["workflow"]["tasks"][0]
+    task["environment"].update(
+        RUN_KIND="arc_decoders", ARC_DECODER_OUTPUT="{{output}}",
+        ARC_DECODER_VARIANT=variant, ARC_PROFILE=profile, ARC_DECODER_MODE=arc_mode,
+        ARC_REPLAY_RUN=replay_run or "", ARC_BACKBONE="oat_dp",
+        ARC_DECODER_REFERENCE_RUN=reference_run or "",
+    )
+    for task in spec["workflow"]["tasks"]:
+        task["environment"].pop("DP_BACKBONE", None)
+        task["environment"].pop("DP_OUTPUT", None)
+    if mode == "full":
+        spec["workflow"]["resources"]["evaluation"]["memory"] = "120Gi"
+    return spec
+
+
 def evaluation_workflow(
     commit,
     run_id,
@@ -420,6 +457,8 @@ def main():
     parser.add_argument("--arc-modes", nargs="+", choices=("joint_dur", "stk", "dur"))
     parser.add_argument("--arc-replay-runs-file", type=Path)
     parser.add_argument("--arc-profile")
+    parser.add_argument("--arc-decoder-variant", choices=("shared", "separate", "shape_masked"))
+    parser.add_argument("--arc-decoder-reference-run")
     parser.add_argument("--arc-backbone", choices=("unet", "oat_dp"), default="unet")
     parser.add_argument("--dp-backbone", choices=("unet", "oat_dp"))
     parser.add_argument("--fast", action="store_true")
@@ -429,6 +468,29 @@ def main():
     parser.add_argument("--raw-cache")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.arc_decoder_variant:
+        if (
+            any((args.fast, args.dp_backbone, args.replay, args.evaluate_from_run,
+                 args.campaign_id, args.campaign_runs_file, args.arc_replay_runs_file,
+                 args.oat_reference_run, args.calibration_parent, args.raw_cache))
+            or not args.arc_profile
+            or not args.arc_modes
+            or len(args.arc_modes) != 1
+            or args.arc_modes[0] not in ("stk", "dur")
+        ):
+            parser.error("ARC decoders require one profile and one timed ARC mode")
+        spec = arc_decoder_workflow(
+            args.commit, args.run_id, args.suite, variant=args.arc_decoder_variant,
+            profile=args.arc_profile, arc_mode=args.arc_modes[0], replay_run=args.arc_replay_run,
+            mode=args.mode, epochs=args.epochs, gpus=args.gpus, gpu_type=args.gpu_type,
+            resume_from_run=args.resume_from_run,
+            reference_run=args.arc_decoder_reference_run,
+        )
+        with args.output.open("x") as handle:
+            yaml.safe_dump(spec, handle, sort_keys=False)
+        return
+    if args.arc_decoder_reference_run:
+        parser.error("An ARC decoder reference requires --arc-decoder-variant")
     if args.fast:
         if any(
             (

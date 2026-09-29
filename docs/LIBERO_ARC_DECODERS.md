@@ -99,6 +99,13 @@ Campaign run IDs:
 | Separate | `arc-decoder-20260928-separate-spatial` |
 | Shape masked | `arc-decoder-20260928-masked-spatial` |
 
+Submitted workflow IDs, immutable source/spec hashes and evaluation prefixes are
+recorded in [the launch manifest](arc_decoder_runs_20260928.json). All three
+were allocated eight L40S GPUs in `groot-l40s-03`. The separate decoder workflow
+uses 72 GiB local storage after replacing a never-started 240 GiB request;
+measured Spatial raw data is 6.24 GB and the decoded cache is 6.12 GB. This
+resource change does not change the policy or optimizer configuration.
+
 Training runs a two-update GPU preflight and short simulator rollout before
 starting the full fresh budget. It releases its eight L40S GPUs on completion;
 the dependent `evaluate` task requests one L40S, five workers and 120 GiB RAM.

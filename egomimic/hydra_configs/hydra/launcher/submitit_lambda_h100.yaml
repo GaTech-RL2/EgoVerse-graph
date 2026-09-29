@@ -1,0 +1,31 @@
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+name: ${hydra.job.name}
+partition: loaner
+account: loaner
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+cpus_per_task: 12
+# Loaner nodes are exclusive. Always reserve all 8 H100s, including for
+# one-task normalization jobs. Actual training uses eight DDP tasks.
+gres: "gpu:h100:8"
+mem_gb: 512
+timeout_min: 2880
+signal_delay_s: 120
+max_num_timeout: 3
+array_parallelism: 5
+# Workspace and checkout follow scripts/clusters/lambda/profile.sh: set
+# EGOVERSE_WORKSPACE_ROOT or EGOVERSE_SOURCE_ROOT to point a job at another
+# account's workspace. Both default to this cluster's per-user layout.
+setup:
+  - export PATH=${oc.env:EGOVERSE_WORKSPACE_ROOT,/workspace/users/${oc.env:USER}}/.local/bin:$PATH
+  - source ${oc.env:EGOVERSE_SOURCE_ROOT,/workspace/users/${oc.env:USER}/EgoVerse-graph}/.venv/bin/activate
+# '#' in image names is safe in srun arguments, unlike an SBATCH comment.
+srun_args:
+  - --container-image=nvcr.io#nvidia/pytorch:25.06-py3
+  - --container-writable
+  - --container-mounts=/workspace:/workspace:rw
+  - --container-workdir=${oc.env:EGOVERSE_SOURCE_ROOT,/workspace/users/${oc.env:USER}/EgoVerse-graph}
+additional_parameters:
+  requeue: true
+  exclusive: true

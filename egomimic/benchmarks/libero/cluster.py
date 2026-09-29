@@ -327,6 +327,123 @@ def training_arguments(
     return args
 
 
+def global_basis_training_arguments(basis, dataset, evidence, mode, run_id, *, gpus=4):
+    """Compose the shared trainer for matched 10k-step pilots or real smokes.
+
+    This is a launch/config adapter, not another training implementation. The
+    source full benchmark remains epoch-budgeted and keeps its existing API.
+    """
+    if basis not in {"uniform", "fourier", "chebyshev"}:
+        raise ValueError("Unknown global geometry basis")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,127}", run_id):
+        raise ValueError("An explicit unique W&B run ID is required")
+    args = training_arguments(
+        "arc",
+        "libero_10",
+        dataset,
+        evidence,
+        mode,
+        5001,
+        gpus=gpus,
+        arc_backbone="oat_dp",
+    )
+    options = dict(arg.split("=", 1) for arg in args[3:])
+    run = Path(evidence) / "training" / basis
+    layout = training_layout(gpus, mode)
+    steps = 16 if mode == "smoke" else 10000
+    cadence = 8 if mode == "smoke" else 2500
+    options.update(
+        {
+            "+experiment": "oat/libero_arc_global_pilot",
+            "benchmark.arc_basis": basis,
+            "hydra.run.dir": str(run),
+            "paths.output_dir": str(run),
+            "norm_stats.save_cache_dir": str(run / "normalization"),
+            "trainer.max_epochs": "-1",
+            "trainer.max_steps": str(steps),
+            "trainer.limit_train_batches": "1.0",
+            "trainer.check_val_every_n_epoch": "null",
+            "trainer.val_check_interval": str(
+                cadence * layout["gradient_accumulation"]
+            ),
+            "trainer.log_every_n_steps": "1",
+            "callbacks.model_checkpoint.every_n_epochs": "0",
+            "callbacks.model_checkpoint.every_n_train_steps": str(cadence),
+            "callbacks.model_checkpoint.save_top_k": "-1",
+            "callbacks.model_checkpoint.save_weights_only": "true",
+            "callbacks.model_checkpoint.save_last": "false",
+            "callbacks.ema.final_checkpoint_path": "null",
+            "logger": "wandb",
+            "logger.wandb.project": "libero-arc-bases",
+            "logger.wandb.id": run_id,
+            "logger.wandb.group": "libero10-global-bases-20260924",
+            "++logger.wandb.resume": "never",
+            "++logger.csv._target_": "lightning.pytorch.loggers.CSVLogger",
+            "++logger.csv.save_dir": str(run),
+            "++logger.csv.name": "metrics",
+        }
+    )
+    # The small smoke still exercises exact batch-budget bookkeeping. It has
+    # reduced exposure, but the same distributed world and checkpoint policy.
+    options.pop("callbacks.batch_budget", None)
+    options["callbacks.batch_budget.global_batch_size"] = str(
+        layout["global_batch_size"]
+    )
+    return args[:3] + [f"{key}={value}" for key, value in options.items()]
+
+
+def configure_global_basis_candidate(
+    cfg,
+    *,
+    geometry=32,
+    geometry_fit_grid="uniform",
+    causal_attn=True,
+    token_affine=None,
+):
+    """Opt-in best-configuration study; leave the uniform control untouched.
+
+    Call after composing the shared training entry point and before resolving
+    interpolations. Affine arrays are embedded in the saved model config, not
+    dependent on an external fit file at inference time.
+    """
+    from omegaconf import OmegaConf, open_dict
+    from egomimic.rldb.zarr.libero_arc_global import LiberoArcGlobalCodec
+
+    if cfg.benchmark.arc_mode != "global_basis":
+        raise ValueError("Expected global basis configuration")
+    basis = str(cfg.benchmark.arc_basis)
+    if basis == "uniform":
+        if (
+            geometry != 32
+            or geometry_fit_grid != "uniform"
+            or not causal_attn
+            or token_affine is not None
+        ):
+            raise ValueError("Uniform control is frozen")
+        return cfg
+    codec = LiberoArcGlobalCodec(
+        basis=basis,
+        geometry=geometry,
+        clock=int(cfg.benchmark.arc_clock),
+        geometry_fit_grid=geometry_fit_grid,
+    )
+    with open_dict(cfg):
+        cfg.benchmark.arc_geometry = int(geometry)
+        cfg.benchmark.arc_waypoints = codec.num_waypoints
+        cfg.benchmark.arc_codec.geometry_fit_grid = geometry_fit_grid
+        for index in (1, -1):
+            stage = cfg.model.pipeline.stages[index]
+            stage.token_affine = (
+                OmegaConf.create(token_affine) if token_affine is not None else None
+            )
+        cfg.model.pipeline.stages[3].policy.model.causal_attn = bool(causal_attn)
+    # Constructor performs shape and exact basis/grid/fit-split identity checks.
+    from egomimic.pipeline.stages_libero_arc import LiberoArcStage
+
+    LiberoArcStage(codec=codec, token_affine=token_affine)
+    return cfg
+
+
 def campaign_sources(campaign_id, commit, replacements=None):
     """Pin each suite explicitly when a recovered run replaces a campaign member."""
     sources = (
@@ -402,9 +519,9 @@ def publish_campaign(
     report = {
         "complete_benchmark_suite": True,
         "unique_tasks": sum(map(len, TASKS.values())),
-        "source_commit": next(iter(commits.values()))
-        if len(set(commits.values())) == 1
-        else None,
+        "source_commit": (
+            next(iter(commits.values())) if len(set(commits.values())) == 1 else None
+        ),
         "source_commits": commits,
         "training_epochs": epochs,
         "global_batch_size": 1024,
@@ -846,9 +963,9 @@ def main():
             "arc_only": args.arc_only,
             "arc_profile": args.arc_profile,
             "arc_backbone": args.arc_backbone,
-            "evaluation_workers": 5
-            if args.arc_backbone == "oat_dp" and args.mode == "full"
-            else 1,
+            "evaluation_workers": (
+                5 if args.arc_backbone == "oat_dp" and args.mode == "full" else 1
+            ),
             "oat_reference_run": args.oat_reference_run,
             "campaign_id": args.campaign_id,
             "campaign_runs": args.campaign_runs,
@@ -1045,9 +1162,11 @@ def main():
             write_json(
                 evidence / "status.json",
                 {
-                    "state": "ARC_SMOKE_PASSED"
-                    if args.mode == "smoke"
-                    else "ARC_POLICIES_COMPLETE",
+                    "state": (
+                        "ARC_SMOKE_PASSED"
+                        if args.mode == "smoke"
+                        else "ARC_POLICIES_COMPLETE"
+                    ),
                     "episodes_per_method": len(paired[0]),
                     "benchmark_performance": args.mode == "full",
                     "paired_oat_comparison_complete": False,

@@ -1,0 +1,32 @@
+# @package _global_
+defaults:
+  - /experiment/oat/libero_arc_oat_dp_policy
+  - _self_
+
+# Experimental matched-basis comparison, not released OAT baseline parity.
+benchmark:
+  arc_mode: global_basis
+  arc_basis: ???
+  arc_geometry: 32
+  arc_clock: 31
+  arc_waypoints: 32  # (9*32 + 2*31 + 32 + 2) / 12, with no padded slots.
+  arc_action_dim: 12
+  # Coefficients are not bounded native supports. Do not clip their modes.
+  arc_clip_sample: false
+  arc_max_translation: 1.6
+  arc_max_rotation_degrees: 384
+  arc_codec:
+    _target_: egomimic.rldb.zarr.libero_arc_global.LiberoArcGlobalCodec
+    basis: ${benchmark.arc_basis}
+    geometry: ${benchmark.arc_geometry}
+    clock: ${benchmark.arc_clock}
+    clock_fit: sqrt_speed_linear
+    num_waypoints: ${benchmark.arc_waypoints}
+    horizon: ${benchmark.horizon}
+    max_translation: ${benchmark.arc_max_translation}
+    max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
+
+callbacks:
+  model_checkpoint:
+    save_top_k: -1
+    filename: "epoch_{epoch:04d}-step_{step:09d}"

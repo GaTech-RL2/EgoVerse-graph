@@ -34,6 +34,19 @@ def _from_rotation6d(values):
     return Rotation.from_matrix(np.stack((a, b, np.cross(a, b)), axis=-1))
 
 
+def _integrate_commands(actions, translation_scale, rotation_scale):
+    """Shared OSC command path; world-frame rotation increments left-multiply."""
+    xyz = np.vstack(
+        (np.zeros(3), np.cumsum(actions[:, :3] * translation_scale, axis=0))
+    )
+    rotations = [Rotation.identity()]
+    for increment in actions[:, 3:6]:
+        rotations.append(
+            Rotation.from_rotvec(increment * rotation_scale) * rotations[-1]
+        )
+    return xyz, Rotation.from_quat(np.stack([r.as_quat() for r in rotations]))
+
+
 class LiberoArcCodec:
     """M rows of [xyz(3), rotation6d(6), gripper(1), interval_seconds(1)].
 
@@ -122,16 +135,9 @@ class LiberoArcCodec:
         actions = np.asarray(actions, dtype=np.float64)
         if actions.shape != (self.horizon, 7) or not np.isfinite(actions).all():
             raise ValueError(f"Expected finite ({self.horizon},7) LIBERO actions")
-        xyz = np.vstack(
-            (np.zeros(3), np.cumsum(actions[:, :3] * self.translation_scale, axis=0))
+        xyz, rotations = _integrate_commands(
+            actions, self.translation_scale, self.rotation_scale
         )
-        rotations = [Rotation.identity()]
-        for increment in actions[:, 3:6]:
-            # robosuite OSC applies the delta rotation in the world frame.
-            rotations.append(
-                Rotation.from_rotvec(increment * self.rotation_scale) * rotations[-1]
-            )
-        rotations = Rotation.from_quat(np.stack([r.as_quat() for r in rotations]))
         grip = np.r_[actions[0, 6], actions[:, 6]]
         time = np.arange(self.horizon + 1, dtype=np.float64) * self.dt
         end = self._window_end(time, xyz, rotations)

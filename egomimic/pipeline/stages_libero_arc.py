@@ -1,6 +1,8 @@
 """LIBERO ARC graph nodes; the shared diffusion stages predict ARC supports."""
 
 from collections import OrderedDict
+import hashlib
+import json
 
 import numpy as np
 import torch
@@ -24,6 +26,7 @@ class LiberoArcStage(Stage):
         velocity_norm_bound=1.0,
         encode_cache_size=0,
         encode_inference=False,
+        token_affine=None,
         **codec_kwargs,
     ):
         super().__init__()
@@ -31,6 +34,51 @@ class LiberoArcStage(Stage):
             make_libero_arc_codec(arc_mode, **codec_kwargs) if codec is None else codec
         )
         self.arc_mode = getattr(self.codec, "mode", "joint_dur")
+        self.token_affine_context = None
+        if token_affine is not None:
+            if self.arc_mode != "global_basis":
+                raise ValueError(
+                    "Coefficient affine scaling requires a global basis codec"
+                )
+            expected = {
+                "kind": "bounded_train_std_v1",
+                "basis": self.codec.basis,
+                "geometry": self.codec.geometry,
+                "clock": self.codec.clock,
+                "geometry_fit_grid": self.codec.geometry_fit_grid,
+                "fit_split": "train_only",
+            }
+            if any(token_affine.get(key) != value for key, value in expected.items()):
+                raise ValueError("Coefficient statistics and codec identity differ")
+            center = np.asarray(token_affine["center"], dtype=np.float32)
+            divisor = np.asarray(token_affine["scale"], dtype=np.float32)
+            shape = (self.codec.num_waypoints, 12)
+            if (
+                center.shape != shape
+                or divisor.shape != shape
+                or not np.isfinite(center).all()
+                or not np.isfinite(divisor).all()
+                or np.any(divisor <= 0)
+            ):
+                raise ValueError("Invalid coefficient affine arrays")
+            self.register_buffer("token_center", torch.from_numpy(center.copy()))
+            self.register_buffer("token_divisor", torch.from_numpy(divisor.copy()))
+            context = {
+                **expected,
+                "training_windows_sha256": token_affine["training_windows_sha256"],
+                "center": center.tolist(),
+                "scale": divisor.tolist(),
+            }
+            self.token_affine_context = {
+                **expected,
+                "sha256": hashlib.sha256(
+                    json.dumps(context, sort_keys=True).encode()
+                ).hexdigest(),
+                "training_windows_sha256": context["training_windows_sha256"],
+            }
+        else:
+            # No new state_dict entries or numeric operations for old/uniform runs.
+            self.token_center = self.token_divisor = None
         self.encode_cache_size = int(encode_cache_size)
         if self.encode_cache_size < 0:
             raise ValueError("ARC encode cache size must be nonnegative")
@@ -73,13 +121,31 @@ class LiberoArcStage(Stage):
             "max_translation",
             "max_rotation_degrees",
         )
-        return {
+        context = {
             "kind": "libero_arc",
             "mode": self.arc_mode,
             **{key: getattr(self.codec, key) for key in fields},
             "velocity_norm_bound": self.velocity_norm_bound,
             "token_scale": self._token_scale(torch.ones(1)).tolist(),
         }
+        if self.arc_mode == "global_basis":
+            context.update(
+                {
+                    key: getattr(self.codec, key)
+                    for key in (
+                        "basis",
+                        "geometry",
+                        "clock",
+                        "clock_fit",
+                        "scalars",
+                    )
+                }
+            )
+            if self.codec.geometry_fit_grid != "uniform":
+                context["geometry_fit_grid"] = self.codec.geometry_fit_grid
+        if self.token_affine_context is not None:
+            context["token_affine"] = self.token_affine_context
+        return context
 
     def bind_data_context(self, *, normalizer):
         from egomimic.rldb.zarr.libero_dataset import EMBODIMENT
@@ -91,6 +157,8 @@ class LiberoArcStage(Stage):
         self.data_context = normalizer.tokenizer_context()
 
     def _token_scale(self, tensor):
+        if hasattr(self.codec, "token_scale"):
+            return tensor.new_tensor(self.codec.token_scale())
         # Fixed physical units, recorded in config; no separately fitted split.
         scale = tensor.new_ones(11 if self.arc_mode == "joint_dur" else 12)
         scale[:3] = self.codec.translation_scale * self.codec.horizon
@@ -113,8 +181,14 @@ class LiberoArcStage(Stage):
             values = self._encode(native.detach().float().cpu().numpy())
             tokens = torch.as_tensor(values, device=native.device, dtype=native.dtype)
             batch["target"] = tokens / self._token_scale(tokens)
+            if self.token_center is not None:
+                batch["target"] = (
+                    batch["target"].float() - self.token_center
+                ) / self.token_divisor
         if mode == "inference" and (self.operation == "decode" or self.reconstruction):
             tokens = batch["target"] if self.reconstruction else batch["pred_arc"]
+            if self.token_center is not None:
+                tokens = tokens.float() * self.token_divisor + self.token_center
             tokens = tokens * self._token_scale(tokens)
             decoded = np.stack(
                 [
@@ -135,6 +209,11 @@ class LiberoArcStage(Stage):
             getattr(self.codec, key, None)
             for key in (
                 "mode",
+                "basis",
+                "geometry",
+                "clock",
+                "clock_fit",
+                "geometry_fit_grid",
                 "horizon",
                 "num_waypoints",
                 "dt",

@@ -48,7 +48,12 @@ def candidate_id(candidate):
     def label(value):
         return "full" if value is None else f"{value:g}"
 
-    return (
+    prefix = (
+        f"{candidate['basis']}_G{candidate['geometry']}_C{candidate['clock']}_"
+        if candidate.get("mode") == "global_basis"
+        else ""
+    )
+    return prefix + (
         (f"{candidate['mode']}_" if "mode" in candidate else "")
         + f"R{label(candidate['max_rotation_degrees'])}"
         f"_D{label(candidate['max_translation'])}_M{candidate['num_waypoints']}"
@@ -56,6 +61,21 @@ def candidate_id(candidate):
 
 
 def candidates_from_spec(spec):
+    if "candidates" in spec:
+        if not spec.get("comparison_only"):
+            raise ValueError("Explicit paired candidates require comparison_only")
+        candidates = {}
+        for candidate in spec["candidates"]:
+            codec = make_libero_arc_codec(
+                **candidate, horizon=spec["horizon"], dt=spec["dt"]
+            )
+            name = candidate_id(candidate)
+            if name in candidates or codec.num_waypoints != candidate["num_waypoints"]:
+                raise ValueError("Duplicate candidate or inconsistent model packing")
+            candidates[name] = dict(candidate)
+        if not candidates:
+            raise ValueError("Expected nonempty paired candidates")
+        return candidates
     candidates = {}
     for rotation, distance, waypoints in itertools.product(
         spec["rotation_degrees"], spec["translation_metres"], spec["waypoints"]
@@ -630,7 +650,7 @@ def calibrate(root, suite, spec, evidence, *, calibration_parent=None, client=No
         "max_translation": None,
         "max_rotation_degrees": None,
     }
-    if "arc_mode" in spec:
+    if "arc_mode" in spec and not spec.get("comparison_only"):
         previous["mode"] = spec["arc_mode"]
         # The existing dense shared-clock codec is the numerical replay control.
         # Dense mode-specific ARC is also measured; uniform arc allocation and
@@ -651,6 +671,42 @@ def calibrate(root, suite, spec, evidence, *, calibration_parent=None, client=No
         processes=spec["workers"],
         maxtasksperchild=spec.get("max_tasks_per_worker", 4),
     ) as pool:
+        if spec.get("comparison_only"):
+            if calibration_parent:
+                raise ValueError(
+                    "Paired comparison cannot reuse a selected calibration"
+                )
+            # Freeze every arm before observing simulator outcomes; do not pick a
+            # winning representation or prune one on a held-out score.
+            write_json(evidence / "paired-candidates.json", candidates)
+            comparison = {}
+            for phase in ("calibration", "confirmation"):
+                rows = run_jobs(
+                    pool,
+                    replay_job,
+                    jobs(spec[phase + "_demos"], {**controls, **candidates}),
+                    evidence,
+                    phase,
+                )
+                summary = summarize(rows, {**controls, **candidates})
+                write_json(evidence / (phase + ".json"), summary)
+                validate_controls(summary, spec)
+                comparison[phase] = summary
+            accepted = rank_candidates(comparison["confirmation"], candidates, spec)
+            result = {
+                "suite": suite,
+                "arc_mode": spec.get("arc_mode"),
+                "comparison_only": True,
+                "codec_only_not_policy_scores": True,
+                "candidates": candidates,
+                "confirmation_complete": True,
+                "confirmed": set(accepted) == set(candidates),
+                "accepted_candidates": accepted,
+                "confirmation": comparison["confirmation"],
+                "spec_sha256": digest(evidence / "spec.json"),
+            }
+            write_json(evidence / "result.json", result)
+            return result
         if calibration_parent:
             eligible, summary = load_calibration_parent(
                 client, calibration_parent, suite, spec, evidence
@@ -822,6 +878,11 @@ def main():
     parser.add_argument("--suite", choices=TASKS, required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument(
+        "--local-only",
+        action="store_true",
+        help="Retain local evidence without object-store access or uploads",
+    )
+    parser.add_argument(
         "--calibration-parent",
         default=os.environ.get("REPLAY_CALIBRATION_PARENT") or None,
     )
@@ -839,7 +900,11 @@ def main():
         raise RuntimeError("Unexpected source revision")
     evidence = args.root / "evidence"
     evidence.mkdir(parents=True, exist_ok=False)
-    uploader = ArtifactUploader(evidence, args.run_id)
+    if args.local_only and args.calibration_parent:
+        raise ValueError(
+            "Local-only replay cannot read an object-store calibration parent"
+        )
+    uploader = None if args.local_only else ArtifactUploader(evidence, args.run_id)
     write_json(
         evidence / "runtime.json",
         {
@@ -847,7 +912,10 @@ def main():
             "suite": args.suite,
             "python": sys.version,
             "kind": "demonstration_replay",
-            "artifact_prefix": "s3://rldb/" + uploader.prefix,
+            "artifact_prefix": None
+            if uploader is None
+            else "s3://rldb/" + uploader.prefix,
+            "local_only": args.local_only,
         },
     )
     write_json(evidence / "spec.json", spec)
@@ -882,7 +950,8 @@ def main():
         },
     )
     write_json(evidence / "status.json", {"state": "STAGING_RAW_DEMONSTRATIONS"})
-    uploader.thread.start()
+    if uploader is not None:
+        uploader.thread.start()
     try:
         result = calibrate(
             args.root,
@@ -890,7 +959,7 @@ def main():
             spec,
             evidence,
             calibration_parent=args.calibration_parent,
-            client=uploader.client,
+            client=None if uploader is None else uploader.client,
         )
         write_json(
             evidence / "status.json",
@@ -908,9 +977,10 @@ def main():
         write_json(evidence / "status.json", {"state": "FAILED", "error": str(error)})
         raise
     finally:
-        uploader.stop.set()
-        uploader.thread.join()
-        uploader.upload(final=True)
+        if uploader is not None:
+            uploader.stop.set()
+            uploader.thread.join()
+            uploader.upload(final=True)
 
 
 if __name__ == "__main__":

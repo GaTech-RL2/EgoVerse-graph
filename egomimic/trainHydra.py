@@ -221,6 +221,7 @@ def _instantiate_model_wrapper(cfg: DictConfig) -> LightningModule:
         config_tree=_build_model_config_tree(cfg),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
         enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
+        train_log_on_step=bool(cfg.model.get("train_log_on_step", False)),
     )
 
 

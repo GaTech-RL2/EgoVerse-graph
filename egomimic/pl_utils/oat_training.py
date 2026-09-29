@@ -40,6 +40,12 @@ class OATBatchBudgetCallback(Callback):
         # Accelerate's four-rank BatchSamplerShard drops an incomplete GLOBAL
         # batch. Lightning otherwise takes a final partial accumulation step.
         trainer.limit_train_batches = steps * accumulation
+        epoch_limit = int(trainer.max_epochs)
+        step_limit = int(getattr(trainer, "max_steps", -1))
+        limits = [value for value in (steps * epoch_limit, step_limit) if value > 0]
+        if not limits:
+            raise ValueError("OAT requires a finite positive epoch or step budget")
+        total_steps = min(limits)
         self.budget = {
             "train_examples": len(dataset),
             "microbatch_size": microbatch,
@@ -48,8 +54,9 @@ class OATBatchBudgetCallback(Callback):
             "global_batch_size": effective,
             "optimizer_steps_per_epoch": steps,
             "microbatches_per_epoch": steps * accumulation,
-            "epochs": int(trainer.max_epochs),
-            "total_optimizer_steps": steps * int(trainer.max_epochs),
+            "epochs": epoch_limit,
+            "max_steps": step_limit,
+            "total_optimizer_steps": total_steps,
             "dropped_examples_per_epoch": len(dataset) % effective,
         }
         if trainer.is_global_zero:
@@ -110,6 +117,15 @@ class OATTrainingBehavior(TrainingBehavior):
     def on_save_checkpoint(self, checkpoint):
         from egomimic.models.oat.checkpoint import validate_input_representation
 
+        # Lightning skips callback save hooks for weights-only checkpoints.
+        # Preserve EMA *weights* and budget provenance without optimizer state.
+        # Full-state saves already ran these hooks; never run them twice (in
+        # particular while validation has temporarily swapped EMA parameters).
+        if "optimizer_states" not in checkpoint:
+            trainer = self.context.trainer
+            for callback in trainer.callbacks:
+                if isinstance(callback, (OATBatchBudgetCallback, OATEMACallback)):
+                    callback.on_save_checkpoint(trainer, self.context, checkpoint)
         checkpoint["oat_input_representation"] = validate_input_representation(
             self.context.model.pipeline.stages
         )

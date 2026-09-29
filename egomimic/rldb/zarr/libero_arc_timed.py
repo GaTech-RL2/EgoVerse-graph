@@ -18,6 +18,7 @@ from scipy.spatial.transform import Rotation, Slerp
 from egomimic.rldb.zarr.libero_arc import (
     LiberoArcCodec,
     _from_rotation6d,
+    _integrate_commands,
     _rotation6d,
 )
 
@@ -109,15 +110,9 @@ class LiberoArcTimedCodec(LiberoArcCodec):
         actions = np.asarray(actions, dtype=np.float64)
         if actions.shape != (self.horizon, 7) or not np.isfinite(actions).all():
             raise ValueError(f"Expected finite ({self.horizon},7) LIBERO actions")
-        xyz = np.vstack(
-            (np.zeros(3), np.cumsum(actions[:, :3] * self.translation_scale, axis=0))
+        xyz, rotations = _integrate_commands(
+            actions, self.translation_scale, self.rotation_scale
         )
-        rotations = [Rotation.identity()]
-        for increment in actions[:, 3:6]:
-            rotations.append(
-                Rotation.from_rotvec(increment * self.rotation_scale) * rotations[-1]
-            )
-        rotations = Rotation.from_quat(np.stack([r.as_quat() for r in rotations]))
         translation = np.r_[
             0.0, np.cumsum(np.linalg.norm(np.diff(xyz, axis=0), axis=-1))
         ]
@@ -252,6 +247,10 @@ class LiberoArcTimedCodec(LiberoArcCodec):
 
 
 def make_libero_arc_codec(mode="joint_dur", **kwargs):
+    if mode == "global_basis":
+        from egomimic.rldb.zarr.libero_arc_global import LiberoArcGlobalCodec
+
+        return LiberoArcGlobalCodec(**kwargs)
     if mode == "joint_dur":
         return LiberoArcCodec(**kwargs)
     return LiberoArcTimedCodec(mode=mode, **kwargs)
@@ -262,6 +261,14 @@ def codec_source_files(mode):
     paths = ["egomimic/rldb/zarr/libero_arc.py", "egomimic/rldb/zarr/planar_arc.py"]
     if mode in {"stk", "dur"}:
         paths.append("egomimic/rldb/zarr/libero_arc_timed.py")
+    elif mode == "global_basis":
+        paths.extend(
+            [
+                "egomimic/rldb/zarr/libero_arc_timed.py",
+                "egomimic/rldb/zarr/libero_arc_global.py",
+                "egomimic/rldb/zarr/arc_global_basis.py",
+            ]
+        )
     elif mode != "joint_dur":
         raise ValueError(f"Unknown ARC mode {mode!r}")
     return paths

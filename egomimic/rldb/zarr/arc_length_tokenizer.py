@@ -167,14 +167,6 @@ def cumulative_bimanual_translation_length(actions: np.ndarray) -> np.ndarray:
     return np.concatenate(([0.0], np.cumsum(left + right)))
 
 
-def cumulative_bimanual_rotation_length(actions: np.ndarray) -> np.ndarray:
-    """Joint rotation clock: left SO(3) angle plus right SO(3) angle."""
-    actions = np.asarray(actions, dtype=np.float64)
-    left = np.diff(cumulative_rotation_length(actions[:, 3:6]))
-    right = np.diff(cumulative_rotation_length(actions[:, 10:13]))
-    return np.concatenate(([0.0], np.cumsum(left + right)))
-
-
 def _bracket_segment(cumdist: np.ndarray, target_s: float) -> tuple[int, float]:
     """Locate the segment containing arc length target_s.
 
@@ -1496,59 +1488,128 @@ class TokenizeBimanualArcLengthCartesian:
         _, end_idx = _dist_interval_indices(cumulative, 0.0, end)
         return end_idx
 
-    def _translation_source_coordinates(self, raw: np.ndarray):
-        """Return each arm's source coordinate, waypoint targets and hold index.
+    def _race_frame(self, translation_cumulative, rotation_cumulative, num_frames):
+        """Fractional source frame at which the race ends.
 
-        Race shares the stopping time, not the interpolation distance. The
-        complete source remains available to the independent rotation stream.
-        A non-None hold index means that arm emits a hold token this chunk.
+        Four racers, one per stream: each arm's translation spends D and each
+        arm's rotation spends R. The chunk ends at whichever budget is spent
+        first. A stream that never spends its budget inside the window does not
+        enter, and if no stream does the window's last frame ends the race.
+
+        ``_translation_bracket`` is a first-crossing rule over any monotone
+        cumulative array, so rotation reuses it rather than duplicating it.
         """
         distance = self.tokenizer.config.min_distance_unit
-        if self.arc_chunking_mode == "joint_distance":
-            cumulative = cumulative_bimanual_translation_length(raw)
-            end = min(distance, float(cumulative[-1]))
-            targets = np.linspace(0.0, end, self.M)
-            # Both arms share the joint clock, so they hold or move together.
-            hold = self._translation_hold_index(cumulative, end)
-            return [(cumulative, targets, hold), (cumulative, targets, hold)]
-        cumulative = [
-            cumulative_arc_length(raw[:, offset : offset + 3]) for offset in (0, 7)
+        crossings = []
+        for values, budget in (
+            (translation_cumulative[0], distance),
+            (translation_cumulative[1], distance),
+            (rotation_cumulative[0], self.rotation_distance_unit),
+            (rotation_cumulative[1], self.rotation_distance_unit),
+        ):
+            if values[-1] >= budget:
+                frame, alpha = self._translation_bracket(values, budget)
+                crossings.append(frame + alpha)
+        return min(crossings, default=float(num_frames - 1))
+
+    def _hybrid_source_coordinates(self, raw: np.ndarray):
+        """Source distance coordinates and waypoint targets for both clocks.
+
+        Returns ``(translation, rotation)``. Each translation entry is one arm's
+        ``(cumulative, targets, hold)``, where a non-None hold index means that
+        arm emits a hold token this chunk. Each rotation entry is one arm's
+        ``(cumulative, targets)``: rotation never holds, because a hold is a
+        translation-distance rule and the rotation stream keeps its own clock.
+
+        Rotation is per-arm in every chunking mode: each arm spends R on its own
+        SO(3) travel. There is no summed left-plus-right rotation clock. A summed
+        clock lets a still arm inherit the other arm's angular travel and spread
+        its waypoints across rotation it never performed, and it reaches R after
+        roughly half the per-arm turn, which cuts every chunk short.
+
+        The translation and rotation clocks stay independent in the sense that
+        each spends its own budget. ``joint_distance`` sums both arms'
+        translation into one clock; ``multistream`` caps each arm at D on its
+        own. Neither defines a frame at which the chunk ends, so one stream
+        running past another is not a contradiction and nothing is truncated.
+
+        ``race`` is a stopping time rather than a budget, so the chunk does have
+        an end frame. All four streams race for it -- each arm's translation for
+        D and each arm's rotation for R -- and each is then interpolated on its
+        own cumulative length through that shared frame. That is what keeps a
+        waypoint's orientation inside the frames its position came from.
+        """
+        distance = self.tokenizer.config.min_distance_unit
+        rotation_cumulative = [
+            cumulative_rotation_length(raw[:, offset + 3 : offset + 6])
+            for offset in (0, 7)
         ]
-        ends = [min(distance, float(values[-1])) for values in cumulative]
+
         if self.arc_chunking_mode == "race":
-            crossings = []
-            for values in cumulative:
-                if values[-1] >= distance:
-                    frame, alpha = self._translation_bracket(values, distance)
-                    crossings.append(frame + alpha)
-            race_frame = min(crossings, default=float(len(raw) - 1))
-            frames = np.arange(len(raw), dtype=np.float64)
-            ends = [
-                float(np.interp(race_frame, frames, values)) for values in cumulative
+            translation_cumulative = [
+                cumulative_arc_length(raw[:, offset : offset + 3]) for offset in (0, 7)
             ]
-        return [
-            (
+            race_frame = self._race_frame(
+                translation_cumulative, rotation_cumulative, len(raw)
+            )
+            frames = np.arange(len(raw), dtype=np.float64)
+            race_ends = [
+                float(np.interp(race_frame, frames, values))
+                for values in translation_cumulative + rotation_cumulative
+            ]
+            return (
+                [
+                    (
+                        values,
+                        np.linspace(0.0, end, self.M),
+                        self._translation_hold_index(values, end),
+                    )
+                    for values, end in zip(translation_cumulative, race_ends[:2])
+                ],
+                [
+                    (values, np.linspace(0.0, end, self.M))
+                    for values, end in zip(rotation_cumulative, race_ends[2:])
+                ],
+            )
+
+        def budget_targets(values, budget):
+            return np.linspace(0.0, min(budget, float(values[-1])), self.M)
+
+        rotation = [
+            (values, budget_targets(values, self.rotation_distance_unit))
+            for values in rotation_cumulative
+        ]
+
+        def translation_stream(values):
+            end = min(distance, float(values[-1]))
+            return (
                 values,
                 np.linspace(0.0, end, self.M),
                 self._translation_hold_index(values, end),
             )
-            for values, end in zip(cumulative, ends)
-        ]
+
+        if self.arc_chunking_mode == "joint_distance":
+            # Both arms share the joint clock, so they hold or move together.
+            joint = cumulative_bimanual_translation_length(raw)
+            return [translation_stream(joint)] * 2, rotation
+        return [
+            translation_stream(cumulative_arc_length(raw[:, offset : offset + 3]))
+            for offset in (0, 7)
+        ], rotation
 
     def _hybrid_waypoints(self, raw: np.ndarray) -> np.ndarray:
-        """Resample translation streams with the unchanged independent R clock."""
-        rotation_cumulative = cumulative_bimanual_rotation_length(raw)
-        rotation_end = min(self.rotation_distance_unit, float(rotation_cumulative[-1]))
-        rotation_targets = np.linspace(0.0, rotation_end, self.M)
-        rotation_indices, rotation_alpha = _bracket_segments(
-            rotation_cumulative, rotation_targets
-        )
+        """Resample both streams against their own source coordinates."""
+        translation, rotation = self._hybrid_source_coordinates(raw)
 
         hold_alphas = np.linspace(0.0, 1.0, self.M)[:, None]
         arms = []
-        for offset, (translation_cumulative, translation_targets, hold) in zip(
-            (0, 7), self._translation_source_coordinates(raw)
-        ):
+        for offset, (translation_cumulative, translation_targets, hold), (
+            rotation_cumulative,
+            rotation_targets,
+        ) in zip((0, 7), translation, rotation):
+            rotation_indices, rotation_alpha = _bracket_segments(
+                rotation_cumulative, rotation_targets
+            )
             if hold is None:
                 xyz = self._translation_values_at_targets(
                     raw[:, offset : offset + 3],
@@ -1585,22 +1646,21 @@ class TokenizeBimanualArcLengthCartesian:
         rows = np.zeros((self.M, ARC_TOK_BIMANUAL_DIM), dtype=np.float64)
         dt = self.tokenizer.config.dt
 
-        rotation_cumulative = cumulative_bimanual_rotation_length(raw)
-        rotation_end = min(self.rotation_distance_unit, float(rotation_cumulative[-1]))
-        rotation_targets = np.linspace(0.0, rotation_end, self.M)
-        rotation_times = _source_times_at_targets(
-            rotation_cumulative, rotation_targets, dt
-        )
-        rotation_dt = np.diff(rotation_times)
-        rotation_safe = np.where(
-            rotation_dt > self.zero_dist_epsilon,
-            rotation_dt,
-            np.inf,
-        )
+        translation, rotation = self._hybrid_source_coordinates(raw)
 
-        for offset, (translation_cumulative, translation_targets, hold) in zip(
-            (0, 7), self._translation_source_coordinates(raw)
-        ):
+        for offset, (translation_cumulative, translation_targets, hold), (
+            rotation_cumulative,
+            rotation_targets,
+        ) in zip((0, 7), translation, rotation):
+            rotation_times = _source_times_at_targets(
+                rotation_cumulative, rotation_targets, dt
+            )
+            rotation_dt = np.diff(rotation_times)
+            rotation_safe = np.where(
+                rotation_dt > self.zero_dist_epsilon,
+                rotation_dt,
+                np.inf,
+            )
             # A held arm keeps its allocated zero rows: tokenize_at's zero token
             # carries no translational velocity, and detokenization reads that
             # zero rate as "this arm stays put for the whole chunk".
@@ -1700,18 +1760,25 @@ class TokenizeBimanualArcLengthCartesian:
             rows[-1, xyz_off] = delta_t[-1]
         return rows
 
-    def _translation_arm_durations(
+    def _arm_durations(
         self,
         waypoints: np.ndarray,
         velocity_rows: np.ndarray,
         offset: int,
         action_horizon: int,
+        *,
+        rotation: bool = False,
     ) -> np.ndarray:
         """Recover one arm's clock, including holds and unreachable intervals."""
-        steps = np.linalg.norm(
-            np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
-        )
-        rates = np.linalg.norm(velocity_rows[:-1, offset : offset + 3], axis=-1)
+        if rotation:
+            block = waypoints[:, offset + 3 : offset + 6]
+            steps = np.diff(cumulative_rotation_length(block))
+            rates = np.linalg.norm(velocity_rows[:-1, offset + 3 : offset + 6], axis=-1)
+        else:
+            steps = np.linalg.norm(
+                np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
+            )
+            rates = np.linalg.norm(velocity_rows[:-1, offset : offset + 3], axis=-1)
         moving, usable = steps > 1e-12, rates > 1e-8
         duration = np.zeros_like(steps)
         np.divide(steps, rates, out=duration, where=moving & usable)
@@ -1723,23 +1790,20 @@ class TokenizeBimanualArcLengthCartesian:
         waypoints: np.ndarray,
         velocity_rows: np.ndarray,
         *,
-        rotation: bool,
         action_horizon: int,
     ) -> np.ndarray:
-        """Recover one shared clock from both arms' per-waypoint rates."""
+        """Recover one shared translation clock from both arms' per-waypoint rates.
+
+        Only ``joint_distance`` has a shared clock. Rotation never does -- every
+        mode gives each arm its own R budget -- so there is no rotation form of
+        this helper; use ``_arm_durations(..., rotation=True)`` per arm.
+        """
         step_by_arm = []
         rate_by_arm = []
         for offset in (0, 7):
-            if rotation:
-                values = waypoints[:, offset + 3 : offset + 6]
-                step = np.diff(cumulative_rotation_length(values))
-                rate = np.linalg.norm(
-                    velocity_rows[:-1, offset + 3 : offset + 6], axis=-1
-                )
-            else:
-                values = waypoints[:, offset : offset + 3]
-                step = np.linalg.norm(np.diff(values, axis=0), axis=-1)
-                rate = np.linalg.norm(velocity_rows[:-1, offset : offset + 3], axis=-1)
+            values = waypoints[:, offset : offset + 3]
+            step = np.linalg.norm(np.diff(values, axis=0), axis=-1)
+            rate = np.linalg.norm(velocity_rows[:-1, offset : offset + 3], axis=-1)
             step_by_arm.append(step)
             rate_by_arm.append(rate)
 
@@ -1792,29 +1856,27 @@ class TokenizeBimanualArcLengthCartesian:
         translation_duration = self._hybrid_clock_durations(
             waypoints,
             velocity_rows,
-            rotation=False,
-            action_horizon=action_horizon,
-        )
-        rotation_duration = self._hybrid_clock_durations(
-            waypoints,
-            velocity_rows,
-            rotation=True,
             action_horizon=action_horizon,
         )
         t_lo, t_hi, t_alpha = self._hybrid_clock_indices(
             translation_duration, action_horizon
         )
-        r_lo, _, r_alpha = self._hybrid_clock_indices(rotation_duration, action_horizon)
 
         arms = []
         for offset in (0, 7):
             if self.arc_chunking_mode != "joint_distance":
-                translation_duration = self._translation_arm_durations(
+                translation_duration = self._arm_durations(
                     waypoints, velocity_rows, offset, action_horizon
                 )
                 t_lo, t_hi, t_alpha = self._hybrid_clock_indices(
                     translation_duration, action_horizon
                 )
+            rotation_duration = self._arm_durations(
+                waypoints, velocity_rows, offset, action_horizon, rotation=True
+            )
+            r_lo, _, r_alpha = self._hybrid_clock_indices(
+                rotation_duration, action_horizon
+            )
             xyz = waypoints[:, offset : offset + 3]
             grip = waypoints[:, offset + 6 : offset + 7]
             blend = t_alpha[:, None]

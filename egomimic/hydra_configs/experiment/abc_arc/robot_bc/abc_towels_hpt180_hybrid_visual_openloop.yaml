@@ -13,6 +13,7 @@ hpt:
   embed_dim: 640
   num_heads: 8
   action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
   flow_blocks: 10
   flow_hidden_dim: 384
   stem_specs:

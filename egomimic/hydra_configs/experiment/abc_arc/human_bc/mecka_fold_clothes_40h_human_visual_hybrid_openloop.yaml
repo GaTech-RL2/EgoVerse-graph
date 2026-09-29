@@ -13,6 +13,7 @@ run_provenance:
     source_sampling: native_30hz_v1
 hpt:
   action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
 evaluator:
   action_mode: arc
   ground_truth_action_key: actions_cartesian_untokenized

@@ -17,7 +17,9 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     BIMANUAL_VELOCITY_LAYOUTS,
     TokenizeBimanualArcLengthCartesian,
     bimanual_arc_token_shape,
+    bimanual_arc_token_shapes,
     default_bimanual_velocity_layout,
+    stack_arc_token,
     validate_bimanual_velocity_layout,
 )
 
@@ -143,3 +145,27 @@ def test_detokenize_refuses_the_other_layouts_width(layout):
     token = codec(other).transform({"actions_cartesian": window()})["actions_cartesian"]
     with pytest.raises(ValueError, match="detokenize expects"):
         codec(layout).detokenize(token, 30)
+
+
+def test_token_shapes_cover_both_layouts():
+    assert bimanual_arc_token_shapes(M, "per_waypoint") == (
+        (M, 2 * ARC_TOK_BIMANUAL_DIM),
+        (2 * M, ARC_TOK_BIMANUAL_DIM),
+    )
+    # Wide is undefined for "mean", so that mode has exactly one shape.
+    assert bimanual_arc_token_shapes(M, "mean") == ((M + 1, ARC_TOK_BIMANUAL_DIM),)
+
+
+def test_stack_arc_token_rebuilds_the_stacked_token():
+    """The evaluators convert at their boundary, so that has to be lossless."""
+    raw = window()
+    stacked = codec("stacked").transform({"actions_cartesian": raw.copy()})[
+        "actions_cartesian"
+    ]
+    wide = codec("wide").transform({"actions_cartesian": raw.copy()})[
+        "actions_cartesian"
+    ]
+    assert np.allclose(stack_arc_token(wide), stacked)
+    # A stacked token passes through, and a batch converts in one call.
+    assert np.allclose(stack_arc_token(stacked), stacked)
+    assert stack_arc_token(np.stack([wide, wide])).shape == (2, *stacked.shape)

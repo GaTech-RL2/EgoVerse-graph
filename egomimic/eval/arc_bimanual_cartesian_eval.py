@@ -1,22 +1,14 @@
-"""Arc-tokenized twin of :class:`BimanualCartesianEval`.
+"""ARC-aware overlay adapter for :class:`BimanualCartesianEval`.
 
-An arc-tokenized run predicts (M+1, 14) rows that are NOT all poses: rows
-0..M-1 are waypoints and row M is a velocity token. Every consumer downstream
-of the model -- the revert transforms and the viz func -- assumes a stack of
-poses, so the token has to be turned back into a time-indexed chunk before any
-of them see it.
+ARC predictions are not pose sequences. A mean token is ``(M+1, 14)``;
+per-waypoint and duration tokens can be stacked as ``(2M, 14)`` or wide as
+``(M, 28)``. The overlay path converts wide tokens to the evaluator's stacked
+layout, then detokenizes to a time-indexed ``(H, 14)`` pose chunk before frame
+reversion. Otherwise velocity rows could be mistaken for robot poses and still
+produce plausible but invalid overlays.
 
-That conversion is the whole reason this class exists. The revert transform
-rotates AND translates each row it is handed; applied to a velocity row it
-returns the camera-to-gripper offset, i.e. a position. The resulting overlay
-still renders, which is what makes the mistake expensive: the trajectory looks
-plausible but the arm appears to teleport, and the paired MSE is computed
-against a garbage final row.
-
-Metrics are unchanged from the base class and stay in TOKEN space: both
-prediction and target are tokens there, so ``Valid/MSE`` and
-``Valid/Native_MSE`` remain apples-to-apples. Only the overlay path
-detokenizes.
+The base evaluator's token-space metrics remain unchanged. Only visualization
+detokenizes ARC predictions.
 """
 
 from __future__ import annotations

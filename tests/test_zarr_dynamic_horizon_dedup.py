@@ -6,6 +6,40 @@ import pytest
 from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
 
 
+def test_hybrid_horizon_requires_each_arm_to_reach_its_rotation_budget():
+    dataset = ZarrDataset.__new__(ZarrDataset)
+    dataset.total_frames = 100
+    angles = np.linspace(0.0, 0.3, dataset.total_frames)
+    poses = {}
+    for key in ("left", "right"):
+        pose = np.zeros((dataset.total_frames, 7), dtype=np.float64)
+        pose[:, 0] = np.arange(dataset.total_frames) * 0.02
+        pose[:, 3] = np.cos(angles / 2.0)  # quaternion w
+        pose[:, 6] = np.sin(angles / 2.0)  # quaternion z
+        poses[f"{key}.cmd_ee_pose"] = pose
+
+    class EpisodeReader:
+        def read(self, ranges):
+            return {key: poses[key][start:end] for key, (start, end) in ranges.items()}
+
+    dataset.episode_reader = EpisodeReader()
+    horizon = dataset._resolve_dynamic_horizon(
+        0,
+        {
+            "type": "arc_hybrid",
+            "distance": 0.5,
+            "rotation_distance": 0.5,
+            "source_buffer_frames": 100,
+            "pose_zarr_keys": ["left.cmd_ee_pose", "right.cmd_ee_pose"],
+            "arc_chunking_mode": "multistream",
+        },
+    )
+
+    # Neither arm individually rotates R=0.5 rad. Summing their 0.3 rad
+    # trajectories incorrectly creates a crossing and truncates at frame 84.
+    assert horizon == 100
+
+
 def _dataset_with_horizons(specs):
     dataset = ZarrDataset.__new__(ZarrDataset)
     dataset.key_map = {

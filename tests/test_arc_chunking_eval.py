@@ -12,6 +12,7 @@ from egomimic.eval.open_loop_sim import (
     arc_execution_prefix,
     arc_prefix_control_steps,
     truncate_cartesian_trajectory_by_arc_mode,
+    truncate_cartesian_trajectory_by_joint_clocks,
 )
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
@@ -138,23 +139,22 @@ def test_distance_prefix_uses_translation_mode_and_independent_rotation(
     )
     m = len(partial) // 2
     np.testing.assert_allclose(partial[m - 1, [0, 7]], endpoints)
-    total_rotation = sum(
+    per_arm_rotation = [
         cumulative_rotation_length(partial[:m, off : off + 3])[-1] for off in (3, 10)
-    )
-    assert total_rotation == pytest.approx(0.4)
-    # R needs 2 s even when the translation race ends at 0.5 s.
-    assert (
-        arc_prefix_control_steps(
-            partial,
-            1,
-            "per_waypoint",
-            0.1,
-            1,
-            arc_chunking_mode=mode,
-            rotation_distance_unit=0.8,
-        )
-        == 20
-    )
+    ]
+    expected_rotation = [0.05, 0.05] if mode == "race" else [0.4, 0.4]
+    np.testing.assert_allclose(per_arm_rotation, expected_rotation)
+    # In race mode translation reaches its fractional cap first. The other
+    # modes preserve each arm's full 0.4-rad prefix, which takes four seconds.
+    assert arc_prefix_control_steps(
+        partial,
+        1,
+        "per_waypoint",
+        0.1,
+        1,
+        arc_chunking_mode=mode,
+        rotation_distance_unit=0.8,
+    ) == (5 if mode == "race" else 40)
 
 
 @pytest.mark.parametrize("mode", dtw.ARC_CHUNKING_MODES)
@@ -245,7 +245,26 @@ def test_video_caps_follow_mode_and_keep_later_rotation(mode, endpoints):
     trajectory = token()[:6]
     partial = truncate_cartesian_trajectory_by_arc_mode(trajectory, 0.5, mode, 0.8)
     np.testing.assert_allclose(partial[-1, [0, 7]], endpoints)
-    np.testing.assert_allclose(partial[-1, [3, 10]], [0.4, 0.4])
+    rotation_end = [0.2, 0.2] if mode == "race" else [0.4, 0.4]
+    np.testing.assert_allclose(partial[-1, [3, 10]], rotation_end)
+
+
+def test_evaluation_rotation_caps_apply_R_independently_to_each_arm():
+    trajectory = np.zeros((11, 14), dtype=np.float64)
+    trajectory[:, 3] = np.linspace(0.0, 0.3, len(trajectory))
+    trajectory[:, 10] = np.linspace(0.0, 0.3, len(trajectory))
+
+    by_joint_clocks = truncate_cartesian_trajectory_by_joint_clocks(
+        trajectory, max_translation_distance=1.0, max_rotation_distance=0.5
+    )
+    by_arc_mode = truncate_cartesian_trajectory_by_arc_mode(
+        trajectory, 1.0, "multistream", max_rotation_distance=0.5
+    )
+
+    assert len(by_joint_clocks) == len(trajectory)
+    assert len(by_arc_mode) == len(trajectory)
+    np.testing.assert_allclose(by_joint_clocks[-1, [3, 10]], [0.3, 0.3])
+    np.testing.assert_allclose(by_arc_mode[-1, [3, 10]], [0.3, 0.3])
 
 
 @pytest.mark.parametrize("mode", dtw.ARC_CHUNKING_MODES)
@@ -334,8 +353,10 @@ def test_multistream_short_arm_holds_absolute_endpoint_through_evaluator_horizon
         resampled_vector_length=100,
         control_dt=0.1,
     )
-    decoded, steps = evaluator._decode_prediction_with_steps(value, max_steps=50)
-    assert steps == 40
+    decoded, steps = evaluator._decode_prediction_with_steps(value, max_steps=100)
+    # Each independent rotation stream continues for the full six-second
+    # source window because its 0.8-rad budget was not reached.
+    assert steps == 60
     np.testing.assert_allclose(decoded[10:, 0], 0.8)
     assert decoded[30, 3] > decoded[10, 3]
     bounded, bounded_steps = evaluator._decode_prediction_with_steps(

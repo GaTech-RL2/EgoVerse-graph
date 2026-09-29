@@ -1256,60 +1256,37 @@ def stack_arc_token(token: np.ndarray) -> np.ndarray:
 
 
 class TokenizeBimanualArcLengthCartesian:
-    """Transform: (T, 14) actions_cartesian -> (M+1, 14) arc-tokenized layout.
+    """Transform ``(T, 14)`` Cartesian chunks into bimanual ARC tokens.
 
-    Layout per row (same 14-dim as the canonical bimanual cartesian chunk):
-        [L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)]
-    Rows 0..M-1 are the M waypoints uniform in each arm's arc length over
-    the first ``min_distance_unit`` meters of that arm's translational
-    travel. xyz and gripper are linear-interpolated at the M arc-length
-    targets; ypr is SLERPed through the resampled rotation sequence (via
-    ``slerp_through_ypr``) so orientation is unconditionally supervised.
+    Waypoints retain the canonical ``[L xyz/ypr/grip | R xyz/ypr/grip]`` layout.
+    Mean velocity uses a stacked ``(M+1, 14)`` token. Granular modes use either
+    the historical stacked ``(2M, 14)`` layout or the default wide ``(M, 28)``
+    layout, with 14 waypoint values followed by their 14 velocity values in each
+    row. Wide halves sequence length while keeping position and rate statistics in
+    separate feature columns.
 
-    With ``rotation_distance_unit``, rotation has a separate R cap and its own
-    clock PER ARM: each arm spends R on its own SO(3) travel, in every chunking
-    mode. Left and right rotation are never summed into one clock.
+    Translation mode ``joint_distance`` shares one summed-distance clock;
+    ``multistream`` caps each arm independently at D. When R is configured, each
+    arm has its own SO(3) rotation budget R in every mode. ``race`` ends when the
+    first of four streams reaches its budget: either arm's translation reaches D
+    or either arm's rotation reaches R. Emitted per-waypoint velocities preserve
+    independent translation, rotation, and gripper timing, including a stationary
+    arm's moving gripper.
 
-    Translation mode ``joint_distance`` shares a summed-distance clock;
-    ``multistream`` caps each arm independently at D. Both spend a budget per
-    stream and read the complete source. ``race`` is a stopping time instead:
-    four streams race for the chunk's end frame -- each arm's translation for D
-    and each arm's rotation for R -- and each is interpolated on its own
-    cumulative length through that shared frame. Per-waypoint velocities
-    reconstruct these clocks, with terminal holds for finished streams.
-
-    Row M is the velocity token. Per arm the slots hold:
-        [xyz_vel(3), ypr_vel(3), grip_vel(1)]
-    where xyz_vel is the mean per-axis translational rate (from the
-    underlying tokenizer's MEAN_PER_DIM mode), ypr_vel is
-    ``(ypr[M-1] - ypr[0]) / duration_arm`` — the mean angular velocity per
-    axis over the token span — and grip_vel is ``(grip[M-1] - grip[0]) /
-    duration_arm`` (mean gripper opening rate). duration_arm is derived
-    from ||xyz_vel|| (duration = chord / speed) with a fallback to
-    ``(M-1) * dt`` when the arm is stationary. Rotation is ALWAYS included
-    — there is no config option to drop it.
-
-    Gripper padding/masking for embodiments without a gripper signal
-    (e.g. human_bimanual using PadGripperZeros upstream) is unchanged:
-    gripper still reaches slot 6 (per arm) of the output layout.
-
-    Assumes the input chunk is already in the model's target cam frame
-    (post InterpolatePose + ActionChunkCoordinateFrameTransform + XYZWXYZ_
-    to_XYZYPR + ConcatKeys).
+    Gripper padding for embodiments without a gripper signal remains in slot 6 of
+    each arm's waypoint block. Inputs must already be transformed into the model's
+    target frame.
 
     Args:
-        action_key: input batch key holding the (T, 14) chunk.
-        output_action_key: where to write the (M+1, 14) tokenized chunk.
-        min_distance_unit: per-arm arc length span of the token, in meters
-            (i.e. the D parameter in the sweep script; the tokenizer covers
-            the first ``min_distance_unit`` meters of each arm's translational
-            travel).
-        resampled_vector_length: number of waypoints M (the sequence has
-            M+1 rows once the velocity token is appended).
-        dt: seconds per raw timestep (control period).
-        zero_dist_epsilon: below-this-arc-length chunks are treated as
-            stationary; the vel token comes out as zeros in that case so
-            downstream (loss, detokenize) doesn't NaN.
+        action_key: Input batch key containing a ``(T, 14)`` chunk.
+        output_action_key: Batch key for the tokenized output.
+        min_distance_unit: Translation budget D, in meters.
+        rotation_distance_unit: Optional per-arm rotation budget R, in radians.
+        resampled_vector_length: Number of waypoints M.
+        dt: Seconds per raw timestep.
+        velocity_mode: Mean, per-waypoint, or duration timing.
+        arc_chunking_mode: Translation and race mode.
+        velocity_layout: ``wide`` or ``stacked`` layout for granular modes.
     """
 
     def __init__(
@@ -1784,6 +1761,16 @@ class TokenizeBimanualArcLengthCartesian:
                     rate = np.diff(block, axis=0) / translation_safe[:, None]
                     rows[:-1, block_offset : block_offset + width] = rate
                     rows[-1, block_offset : block_offset + width] = rate[-1]
+            else:
+                # Position is a hold, but the gripper may move throughout the
+                # source window. Preserve that temporal signal independently.
+                grip = waypoints[:, offset + 6]
+                hold_times = np.linspace(0.0, float(hold), self.M) * dt
+                hold_dt = np.diff(hold_times)
+                hold_safe = np.where(hold_dt > self.zero_dist_epsilon, hold_dt, np.inf)
+                grip_rate = np.diff(grip) / hold_safe
+                rows[:-1, offset + 6] = grip_rate
+                rows[-1, offset + 6] = grip_rate[-1]
 
             ypr = waypoints[:, offset + 3 : offset + 6]
             rotations = _ypr_to_rotation(ypr)
@@ -1879,16 +1866,45 @@ class TokenizeBimanualArcLengthCartesian:
             block = waypoints[:, offset + 3 : offset + 6]
             steps = np.diff(cumulative_rotation_length(block))
             rates = np.linalg.norm(velocity_rows[:-1, offset + 3 : offset + 6], axis=-1)
-        else:
-            steps = np.linalg.norm(
-                np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
-            )
-            rates = np.linalg.norm(velocity_rows[:-1, offset : offset + 3], axis=-1)
-        moving, usable = steps > 1e-12, rates > 1e-8
-        duration = np.zeros_like(steps)
-        np.divide(steps, rates, out=duration, where=moving & usable)
-        duration[moving & ~usable] = self.tokenizer.config.dt * (action_horizon + 1)
-        return duration
+            moving, usable = steps > 1e-12, rates > 1e-8
+            duration = np.zeros_like(steps)
+            np.divide(steps, rates, out=duration, where=moving & usable)
+            missing_rate = moving & ~usable
+            fallback = self.tokenizer.config.dt * (action_horizon + 1)
+            # A malformed terminal rate must not stretch the final turn over
+            # the whole rollout. Complete that last moving interval in one
+            # control step, then let the repeated terminal waypoints hold.
+            future_motion = np.r_[
+                np.logical_or.accumulate(moving[::-1])[::-1][1:], False
+            ]
+            duration[missing_rate & ~future_motion] = self.tokenizer.config.dt
+            duration[missing_rate & future_motion] = fallback
+            return duration
+
+        position_steps = np.linalg.norm(
+            np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
+        )
+        position_rates = np.linalg.norm(
+            velocity_rows[:-1, offset : offset + 3], axis=-1
+        )
+        grip_steps = np.abs(np.diff(waypoints[:, offset + 6]))
+        grip_rates = np.abs(velocity_rows[:-1, offset + 6])
+        fallback = self.tokenizer.config.dt * (action_horizon + 1)
+
+        def component_duration(steps, rates):
+            moving, usable = steps > 1e-12, rates > 1e-8
+            duration = np.zeros_like(steps)
+            np.divide(steps, rates, out=duration, where=moving & usable)
+            duration[moving & ~usable] = fallback
+            return duration
+
+        # A stationary arm can still operate its gripper. Its hold-token
+        # velocity rows carry that source-time clock, so use the longer of the
+        # position and gripper intervals when reconstructing the arm timeline.
+        return np.maximum(
+            component_duration(position_steps, position_rates),
+            component_duration(grip_steps, grip_rates),
+        )
 
     def _hybrid_clock_durations(
         self,
@@ -1998,8 +2014,10 @@ class TokenizeBimanualArcLengthCartesian:
         arc_actions: np.ndarray,
         action_horizon: int,
     ) -> np.ndarray:
-        """Inverse of ``transform`` — take a (M+1, 14) arc token back to a
-        time-parameterized (H, 14) chunk at the control period.
+        """Decode one arc token to a time-parameterized ``(H, 14)`` chunk.
+
+        Per-waypoint velocity modes may use the wide ``(M, 28)`` layout;
+        stacked tokens use the corresponding waypoint and velocity rows.
 
         Semantics:
           - Read the vel token (row M) to derive per-arm duration from the
@@ -2034,10 +2052,10 @@ class TokenizeBimanualArcLengthCartesian:
                 f"velocity_layout={self.velocity_layout!r}, got {arc_actions.shape}"
             )
         rows = arc_actions.shape[0]
+        granular = self.velocity_mode in ("per_waypoint", "duration")
         if self.velocity_layout == "wide":
             M = rows
         else:
-            granular = self.velocity_mode in ("per_waypoint", "duration")
             M = rows // 2 if granular else rows - 1
         if M < 2:
             raise ValueError(f"Need M >= 2 waypoints, got {rows} rows")

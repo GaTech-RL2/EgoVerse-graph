@@ -13,18 +13,19 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
     cumulative_arc_length,
     cumulative_rotation_length,
+    stack_arc_token,
 )
 from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
 
 
 def _two_clock_chunk(steps: int = 121) -> np.ndarray:
-    """Translation reaches D in 2 s; rotation reaches R in 1 s."""
+    """Joint translation and each arm's rotation reach their caps in 2 s."""
     time = np.arange(steps, dtype=np.float64) / 30.0
     chunk = np.zeros((steps, 14), dtype=np.float64)
     for offset in (0, 7):
-        # Each joint clock is the sum of both arm increments: 0.10 + 0.10
-        # m/s reaches D=0.40 m in 2 s, while 12 + 12 deg/s reaches R=24 deg
-        # in 1 s.
+        # Joint translation sums both 0.10 m/s arm increments and reaches
+        # D=0.40 m in 2 s. Each arm rotates at 12 deg/s and reaches its own
+        # R=24 deg cap in 2 s.
         chunk[:, offset] = 0.1 * time
         chunk[:, offset + 3] = math.radians(12.0) * time
     return chunk
@@ -46,8 +47,8 @@ def _hybrid_tokenizer(**overrides) -> TokenizeBimanualArcLengthCartesian:
 
 def test_hybrid_token_has_independently_capped_translation_and_rotation_paths():
     token = _hybrid_tokenizer().transform({"actions": _two_clock_chunk()})["actions"]
-    waypoints = token[:25]
-    assert token.shape == (50, 14)
+    waypoints = stack_arc_token(token)[:25]
+    assert token.shape == (25, 28)
     translations = [
         cumulative_arc_length(waypoints[:, offset : offset + 3])[-1]
         for offset in (0, 7)
@@ -57,7 +58,7 @@ def test_hybrid_token_has_independently_capped_translation_and_rotation_paths():
         for offset in (0, 7)
     ]
     assert sum(translations) == pytest.approx(0.40, abs=1e-8)
-    assert sum(rotations) == pytest.approx(math.radians(24.0), abs=1e-8)
+    assert sum(rotations) == pytest.approx(2 * math.radians(24.0), abs=1e-8)
 
 
 def test_hybrid_detokenize_runs_rotation_and_translation_on_separate_clocks():
@@ -65,19 +66,19 @@ def test_hybrid_detokenize_runs_rotation_and_translation_on_separate_clocks():
     token = tokenizer.transform({"actions": _two_clock_chunk()})["actions"]
     decoded = tokenizer.detokenize(token, action_horizon=61)
 
-    # At one second the rotation cap is already complete while translation is
-    # halfway to its own cap. Translation continues for another second.
+    # At one second each rotation is halfway to its own cap. At two seconds,
+    # both per-arm rotation clocks and the joint translation clock are capped.
     for offset in (0, 7):
         assert decoded[30, offset] == pytest.approx(0.10, abs=2e-3)
         assert decoded[30, offset + 3] == pytest.approx(math.radians(12.0), abs=2e-3)
         assert decoded[60, offset] == pytest.approx(0.20, abs=2e-3)
-        assert decoded[60, offset + 3] == pytest.approx(math.radians(12.0), abs=2e-3)
+        assert decoded[60, offset + 3] == pytest.approx(math.radians(24.0), abs=2e-3)
 
 
 def test_open_loop_replan_boundary_waits_for_slower_rotation_clock():
     raw = _two_clock_chunk()
-    raw[:, [0, 7]] *= 2.0  # D in 1 s; R still takes 1 s in the base fixture.
-    raw[:, [3, 10]] *= 0.5  # R now takes 2 s.
+    raw[:, [0, 7]] *= 2.0  # Joint D is reached in 1 s.
+    raw[:, [3, 10]] *= 0.5  # Each arm's R cap takes 2 s.
     tokenizer = _hybrid_tokenizer()
     token = tokenizer.transform({"actions": raw})["actions"]
     steps = arc_prefix_control_steps(
@@ -88,7 +89,7 @@ def test_open_loop_replan_boundary_waits_for_slower_rotation_clock():
         0.40,
         rotation_distance_unit=math.radians(24.0),
     )
-    assert steps == 60
+    assert steps == 120
 
 
 def test_hybrid_rotation_clock_advances_during_in_place_rotation():
@@ -126,7 +127,7 @@ def test_hybrid_video_cap_holds_each_clock_at_its_execution_fraction():
         for offset in (0, 7)
     )
     assert translation == pytest.approx(0.12, abs=1e-8)
-    assert rotation == pytest.approx(0.30 * math.radians(24.0), abs=1e-8)
+    assert rotation == pytest.approx(2 * 0.30 * math.radians(24.0), abs=1e-8)
     np.testing.assert_allclose(
         capped[9:, [0, 7]],
         np.repeat(capped[9:10, [0, 7]], len(capped) - 9, axis=0),
@@ -136,7 +137,7 @@ def test_hybrid_video_cap_holds_each_clock_at_its_execution_fraction():
 def test_hybrid_replan_timing_does_not_ignore_a_moving_arm_with_zero_rate():
     tokenizer = _hybrid_tokenizer()
     token = tokenizer.transform({"actions": _two_clock_chunk()})["actions"]
-    token[25:, 0:3] = 0.0
+    token[:, 14:17] = 0.0
     steps = arc_prefix_control_steps(
         token,
         1.0,

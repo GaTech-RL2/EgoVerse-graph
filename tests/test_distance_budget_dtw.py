@@ -141,6 +141,30 @@ def records(mode="arc", speed=0.2, stationary=False):
     return result
 
 
+def wide_records(source):
+    result = []
+    for item in source:
+        converted = dict(item)
+        prediction = np.asarray(item["prediction"])
+        m = prediction.shape[0] // 2
+        converted["prediction"] = np.concatenate(
+            (prediction[:m], prediction[m:]), axis=1
+        )
+        result.append(converted)
+    return result
+
+
+def test_distance_dtw_accepts_default_wide_100_by_28_arc_tokens():
+    ev = evaluator(hybrid=True)
+    stacked = score_distance_dtw_episode(ev, records())
+    wide = score_distance_dtw_episode(ev, wide_records(records()))
+
+    assert wide["segments"] == stacked["segments"]
+    assert wide["segment_control_steps"] == stacked["segment_control_steps"]
+    assert wide["xyz_mse"] == pytest.approx(stacked["xyz_mse"])
+    assert wide["gt_coverage"] == wide["prediction_coverage"] == 1.0
+
+
 @pytest.mark.parametrize("hybrid", [False, True])
 @pytest.mark.parametrize("cap", ["waypoints", "distance"])
 def test_arc_chunk_count_independent_of_fast_or_slow_timing(cap, hybrid):

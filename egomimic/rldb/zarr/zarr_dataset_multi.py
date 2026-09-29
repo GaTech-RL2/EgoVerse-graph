@@ -1795,7 +1795,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 "reusing a pre-collapse norm_stats.json."
             )
         provenance = payload.get("provenance")
-        file_contract = (provenance or {}).get("action_contracts", {}).get(str(embodiment))
+        file_contract = (
+            (provenance or {}).get("action_contracts", {}).get(str(embodiment))
+        )
         wanted_contract = getattr(self, "action_contracts", {}).get(embodiment)
         if wanted_contract is not None:
             if file_contract is None:
@@ -1813,7 +1815,8 @@ class MultiDataset(torch.utils.data.Dataset):
                 logger.warning(
                     "[MultiDataset] Accepting legacy joint_distance norm cache %s "
                     "without an action contract; existing data/cap compatibility "
-                    "must have been checked by the caller.", precomputed_file,
+                    "must have been checked by the caller.",
+                    precomputed_file,
                 )
             elif file_contract != wanted_contract:
                 raise ValueError(
@@ -2128,8 +2131,8 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         Translation follows ``arc_chunking_mode``: the first arm to D (race),
         both arms to their own D (multistream), or summed arm travel to D
-        (joint_distance). When R is supplied its independent joint rotation
-        clock must also finish; a translation cutoff never clips raw rotation.
+        (joint_distance). When R is supplied, both per-arm rotation clocks
+        must also reach R; a translation cutoff never clips either stream.
         """
         horizon_type = spec.get("type") if isinstance(spec, dict) else None
         if horizon_type not in ("arc_distance", "arc_hybrid"):
@@ -2221,6 +2224,13 @@ class ZarrDataset(torch.utils.data.Dataset):
                 steps = np.linalg.norm(np.diff(pose[:, :3], axis=0), axis=1)
                 arm_distances.append(np.concatenate(([0.0], np.cumsum(steps))))
             arm_distances = np.stack(arm_distances)
+
+            def reached_indices(cumulative: np.ndarray, budget: float) -> np.ndarray:
+                # Quaternion reconstruction can leave an exactly reachable cap a
+                # few ulps low. Avoid loading one unnecessary source frame there.
+                tolerance = 16 * np.finfo(np.float64).eps * max(1.0, abs(budget))
+                return np.flatnonzero(cumulative >= budget - tolerance)
+
             if chunking_mode == "joint_distance":
                 translation_cumulative = arm_distances.sum(axis=0)
             elif chunking_mode == "race":
@@ -2228,27 +2238,30 @@ class ZarrDataset(torch.utils.data.Dataset):
             else:
                 translation_cumulative = arm_distances.min(axis=0)
 
-            translation_reached = np.flatnonzero(translation_cumulative >= distance)
+            translation_reached = reached_indices(translation_cumulative, distance)
             if not len(translation_reached):
                 return max(2, available)
             translation_end = int(translation_reached[0])
             if rotation_distance is None:
                 return max(2, min(available, translation_end + 1))
 
-            rotation_steps = []
+            rotation_ends = []
             for pose in (left, right):
                 quaternion_xyzw = pose[:, 3:7][:, [1, 2, 3, 0]]
                 rotations = R.from_quat(quaternion_xyzw)
                 relative = rotations[:-1].inv() * rotations[1:]
-                rotation_steps.append(np.linalg.norm(relative.as_rotvec(), axis=-1))
-            rotation_cumulative = np.concatenate(
-                ([0.0], np.cumsum(rotation_steps[0] + rotation_steps[1]))
-            )
-
-            rotation_reached = np.flatnonzero(rotation_cumulative >= rotation_distance)
-            if not len(rotation_reached):
-                return max(2, available)
-            required = max(translation_end, int(rotation_reached[0]))
+                rotation_cumulative = np.concatenate(
+                    ([0.0], np.cumsum(np.linalg.norm(relative.as_rotvec(), axis=-1)))
+                )
+                rotation_reached = reached_indices(
+                    rotation_cumulative, rotation_distance
+                )
+                # R is a per-arm budget. The source window must retain enough
+                # frames for both independent clocks, not a shared summed clock.
+                if not len(rotation_reached):
+                    return max(2, available)
+                rotation_ends.append(int(rotation_reached[0]))
+            required = max(translation_end, *rotation_ends)
             return max(2, min(available, required + 1))
 
         crossing_indices: list[int | None] = []

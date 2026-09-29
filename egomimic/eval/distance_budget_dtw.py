@@ -11,11 +11,12 @@ import math
 import numpy as np
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
-    ARC_CHUNKING_MODES,
+    ARC_CHUNKING_MODES,  # noqa: F401 - public re-export used by validation scripts
     resolve_arc_chunking_mode,
+    stack_arc_token,
 )
 
-METRIC_VERSION = "arc_chunking_global_dtw_v2"
+METRIC_VERSION = "arc_chunking_global_dtw_v3"
 METRIC_FRAME_KEY = "evaluation.eef_to_world"
 XYZ_COLS = (0, 1, 2, 7, 8, 9)
 ARC_DISTANCE_SEMANTICS = {
@@ -271,7 +272,7 @@ def fractional_waypoint_prefix(token: np.ndarray, fraction: float) -> np.ndarray
     """
     from egomimic.rldb.zarr.arc_length_tokenizer import slerp_pair_ypr
 
-    value = np.asarray(token, dtype=np.float64)
+    value = stack_arc_token(np.asarray(token, dtype=np.float64))
     m = len(value) // 2
     if m < 2 or len(value) != 2 * m or not 0 < fraction <= 1:
         raise ValueError("Expected per-waypoint token and fraction in (0,1]")
@@ -347,6 +348,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
             resampled_vector_length=m,
             dt=evaluator.control_dt,
             velocity_mode=evaluator.velocity_mode,
+            velocity_layout="stacked",
             arc_chunking_mode=(
                 chunking_mode
                 if getattr(evaluator, "rotation_distance_unit", None) is not None
@@ -361,12 +363,16 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
     for anchor, remaining_budget in zip(anchors, budgets):
         record = records[int(anchor)]
         if is_arc:
+            # The scorer's truncation and fractional-prefix helpers operate on
+            # M waypoints followed by M velocity rows. Normalize the policy's
+            # default wide (M, 28) token once at this evaluation boundary.
+            token = stack_arc_token(record["prediction"])
             fraction = min(1.0, float(remaining_budget / budget))
             cap_fraction = evaluator.execute_fraction
             if evaluator.arc_execution_cap_mode == "distance":
                 cap_fraction *= fraction
             partial = arc_execution_prefix(
-                record["prediction"],
+                token,
                 cap_fraction,
                 evaluator.velocity_mode,
                 evaluator.min_distance_unit,

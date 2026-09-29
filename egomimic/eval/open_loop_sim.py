@@ -133,7 +133,7 @@ def truncate_arc_token_by_waypoints(
         raise ValueError(
             f"M-based ARC execution requires velocity_mode='per_waypoint', got {mode!r}"
         )
-    value = np.asarray(token, dtype=np.float64)
+    value = stack_arc_token(np.asarray(token, dtype=np.float64))
     if value.ndim != 2 or value.shape[1] != 14:
         raise ValueError(f"ARC token must have shape (rows, 14), got {value.shape}")
     rows = int(value.shape[0])
@@ -167,7 +167,7 @@ def truncate_arc_token(
     """
 
     mode = validate_bimanual_velocity_mode(velocity_mode)
-    value = np.asarray(token, dtype=np.float64)
+    value = stack_arc_token(np.asarray(token, dtype=np.float64))
     if value.ndim != 2 or value.shape[1] != 14:
         raise ValueError(f"ARC token must have shape (rows, 14), got {value.shape}")
     rows = int(value.shape[0])
@@ -188,6 +188,22 @@ def truncate_arc_token(
     all_waypoints, all_timing = value[:M], value[M:]
     cumulative = per_arm_cumulative_distance(all_waypoints[:, XYZ_COLS])
     target = fraction * distance
+    rotation_cumulatives = None
+    rotation_boundaries = None
+    if rotation_distance_unit is not None:
+        if mode != "per_waypoint":
+            raise ValueError(
+                "independent rotation clock requires velocity_mode='per_waypoint'"
+            )
+        rotation_cumulatives = [
+            cumulative_rotation_length(all_waypoints[:, offset + 3 : offset + 6])
+            for offset in (0, 7)
+        ]
+        rotation_target = fraction * float(rotation_distance_unit)
+        rotation_boundaries = [
+            _distance_boundary(cumulative_rotation, rotation_target)
+            for cumulative_rotation in rotation_cumulatives
+        ]
     if chunking_mode == "joint_distance":
         boundaries = [
             _distance_boundary(
@@ -199,7 +215,7 @@ def truncate_arc_token(
             _distance_boundary(cumulative[:, arm], target) for arm in range(2)
         ]
         if chunking_mode == "race":
-            clocks, _ = _arc_clock_durations(
+            clocks, rotation_clocks = _arc_clock_durations(
                 all_waypoints,
                 all_timing,
                 mode,
@@ -222,9 +238,30 @@ def truncate_arc_token(
                         else math.inf
                     )
                 )
+            rotation_elapsed = None
+            if rotation_clocks is not None:
+                rotation_elapsed = [
+                    np.concatenate(([0.0], np.cumsum(clock)))
+                    for clock in rotation_clocks
+                ]
+                rotation_target = fraction * float(rotation_distance_unit)
+                for arm, boundary in enumerate(rotation_boundaries):
+                    lower = min(int(math.floor(boundary)), M - 2)
+                    alpha = boundary - lower
+                    times.append(
+                        rotation_elapsed[arm][lower]
+                        + alpha * rotation_clocks[arm][lower]
+                        if rotation_cumulatives[arm][-1] >= rotation_target
+                        else math.inf
+                    )
             race_time = min(times)
             if math.isfinite(race_time):
                 boundaries = [_distance_boundary(clock, race_time) for clock in elapsed]
+                if rotation_elapsed is not None:
+                    rotation_boundaries = [
+                        _distance_boundary(clock, race_time)
+                        for clock in rotation_elapsed
+                    ]
 
     streams = []
     for arm, offset in enumerate((0, 7)):
@@ -234,22 +271,14 @@ def truncate_arc_token(
             else [offset, offset + 1, offset + 2, offset + 6]
         )
         streams.append((columns, boundaries[arm]))
-    if rotation_distance_unit is not None:
-        if mode != "per_waypoint":
-            raise ValueError(
-                "independent rotation clock requires velocity_mode='per_waypoint'"
+    if rotation_boundaries is not None:
+        for arm, offset in enumerate((0, 7)):
+            streams.append(
+                (
+                    list(range(offset + 3, offset + 6)),
+                    rotation_boundaries[arm],
+                )
             )
-        rotation_cumulative = cumulative_rotation_length(
-            all_waypoints[:, 3:6]
-        ) + cumulative_rotation_length(all_waypoints[:, 10:13])
-        streams.append(
-            (
-                list(YPR_COLS),
-                _distance_boundary(
-                    rotation_cumulative, fraction * float(rotation_distance_unit)
-                ),
-            )
-        )
 
     count = max(_boundary_rows(boundary) for _, boundary in streams)
     waypoints = np.empty((count, 14), dtype=np.float64)
@@ -454,12 +483,12 @@ def truncate_cartesian_trajectory_by_joint_clocks(
     max_translation_distance: float,
     max_rotation_distance: float,
 ) -> np.ndarray:
-    """Cap bimanual translation and SO(3) rotation independently.
+    """Cap joint translation and each arm's SO(3) rotation independently.
 
-    Both limits use joint cumulative distance (left increment + right
-    increment). Translation and gripper hold once D is reached; orientation
-    holds once R is reached. The returned trajectory ends after both clocks
-    have either reached their cap or exhausted the available prefix.
+    Translation uses joint cumulative distance (left increment + right
+    increment). Each arm has its own rotation clock and R cap. Translation and
+    gripper hold once D is reached; each orientation holds once its own R is
+    reached. The output ends after all clocks reach their cap or exhaust input.
     """
     value = np.asarray(trajectory, dtype=np.float64)
     if value.ndim != 2 or value.shape[1] != 14:
@@ -479,10 +508,10 @@ def truncate_cartesian_trajectory_by_joint_clocks(
         np.diff(value[:, 0:3], axis=0), axis=-1
     ) + np.linalg.norm(np.diff(value[:, 7:10], axis=0), axis=-1)
     translation_cumulative = np.concatenate(([0.0], np.cumsum(translation_step)))
-    rotation_step = np.diff(cumulative_rotation_length(value[:, 3:6])) + np.diff(
-        cumulative_rotation_length(value[:, 10:13])
-    )
-    rotation_cumulative = np.concatenate(([0.0], np.cumsum(rotation_step)))
+    rotation_cumulatives = [
+        cumulative_rotation_length(value[:, offset + 3 : offset + 6])
+        for offset in (0, 7)
+    ]
 
     def _crossing(cumulative: np.ndarray, cap: float) -> tuple[int, float, bool]:
         reached = np.flatnonzero(cumulative >= cap)
@@ -508,10 +537,10 @@ def truncate_cartesian_trajectory_by_joint_clocks(
     translation_index, translation_alpha, translation_reached = _crossing(
         translation_cumulative, translation_cap
     )
-    rotation_index, rotation_alpha, rotation_reached = _crossing(
-        rotation_cumulative, rotation_cap
-    )
-    end_index = max(translation_index, rotation_index)
+    rotation_crossings = [
+        _crossing(cumulative, rotation_cap) for cumulative in rotation_cumulatives
+    ]
+    end_index = max(translation_index, *(item[0] for item in rotation_crossings))
     result = value[: end_index + 1].copy()
 
     if translation_reached:
@@ -521,8 +550,11 @@ def truncate_cartesian_trajectory_by_joint_clocks(
         translation_columns = [0, 1, 2, 6, 7, 8, 9, 13]
         result[translation_index:, translation_columns] = terminal[translation_columns]
 
-    if rotation_reached:
-        for ypr_slice in (slice(3, 6), slice(10, 13)):
+    for offset, (rotation_index, rotation_alpha, rotation_reached) in zip(
+        (0, 7), rotation_crossings
+    ):
+        if rotation_reached:
+            ypr_slice = slice(offset + 3, offset + 6)
             terminal_ypr = slerp_pair_ypr(
                 value[rotation_index - 1, ypr_slice],
                 value[rotation_index, ypr_slice],
@@ -557,18 +589,41 @@ def truncate_cartesian_trajectory_by_arc_mode(
         return value.copy()
     cumulative = per_arm_cumulative_distance(value[:, XYZ_COLS])
     if mode == "joint_distance":
-        boundaries = [
-            _distance_boundary(
-                joint_cumulative_distance(value[:, XYZ_COLS]), max_translation_distance
-            )
-        ] * 2
+        joint_cumulative = joint_cumulative_distance(value[:, XYZ_COLS])
+        translation_cumulatives = [joint_cumulative, joint_cumulative]
     else:
-        boundaries = [
-            _distance_boundary(cumulative[:, arm], max_translation_distance)
-            for arm in range(2)
+        translation_cumulatives = [cumulative[:, arm] for arm in range(2)]
+    boundaries = [
+        _distance_boundary(values, max_translation_distance)
+        for values in translation_cumulatives
+    ]
+    rotation_cumulatives = None
+    rotation_boundaries = None
+    if max_rotation_distance is not None:
+        rotation_cumulatives = [
+            cumulative_rotation_length(value[:, offset + 3 : offset + 6])
+            for offset in (0, 7)
         ]
-        if mode == "race":
-            boundaries = [min(boundaries)] * 2
+        rotation_boundaries = [
+            _distance_boundary(values, max_rotation_distance)
+            for values in rotation_cumulatives
+        ]
+    if mode == "race":
+        crossings = [
+            boundary
+            for values, boundary in zip(translation_cumulatives, boundaries)
+            if values[-1] >= max_translation_distance
+        ]
+        if rotation_cumulatives is not None:
+            crossings.extend(
+                boundary
+                for values, boundary in zip(rotation_cumulatives, rotation_boundaries)
+                if values[-1] >= max_rotation_distance
+            )
+        race_boundary = min(crossings, default=float(len(value) - 1))
+        boundaries = [race_boundary, race_boundary]
+        if rotation_boundaries is not None:
+            rotation_boundaries = [race_boundary, race_boundary]
     streams = []
     for arm, offset in enumerate((0, 7)):
         columns = (
@@ -577,13 +632,10 @@ def truncate_cartesian_trajectory_by_arc_mode(
             else [offset, offset + 1, offset + 2, offset + 6]
         )
         streams.append((columns, boundaries[arm]))
-    if max_rotation_distance is not None:
-        rotation = cumulative_rotation_length(
-            value[:, 3:6]
-        ) + cumulative_rotation_length(value[:, 10:13])
-        streams.append(
-            (list(YPR_COLS), _distance_boundary(rotation, max_rotation_distance))
-        )
+        if rotation_boundaries is not None:
+            streams.append(
+                (list(range(offset + 3, offset + 6)), rotation_boundaries[arm])
+            )
     count = max(_boundary_rows(boundary) for _, boundary in streams)
     result = value[:count].copy()
     for columns, boundary in streams:

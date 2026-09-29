@@ -78,5 +78,22 @@
       "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-decoder-20260928-masked-spatial/",
       "replaced_unstarted_workflow": null
     }
-  ]
+  ],
+  "report": {
+    "workflow": "arc-decoder-20260928-report-2",
+    "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-decoder-20260928-report-2",
+    "gpus": 0,
+    "cpus": 2,
+    "memory": "8Gi",
+    "source_commit": "3de49c669c0b485033302b84ec81e03046d7b07e",
+    "script_sha256": "1f2fbd3cad59916ee855732cbc7f0fe0954ac7706d54481c2a9b321abd42acc7",
+    "spec_sha256": "b1d2544b0dbef9101cc0ea0300b3f4c002c2fa6d0f9645871c447f62c6df2871",
+    "artifacts": "s3://rldb/experiments/arc-oat-20260919/campaigns/arc-decoder-20260928-spatial/",
+    "files": [
+      "latest.json",
+      "results.json",
+      "table.md",
+      "manifest.json"
+    ]
+  }
 }

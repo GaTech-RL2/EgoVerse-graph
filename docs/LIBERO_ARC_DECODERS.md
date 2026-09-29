@@ -115,6 +115,17 @@ replay provenance, preflight proof, optimizer budget and checkpoint receipts;
 evaluation `scores.json`, `paired-comparison.json`, and
 `arc_stk/libero_spatial/{protocol.json,episodes.jsonl}`.
 
+A separate CPU-only workflow, `arc-decoder-20260928-report-2`, collects these
+completed evaluation proofs into `latest.json`, `results.json` and `table.md`
+under `s3://rldb/experiments/arc-oat-20260919/campaigns/arc-decoder-20260928-spatial/`.
+Its final table includes per-task success and differences versus the new shared
+control. It requires all three policies to complete their full optimizer and
+rollout budgets and to use identical reference episode artifacts. Partial
+training or rollout counts are never presented as final scores. The manifest
+records the immutable collector script and workflow hashes; the script is
+embedded in the OSMO workflow specification, and its outputs are also saved as
+workflow artifacts.
+
 ## Verification
 
 The launch change passed 197 CPU regression tests across the new model and

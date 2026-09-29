@@ -1,4 +1,3 @@
-// EgoVerse modification: additionally emit tracked world poses for shared robot teleop.
 /************************************************************************************
 
 Filename    : VrInputStandard.cpp
@@ -1216,7 +1215,6 @@ void ovrVrInputStandard::RenderRunningFrame(
 
     int axisSurfaces = 0;
     std::vector<std::pair<char, OVR::Matrix4f>> handPoseTransformations;
-    std::vector<std::pair<char, OVR::Matrix4f>> worldPoseTransformations;
 
 
     // add the controller model surfaces to the list of surfaces to render
@@ -1239,19 +1237,11 @@ void ovrVrInputStandard::RenderRunningFrame(
 
         const Posef& handPose = trDevice.GetHandPose();
 
-        const Posef &headPose = trDevice.GetHeadPose();
         const Matrix4f matDeviceModel = trDevice.GetModelMatrix(handPose);
+        // Tracking/world space (vrapi origin), not headset-relative. A still
+        // controller must not move when the operator turns their head.
         const OVR::Matrix4f handPoseMatrix = OVR::Matrix4f(handPose);
-        // rl2_yam convention: tracking-origin pose, independent of head movement.
-        if (trDevice.GetHandPoseConfidence() == ovrConfidence_HIGH) {
-            worldPoseTransformations.push_back(std::make_pair(side, handPoseMatrix));
-        }
-        const OVR::Matrix4f headPoseMatrix = OVR::Matrix4f(headPose);
-        OVR::Matrix4f handPoseMatrixHeadCoord(Matrix4f::NoInit);
-        OVR::Matrix4f::Multiply(&handPoseMatrixHeadCoord,
-                                headPoseMatrix.Inverted(), handPoseMatrix);
-        handPoseTransformations.push_back(
-            std::make_pair(side, handPoseMatrixHeadCoord));
+        handPoseTransformations.push_back(std::make_pair(side, handPoseMatrix));
         TransformMatrices[axisSurfaces++] = handPoseMatrix;
         TransformMatrices[axisSurfaces++] = matDeviceModel;
         TransformMatrices[axisSurfaces++] = trDevice.GetPointerMatrix();
@@ -1262,22 +1252,7 @@ void ovrVrInputStandard::RenderRunningFrame(
         }
     }
 
-    // A distinct tag lets world-frame clients reject an old headset-frame APK.
-    std::ostringstream world_ss, world_buttons_ss;
-    bool firstWorld = true;
-    for (const auto& entry : worldPoseTransformations) {
-        if (!firstWorld) {
-            world_ss << '|';
-            world_buttons_ss << ',';
-        }
-        world_ss << entry.first << ":" << TransformationMatrixToString(entry.second);
-        world_buttons_ss << Buttons->current_to_string(entry.first);
-        firstWorld = false;
-    }
-    world_ss << "&" << world_buttons_ss.str();
-    __android_log_print(ANDROID_LOG_INFO, "wE9ryARXWorld", "%s", world_ss.str().c_str());
-
-    // Preserve the existing headset-relative stream for other reader clients.
+    // send values
     std::ostringstream output_ss, buttons_ss;
     bool first = true;
     for (auto it = std::begin(handPoseTransformations);

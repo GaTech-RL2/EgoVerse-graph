@@ -51,6 +51,12 @@ def _slurm_auto_requeue(cfg: DictConfig) -> bool:
     )
     runner_owner = os.environ.get("ICE_REQUEUE_OWNER")
     child_requeue_disabled = os.environ.get("ICE_CHILD_REQUEUE_DISABLED")
+    if (
+        configured_owner == "none"
+        and runner_owner is None
+        and child_requeue_disabled is None
+    ):
+        return False
     if configured_owner == "lightning" and (
         (runner_owner is None and child_requeue_disabled is None)
         or (runner_owner == "child" and child_requeue_disabled == "0")
@@ -67,8 +73,8 @@ def _slurm_auto_requeue(cfg: DictConfig) -> bool:
         f"runtime.slurm_requeue_owner={configured_owner!r}, "
         f"ICE_REQUEUE_OWNER={runner_owner!r}, "
         f"ICE_CHILD_REQUEUE_DISABLED={child_requeue_disabled!r}; "
-        "use lightning with no runner variables (or child/0), or runner "
-        "with runner/1"
+        "use none with no runner variables, lightning with no runner variables "
+        "(or child/0), or runner with runner/1"
     )
 
 
@@ -84,7 +90,14 @@ def _slurm_environment(cfg: DictConfig) -> SLURMEnvironment:
 def _instantiate_slurm_callbacks(cfg: DictConfig) -> List[Callback]:
     """Add the save-only signal callback when an external runner owns requeue."""
 
-    if not os.environ.get("SLURM_JOB_ID") or _slurm_auto_requeue(cfg):
+    owner = str(
+        OmegaConf.select(cfg, "runtime.slurm_requeue_owner", default="lightning")
+    )
+    if (
+        not os.environ.get("SLURM_JOB_ID")
+        or _slurm_auto_requeue(cfg)
+        or owner == "none"
+    ):
         return []
     save_signal = str(
         OmegaConf.select(cfg, "runtime.slurm_save_signal", default="SIGUSR2")
@@ -165,6 +178,11 @@ def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
     use_ema = settings.get("use_ema", False) if settings is not None else False
     if not isinstance(use_ema, bool):
         raise TypeError("eval_checkpoint.use_ema must be a boolean")
+    # Manual evaluation restore must honor the same data/model contracts as
+    # Lightning's full-state resume before any checkpoint weights are applied.
+    checkpoint_hook = getattr(model, "on_load_checkpoint", None)
+    if checkpoint_hook is not None:
+        checkpoint_hook(checkpoint)
     strict_load_pipeline_checkpoint(
         algo,
         checkpoint,
@@ -203,6 +221,7 @@ def _instantiate_model_wrapper(cfg: DictConfig) -> LightningModule:
         config_tree=_build_model_config_tree(cfg),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
         enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
+        train_log_on_step=bool(cfg.model.get("train_log_on_step", False)),
     )
 
 
@@ -388,6 +407,9 @@ def _resolve_training_checkpoint(cfg: DictConfig, trainer: Trainer) -> str | Non
     )
     _slurm_auto_requeue(cfg)
 
+    if owner == "none" and os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
+        raise RuntimeError("non-requeue job cannot resume after a Slurm restart")
+
     if owner == "runner":
         selected_path, selected_step = _validate_runner_resume_checkpoint()
         configured_path = cfg.get("ckpt_path")
@@ -475,12 +497,31 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # exactly the mapping it did before groups existed.
         valid_datasets = valid_datasets[DEFAULT_VALID_GROUP]
 
-    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert "MultiDataModuleWrapper" in cfg.data._target_, (
-        "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    # Episode-level evaluators need an ordered, complete-episode validation
+    # prefix. Pass these controls into the datamodule before Lightning creates
+    # its loaders; evaluator attachment happens later in this function.
+    data_controls = {}
+    limit_val_episodes = OmegaConf.select(
+        cfg, "evaluator.limit_val_episodes", default=None
     )
+    requires_ordered_validation = bool(
+        OmegaConf.select(cfg, "evaluator.requires_ordered_validation", default=False)
+    )
+    if limit_val_episodes is not None:
+        data_controls["valid_episode_limit"] = int(limit_val_episodes)
+        requires_ordered_validation = True
+    if requires_ordered_validation:
+        data_controls["force_valid_order"] = True
+
+    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
+    assert (
+        "MultiDataModuleWrapper" in cfg.data._target_
+    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
     datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
+        cfg.data,
+        train_datasets=train_datasets,
+        valid_datasets=valid_datasets,
+        **data_controls,
     )
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from

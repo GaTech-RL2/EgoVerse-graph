@@ -5,6 +5,40 @@ import time
 import numpy as np
 
 
+def validate_camera_devices(config, available_realsense=None):
+    """Fail on missing/duplicate RealSense serials before robot initialization."""
+    configured = {
+        name: str(spec["serial_number"])
+        for name, spec in config.items()
+        if spec.get("enabled", True) and spec["type"] in ("realsense", "d405")
+    }
+    serials = list(configured.values())
+    if len(serials) != len(set(serials)):
+        raise ValueError("Configured RealSense cameras must use distinct serials")
+    if not serials:
+        return ()
+    if available_realsense is None:
+        from egomimic.robot.eva.eva_ws.src.eva.stream_d405 import (
+            list_connected_serials,
+        )
+
+        available_realsense = list_connected_serials()
+    available = {str(serial) for serial in available_realsense}
+    missing = [
+        f"{name}={serial}"
+        for name, serial in configured.items()
+        if serial not in available
+    ]
+    if missing:
+        raise RuntimeError(
+            "Configured RealSense cameras are unavailable: "
+            + ", ".join(missing)
+            + "; available: "
+            + ", ".join(sorted(available))
+        )
+    return tuple(serials)
+
+
 class CameraStream:
     """Reject disconnected streams while preserving existing driver color/layout."""
 

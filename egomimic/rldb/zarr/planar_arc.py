@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+from scipy.interpolate import CubicSpline
 
 PLANAR_ACTION_DIM = 5  # [x, y, cos(theta), sin(theta), grip]
 
@@ -21,11 +22,12 @@ PLANAR_ACTION_DIM = 5  # [x, y, cos(theta), sin(theta), grip]
 #                  per interval. Same layout width as per_waypoint, but stores
 #                  Δt directly instead of arc_distance / Δt.
 #
-# "mean" stays the default so existing runs, checkpoints and norm stats are
-# untouched -- the token width differs between modes, so they are not
-# interchangeable within a run.
+# ``mean`` remains readable only for checkpoint-bound legacy artifacts. New
+# codecs default to interval duration because a chunk-level mean cannot recover
+# acceleration, dwell, or stop-and-go timing.
 VELOCITY_MODES = ("mean", "per_waypoint", "duration")
 _MEAN, _PER_WAYPOINT, _DURATION = VELOCITY_MODES
+DEFAULT_VELOCITY_MODE = _DURATION
 
 
 def validate_velocity_mode(velocity_mode: str) -> str:
@@ -36,7 +38,10 @@ def validate_velocity_mode(velocity_mode: str) -> str:
     return velocity_mode
 
 
-def arc_token_rows(resampled_vector_length: int, velocity_mode: str = _MEAN) -> int:
+def arc_token_rows(
+    resampled_vector_length: int,
+    velocity_mode: str = DEFAULT_VELOCITY_MODE,
+) -> int:
     """Rows in one Planar arc token.
 
     Single source of truth: the tokenizer, both graph stages, the native
@@ -104,6 +109,95 @@ def _interpolate(values: np.ndarray, cumulative: np.ndarray, target: float):
     return (1.0 - alpha) * values[index] + alpha * values[index + 1]
 
 
+def _unique_curve_support(
+    xy: np.ndarray,
+    cumulative: np.ndarray,
+    end: float,
+    epsilon: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return strictly increasing support through the exact arc-window end."""
+    inside = cumulative < end - epsilon
+    parameter = np.concatenate((cumulative[inside], np.array([end])))
+    points = np.concatenate(
+        (xy[inside], _interpolate(xy, cumulative, end)[None]), axis=0
+    )
+    keep = np.concatenate((np.ones(1, dtype=bool), np.diff(parameter) > epsilon))
+    return parameter[keep], points[keep]
+
+
+def curvature_adaptive_curve_samples(
+    xy: np.ndarray,
+    cumulative: np.ndarray,
+    end: float,
+    num_waypoints: int,
+    *,
+    dense_samples: int = 257,
+    curvature_floor: float | None = None,
+    epsilon: float = 1e-9,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Sample a natural cubic curve with asymptotic L2 chord-error density.
+
+    The returned targets stay in the tokenizer's cumulative arc coordinate so
+    per-segment durations can be recovered from the original source frames.
+    """
+    xy = np.asarray(xy, dtype=np.float64)
+    cumulative = np.asarray(cumulative, dtype=np.float64)
+    if xy.ndim != 2 or xy.shape[1] != 2 or len(xy) != len(cumulative):
+        raise ValueError("xy and cumulative must have matching (T,2)/(T,) shapes")
+    if num_waypoints < 2:
+        raise ValueError("num_waypoints must be at least two")
+    if dense_samples < max(17, num_waypoints):
+        raise ValueError("dense_samples must be at least max(17, num_waypoints)")
+    if curvature_floor is not None and (
+        not math.isfinite(curvature_floor) or curvature_floor <= 0
+    ):
+        raise ValueError("curvature_floor must be null or finite and positive")
+    if end <= epsilon:
+        return np.repeat(xy[:1], num_waypoints, axis=0), np.zeros(num_waypoints)
+
+    support_s, support_xy = _unique_curve_support(xy, cumulative, end, epsilon)
+    if len(support_s) < 3:
+        targets = np.linspace(0.0, end, num_waypoints)
+        return (
+            np.stack([_interpolate(xy, cumulative, point) for point in targets]),
+            targets,
+        )
+
+    spline = CubicSpline(support_s, support_xy, axis=0, bc_type="natural")
+    dense_s = np.linspace(0.0, end, dense_samples)
+    first = spline(dense_s, 1)
+    second = spline(dense_s, 2)
+    curve_speed = np.linalg.norm(first, axis=-1)
+    numerator = np.abs(first[:, 0] * second[:, 1] - first[:, 1] * second[:, 0])
+    speed_scale = max(float(np.max(curve_speed)), epsilon)
+    regularized_speed = np.maximum(curve_speed, speed_scale * 1e-6)
+    curvature = numerator / np.power(regularized_speed, 3)
+    curvature = np.nan_to_num(curvature, nan=0.0, posinf=0.0, neginf=0.0)
+    effective_floor = 1.0 / end if curvature_floor is None else curvature_floor
+    density = np.power(effective_floor**2 + curvature**2, 1.0 / 5.0)
+
+    delta_s = np.diff(dense_s)
+    weighted_arc = density * curve_speed
+    importance = np.concatenate(
+        (
+            np.zeros(1),
+            np.cumsum(
+                0.5 * (weighted_arc[:-1] + weighted_arc[1:]) * delta_s
+            ),
+        )
+    )
+    if importance[-1] <= epsilon:
+        targets = np.linspace(0.0, end, num_waypoints)
+    else:
+        targets = np.interp(
+            np.linspace(0.0, importance[-1], num_waypoints),
+            importance,
+            dense_s,
+        )
+    targets[0], targets[-1] = 0.0, end
+    return spline(targets), targets
+
+
 class PadPlanarAction:
     """Widen native ``[x,y[,theta[,grip]]]`` actions to a common five-vector."""
 
@@ -129,11 +223,11 @@ class PadPlanarAction:
 
 
 class TokenizePlanarArcLength:
-    """Encode a future native action chunk as M arc waypoints plus timing.
+    """Encode a future native action chunk as M curve supports plus timing.
 
-    The final row has only its first field populated with mean arc speed. The
-    first waypoint is copied from timestep zero rather than recovered via an
-    arc lookup; this preserves stationary grip transitions exactly.
+    Duration timing is the default: one interval duration is stored per
+    waypoint row. The first waypoint is copied from timestep zero rather than
+    recovered via an arc lookup; this preserves stationary grip transitions.
 
     ``hybrid_rotation_unit`` optionally adds the hybrid Cartesian/angular
     window rule used by the arc sweep.  The regular SE(2) cumulative clock
@@ -152,7 +246,10 @@ class TokenizePlanarArcLength:
         dt: float = 1.0 / 30.0,
         rotation_radius: float = 0.0,
         hybrid_rotation_unit: float | None = None,
-        velocity_mode: str = "mean",
+        velocity_mode: str = DEFAULT_VELOCITY_MODE,
+        waypoint_sampling: str = "uniform",
+        curvature_dense_samples: int = 257,
+        curvature_floor: float | None = None,
         zero_dist_epsilon: float = 1e-9,
     ):
         if min_distance_unit <= 0 or dt <= 0:
@@ -165,6 +262,16 @@ class TokenizePlanarArcLength:
             not math.isfinite(hybrid_rotation_unit) or hybrid_rotation_unit <= 0
         ):
             raise ValueError("hybrid_rotation_unit must be finite and positive")
+        if waypoint_sampling not in {"uniform", "curvature"}:
+            raise ValueError("waypoint_sampling must be 'uniform' or 'curvature'")
+        if curvature_dense_samples < max(17, resampled_vector_length):
+            raise ValueError(
+                "curvature_dense_samples must be at least max(17, resampled_vector_length)"
+            )
+        if curvature_floor is not None and (
+            not math.isfinite(curvature_floor) or curvature_floor <= 0
+        ):
+            raise ValueError("curvature_floor must be null or finite and positive")
         self.action_key = str(action_key)
         self.output_action_key = str(output_action_key)
         self.distance = float(min_distance_unit)
@@ -174,6 +281,11 @@ class TokenizePlanarArcLength:
         self.velocity_mode = validate_velocity_mode(velocity_mode)
         self.hybrid_rotation_unit = (
             None if hybrid_rotation_unit is None else float(hybrid_rotation_unit)
+        )
+        self.waypoint_sampling = str(waypoint_sampling)
+        self.curvature_dense_samples = int(curvature_dense_samples)
+        self.curvature_floor = (
+            None if curvature_floor is None else float(curvature_floor)
         )
         self.zero_dist_epsilon = float(zero_dist_epsilon)
 
@@ -279,10 +391,21 @@ class TokenizePlanarArcLength:
             rates = np.zeros(self.num_waypoints, dtype=np.float64)
             durations = np.zeros(self.num_waypoints, dtype=np.float64)
         else:
-            targets = np.linspace(0.0, end, self.num_waypoints)
-            xy_waypoints = np.stack(
-                [_interpolate(xy, cumulative, point) for point in targets]
-            )
+            if self.waypoint_sampling == "curvature":
+                xy_waypoints, targets = curvature_adaptive_curve_samples(
+                    xy,
+                    cumulative,
+                    end,
+                    self.num_waypoints,
+                    dense_samples=self.curvature_dense_samples,
+                    curvature_floor=self.curvature_floor,
+                    epsilon=self.zero_dist_epsilon,
+                )
+            else:
+                targets = np.linspace(0.0, end, self.num_waypoints)
+                xy_waypoints = np.stack(
+                    [_interpolate(xy, cumulative, point) for point in targets]
+                )
             theta_waypoints = np.array(
                 [
                     _interpolate(theta[:, None], cumulative, point)[0]

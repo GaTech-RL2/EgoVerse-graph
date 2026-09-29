@@ -1,23 +1,20 @@
-"""World-frame clutch mapping following rl2_yam's Quest frame convention.
+"""Quest clutch adapter and shared Eva/Yam command loop.
 
-Reference: GaTech-RL2/yam-pipeline, revision 1b1f9b12d300a41872b8a8c6c04f0c9f5f892f88,
-rl2_yam/agents/quest_mapper.py. No upstream runtime is required.
+The pose mapping delegates to the byte-for-byte ``yam-pipeline`` mapper in
+``egomimic.robot.yam.quest_mapper``. Yam additionally exposes the reference
+streaming IK path; Eva keeps using its existing robot-interface IK.
 """
 
 import numpy as np
-from scipy.spatial.transform import Rotation, Slerp
 
 from egomimic.robot.interface import ARM_OFFSET, joint_vector, pose_matrix, pose_vector
+from egomimic.robot.yam.quest_mapper import QuestBimanualMapper, _input_value
 
-# Quest world: right/up/back. Arm base: forward/left/up.
-WORLD_TO_BASE = np.array([[0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+ARM_TO_SIDE = {"left": "l", "right": "r"}
 
 
 def analog(buttons, key):
-    value = np.asarray((buttons or {}).get(key, 0), dtype=float).reshape(-1)
-    return (
-        float(np.clip(value[0], 0, 1)) if value.size and np.isfinite(value[0]) else 0.0
-    )
+    return _input_value((buttons or {}).get(key, 0.0))
 
 
 class ButtonEdge:
@@ -44,6 +41,8 @@ def rigid_transform(value):
 
 
 class WorldFrameTeleop:
+    """Arm-name adapter around yam-pipeline's exact world-frame mapper."""
+
     def __init__(
         self,
         arms,
@@ -57,124 +56,132 @@ class WorldFrameTeleop:
         side_yaw=None,
     ):
         self.arms = tuple(arms)
-        self.translation_gain, self.orientation_gain = (
-            float(translation_gain),
-            float(orientation_gain),
+        if not self.arms or not set(self.arms) <= ARM_TO_SIDE.keys():
+            raise ValueError("Teleop arms must select left, right, or both")
+        normalized_yaw = {}
+        for name, yaw in (side_yaw or {}).items():
+            side = ARM_TO_SIDE.get(name, name)
+            if side not in ("l", "r"):
+                raise ValueError(f"Unknown controller side: {name!r}")
+            normalized_yaw[side] = float(yaw)
+        self.side_for_arm = {arm: ARM_TO_SIDE[arm] for arm in self.arms}
+        self.mapper = QuestBimanualMapper(
+            translation_gain=translation_gain,
+            orientation_gain=orientation_gain,
+            headset_yaw_degrees=headset_yaw_degrees,
+            side_yaw=normalized_yaw,
+            sides=tuple(self.side_for_arm.values()),
+            target_lpf=target_lpf,
+            orientation_rx_degrees=orientation_rx_degrees,
+            max_controller_step_m=max_controller_step_m,
+            max_controller_step_deg=max_controller_step_deg,
         )
-        self.alpha = float(target_lpf)
-        self.max_m, self.max_rad = (
-            float(max_controller_step_m),
-            np.deg2rad(max_controller_step_deg),
-        )
-        if (
-            not 0 < self.alpha <= 1
-            or min(
-                self.translation_gain, self.orientation_gain, self.max_m, self.max_rad
-            )
-            <= 0
-        ):
-            raise ValueError(
-                "Teleop gains/limits must be positive and target_lpf in (0, 1]"
-            )
-        self.axes = {
-            arm: WORLD_TO_BASE
-            @ Rotation.from_euler(
-                "y", (side_yaw or {}).get(arm, headset_yaw_degrees), degrees=True
-            ).as_matrix()
-            for arm in arms
+        self._joy = {
+            arm: ButtonEdge("LJ" if arm == "left" else "RJ") for arm in self.arms
         }
-        self.orientation_axes = {
-            arm: basis
-            @ Rotation.from_euler("x", orientation_rx_degrees, degrees=True).as_matrix()
-            for arm, basis in self.axes.items()
-        }
-        self.reanchor = {
-            arm: ButtonEdge("LJ" if arm == "left" else "RJ") for arm in arms
-        }
-        self.reset()
+        self.anchored = set()
 
     def reset(self):
-        self.anchors, self.previous, self.filtered = {}, {}, {}
+        self.mapper.reset_clutches()
+        self.anchored = set()
+
+    def will_clutch(self, arm, buttons):
+        return self.mapper.will_clutch(self.side_for_arm[arm], buttons or {})
+
+    def update_states(self, poses, buttons, ee_poses):
+        buttons = buttons or {}
+        will_anchor = {
+            arm: (
+                (self.will_clutch(arm, buttons) or self._joy[arm].pressed(buttons))
+                and analog(buttons, "LG" if arm == "left" else "RG") > 0.5
+            )
+            for arm in self.arms
+        }
+        side_poses = {
+            self.side_for_arm[arm]: rigid_transform(ee_poses[arm]) for arm in self.arms
+        }
+        mapped = self.mapper.update(poses or {}, buttons, side_poses)
+        states = {arm: mapped[self.side_for_arm[arm]] for arm in self.arms}
+        self.anchored = {
+            arm
+            for arm, state in states.items()
+            if will_anchor[arm] and state["engaged"]
+        }
+        return states
 
     def update(self, poses, buttons, measured):
-        targets = {}
-        self.anchored = set()
-        for arm in self.arms:
-            side, grip, trigger = (
-                ("l", "LG", "leftTrig") if arm == "left" else ("r", "RG", "rightTrig")
-            )
-            reclutch = self.reanchor[arm].pressed(buttons)
-            try:
-                controller = rigid_transform((poses or {}).get(side))
-            except (TypeError, ValueError):
-                controller = None
-            held = (
-                analog(buttons, grip) > 0.5
-                or analog(buttons, "leftGrip" if arm == "left" else "rightGrip") > 0.5
-            )
-            previous = self.previous.get(arm)
-            jumped = (
-                controller is not None
-                and previous is not None
-                and (
-                    np.linalg.norm(controller[:3, 3] - previous[:3, 3]) > self.max_m
-                    or Rotation.from_matrix(
-                        controller[:3, :3] @ previous[:3, :3].T
-                    ).magnitude()
-                    > self.max_rad
-                )
-            )
-            if controller is None or not held or jumped or reclutch:
-                self.anchors.pop(arm, None)
-                self.filtered.pop(arm, None)
-            self.previous[arm] = controller
-            if controller is None or not held or jumped:
-                continue
-            if arm not in self.anchors:
-                self.anchored.add(arm)
-                self.anchors[arm] = (controller.copy(), rigid_transform(measured[arm]))
-            initial, robot_initial = self.anchors[arm]
-            basis, orientation = self.axes[arm], self.orientation_axes[arm]
-            target = robot_initial.copy()
-            target[:3, 3] += self.translation_gain * (
-                basis @ (controller[:3, 3] - initial[:3, 3])
-            )
-            delta = (
-                orientation @ (controller[:3, :3] @ initial[:3, :3].T) @ orientation.T
-            )
-            target[:3, :3] = (
-                Rotation.from_rotvec(
-                    self.orientation_gain * Rotation.from_matrix(delta).as_rotvec()
-                ).as_matrix()
-                @ robot_initial[:3, :3]
-            )
-            old = self.filtered.get(arm)
-            if old is not None:
-                target[:3, 3] = old[:3, 3] + self.alpha * (target[:3, 3] - old[:3, 3])
-                target[:3, :3] = Slerp(
-                    [0, 1],
-                    Rotation.from_matrix(np.stack([old[:3, :3], target[:3, :3]])),
-                )(self.alpha).as_matrix()
-            self.filtered[arm] = target.copy()
-            targets[arm] = np.r_[pose_vector(target), 1.0 - analog(buttons, trigger)]
-        return targets
+        states = self.update_states(poses, buttons, measured)
+        return {
+            arm: np.r_[pose_vector(state["target_pose"]), state["gripper"]]
+            for arm, state in states.items()
+            if state["engaged"]
+        }
 
 
 class TeleopControl:
     def __init__(self, robot, mapper, frequency, max_joint_velocity):
         self.robot, self.mapper = robot, mapper
-        self.step_limit = float(max_joint_velocity) / float(frequency)
+        self.frequency = float(frequency)
+        self.max_joint_velocity = float(max_joint_velocity)
+        self.step_limit = self.max_joint_velocity / self.frequency
         if not np.isfinite(self.step_limit) or self.step_limit <= 0:
             raise ValueError("Joint velocity and frequency must be positive")
+        validate = getattr(robot, "validate_teleop_config", None)
+        if validate is not None:
+            validate(self.frequency, self.max_joint_velocity)
         self.last = None
 
     def reset(self):
         self.last = None
         self.mapper.reset()
 
-    def step(self, poses, buttons, obs):
-        if self.last is None:
-            self.last = np.asarray(obs["joint_positions"]).copy()
+    def _streaming_step(self, poses, buttons, obs):
+        """Match yam-pipeline's command-seeded FK and local streaming IK loop."""
+        for arm in self.robot.arms:
+            if self.mapper.will_clutch(arm, buttons):
+                offset = ARM_OFFSET[arm]
+                self.last[offset : offset + 7] = obs["joint_positions"][
+                    offset : offset + 7
+                ]
+        anchor_poses = {
+            arm: self.robot.teleop_fk(
+                self.last[ARM_OFFSET[arm] : ARM_OFFSET[arm] + 7], arm
+            )
+            for arm in self.robot.arms
+        }
+        states = self.mapper.update_states(poses, buttons, anchor_poses)
+        commands = self.last.copy()
+        for arm in self.robot.arms:
+            offset = ARM_OFFSET[arm]
+            command = commands[offset : offset + 7].copy()
+            state = states[arm]
+            if state["engaged"]:
+                ok, solved = self.robot.solve_teleop_ik(
+                    state["target_pose"], command, arm
+                )
+                solved = np.asarray(solved, dtype=float)
+                if ok and solved.shape == (6,) and np.isfinite(solved).all():
+                    command[:6] += np.clip(
+                        solved - command[:6], -self.step_limit, self.step_limit
+                    )
+            command[6] = float(np.clip(state["gripper"], 0.0, 1.0))
+            commands[offset : offset + 7] = joint_vector(command)
+
+        # Solve both arms first, then issue their targets back-to-back.
+        for arm in self.robot.arms:
+            offset = ARM_OFFSET[arm]
+            self.robot.set_joints(commands[offset : offset + 7], arm)
+        ee_commands = np.zeros(14)
+        for arm in self.robot.arms:
+            offset = ARM_OFFSET[arm]
+            command = commands[offset : offset + 7]
+            ee_commands[offset : offset + 7] = np.r_[
+                pose_vector(self.robot.teleop_fk(command, arm)), command[6]
+            ]
+        self.last = commands
+        return commands.copy(), ee_commands
+
+    def _generic_step(self, poses, buttons, obs):
         measured = {
             arm: pose_matrix(obs["ee_poses"][ARM_OFFSET[arm] : ARM_OFFSET[arm] + 6])
             for arm in self.robot.arms
@@ -189,9 +196,13 @@ class TeleopControl:
             if arm in targets:
                 target = targets[arm]
                 try:
-                    solved = self.robot.solve_ik(target[:6], arm)
+                    solved = np.asarray(
+                        self.robot.solve_ik(target[:6], arm), dtype=float
+                    )
+                    if solved.shape != (6,) or not np.isfinite(solved).all():
+                        raise ValueError("IK did not return six finite joints")
                     command = joint_vector(np.r_[solved, target[6]])
-                except (ValueError, RuntimeError):
+                except (TypeError, ValueError, RuntimeError):
                     command = commands[offset : offset + 7].copy()
                 command[:6] = commands[offset : offset + 6] + np.clip(
                     command[:6] - commands[offset : offset + 6],
@@ -199,7 +210,6 @@ class TeleopControl:
                     self.step_limit,
                 )
                 commands[offset : offset + 7] = command
-            # Hold the last accepted command on clutch release or stale tracking.
             command = joint_vector(commands[offset : offset + 7])
             self.robot.set_joints(command, arm)
             ee_commands[offset : offset + 7] = np.r_[
@@ -207,3 +217,10 @@ class TeleopControl:
             ]
         self.last = commands
         return commands.copy(), ee_commands
+
+    def step(self, poses, buttons, obs):
+        if self.last is None:
+            self.last = np.asarray(obs["joint_positions"], dtype=float).copy()
+        if hasattr(self.robot, "solve_teleop_ik"):
+            return self._streaming_step(poses, buttons, obs)
+        return self._generic_step(poses, buttons, obs)

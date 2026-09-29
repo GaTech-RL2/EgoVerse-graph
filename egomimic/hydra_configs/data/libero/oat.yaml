@@ -1,0 +1,32 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  libero_panda: &dataset
+    _target_: egomimic.rldb.zarr.libero_dataset.LiberoDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.libero_dataset.LiberoReplayResolver
+      folder_path: ${benchmark.dataset}
+      suite: ${benchmark.suite}
+      decoded_cache: ${benchmark.decoded_replay_cache}
+      key_map:
+        _target_: egomimic.rldb.zarr.libero_dataset.keymap
+        n_obs_steps: ${benchmark.n_obs_steps}
+        horizon: ${benchmark.horizon}
+    mode: train
+    valid_ratio: 0.1
+    split_seed: ${seed}
+valid_datasets:
+  libero_panda:
+    <<: *dataset
+    mode: valid
+train_dataloader_params:
+  libero_panda: &loader
+    batch_size: ${benchmark.batch_size}
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    drop_last: true
+valid_dataloader_params:
+  libero_panda:
+    <<: *loader
+    shuffle: false
+    drop_last: false

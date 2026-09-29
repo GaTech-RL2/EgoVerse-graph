@@ -1,0 +1,1668 @@
+{
+  "measurement_window_utc": "2026-09-22T22:32:00Z/2026-09-22T22:39:00Z",
+  "production_loader_changed": false,
+  "data_profiles": {
+    "arc_spatial": {
+      "label": "arc-five-ddp2-20260922-stk1-libero-spatial-1",
+      "utc": "2026-09-22T22:38:47Z",
+      "path": "/workspace/libero/data/libero_spatial.zarr",
+      "metadata": {
+        "action": {
+          "shape": [
+            62250,
+            7
+          ],
+          "chunks": [
+            1024,
+            7
+          ],
+          "dtype": "float32",
+          "compressor": "Blosc(cname='lz4', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "agentview_rgb": {
+          "shape": [
+            62250,
+            128,
+            128,
+            3
+          ],
+          "chunks": [
+            1,
+            128,
+            128,
+            3
+          ],
+          "dtype": "uint8",
+          "compressor": "Blosc(cname='lz4', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "robot0_eye_in_hand_rgb": {
+          "shape": [
+            62250,
+            128,
+            128,
+            3
+          ],
+          "chunks": [
+            1,
+            128,
+            128,
+            3
+          ],
+          "dtype": "uint8",
+          "compressor": "Blosc(cname='lz4', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "robot0_eef_pos": {
+          "shape": [
+            62250,
+            3
+          ],
+          "chunks": [
+            1024,
+            3
+          ],
+          "dtype": "float32",
+          "compressor": "Blosc(cname='lz4', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "robot0_eef_quat": {
+          "shape": [
+            62250,
+            4
+          ],
+          "chunks": [
+            1024,
+            4
+          ],
+          "dtype": "float32",
+          "compressor": "Blosc(cname='lz4', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "robot0_gripper_qpos": {
+          "shape": [
+            62250,
+            2
+          ],
+          "chunks": [
+            1024,
+            2
+          ],
+          "dtype": "float32",
+          "compressor": "Blosc(cname='lz4', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "task_uid": {
+          "shape": [
+            62250,
+            1
+          ],
+          "chunks": [
+            1024,
+            1
+          ],
+          "dtype": "int64",
+          "compressor": "Blosc(cname='lz4', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        }
+      },
+      "samples": 256,
+      "per_key_samples": 128,
+      "per_key": {
+        "actions": {
+          "read_seconds": 0.12207443767692894,
+          "float_seconds": 0.001905821729451418
+        },
+        "agentview_rgb": {
+          "read_seconds": 0.43635589943733066,
+          "float_seconds": 0.009263871470466256
+        },
+        "robot0_eye_in_hand_rgb": {
+          "read_seconds": 0.4392980139236897,
+          "float_seconds": 0.008398066041991115
+        },
+        "robot0_eef_pos": {
+          "read_seconds": 0.12347172270528972,
+          "float_seconds": 0.0020140388514846563
+        },
+        "robot0_eef_quat": {
+          "read_seconds": 0.11913953861221671,
+          "float_seconds": 0.0017951695481315255
+        },
+        "robot0_gripper_qpos": {
+          "read_seconds": 0.1127623503562063,
+          "float_seconds": 0.001702259061858058
+        },
+        "task_uid": {
+          "read_seconds": 0.11480873601976782,
+          "float_seconds": 0.0032276019919663668
+        }
+      },
+      "profile_seconds": 3.174241686007008,
+      "zarr_sample_seconds": 2.399978315923363,
+      "decoded_ram_sample_seconds": 0.04560550698079169,
+      "decoded_ram_bytes": 54401928,
+      "parity_samples": 32,
+      "top_self": [
+        {
+          "function": "~:0:<method 'acquire' of '_thread.lock' objects>",
+          "calls": 7168,
+          "self_seconds": 2.2622676370000003,
+          "cumulative_seconds": 2.2622676370000003
+        },
+        {
+          "function": "~:0:<method 'cumsum' of 'numpy.ndarray' objects>",
+          "calls": 1792,
+          "self_seconds": 0.12900382400000002,
+          "cumulative_seconds": 0.12900382400000002
+        },
+        {
+          "function": "~:0:<method 'nonzero' of 'numpy.ndarray' objects>",
+          "calls": 1792,
+          "self_seconds": 0.104331375,
+          "cumulative_seconds": 0.104331375
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:757:__init__",
+          "calls": 1792,
+          "self_seconds": 0.040113925,
+          "cumulative_seconds": 0.38475712
+        },
+        {
+          "function": "/workspace/libero/source/egomimic/rldb/zarr/libero_dataset.py:105:__getitem__",
+          "calls": 256,
+          "self_seconds": 0.038322196,
+          "cumulative_seconds": 3.171200739
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:904:__init__",
+          "calls": 1792,
+          "self_seconds": 0.030492815000000003,
+          "cumulative_seconds": 0.503972564
+        },
+        {
+          "function": "~:0:<method 'float' of 'torch._C.TensorBase' objects>",
+          "calls": 1792,
+          "self_seconds": 0.026090652000000002,
+          "cumulative_seconds": 0.026090652000000002
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/sync.py:124:sync",
+          "calls": 1792,
+          "self_seconds": 0.02370502,
+          "cumulative_seconds": 2.4425934440000003
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/concurrent/futures/_base.py:263:wait",
+          "calls": 1792,
+          "self_seconds": 0.022975376000000002,
+          "cumulative_seconds": 2.352786023
+        },
+        {
+          "function": "~:0:<method 'reduce' of 'numpy.ufunc' objects>",
+          "calls": 7168,
+          "self_seconds": 0.018871192000000002,
+          "cumulative_seconds": 0.018871192000000002
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/array.py:3213:get_orthogonal_selection",
+          "calls": 1792,
+          "self_seconds": 0.018412883,
+          "cumulative_seconds": 3.006103362
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:988:__getitem__",
+          "calls": 1792,
+          "self_seconds": 0.018311222000000002,
+          "cumulative_seconds": 3.036969794
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/lib/_function_base_impl.py:1391:diff",
+          "calls": 1792,
+          "self_seconds": 0.017376068,
+          "cumulative_seconds": 0.019284368
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/_core/_methods.py:98:_clip",
+          "calls": 1792,
+          "self_seconds": 0.014488214000000001,
+          "cumulative_seconds": 0.02434464
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "/workspace/libero/source/egomimic/rldb/zarr/libero_dataset.py:105:__getitem__",
+          "calls": 256,
+          "self_seconds": 0.038322196,
+          "cumulative_seconds": 3.171200739
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:988:__getitem__",
+          "calls": 1792,
+          "self_seconds": 0.018311222000000002,
+          "cumulative_seconds": 3.036969794
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/array.py:3213:get_orthogonal_selection",
+          "calls": 1792,
+          "self_seconds": 0.018412883,
+          "cumulative_seconds": 3.006103362
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/sync.py:124:sync",
+          "calls": 1792,
+          "self_seconds": 0.02370502,
+          "cumulative_seconds": 2.4425934440000003
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/concurrent/futures/_base.py:263:wait",
+          "calls": 1792,
+          "self_seconds": 0.022975376000000002,
+          "cumulative_seconds": 2.352786023
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/threading.py:611:wait",
+          "calls": 1792,
+          "self_seconds": 0.005911879,
+          "cumulative_seconds": 2.2855890970000003
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/threading.py:295:wait",
+          "calls": 1792,
+          "self_seconds": 0.008293719,
+          "cumulative_seconds": 2.2756867610000002
+        },
+        {
+          "function": "~:0:<method 'acquire' of '_thread.lock' objects>",
+          "calls": 7168,
+          "self_seconds": 2.2622676370000003,
+          "cumulative_seconds": 2.2622676370000003
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:904:__init__",
+          "calls": 1792,
+          "self_seconds": 0.030492815000000003,
+          "cumulative_seconds": 0.503972564
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:757:__init__",
+          "calls": 1792,
+          "self_seconds": 0.040113925,
+          "cumulative_seconds": 0.38475712
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:51:_wrapfunc",
+          "calls": 5376,
+          "self_seconds": 0.0068928010000000005,
+          "cumulative_seconds": 0.268275981
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:2879:cumsum",
+          "calls": 1792,
+          "self_seconds": 0.002046951,
+          "cumulative_seconds": 0.13333857300000002
+        },
+        {
+          "function": "~:0:<method 'cumsum' of 'numpy.ndarray' objects>",
+          "calls": 1792,
+          "self_seconds": 0.12900382400000002,
+          "cumulative_seconds": 0.12900382400000002
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:2018:nonzero",
+          "calls": 1792,
+          "self_seconds": 0.001341874,
+          "cumulative_seconds": 0.10832952900000001
+        }
+      ]
+    },
+    "arc_10": {
+      "label": "arc-five-ddp2-20260922-dur1-libero-10-1",
+      "utc": "2026-09-22T22:38:51Z",
+      "path": "/workspace/libero/data/released/libero10_N500.zarr",
+      "metadata": {
+        "action": {
+          "shape": [
+            138090,
+            7
+          ],
+          "chunks": [
+            244,
+            7
+          ],
+          "dtype": "float32",
+          "compressor": "Blosc(cname='zstd', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "agentview_rgb": {
+          "shape": [
+            138090,
+            128,
+            128,
+            3
+          ],
+          "chunks": [
+            41,
+            128,
+            128,
+            3
+          ],
+          "dtype": "uint8",
+          "compressor": "Blosc(cname='zstd', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "robot0_eye_in_hand_rgb": {
+          "shape": [
+            138090,
+            128,
+            128,
+            3
+          ],
+          "chunks": [
+            41,
+            128,
+            128,
+            3
+          ],
+          "dtype": "uint8",
+          "compressor": "Blosc(cname='zstd', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "robot0_eef_pos": {
+          "shape": [
+            138090,
+            3
+          ],
+          "chunks": [
+            244,
+            3
+          ],
+          "dtype": "float32",
+          "compressor": "Blosc(cname='zstd', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "robot0_eef_quat": {
+          "shape": [
+            138090,
+            4
+          ],
+          "chunks": [
+            244,
+            4
+          ],
+          "dtype": "float32",
+          "compressor": "Blosc(cname='zstd', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "robot0_gripper_qpos": {
+          "shape": [
+            138090,
+            2
+          ],
+          "chunks": [
+            244,
+            2
+          ],
+          "dtype": "float32",
+          "compressor": "Blosc(cname='zstd', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        },
+        "task_uid": {
+          "shape": [
+            138090,
+            1
+          ],
+          "chunks": [
+            244,
+            1
+          ],
+          "dtype": "int64",
+          "compressor": "Blosc(cname='zstd', clevel=5, shuffle=SHUFFLE, blocksize=0)"
+        }
+      },
+      "samples": 256,
+      "per_key_samples": 128,
+      "per_key": {
+        "actions": {
+          "read_seconds": 0.13360512629151344,
+          "float_seconds": 0.0015667814295738935
+        },
+        "agentview_rgb": {
+          "read_seconds": 0.5707258998882025,
+          "float_seconds": 0.006023985682986677
+        },
+        "robot0_eye_in_hand_rgb": {
+          "read_seconds": 0.9745885033626109,
+          "float_seconds": 0.008518430055119097
+        },
+        "robot0_eef_pos": {
+          "read_seconds": 0.13519361149519682,
+          "float_seconds": 0.0023857272462919354
+        },
+        "robot0_eef_quat": {
+          "read_seconds": 0.13117586425505579,
+          "float_seconds": 0.0023096223594620824
+        },
+        "robot0_gripper_qpos": {
+          "read_seconds": 0.12561119941528887,
+          "float_seconds": 0.0020368725527077913
+        },
+        "task_uid": {
+          "read_seconds": 0.12339814775623381,
+          "float_seconds": 0.00298616464715451
+        }
+      },
+      "profile_seconds": 4.653475068043917,
+      "zarr_sample_seconds": 4.417819894966669,
+      "decoded_ram_sample_seconds": 0.04806948406621814,
+      "decoded_ram_bytes": 124347264,
+      "parity_samples": 32,
+      "top_self": [
+        {
+          "function": "~:0:<method 'acquire' of '_thread.lock' objects>",
+          "calls": 7168,
+          "self_seconds": 4.052992178,
+          "cumulative_seconds": 4.052992178
+        },
+        {
+          "function": "/workspace/libero/source/egomimic/rldb/zarr/libero_dataset.py:105:__getitem__",
+          "calls": 256,
+          "self_seconds": 0.032314979,
+          "cumulative_seconds": 4.650909993
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:757:__init__",
+          "calls": 1792,
+          "self_seconds": 0.027122744,
+          "cumulative_seconds": 0.143119029
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:904:__init__",
+          "calls": 1792,
+          "self_seconds": 0.025378357,
+          "cumulative_seconds": 0.24607183900000001
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/sync.py:124:sync",
+          "calls": 1792,
+          "self_seconds": 0.021679185,
+          "cumulative_seconds": 4.2134597860000005
+        },
+        {
+          "function": "~:0:<method 'float' of 'torch._C.TensorBase' objects>",
+          "calls": 1792,
+          "self_seconds": 0.021663584,
+          "cumulative_seconds": 0.021663584
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/concurrent/futures/_base.py:263:wait",
+          "calls": 1792,
+          "self_seconds": 0.019967496,
+          "cumulative_seconds": 4.130609765
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/array.py:3213:get_orthogonal_selection",
+          "calls": 1792,
+          "self_seconds": 0.016603154000000002,
+          "cumulative_seconds": 4.512196003000001
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:988:__getitem__",
+          "calls": 1792,
+          "self_seconds": 0.016385941,
+          "cumulative_seconds": 4.539816448000001
+        },
+        {
+          "function": "~:0:<method 'reduce' of 'numpy.ufunc' objects>",
+          "calls": 7168,
+          "self_seconds": 0.015693467000000003,
+          "cumulative_seconds": 0.015693467000000003
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/lib/_function_base_impl.py:1391:diff",
+          "calls": 1792,
+          "self_seconds": 0.014698914,
+          "cumulative_seconds": 0.01625615
+        },
+        {
+          "function": "~:0:<method 'cumsum' of 'numpy.ndarray' objects>",
+          "calls": 1792,
+          "self_seconds": 0.013254525000000001,
+          "cumulative_seconds": 0.013254525000000001
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/_core/_methods.py:98:_clip",
+          "calls": 1792,
+          "self_seconds": 0.012221789,
+          "cumulative_seconds": 0.020252469000000002
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/threading.py:243:__init__",
+          "calls": 3584,
+          "self_seconds": 0.011152625000000001,
+          "cumulative_seconds": 0.012175598000000001
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "/workspace/libero/source/egomimic/rldb/zarr/libero_dataset.py:105:__getitem__",
+          "calls": 256,
+          "self_seconds": 0.032314979,
+          "cumulative_seconds": 4.650909993
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:988:__getitem__",
+          "calls": 1792,
+          "self_seconds": 0.016385941,
+          "cumulative_seconds": 4.539816448000001
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/array.py:3213:get_orthogonal_selection",
+          "calls": 1792,
+          "self_seconds": 0.016603154000000002,
+          "cumulative_seconds": 4.512196003000001
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/sync.py:124:sync",
+          "calls": 1792,
+          "self_seconds": 0.021679185,
+          "cumulative_seconds": 4.2134597860000005
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/concurrent/futures/_base.py:263:wait",
+          "calls": 1792,
+          "self_seconds": 0.019967496,
+          "cumulative_seconds": 4.130609765
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/threading.py:611:wait",
+          "calls": 1792,
+          "self_seconds": 0.005336172,
+          "cumulative_seconds": 4.073237736
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/threading.py:295:wait",
+          "calls": 1792,
+          "self_seconds": 0.007067865,
+          "cumulative_seconds": 4.064532054
+        },
+        {
+          "function": "~:0:<method 'acquire' of '_thread.lock' objects>",
+          "calls": 7168,
+          "self_seconds": 4.052992178,
+          "cumulative_seconds": 4.052992178
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:904:__init__",
+          "calls": 1792,
+          "self_seconds": 0.025378357,
+          "cumulative_seconds": 0.24607183900000001
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:757:__init__",
+          "calls": 1792,
+          "self_seconds": 0.027122744,
+          "cumulative_seconds": 0.143119029
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:51:_wrapfunc",
+          "calls": 5376,
+          "self_seconds": 0.006024290000000001,
+          "cumulative_seconds": 0.051095413000000006
+        },
+        {
+          "function": "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/asyncio/tasks.py:917:run_coroutine_threadsafe",
+          "calls": 1792,
+          "self_seconds": 0.0075827740000000005,
+          "cumulative_seconds": 0.043529280000000004
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/numpy/_core/fromnumeric.py:2241:clip",
+          "calls": 1792,
+          "self_seconds": 0.004098491,
+          "cumulative_seconds": 0.029552841000000003
+        },
+        {
+          "function": "/workspace/libero/source/emimic/lib/python3.11/site-packages/zarr/core/indexing.py:714:check",
+          "calls": 1792,
+          "self_seconds": 0.009113287000000001,
+          "cumulative_seconds": 0.028393418
+        }
+      ]
+    }
+  },
+  "live_profiles": {
+    "arc_spatial": {
+      "utc": "2026-09-22T22:32:37Z",
+      "duration": 15.616433504037559,
+      "processes": [
+        {
+          "pid": 8649,
+          "ppid": 8574,
+          "name": "python",
+          "cpu_percent": 41.366679519557366,
+          "rss_gib": 5.4673614501953125,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 119950,
+            "wchar": 34130,
+            "syscr": 1458,
+            "syscw": 841,
+            "read_bytes": 0,
+            "write_bytes": 4096,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8709,
+          "ppid": 8649,
+          "name": "python",
+          "cpu_percent": 94.64388905558172,
+          "rss_gib": 5.499828338623047,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 117815,
+            "wchar": 34033,
+            "syscr": 1430,
+            "syscw": 812,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8760,
+          "ppid": 8649,
+          "name": "pt_data_worker",
+          "cpu_percent": 106.36231374920246,
+          "rss_gib": 1.2103042602539062,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 310022043,
+            "wchar": 31341,
+            "syscr": 28842,
+            "syscw": 222,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8763,
+          "ppid": 8709,
+          "name": "pt_data_worker",
+          "cpu_percent": 108.21933187004946,
+          "rss_gib": 1.1469612121582031,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 309530547,
+            "wchar": 31146,
+            "syscr": 28746,
+            "syscw": 222,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8770,
+          "ppid": 8649,
+          "name": "pt_data_worker",
+          "cpu_percent": 107.64301590151074,
+          "rss_gib": 1.2162322998046875,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 252977002,
+            "wchar": 26509,
+            "syscr": 23517,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8774,
+          "ppid": 8709,
+          "name": "pt_data_worker",
+          "cpu_percent": 102.58424239989304,
+          "rss_gib": 1.1587448120117188,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 310234184,
+            "wchar": 31080,
+            "syscr": 28816,
+            "syscw": 222,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8780,
+          "ppid": 8649,
+          "name": "pt_data_worker",
+          "cpu_percent": 100.15090831050732,
+          "rss_gib": 1.2293472290039062,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 289686543,
+            "wchar": 31353,
+            "syscr": 26956,
+            "syscw": 222,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8785,
+          "ppid": 8709,
+          "name": "pt_data_worker",
+          "cpu_percent": 83.56581543811512,
+          "rss_gib": 1.2023887634277344,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 252681392,
+            "wchar": 26179,
+            "syscr": 23483,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8786,
+          "ppid": 8649,
+          "name": "pt_data_worker",
+          "cpu_percent": 108.92371805381902,
+          "rss_gib": 1.1986618041992188,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 247292594,
+            "wchar": 26089,
+            "syscr": 23037,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8808,
+          "ppid": 8709,
+          "name": "pt_data_worker",
+          "cpu_percent": 108.4114371928957,
+          "rss_gib": 1.1707611083984375,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 253207694,
+            "wchar": 25648,
+            "syscr": 23545,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8983,
+          "ppid": 8709,
+          "name": "pt_data_worker",
+          "cpu_percent": 0.06403510761541388,
+          "rss_gib": 2.967723846435547,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8984,
+          "ppid": 8649,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.0329437255859375,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8993,
+          "ppid": 8709,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 2.962726593017578,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8994,
+          "ppid": 8649,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.0276718139648438,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9003,
+          "ppid": 8709,
+          "name": "pt_data_worker",
+          "cpu_percent": 0.06403510761541388,
+          "rss_gib": 2.96527099609375,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9004,
+          "ppid": 8649,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.0181503295898438,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9013,
+          "ppid": 8709,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 2.959949493408203,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9014,
+          "ppid": 8649,
+          "name": "pt_data_worker",
+          "cpu_percent": 0.06403510761541388,
+          "rss_gib": 3.0301666259765625,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        }
+      ],
+      "gpu_summary": [
+        {
+          "index": 0,
+          "mean_gpu_util": 18.933333333333334,
+          "mean_mem_util": 4.2,
+          "memory_mib": 7281,
+          "mean_power_w": 121.26599999999999
+        },
+        {
+          "index": 1,
+          "mean_gpu_util": 83.4,
+          "mean_mem_util": 8.066666666666666,
+          "memory_mib": 6664,
+          "mean_power_w": 124.74600000000001
+        }
+      ],
+      "tools": {
+        "py-spy": null,
+        "perf": null,
+        "nsys": "/usr/local/cuda/bin/nsys",
+        "gdb": null,
+        "pidstat": null
+      },
+      "ptrace_scope": "1\n",
+      "cap_eff": [
+        "CapEff:\t00000000a80c65fb"
+      ],
+      "cgroup": {
+        "cpu_max": "2400000 100000\n",
+        "cpu_stat_before": "usage_usec 143561259724\nuser_usec 118927230209\nsystem_usec 24634029515\ncore_sched.force_idle_usec 0\nnr_periods 165708\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+        "cpu_stat_after": "usage_usec 143712058968\nuser_usec 119049792794\nsystem_usec 24662266173\ncore_sched.force_idle_usec 0\nnr_periods 165864\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+        "memory_current": "33867022336\n",
+        "memory_max": "137438953472\n",
+        "cpu_pressure": "some avg10=0.35 avg60=0.30 avg300=0.14 total=47969025\nfull avg10=0.35 avg60=0.30 avg300=0.14 total=47962814\n",
+        "io_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=1675346\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=1675346\n"
+      }
+    },
+    "arc_10": {
+      "utc": "2026-09-22T22:32:37Z",
+      "duration": 15.552594503969885,
+      "processes": [
+        {
+          "pid": 8636,
+          "ppid": 8573,
+          "name": "python",
+          "cpu_percent": 106.73460299992234,
+          "rss_gib": 5.600334167480469,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 65761,
+            "wchar": 22468,
+            "syscr": 809,
+            "syscw": 474,
+            "read_bytes": 0,
+            "write_bytes": 4096,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8690,
+          "ppid": 8636,
+          "name": "python",
+          "cpu_percent": 15.431508867458653,
+          "rss_gib": 5.641609191894531,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 69890,
+            "wchar": 23219,
+            "syscr": 845,
+            "syscw": 480,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8742,
+          "ppid": 8690,
+          "name": "pt_data_worker",
+          "cpu_percent": 103.39110941197298,
+          "rss_gib": 1.1683578491210938,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 879081082,
+            "wchar": 20933,
+            "syscr": 11846,
+            "syscw": 148,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8747,
+          "ppid": 8636,
+          "name": "pt_data_worker",
+          "cpu_percent": 102.10515033968476,
+          "rss_gib": 1.2602691650390625,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 895394435,
+            "wchar": 15885,
+            "syscr": 11969,
+            "syscw": 111,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8752,
+          "ppid": 8690,
+          "name": "pt_data_worker",
+          "cpu_percent": 103.13391759751534,
+          "rss_gib": 1.2538070678710938,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 891385196,
+            "wchar": 15624,
+            "syscr": 11773,
+            "syscw": 111,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8757,
+          "ppid": 8636,
+          "name": "pt_data_worker",
+          "cpu_percent": 103.45540736558739,
+          "rss_gib": 1.2428474426269531,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 897009333,
+            "wchar": 15885,
+            "syscr": 11859,
+            "syscw": 111,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8762,
+          "ppid": 8690,
+          "name": "pt_data_worker",
+          "cpu_percent": 103.26251350474415,
+          "rss_gib": 1.2229194641113281,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 929222359,
+            "wchar": 15465,
+            "syscr": 12381,
+            "syscw": 111,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8767,
+          "ppid": 8690,
+          "name": "pt_data_worker",
+          "cpu_percent": 103.00532169028651,
+          "rss_gib": 1.205322265625,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 915329730,
+            "wchar": 15645,
+            "syscr": 12241,
+            "syscw": 111,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8768,
+          "ppid": 8636,
+          "name": "pt_data_worker",
+          "cpu_percent": 99.08314651980744,
+          "rss_gib": 1.2943458557128906,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 874698036,
+            "wchar": 15704,
+            "syscr": 11753,
+            "syscw": 113,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8790,
+          "ppid": 8636,
+          "name": "pt_data_worker",
+          "cpu_percent": 97.53999563306157,
+          "rss_gib": 1.2806282043457031,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 880249403,
+            "wchar": 15312,
+            "syscr": 11877,
+            "syscw": 114,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9052,
+          "ppid": 8636,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.2880706787109375,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9057,
+          "ppid": 8690,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.083240509033203,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9062,
+          "ppid": 8636,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.278095245361328,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9067,
+          "ppid": 8690,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.0713653564453125,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9072,
+          "ppid": 8636,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.2728271484375,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9077,
+          "ppid": 8690,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.0772933959960938,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9078,
+          "ppid": 8636,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.2763290405273438,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9108,
+          "ppid": 8690,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 3.093578338623047,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        }
+      ],
+      "gpu_summary": [
+        {
+          "index": 0,
+          "mean_gpu_util": 98.93333333333334,
+          "mean_mem_util": 3.8,
+          "memory_mib": 7013,
+          "mean_power_w": 120.26933333333336
+        },
+        {
+          "index": 1,
+          "mean_gpu_util": 8.866666666666667,
+          "mean_mem_util": 4.733333333333333,
+          "memory_mib": 6578,
+          "mean_power_w": 119.93066666666664
+        }
+      ],
+      "tools": {
+        "py-spy": null,
+        "perf": null,
+        "nsys": "/usr/local/cuda/bin/nsys",
+        "gdb": null,
+        "pidstat": null
+      },
+      "ptrace_scope": "1\n",
+      "cap_eff": [
+        "CapEff:\t00000000a80c65fb"
+      ],
+      "cgroup": {
+        "cpu_max": "2400000 100000\n",
+        "cpu_stat_before": "usage_usec 140479628276\nuser_usec 123514652986\nsystem_usec 16964975290\ncore_sched.force_idle_usec 0\nnr_periods 165608\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+        "cpu_stat_after": "usage_usec 140625875162\nuser_usec 123639194120\nsystem_usec 16986681042\ncore_sched.force_idle_usec 0\nnr_periods 165764\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+        "memory_current": "38159679488\n",
+        "memory_max": "137438953472\n",
+        "cpu_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=27526892\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=27522914\n",
+        "io_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=356990\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=356990\n"
+      }
+    },
+    "oat_spatial": {
+      "utc": "2026-09-22T22:32:37Z",
+      "duration": 15.535284390090965,
+      "processes": [
+        {
+          "pid": 8628,
+          "ppid": 8571,
+          "name": "python",
+          "cpu_percent": 110.8444465360648,
+          "rss_gib": 5.113735198974609,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 104200,
+            "wchar": 31628,
+            "syscr": 1263,
+            "syscw": 733,
+            "read_bytes": 0,
+            "write_bytes": 4096,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8697,
+          "ppid": 8628,
+          "name": "python",
+          "cpu_percent": 20.727010327882034,
+          "rss_gib": 5.134860992431641,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 108652,
+            "wchar": 32379,
+            "syscr": 1300,
+            "syscw": 740,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8750,
+          "ppid": 8628,
+          "name": "pt_data_worker",
+          "cpu_percent": 107.49722747690373,
+          "rss_gib": 1.0115776062011719,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 250779195,
+            "wchar": 26335,
+            "syscr": 23325,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8751,
+          "ppid": 8697,
+          "name": "pt_data_worker",
+          "cpu_percent": 108.46277143627711,
+          "rss_gib": 1.1337623596191406,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 257839631,
+            "wchar": 26335,
+            "syscr": 23973,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8760,
+          "ppid": 8628,
+          "name": "pt_data_worker",
+          "cpu_percent": 91.98415452963798,
+          "rss_gib": 1.1331329345703125,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 246842882,
+            "wchar": 21109,
+            "syscr": 22894,
+            "syscw": 150,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8761,
+          "ppid": 8697,
+          "name": "pt_data_worker",
+          "cpu_percent": 108.91335861731802,
+          "rss_gib": 1.1273918151855469,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 268914749,
+            "wchar": 31419,
+            "syscr": 25072,
+            "syscw": 222,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8770,
+          "ppid": 8628,
+          "name": "pt_data_worker",
+          "cpu_percent": 84.32417245194245,
+          "rss_gib": 1.016204833984375,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 252960233,
+            "wchar": 26416,
+            "syscr": 23575,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8771,
+          "ppid": 8697,
+          "name": "pt_data_worker",
+          "cpu_percent": 93.14280728088605,
+          "rss_gib": 1.0704116821289062,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 255521515,
+            "wchar": 26413,
+            "syscr": 23755,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8780,
+          "ppid": 8628,
+          "name": "pt_data_worker",
+          "cpu_percent": 85.3540860086074,
+          "rss_gib": 1.0270729064941406,
+          "wchan": "futex_wait_queue",
+          "io_delta": {
+            "rchar": 253480326,
+            "wchar": 26197,
+            "syscr": 23572,
+            "syscw": 185,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 8782,
+          "ppid": 8697,
+          "name": "pt_data_worker",
+          "cpu_percent": 106.40294432294722,
+          "rss_gib": 1.2129974365234375,
+          "wchan": "0",
+          "io_delta": {
+            "rchar": 241047853,
+            "wchar": 21065,
+            "syscr": 22344,
+            "syscw": 148,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9213,
+          "ppid": 8628,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 2.549053192138672,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9218,
+          "ppid": 8697,
+          "name": "pt_data_worker",
+          "cpu_percent": 0.06436959729155911,
+          "rss_gib": 2.5029067993164062,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9223,
+          "ppid": 8628,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 2.4422073364257812,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9228,
+          "ppid": 8697,
+          "name": "pt_data_worker",
+          "cpu_percent": 0.06436959729155911,
+          "rss_gib": 2.6086997985839844,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9233,
+          "ppid": 8628,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 2.4219131469726562,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9238,
+          "ppid": 8697,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 2.513275146484375,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9243,
+          "ppid": 8628,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 2.400146484375,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        },
+        {
+          "pid": 9269,
+          "ppid": 8697,
+          "name": "pt_data_worker",
+          "cpu_percent": 0,
+          "rss_gib": 2.4573402404785156,
+          "wchan": "do_poll.constprop.0",
+          "io_delta": {
+            "rchar": 0,
+            "wchar": 0,
+            "syscr": 0,
+            "syscw": 0,
+            "read_bytes": 0,
+            "write_bytes": 0,
+            "cancelled_write_bytes": 0
+          }
+        }
+      ],
+      "gpu_summary": [
+        {
+          "index": 0,
+          "mean_gpu_util": 97.66666666666667,
+          "mean_mem_util": 5.866666666666666,
+          "memory_mib": 5995,
+          "mean_power_w": 121.29066666666668
+        },
+        {
+          "index": 1,
+          "mean_gpu_util": 10.8,
+          "mean_mem_util": 4.066666666666666,
+          "memory_mib": 5500,
+          "mean_power_w": 117.63333333333331
+        }
+      ],
+      "tools": {
+        "py-spy": null,
+        "perf": null,
+        "nsys": "/usr/local/cuda/bin/nsys",
+        "gdb": null,
+        "pidstat": null
+      },
+      "ptrace_scope": "1\n",
+      "cap_eff": [
+        "CapEff:\t00000000a80c65fb"
+      ],
+      "cgroup": {
+        "cpu_max": "2400000 100000\n",
+        "cpu_stat_before": "usage_usec 151813475699\nuser_usec 128109246068\nsystem_usec 23704229630\ncore_sched.force_idle_usec 0\nnr_periods 175826\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+        "cpu_stat_after": "usage_usec 151956565694\nuser_usec 128230251755\nsystem_usec 23726313939\ncore_sched.force_idle_usec 0\nnr_periods 175982\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+        "memory_current": "31735996416\n",
+        "memory_max": "137438953472\n",
+        "cpu_pressure": "some avg10=0.26 avg60=0.21 avg300=0.08 total=50223156\nfull avg10=0.26 avg60=0.21 avg300=0.08 total=50214558\n",
+        "io_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=579482\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=579482\n"
+      }
+    }
+  }
+}

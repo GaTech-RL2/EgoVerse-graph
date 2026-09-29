@@ -340,6 +340,10 @@ class EpisodeResolver:
         all_paths = sorted(search_path.iterdir())
         datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
+        dataset_kwargs = self._dataset_init_kwargs()
+        embodiment_override = getattr(self, "embodiment_override", None)
+        if embodiment_override is not None:
+            dataset_kwargs.setdefault("embodiment_override", embodiment_override)
         for p in all_paths:
             if not p.is_dir():
                 logger.info(f"{p} is not a valid directory")
@@ -357,7 +361,7 @@ class EpisodeResolver:
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                     image_hw=self.image_hw,
-                    **self._dataset_init_kwargs(),
+                    **dataset_kwargs,
                 )
                 datasets[name] = ds_obj
             except Exception as e:

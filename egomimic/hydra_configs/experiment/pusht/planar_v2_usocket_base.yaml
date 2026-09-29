@@ -8,7 +8,34 @@ defaults:
 planar:
   action_dims: {pushshapes_sim_u_socket: 5}
 
+evaluator:
+  energy_score_validation_view:
+    definition: first_deterministic_validation_batch_per_ddp_rank
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    per_rank_batch_size: 16
+    world_size: ${trainer.devices}
+  energy_score_provenance:
+    source_commit: ${run_provenance.source_commit}
+    normalization_sha256: ${run_provenance.normalization_sha256}
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    resolved_config_path: ${paths.output_dir}/.hydra/config.yaml
+    wandb:
+      entity: ${logger.wandb.entity}
+      project: ${logger.wandb.project}
+      run_id: ${logger.wandb.id}
+    dataset_content:
+      manifest_path: ${run_provenance.content_manifest_path}
+      manifest_sha256: ${run_provenance.content_manifest_sha256}
+      aggregate_sha256: ${run_provenance.dataset_content_aggregate_sha256}
+    action_representation: ${run_provenance.action_contract.representation}
+    prediction_horizon: ${run_provenance.action_contract.prediction_horizon}
+
 run_provenance:
+  source_commit: null
+  normalization_sha256: null
+  content_manifest_path: egomimic/hydra_configs/data/pusht/manifests/usocket_3000_v2_clean_content_v1.json
+  content_manifest_sha256: a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4a878afb20b39733761
+  dataset_content_aggregate_sha256: 80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52
   split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json
   split_manifest_sha256: 3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313
   split_seed: ${seed}
@@ -19,3 +46,6 @@ run_provenance:
   id_overlap_count: 0
   resolved_path_overlap_count: 0
   dataset_observation_alignment: pre_step
+  action_contract:
+    representation: x_y_cos_theta_sin_theta
+    prediction_horizon: ${planar.action_horizon}

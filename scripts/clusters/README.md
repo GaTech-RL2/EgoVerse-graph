@@ -12,7 +12,8 @@ source scripts/clusters/common/load_profile.sh skynet
 ```
 
 On the Lambda loaner cluster, the profile binds all dataset, run, and worktree
-roots below `/workspace/users/ani-cheluva`:
+roots below `$EGOVERSE_WORKSPACE_ROOT`, which defaults to
+`/workspace/users/$USER`:
 
 ```bash
 source scripts/clusters/common/load_profile.sh lambda

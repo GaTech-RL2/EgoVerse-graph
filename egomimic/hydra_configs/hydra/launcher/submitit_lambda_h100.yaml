@@ -14,15 +14,18 @@ timeout_min: 2880
 signal_delay_s: 120
 max_num_timeout: 3
 array_parallelism: 5
+# Workspace and checkout follow scripts/clusters/lambda/profile.sh: set
+# EGOVERSE_WORKSPACE_ROOT or EGOVERSE_SOURCE_ROOT to point a job at another
+# account's workspace. Both default to this cluster's per-user layout.
 setup:
-  - export PATH=/workspace/users/ani-cheluva/.local/bin:$PATH
-  - source /workspace/users/ani-cheluva/EgoVerse-graph/.venv/bin/activate
+  - export PATH=${oc.env:EGOVERSE_WORKSPACE_ROOT,/workspace/users/${oc.env:USER}}/.local/bin:$PATH
+  - source ${oc.env:EGOVERSE_SOURCE_ROOT,/workspace/users/${oc.env:USER}/EgoVerse-graph}/.venv/bin/activate
 # '#' in image names is safe in srun arguments, unlike an SBATCH comment.
 srun_args:
   - --container-image=nvcr.io#nvidia/pytorch:25.06-py3
   - --container-writable
   - --container-mounts=/workspace:/workspace:rw
-  - --container-workdir=/workspace/users/ani-cheluva/EgoVerse-graph
+  - --container-workdir=${oc.env:EGOVERSE_SOURCE_ROOT,/workspace/users/${oc.env:USER}/EgoVerse-graph}
 additional_parameters:
   requeue: true
   exclusive: true

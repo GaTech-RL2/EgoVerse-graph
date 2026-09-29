@@ -5,10 +5,9 @@ import hydra
 
 def test_lambda_launcher_composes_whole_node_pyxis_contract(monkeypatch):
     root = Path(__file__).resolve().parents[1]
-    monkeypatch.setenv(
-        "EGOVERSE_ABC_DATASET_DIR", "/workspace/users/ani-cheluva/datasets/arc_abc"
-    )
+    monkeypatch.setenv("EGOVERSE_ABC_DATASET_DIR", "/w/tester/datasets/arc_abc")
     monkeypatch.setenv("PROJECT_ROOT", str(root))
+    monkeypatch.setenv("EGOVERSE_SOURCE_ROOT", "/w/tester/EgoVerse-graph")
     with hydra.initialize_config_dir(
         version_base=None, config_dir=str(root / "egomimic/hydra_configs")
     ):
@@ -28,6 +27,9 @@ def test_lambda_launcher_composes_whole_node_pyxis_contract(monkeypatch):
     assert launch.additional_parameters.exclusive
     assert launch.additional_parameters.requeue
     assert "--container-mounts=/workspace:/workspace:rw" in launch.srun_args
+    # No personal path is baked in: the profile's roots steer the job.
+    assert "--container-workdir=/w/tester/EgoVerse-graph" in launch.srun_args
+    assert any("/w/tester/EgoVerse-graph/.venv" in line for line in launch.setup)
     instance = hydra.utils.instantiate(launch)
     assert instance.params["srun_args"] == list(launch.srun_args)
     assert instance.params["mem_gb"] >= 128

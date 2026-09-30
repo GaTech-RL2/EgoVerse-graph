@@ -123,9 +123,46 @@ AF_SOURCE=pushshapes_sim_u_socket
 AF_ACTION_DIM=4
 AF_EXPECTED_PARAMETER_COUNT=97956100
 AF_COTRAIN=false
+AF_ROUTED_MODEL=false
 AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_chain_manual3000_avln_30k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_chain_manual3000_avln_30k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=30000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=5000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_SOURCE=pushshapes_sim_chain_gripper
+    AF_ACTION_DIM=6
+    AF_ROUTED_MODEL=true
+    required AF_APPROVED_PARAMETER_COUNT
+    AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,manual3000,action-flow,av-ln,routed-control,h384d12h12,30k,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_cotrain_uc_manual3000_avln_30k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual3000_avln_30k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=30000
+    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_CHECKPOINT_EVERY=5000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_COTRAIN=true
+    AF_ROUTED_MODEL=true
+    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
+    required AF_APPROVED_PARAMETER_COUNT
+    AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual-only,cotrain,action-flow,av-ln,private-codecs,shared-field,h384d12h12,30k,$AF_RUN_KIND]"
+    ;;
   pusht/action_flow_usocket_refactored_c12_compat_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -892,7 +929,7 @@ PY
     if test -n "$AF_COMPARISON_EXPERIMENT"; then
       CONFIG_VALIDATOR_ARGS+=(--compare-experiment "$AF_COMPARISON_EXPERIMENT")
     fi
-    if test "$AF_COTRAIN" = true && test "$AF_SCALED_H512" = false; then
+    if test "$AF_ROUTED_MODEL" = true || { test "$AF_COTRAIN" = true && test "$AF_SCALED_H512" = false; }; then
       # The live single-domain validator only recognizes its historical fixed
       # cotrain experiment and topology.  The current routed H384 cotrain graph
       # is composed, instantiated, and audited by the strict resolved-config
@@ -1387,7 +1424,7 @@ export SRUN
   "$RECONSTRUCTION_ONLY_WARMUP_STEPS" "$AF_FULL_MAX_STEPS" \
   "$AF_FULL_VALIDATE_EVERY" "$AF_FULL_CHECKPOINT_EVERY" \
   "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" "$AF_SOURCE" \
-  "$AF_ACTION_DIM" "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" "$AF_SCALED_H512" \
+  "$AF_ACTION_DIM" "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" "$AF_SCALED_H512" "$AF_ROUTED_MODEL" \
   "${AF_SECOND_SOURCE:-}" "${AF_SECOND_DATASET_DIR:-}" <<'PY'
 import math
 import pathlib
@@ -1426,6 +1463,7 @@ from omegaconf import OmegaConf
     expected_parameter_count,
     cotrain,
     scaled_h512,
+    routed_model,
     second_source,
     second_dataset,
 ) = sys.argv[1:]
@@ -1443,6 +1481,7 @@ action_dim = int(action_dim)
 expected_parameter_count = int(expected_parameter_count)
 cotrain = cotrain == "true"
 scaled_h512 = scaled_h512 == "true"
+routed_model = routed_model == "true"
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -1481,7 +1520,7 @@ if scaled_h512:
     )
     assert cfg.model.hidden_dim == 512
     assert cfg.model.flow_mini_batch == 14
-elif cotrain:
+elif routed_model or cotrain:
     method = STOPGRAD_UNITE_METHOD
     assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
     assert cfg.model.training_behavior._target_.endswith("ActionFlowTrainingBehavior")
@@ -1491,13 +1530,13 @@ elif cotrain:
 else:
     method = validate_method_contract(cfg, experiment)
 assert cfg.model.action_horizon == 16
-if not cotrain:
+if not routed_model:
     assert cfg.model.action_dim == action_dim
 if scaled_h512:
     assert cfg.model.num_latent_tokens == 8
     assert cfg.model.latent_dim == 16 and cfg.model.condition_dim == 128
     assert math.isclose(cfg.model.condition_dropout_probability, 0.1)
-elif cotrain:
+elif routed_model or cotrain:
     assert cfg.model.num_latent_tokens == 8
     assert cfg.model.latent_dim == 16 and cfg.model.condition_dim == 128
     assert math.isclose(cfg.model.condition_dropout_probability, 0.1)
@@ -1648,18 +1687,26 @@ if scaled_h512:
             else module.hidden_dim
         )
         assert width == 512
-elif cotrain:
+elif routed_model or cotrain:
     stages = tuple(pipeline.pipeline.stages)
-    assert tuple(stages[3].encoder) == (source, second_source)
-    assert tuple(stages[6].decoder) == (source, second_source)
-    assert stages[3].encoder[source] is not stages[3].encoder[second_source]
-    assert stages[6].decoder[source] is not stages[6].decoder[second_source]
+    expected_routes = {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
+    assert set(stages[3].encoder) == expected_routes
+    assert set(stages[6].decoder) == expected_routes
+    assert stages[3].encoder["pushshapes_sim_u_socket"] is not stages[3].encoder["pushshapes_sim_chain_gripper"]
+    assert stages[6].decoder["pushshapes_sim_u_socket"] is not stages[6].decoder["pushshapes_sim_chain_gripper"]
+    assert stages[3].encoder["pushshapes_sim_u_socket"].input_dim == 4
+    assert stages[3].encoder["pushshapes_sim_chain_gripper"].input_dim == 6
+    assert stages[6].decoder["pushshapes_sim_u_socket"].action_dim == 4
+    assert stages[6].decoder["pushshapes_sim_chain_gripper"].action_dim == 6
 else:
     _validate_topology(cfg, pipeline)
     _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
 count = sum(parameter.numel() for parameter in pipeline.nets.parameters())
 if scaled_h512:
     assert expected_parameter_count > 0
+    assert count == expected_parameter_count, count
+elif routed_model:
+    assert expected_parameter_count > 90_000_000
     assert count == expected_parameter_count, count
 elif cotrain:
     assert count > 90_000_000, count

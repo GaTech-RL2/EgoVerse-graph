@@ -1,0 +1,19 @@
+defaults:
+  - checkpoints
+  - _self_
+
+av_only_layer_norm:
+  _target_: egomimic.pipeline.action_flow_av_norm.AVOnlyLayerNormCallback
+  expected_norms_per_decoder: 25
+  require_routed: false
+ema:
+  _target_: egomimic.utils.ema_callback.EMACallback
+  decay: 0.9978
+  validate_with_ema: true
+model_checkpoint:
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch-{epoch}-step-{step}"
+  save_last: link
+  save_top_k: -1
+  every_n_train_steps: 5000
+  every_n_epochs: null

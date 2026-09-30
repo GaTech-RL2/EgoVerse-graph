@@ -1,0 +1,28 @@
+# @package _global_
+defaults:
+  - /data/libero/oat
+  - _self_
+
+data:
+  train_datasets:
+    libero_panda:
+      _target_: egomimic.rldb.zarr.libero_action_flow.LiberoActionFlowDataset._from_resolver
+      resolver:
+        key_map:
+          n_obs_steps: 1
+          horizon: 16
+      valid_ratio: 0.01
+  valid_datasets:
+    libero_panda:
+      _target_: egomimic.rldb.zarr.libero_action_flow.LiberoActionFlowDataset._from_resolver
+      resolver:
+        key_map:
+          n_obs_steps: 1
+          horizon: 16
+      valid_ratio: 0.01
+  train_dataloader_params:
+    libero_panda:
+      batch_size: 32
+  valid_dataloader_params:
+    libero_panda:
+      batch_size: 32

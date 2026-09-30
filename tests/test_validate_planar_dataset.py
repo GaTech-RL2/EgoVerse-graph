@@ -25,7 +25,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 
-def _manifest(names, source_root):
+def _manifest(names, source_root, domain=MODULE.DOMAIN):
     train, valid = MODULE.split_names(names)
     source_paths = {name: source_root / name for name in names}
     train_paths = {source_paths[name] for name in train}
@@ -39,7 +39,7 @@ def _manifest(names, source_root):
         "generator_sha256": "a" * 64,
         "cross_domain_train_valid_resolved_path_overlap_count": 0,
         "domains": {
-            MODULE.DOMAIN: {
+            domain: {
                 "folder_path": str(source_root),
                 "total_count": len(names),
                 "inventory_names_sha256": MODULE.names_sha256(names),
@@ -71,6 +71,23 @@ def test_committed_manifest_has_exact_hash_and_contract():
     assert result["valid_count"] == 29
     assert result["id_overlap_count"] == 0
     assert result["union_matches_inventory"] is True
+
+
+def test_committed_chain_manifest_has_exact_hash_and_contract():
+    path = MANIFEST_PATH.with_name(
+        "planar_v2_chain_gripper_dp_3k_split_seed42_v1.json"
+    )
+    expected = "3ced944ea3af8e875ea88fc5c2df3a5d2865a9f95223d109fb4bd28c8be7cf69"
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
+    result = MODULE.validate_manifest_structure(json.loads(path.read_text()))
+    assert result["domain"] == "pushshapes_sim_chain_gripper"
+    assert (result["total_count"], result["train_count"], result["valid_count"]) == (3000, 2970, 30)
+
+
+def test_unsupported_domain_still_fails_closed():
+    manifest = _manifest({"episode_000"}, Path("/original/dataset"), "other_domain")
+    with pytest.raises(RuntimeError, match="supported PushT domain"):
+        MODULE.validate_manifest_structure(manifest)
 
 
 def test_portable_inventory_reproduces_split_and_has_no_path_overlap(tmp_path):

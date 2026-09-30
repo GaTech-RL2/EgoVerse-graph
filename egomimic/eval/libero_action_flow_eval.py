@@ -103,11 +103,16 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
                     jacobian_samples=2,
                     capture_activations=True,
                 )[source]
-                for key in ("clean_latent", "clean_decoded_action_normalized"):
-                    tensor = diagnostics[key]
+                for diagnostic_key, metric_key in (
+                    ("latent/clean", "clean_latent"),
+                    ("decoded/reconstruction", "clean_decoded_action_normalized"),
+                ):
+                    tensor = diagnostics[diagnostic_key]
                     if not torch.is_tensor(tensor) or not bool(torch.isfinite(tensor).all()):
-                        raise ValueError(f"non-finite LIBERO Action Flow diagnostic: {key}")
-                    metrics[f"diagnostic_{key}_rms"] = tensor.square().mean().sqrt()
+                        raise ValueError(
+                            f"non-finite LIBERO Action Flow diagnostic: {diagnostic_key}"
+                        )
+                    metrics[f"diagnostic_{metric_key}_rms"] = tensor.square().mean().sqrt()
             for key, metric in metrics.items():
                 if not bool(torch.isfinite(metric)):
                     raise ValueError(f"non-finite LIBERO validation metric: {key}")

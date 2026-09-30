@@ -97,8 +97,9 @@ def test_libero_validation_uses_generic_action_flow_diagnostic(tmp_path):
             self.diagnostic_calls.append((capability, kwargs))
             return {
                 source: {
-                    "clean_latent": torch.ones(1),
-                    "clean_decoded_action_normalized": torch.ones(1),
+                    "schema": "action-flow-validation-diagnostics/v1",
+                    "latent/clean": torch.ones(2, 8, 16),
+                    "decoded/reconstruction": torch.ones(2, 16, 7),
                 }
                 for source in batch
             }
@@ -117,6 +118,11 @@ def test_libero_validation_uses_generic_action_flow_diagnostic(tmp_path):
     assert len(model.diagnostic_calls) == 1
     assert model.diagnostic_calls[0][0] == "action_flow"
     assert any(name == "Valid/energy_score32_native_equal_components" for name, _, _ in model.logged)
+    assert any(name == "Valid/diagnostic_clean_latent_rms" for name, _, _ in model.logged)
+    assert any(
+        name == "Valid/diagnostic_clean_decoded_action_normalized_rms"
+        for name, _, _ in model.logged
+    )
 
 
 def test_libero_diagnostic_binds_wrapper_not_inner_pipeline(tmp_path):

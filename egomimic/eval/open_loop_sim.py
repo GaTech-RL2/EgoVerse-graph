@@ -40,6 +40,8 @@ from egomimic.eval.distance_budget_dtw import (
     METRIC_FRAME_KEY,
     METRIC_VERSION,
     evaluator_chunking_mode,
+    execution_ground_truth,
+    execution_rollout_segments,
     joint_cumulative_distance,
     per_arm_cumulative_distance,
     resolve_arc_chunking_mode,
@@ -766,7 +768,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         control_dt: float = 1.0 / 30.0,
         action_mode: str = "auto",
         arc_execution_cap_mode: str = "waypoints",
-        arc_video_trajectory_cap_mode: str = "joint_distance",
+        arc_video_trajectory_cap_mode: str = "execution_horizon",
         min_distance_unit: float = 0.40,
         rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 100,
@@ -823,9 +825,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.arc_execution_cap_mode = validate_arc_execution_cap_mode(
             arc_execution_cap_mode
         )
-        self.arc_video_trajectory_cap_mode = validate_arc_video_trajectory_cap_mode(
-            arc_video_trajectory_cap_mode
-        )
+        validate_arc_video_trajectory_cap_mode(arc_video_trajectory_cap_mode)
+        # Old saved video distance modes now inherit the single execution cap.
+        self.arc_video_trajectory_cap_mode = "execution_horizon"
         self.ground_truth_action_key = str(ground_truth_action_key)
         self.min_distance_unit = float(min_distance_unit)
         self.rotation_distance_unit = (
@@ -861,6 +863,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self._trajectory_snapshot_written = False
         self._video_seen_frames = set()
         self._video_last_frame = {}
+        self._video_execution_segments = {}
         self.video_only = bool(video_only)
         self.distance_dtw_enabled = bool(distance_dtw_enabled)
         self.dtw_max_cells = int(dtw_max_cells)
@@ -934,6 +937,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self._trajectory_snapshot_written = False
         self._video_seen_frames = set()
         self._video_last_frame = {}
+        self._video_execution_segments = {}
         if self.model is not None:
             try:
                 self._metric_device = next(self.model.parameters()).device
@@ -1124,6 +1128,163 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 self._video_last_frame[episode_key] = frame
 
     def _maybe_log_open_loop_video(
+        self, *, source_id, source_batch, prediction, embodiment_id, embodiment_name
+    ):
+        """Hold both execution paths until the decoded horizon boundary."""
+        if not getattr(self, "_video_enabled", False) or not getattr(
+            self.trainer, "is_global_zero", True
+        ):
+            return
+        # Legacy direct overlay callers have no episode clock. Production
+        # collection always supplies frame_index and requires ordered frames.
+        if "frame_index" not in source_batch:
+            return self._render_open_loop_video_frame(
+                source_id=source_id,
+                source_batch=source_batch,
+                prediction=prediction,
+                embodiment_id=embodiment_id,
+                embodiment_name=embodiment_name,
+            )
+        if len(prediction) != 1:
+            raise ValueError("Ordered rollout video expects one gathered frame")
+        frame = int(
+            self._batch_values(source_batch["frame_index"], 1, "frame_index")[0]
+        )
+        episode = str(
+            self._batch_values(source_batch["episode_hash"], 1, "episode_hash")[0]
+        )
+        key = (self._validation_group or DEFAULT_VALID_GROUP, str(source_id))
+        cache = getattr(self, "_video_execution_segments", {})
+        self._video_execution_segments = cache
+        segment = cache.get(key)
+        if segment is None or segment["episode"] != episode or frame >= segment["end"]:
+            if segment is not None:
+                self._flush_video_execution_segment(segment)
+            limit = getattr(self, "dtw_max_prediction_steps", 20000)
+            prefix = self._decoded_video_predictions(
+                prediction, embodiment_id, limit + 1
+            )
+            if prefix[1][0] > limit:
+                raise ValueError(
+                    "Video execution horizon exceeds dtw_max_prediction_steps"
+                )
+            segment = dict(
+                episode=episode,
+                start=frame,
+                end=frame + prefix[1][0],
+                batch=source_batch,
+                prediction=prediction,
+                prefix=prefix,
+                frames=[],
+                source_id=source_id,
+                embodiment_id=embodiment_id,
+                embodiment_name=embodiment_name,
+                group=self._validation_group,
+            )
+            cache[key] = segment
+        segment["frames"].append(source_batch)
+        if frame + 1 == segment["end"]:
+            self._flush_video_execution_segment(segment)
+
+    def _flush_video_execution_segment(self, segment):
+        frames = segment["frames"]
+        if not frames:
+            return
+        # Buffer at most one executed segment so the final episode tail uses
+        # the same end-of-episode time cutoff as the metric.
+        count = len(frames)
+        prefix = (segment["prefix"][0][:, :count], [count])
+        anchor_batch = segment["batch"]
+        target_records = []
+        for batch in frames:
+            target_key = (
+                self.ground_truth_action_key
+                if self.ground_truth_action_key in batch
+                else self.action_key
+            )
+            native = self._native_key(
+                batch[target_key], target_key, segment["embodiment_id"]
+            )
+            record = {"ground_truth": native[0].detach().cpu().numpy()}
+            if METRIC_FRAME_KEY in batch:
+                record[METRIC_FRAME_KEY] = np.asarray(batch[METRIC_FRAME_KEY])[0]
+            target_records.append(record)
+        gt = torch.as_tensor(
+            execution_ground_truth(target_records)[None], dtype=prefix[0].dtype
+        )
+        previous_group = self._validation_group
+        self._validation_group = segment["group"]
+        try:
+            for current_batch in frames:
+                render_batch = dict(current_batch)
+                for name in (
+                    self.action_key,
+                    self.ground_truth_action_key,
+                    self.obs_pose_key,
+                ):
+                    if name in anchor_batch:
+                        render_batch[name] = anchor_batch[name]
+                pose = self._video_reproject_anchor_pose(
+                    anchor_batch, current_batch, segment["embodiment_id"]
+                )
+                self._render_open_loop_video_frame(
+                    source_id=segment["source_id"],
+                    source_batch=render_batch,
+                    prediction=segment["prediction"],
+                    embodiment_id=segment["embodiment_id"],
+                    embodiment_name=segment["embodiment_name"],
+                    executed_prefix=prefix,
+                    anchor_pose=pose,
+                    executed_ground_truth=gt,
+                )
+        finally:
+            self._validation_group = previous_group
+        frames.clear()
+
+    def _flush_video_execution_segments(self):
+        for segment in getattr(self, "_video_execution_segments", {}).values():
+            self._flush_video_execution_segment(segment)
+
+    def _video_reproject_anchor_pose(self, anchor_batch, current_batch, embodiment_id):
+        """Express the plan's wrist origins in the current camera frame.
+
+        EEF-to-world metadata handles moving cameras as well as moving wrists;
+        simply attaching the old relative prediction to the new wrist is wrong.
+        """
+        if (
+            METRIC_FRAME_KEY not in anchor_batch
+            or METRIC_FRAME_KEY not in current_batch
+        ):
+            if anchor_batch is not current_batch:
+                raise ValueError(
+                    "Rollout video requires EEF-to-world metadata for held plans"
+                )
+            return None
+        from egomimic.utils.pose_utils import _matrix_to_xyzypr, _xyzypr_to_matrix
+
+        current_pose = self._native_pose(
+            current_batch[self.obs_pose_key], embodiment_id
+        )
+        if current_pose.ndim == 3:
+            current_pose = current_pose[:, 0]
+        pose = current_pose.detach().cpu().numpy().copy()
+        if pose.shape != (1, 14):
+            raise ValueError(
+                "Rollout video requires 14D bimanual XYZ/YPR/gripper poses"
+            )
+        anchor_world = np.asarray(anchor_batch[METRIC_FRAME_KEY])
+        current_world = np.asarray(current_batch[METRIC_FRAME_KEY])
+        for arm, offset in enumerate((0, 7)):
+            current_cam = _xyzypr_to_matrix(pose[:, offset : offset + 6])
+            anchor_cam = (
+                current_cam
+                @ np.linalg.inv(current_world[:, arm])
+                @ anchor_world[:, arm]
+            )
+            pose[:, offset : offset + 6] = _matrix_to_xyzypr(anchor_cam)
+        return torch.as_tensor(pose, dtype=current_pose.dtype)
+
+    def _render_open_loop_video_frame(
         self,
         *,
         source_id: str,
@@ -1131,13 +1292,14 @@ class OpenLoopSimEval(BimanualCartesianEval):
         prediction: torch.Tensor,
         embodiment_id: int,
         embodiment_name: str,
+        executed_prefix=None,
+        anchor_pose=None,
+        executed_ground_truth=None,
     ) -> None:
         """Render one frame per validation sample and buffer by episode hash.
 
-        Like the metric path, each video frame shows only the independently
-        executed prediction prefix and its matching control-frequency ground
-        truth. ARC uses the configured waypoint- or distance-based cap before
-        its decoded timing determines the frame width.
+        The caller supplies the retained execution segment and the current
+        camera projection of its anchor. No additional distance cap is applied.
         """
 
         if not getattr(self, "_video_enabled", False) or not getattr(
@@ -1162,8 +1324,12 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 "open_loop_sim video ground truth must be batched as (B, T, 14), "
                 f"got {tuple(gt_native.shape)}"
             )
-        pred_native, prefix_lengths = self._decoded_video_predictions(
-            prediction, embodiment_id, int(gt_native.shape[1])
+        pred_native, prefix_lengths = (
+            executed_prefix
+            if executed_prefix is not None
+            else self._decoded_video_predictions(
+                prediction, embodiment_id, int(gt_native.shape[1])
+            )
         )
         width = int(pred_native.shape[1])
         gt_prefixes = []
@@ -1176,22 +1342,6 @@ class OpenLoopSimEval(BimanualCartesianEval):
 
         prediction_lengths = list(prefix_lengths)
         ground_truth_lengths = list(prefix_lengths)
-        is_arc_video = self.action_mode == "arc" or (
-            self.action_mode == "auto"
-            and self._is_arc_prediction(prediction[0].detach().cpu().numpy())
-        )
-        if is_arc_video and getattr(
-            self,
-            "arc_video_trajectory_cap_mode",
-            "execution_horizon",
-        ) in ("distance", "joint_distance"):
-            (
-                pred_native,
-                gt_native,
-                prediction_lengths,
-                ground_truth_lengths,
-            ) = self._cap_arc_video_trajectories(pred_native, gt_native, prefix_lengths)
-
         obs_pose_native = (
             self._native_pose(source_batch[self.obs_pose_key], embodiment_id)
             .detach()
@@ -1199,6 +1349,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         )
         if obs_pose_native.ndim == 3 and obs_pose_native.shape[1] == 1:
             obs_pose_native = obs_pose_native.squeeze(1)
+        if anchor_pose is not None:
+            obs_pose_native = anchor_pose
         pred_camframe = self._revert_to_camframe(
             actions=pred_native,
             obs_pose=obs_pose_native,
@@ -1611,7 +1763,6 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 f"{records[0]['episode']!r}; missing {len(missing)} frames, "
                 f"first missing={missing[0]}"
             )
-        by_frame = {frame: record for frame, record in zip(frames, records)}
         end_frame = frames[-1] + 1
 
         sq = {
@@ -1624,23 +1775,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
         executed = 0
         segments = 0
         segment_control_steps = []
-        cursor = frames[0]
-        while cursor < end_frame:
-            record = by_frame.get(cursor)
-            if record is None:
-                raise RuntimeError(
-                    f"open_loop_sim has no observation at frame {cursor}"
-                )
-            remaining = end_frame - cursor
-            ground_truth = record["ground_truth"]
+        for record, prediction, n in execution_rollout_segments(self, records):
+            offset = int(record["frame"]) - frames[0]
+            ground_truth = execution_ground_truth(records[offset : offset + n])
             if ground_truth.ndim != 2 or ground_truth.shape[1] != 14:
-                raise ValueError(
-                    "open_loop_sim ground truth must be a control-frequency "
-                    f"(T, 14) trajectory, got {ground_truth.shape}"
-                )
-            prediction, n = self._decode_prediction_with_steps(
-                record["prediction"], max_steps=min(len(ground_truth), remaining)
-            )
+                raise ValueError("open_loop_sim ground truth must be (T, 14)")
             error = prediction[:n] - ground_truth[:n]
             sq["mse"] += float(np.square(error).sum())
             sq["xyz_mse"] += float(np.square(error[:, XYZ_COLS]).sum())
@@ -1650,7 +1789,6 @@ class OpenLoopSimEval(BimanualCartesianEval):
             executed += n
             segments += 1
             segment_control_steps.append(n)
-            cursor += n
 
         episode_length = end_frame - frames[0]
         denominators = {
@@ -1867,6 +2005,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         }
 
     def on_validation_end(self):
+        self._flush_video_execution_segments()
         if getattr(self, "video_only", False):
             self.last_results = None
             if dist.is_available() and dist.is_initialized() and dist.get_rank() != 0:

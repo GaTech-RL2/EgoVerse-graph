@@ -321,7 +321,7 @@ def test_legacy_no_rotation_default_decodes_and_scores_with_resolved_metadata():
         )
         for frame in range(2)
     ]
-    result = dtw.score_distance_dtw_episode(evaluator, records)
+    result = dtw.score_gt_distance_dtw_episode(evaluator, records)
     assert result["arc_chunking_mode"] == "multistream"
 
 
@@ -458,7 +458,7 @@ def test_dtw_rollout_uses_chunk_local_windows_and_mode_metadata(mode, expected_a
                 **{dtw.METRIC_FRAME_KEY: anchors},
             )
         )
-    result = dtw.score_distance_dtw_episode(evaluator, records)
+    result = dtw.score_gt_distance_dtw_episode(evaluator, records)
     assert result["anchor_frames"] == expected_anchors
     assert result["arc_chunking_mode"] == mode
     assert result["distance_window_semantics"] == "chunk_local_per_arm_reset"

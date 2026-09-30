@@ -16,7 +16,8 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     stack_arc_token,
 )
 
-METRIC_VERSION = "arc_chunking_global_dtw_v3"
+METRIC_VERSION = "execution_horizon_global_dtw_v4"
+LEGACY_METRIC_VERSION = "arc_chunking_global_dtw_v3"
 METRIC_FRAME_KEY = "evaluation.eef_to_world"
 XYZ_COLS = (0, 1, 2, 7, 8, 9)
 ARC_DISTANCE_SEMANTICS = {
@@ -301,7 +302,7 @@ def fractional_waypoint_prefix(token: np.ndarray, fraction: float) -> np.ndarray
     )
 
 
-def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
+def score_gt_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
     """Build one rollout and perform exactly one global DTW for the episode."""
     from egomimic.eval.open_loop_sim import (
         arc_execution_prefix,
@@ -417,7 +418,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
     prediction = np.concatenate(predictions)
     result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells)
     result.update(
-        metric_version=METRIC_VERSION,
+        metric_version=LEGACY_METRIC_VERSION,
         segments=len(anchors),
         anchor_frames=[int(records[int(i)]["frame"]) for i in anchors],
         segment_control_steps=steps,
@@ -450,6 +451,98 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         gt_duration_s=float(len(gt) * evaluator.control_dt),
         duration_ratio=float(total / len(gt)),
         rollout_mode="gt_distance_budget" if is_arc else "fixed_control_frames",
+    )
+    return result
+
+
+def execution_ground_truth(records: list[dict]) -> np.ndarray:
+    """Express consecutive GT frames in the execution anchor's wrist frames."""
+    if not all(METRIC_FRAME_KEY in item for item in records):
+        chunk = np.asarray(records[0]["ground_truth"])
+        if len(chunk) < len(records):
+            raise ValueError("Long execution horizon requires world-frame GT metadata")
+        return chunk[: len(records)].copy()
+    from egomimic.utils.pose_utils import _matrix_to_xyzypr, _xyzypr_to_matrix
+
+    values = np.stack([np.asarray(item["ground_truth"])[0] for item in records]).copy()
+    world = np.stack([np.asarray(item[METRIC_FRAME_KEY]) for item in records])
+    for arm, offset in enumerate((0, 7)):
+        local = _xyzypr_to_matrix(values[:, offset : offset + 6])
+        anchored = np.linalg.inv(world[0, arm]) @ world[:, arm] @ local
+        values[:, offset : offset + 6] = _matrix_to_xyzypr(anchored)
+    return values
+
+
+def execution_rollout_segments(evaluator, records: list[dict]):
+    """Execute one capped prefix, then observe again at its control-frame end.
+
+    Only the episode end may shorten the decoded prefix.
+    No GT distance milestones or additional D/R caps participate in this rollout.
+    """
+    records = sorted(records, key=lambda item: int(item["frame"]))
+    if not records:
+        raise ValueError("Execution rollout requires a nonempty episode")
+    frames = [int(item["frame"]) for item in records]
+    if frames != list(range(frames[0], frames[0] + len(records))):
+        raise ValueError("Execution rollout requires consecutive, unique frames")
+    cursor = 0
+    while cursor < len(records):
+        record = records[cursor]
+        limit = len(records) - cursor
+        decoded, steps = evaluator._decode_prediction_with_steps(
+            record["prediction"], max_steps=limit
+        )
+        if not 1 <= steps <= limit or len(decoded) != steps:
+            raise ValueError("Decoded execution prefix has an invalid control horizon")
+        yield record, decoded, steps
+        cursor += steps
+
+
+def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
+    """Score the same execution-horizon rollout used by pointwise validation.
+
+    Retains the public name/W&B namespace for checkpoint compatibility. V4
+    replaces the old GT-distance replanning schedule with decoded execution
+    boundaries. Full raw tokens enter the shared decoder exactly once per plan.
+    """
+    records = sorted(records, key=lambda item: int(item["frame"]))
+    if not records or any(METRIC_FRAME_KEY not in item for item in records):
+        raise ValueError("Execution DTW requires evaluation.eef_to_world metadata")
+    is_arc = evaluator._is_arc_prediction(records[0]["prediction"])
+    if any(
+        evaluator._is_arc_prediction(item["prediction"]) != is_arc for item in records
+    ):
+        raise ValueError("Mixed ARC/baseline representations within an episode")
+    gt = np.concatenate(
+        [
+            world_xyz(item["ground_truth"][:1], item[METRIC_FRAME_KEY])
+            for item in records
+        ]
+    )
+    predictions, anchors, steps = [], [], []
+    for record, decoded, n in execution_rollout_segments(evaluator, records):
+        if n > evaluator.dtw_max_prediction_steps:
+            raise ValueError("Execution DTW exceeds dtw_max_prediction_steps samples")
+        predictions.append(world_xyz(decoded, record[METRIC_FRAME_KEY]))
+        anchors.append(int(record["frame"]))
+        steps.append(n)
+    prediction = np.concatenate(predictions)
+    result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells)
+    result.update(
+        metric_version=METRIC_VERSION,
+        segments=len(anchors),
+        anchor_frames=anchors,
+        segment_control_steps=steps,
+        execution_distance_budget_m=None,
+        segment_distance_budgets_m=None,
+        arc_chunking_mode=evaluator_chunking_mode(evaluator) if is_arc else None,
+        execution_fraction=evaluator.execute_fraction,
+        rollout_mode="execution_horizon",
+        predicted_duration_s=float(len(prediction) * evaluator.control_dt),
+        gt_duration_s=float(len(gt) * evaluator.control_dt),
+        duration_ratio=float(len(prediction) / len(gt)),
+        gt_joint_distance_m=float(joint_cumulative_distance(gt)[-1]),
+        gt_per_arm_distance_m=per_arm_cumulative_distance(gt)[-1].tolist(),
     )
     return result
 

@@ -11,7 +11,7 @@ from egomimic.eval.distance_budget_dtw import (
     fractional_waypoint_prefix,
     global_dtw,
     joint_cumulative_distance,
-    score_distance_dtw_episode,
+    score_gt_distance_dtw_episode,
     summarize_distance_dtw,
     world_xyz,
 )
@@ -156,8 +156,8 @@ def wide_records(source):
 
 def test_distance_dtw_accepts_default_wide_100_by_28_arc_tokens():
     ev = evaluator(hybrid=True)
-    stacked = score_distance_dtw_episode(ev, records())
-    wide = score_distance_dtw_episode(ev, wide_records(records()))
+    stacked = score_gt_distance_dtw_episode(ev, records())
+    wide = score_gt_distance_dtw_episode(ev, wide_records(records()))
 
     assert wide["segments"] == stacked["segments"]
     assert wide["segment_control_steps"] == stacked["segment_control_steps"]
@@ -169,8 +169,8 @@ def test_distance_dtw_accepts_default_wide_100_by_28_arc_tokens():
 @pytest.mark.parametrize("cap", ["waypoints", "distance"])
 def test_arc_chunk_count_independent_of_fast_or_slow_timing(cap, hybrid):
     ev = evaluator(cap=cap, hybrid=hybrid)
-    fast = score_distance_dtw_episode(ev, records(speed=0.4))
-    slow = score_distance_dtw_episode(ev, records(speed=0.015))
+    fast = score_gt_distance_dtw_episode(ev, records(speed=0.4))
+    slow = score_gt_distance_dtw_episode(ev, records(speed=0.015))
     expected_budget = 0.4 * (29 / 99 if cap == "waypoints" else 0.3)
     assert fast["execution_distance_budget_m"] == pytest.approx(expected_budget)
     assert (
@@ -197,17 +197,17 @@ def test_baseline_retains_frame_chunking_and_uses_same_global_dtw(monkeypatch):
         return original(pred, gt, **kwargs)
 
     monkeypatch.setattr(module, "global_dtw", counted)
-    result = score_distance_dtw_episode(evaluator("baseline"), records("baseline"))
+    result = score_gt_distance_dtw_episode(evaluator("baseline"), records("baseline"))
     assert result["anchor_frames"] == [0, 30, 60]
     assert result["segment_control_steps"] == [30, 30, 1]
     assert calls == [(61, 61)]
     calls.clear()
-    score_distance_dtw_episode(evaluator(), records())
+    score_gt_distance_dtw_episode(evaluator(), records())
     assert len(calls) == 1
 
 
 def test_stationary_episode_still_scores_every_gt_frame_and_predicted_motion():
-    result = score_distance_dtw_episode(evaluator(), records(stationary=True))
+    result = score_gt_distance_dtw_episode(evaluator(), records(stationary=True))
     assert result["segments"] == 1
     assert result["stationary_fallback"]
     assert result["gt_frames"] == 61
@@ -230,8 +230,8 @@ def test_hybrid_rotation_has_independent_slower_clock_after_prefix_capping():
         token = item["prediction"]
         token[:100, 3] = token[:100, 10] = np.linspace(0, 0.2, 100)
         token[100:, 3] = token[100:, 10] = 0.01
-    result = score_distance_dtw_episode(ev, samples)
-    translation_only = score_distance_dtw_episode(ev, records(speed=0.4))
+    result = score_gt_distance_dtw_episode(ev, samples)
+    translation_only = score_gt_distance_dtw_episode(ev, records(speed=0.4))
     assert result["segments"] == translation_only["segments"]
     assert result["predicted_samples"] > translation_only["predicted_samples"]
     assert result["predicted_samples"] > result["gt_frames"]
@@ -297,14 +297,14 @@ def test_resource_limits_and_missing_frames_fail_instead_of_silent_clipping():
     ev = evaluator()
     ev.dtw_max_prediction_steps = 1
     with pytest.raises(ValueError, match="samples"):
-        score_distance_dtw_episode(ev, records(speed=0.01))
+        score_gt_distance_dtw_episode(ev, records(speed=0.01))
     ev.dtw_max_prediction_steps = 10000
     with pytest.raises(RuntimeError, match="missing"):
         ev._score_episode(records()[0:3] + records()[4:])
     missing = records()
     del missing[0][METRIC_FRAME_KEY]
     with pytest.raises(ValueError, match="metadata"):
-        score_distance_dtw_episode(ev, missing)
+        score_gt_distance_dtw_episode(ev, missing)
 
 
 def test_result_integration_keeps_legacy_metrics_and_logs_new_namespace():

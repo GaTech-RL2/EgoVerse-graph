@@ -6,6 +6,11 @@ defaults:
 
 name: action_flow_cotrain_uc_manual4919_avln_80k_s42
 description: "Manual U-Socket 2999 + ChainGripper 3000 standard/1919 obstacle recollections Action Flow AV-LN"
+evaluator:
+  action_flow_diagnostics:
+    # This typed diagnostic accepts only U-Socket decoders, whereas co-training
+    # also validates ChainGripper. Native MSE and EnergyScore stay enabled.
+    native_error: null
 run_provenance:
   train_episode_count_per_domain:
     pushshapes_sim_u_socket: 2970

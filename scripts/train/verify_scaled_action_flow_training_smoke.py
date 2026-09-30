@@ -426,8 +426,11 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     )
     stages = tuple(restored.model.pipeline.stages)
     if routed:
-        require(tuple(stages[4].encoder) == sources, "restored encoder routes mismatch")
-        require(tuple(stages[7].decoder) == sources, "restored decoder routes mismatch")
+        # Chain-only training selects one active source, but deliberately keeps
+        # both embodiment codecs in the routed model for checkpoint parity.
+        expected_routes = ("pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper")
+        require(tuple(stages[4].encoder) == expected_routes, "restored encoder routes mismatch")
+        require(tuple(stages[7].decoder) == expected_routes, "restored decoder routes mismatch")
         if cotrain:
             require(stages[4].encoder[sources[0]] is not stages[4].encoder[sources[1]], "restored encoders alias")
             require(stages[7].decoder[sources[0]] is not stages[7].decoder[sources[1]], "restored decoders alias")

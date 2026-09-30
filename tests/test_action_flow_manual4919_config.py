@@ -48,6 +48,7 @@ def test_manual4919_recipe_uses_effective_split_and_cadence(monkeypatch, row):
     assert cfg.val_at_end
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 5000
     assert cfg.callbacks.model_checkpoint.save_top_k == -1
+    assert cfg.evaluator.action_flow_diagnostics.native_error is None
 
 
 @pytest.mark.parametrize("row", ROWS)

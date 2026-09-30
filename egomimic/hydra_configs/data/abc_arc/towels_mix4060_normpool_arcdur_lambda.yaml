@@ -1,0 +1,20 @@
+# NORM-ONLY pool for mix4060_towels394_arcdur_lambda: one yam_bimanual source over a symlink folder holding the RL2 towels394
+# TRAIN split (375) + all 389 ABC towels = 764 episodes, so the fitted stats are pooled over both labs by frames (the
+# Phoenix mix5050 regime). Used only with norm_stats_only; validation is the RL2 split, instantiated but unused.
+defaults:
+- /data/abc_arc/towels_rl2_394_arcdur_lambda@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      folder_path: /workspace/users/agao81/datasets/pools/towels_mix4060_norm
+      expected_episode_count: 764
+      expected_episode_names_sha256: cb87efb4a7e86067413ab9c3a8e674b4f785edf63c8fe5a3f64c9ae5a192fd19
+    filters:
+      filter_lambdas:
+      - 'lambda row, allowed=frozenset(open(''/workspace/users/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/towels_mix4060_norm_episodes.txt'').read().split()): str(row[''episode_hash'']) in allowed'
+    valid_ratio: 0.0
+    expected_train_episode_count: 764
+    expected_valid_episode_count: 0
+    expected_train_episode_names_sha256: cb87efb4a7e86067413ab9c3a8e674b4f785edf63c8fe5a3f64c9ae5a192fd19
+    expected_valid_episode_names_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

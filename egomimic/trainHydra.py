@@ -3,6 +3,7 @@ import hashlib
 import os
 import re
 import signal
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,18 +20,29 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
-from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
+from egomimic.eval.checkpoint_loading import (
+    init_pipeline_weights_from_checkpoint,
+    strict_load_pipeline_checkpoint,
+)
 from egomimic.eval.eval import Eval
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import export_configured_inference_artifact
-from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP, as_valid_groups
+from egomimic.pl_utils.pl_data_utils import (
+    DEFAULT_VALID_GROUP,
+    _is_embodiment_name,
+    as_valid_groups,
+)
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.ema_callback import EMACallback
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.utils.logging_utils import configure_runner_wandb, log_hyperparameters
+from egomimic.utils.logging_utils import (
+    configure_runner_wandb,
+    log_hyperparameters,
+    persist_wandb_run_identity,
+)
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.slurm_requeue import SaveOnlySignalCheckpoint
 from egomimic.utils.utils import extras, task_wrapper
@@ -543,6 +555,18 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     )
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
+    source_embodiments = {
+        name: _source_embodiment(name, dataset)
+        for name, dataset in datamodule.train_datasets.items()
+    }
+    shared = [e for e, n in Counter(map(str, source_embodiments.values())).items() if n > 1]
+    if shared and not OmegaConf.select(cfg, "norm_stats.precomputed_norm_path", default=None):
+        # Stats are keyed by embodiment, so each later source would overwrite the
+        # earlier one's (a weighted ABC + RL2 mix silently got ABC-only stats).
+        raise ValueError(
+            f"train sources {source_embodiments} share embodiment(s) {shared}: fit pooled "
+            "stats once (norm_stats_only over the union) and set norm_stats.precomputed_norm_path"
+        )
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         norm_stats.infer_shapes_from_batch(dataset[0])
@@ -558,7 +582,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
         norm_stats.infer_norm_from_dataset(
             norm_dataset,
-            dataset_name,
+            source_embodiments[dataset_name],
             sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
             num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
             precomputed_norm_path=OmegaConf.select(
@@ -629,11 +653,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         callbacks.extend(_instantiate_slurm_callbacks(cfg))
 
     callbacks = _callbacks_for_mode(callbacks, mode)
-    # In eval mode, apply trainer overrides from the eval object and disable logger
+    # In eval mode, apply trainer overrides from the eval object. Post-hoc
+    # checkpoint sweeps may retain the configured logger so each checkpoint can
+    # append metrics at its original global step.
     if mode == "eval":
         eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
+        eval_logger_enabled = bool(cfg.get("eval_logger_enabled", False))
         log.info(
-            "Eval mode: applying trainer overrides from eval config, disabling logger"
+            "Eval mode: applying trainer overrides from eval config; "
+            f"external logger enabled={eval_logger_enabled}"
         )
         with open_dict(cfg):
             for k, v in eval_obj.override_dict.items():
@@ -641,7 +669,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.trainer.devices = 1
             cfg.trainer.num_nodes = 1
             cfg.trainer.num_sanity_val_steps = 0
-            cfg.logger = None
+            if not eval_logger_enabled:
+                cfg.logger = None
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
@@ -651,6 +680,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     trainer: Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
+    persist_wandb_run_identity(cfg, logger, trainer)
 
     if mode == "train":
         _resolve_training_checkpoint(cfg, trainer)
@@ -676,6 +706,42 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.bind_data_context(normalizer=norm_stats)
             model.evaluator = eval_obj
         log.info("Starting training!")
+        init_weights_from = cfg.get("init_weights_from")
+        if init_weights_from:
+            # Weights-only init is for STARTING a fine-tune. A resume must always win:
+            # cfg.ckpt_path carries full training state, and a Slurm requeue re-enters
+            # here with the run already in progress. Re-initialising in either case
+            # would silently discard progress.
+            if cfg.get("ckpt_path"):
+                log.info(
+                    "ckpt_path is set (resume); ignoring init_weights_from=%s",
+                    init_weights_from,
+                )
+            elif os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
+                log.info(
+                    "Slurm restart #%s; ignoring init_weights_from=%s",
+                    os.environ.get("SLURM_RESTART_COUNT"),
+                    init_weights_from,
+                )
+            else:
+                init_ckpt = torch.load(
+                    init_weights_from, map_location="cpu", weights_only=False
+                )
+                _, reinitialised = init_pipeline_weights_from_checkpoint(
+                    model.model, init_ckpt
+                )
+                del init_ckpt
+                log.info("Initialised weights from %s", init_weights_from)
+                for key, src_shape, dst_shape in reinitialised:
+                    log.warning(
+                        "  re-initialised (checkpoint %s -> model %s): %s",
+                        src_shape,
+                        dst_shape,
+                        key,
+                    )
+                if not reinitialised:
+                    log.info("  every tensor carried over from the checkpoint")
+
         if (
             cfg.get("val_at_start", False)
             and not cfg.get("ckpt_path")
@@ -705,6 +771,25 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise ValueError(f"Invalid mode: {mode}")
 
     return trainer.callback_metrics, object_dict
+
+
+def _source_embodiment(dataset_name, dataset):
+    """Embodiment whose norm stats a train source fits.
+
+    Train-source keys are embodiment names, except for extra sources of an
+    existing embodiment in a weighted mixture (PR #141), e.g. ``abc_yam_bimanual``
+    next to ``yam_bimanual``. Those take the embodiment their leaves carry.
+    """
+    if _is_embodiment_name(dataset_name):
+        return dataset_name
+    found = {getattr(leaf, "embodiment", None) for leaf in MultiDataset._iter_leaves(dataset)}
+    found.discard(None)
+    if len(found) != 1:
+        raise ValueError(
+            f"train source {dataset_name!r} is not an embodiment name and its leaves carry "
+            f"{sorted(map(str, found))}; cannot tell which embodiment's norm stats it fits"
+        )
+    return found.pop()
 
 
 @hydra.main(

@@ -1,0 +1,18 @@
+# MIXED ABC + RL2 -- EXPLICITLY AUTHORISED by Aidan 2026-09-18 ("on both abc and rl2 data but done from scratch, using the
+# velocity implementation of the arc tokenizer"). The standing rule is never to mix the two labs unless he says so; he said so
+# for exactly these two runs. Do not copy this filter into other configs.
+# Action target: E1 Arc+Vel (variant arcvel -> velocity_mode 'profile'): (100,16) = [14 canonical | v_L(u), v_R(u)], D 0.40 m, M 100.
+# persistent_workers true: default re-forks loader workers each epoch and this stack deadlocks there (job 13307279).
+defaults:
+- /data/abc_arc/towels_mix_arcvel@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    filters:
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != '''' and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated'' and row[''rig_name''] == ''rl2_abc''))'
+valid_datasets:
+  yam_bimanual:
+    filters:
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != '''' and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated'' and row[''rig_name''] == ''rl2_abc''))'

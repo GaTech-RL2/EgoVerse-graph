@@ -1,0 +1,24 @@
+# MIXED ABC + RL2, LAB-BALANCED 50/50 -- Aidan 2026-09-19: "weight the data evenly so that there is proper exposure to
+# in-domain data ... RL2 consists of 50% of the data the model sees and ABC the other 50%". Explicitly authorised mix.
+# Same pool filter + valid_ratio 0.01 as stationery_mix_time; the ONLY change is train_dataloader_params.*.group_balance_sampler, which
+# replaces the uniform frame shuffle (RL2 was ~9 % of frames for stationery, ~30 % for towels) with draws that give each lab
+# half the samples, uniform over frames within a lab. Validation loaders are untouched. Do not copy this filter elsewhere.
+# persistent_workers true: default re-forks loader workers each epoch and this stack deadlocks there (job 13307279).
+defaults:
+- /data/abc_arc/towels_mix5050_time@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    filters:
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != '''' and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated'' and row[''rig_name''] == ''rl2_abc''))'
+valid_datasets:
+  yam_bimanual:
+    filters:
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != '''' and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated'' and row[''rig_name''] == ''rl2_abc''))'
+train_dataloader_params:
+  yam_bimanual:
+    group_balance_sampler:
+      group_episode_files:
+        rl2: /storage/project/r-dxu345-0/agao81/EgoVerse-graph/egomimic/hydra_configs/data/abc_arc/rl2_stationery_episodes.txt

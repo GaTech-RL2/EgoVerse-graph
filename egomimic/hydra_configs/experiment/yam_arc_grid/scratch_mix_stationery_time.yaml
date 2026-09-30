@@ -1,0 +1,19 @@
+# @package _global_
+# FROM SCRATCH on MIXED ABC + RL2 (stationery), TIME chunking -- explicitly authorised mix (see the data config header);
+# the time-based counterpart of scratch_mix_stationery_arcvel. Elmo s recipe (240k, warmup 10k, valid_ratio 0.01), 14-D cartesian model + his evaluator.
+defaults:
+- /experiment/yam_arc_grid/scratch_mix_towels_time
+- _self_
+- override /data: abc_arc/stationery_mix_time
+name: scratch_mix_stationery_time
+description: h640t8_d384x10_cos10k_240k_s42_scratch_mix_stationery_time
+logger:
+  wandb:
+    id: scratch_mix_stationery_time_20260918_s42
+    tags:
+    - abc
+    - rl2
+    - mixed
+    - stationery
+    - scratch
+    - time

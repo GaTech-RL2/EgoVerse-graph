@@ -1,0 +1,21 @@
+# RL2-ONLY fold_towels, the 394-episode pool (2026-09-24): the t298 pool (299 SQL rows, 298 processed) + Aidan's 9-24
+# evening batch of 96 (demo_200-259 = 60, then 36 more; demo_273 left out, a failed take that hit the 3000-frame cap).
+# Same regime as towels_rl2_298_*: one loader path (bimanual_arc keymap + transform list), one split (seed 42,
+# valid_ratio 0.05), one evaluator. Only `variant` differs: time.
+# The pool is PINNED by an episode_hash cutoff (the last episode is demo_20 = 2026-09-25-03-22-30-639000) AND by the
+# expected train/valid episode counts + name hashes below, so a drifted pool (new uploads, a missing mirror copy) fails
+# at construction instead of training on the wrong set.
+# persistent_workers true: default re-forks loader workers each epoch and this stack deadlocks there (job 13307279).
+defaults:
+- /data/abc_arc/towels_rl2_394_arcvel@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: time
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: time

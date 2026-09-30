@@ -1,0 +1,105 @@
+# Stationery fine-tune data, 2026-09-17 -- RL2 STATION ONLY (no ABC).
+#
+# Aidan, 09-17: fine-tune on the lab's own YAM station episodes alone. The
+# checkpoint was already trained on ABC + the (since deleted) 09-14/15 rl2
+# batch, so re-feeding ABC here would mostly re-teach what it knows; the point
+# is adapting it to the re-collected station data. Pool = 198 episodes.
+#
+# valid_ratio 0.01 -> 0.05: on 198 episodes 1 % is ~2 validation episodes.
+#
+# Superseded header follows. Source policy lifted from the resolved
+# config of Elmo's checkpoint run; the ONLY edit is the rl2 task string.
+#
+# The 09-14/15 lab=rl2 task='organize_stationary' rows were hard deleted on 09-16
+# and re-collected overnight, landing 09-17 as 'organize_stationary_updated'
+# (199 rows, operator aniketh, rig rl2_abc; 198 with a processed zarr, 1 died on
+# 'Zero Frames'). Against the live table the OLD string selects 0 rl2 rows and
+# yields a silent ABC-only run -- hence the rename here.
+#
+# All 198 usable rl2 episodes were mirrored to shared/egoverseS3ZarrDatasets by
+# scripts/pi05/sync_rl2_stationery.sbatch (job 13303933); before that none were
+# present locally and the resolver silently saw ABC only.
+#
+# expected_* episode pins are null here: Elmo's values (2242/22 + sha256) describe
+# HIS episode set. They are re-pinned to this pool's real values after the smoke.
+# persistent_workers: with the default (False) PyTorch tears down and re-forks the
+# loader workers at every epoch boundary, and this stack deadlocks there -- job
+# 13307279 wedged at step 99 of a 100-step epoch with workers idle in do_poll and
+# the main thread in futex_wait, after limping at ~19 s/step. With persistent
+# workers the same config crosses three epoch boundaries and runs at 4.2 it/s
+# (job 13308744), ~80x faster.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
+        and row[''rig_name''] == ''rl2_abc'''
+    mode: train
+    valid_ratio: 0.05
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != ''''
+        and row[''is_deleted''] == False and row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated''
+        and row[''rig_name''] == ''rl2_abc'''
+    mode: valid
+    valid_ratio: 0.05
+    bounds_check: false
+    split_seed: 42
+    expected_train_episode_count: null
+    expected_valid_episode_count: null
+    expected_train_episode_names_sha256: null
+    expected_valid_episode_names_sha256: null
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true

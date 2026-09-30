@@ -1,0 +1,25 @@
+# @package _global_
+# MIXED 40 % ABC / 60 % RL2 fold towels from scratch (PR #141 weights), variant arcvel. Lambda loaner, 2-GPU DDP x
+# batch 16 (global 32), recipe as scratch_rl2_towels394_arcvel (h640t8_d384x10, 240k, warmup 10k, seed 42).
+# Normalisation: pooled stats from norm_mix4060_towels394_arcvel_lambda (the per-source fit would leave ABC-only stats).
+defaults:
+- /experiment/yam_arc_grid/mix4060_towels394_arcdur_lambda
+- _self_
+- override /data: abc_arc/towels_mix4060_arcvel_lambda
+name: mix4060_towels394_arcvel_lambda
+description: h640t8_d384x10_cos10k_240k_s42_mix4060_towels394_arcvel_lambda
+logger:
+  wandb:
+    id: mix4060_towels394_arcvel_lambda_20260925_s42
+    tags:
+    - rl2
+    - towels
+    - towels394
+    - scratch
+    - arcvel
+    - mix4060
+    - lambda
+norm_stats:
+  precomputed_norm_path: /workspace/users/agao81/norm_runs/norm_mix4060_towels394_arcvel_lambda/norm_stats/norm_stats.json
+e1:
+  variant: arcvel

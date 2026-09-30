@@ -1,0 +1,20 @@
+# RL2-ONLY fold_towels, the 298-episode pool (Aidan 2026-09-20: "300 episodes of fold towels for rl2 ... time, arc dur, and arc vel from
+# scratch on this new subset ... everything running under the same regime"). 299 SQL rows, 298 processed (1 Zero Frames).
+# SAME REGIME across the three cells: one loader path (bimanual_arc keymap + transform list; the time target it builds is the same
+# _build_yam_bimanual_eef_frame_transform_list 100-frame EEF-relative chunk as Yam.get_transform_list), one pool, one split
+# (seed 42, valid_ratio 0.05), one evaluator. Only `variant` differs: arcdur.
+# The pool is PINNED by an episode_hash cutoff so jobs that start hours apart cannot resolve different pools as new data lands.
+# persistent_workers true: default re-forks loader workers each epoch and this stack deadlocks there (job 13307279).
+defaults:
+- /data/abc_arc/towels_rl2_298_arcvel@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcdur
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcdur

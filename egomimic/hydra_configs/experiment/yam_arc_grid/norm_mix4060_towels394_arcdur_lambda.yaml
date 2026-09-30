@@ -1,0 +1,15 @@
+# @package _global_
+# Norm-only pass (no training) fitting the pooled stats that mix4060_towels394_arcdur_lambda loads. Same sample_frac 0.2 / quantile.
+defaults:
+- /experiment/yam_arc_grid/mix4060_towels394_arcdur_lambda
+- _self_
+- override /data: abc_arc/towels_mix4060_normpool_arcdur_lambda
+name: norm_mix4060_towels394_arcdur_lambda
+description: pooled norm stats for mix4060_towels394_arcdur_lambda
+logger:
+  wandb:
+    id: norm_mix4060_towels394_arcdur_lambda
+norm_stats:
+  num_workers: 24
+  precomputed_norm_path: null
+norm_stats_only: true

@@ -21,7 +21,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/arc_abc
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
       # every episode resized to this (H, W); K rescaled to match
       image_hw: [360, 640]
       key_map:
@@ -76,7 +76,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/arc_abc
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
       # every episode resized to this (H, W); K rescaled to match
       image_hw: [480, 640]
       key_map:
@@ -140,7 +140,7 @@ valid_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
       resolver:
         _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-        folder_path: /storage/project/r-dxu345-0/shared/arc_abc
+        folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
         # every episode resized to this (H, W); K rescaled to match
         image_hw: [360, 640]
         key_map:
@@ -172,7 +172,7 @@ valid_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
       resolver:
         _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-        folder_path: /storage/project/r-dxu345-0/shared/arc_abc
+        folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
         # every episode resized to this (H, W); K rescaled to match
         image_hw: [480, 640]
         key_map:
@@ -205,7 +205,7 @@ valid_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
       resolver:
         _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-        folder_path: /storage/project/r-dxu345-0/shared/arc_abc
+        folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
         # every episode resized to this (H, W); K rescaled to match
         image_hw: [360, 640]
         key_map:
@@ -238,7 +238,7 @@ valid_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
       resolver:
         _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-        folder_path: /storage/project/r-dxu345-0/shared/arc_abc
+        folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR,/storage/project/r-dxu345-0/shared/arc_abc}
         # every episode resized to this (H, W); K rescaled to match
         image_hw: [480, 640]
         key_map:

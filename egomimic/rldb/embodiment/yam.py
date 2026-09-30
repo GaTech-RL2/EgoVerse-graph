@@ -359,6 +359,7 @@ class Yam(Embodiment):
         min_distance_unit: float | None = None,
         rotation_distance_unit: float | None = None,
         arc_chunking_mode: str | None = None,
+        task_key: str | None = None,
     ):
         """Keep the raw-data read horizon aligned with configured ARC caps."""
         key_map = super().get_keymap(
@@ -366,6 +367,7 @@ class Yam(Embodiment):
             norm_mode=norm_mode,
             annotation_key=annotation_key,
             camera_keys=camera_keys,
+            task_key=task_key,
         )
         for spec in key_map.values():
             horizon = spec.get("horizon")

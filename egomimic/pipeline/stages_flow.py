@@ -154,7 +154,8 @@ class FlowDenoiserStage(Stage):
         self.model = model
         # Some denoisers cross-attend over the condition and so want a token
         # axis, (B, 1, C), rather than the pooled (B, C) vector HPT's trunk
-        # emits. This only reshapes; the condition itself is unchanged.
+        # emits. This only reshapes; the condition itself is unchanged. A
+        # condition that already has a token axis, (B, T, C), passes through.
         self.condition_as_tokens = bool(condition_as_tokens)
         self.action_horizon = int(action_horizon)
         self.action_dim = int(action_dim)
@@ -168,13 +169,20 @@ class FlowDenoiserStage(Stage):
             raise ValueError("num_inference_steps must be positive")
 
     def _model_condition(self, condition: torch.Tensor) -> torch.Tensor:
-        return condition.unsqueeze(1) if self.condition_as_tokens else condition
+        if self.condition_as_tokens and condition.ndim == 2:
+            return condition.unsqueeze(1)
+        return condition
 
     def _validate_condition(self, condition: torch.Tensor) -> None:
-        if condition.ndim != 2 or int(condition.shape[-1]) != self.condition_input_dim:
+        ndims = (2, 3) if self.condition_as_tokens else (2,)
+        if (
+            condition.ndim not in ndims
+            or int(condition.shape[-1]) != self.condition_input_dim
+        ):
+            shape = "(B[, T]" if self.condition_as_tokens else "(B"
             raise ValueError(
                 "Flow condition must have shape "
-                f"(B, {self.condition_input_dim}), got {tuple(condition.shape)}"
+                f"{shape}, {self.condition_input_dim}), got {tuple(condition.shape)}"
             )
 
     def execute(self, batch: dict, *, mode: str) -> dict:

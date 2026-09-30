@@ -2383,6 +2383,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
                     continue
+                if key_type == "episode_metadata":
+                    data[k] = str(self.metadata[zarr_key])
+                    continue
 
                 if horizon is not None:
                     end_idx = self._chunk_end_idx(idx, horizon, key_type)

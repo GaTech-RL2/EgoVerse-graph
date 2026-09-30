@@ -1,0 +1,58 @@
+# ABC-DiT (amazon-far/abc) on the flow trio: DINOv3 vision, proprioception and
+# a frozen CLIP ViT-B/32 embedding of the episode's task_description.
+# Sizes live in the experiment's global `abc_dit:` block.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_abc.ABCObservationStage
+      encoder:
+        _target_: egomimic.models.abc_dit.ABCVisionStateEncoder
+        state_dim: ${abc_dit.action_dim}
+        num_cameras: 3
+        hidden_size: ${abc_dit.hidden_size}
+        backbone_checkpoint: ${abc_dit.backbone_checkpoint}
+        text_checkpoint: ${abc_dit.text_checkpoint}
+      camera_keys:
+        - observations.images.front_img_1
+        - observations.images.left_wrist_img
+        - observations.images.right_wrist_img
+      state_key: observations.state.ee_pose
+      task_key: task
+      mask_state_ratio: 0.1
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+      action_key: actions_cartesian
+    - _target_: egomimic.pipeline.stages_flow.FlowNoisingStage
+      action_horizon: ${abc_dit.action_horizon}
+      action_dim: ${abc_dit.action_dim}
+      time_dist: uniform
+    - _target_: egomimic.pipeline.stages_flow.FlowDenoiserStage
+      action_horizon: ${abc_dit.action_horizon}
+      action_dim: ${abc_dit.action_dim}
+      condition_input_dim: ${abc_dit.hidden_size}
+      num_inference_steps: 10
+      condition_as_tokens: true
+      model:
+        _target_: egomimic.models.abc_dit.ABCDiT
+        action_dim: ${abc_dit.action_dim}
+        action_horizon: ${abc_dit.action_horizon}
+        hidden_size: ${abc_dit.hidden_size}
+        depth: ${abc_dit.depth}
+        num_heads: ${abc_dit.num_heads}
+    - _target_: egomimic.pipeline.stages_flow.FlowVelocityLossStage
+
+enable_grad_norm: false
+# Upstream recipe: AdamW(0.9, 0.95), 1k-step linear warmup, then constant LR.
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  betas: [0.9, 0.95]
+  weight_decay: 0.01
+  eps: 1.0e-8
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1.0e-8
+  end_factor: 1.0
+  total_iters: 1000

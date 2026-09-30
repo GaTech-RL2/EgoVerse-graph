@@ -1,0 +1,19 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_multitask4_abcdit_baseline_visual_openloop
+  - _self_
+name: abc_multitask4_abcdit_hybrid_visual_openloop
+description: ABC-DiT XL four-task hybrid ARC D81 M100 R24deg
+# Same ARC delta as abc_multitask4_hpt300_hybrid_visual_openloop.
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+  arc_distance: 0.81
+  arc_rotation_distance: 0.4188790204786391
+abc_dit:
+  action_horizon: ${abc.arc_token_rows}
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+logger:
+  wandb:
+    tags: [abc_dit, abc, multitask4, clip_task, hybrid, M100, R24deg, per_waypoint, open_loop, video]

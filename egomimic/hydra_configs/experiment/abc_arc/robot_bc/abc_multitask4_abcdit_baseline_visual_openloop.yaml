@@ -1,0 +1,28 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop
+  - override /model: abc_arc/abc_dit_yam_visual
+  - _self_
+name: abc_multitask4_abcdit_baseline_visual_openloop
+description: ABC-DiT XL four-task baseline 100-frame chunks
+# Released ABC-DiT XL shape, trained from scratch (no ABC checkpoint) on
+# pretrained DINOv3 ViT-B/16 vision and frozen CLIP ViT-B/32 task text.
+abc_dit:
+  hidden_size: 1536
+  depth: 32
+  num_heads: 24
+  action_dim: 14
+  action_horizon: ${abc.action_horizon}
+  backbone_checkpoint: /workspace/users/ani-cheluva/.cache/dinov3/dinov3_vitb16_pretrain_lvd1689m.pth
+  text_checkpoint: /workspace/users/ani-cheluva/.cache/clip/clip-vit-base-patch32
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        key_map:
+          task_key: task
+trainer:
+  gradient_clip_val: 10.0
+logger:
+  wandb:
+    tags: [abc_dit, abc, multitask4, clip_task, open_loop, video]

@@ -20,6 +20,9 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
         diagnostic_raw_noise_levels=(0.0, 0.25, 0.5, 0.75, 1.0),
     ):
         super().__init__()
+        # The inner PipelineAlgo has no diagnostic provider. Ask the Action
+        # Flow behavior to bind its generic ModelWrapper at validation start.
+        self.action_flow_diagnostics_enabled = True
         self.energy_sample_count = int(energy_sample_count)
         if self.energy_sample_count != 32:
             raise ValueError("LIBERO Action Flow requires EnergyScore@32")

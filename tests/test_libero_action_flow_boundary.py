@@ -2,12 +2,15 @@ import torch
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
+import weakref
 
 from hydra import compose, initialize_config_dir
 
 from egomimic.eval.libero_action_flow_eval import LiberoActionFlowEvaluator
 from egomimic.pipeline.libero_action_flow import LiberoActionFlowObservationAdapter
 from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowDataset
+from egomimic.pl_utils.training_behavior_action_flow import ActionFlowTrainingBehavior
 
 
 def test_libero_action_flow_recipe_selects_effective_train_and_validation_data(monkeypatch):
@@ -114,3 +117,28 @@ def test_libero_validation_uses_generic_action_flow_diagnostic(tmp_path):
     assert len(model.diagnostic_calls) == 1
     assert model.diagnostic_calls[0][0] == "action_flow"
     assert any(name == "Valid/energy_score32_native_equal_components" for name, _, _ in model.logged)
+
+
+def test_libero_diagnostic_binds_wrapper_not_inner_pipeline(tmp_path):
+    seed_file = tmp_path / "seeds.json"
+    seed_file.write_text(json.dumps({"seeds": list(range(32))}))
+    evaluator = LiberoActionFlowEvaluator(
+        energy_seed_bank_path=seed_file,
+        energy_seed_bank_sha256=hashlib.sha256(seed_file.read_bytes()).hexdigest(),
+    )
+    inner_pipeline = SimpleNamespace(device=None)
+    evaluator.model = inner_pipeline
+
+    class Wrapper:
+        def __init__(self):
+            self.model = inner_pipeline
+            self.device = torch.device("cpu")
+            self.evaluator = evaluator
+
+    wrapper = Wrapper()
+    behavior = ActionFlowTrainingBehavior()
+    behavior._context_ref = weakref.ref(wrapper)
+    behavior._validation_metrics = SimpleNamespace(reset=lambda: None)
+    behavior.on_validation_start()
+    assert evaluator.model is wrapper
+    assert inner_pipeline.device == wrapper.device

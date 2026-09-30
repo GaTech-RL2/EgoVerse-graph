@@ -69,8 +69,18 @@ Select `+experiment=oat/libero_arc_mot_policy` and
 through `--arc-decoder-variant` with `--arc-profile stk_2 --arc-modes stk`.
 Use the audited replay and paired reference run above for full runs.
 
+The [launch manifest](arc_mot_runs_20260930.json) records the immutable source,
+OSMO workflow links, resource allocations, specification checksums and paired
+reference checksums for the three submitted runs. A separate CPU collector
+publishes `latest.json`, `table.md` and final `results.json` under
+`s3://rldb/experiments/arc-oat-20260919/campaigns/arc-mot-20260930-spatial/`.
+It checks the exact runtime architecture, full optimizer/EMA budget and
+reference episode hashes before accepting a completed score.
+
 Tests compare the attention operation and gradients with PyTorch's decoder
 when experts have identical weights, exercise all cross-modality paths and
 forbidden gradients, check temporal causality and output channel order, test
 all ten DDIM steps for masking leaks, and exercise actual shared training,
 optimizer groups, EMA checkpoint resume and physical-action inference.
+All 75 focused CPU tests pass. GPU/simulator preflights are enforced by each
+workflow before full training, and their receipts are uploaded with the run.

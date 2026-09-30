@@ -1,0 +1,236 @@
+{
+  "created_at": "2026-09-30T06:04:07.400831+00:00",
+  "runs": [
+    {
+      "run_id": "arc-mot-20260930-xyz-spatial",
+      "variant": "mot_xyz_rot_gripper",
+      "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+      "spec_sha256": "645ac4b553e3cb02079b521e99852d97fef3877f3006fe61ddd76f62da03e317",
+      "pool": "groot-l40s-03",
+      "priority": "NORMAL",
+      "training_gpus": 8,
+      "gpu_type": "L40S",
+      "suite": "libero_spatial",
+      "epochs": 5001,
+      "optimizer_steps": 270054,
+      "global_batch_size": 1024,
+      "evaluation_run": "arc-mot-20260930-xyz-spatial-eval",
+      "evaluation_episodes": 2500,
+      "workflow": "arc-mot-20260930-xyz-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-1",
+      "training_storage": "72Gi",
+      "evaluation_gpus": 1,
+      "evaluation_workers": 5,
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial/",
+      "decoder_parameters": 4790284,
+      "decoder_reference_parameters": 4791564,
+      "decoder_parameter_delta_fraction": -0.00026713615846518657,
+      "decoder_total_layers": 4,
+      "decoder_layers_per_stream": 4,
+      "decoder_tokens": 96,
+      "mot_architecture": {
+        "variant": "mot_xyz_rot_gripper",
+        "width": 160,
+        "layers": 4,
+        "heads": 4,
+        "feedforward": 536,
+        "modalities": {
+          "xyz": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "rot": [
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "gripper": [
+            11
+          ]
+        },
+        "blocked_attention": [],
+        "budget": "total_parameters_approx",
+        "reference_parameters": 4791564,
+        "parameter_tolerance_fraction": 0.002
+      }
+    },
+    {
+      "run_id": "arc-mot-20260930-velshape-spatial",
+      "variant": "mot_shape_velocity",
+      "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+      "spec_sha256": "634ee30fcb4b2b56dbc1ba0a138bfe039477775ef4c726c5c906ce3869d14720",
+      "pool": "groot-l40s-03",
+      "priority": "NORMAL",
+      "training_gpus": 8,
+      "gpu_type": "L40S",
+      "suite": "libero_spatial",
+      "epochs": 5001,
+      "optimizer_steps": 270054,
+      "global_batch_size": 1024,
+      "evaluation_run": "arc-mot-20260930-velshape-spatial-eval",
+      "evaluation_episodes": 2500,
+      "workflow": "arc-mot-20260930-velshape-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-1",
+      "training_storage": "72Gi",
+      "evaluation_gpus": 1,
+      "evaluation_workers": 5,
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial/",
+      "decoder_parameters": 4787532,
+      "decoder_reference_parameters": 4791564,
+      "decoder_parameter_delta_fraction": -0.0008414788991653044,
+      "decoder_total_layers": 4,
+      "decoder_layers_per_stream": 4,
+      "decoder_tokens": 64,
+      "mot_architecture": {
+        "variant": "mot_shape_velocity",
+        "width": 192,
+        "layers": 4,
+        "heads": 4,
+        "feedforward": 672,
+        "modalities": {
+          "shape": [
+            0,
+            1,
+            2,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            11
+          ],
+          "velocity": [
+            3,
+            10
+          ]
+        },
+        "blocked_attention": [],
+        "budget": "total_parameters_approx",
+        "reference_parameters": 4791564,
+        "parameter_tolerance_fraction": 0.002
+      }
+    },
+    {
+      "run_id": "arc-mot-20260930-masked-spatial",
+      "variant": "mot_shape_velocity_masked",
+      "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+      "spec_sha256": "24c126d6b911b4a83a01c1bb70ef2e105f45329097bfe3394c75a4b9fc133a51",
+      "pool": "groot-l40s-03",
+      "priority": "NORMAL",
+      "training_gpus": 8,
+      "gpu_type": "L40S",
+      "suite": "libero_spatial",
+      "epochs": 5001,
+      "optimizer_steps": 270054,
+      "global_batch_size": 1024,
+      "evaluation_run": "arc-mot-20260930-masked-spatial-eval",
+      "evaluation_episodes": 2500,
+      "workflow": "arc-mot-20260930-masked-spatial-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-1",
+      "training_storage": "72Gi",
+      "evaluation_gpus": 1,
+      "evaluation_workers": 5,
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial/",
+      "decoder_parameters": 4787532,
+      "decoder_reference_parameters": 4791564,
+      "decoder_parameter_delta_fraction": -0.0008414788991653044,
+      "decoder_total_layers": 4,
+      "decoder_layers_per_stream": 4,
+      "decoder_tokens": 64,
+      "mot_architecture": {
+        "variant": "mot_shape_velocity_masked",
+        "width": 192,
+        "layers": 4,
+        "heads": 4,
+        "feedforward": 672,
+        "modalities": {
+          "shape": [
+            0,
+            1,
+            2,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            11
+          ],
+          "velocity": [
+            3,
+            10
+          ]
+        },
+        "blocked_attention": [
+          [
+            "shape",
+            "velocity"
+          ]
+        ],
+        "budget": "total_parameters_approx",
+        "reference_parameters": 4791564,
+        "parameter_tolerance_fraction": 0.002
+      }
+    }
+  ],
+  "reference_run": "arc-dpr-20260925-stk2-spatial",
+  "replay_run": "arc-five-v2-20260921-stk2-libero-spatial-replay",
+  "profile": "stk_2",
+  "campaign": "arc-mot-20260930-spatial",
+  "pull_request": "https://github.com/GaTech-RL2/EgoVerse-graph/pull/195",
+  "suite": "libero_spatial",
+  "mode": "stk",
+  "R_degrees": 192,
+  "D_metres": 0.8,
+  "M": 32,
+  "reference_success_rate_percent": 76.16,
+  "reference_artifact_sha256": {
+    "protocol.json": "30fb987f3777e317694b2a60626758a22d31e9b6ab48f95d3901330e4aa3cb84",
+    "episodes.jsonl": "46cde1a2de2360c55ce7df6d29306271c523486af4c96172daf0bc47a535df42"
+  },
+  "cpu_tests_passed": 75,
+  "completed_controls": [
+    {
+      "variant": "joint_features",
+      "success_rate_percent": 76.16
+    },
+    {
+      "variant": "shared",
+      "success_rate_percent": 70.39999999999999
+    },
+    {
+      "variant": "separate",
+      "success_rate_percent": 76.03999999999999
+    },
+    {
+      "variant": "shape_masked",
+      "success_rate_percent": 77.12
+    }
+  ],
+  "controls_receipt": {
+    "uri": "s3://rldb/experiments/arc-oat-20260919/campaigns/arc-decoder-20260928-spatial/results.json",
+    "sha256": "baeb78c35c408e59ae7e4b031e43a35ab2b69e2e2d6f6d33451b898e0ded3372"
+  },
+  "report": {
+    "workflow": "arc-mot-20260930-report-1",
+    "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-report-1",
+    "gpus": 0,
+    "cpus": 2,
+    "script_sha256": "c36701aee232e5d8956f39387aeb86a8179d76904fededfd969a61a864b4a310",
+    "spec_sha256": "8e4a840ea4c4ddb1790fa91c5e092287fe99caada012e19fda416c6a75d6d3b5",
+    "artifacts": "s3://rldb/experiments/arc-oat-20260919/campaigns/arc-mot-20260930-spatial/",
+    "files": [
+      "manifest.json",
+      "latest.json",
+      "table.md",
+      "results.json"
+    ]
+  }
+}

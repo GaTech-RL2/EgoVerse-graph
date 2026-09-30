@@ -1525,8 +1525,8 @@ elif routed_model or cotrain:
     assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
     assert cfg.model.training_behavior._target_.endswith("ActionFlowTrainingBehavior")
     targets = [str(stage._target_) for stage in cfg.model.pipeline.stages]
-    assert targets[3].endswith("RoutedContentEncoderStage")
-    assert targets[6].endswith("RoutedContentDecoderStage")
+    assert targets[4].endswith("RoutedContentEncoderStage")
+    assert targets[7].endswith("RoutedContentDecoderStage")
 else:
     method = validate_method_contract(cfg, experiment)
 assert cfg.model.action_horizon == 16
@@ -1690,14 +1690,14 @@ if scaled_h512:
 elif routed_model or cotrain:
     stages = tuple(pipeline.pipeline.stages)
     expected_routes = {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
-    assert set(stages[3].encoder) == expected_routes
-    assert set(stages[6].decoder) == expected_routes
-    assert stages[3].encoder["pushshapes_sim_u_socket"] is not stages[3].encoder["pushshapes_sim_chain_gripper"]
-    assert stages[6].decoder["pushshapes_sim_u_socket"] is not stages[6].decoder["pushshapes_sim_chain_gripper"]
-    assert stages[3].encoder["pushshapes_sim_u_socket"].input_dim == 4
-    assert stages[3].encoder["pushshapes_sim_chain_gripper"].input_dim == 6
-    assert stages[6].decoder["pushshapes_sim_u_socket"].action_dim == 4
-    assert stages[6].decoder["pushshapes_sim_chain_gripper"].action_dim == 6
+    assert set(stages[4].encoder) == expected_routes
+    assert set(stages[7].decoder) == expected_routes
+    assert stages[4].encoder["pushshapes_sim_u_socket"] is not stages[4].encoder["pushshapes_sim_chain_gripper"]
+    assert stages[7].decoder["pushshapes_sim_u_socket"] is not stages[7].decoder["pushshapes_sim_chain_gripper"]
+    assert stages[4].encoder["pushshapes_sim_u_socket"].input_dim == 4
+    assert stages[4].encoder["pushshapes_sim_chain_gripper"].input_dim == 6
+    assert stages[7].decoder["pushshapes_sim_u_socket"].action_dim == 4
+    assert stages[7].decoder["pushshapes_sim_chain_gripper"].action_dim == 6
 else:
     _validate_topology(cfg, pipeline)
     _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
@@ -1834,7 +1834,7 @@ if test "$AF_RUN_KIND" = smoke; then
     die "smoke checkpoint size is invalid"
   "$AF_PYTHON" "$AF_STORAGE_VALIDATOR" \
     --target "$AF_OUTPUT_DIR" \
-    --planned-checkpoint-count 14 \
+    --planned-checkpoint-count "$(((AF_FULL_MAX_STEPS + AF_FULL_CHECKPOINT_EVERY - 1) / AF_FULL_CHECKPOINT_EVERY))" \
     --measured-checkpoint-bytes "$SMOKE_CHECKPOINT_BYTES" \
     --safety-reserve-bytes "$AF_STORAGE_SAFETY_RESERVE_BYTES" \
     --output "$ATTEMPT/CHECKPOINT_STORAGE.json"

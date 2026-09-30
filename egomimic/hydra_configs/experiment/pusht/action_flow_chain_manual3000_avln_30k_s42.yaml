@@ -11,6 +11,11 @@ defaults:
 name: action_flow_chain_manual3000_avln_30k_s42
 description: "Manual ChainGripper 3000 only; 6D Action Flow AV-LN"
 model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  training_behavior:
+    _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
+  diagnostic_provider:
+    _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
   flow_loss_aggregation: sum_samples
   cfg_scale: 4.0
 trainer:

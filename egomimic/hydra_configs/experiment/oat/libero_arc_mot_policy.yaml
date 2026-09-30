@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - /experiment/oat/libero_arc_stk_2_r192_d0p8_m32
+  - /arc_decoder: mot_shape_velocity
+  - override /model: oat/arc_mot_policy
+  - _self_
+benchmark:
+  arc_backbone: oat_dp
+  arc_profile: stk_2
+  arc_decoder_variant: ${arc_decoder.variant}

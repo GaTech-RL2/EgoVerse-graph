@@ -1,10 +1,34 @@
 import torch
 import hashlib
 import json
+from pathlib import Path
+
+from hydra import compose, initialize_config_dir
 
 from egomimic.eval.libero_action_flow_eval import LiberoActionFlowEvaluator
 from egomimic.pipeline.libero_action_flow import LiberoActionFlowObservationAdapter
 from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowDataset
+
+
+def test_libero_action_flow_recipe_selects_effective_train_and_validation_data(monkeypatch):
+    monkeypatch.setenv("LIBERO10_REPLAY_ROOT", "/tmp/libero10-replay-for-compose")
+    config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
+    with initialize_config_dir(config_dir=str(config_dir), version_base="1.3"):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=["+experiment=libero/action_flow_libero10_avln_80k_s42"],
+        )
+    assert "data" not in cfg.data
+    assert cfg.data.train_datasets.libero_panda._target_.endswith(
+        "libero_action_flow.LiberoActionFlowDataset._from_resolver"
+    )
+    assert cfg.data.valid_datasets.libero_panda._target_.endswith(
+        "libero_action_flow.LiberoActionFlowDataset._from_resolver"
+    )
+    assert cfg.data.train_datasets.libero_panda.valid_ratio == 0.01
+    assert cfg.data.valid_datasets.libero_panda.valid_ratio == 0.01
+    assert cfg.data.train_datasets.libero_panda.split_seed == 42
+    assert cfg.data.valid_datasets.libero_panda.split_seed == 42
 
 
 def test_logical_replay_keys_are_normalized_and_invertible():

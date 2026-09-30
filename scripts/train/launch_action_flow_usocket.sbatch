@@ -429,7 +429,7 @@ case "$AF_EXPERIMENT" in
   *) die "AF_EXPERIMENT must select an explicitly approved Action Flow config" ;;
 esac
 
-if test "$AF_SCALED_H512" = true; then
+if test "$AF_SCALED_H512" = true || test "$AF_ROUTED_MODEL" = true; then
   AF_SMOKE_VERIFIER=$AF_REPO/scripts/train/verify_scaled_action_flow_training_smoke.py
 fi
 
@@ -1843,7 +1843,7 @@ if test "$AF_RUN_KIND" = smoke; then
     SMOKE_WEIGHT_ARGS=(--expected-reconstruction-weight "$AF_RECONSTRUCTION_WEIGHT" --expected-flow-weight "$AF_FLOW_WEIGHT")
   fi
   SCALED_SMOKE_ARGS=()
-  if test "$AF_SCALED_H512" = true; then
+  if test "$AF_SCALED_H512" = true || test "$AF_ROUTED_MODEL" = true; then
     SCALED_SMOKE_ARGS+=(--expected-parameter-count "$AF_EXPECTED_PARAMETER_COUNT")
     if test "$AF_COTRAIN" = true; then
       SCALED_SMOKE_ARGS+=(

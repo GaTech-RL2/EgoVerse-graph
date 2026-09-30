@@ -17,6 +17,23 @@ from omegaconf import OmegaConf
 
 SCHEMA_VERSION = 1
 EXPERIMENTS = {
+    "pusht/action_flow_chain_manual3000_avln_30k_s42": {
+        "config_name": "action_flow_chain_manual3000_avln_30k_s42",
+        "parameter_count": 151_990_970,
+        "sources": {"pushshapes_sim_chain_gripper": 6},
+        "routed": True,
+        "hidden_dim": 384,
+    },
+    "pusht/action_flow_cotrain_uc_manual3000_avln_30k_s42": {
+        "config_name": "action_flow_cotrain_uc_manual3000_avln_30k_s42",
+        "parameter_count": 151_990_970,
+        "sources": {
+            "pushshapes_sim_u_socket": 4,
+            "pushshapes_sim_chain_gripper": 6,
+        },
+        "routed": True,
+        "hidden_dim": 384,
+    },
     "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
         "config_name": "action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
         "parameter_count": 190_208_924,
@@ -212,7 +229,8 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(args.experiment in EXPERIMENTS, "unexpected experiment")
     row = EXPERIMENTS[args.experiment]
     sources = tuple(row["sources"])
-    routed = len(sources) == 2
+    cotrain = len(sources) == 2
+    routed = row.get("routed", cotrain)
     require(args.expected_parameter_count > 0, "expected parameter count must be positive")
     require(
         args.expected_parameter_count == row["parameter_count"],
@@ -224,7 +242,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         args.expected_second_dataset_content_aggregate_sha256,
     )
     require(
-        all(secondary_values) if routed else not any(secondary_values),
+        all(secondary_values) if cotrain else not any(secondary_values),
         "secondary identities must be supplied exactly for routed co-training",
     )
     require(config.name == row["config_name"], "config name mismatch")
@@ -234,7 +252,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(config.trainer.limit_val_batches == 1, "smoke must run one real validation batch")
     require(config.model.flow_samples_per_content == 14, "FM sample count mismatch")
     require(config.model.flow_mini_batch == 14, "FM mini-batch mismatch")
-    require(config.model.hidden_dim == 512, "model width mismatch")
+    require(config.model.hidden_dim == row.get("hidden_dim", 512), "model width mismatch")
     require(config.model.cfg_scale == 4.0, "CFG scale mismatch")
     require(config.model.flow_loss_aggregation == "sum_samples", "FM aggregation mismatch")
     require(
@@ -273,7 +291,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(config.run_provenance.content_manifest_sha256 == args.expected_content_manifest_sha256, "content manifest mismatch")
     require(config.run_provenance.dataset_content_aggregate_sha256 == args.expected_dataset_content_aggregate_sha256, "content aggregate mismatch")
     require(sha256(config_path) == args.expected_config_sha256, "resolved config hash mismatch")
-    if routed:
+    if cotrain:
         secondary = config.run_provenance.content_manifests[sources[1]]
         require(
             config.run_provenance.chain_split_manifest_sha256
@@ -297,7 +315,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     preflight = json.loads(preflight_path.read_text())
     require(preflight["status"] == "PASS", "preflight did not pass")
     require(preflight["source"]["head"] == args.expected_head, "preflight source mismatch")
-    if routed:
+    if cotrain:
         require("secondary" in preflight["datasets"], "secondary dataset proof missing")
         secondary_preflight = preflight["datasets"]["secondary"]
         require(
@@ -393,8 +411,9 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     if routed:
         require(tuple(stages[4].encoder) == sources, "restored encoder routes mismatch")
         require(tuple(stages[7].decoder) == sources, "restored decoder routes mismatch")
-        require(stages[4].encoder[sources[0]] is not stages[4].encoder[sources[1]], "restored encoders alias")
-        require(stages[7].decoder[sources[0]] is not stages[7].decoder[sources[1]], "restored decoders alias")
+        if cotrain:
+            require(stages[4].encoder[sources[0]] is not stages[4].encoder[sources[1]], "restored encoders alias")
+            require(stages[7].decoder[sources[0]] is not stages[7].decoder[sources[1]], "restored decoders alias")
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
     require(
         parameter_count == args.expected_parameter_count,
@@ -501,7 +520,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
                             "dataset_content_aggregate_sha256": args.expected_second_dataset_content_aggregate_sha256,
                         }
                     }
-                    if routed
+                    if cotrain
                     else {}
                 ),
             },

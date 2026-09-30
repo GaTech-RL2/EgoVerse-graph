@@ -5,7 +5,7 @@
       "run_id": "arc-mot-20260930-xyz-spatial",
       "variant": "mot_xyz_rot_gripper",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "645ac4b553e3cb02079b521e99852d97fef3877f3006fe61ddd76f62da03e317",
+      "spec_sha256": "98da3406983e25f304437cafee90764f337f8e949d6590448fee3a7bd997cd19",
       "pool": "groot-l40s-03",
       "priority": "NORMAL",
       "training_gpus": 8,
@@ -16,9 +16,9 @@
       "global_batch_size": 1024,
       "evaluation_run": "arc-mot-20260930-xyz-spatial-eval",
       "evaluation_episodes": 2500,
-      "workflow": "arc-mot-20260930-xyz-spatial-1",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-1",
-      "training_storage": "72Gi",
+      "workflow": "arc-mot-20260930-xyz-spatial-2",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-2",
+      "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
       "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial/",
@@ -58,13 +58,20 @@
         "budget": "total_parameters_approx",
         "reference_parameters": 4791564,
         "parameter_tolerance_fraction": 0.002
-      }
+      },
+      "replaced_unstarted_workflows": [
+        {
+          "workflow": "arc-mot-20260930-xyz-spatial-1",
+          "spec_sha256": "645ac4b553e3cb02079b521e99852d97fef3877f3006fe61ddd76f62da03e317",
+          "reason": "Missing azurelustre CSI mount driver; zero training steps"
+        }
+      ]
     },
     {
       "run_id": "arc-mot-20260930-velshape-spatial",
       "variant": "mot_shape_velocity",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "634ee30fcb4b2b56dbc1ba0a138bfe039477775ef4c726c5c906ce3869d14720",
+      "spec_sha256": "4e73300882776c632e1a8d38da5b228d83bac1c7ed30cb563af79e398b45592f",
       "pool": "groot-l40s-03",
       "priority": "NORMAL",
       "training_gpus": 8,
@@ -75,9 +82,9 @@
       "global_batch_size": 1024,
       "evaluation_run": "arc-mot-20260930-velshape-spatial-eval",
       "evaluation_episodes": 2500,
-      "workflow": "arc-mot-20260930-velshape-spatial-1",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-1",
-      "training_storage": "72Gi",
+      "workflow": "arc-mot-20260930-velshape-spatial-2",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-2",
+      "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
       "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial/",
@@ -115,13 +122,20 @@
         "budget": "total_parameters_approx",
         "reference_parameters": 4791564,
         "parameter_tolerance_fraction": 0.002
-      }
+      },
+      "replaced_unstarted_workflows": [
+        {
+          "workflow": "arc-mot-20260930-velshape-spatial-1",
+          "spec_sha256": "634ee30fcb4b2b56dbc1ba0a138bfe039477775ef4c726c5c906ce3869d14720",
+          "reason": "Missing azurelustre CSI mount driver; zero training steps"
+        }
+      ]
     },
     {
       "run_id": "arc-mot-20260930-masked-spatial",
       "variant": "mot_shape_velocity_masked",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "24c126d6b911b4a83a01c1bb70ef2e105f45329097bfe3394c75a4b9fc133a51",
+      "spec_sha256": "c516119a140837eb87027face3381ba26cc9ed8aa1b5ac2931d2cb97da13ced3",
       "pool": "groot-l40s-03",
       "priority": "NORMAL",
       "training_gpus": 8,
@@ -132,9 +146,9 @@
       "global_batch_size": 1024,
       "evaluation_run": "arc-mot-20260930-masked-spatial-eval",
       "evaluation_episodes": 2500,
-      "workflow": "arc-mot-20260930-masked-spatial-1",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-1",
-      "training_storage": "72Gi",
+      "workflow": "arc-mot-20260930-masked-spatial-2",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-2",
+      "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
       "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial/",
@@ -177,7 +191,14 @@
         "budget": "total_parameters_approx",
         "reference_parameters": 4791564,
         "parameter_tolerance_fraction": 0.002
-      }
+      },
+      "replaced_unstarted_workflows": [
+        {
+          "workflow": "arc-mot-20260930-masked-spatial-1",
+          "spec_sha256": "24c126d6b911b4a83a01c1bb70ef2e105f45329097bfe3394c75a4b9fc133a51",
+          "reason": "Missing azurelustre CSI mount driver; zero training steps"
+        }
+      ]
     }
   ],
   "reference_run": "arc-dpr-20260925-stk2-spatial",
@@ -219,18 +240,19 @@
     "sha256": "baeb78c35c408e59ae7e4b031e43a35ab2b69e2e2d6f6d33451b898e0ded3372"
   },
   "report": {
-    "workflow": "arc-mot-20260930-report-1",
-    "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-report-1",
+    "workflow": "arc-mot-20260930-report-2",
+    "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-report-2",
     "gpus": 0,
     "cpus": 2,
     "script_sha256": "c36701aee232e5d8956f39387aeb86a8179d76904fededfd969a61a864b4a310",
-    "spec_sha256": "8e4a840ea4c4ddb1790fa91c5e092287fe99caada012e19fda416c6a75d6d3b5",
+    "spec_sha256": "6d8256ad37096c36aa263a24c86ce72cbe6e8a7b002ae3431de8f444e336b090",
     "artifacts": "s3://rldb/experiments/arc-oat-20260919/campaigns/arc-mot-20260930-spatial/",
     "files": [
       "manifest.json",
       "latest.json",
       "table.md",
       "results.json"
-    ]
+    ],
+    "replaced_workflow": "arc-mot-20260930-report-1"
   }
 }

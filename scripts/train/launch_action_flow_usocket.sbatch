@@ -127,14 +127,14 @@ AF_ROUTED_MODEL=false
 AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
 case "$AF_EXPERIMENT" in
-  pusht/action_flow_chain_manual3000_avln_30k_s42)
+  pusht/action_flow_chain_manual3000_avln_80k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_chain_manual3000_avln_30k_s42
+    AF_EXPECTED_CONFIG_NAME=action_flow_chain_manual3000_avln_80k_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=30000
-    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_MAX_STEPS=80000
+    AF_FULL_VALIDATE_EVERY=15000
     AF_FULL_CHECKPOINT_EVERY=5000
     AF_FULL_LIMIT_VAL_BATCHES=8
     AF_VALID_BATCH_SIZE=32
@@ -143,16 +143,16 @@ case "$AF_EXPERIMENT" in
     AF_ROUTED_MODEL=true
     required AF_APPROVED_PARAMETER_COUNT
     AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
-    AF_WANDB_TAGS="[pushshapes,chain-gripper,manual3000,action-flow,av-ln,routed-control,h384d12h12,30k,$AF_RUN_KIND]"
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,manual3000,action-flow,av-ln,routed-control,h384d12h12,80k,$AF_RUN_KIND]"
     ;;
-  pusht/action_flow_cotrain_uc_manual3000_avln_30k_s42)
+  pusht/action_flow_cotrain_uc_manual3000_avln_80k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual3000_avln_30k_s42
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual3000_avln_80k_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=30000
-    AF_FULL_VALIDATE_EVERY=10000
+    AF_FULL_MAX_STEPS=80000
+    AF_FULL_VALIDATE_EVERY=15000
     AF_FULL_CHECKPOINT_EVERY=5000
     AF_FULL_LIMIT_VAL_BATCHES=8
     AF_VALID_BATCH_SIZE=32
@@ -161,7 +161,7 @@ case "$AF_EXPERIMENT" in
     AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
     required AF_APPROVED_PARAMETER_COUNT
     AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
-    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual-only,cotrain,action-flow,av-ln,private-codecs,shared-field,h384d12h12,30k,$AF_RUN_KIND]"
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual-only,cotrain,action-flow,av-ln,private-codecs,shared-field,h384d12h12,80k,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_usocket_refactored_c12_compat_s42)
     AF_METHOD=latent_fm_stopgrad_unite

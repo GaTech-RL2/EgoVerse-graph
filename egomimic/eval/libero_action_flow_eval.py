@@ -92,8 +92,8 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
                     "energy_accuracy32_native_equal_components": scores["accuracy"],
                     "energy_diversity32_native_equal_components": scores["diversity"],
                 })
-                diagnostics = self.model.forward_action_flow_diagnostics(
-                    batch,
+                diagnostics = self.model.run_diagnostic(
+                    "action_flow", batch,
                     raw_noise_levels=self.diagnostic_raw_noise_levels,
                     noise_seed=self.seeds[0],
                     max_samples=min(8, len(target)),

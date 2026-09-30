@@ -5,8 +5,9 @@ defaults:
   - override /callbacks: action_flow_avln_cotrain
   - _self_
 
-name: action_flow_cotrain_uc_manual3000_avln_30k_s42
+name: action_flow_cotrain_uc_manual3000_avln_80k_s42
 description: "Manual-only U-Socket 2999 plus ChainGripper 3000 Action Flow AV-LN"
+val_at_end: true
 model:
   _target_: egomimic.pl_utils.pl_model.ModelWrapper
   training_behavior:
@@ -14,8 +15,8 @@ model:
   diagnostic_provider:
     _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
 trainer:
-  max_steps: 30000
-  val_check_interval: 10000
+  max_steps: 80000
+  val_check_interval: 15000
   limit_val_batches: 8
 callbacks:
   model_checkpoint:

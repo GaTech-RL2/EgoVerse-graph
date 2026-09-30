@@ -682,6 +682,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             ckpt_path=cfg.get("ckpt_path"),
             weights_only=False,
         )
+        if cfg.get("val_at_end", False) and trainer.global_step >= cfg.trainer.max_steps:
+            trainer.validate(model=model, datamodule=datamodule)
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model

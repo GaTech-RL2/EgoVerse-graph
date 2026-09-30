@@ -8,8 +8,9 @@ defaults:
 
 # Single-domain control: identical routed model family, but only ChainGripper
 # contributes optimizer updates. The unused U-Socket codec remains inactive.
-name: action_flow_chain_manual3000_avln_30k_s42
+name: action_flow_chain_manual3000_avln_80k_s42
 description: "Manual ChainGripper 3000 only; 6D Action Flow AV-LN"
+val_at_end: true
 model:
   _target_: egomimic.pl_utils.pl_model.ModelWrapper
   training_behavior:
@@ -19,8 +20,8 @@ model:
   flow_loss_aggregation: sum_samples
   cfg_scale: 4.0
 trainer:
-  max_steps: 30000
-  val_check_interval: 10000
+  max_steps: 80000
+  val_check_interval: 15000
   limit_val_batches: 8
 callbacks:
   model_checkpoint:

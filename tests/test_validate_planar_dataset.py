@@ -104,6 +104,7 @@ def test_portable_inventory_reproduces_split_and_has_no_path_overlap(tmp_path):
 
     result = MODULE.validate_physical_inventory(manifest, entries, dataset_root)
 
+    assert result["domain"] == MODULE.DOMAIN
     assert result["total_count"] == 100
     assert result["train_count"] == 99
     assert result["valid_count"] == 1

@@ -1,0 +1,28 @@
+# @package _global_
+# Shared HPT trunk; the velocity stream gets its own condition decoder and
+# flow head, while the shape stream uses the main trunk condition.
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_towels_hpt180_hybrid_visual_openloop
+  - override /model: abc_arc/hpt_yam_visual_arc_stream
+  - _self_
+
+name: abc_towels_hpt180_hybrid_velocity_decoder_visual_openloop
+description: shared HPT trunk, separate per-waypoint velocity decoder and flow head
+abc:
+  task_predicate: "row['task'] == 'fold and stack the towels'"
+
+hpt:
+  arc_stream_arch: velocity_decoder
+  arc_stream_shape_blocks: 6
+  arc_stream_velocity_blocks: 4
+  arc_stream_fusion_blocks: 4
+
+trainer:
+  accumulate_grad_batches: 2
+
+logger:
+  wandb:
+    id: pace_abc_towels_shape_velocity_decoder_20260930
+    name: pace_abc_towels_shape_velocity_decoder_20260930
+    resume: never
+    tags: [hpt180, abc, towels, visual_only, no_language, hybrid, velocity_decoder, parameter_matched, open_loop, video]

@@ -19,6 +19,7 @@ train_datasets:
         horizon: 200
         embodiment: yam
         drop_wrist_images: false
+        yam_source_frames: 100
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
         variant: time
@@ -52,6 +53,7 @@ valid_datasets:
         horizon: 200
         embodiment: yam
         drop_wrist_images: false
+        yam_source_frames: 100
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
         variant: time

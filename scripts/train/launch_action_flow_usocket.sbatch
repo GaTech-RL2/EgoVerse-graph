@@ -90,6 +90,9 @@ CANONICAL_CONTENT_MANIFEST_SHA256=a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4
 CANONICAL_DATASET_CONTENT_AGGREGATE_SHA256=80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52
 CHAIN_CONTENT_MANIFEST_SHA256=65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726a1b0e0ef1df865
 CHAIN_DATASET_CONTENT_AGGREGATE_SHA256=2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb
+CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256=9920658e35a6cffc3dd4dde82129b7d1ae08f77664f0cbb06498ebc13ca3eaa1
+CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256=f2762688fdcfb6481f841c9939a0723426e97cb31260454d532c0312e278bb7c
+CHAIN_MANUAL4919_SPLIT_MANIFEST_SHA256=1fe77d9c0320965fd973711c4b2803938bb9a59ce5e842eb18316b9e71730ecc
 CHAIN_4920_CONTENT_MANIFEST_SHA256=d47337ec051351c37def6078ce96a9d4187d44ca6d2d89867e716aea8b5573a9
 CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256=241ef7cab22303088c46ef1dca4379c4c4932409b494fc88db413fcb687e1afe
 
@@ -126,7 +129,46 @@ AF_COTRAIN=false
 AF_ROUTED_MODEL=false
 AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
+AF_MANUAL_CHAIN_4919=false
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_chain_manual4919_avln_80k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_chain_manual4919_avln_80k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=80000
+    AF_FULL_VALIDATE_EVERY=15000
+    AF_FULL_CHECKPOINT_EVERY=5000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_SOURCE=pushshapes_sim_chain_gripper
+    AF_ACTION_DIM=6
+    AF_ROUTED_MODEL=true
+    AF_MANUAL_CHAIN_4919=true
+    required AF_APPROVED_PARAMETER_COUNT
+    AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,manual4919,obstacle-gen,action-flow,av-ln,routed-control,h384d12h12,80k,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual4919_avln_80k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=80000
+    AF_FULL_VALIDATE_EVERY=15000
+    AF_FULL_CHECKPOINT_EVERY=5000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_COTRAIN=true
+    AF_ROUTED_MODEL=true
+    AF_MANUAL_CHAIN_4919=true
+    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
+    required AF_APPROVED_PARAMETER_COUNT
+    AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual4919,obstacle-gen,cotrain,action-flow,av-ln,private-codecs,shared-field,h384d12h12,80k,$AF_RUN_KIND]"
+    ;;
   pusht/action_flow_chain_manual3000_avln_80k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -443,9 +485,10 @@ if test "$AF_COTRAIN" = true; then
   done
 fi
 
-if test -z "$AF_SPLIT_MANIFEST" && test "$AF_FROZEN_CHAIN_4920" = true \
+if test -z "$AF_SPLIT_MANIFEST" && \
+  { test "$AF_FROZEN_CHAIN_4920" = true || test "$AF_MANUAL_CHAIN_4919" = true; } \
   && test "$AF_COTRAIN" = false; then
-  die "AF_SPLIT_MANIFEST is required for the frozen 4,920-episode ChainGripper row"
+  die "AF_SPLIT_MANIFEST is required for this non-standard ChainGripper corpus"
 elif test -z "$AF_SPLIT_MANIFEST"; then
   if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
     AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
@@ -473,7 +516,14 @@ fi
 [[ "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
 if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
-  if test "$AF_FROZEN_CHAIN_4920" = true; then
+  if test "$AF_MANUAL_CHAIN_4919" = true; then
+    test "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_SPLIT_MANIFEST_SHA256" || \
+      die "split is not the approved manual 4,919-episode ChainGripper split"
+    test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256" || \
+      die "content manifest is not the approved manual 4,919-episode ChainGripper view"
+    test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256" || \
+      die "dataset aggregate is not the approved manual 4,919-episode ChainGripper view"
+  elif test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "content manifest is not the frozen 4,920-episode ChainGripper manifest"
     test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -497,7 +547,14 @@ if test "$AF_COTRAIN" = true; then
     die "AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
   [[ "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
     die "AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-  if test "$AF_FROZEN_CHAIN_4920" = true; then
+  if test "$AF_MANUAL_CHAIN_4919" = true; then
+    test "$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_SPLIT_MANIFEST_SHA256" || \
+      die "second split is not the approved manual 4,919-episode ChainGripper split"
+    test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256" || \
+      die "second content manifest is not the approved manual 4,919-episode ChainGripper view"
+    test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256" || \
+      die "second dataset aggregate is not the approved manual 4,919-episode ChainGripper view"
+  elif test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "second content manifest is not the frozen 4,920-episode ChainGripper manifest"
     test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256" || \

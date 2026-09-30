@@ -17,6 +17,23 @@ from omegaconf import OmegaConf
 
 SCHEMA_VERSION = 1
 EXPERIMENTS = {
+    "pusht/action_flow_chain_manual4919_avln_80k_s42": {
+        "config_name": "action_flow_chain_manual4919_avln_80k_s42",
+        "parameter_count": 151_990_970,
+        "sources": {"pushshapes_sim_chain_gripper": 6},
+        "routed": True,
+        "hidden_dim": 384,
+    },
+    "pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42": {
+        "config_name": "action_flow_cotrain_uc_manual4919_avln_80k_s42",
+        "parameter_count": 151_990_970,
+        "sources": {
+            "pushshapes_sim_u_socket": 4,
+            "pushshapes_sim_chain_gripper": 6,
+        },
+        "routed": True,
+        "hidden_dim": 384,
+    },
     "pusht/action_flow_chain_manual3000_avln_30k_s42": {
         "config_name": "action_flow_chain_manual3000_avln_30k_s42",
         "parameter_count": 151_990_970,

@@ -1,0 +1,26 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_cotrain_uc_manual3000_avln_80k_s42
+  - override /data: pusht/action_flow_cotrain_usocket_chain_manual4919_val01_h16
+  - _self_
+
+name: action_flow_cotrain_uc_manual4919_avln_80k_s42
+description: "Manual U-Socket 2999 + ChainGripper 3000 standard/1919 obstacle recollections Action Flow AV-LN"
+run_provenance:
+  train_episode_count_per_domain:
+    pushshapes_sim_u_socket: 2970
+    pushshapes_sim_chain_gripper: 4870
+  valid_episode_count_per_domain:
+    pushshapes_sim_u_socket: 29
+    pushshapes_sim_chain_gripper: 49
+  union_episode_count_per_domain:
+    pushshapes_sim_u_socket: 2999
+    pushshapes_sim_chain_gripper: 4919
+  chain_collection:
+    standard_manual_episodes: 3000
+    standard_per_file_manifest_sha256: 05f590222bd954af7a5f01f64c9554865afe36e40845fcd336d5a134bb00b10b
+    obstacle_gen_manual_episodes: 1919
+    obstacle_gen_per_file_manifest_sha256: 3240098b09b8456b6fda0f44984f3b2e74343feaaac8edb972993ecfbf24e32d
+    combined_content_manifest_sha256: 9920658e35a6cffc3dd4dde82129b7d1ae08f77664f0cbb06498ebc13ca3eaa1
+    combined_split_manifest_sha256: 1fe77d9c0320965fd973711c4b2803938bb9a59ce5e842eb18316b9e71730ecc
+    excluded_frozen_mixed_view: true

@@ -12,12 +12,13 @@ from egomimic.rldb.embodiment.human import (
 )
 from egomimic.rldb.zarr.e1_arc_tokenizer import CopyKeyRows, TokenizeBimanualArcLengthE1
 
-VARIANTS = ("time", "arcmean", "arcvel", "arclogdur", "arcdur")
+VARIANTS = ("time", "arcmean", "arcvel", "arclogdur", "arcdur", "arcdurhyb")
 VELOCITY_MODES = {
     "arcmean": "mean",
     "arcvel": "profile",
     "arclogdur": "logdur",
     "arcdur": "dur",
+    "arcdurhyb": "durhyb",
 }
 
 
@@ -87,6 +88,7 @@ def get_transform_list(
     embodiment: str = "human",
     fixed_spacing: bool = False,
     source_fps: float = 30.0,
+    rotation_distance_unit: float = 6.283185307179586,  # arcdurhyb only; see e1_arc_tokenizer
 ):
     if not 0 < source_fps < float("inf"):
         raise ValueError("source_fps must be finite and positive")
@@ -141,6 +143,7 @@ def get_transform_list(
                 speed_smooth_frames=int(speed_smooth_frames),
                 progress_smooth_hz=progress_smooth_hz,
                 fixed_spacing=bool(fixed_spacing),
+                rotation_distance_unit=float(rotation_distance_unit),
             )
         )
     return tl

@@ -1,0 +1,10 @@
+defaults:
+  - checkpoints
+  - _self_
+
+# Opt in only for routed Action Flow co-training. Each private decoder must
+# have the 25 LayerNorms verified by the original U-Socket AV-only candidate.
+av_only_layer_norm:
+  _target_: egomimic.pipeline.action_flow_av_norm.AVOnlyLayerNormCallback
+  expected_norms_per_decoder: 25
+  require_routed: true

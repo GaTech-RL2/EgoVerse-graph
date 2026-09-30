@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -190,7 +191,9 @@ def validate_gpu_probes(run_dir: Path) -> list[dict[str, Any]]:
     return probes
 
 
-def step_two_artifact(config_value: Any, *, run_dir: Path, label: str) -> dict[str, Any]:
+def step_two_artifact(
+    config_value: Any, *, run_dir: Path, label: str, sources: tuple[str, ...]
+) -> dict[str, Any]:
     root = Path(str(config_value))
     if not root.is_absolute():
         root = run_dir / root
@@ -207,13 +210,31 @@ def step_two_artifact(config_value: Any, *, run_dir: Path, label: str) -> dict[s
             *root.glob("job-*-restart-*/epoch-*-step-2/rank-0-batch-*.pt"),
         ]
     )
-    require(len(paths) == 1, f"expected one step-two {label} artifact: {paths}")
-    path = paths[0]
-    payload = torch.load(path, map_location="cpu", weights_only=False)
-    require(isinstance(payload, Mapping), f"{label} artifact is not a mapping")
-    require(payload.get("global_step") == 2, f"{label} artifact is not step two")
-    finite_tree(payload, f"{label} artifact")
-    return {"path": str(path), "sha256": sha256(path), "payload": payload}
+    require(paths, f"expected step-two {label} artifact: {paths}")
+    # A two-step smoke can validate at both epoch 0 and epoch 1 while the
+    # global step remains 2. Audit every artifact, then report the latest one.
+    verified = []
+    for path in paths:
+        match = re.fullmatch(r"epoch-(\d+)-step-2", path.parent.name)
+        require(match is not None, f"unexpected {label} artifact epoch: {path}")
+        require(path.name == "rank-0-batch-0.pt", f"unexpected {label} artifact rank/batch: {path}")
+        payload = torch.load(path, map_location="cpu", weights_only=False)
+        require(isinstance(payload, Mapping), f"{label} artifact is not a mapping")
+        require(payload.get("global_step") == 2, f"{label} artifact is not step two")
+        finite_tree(payload, f"{label} artifact")
+        require_sources_in_artifact(payload, sources, label=label)
+        verified.append({"epoch": int(match.group(1)), "path": str(path), "sha256": sha256(path), "payload": payload})
+    selected = max(verified, key=lambda item: item["epoch"])
+    require(sum(item["epoch"] == selected["epoch"] for item in verified) == 1, f"duplicate latest {label} artifact")
+    return {
+        "path": selected["path"],
+        "sha256": selected["sha256"],
+        "payload": selected["payload"],
+        "verified_artifacts": [
+            {key: item[key] for key in ("epoch", "path", "sha256")}
+            for item in verified
+        ],
+    }
 
 
 def require_sources_in_artifact(
@@ -493,15 +514,13 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         config.evaluator.artifact_root,
         run_dir=run_dir,
         label="EnergyScore@32",
+        sources=sources,
     )
     diagnostic_artifact = step_two_artifact(
         config.evaluator.action_flow_diagnostics.artifact_root,
         run_dir=run_dir,
         label="Action Flow diagnostics",
-    )
-    require_sources_in_artifact(energy_artifact["payload"], sources, label="EnergyScore")
-    require_sources_in_artifact(
-        diagnostic_artifact["payload"], sources, label="Action Flow diagnostics"
+        sources=sources,
     )
 
     result = {
@@ -550,10 +569,12 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
             "energy_score": {
                 "path": energy_artifact["path"],
                 "sha256": energy_artifact["sha256"],
+                "verified_artifacts": energy_artifact["verified_artifacts"],
             },
             "action_flow_diagnostics": {
                 "path": diagnostic_artifact["path"],
                 "sha256": diagnostic_artifact["sha256"],
+                "verified_artifacts": diagnostic_artifact["verified_artifacts"],
             },
         },
         "preflight": {"path": str(preflight_path), "sha256": args.expected_preflight_sha256},

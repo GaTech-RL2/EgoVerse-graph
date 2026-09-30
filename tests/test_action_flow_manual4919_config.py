@@ -4,6 +4,9 @@ from pathlib import Path
 
 import pytest
 from hydra import compose, initialize_config_dir
+from hydra.utils import instantiate
+
+from egomimic.pipeline.pushshapes import ChainGripperPointsNativeDecoder
 
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
@@ -45,3 +48,30 @@ def test_manual4919_recipe_uses_effective_split_and_cadence(monkeypatch, row):
     assert cfg.val_at_end
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 5000
     assert cfg.callbacks.model_checkpoint.save_top_k == -1
+
+
+@pytest.mark.parametrize("row", ROWS)
+def test_manual4919_native_evaluator_decoder_instantiates(monkeypatch, row):
+    """Catch inherited Hydra kwargs before an allocated GPU smoke starts."""
+    monkeypatch.setenv("PUSHSHAPES_USOCKET_ROOT", "/verified/usocket-clean2999")
+    monkeypatch.setenv("PUSHSHAPES_CHAIN_GRIPPER_ROOT", "/verified/manual4919-view")
+    with initialize_config_dir(version_base="1.3", config_dir=str(CONFIG_DIR.resolve())):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[f"+experiment=pusht/{row}"],
+        )
+    decoder_cfg = (
+        cfg.evaluator.native_decoder
+        if row.startswith("action_flow_chain_")
+        else cfg.evaluator.native_decoders.pushshapes_sim_chain_gripper
+    )
+    decoder = instantiate(decoder_cfg)
+    assert isinstance(decoder, ChainGripperPointsNativeDecoder)
+    if row.startswith("action_flow_chain_"):
+        assert decoder_cfg.action_horizon == 16
+        assert decoder_cfg.native_action_dim == 4
+
+
+def test_chain_native_decoder_rejects_wrong_native_shape():
+    with pytest.raises(ValueError, match="native_action_dim=4"):
+        ChainGripperPointsNativeDecoder(native_action_dim=6)

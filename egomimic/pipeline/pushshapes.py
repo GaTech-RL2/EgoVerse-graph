@@ -256,7 +256,18 @@ class ChainGripperPointsNativeDecoder:
         refinements: int = 6,
         context_state_key: str = "state_agent_obj",
         previous_control_key: str = "previous_control",
+        action_horizon: int = 16,
+        native_action_dim: int = 4,
     ):
+        # The training evaluator's Hydra config inherits these two shape
+        # fields from its parent. Validate rather than silently accepting a
+        # stale binding. Points6 are transformed to the native 4D control.
+        if action_horizon < 1:
+            raise ValueError("action_horizon must be positive")
+        if native_action_dim != 4:
+            raise ValueError(
+                f"ChainGripper native control requires native_action_dim=4, got {native_action_dim}"
+            )
         self.transform = ChainGripperPoints6ToNative4(
             keys=["actions"],
             world_size=world_size,

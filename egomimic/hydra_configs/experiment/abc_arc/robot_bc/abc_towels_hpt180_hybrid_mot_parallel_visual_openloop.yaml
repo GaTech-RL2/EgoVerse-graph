@@ -1,0 +1,28 @@
+# @package _global_
+# Independent shape and velocity transformer branches run in parallel, then a
+# shared bidirectional flow-matching head consumes their concatenated tokens.
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_towels_hpt180_hybrid_visual_openloop
+  - override /model: abc_arc/hpt_yam_visual_arc_stream
+  - _self_
+
+name: abc_towels_hpt180_hybrid_mot_parallel_visual_openloop
+description: parallel shape and velocity transformers with shared FM head
+abc:
+  task_predicate: "row['task'] == 'fold and stack the towels'"
+
+hpt:
+  arc_stream_arch: mot_parallel
+  arc_stream_shape_blocks: 3
+  arc_stream_velocity_blocks: 3
+  arc_stream_fusion_blocks: 4
+
+trainer:
+  accumulate_grad_batches: 2
+
+logger:
+  wandb:
+    id: pace_abc_towels_mot_parallel_20260930
+    name: pace_abc_towels_mot_parallel_20260930
+    resume: never
+    tags: [hpt180, abc, towels, visual_only, no_language, hybrid, mot, parallel_streams, parameter_matched, open_loop, video]

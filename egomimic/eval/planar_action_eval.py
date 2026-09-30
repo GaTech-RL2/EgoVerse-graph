@@ -98,6 +98,7 @@ class PlanarActionEval(Eval):
         energy_score_validation_view: Mapping | None = None,
         energy_score_provenance: Mapping | None = None,
         energy_score_distance: Mapping | None = None,
+        energy_score_distances_by_embodiment: Mapping | None = None,
         unite_diagnostics: Mapping | None = None,
         action_flow_diagnostics: Mapping | None = None,
     ):
@@ -135,7 +136,51 @@ class PlanarActionEval(Eval):
             if energy_score_distance is None
             else normalize_usocket_energy_distance_config(energy_score_distance)
         )
-        if self.energy_score_distance is None:
+        if energy_score_distances_by_embodiment is not None:
+            if self.energy_score_distance is not None:
+                raise ValueError(
+                    "configure a global or per-embodiment EnergyScore distance, "
+                    "not both"
+                )
+            if not isinstance(energy_score_distances_by_embodiment, Mapping):
+                raise TypeError("per-embodiment EnergyScore distances must be a mapping")
+            self.energy_score_distances_by_embodiment = {
+                str(label).lower(): (
+                    None
+                    if contract is None
+                    else normalize_usocket_energy_distance_config(contract)
+                )
+                for label, contract in energy_score_distances_by_embodiment.items()
+            }
+            if not self.energy_score_distances_by_embodiment or all(
+                contract is None
+                for contract in self.energy_score_distances_by_embodiment.values()
+            ):
+                raise ValueError("per-embodiment distances need a typed domain")
+            self.energy_score_distance_metadata = {
+                "type": "per_embodiment_energy_score_distance_v1",
+                "by_embodiment": {
+                    label: (
+                        usocket_energy_distance_metadata(contract)
+                        if contract is not None
+                        else {
+                            "space": "normalized_action_chunk",
+                            "formula": "mean_equal_weight_semantic_block_rms",
+                            "semantic_blocks": self.blocks_by_embodiment.get(
+                                label, self.blocks
+                            ),
+                        }
+                    )
+                    for label, contract in self.energy_score_distances_by_embodiment.items()
+                },
+            }
+        else:
+            self.energy_score_distances_by_embodiment = None
+        if self.energy_score_distance is not None:
+            self.energy_score_distance_metadata = usocket_energy_distance_metadata(
+                self.energy_score_distance
+            )
+        elif self.energy_score_distances_by_embodiment is None:
             self.energy_score_distance_metadata = {
                 "space": "normalized_action_chunk",
                 "formula": "mean_equal_weight_semantic_block_rms",
@@ -148,10 +193,6 @@ class PlanarActionEval(Eval):
                     else {"semantic_blocks": self.blocks}
                 ),
             }
-        else:
-            self.energy_score_distance_metadata = usocket_energy_distance_metadata(
-                self.energy_score_distance
-            )
         self.unite_diagnostics = (
             self._metadata_copy(
                 unite_diagnostics,
@@ -687,6 +728,14 @@ class PlanarActionEval(Eval):
             raise KeyError(f"Unknown Planar embodiment id {embodiment_id}")
         return self.blocks_by_embodiment.get(name.lower(), self.blocks)
 
+    def _energy_distance_contract(self, embodiment_id):
+        if self.energy_score_distances_by_embodiment is None:
+            return self.energy_score_distance
+        name = get_embodiment(embodiment_id)
+        if name is None or name.lower() not in self.energy_score_distances_by_embodiment:
+            raise KeyError(f"No EnergyScore distance configured for {name!r}")
+        return self.energy_score_distances_by_embodiment[name.lower()]
+
     @staticmethod
     def _native_mse_by_condition(prediction, target, decoder):
         """Measure native Planar chunks with a circular theta residual."""
@@ -718,7 +767,8 @@ class PlanarActionEval(Eval):
         if samples.ndim != 4 or samples.shape[0] != 32:
             raise ValueError("EnergyScore@32 requires exactly 32 samples")
         distance_fn = None
-        if self.energy_score_distance is not None:
+        distance_contract = self._energy_distance_contract(embodiment_id)
+        if distance_contract is not None:
             decoder = self._native_decoder(embodiment_id)
             self._require_usocket_decoder(decoder)
 
@@ -728,7 +778,7 @@ class PlanarActionEval(Eval):
                     right,
                     self._native(left, embodiment_id, decoder),
                     self._native(right, embodiment_id, decoder),
-                    config=self.energy_score_distance,
+                    config=distance_contract,
                 )
 
         values = {
@@ -838,11 +888,29 @@ class PlanarActionEval(Eval):
             )
 
         distance_contract = provenance.get("distance_contract")
-        normalized_distance = normalize_usocket_energy_distance_config(
-            distance_contract
-        )
-        if normalized_distance != self.energy_score_distance:
-            raise ValueError("EnergyScore provenance distance contract differs")
+        if self.energy_score_distances_by_embodiment is None:
+            normalized_distance = normalize_usocket_energy_distance_config(
+                distance_contract
+            )
+            if normalized_distance != self.energy_score_distance:
+                raise ValueError("EnergyScore provenance distance contract differs")
+        else:
+            if not isinstance(distance_contract, Mapping):
+                raise TypeError("per-embodiment provenance distance must be a mapping")
+            if set(distance_contract) != set(self.energy_score_distances_by_embodiment):
+                raise ValueError("EnergyScore provenance domain distances differ")
+            if set(distance_contract) != set(domains):
+                raise ValueError("EnergyScore artifact domains differ from distance contract")
+            for label, contract in distance_contract.items():
+                normalized = (
+                    None
+                    if contract is None
+                    else normalize_usocket_energy_distance_config(contract)
+                )
+                if normalized != self.energy_score_distances_by_embodiment[label]:
+                    raise ValueError(
+                        f"EnergyScore provenance distance contract differs for {label}"
+                    )
 
         config_path = Path(str(provenance.get("resolved_config_path", ""))).expanduser()
         try:
@@ -996,6 +1064,10 @@ class PlanarActionEval(Eval):
         domains = {}
         if set(samples) != set(scores) or set(samples) != set(batch):
             raise ValueError("Energy Score source identities do not match")
+        typed_distance = (
+            self.energy_score_distance is not None
+            or self.energy_score_distances_by_embodiment is not None
+        )
         for source_id, predictions in samples.items():
             embodiment_id, name = self._embodiment(batch[source_id])
             if name in domains:
@@ -1014,10 +1086,11 @@ class PlanarActionEval(Eval):
                 .cpu(),
                 "score_by_condition": values["score_by_condition"].float().cpu(),
             }
-            if self.energy_score_distance is not None:
+            if typed_distance:
+                domain["condition_ids"] = self._condition_ids(batch[source_id], target)
+            if self._energy_distance_contract(embodiment_id) is not None:
                 decoder = self._native_decoder(embodiment_id)
                 self._require_usocket_decoder(decoder)
-                domain["condition_ids"] = self._condition_ids(batch[source_id], target)
                 domain["native_predictions"] = (
                     self._native(predictions, embodiment_id, decoder)
                     .detach()
@@ -1053,7 +1126,7 @@ class PlanarActionEval(Eval):
             "provenance": self.energy_score_provenance,
             "domains": domains,
         }
-        if self.energy_score_distance is not None:
+        if typed_distance:
             payload["schema_version"] = 2
             identity = self._typed_artifact_identity(
                 domains=domains,

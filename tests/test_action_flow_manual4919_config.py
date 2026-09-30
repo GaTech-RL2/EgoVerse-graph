@@ -5,7 +5,10 @@ from pathlib import Path
 import pytest
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
+from egomimic.eval.energy_score import USOCKET_ENERGY_DISTANCE_CONFIG
+from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.pipeline.pushshapes import ChainGripperPointsNativeDecoder
 
 
@@ -76,3 +79,48 @@ def test_manual4919_native_evaluator_decoder_instantiates(monkeypatch, row):
 def test_chain_native_decoder_rejects_wrong_native_shape():
     with pytest.raises(ValueError, match="native_action_dim=4"):
         ChainGripperPointsNativeDecoder(native_action_dim=6)
+
+
+def test_manual4919_cotrain_resolves_per_domain_energy_distance(monkeypatch):
+    monkeypatch.setenv("PUSHSHAPES_USOCKET_ROOT", "/verified/usocket-clean2999")
+    monkeypatch.setenv("PUSHSHAPES_CHAIN_GRIPPER_ROOT", "/verified/manual4919-view")
+    with initialize_config_dir(version_base="1.3", config_dir=str(CONFIG_DIR.resolve())):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "+experiment=pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42"
+            ],
+        )
+    assert cfg.evaluator.energy_score_distance is None
+    distances = OmegaConf.to_container(
+        cfg.evaluator.energy_score_distances_by_embodiment, resolve=True
+    )
+    assert distances == {
+        "pushshapes_sim_u_socket": {
+            **USOCKET_ENERGY_DISTANCE_CONFIG,
+            "complete_normalized_chunk_shape": [16, 4],
+            "normalized_translation_indices": [0, 1],
+        },
+        "pushshapes_sim_chain_gripper": None,
+    }
+    assert OmegaConf.to_container(
+        cfg.evaluator.energy_score_provenance.distance_contract, resolve=True
+    ) == distances
+    assert OmegaConf.to_container(
+        cfg.run_provenance.energy_score_contract.distance, resolve=True
+    ) == distances
+    assert cfg.evaluator.action_flow_diagnostics.native_error is None
+    evaluator = PlanarActionEval(
+        energy_score_enabled=False,
+        native_decoders={
+            label: instantiate(decoder)
+            for label, decoder in cfg.evaluator.native_decoders.items()
+        },
+        semantic_blocks_by_embodiment=OmegaConf.to_container(
+            cfg.evaluator.semantic_blocks_by_embodiment, resolve=True
+        ),
+        energy_score_distances_by_embodiment=distances,
+    )
+    assert set(evaluator.energy_score_distance_metadata["by_embodiment"]) == set(
+        distances
+    )

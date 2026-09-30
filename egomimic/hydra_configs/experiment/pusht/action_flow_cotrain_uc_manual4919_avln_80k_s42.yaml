@@ -7,11 +7,32 @@ defaults:
 name: action_flow_cotrain_uc_manual4919_avln_80k_s42
 description: "Manual U-Socket 2999 + ChainGripper 3000 standard/1919 obstacle recollections Action Flow AV-LN"
 evaluator:
+  # Co-training has unlike action spaces. Keep the U-Socket circular native
+  # theta metric, while ChainGripper uses its existing normalized points6
+  # semantic-block metric. A single global U-Socket distance is invalid here.
+  energy_score_distance: null
+  energy_score_distances_by_embodiment:
+    pushshapes_sim_u_socket:
+      type: usocket_normalized_xy_wrapped_theta_v1
+      complete_normalized_chunk_shape: [16, 4]
+      normalized_translation_indices: [0, 1]
+      native_theta_index: 2
+      rotation_scale_radians: 3.141592653589793
+      semantic_weights: {translation: 0.5, rotation: 0.5}
+      native_decoder: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+    pushshapes_sim_chain_gripper: null
+  energy_score_provenance:
+    distance_contract: ${evaluator.energy_score_distances_by_embodiment}
+    action_representation:
+      pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
+      pushshapes_sim_chain_gripper: left_xy_center_xy_right_xy_points6
   action_flow_diagnostics:
     # This typed diagnostic accepts only U-Socket decoders, whereas co-training
     # also validates ChainGripper. Native MSE and EnergyScore stay enabled.
     native_error: null
 run_provenance:
+  energy_score_contract:
+    distance: ${evaluator.energy_score_distances_by_embodiment}
   train_episode_count_per_domain:
     pushshapes_sim_u_socket: 2970
     pushshapes_sim_chain_gripper: 4870

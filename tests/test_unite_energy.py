@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import copy
 from types import SimpleNamespace
 
 import pytest
@@ -14,7 +15,10 @@ from egomimic.eval.energy_score import (
     usocket_energy_distance_metadata,
 )
 from egomimic.eval.planar_action_eval import PlanarActionEval
-from egomimic.pipeline.pushshapes import USocketRotVecNativeDecoder
+from egomimic.pipeline.pushshapes import (
+    ChainGripperPointsNativeDecoder,
+    USocketRotVecNativeDecoder,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -557,3 +561,108 @@ def test_generic_energy_score_selects_semantic_blocks_by_embodiment(tmp_path):
         "fallback_semantic_blocks": ((0, 2), (2, 4)),
         "semantic_blocks_by_embodiment": blocks,
     }
+
+
+def test_cotrain_energy_score_routes_distance_and_audits_both_domains(tmp_path):
+    historical, run_dir, _, _ = _typed_evaluator(tmp_path)
+    contracts = {
+        "pushshapes_sim_u_socket": USOCKET_ENERGY_DISTANCE_CONFIG,
+        "pushshapes_sim_chain_gripper": None,
+    }
+    provenance = copy.deepcopy(historical.energy_score_provenance)
+    provenance["distance_contract"] = contracts
+
+    class RoutedIdentityNormalizer:
+        @staticmethod
+        def unnormalize(values, embodiment_id):
+            assert embodiment_id in (19, 20)
+            return values
+
+    evaluator = PlanarActionEval(
+        seed_bank_path=str(tmp_path / "energy-seeds.json"),
+        seed_bank_sha256=historical.seed_bank_sha256,
+        artifact_root=str(run_dir / "cotrain-energy"),
+        deterministic_seed=0,
+        native_decoders={
+            "pushshapes_sim_u_socket": USocketRotVecNativeDecoder(),
+            "pushshapes_sim_chain_gripper": ChainGripperPointsNativeDecoder(),
+        },
+        semantic_blocks_by_embodiment={
+            "pushshapes_sim_u_socket": ((0, 2), (2, 4)),
+            "pushshapes_sim_chain_gripper": ((0, 2), (2, 4), (4, 6)),
+        },
+        energy_score_distances_by_embodiment=contracts,
+        energy_score_validation_view=historical.energy_score_validation_view,
+        energy_score_provenance=provenance,
+    )
+    evaluator.bind_data_context(normalizer=RoutedIdentityNormalizer())
+    evaluator.trainer = SimpleNamespace(
+        current_epoch=0, global_step=2, global_rank=0, precision="bf16-mixed"
+    )
+
+    u_target = _rotvec(math.pi - 0.1)
+    u_sample = _rotvec(-math.pi + 0.1)
+    c_target = torch.zeros(2, 16, 6)
+    c_sample = c_target.clone()
+    c_sample[..., 0] = 1.0
+    # The synthetic fixture starts as [B,K,H,A]; the evaluator's metric
+    # interface consumes the same samples in canonical [K,B,H,A] order.
+    samples_bkha = {
+        "u": u_sample[:, None].expand(-1, 32, -1, -1),
+        "c": c_sample[:, None].expand(-1, 32, -1, -1),
+    }
+    samples = {
+        source: value.permute(1, 0, 2, 3).contiguous()
+        for source, value in samples_bkha.items()
+    }
+    batch = {
+        "u": {
+            "actions": u_target,
+            "embodiment": torch.full((2,), 19),
+            "episode_hash": ["u0", "u1"],
+            "frame_index": torch.tensor([3, 4]),
+        },
+        "c": {
+            "actions": c_target,
+            "embodiment": torch.full((2,), 20),
+            "episode_hash": ["c0", "c1"],
+            "frame_index": torch.tensor([5, 6]),
+        },
+    }
+    scores = {
+        "u": evaluator._energy_values(samples["u"], u_target, 19),
+        "c": evaluator._energy_values(samples["c"], c_target, 20),
+    }
+    assert scores["u"]["score"].item() == pytest.approx(0.1 / math.pi, rel=1e-5)
+    assert scores["c"]["score"].item() == pytest.approx(
+        math.sqrt(1.0 / 2.0) / 3.0, rel=1e-5
+    )
+    assert scores["u"]["diversity"].item() == pytest.approx(0.0)
+    assert scores["c"]["diversity"].item() == pytest.approx(0.0)
+
+    evaluator._save_artifact(0, samples, scores, batch)
+    artifact = torch.load(
+        run_dir / "cotrain-energy/epoch-0-step-2/rank-0-batch-0.pt",
+        map_location="cpu",
+        weights_only=True,
+    )
+    assert artifact["schema_version"] == 2
+    assert artifact["identity"]["source_commit"] == "a" * 40
+    assert artifact["identity"]["distance"] == (
+        evaluator.energy_score_distance_metadata
+    )
+    assert artifact["provenance"]["distance_contract"] == (
+        evaluator.energy_score_provenance["distance_contract"]
+    )
+    assert set(artifact["domains"]) == set(contracts)
+    assert "native_predictions" in artifact["domains"]["pushshapes_sim_u_socket"]
+    assert "native_predictions" not in artifact["domains"]["pushshapes_sim_chain_gripper"]
+    for domain in artifact["domains"].values():
+        assert len(domain["condition_ids"]) == 2
+        assert torch.isfinite(domain["score_by_condition"]).all()
+
+    altered = copy.deepcopy(provenance)
+    altered["distance_contract"]["pushshapes_sim_u_socket"]["rotation_scale_radians"] = 1.0
+    evaluator.energy_score_provenance = altered
+    with pytest.raises(ValueError, match="unsupported USocket EnergyScore distance"):
+        evaluator._typed_artifact_identity(domains=artifact["domains"], global_step=2)

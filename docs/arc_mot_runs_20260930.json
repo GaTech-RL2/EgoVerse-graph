@@ -2,10 +2,10 @@
   "created_at": "2026-09-30T06:04:07.400831+00:00",
   "runs": [
     {
-      "run_id": "arc-mot-20260930-xyz-spatial",
+      "run_id": "arc-mot-20260930-xyz-spatial-r1",
       "variant": "mot_xyz_rot_gripper",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "98da3406983e25f304437cafee90764f337f8e949d6590448fee3a7bd997cd19",
+      "spec_sha256": "76da4f5d7cf332e06ba955c37a98392bcfd5f0819f440e49ab1c9324ea536483",
       "pool": "groot-l40s-03",
       "priority": "NORMAL",
       "training_gpus": 8,
@@ -14,14 +14,12 @@
       "epochs": 5001,
       "optimizer_steps": 270054,
       "global_batch_size": 1024,
-      "evaluation_run": "arc-mot-20260930-xyz-spatial-eval",
+      "evaluation_run": "arc-mot-20260930-xyz-spatial-r1-eval",
       "evaluation_episodes": 2500,
-      "workflow": "arc-mot-20260930-xyz-spatial-2",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-2",
       "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
-      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial/",
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial-r1/",
       "decoder_parameters": 4790284,
       "decoder_reference_parameters": 4791564,
       "decoder_parameter_delta_fraction": -0.00026713615846518657,
@@ -65,13 +63,135 @@
           "spec_sha256": "645ac4b553e3cb02079b521e99852d97fef3877f3006fe61ddd76f62da03e317",
           "reason": "Missing azurelustre CSI mount driver; zero training steps"
         }
-      ]
+      ],
+      "resume_from_run": "arc-mot-20260930-xyz-spatial",
+      "preempted_runs": [
+        {
+          "run_id": "arc-mot-20260930-xyz-spatial",
+          "variant": "mot_xyz_rot_gripper",
+          "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+          "spec_sha256": "98da3406983e25f304437cafee90764f337f8e949d6590448fee3a7bd997cd19",
+          "pool": "groot-l40s-03",
+          "priority": "NORMAL",
+          "training_gpus": 8,
+          "gpu_type": "L40S",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "optimizer_steps": 270054,
+          "global_batch_size": 1024,
+          "evaluation_run": "arc-mot-20260930-xyz-spatial-eval",
+          "evaluation_episodes": 2500,
+          "workflow": "arc-mot-20260930-xyz-spatial-2",
+          "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-2",
+          "training_storage": "240Gi",
+          "evaluation_gpus": 1,
+          "evaluation_workers": 5,
+          "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial/",
+          "decoder_parameters": 4790284,
+          "decoder_reference_parameters": 4791564,
+          "decoder_parameter_delta_fraction": -0.00026713615846518657,
+          "decoder_total_layers": 4,
+          "decoder_layers_per_stream": 4,
+          "decoder_tokens": 96,
+          "mot_architecture": {
+            "variant": "mot_xyz_rot_gripper",
+            "width": 160,
+            "layers": 4,
+            "heads": 4,
+            "feedforward": 536,
+            "modalities": {
+              "xyz": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "rot": [
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "gripper": [
+                11
+              ]
+            },
+            "blocked_attention": [],
+            "budget": "total_parameters_approx",
+            "reference_parameters": 4791564,
+            "parameter_tolerance_fraction": 0.002
+          },
+          "replaced_unstarted_workflows": [
+            {
+              "workflow": "arc-mot-20260930-xyz-spatial-1",
+              "spec_sha256": "645ac4b553e3cb02079b521e99852d97fef3877f3006fe61ddd76f62da03e317",
+              "reason": "Missing azurelustre CSI mount driver; zero training steps"
+            }
+          ],
+          "status": "FAILED_CANCELED",
+          "cancelled_by": "groot-idle-job-shutdown",
+          "end_time": "2026-09-30T12:57:41.550384",
+          "reason": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 07e8411d2df64514b3d4c79998f32fe4: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+        }
+      ],
+      "resume_checkpoint": {
+        "run_id": "arc-mot-20260930-xyz-spatial",
+        "receipt": {
+          "sha256": "48c2d00500d1879b8a89865481e8335d0b44c1b66dc76cfedc3aae52b4679062",
+          "bytes": 435761011,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial/checkpoints/48c2d00500d1879b8a89865481e8335d0b44c1b66dc76cfedc3aae52b4679062/last.ckpt"
+        },
+        "global_step": 201960,
+        "ema_num_updates": 201960,
+        "epochs_completed": 3739,
+        "training_budget": {
+          "train_examples": 55861,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 54,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "evaluation": null
+      },
+      "workflow": "arc-mot-20260930-xyz-spatial-r1-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-r1-1",
+      "last_observed": {
+        "at": "2026-09-30T15:54:22.226996+00:00",
+        "workflow": "arc-mot-20260930-xyz-spatial-r1-1",
+        "status": "RUNNING",
+        "tasks": [
+          {
+            "name": "evaluate",
+            "status": "WAITING",
+            "started": null,
+            "ended": null,
+            "node": null,
+            "failure": null
+          },
+          {
+            "name": "train",
+            "status": "RUNNING",
+            "started": "2026-09-30T15:51:55.292719",
+            "ended": null,
+            "node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-5289",
+            "failure": null
+          }
+        ]
+      }
     },
     {
-      "run_id": "arc-mot-20260930-velshape-spatial",
+      "run_id": "arc-mot-20260930-velshape-spatial-r1",
       "variant": "mot_shape_velocity",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "4e73300882776c632e1a8d38da5b228d83bac1c7ed30cb563af79e398b45592f",
+      "spec_sha256": "30cd1d7ac24464922a512d403c823a50c073ab77c558442df10ad67bb9c5b3f4",
       "pool": "groot-l40s-03",
       "priority": "NORMAL",
       "training_gpus": 8,
@@ -80,14 +200,12 @@
       "epochs": 5001,
       "optimizer_steps": 270054,
       "global_batch_size": 1024,
-      "evaluation_run": "arc-mot-20260930-velshape-spatial-eval",
+      "evaluation_run": "arc-mot-20260930-velshape-spatial-r1-eval",
       "evaluation_episodes": 2500,
-      "workflow": "arc-mot-20260930-velshape-spatial-2",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-2",
       "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
-      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial/",
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial-r1/",
       "decoder_parameters": 4787532,
       "decoder_reference_parameters": 4791564,
       "decoder_parameter_delta_fraction": -0.0008414788991653044,
@@ -129,13 +247,133 @@
           "spec_sha256": "634ee30fcb4b2b56dbc1ba0a138bfe039477775ef4c726c5c906ce3869d14720",
           "reason": "Missing azurelustre CSI mount driver; zero training steps"
         }
-      ]
+      ],
+      "resume_from_run": "arc-mot-20260930-velshape-spatial",
+      "preempted_runs": [
+        {
+          "run_id": "arc-mot-20260930-velshape-spatial",
+          "variant": "mot_shape_velocity",
+          "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+          "spec_sha256": "4e73300882776c632e1a8d38da5b228d83bac1c7ed30cb563af79e398b45592f",
+          "pool": "groot-l40s-03",
+          "priority": "NORMAL",
+          "training_gpus": 8,
+          "gpu_type": "L40S",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "optimizer_steps": 270054,
+          "global_batch_size": 1024,
+          "evaluation_run": "arc-mot-20260930-velshape-spatial-eval",
+          "evaluation_episodes": 2500,
+          "workflow": "arc-mot-20260930-velshape-spatial-2",
+          "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-2",
+          "training_storage": "240Gi",
+          "evaluation_gpus": 1,
+          "evaluation_workers": 5,
+          "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial/",
+          "decoder_parameters": 4787532,
+          "decoder_reference_parameters": 4791564,
+          "decoder_parameter_delta_fraction": -0.0008414788991653044,
+          "decoder_total_layers": 4,
+          "decoder_layers_per_stream": 4,
+          "decoder_tokens": 64,
+          "mot_architecture": {
+            "variant": "mot_shape_velocity",
+            "width": 192,
+            "layers": 4,
+            "heads": 4,
+            "feedforward": 672,
+            "modalities": {
+              "shape": [
+                0,
+                1,
+                2,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                11
+              ],
+              "velocity": [
+                3,
+                10
+              ]
+            },
+            "blocked_attention": [],
+            "budget": "total_parameters_approx",
+            "reference_parameters": 4791564,
+            "parameter_tolerance_fraction": 0.002
+          },
+          "replaced_unstarted_workflows": [
+            {
+              "workflow": "arc-mot-20260930-velshape-spatial-1",
+              "spec_sha256": "634ee30fcb4b2b56dbc1ba0a138bfe039477775ef4c726c5c906ce3869d14720",
+              "reason": "Missing azurelustre CSI mount driver; zero training steps"
+            }
+          ],
+          "status": "FAILED_CANCELED",
+          "cancelled_by": "groot-idle-job-shutdown",
+          "end_time": "2026-09-30T12:52:31.194366",
+          "reason": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement d7a2fcf724f8408690844b980ece4260: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+        }
+      ],
+      "resume_checkpoint": {
+        "run_id": "arc-mot-20260930-velshape-spatial",
+        "receipt": {
+          "sha256": "15c351e36ccfedaa29c7e22987c7c529e5b54ea0c2adc42887adc728812480b6",
+          "bytes": 435570361,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial/checkpoints/15c351e36ccfedaa29c7e22987c7c529e5b54ea0c2adc42887adc728812480b6/last.ckpt"
+        },
+        "global_step": 198180,
+        "ema_num_updates": 198180,
+        "epochs_completed": 3669,
+        "training_budget": {
+          "train_examples": 55861,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 54,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "evaluation": null
+      },
+      "workflow": "arc-mot-20260930-velshape-spatial-r1-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-r1-1",
+      "last_observed": {
+        "at": "2026-09-30T15:54:22.586709+00:00",
+        "workflow": "arc-mot-20260930-velshape-spatial-r1-1",
+        "status": "FAILED_CANCELED",
+        "tasks": [
+          {
+            "name": "evaluate",
+            "status": "FAILED_CANCELED",
+            "started": null,
+            "ended": "2026-09-30T15:52:31.478689",
+            "node": null,
+            "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement d7878533ad584ae491b1143c89932d56: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+          },
+          {
+            "name": "train",
+            "status": "FAILED_CANCELED",
+            "started": "2026-09-30T15:52:04.534718",
+            "ended": "2026-09-30T15:52:31.490522",
+            "node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-6603",
+            "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement d7878533ad584ae491b1143c89932d56: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+          }
+        ]
+      }
     },
     {
-      "run_id": "arc-mot-20260930-masked-spatial",
+      "run_id": "arc-mot-20260930-masked-spatial-r1",
       "variant": "mot_shape_velocity_masked",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "c516119a140837eb87027face3381ba26cc9ed8aa1b5ac2931d2cb97da13ced3",
+      "spec_sha256": "082c1a1405e7a8f97b3fd64755c94e8454250a827235e54a8718affab1869027",
       "pool": "groot-l40s-03",
       "priority": "NORMAL",
       "training_gpus": 8,
@@ -144,14 +382,12 @@
       "epochs": 5001,
       "optimizer_steps": 270054,
       "global_batch_size": 1024,
-      "evaluation_run": "arc-mot-20260930-masked-spatial-eval",
+      "evaluation_run": "arc-mot-20260930-masked-spatial-r1-eval",
       "evaluation_episodes": 2500,
-      "workflow": "arc-mot-20260930-masked-spatial-2",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-2",
       "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
-      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial/",
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial-r1/",
       "decoder_parameters": 4787532,
       "decoder_reference_parameters": 4791564,
       "decoder_parameter_delta_fraction": -0.0008414788991653044,
@@ -198,7 +434,132 @@
           "spec_sha256": "24c126d6b911b4a83a01c1bb70ef2e105f45329097bfe3394c75a4b9fc133a51",
           "reason": "Missing azurelustre CSI mount driver; zero training steps"
         }
-      ]
+      ],
+      "resume_from_run": "arc-mot-20260930-masked-spatial",
+      "preempted_runs": [
+        {
+          "run_id": "arc-mot-20260930-masked-spatial",
+          "variant": "mot_shape_velocity_masked",
+          "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+          "spec_sha256": "c516119a140837eb87027face3381ba26cc9ed8aa1b5ac2931d2cb97da13ced3",
+          "pool": "groot-l40s-03",
+          "priority": "NORMAL",
+          "training_gpus": 8,
+          "gpu_type": "L40S",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "optimizer_steps": 270054,
+          "global_batch_size": 1024,
+          "evaluation_run": "arc-mot-20260930-masked-spatial-eval",
+          "evaluation_episodes": 2500,
+          "workflow": "arc-mot-20260930-masked-spatial-2",
+          "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-2",
+          "training_storage": "240Gi",
+          "evaluation_gpus": 1,
+          "evaluation_workers": 5,
+          "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial/",
+          "decoder_parameters": 4787532,
+          "decoder_reference_parameters": 4791564,
+          "decoder_parameter_delta_fraction": -0.0008414788991653044,
+          "decoder_total_layers": 4,
+          "decoder_layers_per_stream": 4,
+          "decoder_tokens": 64,
+          "mot_architecture": {
+            "variant": "mot_shape_velocity_masked",
+            "width": 192,
+            "layers": 4,
+            "heads": 4,
+            "feedforward": 672,
+            "modalities": {
+              "shape": [
+                0,
+                1,
+                2,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                11
+              ],
+              "velocity": [
+                3,
+                10
+              ]
+            },
+            "blocked_attention": [
+              [
+                "shape",
+                "velocity"
+              ]
+            ],
+            "budget": "total_parameters_approx",
+            "reference_parameters": 4791564,
+            "parameter_tolerance_fraction": 0.002
+          },
+          "replaced_unstarted_workflows": [
+            {
+              "workflow": "arc-mot-20260930-masked-spatial-1",
+              "spec_sha256": "24c126d6b911b4a83a01c1bb70ef2e105f45329097bfe3394c75a4b9fc133a51",
+              "reason": "Missing azurelustre CSI mount driver; zero training steps"
+            }
+          ],
+          "status": "FAILED_CANCELED",
+          "cancelled_by": "groot-idle-job-shutdown",
+          "end_time": "2026-09-30T12:57:34.131186",
+          "reason": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 07e8411d2df64514b3d4c79998f32fe4: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+        }
+      ],
+      "resume_checkpoint": {
+        "run_id": "arc-mot-20260930-masked-spatial",
+        "receipt": {
+          "sha256": "46a24279603cb8953bda707051186b6a7c70898d7cca205eafb013fb452465e0",
+          "bytes": 435571321,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial/checkpoints/46a24279603cb8953bda707051186b6a7c70898d7cca205eafb013fb452465e0/last.ckpt"
+        },
+        "global_step": 205200,
+        "ema_num_updates": 205200,
+        "epochs_completed": 3799,
+        "training_budget": {
+          "train_examples": 55861,
+          "microbatch_size": 128,
+          "world_size": 8,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 54,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "evaluation": null
+      },
+      "workflow": "arc-mot-20260930-masked-spatial-r1-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-r1-1",
+      "last_observed": {
+        "at": "2026-09-30T15:54:23.115804+00:00",
+        "workflow": "arc-mot-20260930-masked-spatial-r1-1",
+        "status": "PENDING",
+        "tasks": [
+          {
+            "name": "evaluate",
+            "status": "WAITING",
+            "started": null,
+            "ended": null,
+            "node": null,
+            "failure": null
+          },
+          {
+            "name": "train",
+            "status": "INITIALIZING",
+            "started": null,
+            "ended": null,
+            "node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-8004",
+            "failure": null
+          }
+        ]
+      }
     }
   ],
   "reference_run": "arc-dpr-20260925-stk2-spatial",
@@ -240,12 +601,11 @@
     "sha256": "baeb78c35c408e59ae7e4b031e43a35ab2b69e2e2d6f6d33451b898e0ded3372"
   },
   "report": {
-    "workflow": "arc-mot-20260930-report-2",
-    "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-report-2",
+    "workflow": "arc-mot-20260930-report-r1-1",
+    "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-report-r1-1",
     "gpus": 0,
     "cpus": 2,
     "script_sha256": "c36701aee232e5d8956f39387aeb86a8179d76904fededfd969a61a864b4a310",
-    "spec_sha256": "6d8256ad37096c36aa263a24c86ce72cbe6e8a7b002ae3431de8f444e336b090",
     "artifacts": "s3://rldb/experiments/arc-oat-20260919/campaigns/arc-mot-20260930-spatial/",
     "files": [
       "manifest.json",
@@ -253,6 +613,23 @@
       "table.md",
       "results.json"
     ],
-    "replaced_workflow": "arc-mot-20260930-report-1"
-  }
+    "replaced_workflow": "arc-mot-20260930-report-2",
+    "spec_sha256": "bca54e0905c64edb2602f8712440add66e615f4ee3c8343e91181360dc939539",
+    "last_observed": {
+      "at": "2026-09-30T15:54:21.875343+00:00",
+      "workflow": "arc-mot-20260930-report-r1-1",
+      "status": "PENDING",
+      "tasks": [
+        {
+          "name": "report",
+          "status": "INITIALIZING",
+          "started": null,
+          "ended": null,
+          "node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-2739",
+          "failure": null
+        }
+      ]
+    }
+  },
+  "resumed_at": "2026-09-30T15:53:29.620222+00:00"
 }

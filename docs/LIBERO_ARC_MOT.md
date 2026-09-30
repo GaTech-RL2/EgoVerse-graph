@@ -88,3 +88,19 @@ for every expert, and exact masked shape independence over ten DDIM steps.
 These small synthetic checks use one already allocated GPU. Each workflow
 additionally enforces its own eight-GPU training/checkpoint and simulator
 preflights before full training; those receipts are uploaded with the run.
+
+On September 30, 2026 at 12:52–12:57 UTC, the cluster quota controller
+preempted all three full runs to reclaim P2 shared capacity. Downloaded and
+SHA-256-verified checkpoints preserve 201,960 updates for xyz/rotation/gripper,
+198,180 for shape/velocity, and 205,200 for masked shape/velocity, out of
+270,054 required updates. Each has optimizer and normalization state and an
+EMA update count equal to its global step. Recovery workflows use new artifact
+prefixes and preserve the original source, NORMAL priority, pool, eight-L40S
+layout, training budget, and dependent evaluation. The manifest records the
+original workflows, checkpoint receipts, and recovery workflows.
+
+At 15:54 UTC, the xyz recovery container was running, the masked recovery was
+initializing, and the quota controller had preempted the shape/velocity recovery
+again after 27 seconds. No MoT evaluation has started. Finishing the comparison
+still requires stable L40S capacity; recovery submissions are not retried in a
+loop or promoted to a higher priority.

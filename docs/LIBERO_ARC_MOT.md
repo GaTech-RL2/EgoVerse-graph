@@ -82,5 +82,9 @@ when experts have identical weights, exercise all cross-modality paths and
 forbidden gradients, check temporal causality and output channel order, test
 all ten DDIM steps for masking leaks, and exercise actual shared training,
 optimizer groups, EMA checkpoint resume and physical-action inference.
-All 75 focused CPU tests pass. GPU/simulator preflights are enforced by each
-workflow before full training, and their receipts are uploaded with the run.
+All 75 focused CPU tests pass. Separate [full-size L40S checks](arc_mot_gpu_validation_20260930.json)
+also pass for all three models: bfloat16 forward/backward, finite gradients
+for every expert, and exact masked shape independence over ten DDIM steps.
+These small synthetic checks use one already allocated GPU. Each workflow
+additionally enforces its own eight-GPU training/checkpoint and simulator
+preflights before full training; those receipts are uploaded with the run.

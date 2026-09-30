@@ -2,24 +2,24 @@
   "created_at": "2026-09-30T06:04:07.400831+00:00",
   "runs": [
     {
-      "run_id": "arc-mot-20260930-xyz-spatial-r1",
+      "run_id": "arc-mot-20260930-xyz-spatial-r2",
       "variant": "mot_xyz_rot_gripper",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "76da4f5d7cf332e06ba955c37a98392bcfd5f0819f440e49ab1c9324ea536483",
-      "pool": "groot-l40s-03",
+      "spec_sha256": "0dc4e78e36322f4587c61c1c39d097d50f49b2f2bf63ad7164cba6796988fee2",
+      "pool": "groot-l40s-01",
       "priority": "NORMAL",
-      "training_gpus": 8,
+      "training_gpus": 4,
       "gpu_type": "L40S",
       "suite": "libero_spatial",
       "epochs": 5001,
       "optimizer_steps": 270054,
       "global_batch_size": 1024,
-      "evaluation_run": "arc-mot-20260930-xyz-spatial-r1-eval",
+      "evaluation_run": "arc-mot-20260930-xyz-spatial-r2-eval",
       "evaluation_episodes": 2500,
       "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
-      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial-r1/",
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial-r2/",
       "decoder_parameters": 4790284,
       "decoder_reference_parameters": 4791564,
       "decoder_parameter_delta_fraction": -0.00026713615846518657,
@@ -161,51 +161,107 @@
         },
         "evaluation": null
       },
-      "workflow": "arc-mot-20260930-xyz-spatial-r1-1",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-r1-1",
+      "training_layout": {
+        "world_size": 4,
+        "microbatch_size": 256,
+        "gradient_accumulation": 1,
+        "global_batch_size": 1024
+      },
+      "preempted_recoveries": [
+        {
+          "run_id": "arc-mot-20260930-xyz-spatial-r1",
+          "variant": "mot_xyz_rot_gripper",
+          "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+          "spec_sha256": "76da4f5d7cf332e06ba955c37a98392bcfd5f0819f440e49ab1c9324ea536483",
+          "pool": "groot-l40s-03",
+          "priority": "NORMAL",
+          "training_gpus": 8,
+          "gpu_type": "L40S",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "optimizer_steps": 270054,
+          "global_batch_size": 1024,
+          "evaluation_run": "arc-mot-20260930-xyz-spatial-r1-eval",
+          "evaluation_episodes": 2500,
+          "training_storage": "240Gi",
+          "evaluation_gpus": 1,
+          "evaluation_workers": 5,
+          "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-xyz-spatial-r1/",
+          "decoder_parameters": 4790284,
+          "decoder_reference_parameters": 4791564,
+          "decoder_parameter_delta_fraction": -0.00026713615846518657,
+          "decoder_total_layers": 4,
+          "decoder_layers_per_stream": 4,
+          "decoder_tokens": 96,
+          "resume_from_run": "arc-mot-20260930-xyz-spatial",
+          "workflow": "arc-mot-20260930-xyz-spatial-r1-1",
+          "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-r1-1",
+          "last_observed": {
+            "workflow": "arc-mot-20260930-xyz-spatial-r1-1",
+            "status": "FAILED_CANCELED",
+            "tasks": [
+              {
+                "name": "evaluate",
+                "status": "FAILED_CANCELED",
+                "started": null,
+                "ended": "2026-09-30T16:02:55.906452",
+                "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 346b3031f36140b9a461dfd272047c9a: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+              },
+              {
+                "name": "train",
+                "status": "FAILED_CANCELED",
+                "started": "2026-09-30T15:51:55.292719",
+                "ended": "2026-09-30T16:02:55.922694",
+                "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 346b3031f36140b9a461dfd272047c9a: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+              }
+            ]
+          }
+        }
+      ],
+      "workflow": "arc-mot-20260930-xyz-spatial-r2-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-xyz-spatial-r2-1",
       "last_observed": {
-        "at": "2026-09-30T15:54:22.226996+00:00",
-        "workflow": "arc-mot-20260930-xyz-spatial-r1-1",
+        "at": "2026-09-30T20:35:12.036569+00:00",
+        "workflow": "arc-mot-20260930-xyz-spatial-r2-1",
         "status": "RUNNING",
+        "pool": "groot-l40s-01",
         "tasks": [
           {
             "name": "evaluate",
             "status": "WAITING",
             "started": null,
-            "ended": null,
             "node": null,
             "failure": null
           },
           {
             "name": "train",
             "status": "RUNNING",
-            "started": "2026-09-30T15:51:55.292719",
-            "ended": null,
-            "node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-5289",
+            "started": "2026-09-30T20:33:13.652833",
+            "node": "10.54.16.85",
             "failure": null
           }
         ]
       }
     },
     {
-      "run_id": "arc-mot-20260930-velshape-spatial-r1",
+      "run_id": "arc-mot-20260930-velshape-spatial-r2",
       "variant": "mot_shape_velocity",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "30cd1d7ac24464922a512d403c823a50c073ab77c558442df10ad67bb9c5b3f4",
-      "pool": "groot-l40s-03",
+      "spec_sha256": "78b8bbac7510bb803e8aa08dcf6a4bb8410db55470438b6f2d2ff725ed967227",
+      "pool": "groot-l40s-01",
       "priority": "NORMAL",
-      "training_gpus": 8,
+      "training_gpus": 4,
       "gpu_type": "L40S",
       "suite": "libero_spatial",
       "epochs": 5001,
       "optimizer_steps": 270054,
       "global_batch_size": 1024,
-      "evaluation_run": "arc-mot-20260930-velshape-spatial-r1-eval",
+      "evaluation_run": "arc-mot-20260930-velshape-spatial-r2-eval",
       "evaluation_episodes": 2500,
       "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
-      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial-r1/",
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial-r2/",
       "decoder_parameters": 4787532,
       "decoder_reference_parameters": 4791564,
       "decoder_parameter_delta_fraction": -0.0008414788991653044,
@@ -343,51 +399,107 @@
         },
         "evaluation": null
       },
-      "workflow": "arc-mot-20260930-velshape-spatial-r1-1",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-r1-1",
+      "training_layout": {
+        "world_size": 4,
+        "microbatch_size": 256,
+        "gradient_accumulation": 1,
+        "global_batch_size": 1024
+      },
+      "preempted_recoveries": [
+        {
+          "run_id": "arc-mot-20260930-velshape-spatial-r1",
+          "variant": "mot_shape_velocity",
+          "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+          "spec_sha256": "30cd1d7ac24464922a512d403c823a50c073ab77c558442df10ad67bb9c5b3f4",
+          "pool": "groot-l40s-03",
+          "priority": "NORMAL",
+          "training_gpus": 8,
+          "gpu_type": "L40S",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "optimizer_steps": 270054,
+          "global_batch_size": 1024,
+          "evaluation_run": "arc-mot-20260930-velshape-spatial-r1-eval",
+          "evaluation_episodes": 2500,
+          "training_storage": "240Gi",
+          "evaluation_gpus": 1,
+          "evaluation_workers": 5,
+          "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-velshape-spatial-r1/",
+          "decoder_parameters": 4787532,
+          "decoder_reference_parameters": 4791564,
+          "decoder_parameter_delta_fraction": -0.0008414788991653044,
+          "decoder_total_layers": 4,
+          "decoder_layers_per_stream": 4,
+          "decoder_tokens": 64,
+          "resume_from_run": "arc-mot-20260930-velshape-spatial",
+          "workflow": "arc-mot-20260930-velshape-spatial-r1-1",
+          "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-r1-1",
+          "last_observed": {
+            "workflow": "arc-mot-20260930-velshape-spatial-r1-1",
+            "status": "FAILED_CANCELED",
+            "tasks": [
+              {
+                "name": "evaluate",
+                "status": "FAILED_CANCELED",
+                "started": null,
+                "ended": "2026-09-30T15:52:31.478689",
+                "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement d7878533ad584ae491b1143c89932d56: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+              },
+              {
+                "name": "train",
+                "status": "FAILED_CANCELED",
+                "started": "2026-09-30T15:52:04.534718",
+                "ended": "2026-09-30T15:52:31.490522",
+                "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement d7878533ad584ae491b1143c89932d56: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+              }
+            ]
+          }
+        }
+      ],
+      "workflow": "arc-mot-20260930-velshape-spatial-r2-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-velshape-spatial-r2-1",
       "last_observed": {
-        "at": "2026-09-30T15:54:22.586709+00:00",
-        "workflow": "arc-mot-20260930-velshape-spatial-r1-1",
-        "status": "FAILED_CANCELED",
+        "at": "2026-09-30T20:35:13.064604+00:00",
+        "workflow": "arc-mot-20260930-velshape-spatial-r2-1",
+        "status": "RUNNING",
+        "pool": "groot-l40s-01",
         "tasks": [
           {
             "name": "evaluate",
-            "status": "FAILED_CANCELED",
+            "status": "WAITING",
             "started": null,
-            "ended": "2026-09-30T15:52:31.478689",
             "node": null,
-            "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement d7878533ad584ae491b1143c89932d56: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+            "failure": null
           },
           {
             "name": "train",
-            "status": "FAILED_CANCELED",
-            "started": "2026-09-30T15:52:04.534718",
-            "ended": "2026-09-30T15:52:31.490522",
-            "node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-6603",
-            "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement d7878533ad584ae491b1143c89932d56: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+            "status": "RUNNING",
+            "started": "2026-09-30T20:33:20.646850",
+            "node": "10.54.16.95",
+            "failure": null
           }
         ]
       }
     },
     {
-      "run_id": "arc-mot-20260930-masked-spatial-r1",
+      "run_id": "arc-mot-20260930-masked-spatial-r2",
       "variant": "mot_shape_velocity_masked",
       "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
-      "spec_sha256": "082c1a1405e7a8f97b3fd64755c94e8454250a827235e54a8718affab1869027",
-      "pool": "groot-l40s-03",
+      "spec_sha256": "a614d345bf531bef3eaccc317d16758d53245716da3d5cf5cf4f90a6a3350686",
+      "pool": "groot-l40s-01",
       "priority": "NORMAL",
-      "training_gpus": 8,
+      "training_gpus": 4,
       "gpu_type": "L40S",
       "suite": "libero_spatial",
       "epochs": 5001,
       "optimizer_steps": 270054,
       "global_batch_size": 1024,
-      "evaluation_run": "arc-mot-20260930-masked-spatial-r1-eval",
+      "evaluation_run": "arc-mot-20260930-masked-spatial-r2-eval",
       "evaluation_episodes": 2500,
       "training_storage": "240Gi",
       "evaluation_gpus": 1,
       "evaluation_workers": 5,
-      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial-r1/",
+      "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial-r2/",
       "decoder_parameters": 4787532,
       "decoder_reference_parameters": 4791564,
       "decoder_parameter_delta_fraction": -0.0008414788991653044,
@@ -535,27 +647,83 @@
         },
         "evaluation": null
       },
-      "workflow": "arc-mot-20260930-masked-spatial-r1-1",
-      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-r1-1",
+      "training_layout": {
+        "world_size": 4,
+        "microbatch_size": 256,
+        "gradient_accumulation": 1,
+        "global_batch_size": 1024
+      },
+      "preempted_recoveries": [
+        {
+          "run_id": "arc-mot-20260930-masked-spatial-r1",
+          "variant": "mot_shape_velocity_masked",
+          "source_commit": "d62c18116018f9873ec63c2bc7c213f1525998fe",
+          "spec_sha256": "082c1a1405e7a8f97b3fd64755c94e8454250a827235e54a8718affab1869027",
+          "pool": "groot-l40s-03",
+          "priority": "NORMAL",
+          "training_gpus": 8,
+          "gpu_type": "L40S",
+          "suite": "libero_spatial",
+          "epochs": 5001,
+          "optimizer_steps": 270054,
+          "global_batch_size": 1024,
+          "evaluation_run": "arc-mot-20260930-masked-spatial-r1-eval",
+          "evaluation_episodes": 2500,
+          "training_storage": "240Gi",
+          "evaluation_gpus": 1,
+          "evaluation_workers": 5,
+          "artifacts": "s3://rldb/experiments/arc-oat-20260919/arc-mot-20260930-masked-spatial-r1/",
+          "decoder_parameters": 4787532,
+          "decoder_reference_parameters": 4791564,
+          "decoder_parameter_delta_fraction": -0.0008414788991653044,
+          "decoder_total_layers": 4,
+          "decoder_layers_per_stream": 4,
+          "decoder_tokens": 64,
+          "resume_from_run": "arc-mot-20260930-masked-spatial",
+          "workflow": "arc-mot-20260930-masked-spatial-r1-1",
+          "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-r1-1",
+          "last_observed": {
+            "workflow": "arc-mot-20260930-masked-spatial-r1-1",
+            "status": "FAILED_CANCELED",
+            "tasks": [
+              {
+                "name": "evaluate",
+                "status": "FAILED_CANCELED",
+                "started": null,
+                "ended": "2026-09-30T16:02:40.000181",
+                "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 346b3031f36140b9a461dfd272047c9a: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+              },
+              {
+                "name": "train",
+                "status": "FAILED_CANCELED",
+                "started": "2026-09-30T15:55:41.242651",
+                "ended": "2026-09-30T16:02:40.022233",
+                "failure": "Task was canceled by user: groot-idle-job-shutdown. GPU quota enforcement 346b3031f36140b9a461dfd272047c9a: reclaims lower-priority P2 shared capacity for v9b0929tr--json9k-r01-p05--joint_h50_train_p05-1 in groot-l40s-03"
+              }
+            ]
+          }
+        }
+      ],
+      "workflow": "arc-mot-20260930-masked-spatial-r2-1",
+      "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-masked-spatial-r2-1",
       "last_observed": {
-        "at": "2026-09-30T15:54:23.115804+00:00",
-        "workflow": "arc-mot-20260930-masked-spatial-r1-1",
-        "status": "PENDING",
+        "at": "2026-09-30T20:35:11.738530+00:00",
+        "workflow": "arc-mot-20260930-masked-spatial-r2-1",
+        "status": "RUNNING",
+        "pool": "groot-l40s-01",
         "tasks": [
           {
             "name": "evaluate",
             "status": "WAITING",
             "started": null,
-            "ended": null,
             "node": null,
             "failure": null
           },
           {
             "name": "train",
-            "status": "INITIALIZING",
-            "started": null,
-            "ended": null,
-            "node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-8004",
+            "status": "RUNNING",
+            "started": "2026-09-30T20:33:21.266394",
+            "node": "10.54.17.114",
             "failure": null
           }
         ]
@@ -601,11 +769,11 @@
     "sha256": "baeb78c35c408e59ae7e4b031e43a35ab2b69e2e2d6f6d33451b898e0ded3372"
   },
   "report": {
-    "workflow": "arc-mot-20260930-report-r1-1",
-    "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-report-r1-1",
+    "workflow": "arc-mot-20260930-report-r2-1",
+    "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-mot-20260930-report-r2-1",
     "gpus": 0,
     "cpus": 2,
-    "script_sha256": "c36701aee232e5d8956f39387aeb86a8179d76904fededfd969a61a864b4a310",
+    "script_sha256": "fc7233fd47373af126f6d3c7a57a0ea75a3fa4b3d28f207a3dd00b3b5fd0dd5e",
     "artifacts": "s3://rldb/experiments/arc-oat-20260919/campaigns/arc-mot-20260930-spatial/",
     "files": [
       "manifest.json",
@@ -613,23 +781,36 @@
       "table.md",
       "results.json"
     ],
-    "replaced_workflow": "arc-mot-20260930-report-2",
-    "spec_sha256": "bca54e0905c64edb2602f8712440add66e615f4ee3c8343e91181360dc939539",
+    "replaced_workflow": "arc-mot-20260930-report-r1-1",
+    "pool": "groot-l40s-01",
+    "spec_sha256": "fa8708e784217a8f9ffe95f3f87ee6b5022f26daae83f79354e04e66e5ae88ca",
     "last_observed": {
-      "at": "2026-09-30T15:54:21.875343+00:00",
-      "workflow": "arc-mot-20260930-report-r1-1",
-      "status": "PENDING",
+      "at": "2026-09-30T20:35:11.723370+00:00",
+      "workflow": "arc-mot-20260930-report-r2-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
       "tasks": [
         {
           "name": "report",
-          "status": "INITIALIZING",
-          "started": null,
-          "ended": null,
-          "node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-2739",
+          "status": "RUNNING",
+          "started": "2026-09-30T20:35:00.542253",
+          "node": "10.54.17.72",
           "failure": null
         }
       ]
     }
   },
-  "resumed_at": "2026-09-30T15:53:29.620222+00:00"
+  "resumed_at": "2026-09-30T15:53:29.620222+00:00",
+  "pool01_recovery_prepared_at": "2026-09-30T20:26:42.635648+00:00",
+  "recovery_layout_note": "Resume on four L40S with microbatch 256 instead of eight L40S with microbatch 128; global batch 1024, total optimizer/EMA updates 270054, model source, optimizer/schedule, and evaluation protocol are unchanged.",
+  "recovery_validation": {
+    "resume_layout_tests_passed": 9,
+    "training_source_unchanged": true,
+    "global_batch_size": 1024,
+    "optimizer_steps": 270054,
+    "observation_normalization": "GroupNorm (no batch statistics)",
+    "per_gpu_batch_size": 256,
+    "gpus_per_run": 4
+  },
+  "pool01_recovery_submitted_at": "2026-09-30T20:30:02.021163+00:00"
 }

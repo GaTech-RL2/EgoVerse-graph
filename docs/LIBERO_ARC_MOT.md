@@ -36,15 +36,17 @@ order. The mask applies at every layer and every diffusion step.
 - STK2 tokenizer: R=192 degrees, D=0.8 m, M=32, unchanged physical ARC decoding.
 - Audited replay: `arc-five-v2-20260921-stk2-libero-spatial-replay`.
 - Seed 42; 5,001 epochs; 270,054 optimizer updates; global batch 1,024.
-- Eight L40S GPUs per arm, microbatch 128, using the decoded replay loader.
+- Initial training: eight L40S GPUs per arm, microbatch 128. The September 30
+  pool01 recovery uses four L40S GPUs per arm, microbatch 256. Both layouts use
+  global batch 1,024 and the decoded replay loader.
 - Same observation encoder, epsilon loss, AdamW groups and EMA schedule as
   the existing OAT-DP ARC comparison.
 - Two observation frames, horizon 32, ten DDIM steps; execute 16 actions then
   replan. Evaluation uses final EMA weights.
-- Each training workflow includes an eight-GPU training/checkpoint smoke
-  test and a short simulator rollout on all ten Spatial tasks before the full
-  training budget starts. Its dependent evaluation starts automatically when
-  the final checkpoint is verified.
+- Each initial run passed an eight-GPU training/checkpoint smoke test and a
+  short simulator rollout on all ten Spatial tasks before the full training
+  budget started. Recovery verifies the restored checkpoint. Dependent
+  evaluation starts automatically when the final checkpoint is verified.
 - Evaluation: ten tasks, 50 trials per task, five repetitions = 2,500 episodes,
   maximum 550 steps. One training seed, five evaluation repetitions.
 - Pair against `arc-dpr-20260925-stk2-spatial` using identical episode IDs,
@@ -85,22 +87,30 @@ optimizer groups, EMA checkpoint resume and physical-action inference.
 All 75 focused CPU tests pass. Separate [full-size L40S checks](arc_mot_gpu_validation_20260930.json)
 also pass for all three models: bfloat16 forward/backward, finite gradients
 for every expert, and exact masked shape independence over ten DDIM steps.
-These small synthetic checks use one already allocated GPU. Each workflow
-additionally enforces its own eight-GPU training/checkpoint and simulator
-preflights before full training; those receipts are uploaded with the run.
+These small synthetic checks use one already allocated GPU. Each initial run
+additionally passed its eight-GPU training/checkpoint and simulator preflights
+before full training; those receipts are uploaded with the original run.
 
 On September 30, 2026 at 12:52–12:57 UTC, the cluster quota controller
 preempted all three full runs to reclaim P2 shared capacity. Downloaded and
 SHA-256-verified checkpoints preserve 201,960 updates for xyz/rotation/gripper,
 198,180 for shape/velocity, and 205,200 for masked shape/velocity, out of
 270,054 required updates. Each has optimizer and normalization state and an
-EMA update count equal to its global step. Recovery workflows use new artifact
-prefixes and preserve the original source, NORMAL priority, pool, eight-L40S
-layout, training budget, and dependent evaluation. The manifest records the
-original workflows, checkpoint receipts, and recovery workflows.
+EMA update count equal to its global step. The first recovery used new artifact
+prefixes and preserved the original source, NORMAL priority, pool, eight-L40S
+layout, training budget, and dependent evaluation. The quota controller stopped
+all three of those recovery jobs as well, by 16:03 UTC. The manifest records
+the original workflows, checkpoint receipts, and recovery workflows.
 
-At 15:54 UTC, the xyz recovery container was running, the masked recovery was
-initializing, and the quota controller had preempted the shape/velocity recovery
-again after 27 seconds. No MoT evaluation has started. Finishing the comparison
-still requires stable L40S capacity; recovery submissions are not retried in a
-loop or promoted to a higher priority.
+The second recovery moves to available four-GPU nodes in `groot-l40s-01`, at
+NORMAL priority. The existing trainer uses microbatch 256 on four ranks instead
+of 128 on eight ranks, preserving global batch 1,024, 54 updates per epoch, and
+270,054 total optimizer/EMA updates. The source and checkpoint hashes, learning
+rates, schedule, models, and paired evaluation protocol remain unchanged.
+The observation encoder uses GroupNorm, so changing the per-rank batch does
+not change batch-normalization statistics. This preserves the training budget;
+it is not a promise of bitwise-identical stochastic computation across layouts.
+Nine focused checks passed, covering real distributed checkpoint resume with
+optimizer/EMA continuity and supported layouts' global batches. The collector
+now validates the declared four-GPU layout in addition to its existing full
+training and evaluation checks. No MoT success rates are available yet.

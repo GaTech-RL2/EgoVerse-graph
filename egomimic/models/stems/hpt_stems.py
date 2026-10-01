@@ -170,7 +170,7 @@ class ResNet(PolicyStem):
 
         ``imagenet_normalize`` applies the ImageNet channel statistics inside
         :meth:`forward`, which is what pretrained ``weights`` expect. It defaults
-        to False because callers such as :class:`E1ImageStem` already normalize
+        to False because callers such as :class:`ResNetMLPImageStem` already normalize
         outside the encoder; enabling it there would normalize twice.
         """
         super().__init__(**kwargs)

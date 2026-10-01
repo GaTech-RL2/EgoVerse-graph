@@ -8,27 +8,21 @@ pipeline:
       selector_aliases: {7: yam_bimanual}
       stems:
         observations.images.front_img_1:
-          _target_: egomimic.models.stems.hpt_stems.ResNet
+          _target_: egomimic.models.stems.resnet_mlp.ResNetMLPImageStem
           output_dim: ${hpt.embed_dim}
-          resnet_model: resnet18
           weights: DEFAULT
-          imagenet_normalize: true
           specs: ${hpt.stem_specs}
       domain_stems:
         yam_bimanual:
           observations.images.left_wrist_img:
-            _target_: egomimic.models.stems.hpt_stems.ResNet
+            _target_: egomimic.models.stems.resnet_mlp.ResNetMLPImageStem
             output_dim: ${hpt.embed_dim}
-            resnet_model: resnet18
             weights: DEFAULT
-            imagenet_normalize: true
             specs: ${hpt.stem_specs}
           observations.images.right_wrist_img:
-            _target_: egomimic.models.stems.hpt_stems.ResNet
+            _target_: egomimic.models.stems.resnet_mlp.ResNetMLPImageStem
             output_dim: ${hpt.embed_dim}
-            resnet_model: resnet18
             weights: DEFAULT
-            imagenet_normalize: true
             specs: ${hpt.stem_specs}
           observations.state.ee_pose:
             _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem

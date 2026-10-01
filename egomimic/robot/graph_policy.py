@@ -22,6 +22,8 @@ from egomimic.pipeline.inference_config import (
 )
 from egomimic.pipeline.stages_flow import FlowDenoiserStage
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+from egomimic.robot.arc_decoder import E1_VELOCITY_MODE
+from egomimic.robot.arc_speed import ARC_SPEED_RANGE
 from egomimic.robot.interface import ARM_OFFSET, pose_matrix, pose_vector
 from egomimic.robot.teleop import rigid_transform
 
@@ -274,6 +276,42 @@ def configure_profile_controls(graph, training, inference_profiles):
             setattr(owner, attribute, value)
         bindings.append(binding)
     return tuple(bindings)
+
+
+def arc_speed_controls(decoder):
+    """Replay-tempo controls for a tempo-capable ARC decoder; none otherwise.
+
+    Tempo belongs to the decoder, not to the model profile, so every ARC policy
+    exposes it whatever produced its profile (rollout YAML, checkpoint sidecar or
+    a config-derived graph). Integer percents fit the typed integer controls.
+    """
+    if not callable(getattr(decoder, "set_speed", None)):
+        return ()
+    low, high = (int(round(value * 100)) for value in ARC_SPEED_RANGE)
+    specs = [(
+        "arc_speed_percent", "ARC replay speed (%)", "speed_percent",
+        "100 = demonstrated tempo. Scales moving phases from the next prediction. "
+        "A faster replay ends sooner: keep Repredict every at or under the path "
+        "length the rollout log reports, or the arms stand still for the rest.",
+    )]
+    if decoder.token_layout in E1_VELOCITY_MODE:  # only a per-waypoint clock separates holds
+        specs.append((
+            "arc_hold_speed_percent", "ARC hold speed (%)", "hold_speed_percent",
+            "Tempo of holds, grasps and slow placement (both arms under "
+            f"{decoder.hold_threshold:g} m/s). Leave at 100 until gripper closing "
+            "time has been checked against the shorter hold.",
+        ))
+    controls = []
+    for name, label, attribute, description in specs:
+        control = _InferenceControlBinding(
+            name=name, label=label, description=description, minimum=low,
+            maximum=high, step=5, value=getattr(decoder, attribute),
+            target_kind="decoder_attribute", attribute_path=attribute,
+            owner=decoder, attribute=attribute,
+        )
+        control.validate(control.value)
+        controls.append(control)
+    return tuple(controls)
 
 
 def load_normalizer(path):
@@ -842,7 +880,7 @@ class GraphRobotPolicy:
         }
         for name, value in validated.items():
             control = self._inference_controls[name]
-            if control.target_kind == "stage_attribute":
+            if control.owner is not None:
                 setattr(control.owner, control.attribute, value)
             else:
                 self._replan_every = value
@@ -854,6 +892,14 @@ class GraphRobotPolicy:
         actions = np.asarray(prediction)
         if self._replan_every is None:
             return actions
+        stats = getattr(getattr(self.adapter, "decoder", None), "last_stats", None) or {}
+        valid = stats.get("valid_steps")
+        if valid is not None and valid < self._replan_every and stats.get("speed") != 1.0:
+            print(
+                f"ARC {stats['speed']:.2f}x: the decoded path lasts {valid} steps, "
+                f"under Repredict every {self._replan_every}; the arms hold still for "
+                "the rest, so lower Repredict every to keep the speed-up"
+            )
         return actions[: min(self._replan_every, len(actions))]
 
     def _observation(self, obs):
@@ -997,6 +1043,7 @@ def load_graph_policy(config):
     )
     validate_temporary_arc_roundtrip_contract(normalizer, adapter_config, training)
     adapter = instantiate(adapter_config, **instantiate_kwargs)
+    inference_controls = (*inference_controls, *arc_speed_controls(adapter.decoder))
     if adapter.roundtrip_arc is not None:
         print(
             "TEMPORARY ARC round trip enabled: baseline predictions are "

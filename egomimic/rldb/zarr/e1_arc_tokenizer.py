@@ -428,11 +428,21 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         return batch
 
     # -- detokenize --------------------------------------------------------
-    def detokenize(self, arc_actions: np.ndarray, action_horizon: int) -> np.ndarray:
+    def detokenize(self, arc_actions: np.ndarray, action_horizon: int, times: np.ndarray | None = None) -> np.ndarray:
+        """``times`` (H,), optional: the token-clock seconds to read each output row at.
+        Default is the uniform control grid ``dt * arange(H)`` — i.e. replay at the
+        demonstrated tempo. A deploy-side caller passes a warped, non-decreasing grid
+        to replay the same path at another tempo (``egomimic.robot.arc_decoder``); both
+        arms are read at the same ``times``, so bimanual timing is preserved."""
         arc = np.asarray(arc_actions, dtype=np.float64)
         h = int(action_horizon)
         dt = self.tokenizer.config.dt
-        t = dt * np.arange(h, dtype=np.float64)
+        if times is None:
+            t = dt * np.arange(h, dtype=np.float64)
+        else:
+            t = np.asarray(times, dtype=np.float64)
+            if t.shape != (h,) or not np.isfinite(t).all() or t[0] < 0 or (np.diff(t) < 0).any():
+                raise ValueError(f"times must be a finite non-decreasing ({h},) grid starting at >= 0")
         profile = self.wide
         if profile:
             if arc.ndim != 2 or arc.shape[1] != E1_ARCVEL_DIM:

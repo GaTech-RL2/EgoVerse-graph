@@ -3,6 +3,23 @@
 Ported from aidan/shorts-extreme (55932d99), rollout-arc.py. This module has no
 robot I/O. Call it after action unnormalization, then apply the controller's
 camera/base frame transforms to the returned canonical poses.
+
+Replay tempo
+------------
+An arc token is a path plus a clock, so the path can be replayed at a tempo the
+training data never contained without touching the geometry. ``speed`` multiplies
+the tempo of the MOVING phases and ``hold_speed`` the tempo of the slow phases
+(holds, grasp dwell, careful placement: every instant at which both arms' decoded
+path speed is under ``hold_threshold`` m/s). 1.0 / 1.0 is the demonstrated tempo
+and takes the unmodified decode path. The two are separate because a hold is where
+the gripper physically closes, and that time does not shrink with the arm's.
+
+The warp is ONE monotone map from wall time to token-clock time, applied to both
+arms, so bimanual coordination is exactly what the token encoded; only the rate
+at which the pair advances changes. It acts on the clock, before the codec's own
+arc-length resampling, so rotation still goes through the codec's SLERP. Tokens
+without a per-waypoint clock (lab and the cartesian layouts) take a uniform speed
+only, as a codec whose control period is scaled.
 """
 
 import numpy as np
@@ -12,7 +29,8 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
     cumulative_arc_length,
 )
-from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
+from egomimic.rldb.zarr.e1_arc_tokenizer import ARM_LAYOUT, TokenizeBimanualArcLengthE1
+from egomimic.robot.arc_speed import ARC_SPEED_RANGE, validate_arc_speed  # noqa: F401
 
 E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
 ARC_CARTESIAN_VELOCITY_MODE = {
@@ -24,6 +42,10 @@ ARC_TOKEN_LAYOUTS = (
     *E1_VELOCITY_MODE,
     *ARC_CARTESIAN_VELOCITY_MODE,
 )
+# Token-clock seconds the tempo eases over at a hold <-> moving transition, so the
+# commanded speed does not step when an arm crosses ``hold_threshold``.
+RATE_RAMP_S = 0.2
+_WARP_OVERSAMPLE = 4  # warp grid points per control step
 
 
 class BimanualArcRoundTrip:
@@ -100,9 +122,17 @@ class BimanualArcRoundTrip:
 class BimanualArcDecoder:
     def __init__(self, token_layout="lab", min_distance_unit=0.4,
                  resampled_vector_length=100, dt=1/30, action_horizon=100,
-                 rotation_distance_unit=None, arc_chunking_mode=None):
+                 rotation_distance_unit=None, arc_chunking_mode=None,
+                 speed=1.0, hold_speed=1.0, hold_threshold=0.05):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
+        if (isinstance(hold_threshold, bool) or not isinstance(hold_threshold, (int, float))
+                or not np.isfinite(hold_threshold) or hold_threshold < 0):
+            raise ValueError("ARC hold_threshold must be a finite speed >= 0 in m/s")
+        self.token_layout, self.dt = token_layout, float(dt)
+        self.hold_threshold = float(hold_threshold)
+        self.last_stats = None
+        self.set_speed(speed, hold_speed)
         self.M = int(resampled_vector_length)
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or dt <= 0 or min_distance_unit <= 0:
@@ -115,21 +145,22 @@ class BimanualArcDecoder:
             self.shape = (self.M, 16)
         kwargs = dict(min_distance_unit=min_distance_unit,
                       resampled_vector_length=self.M, dt=dt)
-        if token_layout == "lab":
-            self.codec = TokenizeBimanualArcLengthCartesian(**kwargs)
-        elif token_layout in ARC_CARTESIAN_VELOCITY_MODE:
-            self.codec = TokenizeBimanualArcLengthCartesian(
-                **kwargs,
-                velocity_mode=ARC_CARTESIAN_VELOCITY_MODE[token_layout],
-                rotation_distance_unit=rotation_distance_unit,
-                arc_chunking_mode=arc_chunking_mode,
-            )
-        else:
+        self._uniform_codec = None  # (speed, codec) for a uniform speed-up
+        if token_layout in E1_VELOCITY_MODE:
             self.codec = TokenizeBimanualArcLengthE1(
                 **kwargs,
                 velocity_norm="path",
                 velocity_mode=E1_VELOCITY_MODE[token_layout],
             )
+        else:
+            if token_layout in ARC_CARTESIAN_VELOCITY_MODE:
+                kwargs.update(
+                    velocity_mode=ARC_CARTESIAN_VELOCITY_MODE[token_layout],
+                    rotation_distance_unit=rotation_distance_unit,
+                    arc_chunking_mode=arc_chunking_mode,
+                )
+            self._uniform_kwargs = kwargs
+            self.codec = TokenizeBimanualArcLengthCartesian(**kwargs)
 
     def __call__(self, native_tokens):
         if torch.is_tensor(native_tokens):
@@ -141,8 +172,88 @@ class BimanualArcDecoder:
             raise ValueError(f"Expected native tokens (B,{self.shape[0]},{self.shape[1]}), got {values.shape}")
         if not len(values) or not np.isfinite(values).all():
             raise ValueError("Native tokens must be nonempty and finite")
-        return np.stack([self.codec.detokenize(row, action_horizon=self.action_horizon)
-                         for row in values])
+        return np.stack([self._decode(row) for row in values])
+
+    # -- replay tempo ------------------------------------------------------
+    def set_speed(self, speed, hold_speed=None):
+        """Set the tempo multipliers used from the NEXT decoded token on.
+
+        ``hold_speed=None`` keeps holds in step with ``speed`` (a uniform speed-up).
+        Both values are validated before either is stored.
+        """
+        speed = validate_arc_speed(speed, "speed")
+        hold_speed = speed if hold_speed is None else validate_arc_speed(hold_speed, "hold_speed")
+        self.speed, self.hold_speed = speed, hold_speed
+
+    # Integer percent views for the rollout profile's typed inference controls.
+    @property
+    def speed_percent(self):
+        return int(round(self.speed * 100))
+
+    @speed_percent.setter
+    def speed_percent(self, value):
+        self.set_speed(value / 100, self.hold_speed)
+
+    @property
+    def hold_speed_percent(self):
+        return int(round(self.hold_speed * 100))
+
+    @hold_speed_percent.setter
+    def hold_speed_percent(self, value):
+        self.set_speed(self.speed, value / 100)
+
+    def _decode(self, row):
+        h = self.action_horizon
+        if self.token_layout not in E1_VELOCITY_MODE:
+            # No per-waypoint clock to warp: holds cannot be told apart, so
+            # ``hold_speed`` has nothing to act on. A uniform tempo is exactly a
+            # codec whose control period is scaled, rebuilt only when ``speed`` moves.
+            self.last_stats = {"speed": self.speed, "hold_speed": None, "horizon": h,
+                               "valid_steps": None, "hold_fraction": None}
+            if self.speed == 1.0:
+                return self.codec.detokenize(row, action_horizon=h)
+            if self._uniform_codec is None or self._uniform_codec[0] != self.speed:
+                kwargs = {**self._uniform_kwargs, "dt": self.dt * self.speed}
+                self._uniform_codec = (self.speed, TokenizeBimanualArcLengthCartesian(**kwargs))
+            return self._uniform_codec[1].detokenize(row, action_horizon=h)
+        clocks = self.codec.clock_at_waypoints(row)
+        cums = [cumulative_arc_length(row[:, off : off + 3]) for off, *_ in ARM_LAYOUT]
+        # Past the last moving arm's final waypoint the codec holds the endpoint:
+        # rows beyond ``valid_steps`` command no motion, so a replan interval
+        # above it spends control ticks standing still and gives the speed-up back.
+        ends = [float(clock[-1]) for clock, cum in zip(clocks, cums) if cum[-1] >= 1e-9]
+        end = max(ends) if ends else 0.0
+        times, hold_fraction = self._warp(clocks, cums, end)
+        valid = int(np.searchsorted(times, end, side="right")) if ends else 0
+        self.last_stats = {"speed": self.speed, "hold_speed": self.hold_speed, "horizon": h,
+                           "valid_steps": min(valid, h), "hold_fraction": hold_fraction}
+        if self.speed == 1.0 and self.hold_speed == 1.0:
+            return self.codec.detokenize(row, action_horizon=h)  # the unmodified path
+        return self.codec.detokenize(row, action_horizon=h, times=times)
+
+    def _warp(self, clocks, cums, end=np.inf):
+        """Token-clock time to read each of the H control ticks at, and the share of
+        the decoded span that was a hold. rate = d(clock) / d(wall). ``end`` is the
+        clock time at which the token's path runs out: nothing after it is a hold,
+        it is just the endpoint being repeated, so it is left out of the share."""
+        wall = self.dt * np.arange(self.action_horizon, dtype=np.float64)
+        top = max(self.speed, self.hold_speed)
+        n = int(np.ceil(self.action_horizon * top * _WARP_OVERSAMPLE)) + _WARP_OVERSAMPLE + 1
+        tau = (self.dt / _WARP_OVERSAMPLE) * np.arange(n, dtype=np.float64)  # covers wall[-1] * top
+        speed = np.zeros(n - 1)
+        for clock, cum in zip(clocks, cums):
+            if cum[-1] >= 1e-9:  # a stationary arm never makes the pair "moving"
+                speed = np.maximum(speed, np.diff(np.interp(tau, clock, cum)) / np.diff(tau))
+        moving = speed >= self.hold_threshold
+        rate = np.where(moving, self.speed, self.hold_speed)
+        width = max(1, int(round(RATE_RAMP_S / (self.dt / _WARP_OVERSAMPLE))))
+        if width > 1 and self.speed != self.hold_speed:
+            padded = np.pad(rate, (width // 2, width - 1 - width // 2), mode="edge")
+            rate = np.convolve(padded, np.ones(width) / width, mode="valid")
+        elapsed = np.concatenate(([0.0], np.cumsum(np.diff(tau) / rate)))  # wall time at each tau
+        times = np.interp(wall, elapsed, tau)
+        used = tau[1:] <= min(times[-1], end)
+        return times, (float(1.0 - moving[used].mean()) if used.any() else None)
 
 
 def main():
@@ -156,9 +267,17 @@ def main():
     parser.add_argument("--arc-resampled-vector-length", type=int, default=100)
     parser.add_argument("--arc-dt", type=float, default=1/30)
     parser.add_argument("--arc-rollout-horizon", type=int, default=100)
+    parser.add_argument("--arc-speed", type=float, default=1.0,
+                        help="tempo multiplier for moving phases (1 = demonstrated)")
+    parser.add_argument("--arc-hold-speed", type=float, default=None,
+                        help="tempo multiplier for holds; default follows --arc-speed")
+    parser.add_argument("--arc-hold-threshold", type=float, default=0.05,
+                        help="path speed in m/s under which both arms count as holding")
     args = parser.parse_args()
     decoder = BimanualArcDecoder(args.arc_token_layout, args.arc_min_distance_unit,
-                                args.arc_resampled_vector_length, args.arc_dt, args.arc_rollout_horizon)
+                                args.arc_resampled_vector_length, args.arc_dt, args.arc_rollout_horizon,
+                                hold_threshold=args.arc_hold_threshold)
+    decoder.set_speed(args.arc_speed, args.arc_hold_speed)
     result = decoder(np.load(args.tokens, allow_pickle=False))
     with open(args.output, "xb") as output:
         np.save(output, result, allow_pickle=False)

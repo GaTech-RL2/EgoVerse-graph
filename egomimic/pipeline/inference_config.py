@@ -75,7 +75,23 @@ def inference_contract_sha256(
             name: OmegaConf.select(config, f"e1.{name}", default=None)
             for name in ("variant", "D", "M", "time_rows")
         },
+        "abc": {
+            name: OmegaConf.select(config, f"abc.{name}", default=None)
+            for name in (
+                "action_mode",
+                "action_horizon",
+                "arc_distance",
+                "arc_rotation_distance",
+                "arc_waypoints",
+                "arc_token_rows",
+                "arc_velocity_mode",
+                "arc_chunking_mode",
+            )
+        },
         "evaluator_dt": OmegaConf.select(config, "evaluator.dt", default=None),
+        "evaluator_control_dt": OmegaConf.select(
+            config, "evaluator.control_dt", default=None
+        ),
         "defaults": {
             name: OmegaConf.select(config, f"inference_config.{name}", default=None)
             for name in (
@@ -141,7 +157,7 @@ def _inference_step_spec(
 ) -> tuple[str, str, int, int, str]:
     if stage_target == FLOW_DENOISER:
         configured = OmegaConf.select(
-            config, "inference_config.flow_inference_steps", default=10
+            config, "inference_config.flow_inference_steps", default=None
         )
         default = stage.get("num_inference_steps") if configured is None else configured
         label = "Euler integration steps"
@@ -233,6 +249,83 @@ def _decoder_contract(
     }
 
 
+def _cartesian_arc_contract(
+    config: DictConfig,
+    *,
+    velocity_mode: str,
+    native_horizon: int,
+    native_dim: int,
+) -> tuple[int, dict[str, Any]]:
+    """Build the decoder contract for loader-side Cartesian ARC tokens."""
+    if velocity_mode not in ("per_waypoint", "duration"):
+        raise ValueError(
+            "robot rollout supports Cartesian ARC velocity_mode per_waypoint or "
+            f"duration, got {velocity_mode!r}"
+        )
+    waypoints = _positive_int(
+        OmegaConf.select(config, "abc.arc_waypoints", default=None),
+        "abc.arc_waypoints",
+    )
+    expected_rows = 2 * waypoints
+    if (native_horizon, native_dim) != (expected_rows, 14):
+        raise ValueError(
+            f"Cartesian ARC {velocity_mode} requires native shape "
+            f"[{expected_rows}, 14], got [{native_horizon}, {native_dim}]"
+        )
+    output_horizon = _positive_int(
+        OmegaConf.select(config, "abc.action_horizon", default=None),
+        "abc.action_horizon",
+    )
+    distance = _positive_float(
+        OmegaConf.select(config, "abc.arc_distance", default=None),
+        "abc.arc_distance",
+    )
+    action_mode = OmegaConf.select(config, "abc.action_mode", default=None)
+    rotation_distance = None
+    chunking_mode = None
+    if action_mode == "hybrid_arc_tokenizer_cartesian":
+        if velocity_mode != "per_waypoint":
+            raise ValueError(
+                "hybrid_arc_tokenizer_cartesian requires "
+                "abc.arc_velocity_mode=per_waypoint"
+            )
+        rotation_distance = _positive_float(
+            OmegaConf.select(config, "abc.arc_rotation_distance", default=None),
+            "abc.arc_rotation_distance",
+        )
+        chunking_mode = OmegaConf.select(
+            config, "abc.arc_chunking_mode", default=None
+        )
+        # PR #177 made the explicit field configurable; older hybrid bundles
+        # only have the rotation cap and therefore use its joint-clock default.
+        if chunking_mode is None:
+            chunking_mode = "joint_distance"
+        if chunking_mode not in ("race", "multistream", "joint_distance"):
+            raise ValueError(
+                "abc.arc_chunking_mode must be one of race, multistream, "
+                f"joint_distance, got {chunking_mode!r}"
+            )
+    dt = OmegaConf.select(config, "inference_config.action_dt", default=None)
+    if dt is None:
+        dt = OmegaConf.select(config, "evaluator.control_dt", default=None)
+    if dt is None:
+        dt = OmegaConf.select(config, "evaluator.dt", default=None)
+    dt = _positive_float(dt, "ARC action dt")
+    layout = f"cartesian_{velocity_mode}"
+    return output_horizon, {
+        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+        "token_layout": layout,
+        "min_distance_unit": distance,
+        "resampled_vector_length": waypoints,
+        "dt": dt,
+        "action_horizon": output_horizon,
+        **({
+            "rotation_distance_unit": rotation_distance,
+            "arc_chunking_mode": chunking_mode,
+        } if rotation_distance is not None else {}),
+    }
+
+
 def build_inference_config(
     training: DictConfig | Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -273,13 +366,30 @@ def build_inference_config(
         )
         native_dim = _positive_int(stage.get("action_dim"), "denoiser action_dim")
         declared_variant = OmegaConf.select(config, "e1.variant", default=None)
-        variant = "time" if declared_variant is None else str(declared_variant)
-        output_horizon, decoder = _decoder_contract(
-            config,
-            variant=variant,
-            native_horizon=native_horizon,
-            native_dim=native_dim,
+        action_mode = OmegaConf.select(config, "abc.action_mode", default=None)
+        arc_velocity_mode = OmegaConf.select(
+            config, "abc.arc_velocity_mode", default=None
         )
+        is_cartesian_arc = (
+            isinstance(action_mode, str)
+            and "arc_tokenizer_cartesian" in action_mode
+        )
+        if is_cartesian_arc and arc_velocity_mode in ("per_waypoint", "duration"):
+            variant = f"cartesian_{arc_velocity_mode}"
+            output_horizon, decoder = _cartesian_arc_contract(
+                config,
+                velocity_mode=str(arc_velocity_mode),
+                native_horizon=native_horizon,
+                native_dim=native_dim,
+            )
+        else:
+            variant = "time" if declared_variant is None else str(declared_variant)
+            output_horizon, decoder = _decoder_contract(
+                config,
+                variant=variant,
+                native_horizon=native_horizon,
+                native_dim=native_dim,
+            )
         history_length = _history_length(stages)
         label, description, steps, max_steps, attribute_path = _inference_step_spec(
             config, stage, stage_target

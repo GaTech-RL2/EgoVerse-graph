@@ -152,7 +152,8 @@ class TeleopDashboard:
     """Browser preview and existing-key bridge for three-camera GELLO teleop."""
 
     def __init__(
-        self, cameras, keys: dict[str, str], recording_directory=None, **config
+        self, cameras, keys: dict[str, str], recording_directory=None,
+        gripper_force_limits: dict[str, float] | None = None, **config
     ) -> None:
         self.config = validate_dashboard_config(config)
         self.cameras = tuple(cameras)
@@ -162,6 +163,9 @@ class TeleopDashboard:
             str(action): str(key).lower() for action, key in keys.items()
         }
         self.keys = set(self.key_bindings.values())
+        self.gripper_force_limits = {
+            str(arm): float(force) for arm, force in (gripper_force_limits or {}).items()
+        }
         self.recording_directory = (
             None if recording_directory is None else Path(recording_directory)
         )
@@ -225,6 +229,12 @@ class TeleopDashboard:
         with self._lock:
             self._status = str(status)
 
+    def set_gripper_force_limits(self, limits: dict[str, float]) -> None:
+        with self._lock:
+            for arm, value in limits.items():
+                if arm in self.gripper_force_limits:
+                    self.gripper_force_limits[arm] = float(value)
+
     def set_episode(self, episode_id: int, state: str = "next") -> None:
         """Publish the collector-owned episode ID and its recording state."""
         if (
@@ -272,6 +282,24 @@ class TeleopDashboard:
         except queue.Full:
             pass
 
+    def _enqueue_gripper_force(self, request: object) -> None:
+        if not isinstance(request, dict):
+            return
+        arm = request.get("arm")
+        value = request.get("value")
+        if arm not in self.gripper_force_limits:
+            return
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return
+        if not np.isfinite(value) or not 1 <= value <= 50:
+            return
+        try:
+            self._keys.put_nowait({"gripper_force": {"arm": arm, "value": value}})
+        except queue.Full:
+            pass
+
     def _snapshot(self) -> dict:
         with self._lock:
             return {
@@ -280,6 +308,7 @@ class TeleopDashboard:
                 "status": self._status,
                 "episode": self._episode_id,
                 "episode_state": self._episode_state,
+                "gripper_force_limits": self.gripper_force_limits.copy(),
                 "updated_at": self._updated_at,
             }
 
@@ -317,6 +346,7 @@ class TeleopDashboard:
                     "type": "config",
                     "cameras": self.cameras,
                     "keys": self.key_bindings,
+                    "gripper_force_limits": self.gripper_force_limits,
                 }
             )
             try:
@@ -326,6 +356,7 @@ class TeleopDashboard:
                             command = json.loads(message.data)
                             self._enqueue_key(command.get("key"))
                             self._enqueue_episode(command.get("episode"))
+                            self._enqueue_gripper_force(command.get("gripper_force"))
                             if command.get("reconnect_cameras") is True:
                                 self.request_camera_reconnect()
                         except (AttributeError, json.JSONDecodeError):
@@ -414,6 +445,7 @@ class TeleopDashboard:
                     "status": snapshot["status"],
                     "episode": snapshot["episode"],
                     "episode_state": snapshot["episode_state"],
+                    "gripper_force_limits": snapshot["gripper_force_limits"],
                     "age_ms": round(max(0.0, now - snapshot["updated_at"]) * 1000),
                 }
                 for client in tuple(clients):

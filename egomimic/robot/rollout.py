@@ -196,11 +196,18 @@ def _reset_policy_state(policy) -> None:
 
 
 def run_rollout(robot, policy, config, view=None):
-    frequency, max_steps = float(config["frequency"]), int(config["max_steps"])
+    frequency = float(config["frequency"])
+    configured_max_steps = config.get("max_steps")
+    if configured_max_steps is None:
+        max_steps = None
+    elif type(configured_max_steps) is int and configured_max_steps > 0:
+        max_steps = configured_max_steps
+    else:
+        raise ValueError("max_steps must be a positive integer or null")
     limit = float(config["max_joint_velocity"]) / frequency
     max_velocity_replans = config.get("max_velocity_replans", 0)
-    if min(frequency, max_steps, limit) <= 0 or not np.isfinite(limit):
-        raise ValueError("Rollout frequency, step counts and velocity must be positive")
+    if min(frequency, limit) <= 0 or not np.isfinite(limit):
+        raise ValueError("Rollout frequency and velocity must be positive")
     if type(max_velocity_replans) is not int or not 0 <= max_velocity_replans <= 32:
         raise ValueError("max_velocity_replans must be an integer in [0, 32]")
     if policy.action_type not in ("joints", "cartesian"):
@@ -280,7 +287,7 @@ def run_rollout(robot, policy, config, view=None):
             robot.set_home()
         if wait_for_start:
             _set_view_status(view, "Ready — press c to start")
-        while step < max_steps:
+        while max_steps is None or step < max_steps:
             tick = time.monotonic()
             obs = robot.get_obs()
             control = view.update(obs)

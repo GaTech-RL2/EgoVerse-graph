@@ -8,28 +8,128 @@ camera/base frame transforms to the returned canonical poses.
 import numpy as np
 import torch
 
-from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeBimanualArcLengthCartesian
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    TokenizeBimanualArcLengthCartesian,
+    cumulative_arc_length,
+)
 from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
 
 E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
-ARC_TOKEN_LAYOUTS = ("lab", *E1_VELOCITY_MODE)
+ARC_CARTESIAN_VELOCITY_MODE = {
+    "cartesian_per_waypoint": "per_waypoint",
+    "cartesian_duration": "duration",
+}
+ARC_TOKEN_LAYOUTS = (
+    "lab",
+    *E1_VELOCITY_MODE,
+    *ARC_CARTESIAN_VELOCITY_MODE,
+)
+
+
+class BimanualArcRoundTrip:
+    """Temporary ARC encode/decode around a canonical Cartesian chunk.
+
+    The input is an ordinary baseline ``(B, H, 14)`` prediction.  The codec
+    uses M=100 and computes D from that prediction on every call.  Because the
+    non-hybrid tokenizer applies one cap independently to each arm, the scalar
+    D is the larger of the two arm path lengths; the shorter arm is clipped at
+    its own exact path length and then represented with trailing holds.
+    """
+
+    def __init__(
+        self,
+        resampled_vector_length=100,
+        dt=1 / 30,
+        velocity_mode="per_waypoint",
+        distance_mode="predicted_span",
+    ):
+        if int(resampled_vector_length) != 100:
+            raise ValueError("The temporary ARC round trip requires M=100")
+        if velocity_mode != "per_waypoint":
+            raise ValueError(
+                "The temporary ARC round trip requires per_waypoint velocities"
+            )
+        if distance_mode != "predicted_span":
+            raise ValueError("Unsupported temporary ARC round-trip distance mode")
+        if not np.isfinite(float(dt)) or float(dt) <= 0:
+            raise ValueError("ARC round-trip dt must be positive and finite")
+        self.M = 100
+        self.dt = float(dt)
+        self.velocity_mode = velocity_mode
+        self.distance_mode = distance_mode
+        self.last_distances = ()
+
+    @staticmethod
+    def _distance(row):
+        left = cumulative_arc_length(row[:, 0:3])[-1]
+        right = cumulative_arc_length(row[:, 7:10])[-1]
+        return max(float(left), float(right), 1e-6)
+
+    def __call__(self, actions):
+        if torch.is_tensor(actions):
+            actions = actions.detach().double().cpu().numpy()
+        values = np.asarray(actions, dtype=np.float64)
+        if values.ndim == 2:
+            values = values[None]
+        if values.ndim != 3 or values.shape[-1] != 14 or values.shape[1] < 2:
+            raise ValueError(
+                "ARC round trip expects canonical actions shaped (B,H,14)"
+            )
+        if not np.isfinite(values).all():
+            raise ValueError("ARC round-trip input must be finite")
+
+        decoded = []
+        distances = []
+        for row in values:
+            distance = self._distance(row)
+            codec = TokenizeBimanualArcLengthCartesian(
+                min_distance_unit=distance,
+                resampled_vector_length=self.M,
+                dt=self.dt,
+                velocity_mode=self.velocity_mode,
+            )
+            tokens = codec.transform({"actions_cartesian": row.copy()})[
+                "actions_cartesian"
+            ]
+            decoded.append(codec.detokenize(tokens, action_horizon=len(row)))
+            distances.append(distance)
+        self.last_distances = tuple(distances)
+        return np.stack(decoded)
 
 
 class BimanualArcDecoder:
     def __init__(self, token_layout="lab", min_distance_unit=0.4,
-                 resampled_vector_length=100, dt=1/30, action_horizon=100):
+                 resampled_vector_length=100, dt=1/30, action_horizon=100,
+                 rotation_distance_unit=None, arc_chunking_mode=None):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
         self.M = int(resampled_vector_length)
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or dt <= 0 or min_distance_unit <= 0:
             raise ValueError("Invalid ARC distance, time, horizon or waypoint count")
-        self.shape = (self.M + 1, 14) if token_layout == "lab" else (self.M, 16)
+        if token_layout == "lab":
+            self.shape = (self.M + 1, 14)
+        elif token_layout in ARC_CARTESIAN_VELOCITY_MODE:
+            self.shape = (2 * self.M, 14)
+        else:
+            self.shape = (self.M, 16)
         kwargs = dict(min_distance_unit=min_distance_unit,
                       resampled_vector_length=self.M, dt=dt)
-        self.codec = (TokenizeBimanualArcLengthCartesian(**kwargs) if token_layout == "lab"
-                      else TokenizeBimanualArcLengthE1(**kwargs, velocity_norm="path",
-                                                     velocity_mode=E1_VELOCITY_MODE[token_layout]))
+        if token_layout == "lab":
+            self.codec = TokenizeBimanualArcLengthCartesian(**kwargs)
+        elif token_layout in ARC_CARTESIAN_VELOCITY_MODE:
+            self.codec = TokenizeBimanualArcLengthCartesian(
+                **kwargs,
+                velocity_mode=ARC_CARTESIAN_VELOCITY_MODE[token_layout],
+                rotation_distance_unit=rotation_distance_unit,
+                arc_chunking_mode=arc_chunking_mode,
+            )
+        else:
+            self.codec = TokenizeBimanualArcLengthE1(
+                **kwargs,
+                velocity_norm="path",
+                velocity_mode=E1_VELOCITY_MODE[token_layout],
+            )
 
     def __call__(self, native_tokens):
         if torch.is_tensor(native_tokens):

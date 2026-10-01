@@ -12,7 +12,7 @@ from scipy.spatial.transform import Rotation
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.core import Stage
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-from egomimic.robot.arc_decoder import BimanualArcDecoder
+from egomimic.robot.arc_decoder import BimanualArcDecoder, BimanualArcRoundTrip
 from egomimic.robot.graph_policy import (
     CartesianGraphAdapter,
     GraphRobotPolicy,
@@ -21,7 +21,9 @@ from egomimic.robot.graph_policy import (
     configure_profile_controls,
     load_graph_policy,
     load_normalizer,
+    resolve_inference_graph,
     validate_graph_device,
+    validate_native_action_contract,
 )
 from egomimic.robot.interface import pose_matrix
 from egomimic.robot.yam.kinematics import MujocoArmKinematics
@@ -128,6 +130,41 @@ def test_flow_rollout_can_override_only_its_euler_solver_budget():
         configure_flow_inference_steps(graph, 0)
     with pytest.raises(ValueError, match="exactly one"):
         configure_flow_inference_steps(PipelineAlgo([EchoStage()], device="cpu"), 10)
+
+
+def test_native_action_contract_matches_checkpoint_normalizer_shape():
+    training = OmegaConf.create(
+        {
+            "model": {
+                "pipeline": {
+                    "stages": [
+                        {
+                            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                            "action_horizon": 2,
+                            "action_dim": 14,
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    profiles = OmegaConf.create(
+        {
+            "flow_time": {
+                "match": {
+                    "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage"
+                },
+                "native_shape": [2, 14],
+            }
+        }
+    )
+    boundary = {"embodiment_id": 7, "action_key": ACTION}
+
+    validate_native_action_contract(normalizer(), boundary, training, profiles)
+
+    profiles.flow_time.native_shape = [200, 14]
+    with pytest.raises(ValueError, match="normalizer has native action shape"):
+        validate_native_action_contract(normalizer(), boundary, training, profiles)
 
 
 def test_checkpoint_load_applies_flow_euler_override(tmp_path):
@@ -354,10 +391,29 @@ def test_graph_adapter_decodes_all_arc_layouts_before_frame_conversion(layout):
     assert np.isfinite(poses).all()
 
 
+def test_temporary_arc_roundtrip_uses_the_predicted_chunk_span():
+    actions = np.zeros((1, 100, 14), dtype=np.float64)
+    time = np.linspace(0.0, 1.0, 100)
+    actions[0, :, 0] = 0.2 * time**2
+    actions[0, :, 7] = 0.1 * time
+    actions[0, :, 6] = 0.2 + 0.4 * time
+    actions[0, :, 13] = 0.8 - 0.3 * time
+
+    roundtrip = BimanualArcRoundTrip()
+    result = roundtrip(actions)
+
+    assert result.shape == actions.shape
+    assert roundtrip.last_distances == pytest.approx((0.2,))
+    np.testing.assert_allclose(result[:, 0], actions[:, 0], atol=1e-8)
+    np.testing.assert_allclose(result[:, -1], actions[:, -1], atol=1e-8)
+    assert np.isfinite(result).all()
+
+
 @pytest.mark.parametrize(
     ("variant", "action_dim", "expected_layout"),
     [
         ("time", 14, None),
+        (None, 14, None),
         ("arcvel", 16, "e1_profile"),
         ("arcdur", 16, "e1_dur"),
     ],
@@ -399,6 +455,15 @@ def test_selected_e1_model_derives_its_rollout_decoder(
                 "match": {
                     "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
                     "variant": "time",
+                },
+                "native_shape": [100, 14],
+                "adapter": {"decoder": None},
+            },
+            "flow_baseline": {
+                "match": {
+                    "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+                    "action_horizon": 100,
+                    "variant": None,
                 },
                 "native_shape": [100, 14],
                 "adapter": {"decoder": None},
@@ -617,6 +682,37 @@ def test_graph_policy_rejects_unsupported_cuda_before_model_or_robot_loading(
 
     with pytest.raises(RuntimeError, match="sm_120"):
         validate_graph_device("cuda:0")
+
+
+def test_stale_sidecar_migrates_to_model_derived_inference_graph(monkeypatch):
+    stale_path = "/models/stale.inference-config.yaml"
+    derived = {"profiles": {"flow_cartesian_per_waypoint": {}}}
+
+    monkeypatch.setattr(
+        "egomimic.robot.graph_policy.find_inference_config",
+        lambda _checkpoint: stale_path,
+    )
+
+    def stale_loader(_path, _training):
+        raise ValueError(
+            "Inference config does not match the selected model codec and "
+            "inference defaults"
+        )
+
+    monkeypatch.setattr(
+        "egomimic.robot.graph_policy.load_inference_config", stale_loader
+    )
+    monkeypatch.setattr(
+        "egomimic.robot.graph_policy.build_inference_config",
+        lambda _training: {"status": "ready", "inference_graph": derived},
+    )
+
+    result = resolve_inference_graph(
+        {"checkpoint": "/models/model.ckpt", "auto_inference_config": True},
+        {},
+    )
+
+    assert result == derived
 
 
 def test_checkpoint_loading_is_strict_and_never_opens_training_datasets(tmp_path):

@@ -163,9 +163,16 @@ class ResNet(PolicyStem):
         resnet_model: str = "resnet18",
         num_of_copy: int = 1,
         freeze_backbone: bool = False,
+        imagenet_normalize: bool = False,
         **kwargs,
     ) -> None:
-        """ResNet Encoder for Images"""
+        """ResNet encoder for images.
+
+        Rollout and dataset decoding provide RGB tensors in ``[0, 1]``.  A
+        stem initialized from torchvision's pretrained weights must apply the
+        ImageNet channel statistics before the backbone.  This remains opt-in
+        because E1 image stems normalize outside this class.
+        """
         super().__init__(**kwargs)
         pretrained_model = getattr(torchvision.models, resnet_model)(weights=weights)
 
@@ -183,6 +190,11 @@ class ResNet(PolicyStem):
         self.input = input
         self.out_dim = output_dim
         self.to_tensor = transforms.ToTensor()
+        self.normalize = (
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            if imagenet_normalize
+            else None
+        )
         self.proj = nn.Linear(512, output_dim)
         self.avgpool = nn.AvgPool2d(7, stride=1)
 
@@ -211,6 +223,8 @@ class ResNet(PolicyStem):
         """
         B, *_, H, W = x.shape
         x = x.view(len(x), -1, 3, H, W)
+        if self.normalize is not None:
+            x = self.normalize(x)
         if self.num_of_copy > 1:
             # separate encoding for each view
             out = []

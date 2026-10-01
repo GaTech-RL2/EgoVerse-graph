@@ -51,7 +51,9 @@ frequency: 30
 max_joint_velocity: 12.0
 # A rejected Cartesian plan sends neither arm and asks HPT-Flow for a fresh one.
 max_velocity_replans: 8
-max_steps: 3000
+# Run until the operator stops the dashboard/terminal or a safety error aborts.
+# Set this to a positive integer only for a deliberately bounded test run.
+max_steps: null
 camera_timeout: 30.0
 # The dashboard records an operator-started, synchronized three-camera MP4.
 # It observes existing RGB frames only and never participates in robot control.
@@ -89,13 +91,21 @@ preview:
 
 policy:
   kind: graph
-  # The environment variables let an operator intentionally select a later
-  # immutable bundle. The defaults name the validated current latest checkpoint.
-  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/yam_mix5050_towels_arcdur_w400_h640t8_d384x10_s42_lambda_20260921_step240000/resolved-config.yaml}
-  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/yam_mix5050_towels_arcdur_w400_h640t8_d384x10_s42_lambda_20260921_step240000/epoch-2399-step-00240000.ckpt}
-  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/yam_mix5050_towels_arcdur_w400_h640t8_d384x10_s42_lambda_20260921_step240000/norm_stats.json}
+  # The environment variables let an operator intentionally select another
+  # immutable 70k checkpoint bundle trained with pretrained/ImageNet-normalized
+  # HPT ResNet stems; auto_inference_config derives its Flow rollout profile.
+  # Override all three paths together when selecting another immutable bundle.
+  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/stationery_organize_elmo_val005_aligned_step50000/lambda_organize_baseline_elmo_val005_gb128_2gpu_20260928_step70000.resolved-config.yaml}
+  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/stationery_organize_elmo_val005_aligned_step50000/lambda_organize_baseline_elmo_val005_gb128_2gpu_20260928_step70000.ckpt}
+  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/stationery_organize_elmo_val005_aligned_step50000/lambda_organize_baseline_elmo_val005_gb128_2gpu_20260928_step70000.norm_stats.json}
   device: cuda:0
   use_ema: false
+  # These are the only config-controlled targets allowed during local graph
+  # inference. The model bundle remains strictly loaded from its checkpoint.
+  execution_whitelist: [egomimic.*, torch.*]
+  # Prefer each checkpoint's signed inference artifact; for older bundles,
+  # derive the graph contract from that bundle's resolved training config.
+  auto_inference_config: true
   # HPT-Flow is stochastic. Reject an invalid whole plan and resample rather
   # than clamping an individual gripper; abort before robot commands if all fail.
   max_valid_samples: 8
@@ -134,6 +144,68 @@ policy:
             type: integer
             min: 1
             max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+        adapter:
+          decoder: null
+      flow_baseline:
+        match:
+          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
+          action_horizon: 100
+          variant: null
+        native_shape: [100, 14]
+        overrides:
+          inference_steps:
+            label: Euler integration steps
+            description: Number of Flow solver steps per prediction; higher values increase inference latency.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Repredict every
+            description: Execute this many actions before requesting a fresh prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+        adapter:
+          decoder: null
+      flow_baseline_200:
+        match:
+          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
+          action_horizon: 200
+          variant: null
+        native_shape: [200, 14]
+        overrides:
+          inference_steps:
+            label: Euler integration steps
+            description: Number of Flow solver steps per prediction; higher values increase inference latency.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Repredict every
+            description: Execute this many actions before requesting a fresh prediction.
+            type: integer
+            min: 1
+            max: 200
             step: 1
             default: 30
             target:
@@ -268,8 +340,10 @@ policy:
     image_hw: [480, 640]
     proprio_key: observations.state.ee_pose
     action_key: actions_cartesian
-    prompt: sorting markers and pens
+    prompt: organize stationery
     decoder: null
+    # Temporary ARC round-trip test is disabled; direct model output executes.
+    roundtrip_arc: null
     # Clip routine stochastic overshoot only. Larger values reject the complete
     # plan and use policy.max_valid_samples before any robot command is issued.
     gripper_clip_tolerance: 0.05

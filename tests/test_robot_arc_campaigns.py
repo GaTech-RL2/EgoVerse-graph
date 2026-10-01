@@ -21,8 +21,13 @@ def test_decoder_matches_source_codec(layout):
         values[1:, 14:] = 1/30
     elif layout == "e1_logdur":
         values[:, 14:] = np.log(1/30)
-    else:
+    elif layout == "e1_profile":
         values[:, 14:] = 0.3
+    elif layout == "cartesian_per_waypoint":
+        values[20:, [0, 7]] = 0.3
+        values[20:, [6, 13]] = 0.0
+    elif layout == "cartesian_duration":
+        values[20:, [0, 7]] = 1 / 30
     expected = decoder.codec.detokenize(values, action_horizon=40)
     np.testing.assert_array_equal(decoder(values)[0], expected)
     with pytest.raises(ValueError):
@@ -30,6 +35,29 @@ def test_decoder_matches_source_codec(layout):
     values[0, 0] = np.nan
     with pytest.raises(ValueError):
         decoder(values)
+
+
+@pytest.mark.parametrize("chunking_mode", ["joint_distance", "race", "multistream"])
+def test_hybrid_decoder_supports_pr177_chunking_modes(chunking_mode):
+    decoder = BimanualArcDecoder(
+        "cartesian_per_waypoint",
+        min_distance_unit=0.4,
+        resampled_vector_length=20,
+        dt=1 / 30,
+        action_horizon=40,
+        rotation_distance_unit=0.4,
+        arc_chunking_mode=chunking_mode,
+    )
+    values = np.zeros(decoder.shape)
+    t = np.linspace(0, 1, 20)
+    values[:20, 0] = 0.4 * t
+    values[:20, 7] = 0.2 * t
+    values[20:, 0] = 0.4 * 19 / 30
+    values[20:, 7] = 0.2 * 19 / 30
+    result = decoder(values)
+    assert result.shape == (1, 40, 14)
+    assert np.isfinite(result).all()
+
 
 
 @pytest.mark.parametrize("experiment", ["abc_stationery_bc", "abc_stationery_arc_bc", "shorts_extreme_bc", "shorts_extreme_arc_bc", "shorts_extreme_arcdur"])

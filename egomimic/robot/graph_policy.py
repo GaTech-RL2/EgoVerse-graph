@@ -16,6 +16,7 @@ from scipy.spatial.transform import Rotation
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import (
+    build_inference_config,
     find_inference_config,
     load_inference_config,
 )
@@ -59,8 +60,16 @@ def resolve_inference_profile(training, inference_profiles):
             raise ValueError(
                 f"Selected model contains {len(matching_stages)} stages matching {target!r}"
             )
-        required_variant = match.get("variant")
-        if required_variant is not None and required_variant != variant:
+        required_horizon = match.get("action_horizon")
+        if (
+            "action_horizon" in match
+            and required_horizon != matching_stages[0].get("action_horizon")
+        ):
+            continue
+        # A missing variant remains a wildcard for backwards compatibility.
+        # An explicitly declared null variant is an exact match for baseline
+        # Flow models whose training config has no e1.variant field/value.
+        if "variant" in match and match.get("variant") != variant:
             continue
         matches.append((name, profile, matching_stages[0]))
     if len(matches) != 1:
@@ -117,6 +126,8 @@ def configure_adapter_for_training(adapter_config, training, inference_profiles=
         if value is None:
             result.pop(key, None)
         else:
+            if key == "decoder":
+                result.pop("roundtrip_arc", None)
             result[key] = copy.deepcopy(value)
     return result
 
@@ -347,6 +358,192 @@ class InvalidGraphActionSample(ValueError):
     """A stochastic graph sample cannot be converted to a safe robot action."""
 
 
+def _plain_config_node(value):
+    """Convert one OmegaConf node to ordinary Python containers."""
+    if OmegaConf.is_config(value):
+        return OmegaConf.to_container(value, resolve=True)
+    return value
+
+
+def validate_training_input_contract(adapter_config, training):
+    """Fail closed when rollout inputs differ from the selected Yam recipe.
+
+    The robot boundary is intentionally explicit: the live adapter must feed
+    the same three RGB modalities, image dimensions, EEF-relative Cartesian
+    transform, Euler layout, and 14D proprio vector used by the checkpoint.
+    Older minimal test configs do not contain a data resolver, so those remain
+    valid; a real Yam training config is checked strictly.
+    """
+    datasets = _plain_config_node(
+        OmegaConf.select(training, "data.train_datasets", default=None)
+    )
+    if not isinstance(datasets, Mapping):
+        return
+    dataset = datasets.get("yam_bimanual")
+    if not isinstance(dataset, Mapping):
+        return
+    resolver = dataset.get("resolver")
+    resolver = _plain_config_node(resolver)
+    if not isinstance(resolver, Mapping):
+        return
+
+    configured_hw = resolver.get("image_hw")
+    adapter_hw = tuple(int(value) for value in adapter_config.get("image_hw", ()))
+    if configured_hw is not None and tuple(map(int, configured_hw)) != adapter_hw:
+        raise ValueError(
+            "Rollout image_hw does not match the Yam training resolver: "
+            f"training={tuple(configured_hw)}, rollout={adapter_hw}"
+        )
+
+    key_map = _plain_config_node(resolver.get("key_map"))
+    training_action_mode = None
+    if isinstance(key_map, Mapping) and str(key_map.get("_target_", "")).endswith(
+        "Yam.get_keymap"
+    ):
+        training_action_mode = key_map.get("keymap_mode")
+        if training_action_mode not in {
+            "cartesian",
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
+        }:
+            raise ValueError(
+                "Yam rollout requires a Cartesian or supported ARC training "
+                f"keymap, got {training_action_mode!r}"
+            )
+
+    transform = _plain_config_node(resolver.get("transform_list"))
+    if isinstance(transform, Mapping) and str(
+        transform.get("_target_", "")
+    ).endswith("Yam.get_transform_list"):
+        expected = {
+            "coord_frame": "eef_frame",
+            "rotation_mode": adapter_config.get("rotation_mode"),
+        }
+        if (
+            training_action_mode is not None
+            and transform.get("action_mode") != training_action_mode
+        ):
+            raise ValueError(
+                "Yam keymap and transform action modes disagree: "
+                f"keymap={training_action_mode!r}, "
+                f"transform={transform.get('action_mode')!r}"
+            )
+        mismatches = {
+            key: (expected[key], transform.get(key))
+            for key in expected
+            if transform.get(key) != expected[key]
+        }
+        if mismatches:
+            raise ValueError(
+                "Rollout pose/action transform differs from the Yam training "
+                f"contract: {mismatches}"
+            )
+
+    stages = _plain_config_node(
+        OmegaConf.select(training, "model.pipeline.stages", default=None)
+    )
+    if not isinstance(stages, list):
+        return
+    image_stems = {}
+    all_selected_stems = {}
+    for stage in stages:
+        if not isinstance(stage, Mapping) or not str(stage.get("_target_", "")).endswith(
+            "HPTStemStage"
+        ):
+            continue
+        stems = stage.get("stems", {})
+        if isinstance(stems, Mapping):
+            all_selected_stems.update(stems)
+        aliases = stage.get("selector_aliases", {})
+        alias = aliases.get(7, aliases.get("7")) if isinstance(aliases, Mapping) else None
+        domains = stage.get("domain_stems", {})
+        selected = domains.get(alias, {}) if isinstance(domains, Mapping) else {}
+        if isinstance(selected, Mapping):
+            all_selected_stems.update(selected)
+
+    for key, stem in all_selected_stems.items():
+        if not isinstance(stem, Mapping):
+            continue
+        if str(stem.get("_target", stem.get("_target_", ""))).endswith(
+            "hpt_stems.ResNet"
+        ):
+            image_stems[key] = stem
+
+    if image_stems:
+        expected_camera_keys = set(image_stems)
+        actual_camera_keys = set(
+            dict(adapter_config.get("camera_keys", {})).values()
+        )
+        if actual_camera_keys != expected_camera_keys:
+            raise ValueError(
+                "Rollout camera graph keys do not match the selected HPT model: "
+                f"training={sorted(expected_camera_keys)}, "
+                f"rollout={sorted(actual_camera_keys)}"
+            )
+        for key, stem in image_stems.items():
+            weights = stem.get("weights")
+            if weights not in (None, "null") and stem.get("imagenet_normalize") is not True:
+                raise ValueError(
+                    f"Pretrained image stem {key!r} is missing imagenet_normalize=true"
+                )
+
+    proprio_key = adapter_config.get("proprio_key")
+    if all_selected_stems and proprio_key not in all_selected_stems:
+        raise ValueError(
+            f"Rollout proprio key {proprio_key!r} is absent from the selected HPT stems"
+        )
+    action_targets = [
+        stage
+        for stage in stages
+        if isinstance(stage, Mapping)
+        and stage.get("_target_") == "egomimic.pipeline.stages_io.ActionTargetBuilder"
+    ]
+    if action_targets and any(
+        stage.get("action_key") != adapter_config.get("action_key")
+        for stage in action_targets
+    ):
+        raise ValueError(
+            "Rollout action_key does not match the selected training graph"
+        )
+
+
+def validate_native_action_contract(normalizer, adapter_config, training, profiles):
+    """Ensure the normalizer and selected profile agree on native model tokens."""
+    if profiles is None:
+        return
+    name, profile, _ = resolve_inference_profile(training, profiles)
+    expected_shape = profile.get("native_shape")
+    if OmegaConf.is_list(expected_shape):
+        expected_shape = tuple(expected_shape)
+    if not isinstance(expected_shape, (list, tuple)):
+        raise ValueError(f"Inference graph profile {name!r} has no native_shape")
+    embodiment = int(adapter_config.get("embodiment_id"))
+    action_key = adapter_config.get("action_key", "actions_cartesian")
+    actual_shape = tuple(normalizer.key_shape(action_key, embodiment))
+    if actual_shape != tuple(expected_shape):
+        raise ValueError(
+            f"Selected model normalizer has native action shape {actual_shape}, "
+            f"but inference profile {name!r} declares {tuple(expected_shape)}"
+        )
+
+
+def validate_temporary_arc_roundtrip_contract(
+    normalizer, adapter_config, training
+):
+    """Keep the temporary round trip limited to direct baseline HPT output."""
+    if adapter_config.get("roundtrip_arc") is None:
+        return
+    action_key = adapter_config.get("action_key", "actions_cartesian")
+    embodiment = int(adapter_config.get("embodiment_id"))
+    shape = tuple(normalizer.key_shape(action_key, embodiment))
+    action_mode = OmegaConf.select(training, "abc.action_mode", default=None)
+    if shape != (100, 14) or action_mode != "cartesian":
+        raise ValueError(
+            "Temporary ARC round trip is only valid for direct 100x14 "
+            f"Cartesian baseline output; got shape={shape}, action_mode={action_mode!r}"
+        )
+
+
 class CartesianGraphAdapter:
     """Explicit camera keys, calibration and rotation layout from deployment YAML.
 
@@ -366,6 +563,7 @@ class CartesianGraphAdapter:
         action_key="actions_cartesian",
         prompt="",
         decoder=None,
+        roundtrip_arc=None,
         gripper_clip_tolerance=0.0,
     ):
         if rotation_mode not in ("euler", "6D") or action_frame not in (
@@ -393,20 +591,33 @@ class CartesianGraphAdapter:
         self.gripper_clip_tolerance = float(gripper_clip_tolerance)
         if not 0 <= self.gripper_clip_tolerance <= 0.5:
             raise ValueError("gripper_clip_tolerance must be in [0, 0.5]")
-        self.prompt, self.decoder = prompt, decoder
+        if decoder is not None and roundtrip_arc is not None:
+            raise ValueError("ARC decoder and temporary ARC round trip are exclusive")
+        self.prompt, self.decoder, self.roundtrip_arc = prompt, decoder, roundtrip_arc
 
     def observation(self, obs):
+        ee_poses = np.asarray(obs.get("ee_poses"), dtype=float)
+        joint_positions = np.asarray(obs.get("joint_positions"), dtype=float)
+        if (
+            ee_poses.shape != (14,)
+            or joint_positions.shape != (14,)
+            or not np.isfinite(ee_poses).all()
+            or not np.isfinite(joint_positions).all()
+        ):
+            raise ValueError(
+                "Yam observation must contain finite 14D ee_poses and joint_positions"
+            )
         proprio = []
         for arm, offset in ARM_OFFSET.items():
             pose = np.linalg.inv(self.base_T_model[arm]) @ pose_matrix(
-                obs["ee_poses"][offset : offset + 6]
+                ee_poses[offset : offset + 6]
             )
             rot = (
                 Rotation.from_matrix(pose[:3, :3]).as_euler("ZYX")
                 if self.rotation_mode == "euler"
                 else np.r_[pose[:3, 0], pose[:3, 1]]
             )
-            proprio.extend(np.r_[pose[:3, 3], rot, obs["joint_positions"][offset + 6]])
+            proprio.extend(np.r_[pose[:3, 3], rot, joint_positions[offset + 6]])
         values = {
             self.proprio_key: torch.tensor([proprio], dtype=torch.float32),
             "embodiment": torch.tensor([self.embodiment_id]),
@@ -447,6 +658,8 @@ class CartesianGraphAdapter:
             or not np.isfinite(native).all()
         ):
             raise ValueError(f"Expected finite Cartesian graph output (1, H, {width})")
+        if self.roundtrip_arc is not None:
+            native = self.roundtrip_arc(native)
         anchors = {
             arm: pose_matrix(obs["ee_poses"][offset : offset + 6])
             for arm, offset in ARM_OFFSET.items()
@@ -578,6 +791,30 @@ class GraphRobotPolicy:
                 and key not in normalizer.norm_stats[embodiment]
             ):
                 raise ValueError(f"Missing normalization statistics: {key}")
+        expected_proprio_dim = 14 if adapter.rotation_mode == "euler" else 20
+        proprio_shape = tuple(normalizer.key_shape(adapter.proprio_key, embodiment))
+        if proprio_shape != (expected_proprio_dim,):
+            raise ValueError(
+                "Training proprio shape does not match the rollout rotation mode: "
+                f"expected {(expected_proprio_dim,)}, got {proprio_shape}"
+            )
+        if adapter.decoder is None:
+            action_shape = tuple(normalizer.key_shape(adapter.action_key, embodiment))
+            if len(action_shape) != 2 or action_shape[-1] != expected_proprio_dim:
+                raise ValueError(
+                    "Training Cartesian action shape does not match the rollout "
+                    f"rotation mode: expected [..., {expected_proprio_dim}], "
+                    f"got {action_shape}"
+                )
+        else:
+            decoder_shape = getattr(adapter.decoder, "shape", None)
+            action_shape = tuple(normalizer.key_shape(adapter.action_key, embodiment))
+            if decoder_shape is not None and tuple(decoder_shape) != action_shape:
+                raise ValueError(
+                    "Selected tokenizer decoder expects native action shape "
+                    f"{tuple(decoder_shape)}, but training normalizer provides "
+                    f"{action_shape}"
+                )
 
     def reset(self):
         """Clear inference-owned observation history at an episode boundary."""
@@ -672,11 +909,59 @@ class GraphRobotPolicy:
         )
 
 
+def resolve_inference_graph(config, training):
+    """Load a checkpoint sidecar, migrating stale codec hashes in memory."""
+    inference_config_path = config.get("inference_config")
+    if inference_config_path is None:
+        inference_config_path = find_inference_config(config["checkpoint"])
+    if inference_config_path is not None:
+        try:
+            return load_inference_config(inference_config_path, training)
+        except ValueError as error:
+            # Older artifacts can have the same model pipeline but a contract
+            # hash from before a decoder was added or an inference field was
+            # included. Re-derive only that stale-contract case; pipeline and
+            # graph-content mismatches remain fail-closed.
+            if (
+                not config.get("auto_inference_config", False)
+                or "codec and inference defaults" not in str(error)
+            ):
+                raise
+            artifact = build_inference_config(training)
+            if artifact.get("status") != "ready":
+                reason = artifact.get("reason", "model has no rollout contract")
+                raise ValueError(
+                    f"Stale inference config could not be migrated: {reason}"
+                ) from error
+            print(
+                f"Using a config-derived inference graph for stale sidecar "
+                f"{inference_config_path}: {error}"
+            )
+            return artifact["inference_graph"]
+    if config.get("auto_inference_config", False):
+        artifact = build_inference_config(training)
+        if artifact.get("status") != "ready":
+            reason = artifact.get("reason", "model has no rollout contract")
+            raise ValueError(f"Selected model is not rollout-ready: {reason}")
+        return artifact["inference_graph"]
+    return config.get("inference_graph")
+
+
 def load_graph_policy(config):
     normalizer = load_normalizer(config["normalizer_path"])
     training = OmegaConf.load(config["training_config"])
     device = validate_graph_device(str(config["device"]))
-    graph = instantiate(training.model.pipeline, device=str(device))
+    execution_whitelist = config.get("execution_whitelist")
+    instantiate_kwargs = (
+        {"_execution_whitelist_": execution_whitelist}
+        if execution_whitelist is not None
+        else {}
+    )
+    graph = instantiate(
+        training.model.pipeline,
+        device=str(device),
+        **instantiate_kwargs,
+    )
     if not isinstance(graph, PipelineAlgo):
         raise TypeError("Robot inference requires a graph PipelineAlgo")
     graph.bind_data_context(normalizer=normalizer)
@@ -686,14 +971,7 @@ def load_graph_policy(config):
     strict_load_pipeline_checkpoint(
         graph, checkpoint, use_ema=bool(config.get("use_ema", False))
     )
-    inference_config_path = config.get("inference_config")
-    if inference_config_path is None:
-        inference_config_path = find_inference_config(config["checkpoint"])
-    inference_graph = (
-        load_inference_config(inference_config_path, training)
-        if inference_config_path is not None
-        else config.get("inference_graph")
-    )
+    inference_graph = resolve_inference_graph(config, training)
     if inference_graph is not None and not isinstance(inference_graph, Mapping):
         raise TypeError("policy.inference_graph must be a mapping")
     inference_profiles = (
@@ -713,10 +991,21 @@ def load_graph_policy(config):
     adapter_config = configure_adapter_for_training(
         config["adapter"], training, inference_profiles
     )
+    validate_training_input_contract(adapter_config, training)
+    validate_native_action_contract(
+        normalizer, adapter_config, training, inference_profiles
+    )
+    validate_temporary_arc_roundtrip_contract(normalizer, adapter_config, training)
+    adapter = instantiate(adapter_config, **instantiate_kwargs)
+    if adapter.roundtrip_arc is not None:
+        print(
+            "TEMPORARY ARC round trip enabled: baseline predictions are "
+            "re-tokenized with M=100 and prediction-span D before execution"
+        )
     return GraphRobotPolicy(
         graph,
         normalizer,
-        instantiate(adapter_config),
+        adapter,
         max_valid_samples=config.get("max_valid_samples", 1),
         inference_graph=inference_graph,
         inference_controls=inference_controls,

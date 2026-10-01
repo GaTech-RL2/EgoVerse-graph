@@ -283,6 +283,7 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                 robot.camera_res,
                 config["keys"],
                 recording["directory"],
+                gripper_force_limits={arm: config["robot"]["gripper_force_limit"] for arm in robot.arms},
                 **config["preview"],
             )
             if config["preview"]["enabled"]
@@ -408,6 +409,19 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                     episode_id = requested_episode
                     print(f"Next recording will use demo_{episode_id}.hdf5")
                 update_dashboard_episode()
+                view_event = None
+            if isinstance(view_event, dict) and "gripper_force" in view_event:
+                request = view_event["gripper_force"]
+                try:
+                    limits = robot.set_gripper_force_limit(
+                        request["value"], arm=request["arm"]
+                    )
+                    set_limits = getattr(view, "set_gripper_force_limits", None)
+                    if callable(set_limits):
+                        set_limits(limits)
+                    print(f"Updated {request['arm']} gripper force limit to {request['value']:g} N")
+                except (KeyError, TypeError, ValueError, RuntimeError) as error:
+                    print(f"Could not update gripper force limit: {error}")
                 view_event = None
             event = key_edge.update(view_event)
             if event in (keys["quit"], "\x1b"):
@@ -614,6 +628,10 @@ def main(argv=None) -> int:
             camera_names,
             config["keys"],
             config["recording"]["directory"],
+            gripper_force_limits={
+                arm: config["robot"]["gripper_force_limit"]
+                for arm in config["robot"]["arms"]
+            },
             **config["preview"],
         )
         dashboard.set_status("Starting: checking USB GELLO paths")

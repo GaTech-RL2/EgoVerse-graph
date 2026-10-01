@@ -99,6 +99,20 @@ def test_time_flow_artifact_owns_history_output_and_runtime_controls():
     assert profile["overrides"]["replan_every"]["default"] == 30
 
 
+def test_flow_artifact_inherits_training_solver_steps_when_no_override_exists():
+    training = training_config()
+    training.pop("inference_config")
+
+    artifact = build_inference_config(training)
+
+    assert artifact["status"] == "ready"
+    assert (
+        artifact["inference_graph"]["profiles"]["flow_time"]["overrides"]
+        ["inference_steps"]["default"]
+        == 50
+    )
+
+
 @pytest.mark.parametrize(
     ("variant", "layout"),
     [
@@ -137,6 +151,55 @@ def test_diffusion_artifact_targets_the_diffusion_policy_not_flow():
         "kind": "stage_attribute",
         "attribute_path": "policy.num_inference_steps",
     }
+
+
+def test_hybrid_cartesian_arc_artifact_decodes_per_waypoint_tokens():
+    training = training_config(horizon=200, action_dim=14)
+    training.abc = {
+        "action_mode": "hybrid_arc_tokenizer_cartesian",
+        "action_horizon": 100,
+        "arc_distance": 0.464146895489191,
+        "arc_rotation_distance": 0.4188790204786391,
+        "arc_waypoints": 100,
+        "arc_token_rows": 200,
+        "arc_velocity_mode": "per_waypoint",
+        "arc_chunking_mode": "joint_distance",
+    }
+    training.evaluator.control_dt = 1 / 30
+    artifact = build_inference_config(training)
+
+    assert artifact["status"] == "ready"
+    profile = artifact["inference_graph"]["profiles"]["flow_cartesian_per_waypoint"]
+    assert profile["native_shape"] == [200, 14]
+    assert profile["adapter"]["decoder"] == {
+        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+        "token_layout": "cartesian_per_waypoint",
+        "min_distance_unit": 0.464146895489191,
+        "resampled_vector_length": 100,
+        "dt": 1 / 30,
+        "action_horizon": 100,
+        "rotation_distance_unit": 0.4188790204786391,
+        "arc_chunking_mode": "joint_distance",
+    }
+
+
+def test_hybrid_cartesian_arc_defaults_legacy_chunking_to_joint_distance():
+    training = training_config(horizon=200, action_dim=14)
+    training.abc = {
+        "action_mode": "hybrid_arc_tokenizer_cartesian",
+        "action_horizon": 100,
+        "arc_distance": 0.464146895489191,
+        "arc_rotation_distance": 0.4188790204786391,
+        "arc_waypoints": 100,
+        "arc_token_rows": 200,
+        "arc_velocity_mode": "per_waypoint",
+    }
+    training.evaluator.control_dt = 1 / 30
+    artifact = build_inference_config(training)
+    decoder = artifact["inference_graph"]["profiles"][
+        "flow_cartesian_per_waypoint"
+    ]["adapter"]["decoder"]
+    assert decoder["arc_chunking_mode"] == "joint_distance"
 
 
 def test_legacy_mean_timing_and_noncartesian_models_fail_closed():

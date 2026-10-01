@@ -1,0 +1,71 @@
+{
+  "source_counts": {
+    "A": {
+      "data": 39,
+      "evaluator": 10,
+      "experiment": 70,
+      "model": 29
+    },
+    "B": {
+      "data": 63,
+      "evaluator": 26,
+      "experiment": 72,
+      "model": 55
+    },
+    "C": {
+      "data": 136,
+      "evaluator": 10,
+      "experiment": 130,
+      "model": 44
+    },
+    "integrated": {
+      "data": 153,
+      "evaluator": 27,
+      "experiment": 151,
+      "model": 67
+    }
+  },
+  "model_disposition_rows": 128,
+  "model_aliases_or_focused_variants": {
+    "model/hpt_bc_flow_aria.yaml": "model/hpt_bc_flow_human.yaml",
+    "model/hpt_cotrain_scale_flow_shared_head.yaml": "model/hpt_cotrain_mecka_flow_shared_head.yaml",
+    "model/pi0.5_bc_scale.yaml": "model/pi0.5_bc_mecka.yaml",
+    "model/pi0.5_cotrain_mecka_scale.yaml": "model/pi0.5_bc_mecka.yaml",
+    "model/pi05/pi0.5_ft_abc_eva_6d.yaml": "model/pi05/pi0.5_bc_abc_eva_6d.yaml",
+    "model/abc_arc/hpt_abc_cotrain_180M_qwen_pooled.yaml": "model/abc_arc/hpt_abc_cotrain_300M_qwen_pooled.yaml",
+    "model/abc_arc/hpt_abc_cotrain_180M_qwen_pooled_arc_D40_M100.yaml": "model/abc_arc/hpt_abc_cotrain_300M_qwen_pooled_arc_D40_M100.yaml",
+    "model/e1/hpt_flow_wrists_ft_arcdur.yaml": "model/e1/hpt_flow_wrists_ft.yaml",
+    "model/e1/hpt300_flow_wrists_arcdur.yaml": "model/e1/hpt_flow_wrists_ft.yaml",
+    "model/e1/dp300pt_wrists_arcdur.yaml": "model/e1/dp300_wrists_arcdur.yaml"
+  },
+  "source_unique_model_paths": 67,
+  "largest_source_definition_lines_per_path": 14071,
+  "destination_model_lines": 11784,
+  "new_shared_contract_lines": 592,
+  "grid_network_schedule_normalization_equivalent": 64,
+  "manifest_byte_matches": 8,
+  "source_fragment_context_errors": {
+    "A": [
+      "evaluator/eval_arc_bimanual_cartesian_D40_M100.yaml"
+    ],
+    "B": [],
+    "C": [
+      "data/abc_arc/abc_fslongshirt_micro_foldclothes_cotrain_arcD40M100.yaml",
+      "data/abc_arc/abc_fstshirt_arc_bc_D40_M100.yaml",
+      "data/abc_arc/abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100.yaml",
+      "data/abc_arc/abc_mecka_fold_multitask_arc_cotrain_D40_M100.yaml",
+      "evaluator/eval_arc_bimanual_cartesian_D40_M100.yaml",
+      "model/abc_arc/clock_head_abc_cotrain_300M_qwen_pooled_arc_D40_M100.yaml",
+      "model/abc_arc/hpt_abc_cotrain_180M_qwen_pooled.yaml",
+      "model/abc_arc/hpt_abc_cotrain_180M_qwen_pooled_arc_D40_M100.yaml",
+      "model/abc_arc/hpt_abc_cotrain_300M_qwen_pooled.yaml",
+      "model/abc_arc/hpt_abc_cotrain_300M_qwen_pooled_arc_D40_M100.yaml",
+      "model/abc_arc/mixture_hpt_abc_cotrain_300M_qwen_pooled_arc_D40_M100.yaml",
+      "model/abc_arc/yam_bimanual_dp_arc_D40_M100.yaml",
+      "model/abc_arc/yam_mecka_cotrain_dp_300M_arc_D40_M100.yaml",
+      "model/abc_arc/yam_mecka_cotrain_dp_arc_D40_M100.yaml"
+    ],
+    "integrated": []
+  },
+  "note": "Source fragments without their original caller knobs are retained as declarations plus an explicit migration; all integrated contexts resolve. Line counts are not semantic equivalence."
+}

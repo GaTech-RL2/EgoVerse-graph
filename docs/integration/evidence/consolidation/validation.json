@@ -1,0 +1,92 @@
+{
+  "recorded_utc": "2026-10-01T22:56:40.820019+00:00",
+  "validated_code_commit": "96df46f1427cd08e0dd64ac534af133ee37b193c",
+  "suite": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. HF_HUB_OFFLINE=1 WANDB_MODE=disabled MPLCONFIGDIR=/private/tmp/graph-merge-mpl NUMBA_CACHE_DIR=/private/tmp/graph-merge-numba UV_CACHE_DIR=/private/tmp/graph-merge-uv-cache UV_OFFLINE=1 python -m pytest tests -q --junitxml=.consolidation/final-cpu.xml",
+    "passed": 1993,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 42,
+    "seconds": 284.73,
+    "junit_sha256": "704a47d5570fac23628a94fcd30b2c4604d968dfdb6bdc380754725ee4c75fd7"
+  },
+  "checks": [
+    {
+      "command": [
+        "ruff",
+        "check",
+        "egomimic",
+        "tests",
+        "scripts",
+        "tools"
+      ],
+      "exit_code": 0,
+      "output": "All checks passed!\n"
+    },
+    {
+      "command": [
+        "ruff",
+        "format",
+        "--check",
+        "egomimic",
+        "tests",
+        "scripts",
+        "tools"
+      ],
+      "exit_code": 0,
+      "output": "533 files already formatted\n"
+    },
+    {
+      "command": [
+        "uv",
+        "lock",
+        "--check",
+        "--python",
+        "3.11",
+        "--offline"
+      ],
+      "exit_code": 0,
+      "output": "Using CPython 3.11.14\nResolved 342 packages in 10ms\n"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "origin/main...HEAD"
+      ],
+      "exit_code": 0,
+      "output": ""
+    }
+  ],
+  "yaml_contexts_passed": 439,
+  "constructor_contexts": "439; included in passing test_recursive_config_audit.py::test_every_shipped_component_constructs_without_network_or_weights",
+  "platform": "macOS-26.7-arm64-arm-64bit",
+  "python": "3.11.14",
+  "packages": {
+    "torch": "2.7.1",
+    "lightning": "2.6.1",
+    "hydra-core": "1.3.2",
+    "omegaconf": "2.3.0",
+    "numpy": "1.26.4",
+    "scipy": "1.17.1",
+    "pytest": "9.0.3",
+    "ruff": "0.8.6",
+    "transformers": "4.53.2",
+    "openpi": "0.1.0"
+  },
+  "limitations": [
+    "CPU fixtures and meta constructors suppress/download no real weights; tiny OpenPI doubles follow pinned unreduced-loss API.",
+    "Installed-wheel and real two-process CPU Gloo tests passed; they are not real-weight/data GPU acceptance.",
+    "Required OSMO matrix has not been launched for this assembled commit.",
+    "Documentation/evidence-only commits may follow this code commit; CI will also evaluate the PR head."
+  ],
+  "resolved_failures": [
+    "Obsolete incoming hybrid methods overrode canonical per-arm clocks; removed.",
+    "Undefined grouped HPT mode, token ordering, and missing lazy PI backend imports fixed.",
+    "EMA weights-only initialization now overlays parameters on complete online state; resumed jobs skip initialization.",
+    "A 13-test failure was missing synthetic dataset-root setup in config tests; constructor portability and contract issues fixed separately.",
+    "PI test double returned scalar while pinned OpenPI returns per-sample loss; fixture now preserves the backend API.",
+    "E1 slow-arm w400 holds matched unchanged source C, not a claimed hybrid behavior."
+  ]
+}

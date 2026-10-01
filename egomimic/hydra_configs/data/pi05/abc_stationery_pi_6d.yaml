@@ -12,7 +12,7 @@
 # TRAINED AS eva_bimanual: the zarrs on the mirror say
 # `attrs.embodiment = eva_bimanual` (they were converted before the relabel)
 # and the leaf dataset reads the embodiment from the zarr, so the dataset
-# registers under eva_bimanual — which is what model pi0.5_ft_abc_eva_6d, the
+# registers under eva_bimanual — which is what model pi0.5_bc_abc_eva_6d, the
 # eva extrinsics registry and the eva norm stats all expect. No embodiment
 # override anywhere; the relabel is a SQL-side rename only.
 #

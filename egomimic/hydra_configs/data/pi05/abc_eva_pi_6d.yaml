@@ -5,7 +5,7 @@
 # WRIST-frame cartesian actions with the continuous 6D rotation
 # representation (20D = xyz+6D+gripper per arm); the head/cam-frame proprio
 # ee_pose is 6D-encoded too. Eva's default stride applies. Pairs with
-# model=pi0.5_ft_abc_eva_6d and evaluator=eval_pi_wristframe_6d.
+# model=pi0.5_bc_abc_eva_6d and evaluator=eval_pi_wristframe_6d.
 #
 # LEGACY EXTRINSICS NOTE: this config predates the extrinsics_key plumbing
 # and bakes the default x5Dec13_2 (rl2 lab rig) cam frame into the proprio —

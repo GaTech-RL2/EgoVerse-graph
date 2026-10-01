@@ -24,7 +24,7 @@ mkdir -p "$OUT"
 
 "$PY" -u scripts/data/precompute_norm_stats.py \
   --data pi05/abc_eva_pi_6d_foldviz \
-  --model pi05/pi0.5_ft_abc_eva_6d \
+  --model pi05/pi0.5_bc_abc_eva_6d \
   --sample-frac 0.005 \
   --max-samples 50000 \
   --num-workers 22 \

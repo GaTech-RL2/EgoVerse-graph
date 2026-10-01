@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_visual_hpt300_base
+  - override /data: abc_arc/stationery_rl2_hpt_baseline
+  - _self_
+name: stationery_rl2_hpt300_visual_baseline_openloop
+description: HPT300M RL2 organize_stationary visual-only baseline
+abc:
+  task_predicate: "row['task'] == 'organize_stationary'"
+evaluator:
+  limit_val_episodes: 5
+logger:
+  wandb:
+    tags: [hpt300m, rl2, organize_stationary, visual_only, no_language, baseline, open_loop, video]

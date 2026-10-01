@@ -6,6 +6,7 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
+    StoreBimanualMetricFrame,
     ActionChunkCoordinateFrameTransform,
     CartesianRot6DToYPR,
     ConcatKeys,
@@ -231,6 +232,9 @@ class Human(Embodiment):
         annotation_key: str = None,
         high_annotation_key=None,
         camera_keys: dict | None = None,
+        min_distance_unit: float = 0.60,
+        rotation_distance_unit: float | None = None,
+        arc_chunking_mode: str | None = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` and ``include_aria_keypoints``
@@ -244,6 +248,27 @@ class Human(Embodiment):
             include_aria_keypoints=include_aria_keypoints,
             include_grip_keypoints=include_grip_keypoints,
         )
+        if keymap_mode in (
+            "arc_tokenizer_cartesian",
+            "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
+        ) and (arc_chunking_mode is not None or rotation_distance_unit is not None):
+            from egomimic.rldb.zarr.arc_length_tokenizer import resolve_arc_chunking_mode
+
+            horizon = {
+                "type": "arc_hybrid" if rotation_distance_unit is not None else "arc_distance",
+                "distance": float(min_distance_unit),
+                "source_buffer_frames": cls.ARC_TOK_ACTION_HORIZON,
+                "pose_zarr_keys": ["left.obs_ee_pose", "right.obs_ee_pose"],
+                "arc_chunking_mode": resolve_arc_chunking_mode(
+                    arc_chunking_mode, rotation_distance_unit
+                ),
+            }
+            if rotation_distance_unit is not None:
+                horizon["rotation_distance"] = float(rotation_distance_unit)
+            for spec in key_map.values():
+                if spec.get("key_type") == "action_keys":
+                    spec["horizon"] = horizon
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",
@@ -280,7 +305,11 @@ class Human(Embodiment):
         front_key = cls.VIZ_IMAGE_KEY
         # The arc keymap is plain cartesian with a wider raw window, so per-arm
         # arc length has room to reach D before the padded tail begins.
-        if keymap_mode == "arc_tokenizer_cartesian":
+        if keymap_mode in (
+            "arc_tokenizer_cartesian",
+            "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             horizon = cls.ARC_TOK_ACTION_HORIZON
             keymap_mode = "cartesian"
         else:
@@ -395,6 +424,7 @@ class Human(Embodiment):
             "cartesian_gripper_padded",
             "arc_tokenizer_cartesian",
             "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
             "keypoints",
         ] = "cartesian",
         coord_frame: Literal[
@@ -409,6 +439,7 @@ class Human(Embodiment):
         stride: int = 3,
         # Arc-tokenizer args, consulted only by the arc_tokenizer_* modes.
         min_distance_unit: float = 0.60,
+        rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 20,
         chunk_length: int | None = None,
         # How the arc token carries timing; see
@@ -417,6 +448,7 @@ class Human(Embodiment):
         local_frame_rotations: dict | None = None,
         pad_proprio_gripper: bool = False,
         keypoint_gripper: bool = False,
+        arc_chunking_mode: str | None = None,
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -434,7 +466,15 @@ class Human(Embodiment):
         # to M. Interpolating to 100 first would decimate the human window,
         # and arc length measured on a decimated path reads systematically
         # short.
-        if chunk_length is None:
+        native_arc = action_mode in (
+            "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
+        ) and (arc_chunking_mode is not None or rotation_distance_unit is not None)
+        if native_arc:
+            # Keep both clocks' complete source path, including rotation after
+            # translation finishes. None also bypasses source stride thinning.
+            chunk_length = None
+        elif chunk_length is None:
             chunk_length = (
                 cls.ARC_TOK_ACTION_HORIZON
                 if action_mode.startswith("arc_tokenizer_cartesian")
@@ -450,6 +490,7 @@ class Human(Embodiment):
             "cartesian",
             "cartesian_gripper_padded",
             "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
         ):
             builders = {
                 "camframe": _build_human_cartesian_bimanual_transform_list,
@@ -475,6 +516,7 @@ class Human(Embodiment):
         if action_mode in (
             "cartesian_gripper_padded",
             "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
         ):
             # Padding runs BEFORE the tokenizer: human has no gripper signal,
             # and the tokenizer's layout routes gripper into slot 6 per arm, so
@@ -482,10 +524,13 @@ class Human(Embodiment):
             transform_list = _pad_human_cartesian_gripper(
                 transform_list, rotation_mode=rotation_mode
             )
-        if action_mode == "arc_tokenizer_cartesian_gripper_padded":
+        if action_mode in (
+            "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             from egomimic.rldb.embodiment.eva import _append_arc_tokenizer
 
-            # dt MUST reflect the stride. The action chunk is subsampled by
+            # Legacy action chunks are subsampled by
             # actions[::stride], so consecutive samples are stride/30 s apart,
             # not 1/30. Leaving the tokenizer's default inflates the velocity
             # channel by exactly `stride` -- 3x on real stride=3 data. It
@@ -495,10 +540,13 @@ class Human(Embodiment):
             return _append_arc_tokenizer(
                 transform_list,
                 min_distance_unit=min_distance_unit,
+                rotation_distance_unit=rotation_distance_unit,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
-                dt=float(stride) / 30.0,
+                dt=1.0 / 30.0 if native_arc else float(stride) / 30.0,
                 velocity_mode=velocity_mode,
+                arc_chunking_mode=arc_chunking_mode,
+                preserve_action_rows=100 if native_arc else None,
             )
         prefix = []
         suffix = []
@@ -1167,6 +1215,8 @@ def _build_human_cartesian_eef_frame_transform_list(
             keys_to_delete.append(target_world_ypr)
 
     transform_list: list[Transform] = [
+        *([StoreBimanualMetricFrame(left_obs_pose, right_obs_pose)]
+          if rotation_mode == "euler" else []),
         ActionChunkCoordinateFrameTransform(
             target_world=target_world,
             chunk_world=left_action_world,

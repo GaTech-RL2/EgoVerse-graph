@@ -490,10 +490,10 @@ class CrossBlock(nn.Module):
         self.mlp = nn.Sequential(*layers)
         self.cond_proj = nn.Linear(cond_dim, hidden_dim)
 
-    def forward_cross(self, x, cond):
+    def forward_cross(self, x, cond, self_attn_mask=None):
         res = x
         x = self.ln1(x)
-        x, _ = self.mha(x, x, x)
+        x, _ = self.mha(x, x, x, attn_mask=self_attn_mask)
         x = x + res
         res = x
         x = self.ln2(x)
@@ -505,9 +505,9 @@ class CrossBlock(nn.Module):
         x = x + res
         return x
 
-    def forward(self, x, cond):
+    def forward(self, x, cond, self_attn_mask=None):
         cond = self.cond_proj(cond)
-        return self.forward_cross(x, cond)
+        return self.forward_cross(x, cond, self_attn_mask=self_attn_mask)
 
 
 class CrossTransformer(nn.Module):

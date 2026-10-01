@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_visual_hpt300_base
+  - _self_
+name: abc_multitask4_hpt300_baseline_visual_openloop
+description: HPT300M ABC four-task visual-only baseline 100-frame chunks
+abc:
+  task_predicate: "row['task'] in ['fold and stack the towels', 'take the fake fruits out of the plastic bag', 'sort the stationery into containers', 'insert the wireless bluetooth earbuds into the charging case']"
+  # Shared with the paired ARC recipe so evaluator distance settings remain
+  # directly comparable even though this model predicts time-indexed actions.
+  arc_distance: 0.81
+  arc_rotation_distance: 0.4188790204786391

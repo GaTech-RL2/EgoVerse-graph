@@ -1,22 +1,14 @@
-"""Arc-tokenized twin of :class:`BimanualCartesianEval`.
+"""ARC-aware overlay adapter for :class:`BimanualCartesianEval`.
 
-An arc-tokenized run predicts (M+1, 14) rows that are NOT all poses: rows
-0..M-1 are waypoints and row M is a velocity token. Every consumer downstream
-of the model -- the revert transforms and the viz func -- assumes a stack of
-poses, so the token has to be turned back into a time-indexed chunk before any
-of them see it.
+ARC predictions are not pose sequences. A mean token is ``(M+1, 14)``;
+per-waypoint and duration tokens can be stacked as ``(2M, 14)`` or wide as
+``(M, 28)``. The overlay path converts wide tokens to the evaluator's stacked
+layout, then detokenizes to a time-indexed ``(H, 14)`` pose chunk before frame
+reversion. Otherwise velocity rows could be mistaken for robot poses and still
+produce plausible but invalid overlays.
 
-That conversion is the whole reason this class exists. The revert transform
-rotates AND translates each row it is handed; applied to a velocity row it
-returns the camera-to-gripper offset, i.e. a position. The resulting overlay
-still renders, which is what makes the mistake expensive: the trajectory looks
-plausible but the arm appears to teleport, and the paired MSE is computed
-against a garbage final row.
-
-Metrics are unchanged from the base class and stay in TOKEN space: both
-prediction and target are tokens there, so ``Valid/MSE`` and
-``Valid/Native_MSE`` remain apples-to-apples. Only the overlay path
-detokenizes.
+The base evaluator's token-space metrics remain unchanged. Only visualization
+detokenizes ARC predictions.
 """
 
 from __future__ import annotations
@@ -44,6 +36,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         self,
         *args,
         min_distance_unit: float,
+        rotation_distance_unit: float | None = None,
         resampled_vector_length: int,
         action_horizon: int = 100,
         dt: float = 1.0 / 30.0,
@@ -57,6 +50,14 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         )
 
         self.min_distance_unit = float(min_distance_unit)
+        if rotation_distance_unit is not None and (
+            not np.isfinite(float(rotation_distance_unit))
+            or float(rotation_distance_unit) <= 0.0
+        ):
+            raise ValueError("rotation_distance_unit must be positive and finite")
+        self.rotation_distance_unit = (
+            None if rotation_distance_unit is None else float(rotation_distance_unit)
+        )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
         self.action_horizon = int(action_horizon)
@@ -82,10 +83,15 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
             action_key=self.action_key,
             output_action_key=self.action_key,
             min_distance_unit=self.min_distance_unit,
+            rotation_distance_unit=self.rotation_distance_unit,
             resampled_vector_length=self.resampled_vector_length,
             dt=float(dt),
             preserve_action_key=None,
             velocity_mode=self.velocity_mode,
+            # Predictions are restacked to the stacked layout before they reach
+            # this codec, so the run's own layout never has to be configured
+            # here -- see stack_arc_token.
+            velocity_layout="stacked",
         )
 
     def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:
@@ -99,39 +105,41 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         misconfiguration.
         """
         from egomimic.rldb.zarr.arc_length_tokenizer import (
-            bimanual_arc_token_rows,
+            bimanual_arc_token_shapes,
+            stack_arc_token,
         )
 
         if not self._is_arc(actions):
-            expected_rows = bimanual_arc_token_rows(
+            expected = bimanual_arc_token_shapes(
                 self.resampled_vector_length, self.velocity_mode
             )
-            if actions.ndim == 3 and int(actions.shape[-1]) != _BIMANUAL_DIM:
-                # Not a bimanual chunk at all: that IS a misconfiguration.
-                raise ValueError(
-                    f"{type(self).__name__} expects (B, T, {_BIMANUAL_DIM}) "
-                    f"rows, got {tuple(actions.shape)}. Arc tokens for M="
-                    f"{self.resampled_vector_length} would be "
-                    f"{expected_rows} rows."
-                )
-            # A row count matching the OTHER timing layout's token is a
+            # A shape matching the OTHER timing layout's token is a
             # data/evaluator mode mismatch, not a baseline chunk. Passing it
             # through would score arc tokens as if they were poses and read
             # plausibly, so it stays a hard error. duration and per_waypoint
-            # share the 2M layout, so only mean <-> granular is detectable.
+            # produce the same shapes, so only mean <-> granular is detectable.
+            # This runs before the width check because a token for the other
+            # mode can be wide, and the mode mismatch is the precise diagnosis.
             other = (
                 "mean"
                 if self.velocity_mode in ("per_waypoint", "duration")
                 else "per_waypoint"
             )
-            if actions.ndim == 3 and int(actions.shape[-2]) == (
-                bimanual_arc_token_rows(self.resampled_vector_length, other)
-            ):
+            if actions.ndim == 3 and tuple(
+                actions.shape[-2:]
+            ) in bimanual_arc_token_shapes(self.resampled_vector_length, other):
                 raise ValueError(
                     f"{type(self).__name__} is configured for velocity_mode="
-                    f"{self.velocity_mode!r} ({expected_rows} arc tokens) but "
-                    f"got {tuple(actions.shape)}, which is the row count for "
+                    f"{self.velocity_mode!r} (arc tokens {expected}) but got "
+                    f"{tuple(actions.shape)}, which is a token shape for "
                     f"{other!r}. The evaluator and the data config disagree."
+                )
+            if actions.ndim == 3 and int(actions.shape[-1]) != _BIMANUAL_DIM:
+                # Not a bimanual chunk at all: that IS a misconfiguration.
+                raise ValueError(
+                    f"{type(self).__name__} expects (B, T, {_BIMANUAL_DIM}) "
+                    f"rows, got {tuple(actions.shape)}. Arc tokens for M="
+                    f"{self.resampled_vector_length} would be {expected}."
                 )
             return super()._viz_source(actions, embodiment_id)
         del embodiment_id
@@ -139,7 +147,7 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         decoded = np.stack(
             [
                 self._tokenizer.detokenize(sample, self.action_horizon)
-                for sample in native
+                for sample in stack_arc_token(native)
             ],
             axis=0,
         )
@@ -150,24 +158,20 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
 
         One evaluator serves both arms of the ablation, so the run type is
         detected from the shape instead of configured twice: an arc token has
-        exactly the row count this D/M and velocity mode imply, and the
-        canonical bimanual width. A baseline chunk has the action horizon's
-        rows, which only collides with the token count by coincidence -- and if
-        it ever did, both readings would be the same rows anyway.
+        exactly the shape this D/M and velocity mode imply, in either velocity
+        layout -- (2M, 14) stacked or (M, 28) wide. A baseline chunk has the
+        action horizon's rows at the canonical bimanual width, which only
+        collides with a stacked token by coincidence -- and if it ever did,
+        both readings would be the same rows anyway.
         """
         from egomimic.rldb.zarr.arc_length_tokenizer import (
-            ARC_TOK_BIMANUAL_DIM,
-            bimanual_arc_token_rows,
+            bimanual_arc_token_shapes,
         )
 
         if actions is None or actions.ndim != 3:
             return False
-        expected = bimanual_arc_token_rows(
+        return tuple(actions.shape[-2:]) in bimanual_arc_token_shapes(
             self.resampled_vector_length, self.velocity_mode
-        )
-        return (
-            int(actions.shape[-2]) == expected
-            and int(actions.shape[-1]) == ARC_TOK_BIMANUAL_DIM
         )
 
     def _arc_pred_time_indexed(self, prediction, embodiment_id: int):
@@ -188,13 +192,13 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         ``include_reconstruction_loss=True``: always detokenize so codec
         reconstruction is baked into arcmatch (controller-facing path).
 
-        ``False`` (default): score token waypoints when every arm has
-        ``L_gt >= D``; detok only when any arm is shorter than D so both sides
-        can be re-tokenized over that shorter shared span with the same M.
+        ``False`` (default): score token waypoints when combined-arm
+        ground-truth travel reaches ``D``; detok only for a shorter joint span.
         ``D`` is codec ``min_distance_unit`` (asserted equal to
         ``arcmatch_distance`` at init).
         """
-        from egomimic.eval.arc_metrics import arm_travel
+        from egomimic.eval.arc_metrics import combined_travel
+        from egomimic.rldb.zarr.arc_length_tokenizer import stack_arc_token
 
         native = self._native(prediction, embodiment_id)
         if not self._is_arc(native):
@@ -204,12 +208,15 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         if self.include_reconstruction_loss:
             return self._arc_pred_time_indexed(prediction, embodiment_id)
 
-        tokens = native.detach().cpu().numpy().astype(np.float64, copy=False)
+        # Waypoint rows are read positionally below, so wide is restacked.
+        tokens = stack_arc_token(
+            native.detach().cpu().numpy().astype(np.float64, copy=False)
+        )
         M = int(self.resampled_vector_length)
         D = float(self.min_distance_unit)
         out: list[np.ndarray] = []
         for pred_i, gt_i in zip(tokens, ground_truth):
-            if np.any(arm_travel(gt_i) < D - 1e-12):
+            if combined_travel(gt_i) < D - 1e-12:
                 out.append(self._tokenizer.detokenize(pred_i, self.action_horizon))
             else:
                 if pred_i.shape[0] < M:

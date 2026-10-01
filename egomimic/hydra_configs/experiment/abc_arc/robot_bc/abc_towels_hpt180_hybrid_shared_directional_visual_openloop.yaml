@@ -1,0 +1,28 @@
+# @package _global_
+# One shared flow transformer over 2M stream tokens. The velocity tokens can
+# read shape tokens, while shape tokens cannot read velocity tokens.
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_towels_hpt180_hybrid_visual_openloop
+  - override /model: abc_arc/hpt_yam_visual_arc_stream
+  - _self_
+
+name: abc_towels_hpt180_hybrid_shared_directional_visual_openloop
+description: shared shape-velocity transformer with one-way attention
+abc:
+  task_predicate: "row['task'] == 'fold and stack the towels'"
+
+hpt:
+  arc_stream_arch: shared_directional
+  arc_stream_shape_blocks: 6
+  arc_stream_velocity_blocks: 4
+  arc_stream_fusion_blocks: 4
+
+trainer:
+  accumulate_grad_batches: 2
+
+logger:
+  wandb:
+    id: pace_abc_towels_shared_directional_20260930
+    name: pace_abc_towels_shared_directional_20260930
+    resume: never
+    tags: [hpt180, abc, towels, visual_only, no_language, hybrid, shared_parameters, directional_attention, parameter_matched, open_loop, video]

@@ -1,5 +1,10 @@
 # ARC modality-specific Transformer comparison
 
+All three Spatial runs and their full paired evaluations are complete. Final
+success rates are 64.60% for xyz/rotation/gripper MoT, 60.44% for shape/velocity
+MoT, and 72.48% for masked shape/velocity MoT. Each score covers 2,500 episodes.
+See the [complete results and per-task table](results/libero_arc_mot_spatial_20260930.md).
+
 The previous shared-decoder control splits shape and timing into different
 tokens but shares the Transformer parameters. These three MoT variants give
 each modality its own self-attention Q/K/V/output projections, observation
@@ -54,8 +59,8 @@ order. The mask applies at every layer and every diffusion step.
 
 Existing completed Spatial references are original joint-token ARC 76.16%,
 split-token shared decoder 70.40%, separate decoders 76.04%, and split-token
-shared decoder with shape-to-timing attention blocked 77.12%. MoT success
-rates remain pending until their full paired evaluations complete.
+shared decoder with shape-to-timing attention blocked 77.12%. None of the new
+MoT variants exceeds the original ARC reference in this Spatial experiment.
 
 ## Implementation and reproduction
 
@@ -112,5 +117,8 @@ not change batch-normalization statistics. This preserves the training budget;
 it is not a promise of bitwise-identical stochastic computation across layouts.
 Nine focused checks passed, covering real distributed checkpoint resume with
 optimizer/EMA continuity and supported layouts' global batches. The collector
-now validates the declared four-GPU layout in addition to its existing full
-training and evaluation checks. No MoT success rates are available yet.
+validates the declared four-GPU layout in addition to its existing full
+training and evaluation checks. All three final checkpoints have 270,054
+optimizer/EMA updates; all 7,500 candidate episodes passed exact episode and
+initial-state pairing checks. The final evaluation finished at 17:56 PDT on
+September 30, 2026.

@@ -26,7 +26,7 @@ cases:
   hpt-aria:
     suite: hpt
     config: train_zarr_cartesian
-    overrides: [model=hpt_bc_flow_aria, data=aria, evaluator=eval_hpt]
+    overrides: [model=hpt_bc_flow_human, data=aria, evaluator=eval_hpt]
     sources: {human_bimanual: aria}
   hpt-mecka:
     suite: hpt
@@ -74,7 +74,7 @@ cases:
   pi-scale:
     suite: pi
     config: train_zarr_cartesian
-    overrides: [model=pi0.5_bc_scale, data=scale, evaluator=eval_pi]
+    overrides: [model=pi0.5_bc_mecka, data=scale, evaluator=eval_pi]
     sources: {human_bimanual: scale}
     runtime_overrides: *pi_runtime
   pi-cotrain:

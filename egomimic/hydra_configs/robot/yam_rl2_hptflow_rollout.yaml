@@ -285,6 +285,46 @@ policy:
             resampled_vector_length: 100
             dt: 0.03333333333333333
             action_horizon: 100
+      # Hybrid arcdur: per-arm translation and rotation clocks, (100, 18).
+      # The Elmo+Aidan lab wide (100, 28) / stacked (200, 14) tokens carry
+      # no e1.variant; auto_inference_config derives their lab_pw_* decoder
+      # from the training transform_list (velocity_layout).
+      flow_arcdurhyb:
+        match:
+          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
+          variant: arcdurhyb
+        native_shape: [100, 18]
+        overrides:
+          inference_steps:
+            label: Euler integration steps
+            description: Number of Flow solver steps per prediction; higher values increase inference latency.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Repredict every
+            description: Execute this many actions before requesting a fresh prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+        adapter:
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_durhyb
+            min_distance_unit: 0.4
+            resampled_vector_length: 100
+            dt: 0.03333333333333333
+            action_horizon: 100
       diffusion_time:
         match:
           stage_target: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage

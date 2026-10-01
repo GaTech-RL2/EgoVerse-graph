@@ -50,6 +50,18 @@ changes. Three things over the parent:
   banked the no-division half of that argument, are in the class docstring of
   ``durations_to_clock_abs``.
 
+* ``velocity_mode="durhyb"`` — the hybrid arcdur token (``arcdurhyb``, trained
+  from EgoVerse-graph ``7694986b`` on ``aidan/arc-bc-consolidated``). DECODE ONLY
+  here: ``(M, 18) = [14 canonical | translation dt L, R | rotation dt L, R]``.
+  Each arm has two streams on independent clocks: xyz + gripper ride the
+  translation stream, ypr its own geodesic rotation stream. Each timing column
+  holds the elapsed seconds of its stream's intervals in rows ``0..M-2`` and the
+  stream's START DELAY in row ``M-1`` (so a wrist turn that begins after the arm
+  stops translating decodes on time). A held arm's translation stream still
+  carries time, so its gripper moves on schedule. Decoding reads each stream by
+  waypoint index against its own clock -- not by translation arc length, which a
+  rotation stream does not have and a held arm's gripper would lose.
+
 * ``fixed_spacing`` — theory design rule 1: waypoints are ALWAYS ``h = D / (M - 1)`` apart.
   A partial token (path shorter than D inside the window — 29 % of arm-tokens on ABC
   skirts, 50 % on stationery, 8 % on mecka) keeps its first ``n_valid`` waypoints at
@@ -87,6 +99,8 @@ except ImportError:  # pragma: no cover
 # canonical 14-dim layout [L xyz ypr grip | R xyz ypr grip].
 ARM_LAYOUT = ((0, 3, 6, slice(0, 3)), (7, 10, 13, slice(7, 10)))
 E1_ARCVEL_DIM = 16
+E1_HYBRID_DIM = 18  # durhyb: [14 canonical | trans dt L, R | rot dt L, R]
+HYBRID_ROT_EPS = 1e-6  # rad; total geodesic turn under this is a still wrist
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +272,35 @@ def durations_to_clock_abs(col: np.ndarray, span, min_speed: float = 0.01, max_s
     return np.concatenate(([0.0], np.cumsum(seg)))
 
 
+def hybrid_stream_clock(col: np.ndarray) -> np.ndarray:
+    """``durhyb`` timing column (M,) -> the stream's time at its M waypoints (s).
+
+    Rows ``0..M-2`` are interval seconds, row ``M-1`` the start delay; both are
+    clamped non-negative (time cannot run backwards), as ``dur`` clamps."""
+    col = np.asarray(col, dtype=np.float64)
+    seg = np.maximum(col[:-1], 0.0)
+    return max(float(col[-1]), 0.0) + np.concatenate(([0.0], np.cumsum(seg)))
+
+
+def _clock_brackets(clock: np.ndarray, t: np.ndarray):
+    """Waypoint interval i and alpha in [0, 1] for each time in ``t``.
+
+    Before the clock starts (inside the start delay) -> waypoint 0; past its end
+    -> the last waypoint. A zero-length interval is stepped over (side="right"),
+    so a stream never dwells between two waypoints that share a timestamp."""
+    n = len(clock)
+    i = np.clip(np.searchsorted(clock, t, side="right") - 1, 0, n - 2)
+    span = clock[i + 1] - clock[i]
+    alpha = np.where(span > 1e-12, (t - clock[i]) / np.where(span > 1e-12, span, 1.0), 1.0)
+    alpha = np.where(t <= clock[0], 0.0, np.where(t >= clock[-1], 1.0, alpha))
+    return i, np.clip(alpha, 0.0, 1.0)
+
+
+def _geodesic_total(ypr: np.ndarray) -> float:
+    rot = R.from_euler("ZYX", ypr)
+    return float(np.sum((rot[:-1].inv() * rot[1:]).magnitude()))
+
+
 class CopyKeyRows(Transform):
     """``batch[dst] = batch[src][:n_rows]`` — carries the un-tokenized time chunk
     (``actions_time``) alongside the model target so the E1 evaluator can score
@@ -288,8 +331,8 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         self.fixed_spacing = bool(fixed_spacing)
         if velocity_norm not in ("chord", "path"):
             raise ValueError(f"velocity_norm must be 'chord' or 'path', got {velocity_norm!r}")
-        if velocity_mode not in ("mean", "profile", "logdur", "dur"):
-            raise ValueError(f"velocity_mode must be 'mean', 'profile', 'logdur' or 'dur', got {velocity_mode!r}")
+        if velocity_mode not in ("mean", "profile", "logdur", "dur", "durhyb"):
+            raise ValueError(f"velocity_mode must be 'mean', 'profile', 'logdur', 'dur' or 'durhyb', got {velocity_mode!r}")
         self.velocity_norm = velocity_norm
         self.velocity_mode = velocity_mode
         self.speed_smooth_frames = int(speed_smooth_frames)
@@ -298,8 +341,12 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
     @property
     def wide(self) -> bool:
-        """(M, 16) layouts: a per-waypoint timing column per arm."""
-        return self.velocity_mode in ("profile", "logdur", "dur")
+        """(M, 16) / (M, 18) layouts: per-waypoint timing columns per arm."""
+        return self.velocity_mode in ("profile", "logdur", "dur", "durhyb")
+
+    @property
+    def hybrid(self) -> bool:
+        return self.velocity_mode == "durhyb"
 
     def _progress_positions(self, pos: np.ndarray) -> np.ndarray:
         """Positions used for arc length / resampling / timing (#4 when smoothing is on)."""
@@ -346,6 +393,11 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
     # -- tokenize ----------------------------------------------------------
     def transform(self, batch: dict) -> dict:
+        if self.hybrid:
+            raise NotImplementedError(
+                "durhyb is decode-only on the station; its tokenizer lives on "
+                "aidan/arc-bc-consolidated (7694986b)"
+            )
         chunk = np.asarray(batch[self.action_key], dtype=np.float64)
         M = self.M
         dt = self.tokenizer.config.dt
@@ -443,6 +495,8 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             t = np.asarray(times, dtype=np.float64)
             if t.shape != (h,) or not np.isfinite(t).all() or t[0] < 0 or (np.diff(t) < 0).any():
                 raise ValueError(f"times must be a finite non-decreasing ({h},) grid starting at >= 0")
+        if self.hybrid:
+            return self._detokenize_hybrid(arc, t)
         profile = self.wide
         if profile:
             if arc.ndim != 2 or arc.shape[1] != E1_ARCVEL_DIM:
@@ -479,6 +533,51 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             arms.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
         return np.concatenate(arms, axis=-1)  # (H, 14)
 
+    def _check_hybrid(self, arc: np.ndarray) -> np.ndarray:
+        arc = np.asarray(arc, dtype=np.float64)
+        if arc.ndim != 2 or arc.shape[1] != E1_HYBRID_DIM or arc.shape[0] < 2:
+            raise ValueError(f"durhyb detokenize expects (M, {E1_HYBRID_DIM}), got {arc.shape}")
+        return arc
+
+    def hybrid_clocks(self, arc_actions: np.ndarray) -> list[tuple[np.ndarray, np.ndarray]]:
+        """Per arm, (translation clock, rotation clock) at the M waypoints (s)."""
+        arc = self._check_hybrid(arc_actions)
+        return [(hybrid_stream_clock(arc[:, 14 + k]), hybrid_stream_clock(arc[:, 16 + k]))
+                for k in range(len(ARM_LAYOUT))]
+
+    def hybrid_stream_ends(self, arc_actions: np.ndarray) -> list[float]:
+        """Clock time at which each MOVING stream finishes: a translation stream
+        that moves xyz or the gripper, a rotation stream that turns the wrist.
+        Past the latest of these every row repeats the final pose."""
+        arc = self._check_hybrid(arc_actions)
+        ends = []
+        for (xyz_off, ypr_off, grip_off, _), (t_clock, r_clock) in zip(ARM_LAYOUT, self.hybrid_clocks(arc)):
+            xyz, grip = arc[:, xyz_off : xyz_off + 3], arc[:, grip_off]
+            if cumulative_arc_length(xyz)[-1] >= 1e-9 or np.ptp(grip) > 1e-9:
+                ends.append(float(t_clock[-1]))
+            if _geodesic_total(arc[:, ypr_off : ypr_off + 3]) > HYBRID_ROT_EPS:
+                ends.append(float(r_clock[-1]))
+        return ends
+
+    def _detokenize_hybrid(self, arc: np.ndarray, t: np.ndarray) -> np.ndarray:
+        arc = self._check_hybrid(arc)
+        arms = []
+        for (xyz_off, ypr_off, grip_off, _), (t_clock, r_clock) in zip(ARM_LAYOUT, self.hybrid_clocks(arc)):
+            xyz = arc[:, xyz_off : xyz_off + 3]
+            ypr = arc[:, ypr_off : ypr_off + 3]
+            grip = arc[:, grip_off : grip_off + 1]
+            i, alpha = _clock_brackets(t_clock, t)
+            a = alpha[:, None]
+            pos_t = (1.0 - a) * xyz[i] + a * xyz[i + 1]
+            grip_t = (1.0 - a) * grip[i] + a * grip[i + 1]
+            i, alpha = _clock_brackets(r_clock, t)
+            ypr_t = _slerp_vec(R.from_euler("ZYX", ypr), i, alpha).as_euler("ZYX", degrees=False)
+            exact0, exact1 = alpha <= 0.0, alpha >= 1.0  # keep waypoints byte-exact, as resample_at_s does
+            ypr_t[exact0] = ypr[i[exact0]]
+            ypr_t[exact1] = ypr[i[exact1] + 1]
+            arms.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
+        return np.concatenate(arms, axis=-1)  # (H, 14)
+
     def _wide_clock(self, col: np.ndarray, cum: np.ndarray) -> np.ndarray:
         """Time-of-progress at the M waypoints from one arm's timing column."""
         if self.velocity_mode == "logdur":
@@ -488,7 +587,10 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         return integral_clock(cum, np.maximum(col, self.min_speed))
 
     def clock_at_waypoints(self, arc_actions: np.ndarray) -> list[np.ndarray]:
-        """Per arm, the token's implied time-of-progress at its M waypoints (s)."""
+        """Per arm, the token's implied time-of-progress at its M waypoints (s).
+        For durhyb this is the translation stream's clock (start delay included)."""
+        if self.hybrid:
+            return [trans for trans, _rot in self.hybrid_clocks(arc_actions)]
         arc = np.asarray(arc_actions, dtype=np.float64)
         M = arc.shape[0] if self.wide else arc.shape[0] - 1
         out = []

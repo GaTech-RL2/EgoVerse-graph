@@ -21,6 +21,18 @@ arc-length resampling, so rotation still goes through the codec's SLERP. Tokens
 without a per-waypoint clock (lab and the cartesian layouts) take a uniform speed
 only, as a codec whose control period is scaled.
 
+Token shapes (M = resampled_vector_length):
+  e1_dur / e1_logdur / e1_profile  (M, 16)  E1 arcdur / arclogdur / arcvel
+  e1_durhyb                        (M, 18)  E1 hybrid arcdur: independent per-arm
+                                            translation and rotation clocks
+  lab                              (M+1, 14)
+  cartesian_per_waypoint/duration  (2M, 14) station codec (Elmo's race-hybrid)
+  lab_pw_wide                      (M, 28)  PR #193 lab codec, per-waypoint
+  lab_pw_stacked                   (2M, 14)   velocity beside / under waypoints
+The two lab_pw layouts decode with the vendored PR #193 codec
+(``arc_length_tokenizer_pr193``) that trained the Elmo+Aidan lab runs, not the
+station's drifted copy.
+
 ``TimeChunkRetimer`` gives a time-indexed policy (no token, no decoder) the same
 control: its (H, 14) chunk is a path on a uniform clock, read through the same warp.
 speed == hold_speed is the naive baseline speed-up (2x = every other row).
@@ -34,18 +46,27 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
     cumulative_arc_length,
 )
-from egomimic.rldb.zarr.e1_arc_tokenizer import ARM_LAYOUT, TokenizeBimanualArcLengthE1
+from egomimic.rldb.zarr import arc_length_tokenizer_pr193 as pr193
+from egomimic.rldb.zarr.e1_arc_tokenizer import (
+    ARM_LAYOUT,
+    E1_HYBRID_DIM,
+    TokenizeBimanualArcLengthE1,
+)
 from egomimic.robot.arc_speed import ARC_SPEED_RANGE, validate_arc_speed  # noqa: F401
 
-E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
+E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile",
+                    "e1_durhyb": "durhyb"}
 ARC_CARTESIAN_VELOCITY_MODE = {
     "cartesian_per_waypoint": "per_waypoint",
     "cartesian_duration": "duration",
 }
+# velocity_layout of the PR #193 lab codec, per_waypoint timing.
+LAB_PW_LAYOUT = {"lab_pw_wide": "wide", "lab_pw_stacked": "stacked"}
 ARC_TOKEN_LAYOUTS = (
     "lab",
     *E1_VELOCITY_MODE,
     *ARC_CARTESIAN_VELOCITY_MODE,
+    *LAB_PW_LAYOUT,
 )
 # Token-clock seconds the tempo eases over at a hold <-> moving transition, so the
 # commanded speed does not step when an arm crosses ``hold_threshold``.
@@ -207,12 +228,26 @@ class BimanualArcDecoder(ReplayTempo):
             self.shape = (self.M + 1, 14)
         elif token_layout in ARC_CARTESIAN_VELOCITY_MODE:
             self.shape = (2 * self.M, 14)
+        elif token_layout in LAB_PW_LAYOUT:
+            self.shape = pr193.bimanual_arc_token_shape(
+                self.M, "per_waypoint", LAB_PW_LAYOUT[token_layout])
+        elif token_layout == "e1_durhyb":
+            self.shape = (self.M, E1_HYBRID_DIM)
         else:
             self.shape = (self.M, 16)
         kwargs = dict(min_distance_unit=min_distance_unit,
                       resampled_vector_length=self.M, dt=dt)
         self._uniform_codec = None  # (speed, codec) for a uniform speed-up
-        if token_layout in E1_VELOCITY_MODE:
+        self._uniform_cls = TokenizeBimanualArcLengthCartesian
+        if token_layout in LAB_PW_LAYOUT:
+            if rotation_distance_unit is not None or arc_chunking_mode is not None:
+                raise ValueError("lab_pw layouts are the plain (no R) PR #193 codec")
+            kwargs.update(velocity_mode="per_waypoint",
+                          velocity_layout=LAB_PW_LAYOUT[token_layout])
+            self._uniform_kwargs = kwargs
+            self._uniform_cls = pr193.TokenizeBimanualArcLengthCartesian
+            self.codec = self._uniform_cls(**kwargs)
+        elif token_layout in E1_VELOCITY_MODE:
             self.codec = TokenizeBimanualArcLengthE1(
                 **kwargs,
                 velocity_norm="path",
@@ -252,14 +287,19 @@ class BimanualArcDecoder(ReplayTempo):
                 return self.codec.detokenize(row, action_horizon=h)
             if self._uniform_codec is None or self._uniform_codec[0] != self.speed:
                 kwargs = {**self._uniform_kwargs, "dt": self.dt * self.speed}
-                self._uniform_codec = (self.speed, TokenizeBimanualArcLengthCartesian(**kwargs))
+                self._uniform_codec = (self.speed, self._uniform_cls(**kwargs))
             return self._uniform_codec[1].detokenize(row, action_horizon=h)
         clocks = self.codec.clock_at_waypoints(row)
         cums = [cumulative_arc_length(row[:, off : off + 3]) for off, *_ in ARM_LAYOUT]
         # Past the last moving arm's final waypoint the codec holds the endpoint:
         # rows beyond ``valid_steps`` command no motion, so a replan interval
         # above it spends control ticks standing still and gives the speed-up back.
-        ends = [float(clock[-1]) for clock, cum in zip(clocks, cums) if cum[-1] >= 1e-9]
+        if self.token_layout == "e1_durhyb":
+            # Four streams: a wrist still turning, or a held arm's gripper still
+            # closing, keeps the token live after translation has finished.
+            ends = self.codec.hybrid_stream_ends(row)
+        else:
+            ends = [float(clock[-1]) for clock, cum in zip(clocks, cums) if cum[-1] >= 1e-9]
         end = max(ends) if ends else 0.0
         times, hold_fraction = self._warp(clocks, cums, end)
         valid = int(np.searchsorted(times, end, side="right")) if ends else 0

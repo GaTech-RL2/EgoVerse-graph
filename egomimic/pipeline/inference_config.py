@@ -222,13 +222,16 @@ def _decoder_contract(
         "arcvel": "e1_profile",
         "arcdur": "e1_dur",
         "arclogdur": "e1_logdur",
+        "arcdurhyb": "e1_durhyb",
     }
     if variant not in layouts:
         raise ValueError(f"Unknown E1 action variant {variant!r}")
     waypoints = _positive_int(OmegaConf.select(config, "e1.M", default=None), "e1.M")
-    if (native_horizon, native_dim) != (waypoints, 16):
+    # arcdurhyb carries four timing columns (translation + rotation, per arm).
+    width = 18 if variant == "arcdurhyb" else 16
+    if (native_horizon, native_dim) != (waypoints, width):
         raise ValueError(
-            f"{variant} requires native shape [{waypoints}, 16], got "
+            f"{variant} requires native shape [{waypoints}, {width}], got "
             f"[{native_horizon}, {native_dim}]"
         )
     output_horizon = _positive_int(
@@ -326,6 +329,88 @@ def _cartesian_arc_contract(
     }
 
 
+def _yam_arc_transform(config: DictConfig) -> dict[str, Any] | None:
+    """The training resolver's ``Yam.get_transform_list`` node when it tokenizes
+    actions with the loader-side ARC codec (no ``abc.*`` block), else None."""
+    datasets = _plain_node(config, "data.train_datasets")
+    if not isinstance(datasets, Mapping):
+        return None
+    dataset = datasets.get("yam_bimanual")
+    resolver = dataset.get("resolver") if isinstance(dataset, Mapping) else None
+    transform = (
+        resolver.get("transform_list") if isinstance(resolver, Mapping) else None
+    )
+    if not isinstance(transform, Mapping) or not str(
+        transform.get("_target_", "")
+    ).endswith("Yam.get_transform_list"):
+        return None
+    action_mode = transform.get("action_mode")
+    if not (isinstance(action_mode, str) and "arc_tokenizer_cartesian" in action_mode):
+        return None
+    return dict(transform)
+
+
+def _lab_layout_contract(
+    config: DictConfig,
+    transform: Mapping[str, Any],
+    *,
+    native_horizon: int,
+    native_dim: int,
+) -> tuple[str, int, dict[str, Any]]:
+    """Decoder contract for the Elmo+Aidan lab tokens (PR #193 codec).
+
+    Fail closed on anything else: before this existed a (200, 14) stacked token
+    matched the plain time path and its rows would have run as a trajectory."""
+    if transform.get("action_mode") != "arc_tokenizer_cartesian":
+        raise ValueError(
+            "loader-side ARC rollout supports only the plain arc_tokenizer_cartesian "
+            f"codec, got {transform.get('action_mode')!r}"
+        )
+    if transform.get("velocity_mode") != "per_waypoint":
+        raise ValueError(
+            "loader-side ARC rollout supports velocity_mode per_waypoint, got "
+            f"{transform.get('velocity_mode')!r}"
+        )
+    if transform.get("rotation_distance_unit") is not None or transform.get(
+        "arc_chunking_mode"
+    ) is not None:
+        raise ValueError("loader-side ARC rollout does not support an R budget")
+    layout = transform.get("velocity_layout")
+    if layout not in ("wide", "stacked"):
+        # The tokenizer default moved from stacked to wide in PR #193, so an
+        # implicit layout cannot be trusted to mean what the model learned.
+        raise ValueError(
+            "loader-side ARC token needs an explicit velocity_layout wide|stacked, "
+            f"got {layout!r}"
+        )
+    waypoints = _positive_int(
+        transform.get("resampled_vector_length"), "resampled_vector_length"
+    )
+    expected = (waypoints, 28) if layout == "wide" else (2 * waypoints, 14)
+    if (native_horizon, native_dim) != expected:
+        raise ValueError(
+            f"lab {layout} per_waypoint requires native shape {list(expected)}, "
+            f"got [{native_horizon}, {native_dim}]"
+        )
+    distance = _positive_float(transform.get("min_distance_unit"), "min_distance_unit")
+    output_horizon = _positive_int(
+        OmegaConf.select(config, "evaluator.control_horizon", default=100),
+        "evaluator.control_horizon",
+    )
+    dt = OmegaConf.select(config, "inference_config.action_dt", default=None)
+    if dt is None:
+        dt = OmegaConf.select(config, "evaluator.control_dt", default=None)
+    dt = _positive_float(dt, "ARC action dt")
+    return f"lab_pw_{layout}", output_horizon, {
+        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+        "token_layout": f"lab_pw_{layout}",
+        "min_distance_unit": distance,
+        "resampled_vector_length": waypoints,
+        "dt": dt,
+        "action_horizon": output_horizon,
+    }
+
+
 def build_inference_config(
     training: DictConfig | Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -374,11 +459,21 @@ def build_inference_config(
             isinstance(action_mode, str)
             and "arc_tokenizer_cartesian" in action_mode
         )
+        lab_transform = None if is_cartesian_arc else _yam_arc_transform(config)
         if is_cartesian_arc and arc_velocity_mode in ("per_waypoint", "duration"):
             variant = f"cartesian_{arc_velocity_mode}"
             output_horizon, decoder = _cartesian_arc_contract(
                 config,
                 velocity_mode=str(arc_velocity_mode),
+                native_horizon=native_horizon,
+                native_dim=native_dim,
+            )
+        elif lab_transform is not None:
+            # The data transform, not e1.variant, decides the token: the lab
+            # stattempo runs inherit a stale e1.variant=arcdur from their base.
+            variant, output_horizon, decoder = _lab_layout_contract(
+                config,
+                lab_transform,
                 native_horizon=native_horizon,
                 native_dim=native_dim,
             )
@@ -400,7 +495,7 @@ def build_inference_config(
         )
         replan_default = min(replan_default, output_horizon)
         match: dict[str, Any] = {"stage_target": stage_target}
-        if declared_variant is not None:
+        if declared_variant is not None and lab_transform is None:
             match["variant"] = variant
         profile = {
             "match": match,

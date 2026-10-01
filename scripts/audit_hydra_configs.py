@@ -6,8 +6,10 @@ are not runtime model dispatch, skipped tests, or default training selections.
 
 import argparse
 import json
+import os
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 from hydra import compose, initialize_config_dir
 from hydra.core.hydra_config import HydraConfig
@@ -26,6 +28,25 @@ EXPERIMENT_CONTEXTS = {
     "model/bf/us_action_flow_latent_fm_sg_unite_h384": "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
     "evaluator/eval_arc_bimanual_cartesian_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
 }
+EXPERIMENT_CONTEXTS.update(
+    {
+        "model/e1/hpt_flow_wrists_ft": "yam_arc_grid/stationery_ft_time",
+        "model/e1/hpt_flow_wrists_ft_arcdur": "yam_arc_grid/stationery_ft_arcdur",
+        "model/e1/hpt300_flow_wrists_arcdur": "yam_arc_grid/scratch_rl2_towels394_arcdur_hpt300_lambda",
+        "model/e1/dp300_wrists_arcdur": "yam_arc_grid/scratch_rl2_towels394_arcdur_dp300_lambda",
+        "model/e1/dp300pt_wrists_arcdur": "yam_arc_grid/scratch_rl2_towels394_arcdur_dp300pt_lambda",
+        "model/abc_arc/hpt_yam_visual": "abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop",
+        "model/abc_arc/hpt_bimanual_visual": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
+        "model/abc_arc/hpt_yam_visual_arc_stream": "abc_arc/robot_bc/abc_towels_hpt180_hybrid_mot_parallel_visual_openloop",
+        "data/abc_arc/abc_visual": "abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop",
+        "model_contract/e1_wrists": "e1/abcs_time",
+        "model_contract/visual_bimanual": "abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop",
+        "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
+        "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop",
+        "data/abc_arc/stationery_rl2_hpt_baseline": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
+        "data/abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
+    }
+)
 MODEL_CONTEXTS = {
     "experiment/pusht/action_flow_usocket_candidate_common": "bf/us_action_flow_latent_fm_sg_unite_h384",
     "experiment/pusht/action_latent_vfm_usocket_val01_h16": "bf/us_action_latent_vfm_nt16_d8_h512_s42",
@@ -48,6 +69,15 @@ def audit_context(path):
         experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline"
         if "arc_D" in entry or "arcD" in entry or "arc_cotrain" in entry:
             experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100"
+    if group == "data" and entry.startswith("abc_arc/") and "${e1." in path.read_text():
+        variant = (
+            "arcdur"
+            if "arcdur" in entry or "arcpre" in entry
+            else "arcvel"
+            if "arcvel" in entry
+            else "time"
+        )
+        experiment = f"yam_arc_grid/scratch_rl2_towels394_{variant}"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
     config_name = name if not entry else "train_zarr_cartesian"
@@ -86,7 +116,7 @@ def audit_context(path):
 
 
 @contextmanager
-def compose_for_audit(path):
+def _compose_for_audit(path):
     config_name, overrides = audit_context(path)
     with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
         cfg = compose(
@@ -98,6 +128,10 @@ def compose_for_audit(path):
         cfg.hydra.runtime.output_dir = "/tmp/egoverse-config-audit"
         cfg.hydra.job.num = 0
         cfg.hydra.job.id = "config-audit"
+        if "abc" in cfg and OmegaConf.is_missing(cfg.abc, "task_predicate"):
+            cfg.abc.task_predicate = (
+                "false"  # reusable visual recipe, no source selection
+            )
         if "pi05" in cfg and OmegaConf.is_missing(cfg.pi05, "pretrained_weights"):
             cfg.pi05.pretrained_weights = "/tmp/egoverse-config-audit/pi-weights"
         if "e1" in cfg:
@@ -155,6 +189,16 @@ def compose_for_audit(path):
         yield cfg
     finally:
         hydra.cfg = previous
+
+
+@contextmanager
+def compose_for_audit(path):
+    # Paths are synthetic only for composition/constructors; no dataset is opened.
+    with patch.dict(
+        os.environ, {"EGOVERSE_ABC_DATASET_DIR": "/tmp/egoverse-config-audit/abc"}
+    ):
+        with _compose_for_audit(path) as cfg:
+            yield cfg
 
 
 def audit():

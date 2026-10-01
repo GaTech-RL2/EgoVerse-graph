@@ -1,7 +1,12 @@
+defaults:
+  - /model_contract/visual_bimanual@_here_
+  - _self_
+
 # Visual/proprioceptive HPT for robot or human bimanual data; no language inputs.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids: {sampler: 4}
   stages:
     - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
       selector_key: embodiment

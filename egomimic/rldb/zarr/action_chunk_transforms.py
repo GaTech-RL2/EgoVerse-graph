@@ -63,19 +63,27 @@ class StoreBimanualMetricFrame(Transform):
     change the coordinate frame used for a whole-episode trajectory metric.
     """
 
-    def __init__(self, left_pose_key: str, right_pose_key: str,
-                 output_key: str = "evaluation.eef_to_world"):
+    def __init__(
+        self,
+        left_pose_key: str,
+        right_pose_key: str,
+        output_key: str = "evaluation.eef_to_world",
+    ):
         self.pose_keys = (left_pose_key, right_pose_key)
         self.output_key = output_key
 
     def transform(self, batch: dict) -> dict:
-        poses = [np.asarray(batch[key], dtype=np.float64).reshape(-1, 7)
-                 for key in self.pose_keys]
+        poses = [
+            np.asarray(batch[key], dtype=np.float64).reshape(-1, 7)
+            for key in self.pose_keys
+        ]
         if any(len(pose) != 1 for pose in poses):
-            raise ValueError("Episode metric anchors require one observation pose per arm")
-        batch[self.output_key] = np.stack([
-            _xyzwxyz_to_matrix(pose)[0] for pose in poses
-        ]).astype(np.float32)
+            raise ValueError(
+                "Episode metric anchors require one observation pose per arm"
+            )
+        batch[self.output_key] = np.stack(
+            [_xyzwxyz_to_matrix(pose)[0] for pose in poses]
+        ).astype(np.float32)
         return batch
 
 

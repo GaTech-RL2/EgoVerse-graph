@@ -46,6 +46,8 @@ run_provenance:
     rotation_distance_radians: ${abc.arc_rotation_distance}
     waypoints: ${abc.arc_waypoints}
     velocity_mode: ${abc.arc_velocity_mode}
+    velocity_layout: wide
+    token_shape: ["${abc.arc_token_rows}", "${abc.arc_token_dim}"]
     control_dt: ${evaluator.control_dt}
 trainer:
   max_steps: 240000

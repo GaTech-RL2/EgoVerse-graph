@@ -64,7 +64,7 @@ def test_all_declared_resources_are_in_wheel(installed_wheel):
             str(path.relative_to(ROOT))
             for path in (ROOT / "egomimic" / folder).rglob("*")
             if path.suffix
-            in {".yaml", ".json", ".xml", ".urdf", ".html", ".css", ".js"}
+            in {".yaml", ".json", ".txt", ".xml", ".urdf", ".html", ".css", ".js"}
         )
     required.update(
         str(path.relative_to(ROOT))

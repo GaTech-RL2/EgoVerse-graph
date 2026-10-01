@@ -2,6 +2,7 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  loss_reduction: source_mean
   stage_ids:
     sampler: 4
   stages:

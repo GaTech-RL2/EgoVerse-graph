@@ -14,6 +14,7 @@ scheduler:
 scheduler_interval: epoch
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  loss_reduction: source_mean
   stages:
   - _target_: egomimic.pipeline.stages_hpt.AnnotationPromptStage
     annotation_key: annotations

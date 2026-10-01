@@ -8,7 +8,10 @@ camera/base frame transforms to the returned canonical poses.
 import numpy as np
 import torch
 
-from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeBimanualArcLengthCartesian
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    TokenizeBimanualArcLengthCartesian,
+    bimanual_arc_token_shape,
+)
 from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
 
 E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
@@ -65,7 +68,7 @@ class BimanualArcDecoder:
 
 
 class BimanualIntervalArcDecoder:
-    """Decode the declared 2M-row interval layout; mean timing stays diagnostic."""
+    """Decode an explicitly declared interval layout using the training codec."""
 
     def __init__(
         self,
@@ -74,6 +77,9 @@ class BimanualIntervalArcDecoder:
         resampled_vector_length,
         dt,
         action_horizon,
+        velocity_layout="stacked",
+        rotation_distance_unit=None,
+        arc_chunking_mode=None,
     ):
         if velocity_mode not in {"per_waypoint", "duration"}:
             raise ValueError(
@@ -88,7 +94,12 @@ class BimanualIntervalArcDecoder:
             resampled_vector_length=self.M,
             dt=dt,
             velocity_mode=velocity_mode,
+            velocity_layout=velocity_layout,
+            rotation_distance_unit=rotation_distance_unit,
+            arc_chunking_mode=arc_chunking_mode,
         )
+
+        self.shape = bimanual_arc_token_shape(self.M, velocity_mode, velocity_layout)
 
     def __call__(self, native_tokens):
         if torch.is_tensor(native_tokens):
@@ -96,10 +107,12 @@ class BimanualIntervalArcDecoder:
         values = np.asarray(native_tokens)
         if (
             values.ndim != 3
-            or values.shape[1:] != (2 * self.M, 14)
+            or values.shape[1:] != self.shape
             or not np.isfinite(values).all()
         ):
-            raise ValueError(f"Expected finite (B,{2 * self.M},14) interval ARC tokens")
+            raise ValueError(
+                f"Expected finite (B,{self.shape[0]},{self.shape[1]}) interval ARC tokens"
+            )
         return np.stack(
             [
                 self.codec.detokenize(row, action_horizon=self.action_horizon)

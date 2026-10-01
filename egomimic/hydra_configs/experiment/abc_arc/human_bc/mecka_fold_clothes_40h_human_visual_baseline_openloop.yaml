@@ -13,3 +13,6 @@ evaluator:
 logger:
   wandb:
     tags: [hpt300m, mecka, human_bimanual, fold_clothes, visual_only, no_language, baseline, open_loop, video]
+
+model:
+  policy_domain: human

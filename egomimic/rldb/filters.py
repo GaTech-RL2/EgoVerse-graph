@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import sys
 from collections.abc import Mapping, Sequence
+from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
 from egomimic.rldb.resolve_memo import memoized
@@ -13,6 +15,7 @@ class DatasetFilter:
         self,
         filter_lambdas: Sequence[str] | None = None,
         episode_hashes: Sequence[str] | None = None,
+        episode_allowlist_file: str | None = None,
     ) -> None:
         self.filter_lambdas = list(filter_lambdas or [])
         # Pinned episode hashes. Empty = no pin. Validated at resolve time by the
@@ -22,6 +25,20 @@ class DatasetFilter:
         self.episode_hashes: frozenset[str] = frozenset(
             str(h) for h in (episode_hashes or [])
         )
+        # An allowlist restricts the catalog before the resolver's existing
+        # count/hash pins and split. It does not require every listed episode
+        # to occur in each split (unlike the explicit episode_hashes pin).
+        self.episode_allowlist = None
+        if episode_allowlist_file is not None:
+            prefix = "package://egomimic/"
+            resource = (
+                files("egomimic").joinpath(episode_allowlist_file[len(prefix) :])
+                if episode_allowlist_file.startswith(prefix)
+                else Path(episode_allowlist_file)
+            )
+            self.episode_allowlist = frozenset(resource.read_text().split())
+            if not self.episode_allowlist:
+                raise ValueError(f"Empty episode allowlist: {episode_allowlist_file}")
         self.filters = []
         for expr in self.filter_lambdas:
             try:
@@ -49,13 +66,23 @@ class DatasetFilter:
         """
         if "cache_key" not in type(self).__dict__:
             return None
-        return (type(self), tuple(self.filter_lambdas), self.episode_hashes)
+        return (
+            type(self),
+            tuple(self.filter_lambdas),
+            self.episode_hashes,
+            self.episode_allowlist,
+        )
 
     def matches(self, row: Mapping[str, Any]) -> bool:
         row = dict(row)
         if row.get("is_deleted", False):
             return False
         if self.episode_hashes and row.get("episode_hash") not in self.episode_hashes:
+            return False
+        if (
+            self.episode_allowlist is not None
+            and str(row.get("episode_hash")) not in self.episode_allowlist
+        ):
             return False
         for expr, predicate in zip(self.filter_lambdas, self.filters, strict=True):
             result = predicate(row)

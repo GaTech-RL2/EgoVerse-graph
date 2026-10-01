@@ -40,6 +40,11 @@ RECIPES = sorted(
 )
 
 
+@pytest.fixture(autouse=True)
+def config_data_root(monkeypatch):
+    monkeypatch.setenv("EGOVERSE_ABC_DATASET_DIR", "/tmp/unused-arc-config-data")
+
+
 def _compose(recipe, mode=None):
     overrides = [f"+experiment={recipe}"]
     if mode is not None:
@@ -437,12 +442,15 @@ def test_changed_source_sampling_requires_tagged_cache_even_for_joint(tmp_path, 
 
 
 def test_human_arc_config_records_changed_native_source_sampling():
-    from egomimic.trainHydra import _arc_normalization_contract
-
     cfg = _compose(
         "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop"
     )
-    assert _arc_normalization_contract(cfg)["source_sampling"] == "native_30hz_v1"
+    assert (
+        hydra.utils.instantiate(
+            cfg.data, _recursive_=False
+        ).normalization_action_contract["source_sampling"]
+        == "native_30hz_v1"
+    )
 
 
 def test_norm_contract_survives_state_roundtrip_and_recache(tmp_path):
@@ -461,22 +469,28 @@ def test_norm_contract_survives_state_roundtrip_and_recache(tmp_path):
 
 @pytest.mark.parametrize("recipe", RECIPES)
 def test_train_normalization_uses_resolved_arc_contract(recipe):
-    from egomimic.trainHydra import _arc_normalization_contract
-
     cfg = _compose(recipe, "multistream")
+    contract = hydra.utils.instantiate(
+        cfg.data, _recursive_=False
+    ).normalization_action_contract
     if cfg.abc.action_mode != ARC_ACTION_MODE:
-        pytest.skip("baseline recipe, no ARC contract to resolve")
-    contract = _arc_normalization_contract(cfg)
+        assert contract is None
+        return
     assert contract["arc_chunking_mode"] == "multistream"
     assert contract["rotation_distance_radians"] > 0
     assert contract["velocity_mode"] == "per_waypoint"
 
 
 def test_train_normalization_preserves_baseline_and_legacy_configs():
-    from egomimic.trainHydra import _arc_normalization_contract
+    from egomimic.rldb.zarr.data_module import ZarrDataModule
 
-    assert _arc_normalization_contract(OmegaConf.create({})) is None
+    assert ZarrDataModule({}, {}, {}, {}).normalization_action_contract is None
     cfg = _compose(
         "abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop", "race"
     )
-    assert _arc_normalization_contract(cfg) is None
+    assert (
+        hydra.utils.instantiate(
+            cfg.data, _recursive_=False
+        ).normalization_action_contract
+        is None
+    )

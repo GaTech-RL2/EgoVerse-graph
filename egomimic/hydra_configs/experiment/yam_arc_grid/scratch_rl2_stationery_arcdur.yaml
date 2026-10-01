@@ -1,0 +1,23 @@
+# @package _global_
+# DATA RULE (Aidan, 2026-09-18): never mix ABC and RL2 unless explicitly told to.
+#   from-scratch models  -> RL2 YAM data of the task ONLY
+#   pretraining bases     -> ABC data of the task ONLY
+# FROM-SCRATCH cell: RL2 station data only, no checkpoint. Elmo's recipe (240k, warmup 10k); the 60k
+# checkpoint doubles as the equal-budget comparison against the from-base fine-tune on the same pool.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_towels_arcdur
+- _self_
+- override /data: abc_arc/stationery_ft_arcdur
+name: scratch_rl2_stationery_arcdur
+description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_stationery_arcdur
+logger:
+  wandb:
+    id: scratch_rl2_stationery_arcdur_20260918_s42
+    tags:
+    - rl2
+    - stationery
+    - scratch
+    - arcdur
+
+model:
+  data_requirements: ${model.data_contracts.yam}

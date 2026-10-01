@@ -1,0 +1,31 @@
+# @package _global_
+# DATA RULE (Aidan, 2026-09-18): never mix ABC and RL2 unless explicitly told to.
+#   from-scratch models  -> RL2 YAM data of the task ONLY
+#   pretraining bases     -> ABC data of the task ONLY
+# PRETRAINING BASE: ABC only, from scratch, Elmo's recipe. Seeds the later RL2 fine-tune of this task;
+# that fine-tune must reuse THIS run's norm_stats, as the stationery fine-tune reused Elmo's.
+defaults:
+- /experiment/yam_arc_grid/base_abc_towels_time
+- _self_
+- override /model: e1/hpt_flow_wrists_ft_arcdur
+- override /data: abc_arc/towels_abc_arcdur
+name: base_abc_towels_arcdur
+description: h640t8_d384x10_cos10k_240k_s42_base_abc_towels_arcdur
+logger:
+  wandb:
+    id: base_abc_towels_arcdur_20260918_s42
+    tags:
+    - abc
+    - towels
+    - base
+    - arcdur
+e1:
+  policy_domain: yam
+  variant: arcdur
+  action_dim: 16
+hpt:
+  action_dim: 16
+evaluator: null
+
+model:
+  data_requirements: ${model.data_contracts.yam}

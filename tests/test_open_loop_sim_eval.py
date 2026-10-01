@@ -10,9 +10,9 @@ from egomimic.eval.open_loop_sim import (
     arc_prefix_control_steps,
     executed_arc_waypoints,
     executed_control_steps,
-    truncate_cartesian_trajectory_by_joint_distance,
     truncate_arc_token,
     truncate_arc_token_by_waypoints,
+    truncate_cartesian_trajectory_by_joint_distance,
 )
 from egomimic.eval.video import EvalVideo
 
@@ -74,11 +74,10 @@ def test_video_trajectory_cap_interpolates_at_joint_cumulative_distance():
     trajectory[:, 7] = np.linspace(0.0, 0.20, 6)
 
     partial = truncate_cartesian_trajectory_by_joint_distance(trajectory, 0.12)
-    joint_distance = np.linalg.norm(
-        np.diff(partial[:, 0:3], axis=0), axis=-1
-    ).sum() + np.linalg.norm(
-        np.diff(partial[:, 7:10], axis=0), axis=-1
-    ).sum()
+    joint_distance = (
+        np.linalg.norm(np.diff(partial[:, 0:3], axis=0), axis=-1).sum()
+        + np.linalg.norm(np.diff(partial[:, 7:10], axis=0), axis=-1).sum()
+    )
 
     assert len(partial) == 3
     assert joint_distance == pytest.approx(0.12)
@@ -441,6 +440,7 @@ def test_nonzero_rank_finishes_video_collectives_before_return(monkeypatch):
     assert evaluator.on_validation_end() == {"sentinel": True}
     assert calls == ["gather"]
 
+
 def test_open_loop_video_decodes_executed_baseline_prefix_at_every_frame():
     evaluator = _baseline_evaluator()
     evaluator._native = lambda value, embodiment_id: value
@@ -492,7 +492,8 @@ def test_open_loop_video_detokenizes_only_first_30_arc_waypoints():
 
 
 def test_open_loop_video_overlay_receives_only_matching_executed_prefixes(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     evaluator = _baseline_evaluator(execute_steps=2)
     evaluator._video_enabled = True

@@ -53,12 +53,15 @@ def _wrapper_with_log_capture(monkeypatch):
     return wrapper, logged
 
 
-def test_training_logs_each_opaque_source_and_equal_source_macro(monkeypatch):
+def test_training_logs_each_opaque_source_and_sample_weighted_mean(monkeypatch):
     wrapper, logged = _wrapper_with_log_capture(monkeypatch)
     batch = OrderedDict(
         (
-            ("pushshapes_sim_u_socket", {"metric": torch.tensor(2.0)}),
-            ("another_source", {"metric": 6.0}),
+            (
+                "pushshapes_sim_u_socket",
+                {"metric": torch.tensor(2.0), "actions": torch.zeros(2, 3, 5)},
+            ),
+            ("another_source", {"metric": 6.0, "actions": torch.zeros(6, 3, 5)}),
         )
     )
 
@@ -67,7 +70,7 @@ def test_training_logs_each_opaque_source_and_equal_source_macro(monkeypatch):
     expected = {
         "Train/MSE/pushshapes_sim_u_socket": 2.0,
         "Train/MSE/another_source": 6.0,
-        "Train/MSE": 4.0,
+        "Train/MSE": 5.0,
     }
     assert expected.keys() <= logged.keys()
     for name, expected_value in expected.items():
@@ -75,6 +78,12 @@ def test_training_logs_each_opaque_source_and_equal_source_macro(monkeypatch):
         assert float(value) == pytest.approx(expected_value)
         assert kwargs == {
             "sync_dist": True,
+            "rank_zero_only": False,
+            "batch_size": {
+                "Train/MSE/pushshapes_sim_u_socket": 2,
+                "Train/MSE/another_source": 6,
+                "Train/MSE": 8,
+            }[name],
             "on_step": False,
             "on_epoch": True,
         }
@@ -84,7 +93,9 @@ def test_training_rejects_non_scalar_log_metric_but_ignores_other_predictions(
     monkeypatch,
 ):
     wrapper, _logged = _wrapper_with_log_capture(monkeypatch)
-    batch = {"source": {"metric": torch.tensor([1.0, 2.0])}}
+    batch = {
+        "source": {"metric": torch.tensor([1.0, 2.0]), "actions": torch.zeros(2, 3, 5)}
+    }
 
     with pytest.raises(TypeError, match="must be scalar"):
         wrapper.training_step(batch, batch_idx=0)
@@ -92,7 +103,12 @@ def test_training_rejects_non_scalar_log_metric_but_ignores_other_predictions(
 
 def test_training_rejects_non_finite_log_metric(monkeypatch):
     wrapper, _logged = _wrapper_with_log_capture(monkeypatch)
-    batch = {"source": {"metric": torch.tensor(float("nan"))}}
+    batch = {
+        "source": {
+            "metric": torch.tensor(float("nan")),
+            "actions": torch.zeros(2, 3, 5),
+        }
+    }
 
     with pytest.raises(RuntimeError, match="Non-finite pipeline metric"):
         wrapper.training_step(batch, batch_idx=0)

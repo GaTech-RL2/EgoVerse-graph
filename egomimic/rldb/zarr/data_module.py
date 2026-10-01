@@ -125,15 +125,36 @@ class ZarrDataModule(MultiDataModuleWrapper):
         valid_datasets,
         train_dataloader_params,
         valid_dataloader_params,
+        normalization_action_contract=None,
         **loader_options,
     ):
         # Do not instantiate the train branch for standalone evaluation.
         super().__init__(
-            {}, {}, train_dataloader_params, valid_dataloader_params, **loader_options
+            {},
+            {},
+            train_dataloader_params,
+            valid_dataloader_params,
+            **{
+                k: v
+                for k, v in loader_options.items()
+                if k
+                not in {
+                    "dataset_weights",
+                    "weighted_dataloader_params",
+                    "samples_per_epoch",
+                }
+            },
         )
         self._train_configs = train_datasets
         self._valid_configs = valid_datasets
         self._loader_options = loader_options
+        self.normalization_action_contract = (
+            None
+            if normalization_action_contract is None
+            else OmegaConf.to_container(
+                OmegaConf.create(normalization_action_contract), resolve=True
+            )
+        )
         self.context = None
 
     def preflight_configuration(self):
@@ -247,32 +268,43 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 else MultiDataset(**kwargs)
             )
             owner.populate_from_datasets(train)
-            seen_identities = set()
+            sources_by_identity = {}
             for name, dataset in train.items():
                 sample = dataset[0]
                 identity = int(sample["embodiment"])
-                if identity in seen_identities:
-                    raise ValueError(
-                        "Combine datasets sharing a normalization identity in one source before fitting statistics"
-                    )
-                seen_identities.add(identity)
+                sources_by_identity.setdefault(identity, []).append((name, dataset))
                 owner.infer_shapes_from_batch(sample)
-                config = OmegaConf.create(copy.deepcopy(self._train_configs[name]))
-                if OmegaConf.select(config, "resolver.key_map", default=None) is None:
+            for identity, sources in sources_by_identity.items():
+                if len(sources) > 1 and mode != "normalization" and path is None:
                     raise ValueError(
-                        f"Zarr normalization needs a configured resolver.key_map: {name}"
+                        "Combine datasets sharing a normalization identity in one source before fitting statistics, "
+                        "or fit pooled statistics with norm_stats_only and supply precomputed_norm_path"
                     )
-                config.resolver.key_map.norm_mode = True
-                norm_dataset = hydra.utils.instantiate(config)
+                norm_sources = []
+                for name, dataset in sources:
+                    config = OmegaConf.create(copy.deepcopy(self._train_configs[name]))
+                    if (
+                        OmegaConf.select(config, "resolver.key_map", default=None)
+                        is None
+                    ):
+                        raise ValueError(
+                            f"Zarr normalization needs a configured resolver.key_map: {name}"
+                        )
+                    config.resolver.key_map.norm_mode = True
+                    norm_sources.append(hydra.utils.instantiate(config))
+                norm_dataset = (
+                    norm_sources[0]
+                    if len(norm_sources) == 1
+                    else torch.utils.data.ConcatDataset(norm_sources)
+                )
                 owner.infer_norm_from_dataset(
                     norm_dataset,
                     identity,
                     sample_frac=options.get("sample_frac", 1.0),
                     num_workers=options.get("num_workers", 4),
                     precomputed_norm_path=path,
+                    action_contract=self.normalization_action_contract,
                 )
-        if options.get("save_cache_dir") and mode != "eval":
-            owner.cache_stats(save_cache_dir=str(options["save_cache_dir"]))
         all_datasets = [(f"train/{k}", v) for k, v in train.items()] + [
             (f"{group}/{name}", ds) for group, name, ds in self.iter_valid_datasets()
         ]
@@ -297,6 +329,14 @@ class ZarrDataModule(MultiDataModuleWrapper):
                     f"Validation source {name} is absent from the normalization context"
                 )
             identity = int(sample["embodiment"])
+            if saved is not None and self.normalization_action_contract is not None:
+                if (
+                    owner.action_contracts.get(identity)
+                    != self.normalization_action_contract
+                ):
+                    raise ValueError(
+                        f"Saved normalization action contract differs at {name}; recompute statistics"
+                    )
             semantic = _preprocessing_contract(configurations[name], self.source_fps)
             key = str(identity)
             if key in preprocessing and preprocessing[key] != semantic:
@@ -332,6 +372,11 @@ class ZarrDataModule(MultiDataModuleWrapper):
         self.context = DataContext(
             owner, copy.deepcopy(owner.shapes), tuple(self.valid_group_names), snapshot
         )
+        if options.get("save_cache_dir") and mode != "eval":
+            owner.cache_stats(
+                save_cache_dir=str(options["save_cache_dir"]),
+                data_context=_json_value(snapshot),
+            )
         return self.context
 
     def configure_evaluation(self, requirements):

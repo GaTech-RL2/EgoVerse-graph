@@ -22,6 +22,7 @@ gradient_telemetry_cadence: 100
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  loss_reduction: source_mean
   stage_ids: {proprio: 0, observations: 1, target: 2, noise: 3, encoder: 4, velocity: 8, decoder: 11}
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection

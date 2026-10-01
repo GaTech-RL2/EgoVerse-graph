@@ -1,0 +1,42 @@
+# @package _global_
+# FROM SCRATCH, RL2-only fold towels, 394 episodes, variant arcdur. Lambda loaner, 2-GPU DDP x batch 16 (global 32 as the grid), recipe as scratch_rl2_towels394_arcdur (h640t8_d384x10,
+# 240k steps, warmup 10k, seed 42, BimanualTempoEval). Launched by scripts/clusters/lambda/pack_train.sbatch.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_towels394_arcvel
+- _self_
+- override /data: abc_arc/towels_rl2_394_arcdur_lambda
+name: scratch_rl2_towels394_arcdur_lambda
+description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_towels394_arcdur_lambda
+paths:
+  dataset_dir: /workspace/users/agao81/datasets/egoverseS3ZarrDatasets
+launch_params:
+  gpus_per_node: 2
+trainer:
+  devices: 2
+  strategy: ddp
+callbacks:
+  model_checkpoint:
+    save_last: false
+  resume_last:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    save_last: true
+    save_top_k: 0
+    every_n_train_steps: 5000
+logger:
+  wandb:
+    id: scratch_rl2_towels394_arcdur_lambda_20260925_s42
+    tags:
+    - rl2
+    - towels
+    - towels394
+    - scratch
+    - arcdur
+    - lambda
+    resume: allow
+e1:
+  policy_domain: yam
+  variant: arcdur
+
+model:
+  data_requirements: ${model.data_contracts.yam}

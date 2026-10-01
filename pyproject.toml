@@ -122,6 +122,7 @@ egomimic = [
     "scripts/data_visualization/inspector_lib/assets/*.css",
     "hydra_configs/**/*.yaml",
     "hydra_configs/**/*.json",
+    "hydra_configs/**/*.txt",
     "robot/teleop_dashboard_static/*.html",
     "robot/teleop_dashboard_static/*.js",
     "robot/teleop_dashboard_static/*.css",

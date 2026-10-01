@@ -3,6 +3,7 @@ train_log_on_step: true
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  loss_reduction: source_mean
   stages:
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
       n_obs_steps: 2

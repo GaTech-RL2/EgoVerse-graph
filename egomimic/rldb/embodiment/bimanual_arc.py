@@ -26,6 +26,7 @@ def get_keymap(
     keymap_mode: str = "cartesian",
     embodiment: str = "human",
     drop_wrist_images: bool = True,
+    yam_source_frames: int | None = None,
     **kwargs,
 ):
     """Build a cartesian keymap for the time or distance ARC variants.
@@ -33,7 +34,16 @@ def get_keymap(
     Human retains the caller's fixed horizon. YAM baseline is always a raw
     100-frame window; YAM ARC carries its distance/source-buffer specification
     through unchanged so the resolver chooses the per-sample source length.
+
+    ``yam_source_frames`` replaces that fixed YAM window under
+    ``keymap_mode="cartesian"`` (e.g. 400 to reproduce the Lambda ``w400``
+    runs, whose code honoured ``horizon``). ``None`` keeps the 100 frames.
     """
+    if yam_source_frames is not None:
+        if type(yam_source_frames) is not int or yam_source_frames < 1:
+            raise ValueError("yam_source_frames must be a positive integer")
+        if embodiment != "yam" or keymap_mode != "cartesian":
+            raise ValueError("yam_source_frames applies only to YAM cartesian windows")
     yam_cls = None
     if embodiment == "human":
         key_map = Human.get_keymap(keymap_mode, **kwargs)
@@ -61,7 +71,7 @@ def get_keymap(
         if isinstance(spec["horizon"], dict):
             continue
         spec["horizon"] = int(
-            yam_cls.ACTION_HORIZON
+            (yam_cls.ACTION_HORIZON if yam_source_frames is None else yam_source_frames)
             if yam_cls is not None and keymap_mode == "cartesian"
             else horizon
         )

@@ -224,7 +224,9 @@ def test_diffusion_mse_is_visible_during_long_training_epochs(monkeypatch):
     monkeypatch.setattr(
         wrapper, "log", lambda key, value, **kw: logged.setdefault(key, kw)
     )
-    wrapper.training_step({"source": {"metric": torch.tensor(2.0)}}, 0)
+    wrapper.training_step(
+        {"source": {"metric": torch.tensor(2.0), "sample": torch.zeros(1, 1)}}, 0
+    )
     for key in ("Train/MSE", "Train/MSE/source"):
         assert logged[key]["on_step"] is True
         assert logged[key]["on_epoch"] is False

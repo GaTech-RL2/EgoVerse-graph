@@ -18,7 +18,10 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
-from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
+from egomimic.eval.checkpoint_loading import (
+    init_pipeline_weights_from_checkpoint,
+    strict_load_pipeline_checkpoint,
+)
 from egomimic.eval.eval import (
     Eval,
     validate_validation_loop,
@@ -161,14 +164,6 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     return OmegaConf.create(config_tree)
 
 
-def _arc_normalization_contract(cfg: DictConfig) -> dict | None:
-    """Bind retained ARC recipes to cache provenance without changing old configs."""
-    contract = OmegaConf.select(cfg, "run_provenance.action_contract", default=None)
-    if contract is None or "arc_tokenizer" not in str(contract.get("representation", "")):
-        return None
-    return OmegaConf.to_container(contract, resolve=True)
-
-
 def _validate_run_config(cfg: DictConfig) -> str:
     if cfg.get("model") is None:
         raise ValueError("Select a complete Pipeline model config")
@@ -234,6 +229,40 @@ def _instantiate_model_wrapper(cfg: DictConfig) -> LightningModule:
         train_log_on_step=cfg.model.get("train_log_on_step", False),
         enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
     )
+
+
+def _initialize_finetune_weights(cfg, model):
+    """Start a fine-tune only when neither full resume nor requeue applies."""
+    init_weights_from = cfg.get("init_weights_from")
+    if init_weights_from:
+        # Weights-only init is for STARTING a fine-tune. A resume must always win:
+        # cfg.ckpt_path carries full training state, and a Slurm requeue re-enters
+        # here with the run already in progress. Re-initialising in either case
+        # would silently discard progress.
+        if cfg.get("ckpt_path"):
+            log.info(
+                f"ckpt_path is set (resume); ignoring init_weights_from={init_weights_from}",
+            )
+        elif os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
+            log.info(
+                f"Slurm restart #{os.environ.get('SLURM_RESTART_COUNT')}; "
+                f"ignoring init_weights_from={init_weights_from}",
+            )
+        else:
+            init_ckpt = torch.load(
+                init_weights_from, map_location="cpu", weights_only=False
+            )
+            _, reinitialised = init_pipeline_weights_from_checkpoint(
+                model.model, init_ckpt
+            )
+            del init_ckpt
+            log.info(f"Initialised weights from {init_weights_from}")
+            for key, src_shape, dst_shape in reinitialised:
+                log.warning(
+                    f"  re-initialised (checkpoint {src_shape} -> model {dst_shape}): {key}",
+                )
+            if not reinitialised:
+                log.info("  every tensor carried over from the checkpoint")
 
 
 def _log_dataset_frame_counts(train_datasets: dict, valid_entries) -> None:
@@ -630,6 +659,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.model = model.model
             model.evaluator = eval_obj
         log.info("Starting training!")
+        _initialize_finetune_weights(cfg, model)
+
         if (
             cfg.get("val_at_start", False)
             and not cfg.get("ckpt_path")

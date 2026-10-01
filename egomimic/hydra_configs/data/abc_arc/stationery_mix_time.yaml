@@ -1,0 +1,18 @@
+# MIXED ABC + RL2 -- EXPLICITLY AUTHORISED by Aidan 2026-09-18 23:10 as the TIME-chunking counterpart of the mixed Arc+Vel runs
+# ("for the arc vel mixed runs with both rl2 and abc from scratch ... you should also start their time counterparts").
+# The standing rule is never to mix the two labs unless he says so. Same pool filter + valid_ratio 0.01 as stationery_mix_arcvel; only the
+# action target differs (time-based 14-D cartesian chunk). Do not copy this filter into other configs.
+# persistent_workers true: default re-forks loader workers each epoch and this stack deadlocks there (job 13307279).
+defaults:
+- /data/abc_arc/towels_mix_time@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    filters:
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != '''' and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated'' and row[''rig_name''] == ''rl2_abc''))'
+valid_datasets:
+  yam_bimanual:
+    filters:
+      filter_lambdas:
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''zarr_processed_path''] != '''' and row[''is_deleted''] == False and ((row[''lab''] == ''abc'' and row[''task''] == ''sort the stationery into containers'') or (row[''lab''] == ''rl2'' and row[''task''] == ''organize_stationary_updated'' and row[''rig_name''] == ''rl2_abc''))'

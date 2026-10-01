@@ -1,0 +1,2 @@
+# Preserve the source-pinned CSV bytes, including its original CRLF records.
+scripts/e1/stationery_tempo_buckets_424.csv whitespace=cr-at-eol

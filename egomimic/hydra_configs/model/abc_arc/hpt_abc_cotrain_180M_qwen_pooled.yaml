@@ -1,0 +1,6 @@
+# Same stems and trunk; retain the historical deeper/wider flow head.
+defaults:
+  - /model/abc_arc/hpt_abc_cotrain_300M_qwen_pooled@_here_
+  - _self_
+flow_hidden_dim: 384
+flow_blocks: 10

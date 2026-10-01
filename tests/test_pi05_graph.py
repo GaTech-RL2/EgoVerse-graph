@@ -86,7 +86,9 @@ def tiny_openpi(monkeypatch):
             assert not torch.is_inference_mode_enabled()
             assert action.shape[-1] == 32
             assert observation.tokenized_prompt.shape[0] == len(action)
-            return (action - self.weight).square().mean()
+            return (
+                action - self.weight
+            ).square()  # OpenPI forward uses reduction="none"
 
         def sample_actions(self, device, observation, noise, num_steps):
             assert not torch.is_inference_mode_enabled()

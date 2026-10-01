@@ -17,6 +17,7 @@ scheduler:
 scheduler_interval: step
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  loss_reduction: source_mean
   stage_ids:
     sampler: 0
   stages:

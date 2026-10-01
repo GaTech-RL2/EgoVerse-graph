@@ -1,0 +1,24 @@
+# @package _global_
+# FROM SCRATCH, RL2-only fold towels, 394 episodes, variant arcdur, DP-300M graph Diffusion Policy (3 cams, UNet [512,1024,2048]). Twin of
+# scratch_rl2_towels394_arcdur_lambda (same data, split, pins, 100-frame window, recipe, 2-GPU DDP x 16,
+# BimanualTempoEval); only the model differs.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_towels394_arcdur_lambda
+- _self_
+- override /model: e1/dp300_wrists_arcdur
+name: scratch_rl2_towels394_arcdur_dp300_lambda
+description: dp300_cos10k_240k_s42_scratch_rl2_towels394_arcdur_dp300_lambda
+logger:
+  wandb:
+    id: scratch_rl2_towels394_arcdur_dp300_lambda_20260927_s42
+    tags:
+    - rl2
+    - towels
+    - towels394
+    - scratch
+    - arcdur
+    - dp300
+    - lambda
+
+model:
+  data_requirements: ${model.data_contracts.yam}

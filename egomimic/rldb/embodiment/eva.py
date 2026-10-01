@@ -57,6 +57,7 @@ class Eva(Embodiment):
         rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 100,
         velocity_mode: str = "mean",
+        velocity_layout: str | None = None,
         arc_chunking_mode: str | None = None,
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
@@ -69,19 +70,30 @@ class Eva(Embodiment):
         or Zhou 6D (20D).
         """
         if action_mode not in (
-            "cartesian", "arc_tokenizer_cartesian", "hybrid_arc_tokenizer_cartesian"
+            "cartesian",
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
         ):
             raise ValueError(f"unknown action_mode {action_mode!r}")
-        if action_mode == "hybrid_arc_tokenizer_cartesian" and rotation_distance_unit is None:
-            raise ValueError("hybrid_arc_tokenizer_cartesian requires rotation_distance_unit")
+        if (
+            action_mode == "hybrid_arc_tokenizer_cartesian"
+            and rotation_distance_unit is None
+        ):
+            raise ValueError(
+                "hybrid_arc_tokenizer_cartesian requires rotation_distance_unit"
+            )
         chunk_length = 100 if action_mode == "cartesian" else None
         if coord_frame == "camframe":
             transform_list = _build_eva_bimanual_transform_list(
-                rotation_mode=rotation_mode, extrinsics=extrinsics, chunk_length=chunk_length
+                rotation_mode=rotation_mode,
+                extrinsics=extrinsics,
+                chunk_length=chunk_length,
             )
         elif coord_frame == "eef_frame":
             transform_list = _build_eva_bimanual_eef_frame_transform_list(
-                rotation_mode=rotation_mode, extrinsics=extrinsics, chunk_length=chunk_length
+                rotation_mode=rotation_mode,
+                extrinsics=extrinsics,
+                chunk_length=chunk_length,
             )
         else:
             raise ValueError(f"unknown coord_frame {coord_frame!r}")
@@ -94,6 +106,7 @@ class Eva(Embodiment):
             resampled_vector_length=resampled_vector_length,
             rotation_mode=rotation_mode,
             velocity_mode=velocity_mode,
+            velocity_layout=velocity_layout,
             arc_chunking_mode=arc_chunking_mode,
             preserve_action_rows=100,
         )
@@ -110,17 +123,24 @@ class Eva(Embodiment):
         arc_chunking_mode: str | None = None,
     ):
         is_arc = keymap_mode in (
-            "arc_tokenizer_cartesian", "hybrid_arc_tokenizer_cartesian"
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
         )
         key_map = super().get_keymap(
             "cartesian" if is_arc else keymap_mode,
-            norm_mode=norm_mode, annotation_key=annotation_key, camera_keys=camera_keys,
+            norm_mode=norm_mode,
+            annotation_key=annotation_key,
+            camera_keys=camera_keys,
         )
         if is_arc:
-            from egomimic.rldb.zarr.arc_length_tokenizer import resolve_arc_chunking_mode
+            from egomimic.rldb.zarr.arc_length_tokenizer import (
+                resolve_arc_chunking_mode,
+            )
 
             horizon = {
-                "type": "arc_hybrid" if rotation_distance_unit is not None else "arc_distance",
+                "type": "arc_hybrid"
+                if rotation_distance_unit is not None
+                else "arc_distance",
                 "distance": float(min_distance_unit),
                 "source_buffer_frames": 600,
                 "pose_zarr_keys": ["left.cmd_ee_pose", "right.cmd_ee_pose"],
@@ -611,6 +631,7 @@ def _append_arc_tokenizer(
     preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
     preserve_action_rows: int | None = None,
     velocity_mode: str = "mean",
+    velocity_layout: str | None = None,
     arc_chunking_mode: str | None = None,
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
@@ -645,6 +666,7 @@ def _append_arc_tokenizer(
         preserve_action_key=preserve_action_key,
         preserve_action_rows=preserve_action_rows,
         velocity_mode=velocity_mode,
+        velocity_layout=velocity_layout,
         arc_chunking_mode=arc_chunking_mode,
         **kwargs,
     )

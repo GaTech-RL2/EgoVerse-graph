@@ -253,6 +253,13 @@ def test_abc_arc_tokens_are_never_exported_as_cartesian_frames(mode, saved_contr
             "arc_chunking_mode": mode,
             "arc_velocity_mode": "per_waypoint",
         }
+    training.model.inference = {
+        "status": "unsupported",
+        "reason": "ABC ARC requires a declared rollout profile",
+        "codec": training.run_provenance.action_contract
+        if saved_contract
+        else training.abc,
+    }
     artifact = build_inference_config(training)
     assert artifact["status"] == "unsupported"
     assert "ABC ARC" in artifact["reason"]
@@ -266,6 +273,9 @@ def test_same_shape_abc_codec_change_invalidates_cartesian_artifact():
     assert artifact["status"] == "ready"
     changed = deepcopy(training)
     changed.abc.action_mode = "hybrid_arc_tokenizer_cartesian"
+    changed.model.inference.compatibility.tokenizer = {
+        "representation": changed.abc.action_mode
+    }
     with pytest.raises(ValueError, match="codec and inference defaults"):
         validate_inference_config(artifact, changed)
 

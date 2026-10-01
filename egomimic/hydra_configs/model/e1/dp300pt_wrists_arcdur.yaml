@@ -1,0 +1,6 @@
+# Pretrained ResNet-18 with its original BatchNorm parameters; identical DP graph.
+defaults:
+  - /model/e1/dp300_wrists_arcdur@_here_
+  - _self_
+image_pretrained: true
+image_norm: batch

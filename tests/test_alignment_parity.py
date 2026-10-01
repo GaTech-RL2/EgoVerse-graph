@@ -132,7 +132,7 @@ def test_loss_schedule_and_resume_use_training_batches():
     assert restored(batch)["log/training_batches"] == 4
 
 
-def test_egobridge_two_source_optimizer_and_independent_feature_passes():
+def test_egobridge_two_source_optimizer_and_independent_feature_passes(monkeypatch):
     with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
         config = compose(
             config_name="train_zarr_cartesian", overrides=["model=egobridge"]
@@ -141,10 +141,16 @@ def test_egobridge_two_source_optimizer_and_independent_feature_passes():
     cpu.model.pipeline.stages[1].representation_block = 0
     cpu.model.pipeline.loss_pipeline.stages[0].supervision = "mse"
     model = instantiate(cpu.model.pipeline, device="cpu")
-    calls = []
-    hook = model.pipeline.stage_by_id("stems").register_forward_hook(
-        lambda *args: calls.append(1)
-    )
+    calls, grouped_calls = [], []
+    stems = model.pipeline.stage_by_id("stems")
+    grouped_forward = stems.execute_batches
+
+    def capture_grouped(batches, *, mode):
+        grouped_calls.append(tuple(batches))
+        return grouped_forward(batches, mode=mode)
+
+    monkeypatch.setattr(stems, "execute_batches", capture_grouped)
+    hook = stems.register_forward_hook(lambda *args: calls.append(1))
     batch = {}
     for name, identity, width in [("eva_bimanual", 6, 14), ("human_bimanual", 3, 12)]:
         batch[name] = {
@@ -171,9 +177,10 @@ def test_egobridge_two_source_optimizer_and_independent_feature_passes():
         assert model.pipeline.stage_by_id("trunk").action_token.grad.abs().sum() > 0
         optimizer.step()
     hook.remove()
-    assert (
-        len(calls) == 8
-    ), "Two sources, two steps, independent BC and OT feature passes"
+    assert len(calls) == 4, "Two sources, two steps, independent OT feature passes"
+    assert len(grouped_calls) == 2 and all(
+        len(group) == 2 for group in grouped_calls
+    ), "Both BC sources use grouped stems at each step"
     clone = instantiate(cpu.model.pipeline, device="cpu")
     clone.nets.load_state_dict(deepcopy(model.nets.state_dict()), strict=True)
     assert clone.nets["loss_pipeline"].stages[1].training_batches == 2

@@ -1,0 +1,26 @@
+# MIXED ABC + RL2 fold towels, 40 % ABC / 60 % RL2 of the samples the model sees (Aidan 2026-09-25: "a 40/60 split
+# between abc and rl2, prioritizing our data", with Ryan Punamiya's weighted mixtures, EgoVerse-graph PR #141).
+# Sources: yam_bimanual = the RL2 towels394 pool with the scratch runs' exact split (375 train / 19 valid, same pins),
+# abc_yam_bimanual = all 389 ABC 'fold and stack the towels' episodes, train only. WeightedDataset draws the SOURCE by
+# weight (0.6 / 0.4), frames uniformly within it; batch 16 per rank x 2 GPUs = 32 per step;
+# samples_per_epoch = 3200 global = 100 steps per epoch, as in the grid.
+# Validation is the RL2 split only, so Valid/* is directly comparable with scratch_rl2_towels394_time_lambda.
+# Normalisation: one shared normaliser per embodiment, fit over both sources (the same pooled regime as mix5050).
+# train_dataloader_params are unused in weighted mode (weighted_dataloader_params apply); kept for the wrapper.
+defaults:
+- /data/abc_arc/towels_mix4060_arcdur_lambda@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: time
+  abc_yam_bimanual:
+    resolver:
+      transform_list:
+        variant: time
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: time

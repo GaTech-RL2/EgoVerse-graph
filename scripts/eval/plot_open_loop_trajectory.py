@@ -12,7 +12,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 ARM_OFFSETS = (("Left arm", 0), ("Right arm", 7))
 
 

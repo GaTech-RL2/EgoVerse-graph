@@ -182,3 +182,54 @@ def test_policy_exposes_arc_speed_as_typed_controls_that_drive_the_decoder():
         with pytest.raises(ValueError):
             GraphRobotPolicy.apply_inference_overrides(policy, {"arc_speed_percent": bad})
     assert (unit.speed, unit.hold_speed) == (2.0, 1.5)
+
+
+def time_chunk():
+    """A (H, 14) Euler chunk: both arms move 0.3 m, yaw through 1 rad, close the gripper."""
+    t = np.linspace(0.0, 1.0, H)
+    chunk = np.zeros((H, 14))
+    for k, (xyz, ypr, grip, _vsl) in enumerate(ARM_LAYOUT):
+        chunk[:, xyz + k] = 0.3 * t
+        chunk[:, ypr] = 1.0 * t  # yaw (intrinsic ZYX: the first angle)
+        chunk[:, ypr + 1] = 0.2
+        chunk[:, grip] = t
+    return chunk
+
+
+def test_time_chunk_naive_speedup_replays_every_other_row_then_holds():
+    from scipy.spatial.transform import Rotation
+
+    from egomimic.robot.arc_decoder import TimeChunkRetimer
+
+    chunk = time_chunk()
+    unit = TimeChunkRetimer(H, DT)
+    assert unit(chunk) is chunk  # 100 % is the unmodified path
+    unit.set_speed(2.0, 2.0)
+    fast = unit(chunk)[0]
+    half = H // 2
+    for xyz, ypr, grip, _vsl in ARM_LAYOUT:
+        cols = [xyz, xyz + 1, xyz + 2, grip]
+        np.testing.assert_allclose(fast[:half, cols], chunk[::2][:, cols], atol=1e-12)
+        np.testing.assert_allclose(
+            Rotation.from_euler("ZYX", fast[:half, ypr : ypr + 3]).as_matrix(),
+            Rotation.from_euler("ZYX", chunk[::2, ypr : ypr + 3]).as_matrix(), atol=1e-9)
+        np.testing.assert_allclose(fast[half:, cols], np.repeat(chunk[-1:, cols], H - half, 0), atol=1e-12)
+    assert unit.last_stats["valid_steps"] == half
+
+
+def test_time_chunk_hold_keeps_its_duration_and_exposes_both_controls():
+    from egomimic.robot.arc_decoder import TimeChunkRetimer
+    from egomimic.robot.graph_policy import arc_speed_controls
+
+    # Move 0.2 m in 1/3 s, hold still for 1 s, move again: a time chunk with a real hold.
+    clock = DT * np.arange(H)
+    x = np.interp(clock, [0, 1 / 3, 4 / 3, H * DT], [0.0, 0.2, 0.2, 0.4])
+    chunk = np.zeros((H, 14))
+    chunk[:, 0] = chunk[:, 7] = x
+    lo, hi = 0.2 - 1e-6, 0.2 + 1e-6
+    held = lambda plan: int(((plan[:, 0] > lo) & (plan[:, 0] < hi)).sum())
+    selective = TimeChunkRetimer(H, DT, speed=2.0, hold_speed=1.0)
+    uniform = TimeChunkRetimer(H, DT, speed=2.0, hold_speed=2.0)
+    assert held(selective(chunk)[0]) == pytest.approx(held(chunk), abs=4)
+    assert held(uniform(chunk)[0]) == pytest.approx(held(chunk) / 2, abs=2)
+    assert {c.name for c in arc_speed_controls(selective)} == {"arc_speed_percent", "arc_hold_speed_percent"}

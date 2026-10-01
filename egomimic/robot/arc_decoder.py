@@ -20,10 +20,15 @@ at which the pair advances changes. It acts on the clock, before the codec's own
 arc-length resampling, so rotation still goes through the codec's SLERP. Tokens
 without a per-waypoint clock (lab and the cartesian layouts) take a uniform speed
 only, as a codec whose control period is scaled.
+
+``TimeChunkRetimer`` gives a time-indexed policy (no token, no decoder) the same
+control: its (H, 14) chunk is a path on a uniform clock, read through the same warp.
+speed == hold_speed is the naive baseline speed-up (2x = every other row).
 """
 
 import numpy as np
 import torch
+from scipy.spatial.transform import Rotation, Slerp
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
@@ -119,20 +124,81 @@ class BimanualArcRoundTrip:
         return np.stack(decoded)
 
 
-class BimanualArcDecoder:
+class ReplayTempo:
+    """speed / hold_speed state and the wall-time -> clock warp shared by the ARC
+    decoder and the time-chunk retimer. Subclasses set dt, action_horizon,
+    hold_threshold and ``holds`` (whether hold_speed can act on their output)."""
+
+    def _init_tempo(self, speed, hold_speed, hold_threshold):
+        if (isinstance(hold_threshold, bool) or not isinstance(hold_threshold, (int, float))
+                or not np.isfinite(hold_threshold) or hold_threshold < 0):
+            raise ValueError("ARC hold_threshold must be a finite speed >= 0 in m/s")
+        self.hold_threshold = float(hold_threshold)
+        self.last_stats = None
+        self.set_speed(speed, hold_speed)
+
+    def set_speed(self, speed, hold_speed=None):
+        """Set the tempo multipliers used from the NEXT decoded token on.
+
+        ``hold_speed=None`` keeps holds in step with ``speed`` (a uniform speed-up).
+        Both values are validated before either is stored.
+        """
+        speed = validate_arc_speed(speed, "speed")
+        hold_speed = speed if hold_speed is None else validate_arc_speed(hold_speed, "hold_speed")
+        self.speed, self.hold_speed = speed, hold_speed
+
+    # Integer percent views for the rollout profile's typed inference controls.
+    @property
+    def speed_percent(self):
+        return int(round(self.speed * 100))
+
+    @speed_percent.setter
+    def speed_percent(self, value):
+        self.set_speed(value / 100, self.hold_speed)
+
+    @property
+    def hold_speed_percent(self):
+        return int(round(self.hold_speed * 100))
+
+    @hold_speed_percent.setter
+    def hold_speed_percent(self, value):
+        self.set_speed(self.speed, value / 100)
+
+    def _warp(self, clocks, cums, end=np.inf):
+        """Token-clock time to read each of the H control ticks at, and the share of
+        the decoded span that was a hold. rate = d(clock) / d(wall). ``end`` is the
+        clock time at which the token's path runs out: nothing after it is a hold,
+        it is just the endpoint being repeated, so it is left out of the share."""
+        wall = self.dt * np.arange(self.action_horizon, dtype=np.float64)
+        top = max(self.speed, self.hold_speed)
+        n = int(np.ceil(self.action_horizon * top * _WARP_OVERSAMPLE)) + _WARP_OVERSAMPLE + 1
+        tau = (self.dt / _WARP_OVERSAMPLE) * np.arange(n, dtype=np.float64)  # covers wall[-1] * top
+        speed = np.zeros(n - 1)
+        for clock, cum in zip(clocks, cums):
+            if cum[-1] >= 1e-9:  # a stationary arm never makes the pair "moving"
+                speed = np.maximum(speed, np.diff(np.interp(tau, clock, cum)) / np.diff(tau))
+        moving = speed >= self.hold_threshold
+        rate = np.where(moving, self.speed, self.hold_speed)
+        width = max(1, int(round(RATE_RAMP_S / (self.dt / _WARP_OVERSAMPLE))))
+        if width > 1 and self.speed != self.hold_speed:
+            padded = np.pad(rate, (width // 2, width - 1 - width // 2), mode="edge")
+            rate = np.convolve(padded, np.ones(width) / width, mode="valid")
+        elapsed = np.concatenate(([0.0], np.cumsum(np.diff(tau) / rate)))  # wall time at each tau
+        times = np.interp(wall, elapsed, tau)
+        used = tau[1:] <= min(times[-1], end)
+        return times, (float(1.0 - moving[used].mean()) if used.any() else None)
+
+
+class BimanualArcDecoder(ReplayTempo):
     def __init__(self, token_layout="lab", min_distance_unit=0.4,
                  resampled_vector_length=100, dt=1/30, action_horizon=100,
                  rotation_distance_unit=None, arc_chunking_mode=None,
                  speed=1.0, hold_speed=1.0, hold_threshold=0.05):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
-        if (isinstance(hold_threshold, bool) or not isinstance(hold_threshold, (int, float))
-                or not np.isfinite(hold_threshold) or hold_threshold < 0):
-            raise ValueError("ARC hold_threshold must be a finite speed >= 0 in m/s")
         self.token_layout, self.dt = token_layout, float(dt)
-        self.hold_threshold = float(hold_threshold)
-        self.last_stats = None
-        self.set_speed(speed, hold_speed)
+        self.holds = token_layout in E1_VELOCITY_MODE  # only a per-waypoint clock separates holds
+        self._init_tempo(speed, hold_speed, hold_threshold)
         self.M = int(resampled_vector_length)
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or dt <= 0 or min_distance_unit <= 0:
@@ -174,34 +240,6 @@ class BimanualArcDecoder:
             raise ValueError("Native tokens must be nonempty and finite")
         return np.stack([self._decode(row) for row in values])
 
-    # -- replay tempo ------------------------------------------------------
-    def set_speed(self, speed, hold_speed=None):
-        """Set the tempo multipliers used from the NEXT decoded token on.
-
-        ``hold_speed=None`` keeps holds in step with ``speed`` (a uniform speed-up).
-        Both values are validated before either is stored.
-        """
-        speed = validate_arc_speed(speed, "speed")
-        hold_speed = speed if hold_speed is None else validate_arc_speed(hold_speed, "hold_speed")
-        self.speed, self.hold_speed = speed, hold_speed
-
-    # Integer percent views for the rollout profile's typed inference controls.
-    @property
-    def speed_percent(self):
-        return int(round(self.speed * 100))
-
-    @speed_percent.setter
-    def speed_percent(self, value):
-        self.set_speed(value / 100, self.hold_speed)
-
-    @property
-    def hold_speed_percent(self):
-        return int(round(self.hold_speed * 100))
-
-    @hold_speed_percent.setter
-    def hold_speed_percent(self, value):
-        self.set_speed(self.speed, value / 100)
-
     def _decode(self, row):
         h = self.action_horizon
         if self.token_layout not in E1_VELOCITY_MODE:
@@ -231,29 +269,58 @@ class BimanualArcDecoder:
             return self.codec.detokenize(row, action_horizon=h)  # the unmodified path
         return self.codec.detokenize(row, action_horizon=h, times=times)
 
-    def _warp(self, clocks, cums, end=np.inf):
-        """Token-clock time to read each of the H control ticks at, and the share of
-        the decoded span that was a hold. rate = d(clock) / d(wall). ``end`` is the
-        clock time at which the token's path runs out: nothing after it is a hold,
-        it is just the endpoint being repeated, so it is left out of the share."""
-        wall = self.dt * np.arange(self.action_horizon, dtype=np.float64)
-        top = max(self.speed, self.hold_speed)
-        n = int(np.ceil(self.action_horizon * top * _WARP_OVERSAMPLE)) + _WARP_OVERSAMPLE + 1
-        tau = (self.dt / _WARP_OVERSAMPLE) * np.arange(n, dtype=np.float64)  # covers wall[-1] * top
-        speed = np.zeros(n - 1)
-        for clock, cum in zip(clocks, cums):
-            if cum[-1] >= 1e-9:  # a stationary arm never makes the pair "moving"
-                speed = np.maximum(speed, np.diff(np.interp(tau, clock, cum)) / np.diff(tau))
-        moving = speed >= self.hold_threshold
-        rate = np.where(moving, self.speed, self.hold_speed)
-        width = max(1, int(round(RATE_RAMP_S / (self.dt / _WARP_OVERSAMPLE))))
-        if width > 1 and self.speed != self.hold_speed:
-            padded = np.pad(rate, (width // 2, width - 1 - width // 2), mode="edge")
-            rate = np.convolve(padded, np.ones(width) / width, mode="valid")
-        elapsed = np.concatenate(([0.0], np.cumsum(np.diff(tau) / rate)))  # wall time at each tau
-        times = np.interp(wall, elapsed, tau)
-        used = tau[1:] <= min(times[-1], end)
-        return times, (float(1.0 - moving[used].mean()) if used.any() else None)
+
+class TimeChunkRetimer(ReplayTempo):
+    """Replay tempo for a time-indexed policy's canonical (H, 14) Euler chunk.
+
+    Row k is the pose at k * dt, so the chunk is a path on a uniform clock and the
+    ARC decoder's warp applies unchanged: speed == hold_speed is the naive uniform
+    speed-up (2x replays every other row), hold_speed < speed keeps holds at the
+    demonstrated tempo. Past the last row the final pose is held, as an ARC path's
+    endpoint is. Rotation is SLERPed in intrinsic ZYX, the convention pose_matrix
+    reads. 1.0 / 1.0 returns the chunk untouched.
+    """
+
+    holds = True
+
+    def __init__(self, action_horizon=100, dt=1/30, speed=1.0, hold_speed=1.0, hold_threshold=0.05):
+        self.action_horizon, self.dt = int(action_horizon), float(dt)
+        if self.action_horizon < 2 or not self.dt > 0:
+            raise ValueError("Invalid chunk horizon or control period")
+        self.shape = (self.action_horizon, 14)
+        self._init_tempo(speed, hold_speed, hold_threshold)
+
+    def __call__(self, actions):
+        h = self.action_horizon
+        if self.speed == 1.0 and self.hold_speed == 1.0:
+            self.last_stats = {"speed": 1.0, "hold_speed": 1.0, "horizon": h,
+                               "valid_steps": h, "hold_fraction": None}
+            return actions  # the unmodified path, byte for byte
+        if torch.is_tensor(actions):
+            actions = actions.detach().double().cpu().numpy()
+        values = np.asarray(actions, dtype=np.float64)
+        if values.ndim == 2:
+            values = values[None]
+        if values.ndim != 3 or values.shape[1:] != self.shape or not np.isfinite(values).all():
+            raise ValueError(f"Expected a finite time chunk (B,{h},14), got {values.shape}")
+        return np.stack([self._retime(row) for row in values])
+
+    def _retime(self, row):
+        h = self.action_horizon
+        clock = self.dt * np.arange(h, dtype=np.float64)
+        cums = [cumulative_arc_length(row[:, off : off + 3]) for off, *_ in ARM_LAYOUT]
+        times, hold_fraction = self._warp([clock, clock], cums, clock[-1])
+        valid = int(np.searchsorted(times, clock[-1], side="right"))
+        self.last_stats = {"speed": self.speed, "hold_speed": self.hold_speed, "horizon": h,
+                           "valid_steps": min(valid, h), "hold_fraction": hold_fraction}
+        times = np.minimum(times, clock[-1])
+        out = np.empty_like(row)
+        for col in range(14):
+            out[:, col] = np.interp(times, clock, row[:, col])
+        for _xyz, ypr, _grip, _vsl in ARM_LAYOUT:
+            spin = Slerp(clock, Rotation.from_euler("ZYX", row[:, ypr : ypr + 3]))
+            out[:, ypr : ypr + 3] = spin(times).as_euler("ZYX")
+        return out
 
 
 def main():

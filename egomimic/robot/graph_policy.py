@@ -22,7 +22,7 @@ from egomimic.pipeline.inference_config import (
 )
 from egomimic.pipeline.stages_flow import FlowDenoiserStage
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-from egomimic.robot.arc_decoder import E1_VELOCITY_MODE
+from egomimic.robot.arc_decoder import TimeChunkRetimer
 from egomimic.robot.arc_speed import ARC_SPEED_RANGE
 from egomimic.robot.interface import ARM_OFFSET, pose_matrix, pose_vector
 from egomimic.robot.teleop import rigid_transform
@@ -279,9 +279,10 @@ def configure_profile_controls(graph, training, inference_profiles):
 
 
 def arc_speed_controls(decoder):
-    """Replay-tempo controls for a tempo-capable ARC decoder; none otherwise.
+    """Replay-tempo controls for a tempo-capable decoder (ARC decoder or the
+    time-chunk retimer); none otherwise.
 
-    Tempo belongs to the decoder, not to the model profile, so every ARC policy
+    Tempo belongs to the decoder, not to the model profile, so every such policy
     exposes it whatever produced its profile (rollout YAML, checkpoint sidecar or
     a config-derived graph). Integer percents fit the typed integer controls.
     """
@@ -289,14 +290,15 @@ def arc_speed_controls(decoder):
         return ()
     low, high = (int(round(value * 100)) for value in ARC_SPEED_RANGE)
     specs = [(
-        "arc_speed_percent", "ARC replay speed (%)", "speed_percent",
-        "100 = demonstrated tempo. Scales moving phases from the next prediction. "
+        "arc_speed_percent", "Replay speed (%)", "speed_percent",
+        "100 = demonstrated tempo. Scales moving phases from the next prediction; "
+        "set Hold speed to the same value for a uniform (naive) speed-up. "
         "A faster replay ends sooner: keep Repredict every at or under the path "
         "length the rollout log reports, or the arms stand still for the rest.",
     )]
-    if decoder.token_layout in E1_VELOCITY_MODE:  # only a per-waypoint clock separates holds
+    if decoder.holds:
         specs.append((
-            "arc_hold_speed_percent", "ARC hold speed (%)", "hold_speed_percent",
+            "arc_hold_speed_percent", "Hold speed (%)", "hold_speed_percent",
             "Tempo of holds, grasps and slow placement (both arms under "
             f"{decoder.hold_threshold:g} m/s). Leave at 100 until gripper closing "
             "time has been checked against the shorter hold.",
@@ -1043,6 +1045,12 @@ def load_graph_policy(config):
     )
     validate_temporary_arc_roundtrip_contract(normalizer, adapter_config, training)
     adapter = instantiate(adapter_config, **instantiate_kwargs)
+    if adapter.decoder is None and adapter.roundtrip_arc is None and adapter.rotation_mode == "euler":
+        # A time-indexed policy gets the naive speed-up: its own chunk replayed faster.
+        # Identity at 100 %, so the default rollout is unchanged.
+        horizon, width = normalizer.key_shape(adapter.action_key, adapter.embodiment_id)
+        if width == 14:
+            adapter.decoder = TimeChunkRetimer(int(horizon))
     inference_controls = (*inference_controls, *arc_speed_controls(adapter.decoder))
     if adapter.roundtrip_arc is not None:
         print(

@@ -365,10 +365,10 @@ def arc_decoder_workflow(
     reference_run=None,
 ):
     """Matched ARC training with a dependent five-worker, one-GPU evaluation."""
+    from egomimic.benchmarks.libero.arc_decoders import ALL_DECODER_VARIANTS
     from egomimic.benchmarks.libero.arc_sweep import profile_settings
-    from egomimic.models.arc_diffusion import DECODER_VARIANTS
 
-    if variant not in DECODER_VARIANTS:
+    if variant not in ALL_DECODER_VARIANTS:
         raise ValueError("Unknown ARC decoder variant")
     profile_settings(profile, arc_mode)
     if mode == "full" and not replay_run:
@@ -440,6 +440,8 @@ def evaluation_workflow(
 
 
 def main():
+    from egomimic.benchmarks.libero.arc_decoders import ALL_DECODER_VARIANTS
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--commit", required=True)
     parser.add_argument("--run-id", required=True)
@@ -457,7 +459,7 @@ def main():
     parser.add_argument("--arc-modes", nargs="+", choices=("joint_dur", "stk", "dur"))
     parser.add_argument("--arc-replay-runs-file", type=Path)
     parser.add_argument("--arc-profile")
-    parser.add_argument("--arc-decoder-variant", choices=("shared", "separate", "shape_masked"))
+    parser.add_argument("--arc-decoder-variant", choices=ALL_DECODER_VARIANTS)
     parser.add_argument("--arc-decoder-reference-run")
     parser.add_argument("--arc-backbone", choices=("unet", "oat_dp"), default="unet")
     parser.add_argument("--dp-backbone", choices=("unet", "oat_dp"))

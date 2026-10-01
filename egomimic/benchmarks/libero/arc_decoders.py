@@ -29,6 +29,66 @@ from egomimic.models.arc_diffusion import (
     TIMING_COLUMNS,
 )
 
+MOT_VARIANTS = (
+    "mot_xyz_rot_gripper",
+    "mot_shape_velocity",
+    "mot_shape_velocity_masked",
+)
+ALL_DECODER_VARIANTS = DECODER_VARIANTS + MOT_VARIANTS
+
+
+def mot_architecture(variant):
+    """Read the frozen modality and capacity choices from the experiment YAML."""
+    from omegaconf import OmegaConf
+
+    if variant not in MOT_VARIANTS:
+        raise ValueError("Unknown ARC MoT variant")
+    path = Path(__file__).parents[2] / "hydra_configs/arc_decoder" / f"{variant}.yaml"
+    return OmegaConf.to_container(OmegaConf.load(path), resolve=True)
+
+
+def decoder_metadata(variant, horizon):
+    if variant not in ALL_DECODER_VARIANTS:
+        raise ValueError("Unknown ARC decoder variant")
+    if variant not in MOT_VARIANTS:
+        return {
+            "decoder_parameters": 4_783_372 + horizon * 256,
+            "decoder_total_layers": 4,
+            "decoder_layers_per_stream": 2 if variant == "separate" else 4,
+        }
+    from egomimic.models.modality_diffusion import ModalityDiffusionTransformer
+
+    spec = mot_architecture(variant)
+    net = ModalityDiffusionTransformer(
+        modality_columns=spec["modalities"],
+        blocked_attention=spec["blocked_attention"],
+        dim_feedforward=spec["feedforward"],
+        n_emb=spec["width"],
+        n_layer=spec["layers"],
+        n_head=spec["heads"],
+        input_dim=12,
+        output_dim=12,
+        horizon=horizon,
+        n_obs_steps=2,
+        cond_dim=138,
+    )
+    count = sum(parameter.numel() for parameter in net.parameters())
+    # Reference has 32 positions; changing a tokenizer's M adds width parameters
+    # per extra position in both the reference and candidate.
+    reference = spec["reference_parameters"] + (horizon - 32) * 256
+    delta = count / reference - 1
+    if abs(delta) > spec["parameter_tolerance_fraction"]:
+        raise ValueError("MoT action-model parameter budget differs from its reference")
+    return {
+        "decoder_parameters": count,
+        "decoder_reference_parameters": reference,
+        "decoder_parameter_delta_fraction": delta,
+        "decoder_total_layers": spec["layers"],
+        "decoder_layers_per_stream": spec["layers"],
+        "decoder_tokens": len(spec["modalities"]) * horizon,
+        "mot_architecture": spec,
+    }
+
 
 def compare_decoder_runs(candidate_directory, reference_directory):
     """Compare complete physical ARC policies only after exact episode pairing."""
@@ -115,7 +175,7 @@ def audit_reference(client, request, candidate_directory, evidence):
 def decoder_training_arguments(
     suite, dataset, evidence, mode, epochs, *, variant, profile, arc_mode, gpus=8
 ):
-    if variant not in DECODER_VARIANTS:
+    if variant not in ALL_DECODER_VARIANTS:
         raise ValueError("Unknown ARC decoder variant")
     if mode == "full" and epochs != 5001:
         raise ValueError("Matched ARC decoder training requires 5001 epochs")
@@ -130,9 +190,16 @@ def decoder_training_arguments(
         gpus=gpus,
         arc_backbone="oat_dp",
     )
-    args[args.index("+experiment=oat/libero_arc_oat_dp_policy")] = (
-        "+experiment=oat/libero_arc_stream_policy"
+    experiment = (
+        "libero_arc_mot_policy"
+        if variant in MOT_VARIANTS
+        else "libero_arc_stream_policy"
     )
+    args[args.index("+experiment=oat/libero_arc_oat_dp_policy")] = (
+        f"+experiment=oat/{experiment}"
+    )
+    if variant in MOT_VARIANTS:
+        args.append(f"arc_decoder={variant}")
     args.extend(f"benchmark.{key}={value}" for key, value in settings.items())
     args.extend(
         [
@@ -154,7 +221,7 @@ def validate_decoder_config(
     settings = arc_checkpoint_settings(config, suite=suite)
     declared_mode = settings["arc_mode"]
     if (
-        declared_variant not in DECODER_VARIANTS
+        declared_variant not in ALL_DECODER_VARIANTS
         or (variant is not None and declared_variant != variant)
         or (profile is not None and declared_profile != profile)
         or (arc_mode is not None and declared_mode != arc_mode)
@@ -169,6 +236,19 @@ def validate_decoder_config(
         "arc_shape_columns": list(SHAPE_COLUMNS),
         "arc_timing_columns": list(TIMING_COLUMNS),
     }
+    mot = (
+        mot_architecture(declared_variant) if declared_variant in MOT_VARIANTS else None
+    )
+    if mot:
+        expected_protocol.update(
+            arc_decoder_budget=mot["budget"],
+            arc_decoder_total_layers=mot["layers"],
+            arc_decoder_width=mot["width"],
+            arc_mot_feedforward=mot["feedforward"],
+            arc_mot_modalities=mot["modalities"],
+            arc_mot_blocked_attention=mot["blocked_attention"],
+            arc_mot_reference_parameters=mot["reference_parameters"],
+        )
     if any(protocol.get(key) != value for key, value in expected_protocol.items()):
         raise ValueError("ARC decoder parameter budget or channel partition differs")
     stages = model["pipeline"]["stages"]
@@ -203,6 +283,17 @@ def validate_decoder_config(
         "obs_as_cond": True,
         "n_cond_layers": 0,
     }
+    if mot:
+        expected_network.pop("decoder_variant")
+        expected_network.update(
+            _target_="egomimic.models.modality_diffusion.ModalityDiffusionTransformer",
+            modality_columns=mot["modalities"],
+            blocked_attention=mot["blocked_attention"],
+            dim_feedforward=mot["feedforward"],
+            n_emb=mot["width"],
+            n_layer=mot["layers"],
+            n_head=mot["heads"],
+        )
     if network != expected_network or policy["num_inference_steps"] != 10:
         raise ValueError("ARC decoder backbone or inference budget differs")
     return {"variant": declared_variant, "profile": declared_profile, **settings}
@@ -287,7 +378,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--suite", choices=TASKS, required=True)
-    parser.add_argument("--variant", choices=DECODER_VARIANTS, required=True)
+    parser.add_argument("--variant", choices=ALL_DECODER_VARIANTS, required=True)
     parser.add_argument("--profile", required=True)
     parser.add_argument("--arc-mode", choices=("stk", "dur"), required=True)
     parser.add_argument("--replay-run")
@@ -334,9 +425,7 @@ def main():
             "arc_backbone": "oat_dp",
             "arc_replay_run": args.replay_run,
             "paired_reference_run": args.reference_run,
-            "decoder_parameters": 4_783_372 + expected["arc_waypoints"] * 256,
-            "decoder_total_layers": 4,
-            "decoder_layers_per_stream": 2 if args.variant == "separate" else 4,
+            **decoder_metadata(args.variant, expected["arc_waypoints"]),
             "evaluation_run": args.run_id + "-eval",
             "evaluation_workers": 5,
         },

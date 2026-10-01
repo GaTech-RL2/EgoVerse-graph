@@ -1,0 +1,14 @@
+variant: mot_xyz_rot_gripper
+width: 160
+layers: 4
+heads: 4
+feedforward: 536
+# ARC STK velocity proxies remain with their associated geometry stream.
+modalities:
+  xyz: [0, 1, 2, 3]
+  rot: [4, 5, 6, 7, 8, 9, 10]
+  gripper: [11]
+blocked_attention: []
+budget: total_parameters_approx
+reference_parameters: 4791564
+parameter_tolerance_fraction: 0.002

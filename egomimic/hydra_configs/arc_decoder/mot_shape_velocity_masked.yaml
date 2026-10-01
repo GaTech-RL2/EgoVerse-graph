@@ -1,0 +1,13 @@
+variant: mot_shape_velocity_masked
+width: 192
+layers: 4
+heads: 4
+feedforward: 672
+modalities:
+  shape: [0, 1, 2, 4, 5, 6, 7, 8, 9, 11]
+  velocity: [3, 10]
+# Query shape cannot read key/value velocity; velocity can still read shape.
+blocked_attention: [[shape, velocity]]
+budget: total_parameters_approx
+reference_parameters: 4791564
+parameter_tolerance_fraction: 0.002

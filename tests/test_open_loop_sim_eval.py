@@ -10,9 +10,9 @@ from egomimic.eval.open_loop_sim import (
     arc_prefix_control_steps,
     executed_arc_waypoints,
     executed_control_steps,
-    truncate_cartesian_trajectory_by_joint_distance,
     truncate_arc_token,
     truncate_arc_token_by_waypoints,
+    truncate_cartesian_trajectory_by_joint_distance,
 )
 from egomimic.eval.video import EvalVideo
 
@@ -61,8 +61,14 @@ def test_m_based_arc_execution_keeps_waypoints_and_matching_velocity_rows():
     assert partial.shape == (60, 14)
     np.testing.assert_array_equal(partial[:30], token[:30])
     np.testing.assert_array_equal(partial[30:], token[M : M + 30])
-    with pytest.raises(ValueError, match="velocity_mode='per_waypoint'"):
-        truncate_arc_token_by_waypoints(token, 0.30, "duration")
+    # Duration tokens store per-interval seconds in the same rows, so the same
+    # waypoint prefix applies. A single mean-velocity row has no per-interval
+    # timing to truncate.
+    np.testing.assert_array_equal(
+        truncate_arc_token_by_waypoints(token, 0.30, "duration"), partial
+    )
+    with pytest.raises(ValueError, match="per-interval timing"):
+        truncate_arc_token_by_waypoints(token[: M + 1], 0.30, "mean")
 
 
 def test_video_trajectory_cap_interpolates_at_joint_cumulative_distance():
@@ -71,11 +77,10 @@ def test_video_trajectory_cap_interpolates_at_joint_cumulative_distance():
     trajectory[:, 7] = np.linspace(0.0, 0.20, 6)
 
     partial = truncate_cartesian_trajectory_by_joint_distance(trajectory, 0.12)
-    joint_distance = np.linalg.norm(
-        np.diff(partial[:, 0:3], axis=0), axis=-1
-    ).sum() + np.linalg.norm(
-        np.diff(partial[:, 7:10], axis=0), axis=-1
-    ).sum()
+    joint_distance = (
+        np.linalg.norm(np.diff(partial[:, 0:3], axis=0), axis=-1).sum()
+        + np.linalg.norm(np.diff(partial[:, 7:10], axis=0), axis=-1).sum()
+    )
 
     assert len(partial) == 3
     assert joint_distance == pytest.approx(0.12)
@@ -473,7 +478,8 @@ def test_open_loop_video_detokenizes_only_first_30_arc_waypoints():
 
 
 def test_open_loop_video_overlay_receives_only_matching_executed_prefixes(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     evaluator = _baseline_evaluator(execute_steps=2)
     evaluator._video_enabled = True

@@ -1,0 +1,79 @@
+{
+  "scope": "CPU, configuration, static and isolated installed-wheel validation; no real-data/weight GPU run",
+  "runtime_commit": "7ccb609626c62fafce5c1181bc79f576e0829f2b",
+  "validation_source_commit": "34c1d761409cdf74e48b11a57d52421c184748de",
+  "ci": {
+    "run_id": 36970485842,
+    "url": "https://github.com/GaTech-RL2/EgoVerse-graph/actions/runs/36970485842",
+    "status": "success",
+    "completed_at": "2026-10-02T06:02:54Z",
+    "passed": 2001,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 614.37,
+    "config_contexts": 439,
+    "constructor_contexts": 439,
+    "arc_parity_tests": 23,
+    "jobs": {
+      "cpu-and-wheel": "success",
+      "static": "success"
+    }
+  },
+  "local_cpu": {
+    "runtime_commit": "2c29231ebb2d73e5656d137659eb04d5ab4fb725",
+    "validation_source_commit": "26cf425f604a43194215377838991f2ec236c8db",
+    "passed": 2001,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 279.19
+  },
+  "test_preservation": {
+    "previous_cases": 1993,
+    "removed": [],
+    "added": [
+      "tests.test_validation_checkout::test_restore_is_pinned_idempotent_and_preserves_checkout_code",
+      "tests.test_validation_checkout::test_restore_never_overwrites_local_or_tracked_files[False]",
+      "tests.test_validation_checkout::test_restore_never_overwrites_local_or_tracked_files[True]",
+      "tests.test_validation_checkout::test_restore_rejects_a_branch_name",
+      "tests.test_validation_checkout::test_restore_rejects_paths_outside_the_checkout[../outside]",
+      "tests.test_validation_checkout::test_restore_rejects_paths_outside_the_checkout[.git/config]",
+      "tests.test_validation_checkout::test_restore_rejects_paths_outside_the_checkout[/absolute]",
+      "tests.test_validation_checkout::test_restore_rejects_symlink_destinations"
+    ]
+  },
+  "separation": {
+    "runtime_commit": "7ccb609626c62fafce5c1181bc79f576e0829f2b",
+    "validation_commit": "34c1d761409cdf74e48b11a57d52421c184748de",
+    "companion_files": 364,
+    "companion_bytes": 16877481,
+    "runtime_tracked_files": 1269,
+    "tracked_validation_overlap": [],
+    "restored_hashes_match": true,
+    "tracked_checkout_unchanged_after_restore": true
+  },
+  "initial_ci_failure": {
+    "run_id": 36938596575,
+    "passed": 1977,
+    "failed": 16,
+    "cause": "ARC output hashes captured on macOS are not portable to Linux.",
+    "fix": "Compare byte-exact output to immutable #197 source running on the same platform; retain all cases, without a numerical tolerance."
+  },
+  "wiki_tracker": {
+    "initial_run_id": 36938596711,
+    "resolved": false,
+    "cause": "OBSIDIAN_VAULT_REPO was empty in the job; /repos//contents/raw/prs/pr-0198.json returned HTTP 404. Repository secrets are not configured by this change."
+  },
+  "gpu_gate": {
+    "rendered_runtime_commit": "7ccb609626c62fafce5c1181bc79f576e0829f2b",
+    "osmo_workflow_schema_validation": "passed",
+    "submitted": false,
+    "reason": "Separate authorization required by the user handoff."
+  },
+  "artifacts_sha256": {
+    "pi05-source-receipt.json.gz": "d9e258e1c4e72dd39efc640d9c0f59e6a55c403a674246be7aed197a4f24630d",
+    "component-audit.json.gz": "c6d19cdf2c7bbd417de6375543648c6086d5c3f62b4654cd12a044db223be14a",
+    "config-audit.json.gz": "2433d18b01df88f68d0ea4430034c5dd3ed108a5d8d7b19159f50fe38a0fe0c5",
+    "cpu-junit.xml.gz": "ae6a05cbf6189f43cde482e74f3bc798cc0e30534ed32449cdd499fe269dd5d3"
+  },
+  "note": "This post-run receipt is companion-only evidence. It does not change the immutable test/docs pin validated by CI."
+}

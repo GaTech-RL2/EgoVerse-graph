@@ -343,12 +343,14 @@ def main():
                 "kind": "SE3 ARC",
                 "mode": getattr(codec, "mode", "joint_dur"),
                 "waypoints": codec.num_waypoints,
-                "float32_channels": 12 if hasattr(codec, "mode") else 11,
+                "float32_channels": getattr(codec, "action_dim", 12 if hasattr(codec, "mode") else 11),
                 "dt": codec.dt,
                 "max_translation": codec.max_translation,
                 "max_rotation_degrees": codec.max_rotation_degrees,
                 "independent_clocks": hasattr(codec, "mode"),
             }
+            if hasattr(codec, "representation_context"):
+                arc_representation.update(codec.representation_context())
             if not hasattr(codec, "mode"):
                 arc_representation.update(
                     rotation_radius=codec.rotation_radius,

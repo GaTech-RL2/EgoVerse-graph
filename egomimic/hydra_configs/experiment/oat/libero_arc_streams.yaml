@@ -1,0 +1,21 @@
+# @package _global_
+defaults:
+  - /experiment/oat/libero_arc_policy
+  - /arc_stream: reference
+  - override /model: oat/arc_grouped_policy
+  - _self_
+
+benchmark:
+  arc_mode: stk
+  arc_action_dim: ${arc_stream.action_dim}
+  arc_stream_variant: ${arc_stream.name}
+  arc_stream_spec: ${arc_stream.spec}
+  arc_waypoints: 36
+  arc_max_translation: 1.6
+  arc_max_rotation_degrees: 384.0
+
+model:
+  benchmark_protocol:
+    arc_stream_variant: ${benchmark.arc_stream_variant}
+    arc_stream_spec: ${benchmark.arc_stream_spec}
+    arc_backbone: unet

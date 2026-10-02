@@ -1,0 +1,58 @@
+version: 1
+name: arc-streams-20261001
+backbone: unet
+suites:
+- libero_spatial
+- libero_object
+- libero_goal
+- libero_10
+variants:
+- reference
+- gripper
+- xyz_scalar
+- component_velocity
+- component_time
+- x_yz
+- y_xz
+- z_xy
+- angular_driver
+- angular_scalar
+- all_scalar
+modes:
+- stk
+- dur
+geometry:
+  num_waypoints: 36
+  max_translation: 1.6
+  max_rotation_degrees: 384.0
+  horizon: 32
+  dt: 0.05
+geometry_source: Frozen shared STK/DUR profile from 2026-09-21, unchanged across suites
+  and arms
+seed: 42
+epochs: 5001
+global_batch_size: 1024
+execute_steps: 16
+optimizer_steps:
+  libero_spatial: 270054
+  libero_object: 325065
+  libero_goal: 280056
+  libero_10: 605121
+evaluation:
+  trials_per_task: 50
+  repetitions: 5
+  max_episode_steps: 550
+  start_seed: 1000
+replay:
+  demos:
+  - 0
+  - 1
+  - 2
+  seed: 1000
+  workers: 12
+  max_raw_repeat_state_error: 1.0e-12
+  max_dense_action_mse: 1.0e-12
+rotation_carry:
+  status: awaiting_semantics
+  reason: Current LIBERO codec already retains sub-R rotation. Cross-window quantization
+    carry needs an explicit quantum and causal training/inference state contract.

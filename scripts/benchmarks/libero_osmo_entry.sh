@@ -40,6 +40,14 @@ uv pip install --no-deps -e "$LIBERO_SOURCE_ROOT"
 export LIBERO_CONFIG_PATH=/workspace/libero/config
 if [[ "${RUN_KIND:-benchmark}" == policy_evaluation ]]; then
     python -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id "$RUN_ID" --request /tmp/evaluation-request.json
+elif [[ "${RUN_KIND:-benchmark}" == arc_stream_replay ]]; then
+    python -m egomimic.benchmarks.libero.arc_streams --root /workspace/libero --output "$ARC_STREAM_OUTPUT" --run-id "$RUN_ID" --suite "$SUITE" --operation replay
+elif [[ "${RUN_KIND:-benchmark}" == arc_stream_train ]]; then
+    STREAM_ARGS=(--root /workspace/libero --output "$ARC_STREAM_OUTPUT" --run-id "$RUN_ID" --suite "$SUITE" --operation train --mode "$RUN_MODE" --variant "$ARC_STREAM_VARIANT" --arc-mode "$ARC_STREAM_MODE")
+    if [[ "$RUN_MODE" == full ]]; then
+        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)
+    fi
+    python -m egomimic.benchmarks.libero.arc_streams "${STREAM_ARGS[@]}"
 elif [[ "${RUN_KIND:-benchmark}" == arc_decoders ]]; then
     python -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$ARC_DECODER_OUTPUT" --variant "$ARC_DECODER_VARIANT" --profile "$ARC_PROFILE" --arc-mode "$ARC_DECODER_MODE" --replay-run "$ARC_REPLAY_RUN" --reference-run "$ARC_DECODER_REFERENCE_RUN"
 elif [[ "${RUN_KIND:-benchmark}" == dp_baseline ]]; then

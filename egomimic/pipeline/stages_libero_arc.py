@@ -1,6 +1,7 @@
 """LIBERO ARC graph nodes; the shared diffusion stages predict ARC supports."""
 
 from collections import OrderedDict
+import json
 
 import numpy as np
 import torch
@@ -77,6 +78,11 @@ class LiberoArcStage(Stage):
             "kind": "libero_arc",
             "mode": self.arc_mode,
             **{key: getattr(self.codec, key) for key in fields},
+            **(
+                self.codec.representation_context()
+                if hasattr(self.codec, "representation_context")
+                else {}
+            ),
             "velocity_norm_bound": self.velocity_norm_bound,
             "token_scale": self._token_scale(torch.ones(1)).tolist(),
         }
@@ -92,6 +98,8 @@ class LiberoArcStage(Stage):
 
     def _token_scale(self, tensor):
         # Fixed physical units, recorded in config; no separately fitted split.
+        if hasattr(self.codec, "token_scale"):
+            return tensor.new_tensor(self.codec.token_scale())
         scale = tensor.new_ones(11 if self.arc_mode == "joint_dur" else 12)
         scale[:3] = self.codec.translation_scale * self.codec.horizon
         if self.arc_mode == "joint_dur":
@@ -145,6 +153,9 @@ class LiberoArcStage(Stage):
                 "max_translation",
                 "max_rotation_degrees",
             )
+        )
+        signature += (
+            json.dumps(getattr(self.codec, "stream_spec", None), sort_keys=True),
         )
         if signature != self._encode_cache_signature:
             self._encode_cache.clear()

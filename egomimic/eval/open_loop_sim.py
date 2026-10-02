@@ -785,6 +785,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         distance_dtw_enabled: bool = False,
         dtw_max_cells: int = 50_000_000,
         dtw_max_prediction_steps: int = 30_000,
+        dtw_max_segment_steps: int | None = None,
         require_episode_start: bool = True,
         limit_val_episodes: int | None = None,
         requires_ordered_validation: bool = True,
@@ -872,6 +873,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.distance_dtw_enabled = bool(distance_dtw_enabled)
         self.dtw_max_cells = int(dtw_max_cells)
         self.dtw_max_prediction_steps = int(dtw_max_prediction_steps)
+        self.dtw_max_segment_steps = (
+            None if dtw_max_segment_steps is None else int(dtw_max_segment_steps)
+        )
+        if self.dtw_max_segment_steps is not None and self.dtw_max_segment_steps < 1:
+            raise ValueError("dtw_max_segment_steps must be positive when set")
         if self.dtw_max_cells < 1 or self.dtw_max_prediction_steps < 1:
             raise ValueError("DTW resource limits must be positive")
         self.require_episode_start = bool(require_episode_start)
@@ -1850,6 +1856,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     "GT_Coverage": "gt_coverage",
                     "Prediction_Coverage": "prediction_coverage",
                     "Duration_Ratio": "duration_ratio",
+                    "Clipped_Segments": "clipped_segments",
                 }.items():
                     metrics[f"{prefix}/Distance_DTW/{name}"] = dtw[key]
             metrics.update(

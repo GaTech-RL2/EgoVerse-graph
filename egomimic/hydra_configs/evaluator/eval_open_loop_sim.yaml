@@ -58,6 +58,11 @@ distance_dtw_enabled: true
 # GT frames or clip slower predictions to the recorded episode's clock.
 dtw_max_cells: 50000000
 dtw_max_prediction_steps: 30000
+# Optional per-segment decode cap. A predicted token with near-zero timing on a
+# moving interval decodes to an arbitrarily long hold; with a cap, that segment
+# is scored on its first N steps and counted in clipped_segments instead of
+# raising. null keeps the strict failure.
+dtw_max_segment_steps: null
 require_episode_start: true
 # Episode-level limit. The datamodule uses this to retain complete episodes,
 # not an arbitrary prefix of validation batches. null evaluates every episode.

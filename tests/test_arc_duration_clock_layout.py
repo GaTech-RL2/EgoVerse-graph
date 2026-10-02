@@ -232,3 +232,39 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
         assert cfg.evaluator.arc_chunking_mode == "multistream"
         robot = train.yam_bimanual.resolver.transform_list
         assert (robot.velocity_mode, robot.velocity_layout) == ("duration", "clock")
+
+
+def test_dtw_segment_cap_clips_and_reports_instead_of_raising():
+    """A moving interval with near-zero predicted time must not kill validation."""
+    time = np.arange(60 + 200) * DT
+    raw = np.zeros((len(time), 14))
+    raw[:, 0], raw[:, 7] = 0.30 * time, 0.08 * time
+    raw[:, 3] = raw[:, 10] = 0.2 * time
+    tokenize = codec("multistream")
+    records = []
+    for frame in range(60):
+        token = tokenize.transform({"actions": raw[frame : frame + 200].copy()})[
+            "actions"
+        ]
+        if frame == 0:
+            token[:, 14:] = 50.0  # a nonsense 50 s per interval: huge decode
+        if frame == 1:
+            token[:, 14:] = 0.0  # no usable time on moving intervals: unbounded
+        records.append(
+            dict(
+                frame=frame,
+                ground_truth=raw[frame : frame + 200],
+                prediction=token,
+                **{dtw.METRIC_FRAME_KEY: np.repeat(np.eye(4)[None], 2, axis=0)},
+            )
+        )
+    strict = evaluator("duration", dtw_max_prediction_steps=1000)
+    with pytest.raises(ValueError, match="dtw_max_prediction_steps"):
+        dtw.score_distance_dtw_episode(strict, records[:1] + records[2:])
+    capped = evaluator(
+        "duration", dtw_max_prediction_steps=1000, dtw_max_segment_steps=300
+    )
+    result = dtw.score_distance_dtw_episode(capped, records)
+    assert result["clipped_segments"] >= 2
+    assert max(max(steps) for steps in result["segment_control_steps"]) <= 300
+    assert np.isfinite(result["xyz_mse"])

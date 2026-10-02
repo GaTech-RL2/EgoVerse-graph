@@ -335,7 +335,7 @@ def _distance_rollout(
         arc_prefix_control_steps,
     )
 
-    predictions, steps = [], []
+    predictions, steps, clipped = [], [], []
     total = 0
     for anchor, remaining_budget in zip(anchors, budgets):
         record = records[int(anchor)]
@@ -364,6 +364,7 @@ def _distance_rollout(
                 partial = fractional_waypoint_prefix(
                     partial, fraction, evaluator.velocity_mode
                 )
+            segment_cap = getattr(evaluator, "dtw_max_segment_steps", None)
             # Decode the entire prefix on its OWN clock, even if slower than GT.
             n = arc_prefix_control_steps(
                 partial,
@@ -376,6 +377,9 @@ def _distance_rollout(
                 ),
                 arc_execution_cap_mode="waypoints",
                 arc_chunking_mode=chunking_mode,
+                # With a cap, an unbounded (stalled) clock resolves to the cap
+                # instead of raising "no finite replan boundary".
+                max_steps=(None if segment_cap is None else int(segment_cap) + 1),
             )
             if arm is not None:
                 m = len(partial) // 2
@@ -391,6 +395,13 @@ def _distance_rollout(
                 )
                 arm_seconds = float(np.sum(clocks[arm]))
                 n = min(n, max(1, math.ceil(arm_seconds / evaluator.control_dt - 1e-9)))
+            if segment_cap is not None and n > segment_cap:
+                # A predicted token with near-zero timing on a moving interval
+                # decodes to an arbitrarily long hold. Score its first
+                # segment_cap steps and report the clip instead of failing the
+                # whole validation (and the training run with it).
+                n = int(segment_cap)
+                clipped.append(int(anchor))
             if n > evaluator.dtw_max_prediction_steps:
                 raise ValueError(
                     f"DTW prefix has {n} samples; increase dtw_max_prediction_steps explicitly"
@@ -407,7 +418,7 @@ def _distance_rollout(
             )
         predictions.append(world_xyz(decoded, record[METRIC_FRAME_KEY]))
         steps.append(n)
-    return np.concatenate(predictions), steps, total
+    return np.concatenate(predictions), steps, total, clipped
 
 
 def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
@@ -471,10 +482,11 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         # windows that wait for the slower arm charge the faster arm for travel
         # its token never claimed: a perfect model scored ~1e-2 instead of ~0.
         per_arm, all_anchors, all_steps, all_budgets, total = [], [], [], [], 0
+        clipped = []
         arm_cumulative = per_arm_cumulative_distance(gt)
         for arm, columns in enumerate((slice(0, 3), slice(3, 6))):
             arm_anchors, arm_budgets = distance_windows(arm_cumulative[:, arm], budget)
-            prediction, steps, arm_total = _distance_rollout(
+            prediction, steps, arm_total, arm_clipped = _distance_rollout(
                 evaluator,
                 records,
                 arm_anchors,
@@ -494,6 +506,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
             per_arm.append(score)
             all_anchors.append([int(records[int(i)]["frame"]) for i in arm_anchors])
             all_steps.append(steps)
+            clipped.extend(arm_clipped)
             all_budgets.append(arm_budgets.tolist())
             total = max(total, arm_total)
         # Each arm averages its 3 coordinates over the same GT frames, so the
@@ -515,7 +528,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
             all_budgets,
         )
     else:
-        prediction, segment_steps, total = _distance_rollout(
+        prediction, segment_steps, total, clipped = _distance_rollout(
             evaluator,
             records,
             anchors,
@@ -535,6 +548,8 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         segments=segments,
         anchor_frames=anchor_frames,
         segment_control_steps=segment_steps,
+        clipped_segments=len(clipped),
+        clipped_anchor_indices=clipped,
         execution_distance_budget_m=budget,
         segment_distance_budgets_m=segment_budgets,
         arc_chunking_mode=chunking_mode if is_arc else None,
@@ -585,4 +600,5 @@ def summarize_distance_dtw(episodes: list[dict]) -> dict:
         / total_gt,
         "prediction_coverage": min(item["prediction_coverage"] for item in scores),
         "duration_ratio": sum(item["predicted_samples"] for item in scores) / total_gt,
+        "clipped_segments": sum(item.get("clipped_segments", 0) for item in scores),
     }

@@ -29,6 +29,7 @@ test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
 if [[ "$GATE_SUITE" == stage ]]; then
   uv venv emimic --python 3.11
   source emimic/bin/activate
+  python .github/scripts/restore_validation.py
   uv pip install boto3==1.43.6
   python -m scripts.integration.prepare_inputs \
     --data-manifest docs/integration/evidence/real-data-inputs.json \
@@ -38,6 +39,7 @@ if [[ "$GATE_SUITE" == stage ]]; then
 else
   uv sync --locked --python 3.11 --extra pi05 --extra alignment --extra diagnostics
   source emimic/bin/activate
+  python .github/scripts/restore_validation.py
   mkdir -p "$GATE_OUTPUT"
   uv pip list --format json > "$GATE_OUTPUT/packages.json"
   if [[ "$GATE_SUITE" == pi ]]; then

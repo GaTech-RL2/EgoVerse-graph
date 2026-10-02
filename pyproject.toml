@@ -93,7 +93,8 @@ pi05 = [
 # OpenPI's full dependency bundle conflicts with this project's AV and
 # simulator pins. Keep the destination EgoVerse environment policy: lock the
 # model runtime here, then install the immutable OpenPI source with --no-deps.
-# See docs/integration/DEPENDENCIES.md. No resolver override hides the conflict.
+# Dependency notes live on the companion validation branch (see AGENTS.md).
+# No resolver override hides the conflict.
 
 # Project Aria 2.0.0 pins rerun-sdk==0.22.1, while i2rt (the Yam SDK)
 # requires rerun-sdk>=0.32.2. i2rt also pins numpy==2.2.6, while Pi05's

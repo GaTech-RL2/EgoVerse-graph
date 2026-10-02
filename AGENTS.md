@@ -27,7 +27,7 @@ not imply a separate runtime for that task or model.
 | Train/eval entry point, normalizer binding, checkpoint resume | [egomimic/trainHydra.py](egomimic/trainHydra.py) |
 | Model graph execution and stage contracts | [pipeline/core.py](egomimic/pipeline/core.py), [pipeline/algo.py](egomimic/pipeline/algo.py) |
 | Model-owned inference declarations and typed runtime controls | [pipeline/inference_config.py](egomimic/pipeline/inference_config.py), [pipeline/inference_controls.py](egomimic/pipeline/inference_controls.py), `model.inference` in the selected YAML |
-| Bound checkpoint loading and no-hardware sequence inference | [pipeline/inference_session.py](egomimic/pipeline/inference_session.py), [checkpoint policy](docs/integration/CHECKPOINTS.md) |
+| Bound checkpoint loading and no-hardware sequence inference | [pipeline/inference_session.py](egomimic/pipeline/inference_session.py), [checkpoint policy](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/integration/CHECKPOINTS.md) |
 | Data construction, normalization restoration and evaluator preflight | [pl_utils/data_context.py](egomimic/pl_utils/data_context.py), [rldb/zarr/data_module.py](egomimic/rldb/zarr/data_module.py) |
 | Strict weights-only initialization and freeze schedules | [pipeline/initialization.py](egomimic/pipeline/initialization.py), [pl_utils/trainability_behavior.py](egomimic/pl_utils/trainability_behavior.py) |
 | HPT, flow, ARC, PI and other graph stages | `egomimic/pipeline/stages_*.py` |
@@ -40,7 +40,7 @@ not imply a separate runtime for that task or model.
 | Shared HPT/PI robot metrics and videos | [eval/bimanual_cartesian_eval.py](egomimic/eval/bimanual_cartesian_eval.py), [eval/video.py](egomimic/eval/video.py); see [evaluation guide](egomimic/eval/AGENTS.md) |
 | ARC and tempo evaluation | `egomimic/eval/{arc_bimanual_cartesian_eval,bimanual_tempo_eval,arc_metrics,e1_metrics}.py` |
 | Dataset filters, task prompts, camera/frame choices and experiment parameters | `egomimic/hydra_configs/`; calibration matrices in `hydra_configs/calibration/` |
-| Shared Eva/Yam collection, local graph rollout, Zarr replay and upload | [robot/AGENTS.md](egomimic/robot/AGENTS.md), [docs/YAM_RUNTIME.md](docs/YAM_RUNTIME.md) |
+| Shared Eva/Yam collection, local graph rollout, Zarr replay and upload | [robot/AGENTS.md](egomimic/robot/AGENTS.md), [docs/YAM_RUNTIME.md](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/YAM_RUNTIME.md) |
 | Offline normalization export for any model | [scripts/data/precompute_norm_stats.py](scripts/data/precompute_norm_stats.py), or `trainHydra.py norm_stats_only=true` |
 | Focused CPU regression checks | `tests/test_pipeline*.py`, `test_hpt*.py`, `test_arc*.py`, `test_e1*.py`, `test_pi05*.py`, `test_wrist6d_roundtrip.py`, `test_robot_runtime.py`, `test_robot_graph_policy.py` |
 
@@ -66,7 +66,7 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
   restores an immutable data context without reopening the training corpus.
 - Evaluators expose `data_requirements()` and `trainer_overrides()`. Complete
   episode requests must reject partial loaders or validation-loop limits before
-  model construction. See [the integration contract](docs/GENERIC_PIPELINE_CONTRACT.md).
+  model construction. See [the integration contract](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/GENERIC_PIPELINE_CONTRACT.md).
 - `egomimic/campaigns/pi05/`, `e1_fold.py`, and `pi05_graph_eval.py` retain old
   import names. Their implementations now live at the canonical paths above.
   Use current YAML examples when migrating older serialized configuration APIs.
@@ -82,6 +82,22 @@ EgoVerse-graph; use the intended repository explicitly when creating PRs.
 Preserve other people's branches, working changes, checkpoints and datasets.
 Use an isolated worktree for consolidation or substantial review follow-ups.
 
-The consolidated PR/source map is in [docs/ARC_STACK.md](docs/ARC_STACK.md) and
+The consolidated PR/source map is in [docs/ARC_STACK.md](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/ARC_STACK.md) and
 [docs/arc_consolidation.json](docs/arc_consolidation.json). PI environment and
-graph behavior are documented in [docs/PI05_GRAPH.md](docs/PI05_GRAPH.md).
+graph behavior are documented in [docs/PI05_GRAPH.md](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/PI05_GRAPH.md).
+
+## Tests and documentation
+
+Tests, fixtures, integration audits, notebooks and design documentation live on
+[`codex/graph-validation-20261001`](https://github.com/GaTech-RL2/EgoVerse-graph/tree/codex/graph-validation-20261001).
+The runtime branch keeps code, configuration, launch tools, required package
+metadata and this agent guidance. CI restores the companion files from the full
+commit pinned in `.github/validation-ref` and tests this checkout's code.
+
+To run the referenced tests and audits in an isolated checkout, activate the
+project environment and run `python .github/scripts/restore_validation.py` first.
+The command restores only hash-checked companion files and refuses to overwrite
+tracked code or local edits. Restored files are untracked; do not add them to the
+runtime branch. Commit test/doc changes on the companion branch, refresh its
+`.github/validation-paths.json`, and update the runtime pin to that commit. See
+[the validation workflow](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/integration/VALIDATION_BRANCH.md).

@@ -18,13 +18,35 @@ def installed_wheel(tmp_path_factory):
     work = tmp_path_factory.mktemp("package")
     source = work / "source"
     source.mkdir()
+    manifest_path = ROOT / ".github/validation-paths.json"
+    if manifest_path.exists():
+        # Running directly in the companion snapshot.
+        companion = json.loads(manifest_path.read_text())
+    else:
+        revision = (ROOT / ".github/validation-ref").read_text().strip()
+        companion = json.loads(
+            subprocess.check_output(
+                ["git", "show", revision + ":.github/validation-paths.json"], cwd=ROOT
+            )
+        )
+
+    def ignore_companion_files(directory, names):
+        relative = Path(directory).relative_to(ROOT)
+        return [
+            name
+            for name in names
+            if name == "__pycache__"
+            or name.endswith(".pyc")
+            or str(relative / name) in companion
+        ]
+
     shutil.copytree(
         ROOT / "egomimic",
         source / "egomimic",
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        ignore=ignore_companion_files,
     )
     for name in ("pyproject.toml", "README.md", "LICENSE"):
-        if (ROOT / name).exists():
+        if (ROOT / name).exists() and name not in companion:
             shutil.copy2(ROOT / name, source / name)
     proc = subprocess.run(
         ["uv", "build", "--wheel", "--out-dir", str(work / "dist")],
@@ -48,11 +70,11 @@ def installed_wheel(tmp_path_factory):
         check=True,
         capture_output=True,
     )
-    return work, python, names
+    return work, python, names, companion
 
 
 def test_all_declared_resources_are_in_wheel(installed_wheel):
-    _, _, names = installed_wheel
+    _, _, names, companion = installed_wheel
     required = set()
     for folder in (
         "hydra_configs",
@@ -74,10 +96,11 @@ def test_all_declared_resources_are_in_wheel(installed_wheel):
     )
     assert required <= set(names), sorted(required - set(names))
     assert not any(name.startswith(("tests/", "external/")) for name in names)
+    assert not (set(names) & companion.keys()), "Companion artifacts leaked into wheel"
 
 
 def test_fresh_install_loads_resources_outside_checkout(installed_wheel):
-    work, python, names = installed_wheel
+    work, python, names, _ = installed_wheel
     resources = [name for name in names if name.startswith("egomimic/resources/")]
     code = """
 import egomimic, json, pathlib, sys, xml.etree.ElementTree as ET

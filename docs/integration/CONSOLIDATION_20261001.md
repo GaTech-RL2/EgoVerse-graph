@@ -3,9 +3,16 @@
 The three requested histories are integrated on
 `codex/graph-consolidation-20261001`. Code commit
 `96df46f1427cd08e0dd64ac534af133ee37b193c` passes **1,993 tests with no failures
-or skips**, recursive composition of **439 YAML contexts**, and the included
+or skips on macOS**, recursive composition of **439 YAML contexts**, and the included
 constructor and installed-wheel checks. This is CPU acceptance; real-weight/data
 GPU execution and the destination merge remain pending.
+
+At the user's request, tests, documentation and validation artifacts are now
+preserved on `codex/graph-validation-20261001`, separately from the lightweight
+runtime branch. CI uses an immutable companion pin and the runtime checkout's
+code. See [validation branch usage and the initial Linux hash failure](VALIDATION_BRANCH.md).
+The original local receipt above is historical evidence, not a claim that the
+first Linux CI run passed.
 
 ## Sources and review map
 

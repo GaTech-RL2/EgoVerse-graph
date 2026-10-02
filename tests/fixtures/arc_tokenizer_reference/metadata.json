@@ -1,0 +1,144 @@
+{
+  "source_commit": "20507c6866f8a167e0e2858141299dbf6ccddeb0",
+  "source_path": "egomimic/rldb/zarr/arc_length_tokenizer.py",
+  "source_sha256": "dcd74ea1e18cba1da718bfdccea8ae7743bc210ba06a21de9c8694e8000b425d",
+  "historical_hash_platform": "macOS arm64, numpy 1.26.4, scipy 1.17.1",
+  "historical_hashes": {
+    "multistream_straight_m100_per_waypoint": {
+      "shape": [
+        100,
+        28
+      ],
+      "token_sha256": "eb7755d66f3963d47e218b5481d5f66a135d27d7373fa7d841ee2b6ccdbf70e8",
+      "preserved_sha256": "c5fa2238bec4d300f2489a899b04fcf34897282bf883966c8a88c17d9843bccb"
+    },
+    "multistream_curved_mean": {
+      "shape": [
+        14,
+        14
+      ],
+      "token_sha256": "fcaaa486e8925f70fa9985b8d1b6cbad0b2cc503065bca2a72c0d3cdaa09db26",
+      "preserved_sha256": "1c20ec6991e6494b77387836878baeb7e92320cf82dde0b527348b7676c35ce7"
+    },
+    "multistream_curved_duration_stationary_prefix": {
+      "shape": [
+        11,
+        28
+      ],
+      "token_sha256": "1e4498451fd1862fe32cbaebba739d25d061c7384b3c607186510885043b8681",
+      "preserved_sha256": "31bf6c456fe5f78b600c7633e0a7d004e95fa47ede3500ac36aa45268c0ffe55"
+    },
+    "joint_distance_hybrid_wrap": {
+      "shape": [
+        17,
+        28
+      ],
+      "token_sha256": "3e0ed911a22b40302a6f055383aee3cf87aba37630738d4cfb005c8c13bc2698",
+      "preserved_sha256": "42703b775b107bd0293a7d37d023e574ce71918dd0a30f1bc10c9417712f310d"
+    },
+    "race_left_first_fractional": {
+      "shape": [
+        19,
+        28
+      ],
+      "token_sha256": "fe21d26d2c493431fd63543c14e28c3d9630b33a92ba7cfe2daed38ab7cbcd3c",
+      "preserved_sha256": "94b3ebce5e6cc293fe0549109c718806ec1172445d4dcd9d956af439e5890e9c"
+    },
+    "race_right_first_fractional": {
+      "shape": [
+        19,
+        28
+      ],
+      "token_sha256": "653b267e02f7311728b72a1dbfbdeb43e29eeae60e272b3d518b2808c85a3e7f",
+      "preserved_sha256": "789928e745c3f0a23cfe67534a31c3d69db2c3ba54bc5b64feea2bf5cf74b521"
+    },
+    "race_simultaneous": {
+      "shape": [
+        15,
+        28
+      ],
+      "token_sha256": "da5708ba6c646edae205b415c6664a3837c526af92cb0d3392df47271dd02c1f",
+      "preserved_sha256": "e20c3ab0ead0653ac6ed6e268bb3a63a1a190bd08e6ba4855f06a8d435c8308b"
+    },
+    "race_no_crossing_short_tail": {
+      "shape": [
+        12,
+        28
+      ],
+      "token_sha256": "67f71dbd4a5b979c6514aad7ae7bdc34fcfcbeb0207c9c42579be024776c909b",
+      "preserved_sha256": "c5a8af16351561e349c7bbcf5365054a37e41243fef45d6b2d783d9a32a908b3"
+    },
+    "race_hybrid_one_stationary_arm": {
+      "shape": [
+        16,
+        28
+      ],
+      "token_sha256": "417e34b8b8329ce5b167afb989cadaa5393d6860dc46f9948d9dbb50f97a6fb0",
+      "preserved_sha256": "832ce9c3741b2488b2e9f4814698a592a95761d760f060fde548f1f2701cf937"
+    },
+    "joint_distance_hybrid_m100_per_waypoint": {
+      "shape": [
+        100,
+        28
+      ],
+      "token_sha256": "de97c25088f7bdfeed482c3949ddbc895f9d06a7c5d36e16127aaaf8d544439b",
+      "preserved_sha256": "20fad4084cd4dbc67b35e2689dcbc4807aebbb05dc1696eff29d1f7905c852d0"
+    },
+    "race_hybrid_m100_per_waypoint": {
+      "shape": [
+        100,
+        28
+      ],
+      "token_sha256": "9a9f63edeed205c1bb9f3dedfbe8b4975b2b0fa4feb8cf3a72305fce649cf6bf",
+      "preserved_sha256": "20fad4084cd4dbc67b35e2689dcbc4807aebbb05dc1696eff29d1f7905c852d0"
+    },
+    "multistream_hybrid_m100_per_waypoint": {
+      "shape": [
+        100,
+        28
+      ],
+      "token_sha256": "29142fba56fc10a3ad91f23ce486cac86f4e6ac71373b6bb851284e0e4fa9b7a",
+      "preserved_sha256": "20fad4084cd4dbc67b35e2689dcbc4807aebbb05dc1696eff29d1f7905c852d0"
+    },
+    "joint_distance_hybrid_no_crossing_short_tail": {
+      "shape": [
+        12,
+        28
+      ],
+      "token_sha256": "fe98ac40ccacaf1a97b5e2e09b222398f9c893f3833df14f5eedd19a4bb59052",
+      "preserved_sha256": "e8b29026f98dcfa1e942e82f1b76fc6d12f83b6f8aa8f9b7f451e42fc04d4ce2"
+    },
+    "race_hybrid_no_crossing_short_tail": {
+      "shape": [
+        12,
+        28
+      ],
+      "token_sha256": "95c16cab554b15bb57e78f36cf166cc1d0b2f9b4f76791f8cb83b4d4448e8cf6",
+      "preserved_sha256": "e8b29026f98dcfa1e942e82f1b76fc6d12f83b6f8aa8f9b7f451e42fc04d4ce2"
+    },
+    "multistream_hybrid_no_crossing_short_tail": {
+      "shape": [
+        12,
+        28
+      ],
+      "token_sha256": "95c16cab554b15bb57e78f36cf166cc1d0b2f9b4f76791f8cb83b4d4448e8cf6",
+      "preserved_sha256": "e8b29026f98dcfa1e942e82f1b76fc6d12f83b6f8aa8f9b7f451e42fc04d4ce2"
+    },
+    "joint_distance_hybrid_one_stationary_arm": {
+      "shape": [
+        16,
+        28
+      ],
+      "token_sha256": "955e55ecb41b671b9925e096a006ac209eaf7f5850cd89c206a5021f4275e5b3",
+      "preserved_sha256": "832ce9c3741b2488b2e9f4814698a592a95761d760f060fde548f1f2701cf937"
+    },
+    "multistream_hybrid_one_stationary_arm": {
+      "shape": [
+        16,
+        28
+      ],
+      "token_sha256": "1c7932634064c3a5f69f87a831af7eee398d84ad306f432cd75229c2e67297cd",
+      "preserved_sha256": "832ce9c3741b2488b2e9f4814698a592a95761d760f060fde548f1f2701cf937"
+    }
+  }
+}

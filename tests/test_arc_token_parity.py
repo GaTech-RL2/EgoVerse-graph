@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
+import json
+import sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -9,96 +14,28 @@ from egomimic.rldb.zarr import arc_length_tokenizer as arc_module
 from egomimic.rldb.zarr.arc_length_tokenizer import _bracket_segment, _bracket_segments
 from tests.arc_token_parity_fixtures import ARC_CASES, tokenize_case, tokenizer_for
 
-# Frozen token bytes for the wide per-waypoint contract, regenerated after the
-# per-arm rotation-budget and M×28 fixes. Stacked mode remains covered below as
-# a compatibility layout and must decode to the same waypoints and rates.
-GOLDEN = {
-    "multistream_straight_m100_per_waypoint": (
-        (100, 28),
-        "eb7755d66f3963d47e218b5481d5f66a135d27d7373fa7d841ee2b6ccdbf70e8",
-        "c5fa2238bec4d300f2489a899b04fcf34897282bf883966c8a88c17d9843bccb",
-    ),
-    "multistream_curved_mean": (
-        (14, 14),
-        "fcaaa486e8925f70fa9985b8d1b6cbad0b2cc503065bca2a72c0d3cdaa09db26",
-        "1c20ec6991e6494b77387836878baeb7e92320cf82dde0b527348b7676c35ce7",
-    ),
-    "multistream_curved_duration_stationary_prefix": (
-        (11, 28),
-        "1e4498451fd1862fe32cbaebba739d25d061c7384b3c607186510885043b8681",
-        "31bf6c456fe5f78b600c7633e0a7d004e95fa47ede3500ac36aa45268c0ffe55",
-    ),
-    "joint_distance_hybrid_wrap": (
-        (17, 28),
-        "3e0ed911a22b40302a6f055383aee3cf87aba37630738d4cfb005c8c13bc2698",
-        "42703b775b107bd0293a7d37d023e574ce71918dd0a30f1bc10c9417712f310d",
-    ),
-    "race_left_first_fractional": (
-        (19, 28),
-        "fe21d26d2c493431fd63543c14e28c3d9630b33a92ba7cfe2daed38ab7cbcd3c",
-        "94b3ebce5e6cc293fe0549109c718806ec1172445d4dcd9d956af439e5890e9c",
-    ),
-    "race_right_first_fractional": (
-        (19, 28),
-        "653b267e02f7311728b72a1dbfbdeb43e29eeae60e272b3d518b2808c85a3e7f",
-        "789928e745c3f0a23cfe67534a31c3d69db2c3ba54bc5b64feea2bf5cf74b521",
-    ),
-    "race_simultaneous": (
-        (15, 28),
-        "da5708ba6c646edae205b415c6664a3837c526af92cb0d3392df47271dd02c1f",
-        "e20c3ab0ead0653ac6ed6e268bb3a63a1a190bd08e6ba4855f06a8d435c8308b",
-    ),
-    "race_no_crossing_short_tail": (
-        (12, 28),
-        "67f71dbd4a5b979c6514aad7ae7bdc34fcfcbeb0207c9c42579be024776c909b",
-        "c5a8af16351561e349c7bbcf5365054a37e41243fef45d6b2d783d9a32a908b3",
-    ),
-    "race_hybrid_one_stationary_arm": (
-        (16, 28),
-        "417e34b8b8329ce5b167afb989cadaa5393d6860dc46f9948d9dbb50f97a6fb0",
-        "832ce9c3741b2488b2e9f4814698a592a95761d760f060fde548f1f2701cf937",
-    ),
-    "joint_distance_hybrid_m100_per_waypoint": (
-        (100, 28),
-        "de97c25088f7bdfeed482c3949ddbc895f9d06a7c5d36e16127aaaf8d544439b",
-        "20fad4084cd4dbc67b35e2689dcbc4807aebbb05dc1696eff29d1f7905c852d0",
-    ),
-    "race_hybrid_m100_per_waypoint": (
-        (100, 28),
-        "9a9f63edeed205c1bb9f3dedfbe8b4975b2b0fa4feb8cf3a72305fce649cf6bf",
-        "20fad4084cd4dbc67b35e2689dcbc4807aebbb05dc1696eff29d1f7905c852d0",
-    ),
-    "multistream_hybrid_m100_per_waypoint": (
-        (100, 28),
-        "29142fba56fc10a3ad91f23ce486cac86f4e6ac71373b6bb851284e0e4fa9b7a",
-        "20fad4084cd4dbc67b35e2689dcbc4807aebbb05dc1696eff29d1f7905c852d0",
-    ),
-    "joint_distance_hybrid_no_crossing_short_tail": (
-        (12, 28),
-        "fe98ac40ccacaf1a97b5e2e09b222398f9c893f3833df14f5eedd19a4bb59052",
-        "e8b29026f98dcfa1e942e82f1b76fc6d12f83b6f8aa8f9b7f451e42fc04d4ce2",
-    ),
-    "race_hybrid_no_crossing_short_tail": (
-        (12, 28),
-        "95c16cab554b15bb57e78f36cf166cc1d0b2f9b4f76791f8cb83b4d4448e8cf6",
-        "e8b29026f98dcfa1e942e82f1b76fc6d12f83b6f8aa8f9b7f451e42fc04d4ce2",
-    ),
-    "multistream_hybrid_no_crossing_short_tail": (
-        (12, 28),
-        "95c16cab554b15bb57e78f36cf166cc1d0b2f9b4f76791f8cb83b4d4448e8cf6",
-        "e8b29026f98dcfa1e942e82f1b76fc6d12f83b6f8aa8f9b7f451e42fc04d4ce2",
-    ),
-    "joint_distance_hybrid_one_stationary_arm": (
-        (16, 28),
-        "955e55ecb41b671b9925e096a006ac209eaf7f5850cd89c206a5021f4275e5b3",
-        "832ce9c3741b2488b2e9f4814698a592a95761d760f060fde548f1f2701cf937",
-    ),
-    "multistream_hybrid_one_stationary_arm": (
-        (16, 28),
-        "1c7932634064c3a5f69f87a831af7eee398d84ad306f432cd75229c2e67297cd",
-        "832ce9c3741b2488b2e9f4814698a592a95761d760f060fde548f1f2701cf937",
-    ),
-}
+# Source frozen from the canonical ARC tip (#197), not the integrated tokenizer.
+# Run both implementations with the same NumPy/SciPy and inputs: SLERP and
+# trigonometric functions need not produce identical bytes on macOS and Linux.
+# This keeps bit-exact parity without weakening the comparison to a tolerance.
+REFERENCE_DIR = Path(__file__).parent / "fixtures/arc_tokenizer_reference"
+REFERENCE_SHA256 = "dcd74ea1e18cba1da718bfdccea8ae7743bc210ba06a21de9c8694e8000b425d"
+
+
+@pytest.fixture(scope="module")
+def frozen_reference():
+    path = REFERENCE_DIR / "source.py.txt"
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == REFERENCE_SHA256
+    name = "frozen_arc_tokenizer_20507c6"
+    loader = SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # dataclasses resolves annotations through this.
+    try:
+        loader.exec_module(module)
+        yield module
+    finally:
+        sys.modules.pop(name, None)
 
 
 def _sha256(array: np.ndarray) -> str:
@@ -106,16 +43,19 @@ def _sha256(array: np.ndarray) -> str:
 
 
 @pytest.mark.parametrize("case", ARC_CASES, ids=lambda case: case.name)
-def test_arc_token_bytes_match_frozen_reference(case):
+def test_arc_token_bytes_match_frozen_reference(case, frozen_reference):
     token, preserved = tokenize_case(case)
-    expected_shape, expected_token_sha, expected_preserved_sha = GOLDEN[case.name]
+    expected_token, expected_preserved = tokenize_case(case, frozen_reference)
+    metadata = json.loads((REFERENCE_DIR / "metadata.json").read_text())
+    expected_shape = tuple(metadata["historical_hashes"][case.name]["shape"])
 
     assert token.dtype == np.dtype("float64")
     assert token.shape == expected_shape
     assert preserved.dtype == np.dtype("float64")
     assert preserved.shape == (case.preserve_rows, 14)
-    assert _sha256(token) == expected_token_sha
-    assert _sha256(preserved) == expected_preserved_sha
+    assert expected_token.shape == expected_shape
+    assert _sha256(token) == _sha256(expected_token)
+    assert _sha256(preserved) == _sha256(expected_preserved)
 
 
 def test_m100_per_waypoint_default_layout_is_wide():

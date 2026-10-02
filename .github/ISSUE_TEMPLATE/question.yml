@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Have a question? Check the README first, then ask here if you're still stuck.
+        Have a question? Check AGENTS.md and its documentation links first, then ask here if you're still stuck.
 
   - type: dropdown
     id: topic

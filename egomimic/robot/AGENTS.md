@@ -1,6 +1,6 @@
 # Robot navigation
 
-The root AGENTS.md applies here. Start with [YAM_RUNTIME.md](../../docs/YAM_RUNTIME.md)
+The root AGENTS.md applies here. Start with [YAM_RUNTIME.md](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/YAM_RUNTIME.md)
 for Eva/Yam setup, Quest app build requirements, data format and operator commands.
 
 - `interface.py`: shared robot protocol, factory and arm/pose conventions.
@@ -28,7 +28,7 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   controller, gripper calibration and ROS workspace. `eva/eva_kinematics.py`
   implements its existing FK/IK solver.
 - `yam/interface.py`: local i2rt Yam implementation of the same robot API.
-  `yam/REFERENCE.md` pins the imported yam-pipeline mapper, streaming IK,
+  [The Yam source reference](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/egomimic/robot/yam/REFERENCE.md) pins the imported yam-pipeline mapper, streaming IK,
   workspace and agentview calibration by revision, blob and SHA-256. Keep the
   RL2 profile's `headset_yaw_degrees: 180.0`; update copies, hashes and parity
   tests together if the source pin changes.

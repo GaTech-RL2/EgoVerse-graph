@@ -165,6 +165,7 @@ class Embodiment(ABC):
         annotation_key=None,
         camera_keys: dict | None = None,
         task_key: str | None = None,
+        task_zarr_key: str = "task_description",
     ):
         """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
         key_map = cls._get_keymap(keymap_mode)
@@ -176,13 +177,14 @@ class Embodiment(ABC):
         if task_key is not None and not norm_mode:
             key_map[task_key] = {
                 "key_type": "episode_metadata",
-                "zarr_key": "task_description",
+                "zarr_key": task_zarr_key,
             }
         if norm_mode:
             to_delete = [
                 k
                 for k, v in key_map.items()
-                if v.get("key_type") in ("camera_keys", "annotation_keys", "episode_metadata")
+                if v.get("key_type")
+                in ("camera_keys", "annotation_keys", "episode_metadata")
             ]
             for k in to_delete:
                 del key_map[k]

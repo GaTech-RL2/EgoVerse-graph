@@ -6,7 +6,6 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
-    StoreBimanualMetricFrame,
     ActionChunkCoordinateFrameTransform,
     ConcatKeys,
     DeleteKeys,
@@ -15,6 +14,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     NumpyToTensor,
     PoseCoordinateFrameTransform,
     SplitKeys,
+    StoreBimanualMetricFrame,
     Transform,
     transforms_for_rotation_mode,
 )
@@ -360,6 +360,7 @@ class Yam(Embodiment):
         rotation_distance_unit: float | None = None,
         arc_chunking_mode: str | None = None,
         task_key: str | None = None,
+        task_zarr_key: str = "task_description",
     ):
         """Keep the raw-data read horizon aligned with configured ARC caps."""
         key_map = super().get_keymap(
@@ -368,6 +369,7 @@ class Yam(Embodiment):
             annotation_key=annotation_key,
             camera_keys=camera_keys,
             task_key=task_key,
+            task_zarr_key=task_zarr_key,
         )
         for spec in key_map.values():
             horizon = spec.get("horizon")
@@ -379,7 +381,9 @@ class Yam(Embodiment):
                 horizon["type"] = "arc_hybrid"
                 horizon["rotation_distance"] = float(rotation_distance_unit)
             if arc_chunking_mode is not None:
-                from egomimic.rldb.zarr.arc_length_tokenizer import resolve_arc_chunking_mode
+                from egomimic.rldb.zarr.arc_length_tokenizer import (
+                    resolve_arc_chunking_mode,
+                )
 
                 horizon["arc_chunking_mode"] = resolve_arc_chunking_mode(
                     arc_chunking_mode, horizon.get("rotation_distance")
@@ -505,8 +509,11 @@ def _build_yam_bimanual_eef_frame_transform_list(
     proprio stays in the station world frame rather than a camera frame.
     """
     transform_list = [
-        *([StoreBimanualMetricFrame(left_obs_pose, right_obs_pose)]
-          if rotation_mode == "euler" else []),
+        *(
+            [StoreBimanualMetricFrame(left_obs_pose, right_obs_pose)]
+            if rotation_mode == "euler"
+            else []
+        ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_cmd_world,

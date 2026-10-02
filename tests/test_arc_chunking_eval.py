@@ -432,9 +432,16 @@ def test_sweep_manifest_records_mode_and_metric_version(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "mode,expected_anchors", [("race", [0, 1, 2, 3]), ("multistream", [0, 2])]
+    "mode,expected_anchors,semantics",
+    [
+        ("race", [0, 1, 2, 3], "chunk_local_per_arm_reset"),
+        # Each arm replans on its own milestones: left at 0 and 1, right at 0 and 2.
+        ("multistream", [[0, 1], [0, 2]], "independent_per_arm_milestones"),
+    ],
 )
-def test_dtw_rollout_uses_chunk_local_windows_and_mode_metadata(mode, expected_anchors):
+def test_dtw_rollout_uses_chunk_local_windows_and_mode_metadata(
+    mode, expected_anchors, semantics
+):
     evaluator = OpenLoopSimEval(
         action_mode="arc",
         arc_chunking_mode=mode,
@@ -461,8 +468,49 @@ def test_dtw_rollout_uses_chunk_local_windows_and_mode_metadata(mode, expected_a
     result = dtw.score_distance_dtw_episode(evaluator, records)
     assert result["anchor_frames"] == expected_anchors
     assert result["arc_chunking_mode"] == mode
-    assert result["distance_window_semantics"] == "chunk_local_per_arm_reset"
+    assert result["distance_window_semantics"] == semantics
     assert result["gt_joint_distance_m"] == 4
     assert result["gt_mode_progress_m"] == 2
     assert result["gt_coverage"] == result["prediction_coverage"] == 1
     json.dumps(result)
+
+
+@pytest.mark.parametrize("mode", ["race", "multistream"])
+def test_oracle_tokens_score_zero_when_arms_move_at_different_speeds(mode):
+    """Predictions equal to the GT's own tokens must score ~0 in every mode.
+
+    The fast arm covers its D long before the slow arm. Windows shared across
+    arms charged multistream's fast arm for travel its token never claimed.
+    """
+    dt, distance, horizon, frames = 0.1, 0.3, 60, 90
+    time = np.arange(frames + horizon) * dt
+    raw = np.zeros((len(time), 14))
+    raw[:, 0], raw[:, 7] = 0.30 * time, 0.08 * time
+    raw[:, 3] = raw[:, 10] = 0.2 * time
+    options = dict(
+        min_distance_unit=distance,
+        rotation_distance_unit=0.42,
+        resampled_vector_length=20,
+        velocity_mode="per_waypoint",
+        arc_chunking_mode=mode,
+    )
+    codec = TokenizeBimanualArcLengthCartesian(
+        action_key="actions", output_action_key="actions", dt=dt, **options
+    )
+    evaluator = OpenLoopSimEval(
+        action_mode="arc", execute_fraction=1.0, control_dt=dt, **options
+    )
+    records = [
+        dict(
+            frame=frame,
+            ground_truth=raw[frame : frame + horizon],
+            prediction=codec.transform(
+                {"actions": raw[frame : frame + horizon].copy()}
+            )["actions"],
+            **{dtw.METRIC_FRAME_KEY: np.repeat(np.eye(4)[None], 2, axis=0)},
+        )
+        for frame in range(frames)
+    ]
+    result = dtw.score_distance_dtw_episode(evaluator, records)
+    # Race keeps ~1e-6 of waypoint discretization; the old multistream bug gave 1e-2.
+    assert result["xyz_mse"] < 1e-4

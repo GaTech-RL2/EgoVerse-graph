@@ -22,19 +22,21 @@ pipeline:
       mask_state_ratio: 0.1
     - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
       action_key: actions_cartesian
+    # Flow stages read abc_dit.token_dim when an ARC recipe sets it (wide (M, 28)
+    # token); the state encoder keeps abc_dit.action_dim, since ee_pose is 14-D.
     - _target_: egomimic.pipeline.stages_flow.FlowNoisingStage
       action_horizon: ${abc_dit.action_horizon}
-      action_dim: ${abc_dit.action_dim}
+      action_dim: ${oc.select:abc_dit.token_dim,${abc_dit.action_dim}}
       time_dist: uniform
     - _target_: egomimic.pipeline.stages_flow.FlowDenoiserStage
       action_horizon: ${abc_dit.action_horizon}
-      action_dim: ${abc_dit.action_dim}
+      action_dim: ${oc.select:abc_dit.token_dim,${abc_dit.action_dim}}
       condition_input_dim: ${abc_dit.hidden_size}
       num_inference_steps: 10
       condition_as_tokens: true
       model:
         _target_: egomimic.models.abc_dit.ABCDiT
-        action_dim: ${abc_dit.action_dim}
+        action_dim: ${oc.select:abc_dit.token_dim,${abc_dit.action_dim}}
         action_horizon: ${abc_dit.action_horizon}
         hidden_size: ${abc_dit.hidden_size}
         depth: ${abc_dit.depth}

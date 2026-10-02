@@ -16,7 +16,7 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     stack_arc_token,
 )
 
-METRIC_VERSION = "arc_chunking_global_dtw_v3"
+METRIC_VERSION = "arc_chunking_global_dtw_v4"
 METRIC_FRAME_KEY = "evaluation.eef_to_world"
 XYZ_COLS = (0, 1, 2, 7, 8, 9)
 ARC_DISTANCE_SEMANTICS = {
@@ -194,7 +194,7 @@ def global_dtw(
     max_cells: int = 50_000_000,
     return_path: bool = False,
 ) -> dict:
-    """Exact endpoint-anchored DTW with one shared six-XYZ alignment.
+    """Exact endpoint-anchored DTW with one shared XYZ alignment (6 or 3 columns).
 
     Minimize summed squared XYZ error along the monotone path. Average matches
     *within each GT timestamp*, then average GT timestamps. Horizontal AND
@@ -207,12 +207,12 @@ def global_dtw(
     if (
         pred.ndim != 2
         or gt.ndim != 2
-        or pred.shape[1:] != (6,)
-        or gt.shape[1:] != (6,)
+        or pred.shape[1:] != gt.shape[1:]
+        or pred.shape[1] not in (3, 6)
         or not len(pred)
         or not len(gt)
     ):
-        raise ValueError("DTW requires nonempty (T,6) XYZ sequences")
+        raise ValueError("DTW requires nonempty (T,6) or per-arm (T,3) XYZ sequences")
     if not np.isfinite(pred).all() or not np.isfinite(gt).all():
         raise ValueError("DTW does not accept NaN/Inf samples")
     n, m = len(pred), len(gt)
@@ -301,11 +301,85 @@ def fractional_waypoint_prefix(token: np.ndarray, fraction: float) -> np.ndarray
     )
 
 
-def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
-    """Build one rollout and perform exactly one global DTW for the episode."""
+def _distance_rollout(
+    evaluator,
+    records,
+    anchors,
+    budgets,
+    budget,
+    is_arc,
+    chunking_mode,
+    tokenizer,
+    gt_frames,
+):
+    """Concatenate each anchor's decoded prefix in world XYZ."""
     from egomimic.eval.open_loop_sim import (
         arc_execution_prefix,
         arc_prefix_control_steps,
+    )
+
+    predictions, steps = [], []
+    total = 0
+    for anchor, remaining_budget in zip(anchors, budgets):
+        record = records[int(anchor)]
+        if is_arc:
+            # The scorer's truncation and fractional-prefix helpers operate on
+            # M waypoints followed by M velocity rows. Normalize the policy's
+            # default wide (M, 28) token once at this evaluation boundary.
+            token = stack_arc_token(record["prediction"])
+            fraction = min(1.0, float(remaining_budget / budget))
+            cap_fraction = evaluator.execute_fraction
+            if evaluator.arc_execution_cap_mode == "distance":
+                cap_fraction *= fraction
+            partial = arc_execution_prefix(
+                token,
+                cap_fraction,
+                evaluator.velocity_mode,
+                evaluator.min_distance_unit,
+                evaluator.arc_execution_cap_mode,
+                arc_chunking_mode=chunking_mode,
+                rotation_distance_unit=getattr(
+                    evaluator, "rotation_distance_unit", None
+                ),
+                control_dt=evaluator.control_dt,
+            )
+            if evaluator.arc_execution_cap_mode == "waypoints" and fraction < 1:
+                partial = fractional_waypoint_prefix(partial, fraction)
+            # Decode the entire prefix on its OWN clock, even if slower than GT.
+            n = arc_prefix_control_steps(
+                partial,
+                1.0,
+                evaluator.velocity_mode,
+                evaluator.control_dt,
+                evaluator.min_distance_unit,
+                rotation_distance_unit=getattr(
+                    evaluator, "rotation_distance_unit", None
+                ),
+                arc_execution_cap_mode="waypoints",
+                arc_chunking_mode=chunking_mode,
+            )
+            if n > evaluator.dtw_max_prediction_steps:
+                raise ValueError(
+                    f"DTW prefix has {n} samples; increase dtw_max_prediction_steps explicitly"
+                )
+            decoded = tokenizer.detokenize(partial, action_horizon=n)
+        else:
+            decoded, n = evaluator._decode_prediction_with_steps(
+                record["prediction"], max_steps=len(records) - int(anchor)
+            )
+        total += n
+        if total * gt_frames > evaluator.dtw_max_cells:
+            raise ValueError(
+                "Episode exceeds dtw_max_cells; no GT/prediction samples were discarded"
+            )
+        predictions.append(world_xyz(decoded, record[METRIC_FRAME_KEY]))
+        steps.append(n)
+    return np.concatenate(predictions), steps, total
+
+
+def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
+    """Build one rollout and perform exactly one global DTW for the episode."""
+    from egomimic.eval.open_loop_sim import (
         executed_arc_waypoints,
     )
     from egomimic.rldb.zarr.arc_length_tokenizer import (
@@ -358,78 +432,86 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
     else:
         anchors = np.arange(0, len(records), evaluator.execute_steps)
         budgets = np.zeros(len(anchors))
-    predictions, steps = [], []
-    total = 0
-    for anchor, remaining_budget in zip(anchors, budgets):
-        record = records[int(anchor)]
-        if is_arc:
-            # The scorer's truncation and fractional-prefix helpers operate on
-            # M waypoints followed by M velocity rows. Normalize the policy's
-            # default wide (M, 28) token once at this evaluation boundary.
-            token = stack_arc_token(record["prediction"])
-            fraction = min(1.0, float(remaining_budget / budget))
-            cap_fraction = evaluator.execute_fraction
-            if evaluator.arc_execution_cap_mode == "distance":
-                cap_fraction *= fraction
-            partial = arc_execution_prefix(
-                token,
-                cap_fraction,
-                evaluator.velocity_mode,
-                evaluator.min_distance_unit,
-                evaluator.arc_execution_cap_mode,
-                arc_chunking_mode=chunking_mode,
-                rotation_distance_unit=getattr(
-                    evaluator, "rotation_distance_unit", None
-                ),
-                control_dt=evaluator.control_dt,
+    if is_arc and chunking_mode == "multistream":
+        # A multistream token covers D on EACH arm's own clock, so each arm
+        # replans on its own distance milestones and gets its own DTW. Shared
+        # windows that wait for the slower arm charge the faster arm for travel
+        # its token never claimed: a perfect model scored ~1e-2 instead of ~0.
+        per_arm, all_anchors, all_steps, all_budgets, total = [], [], [], [], 0
+        arm_cumulative = per_arm_cumulative_distance(gt)
+        for arm, columns in enumerate((slice(0, 3), slice(3, 6))):
+            arm_anchors, arm_budgets = distance_windows(arm_cumulative[:, arm], budget)
+            prediction, steps, arm_total = _distance_rollout(
+                evaluator,
+                records,
+                arm_anchors,
+                arm_budgets,
+                budget,
+                is_arc,
+                chunking_mode,
+                tokenizer,
+                len(gt),
             )
-            if evaluator.arc_execution_cap_mode == "waypoints" and fraction < 1:
-                partial = fractional_waypoint_prefix(partial, fraction)
-            # Decode the entire prefix on its OWN clock, even if slower than GT.
-            n = arc_prefix_control_steps(
-                partial,
-                1.0,
-                evaluator.velocity_mode,
-                evaluator.control_dt,
-                evaluator.min_distance_unit,
-                rotation_distance_unit=getattr(
-                    evaluator, "rotation_distance_unit", None
-                ),
-                arc_execution_cap_mode="waypoints",
-                arc_chunking_mode=chunking_mode,
+            score = global_dtw(
+                prediction[:, columns],
+                gt[:, columns],
+                max_cells=evaluator.dtw_max_cells,
             )
-            if n > evaluator.dtw_max_prediction_steps:
-                raise ValueError(
-                    f"DTW prefix has {n} samples; increase dtw_max_prediction_steps explicitly"
-                )
-            decoded = tokenizer.detokenize(partial, action_horizon=n)
-        else:
-            decoded, n = evaluator._decode_prediction_with_steps(
-                record["prediction"], max_steps=len(records) - int(anchor)
-            )
-        total += n
-        if total * len(gt) > evaluator.dtw_max_cells:
-            raise ValueError(
-                "Episode exceeds dtw_max_cells; no GT/prediction samples were discarded"
-            )
-        predictions.append(world_xyz(decoded, record[METRIC_FRAME_KEY]))
-        steps.append(n)
-    prediction = np.concatenate(predictions)
-    result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells)
+            per_arm.append(score)
+            all_anchors.append([int(records[int(i)]["frame"]) for i in arm_anchors])
+            all_steps.append(steps)
+            all_budgets.append(arm_budgets.tolist())
+            total = max(total, arm_total)
+        # Each arm averages its 3 coordinates over the same GT frames, so the
+        # arm mean equals the 6-coordinate mean used by the other modes.
+        result = {
+            "xyz_mse": float(np.mean([item["xyz_mse"] for item in per_arm])),
+            "gt_frames": len(gt),
+            "predicted_samples": max(item["predicted_samples"] for item in per_arm),
+            "gt_coverage": float(np.mean([item["gt_coverage"] for item in per_arm])),
+            "prediction_coverage": min(item["prediction_coverage"] for item in per_arm),
+            "path_pairs": sum(item["path_pairs"] for item in per_arm),
+            "path_cost_sum": sum(item["path_cost_sum"] for item in per_arm),
+            "per_arm": per_arm,
+        }
+        segments = sum(len(item) for item in all_anchors)
+        anchor_frames, segment_steps, segment_budgets = (
+            all_anchors,
+            all_steps,
+            all_budgets,
+        )
+    else:
+        prediction, segment_steps, total = _distance_rollout(
+            evaluator,
+            records,
+            anchors,
+            budgets,
+            budget,
+            is_arc,
+            chunking_mode,
+            tokenizer if is_arc else None,
+            len(gt),
+        )
+        result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells)
+        segments = len(anchors)
+        anchor_frames = [int(records[int(i)]["frame"]) for i in anchors]
+        segment_budgets = budgets.tolist() if is_arc else None
     result.update(
         metric_version=METRIC_VERSION,
-        segments=len(anchors),
-        anchor_frames=[int(records[int(i)]["frame"]) for i in anchors],
-        segment_control_steps=steps,
+        segments=segments,
+        anchor_frames=anchor_frames,
+        segment_control_steps=segment_steps,
         execution_distance_budget_m=budget,
-        segment_distance_budgets_m=budgets.tolist() if is_arc else None,
+        segment_distance_budgets_m=segment_budgets,
         arc_chunking_mode=chunking_mode if is_arc else None,
         distance_semantics=ARC_DISTANCE_SEMANTICS[chunking_mode] if is_arc else None,
         distance_window_semantics=(
             (
-                "global_joint_distance_milestones"
-                if chunking_mode == "joint_distance"
-                else "chunk_local_per_arm_reset"
+                {
+                    "joint_distance": "global_joint_distance_milestones",
+                    "race": "chunk_local_per_arm_reset",
+                    "multistream": "independent_per_arm_milestones",
+                }[chunking_mode]
             )
             if is_arc
             else None

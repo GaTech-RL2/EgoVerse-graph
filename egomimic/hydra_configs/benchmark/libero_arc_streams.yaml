@@ -44,6 +44,7 @@ evaluation:
   max_episode_steps: 550
   start_seed: 1000
 replay:
+  decoded_action_dtype: float32
   demos:
   - 0
   - 1

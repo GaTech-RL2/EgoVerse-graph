@@ -143,6 +143,51 @@ def test_replay_receipt_rejects_a_previous_source_or_different_arms():
             validate_replay_proof(bad, "libero_spatial", "a" * 40)
 
 
+def test_replay_initializes_dataset_directory_before_simulator_configuration(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+    from egomimic.benchmarks.libero import arc_streams
+    from egomimic.benchmarks.libero import replay
+
+    class StopBeforeNetwork(Exception):
+        pass
+
+    def configure(root):
+        assert (root / "data").is_dir()
+
+    def stage(*args):
+        raise StopBeforeNetwork
+
+    monkeypatch.setattr(arc_streams, "configure_simulator", configure)
+    monkeypatch.setattr(replay, "stage_raw_dataset", stage)
+    args = SimpleNamespace(root=tmp_path, suite="libero_spatial")
+    with pytest.raises(StopBeforeNetwork):
+        arc_streams.run_replay(args, tmp_path, "a" * 40)
+
+
+def test_replay_sends_float32_actions_matching_graph_policy():
+    from egomimic.benchmarks.libero.replay import reconstruct_episode
+    from egomimic.benchmarks.libero.arc_streams import variant_settings
+
+    settings = variant_settings("component_time", "dur")
+    settings.pop("horizon")
+    settings.pop("dt")
+    actions = np.tile(
+        np.array([0.2, -0.1, 0.1, 0.1, 0.1, 0.1, -1], dtype=np.float32), (47, 1)
+    )
+    spec = {
+        "horizon": 32,
+        "dt": 0.05,
+        "execute_steps": 16,
+        "decoded_action_dtype": "float32",
+    }
+    decoded, metrics = reconstruct_episode(actions, settings, spec)
+    assert decoded.dtype == np.float32
+    assert metrics["decoded_action_dtype"] == "float32"
+    np.testing.assert_allclose(decoded, actions, atol=4e-6)
+
+
 @pytest.mark.parametrize("mismatch", [None, "initial_state", "data_context", "mode"])
 def test_cross_representation_comparison_keeps_exact_pairing(tmp_path, mismatch):
     import json

@@ -97,6 +97,7 @@ def run_replay(args, evidence, commit):
     )
 
     spec = campaign()
+    (args.root / "data").mkdir(parents=True, exist_ok=True)
     configure_simulator(args.root)
     raw = stage_raw_dataset(args.root, args.suite, evidence)
     # reconstruct_episode owns horizon/dt; avoid passing them twice there.

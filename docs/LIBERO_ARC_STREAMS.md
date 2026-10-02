@@ -81,7 +81,10 @@ different datasets, initial states, geometry or rollout protocols are rejected.
 All 22 representations first replay the same 30 demonstrations per suite
 (demos 0, 1, 2 of every task). These demos have been used previously and are
 not claimed to be a fresh holdout. Raw, repeated raw, original-precision raw,
-and dense float32 controls accompany each replay. Simulator repeatability and
+and dense float32 controls accompany each replay. Decoded actions are sent to
+the simulator as float32, matching GraphPolicy inference; the legacy helper's
+default float64 transport remains available for reproducing historical reports.
+Simulator repeatability and
 dense reconstruction must pass. Poor candidate success or timing coverage is
 reported, not used to silently remove an unfavorable arm from the experiment.
 

@@ -116,6 +116,14 @@ def checkpoint_completion(payload, request):
             variant=request.get("arc_decoder_variant"), profile=request.get("arc_profile"),
             arc_mode=request["method"].removeprefix("arc_"),
         )
+    stream_variant = config["model"]["benchmark_protocol"].get("arc_stream_variant")
+    if stream_variant is not None or request.get("arc_stream_variant") is not None:
+        from egomimic.benchmarks.libero.arc_streams import validate_stream_config
+
+        if stream_variant != request.get("arc_stream_variant") or request["method"] not in ("arc_stk", "arc_dur"):
+            raise ValueError("Stream evaluation request differs from the checkpoint")
+        validate_stream_config(config, suite=request["suite"], variant=stream_variant,
+                               arc_mode=request["method"].removeprefix("arc_"))
     return {"epochs_completed": epochs, "global_step": steps, "ema_num_updates": ema}
 
 
@@ -140,6 +148,8 @@ def restore_policy(client, request, root, evidence):
             arc_decoder_variant=request["arc_decoder_variant"],
             arc_profile=request["arc_profile"],
         )
+    if request.get("arc_stream_variant") is not None:
+        expected["arc_stream_variant"] = request["arc_stream_variant"]
     if any(runtime.get(key) != value for key, value in expected.items()):
         raise ValueError("Evaluation source runtime differs from the request")
     receipt = request["checkpoint"]
@@ -499,6 +509,11 @@ def main():
         ):
             raise ValueError("Rollout policy differs from the evaluation request")
         write_json(evidence / "scores.json", summarize(records))
+        if request.get("stream_reference_run"):
+            from egomimic.benchmarks.libero.arc_stream_report import audit_reference as audit_stream_reference
+
+            write_json(evidence / "paired-stream-comparison.json",
+                       audit_stream_reference(uploader.client, request, output, evidence))
         if request.get("paired_reference"):
             from egomimic.benchmarks.libero.arc_decoders import audit_reference
 

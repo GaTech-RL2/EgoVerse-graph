@@ -142,9 +142,18 @@ def reconstruct_episode(actions, candidate, spec):
         covered += min(count, duration / codec.dt)
         durations.append(duration)
         windows += 1
+    # The stream campaign transports the same float32 controller actions as
+    # GraphPolicy. Legacy replay reports retain their original transport unless
+    # explicitly configured; dtype affects controller arithmetic at contacts.
+    transport = spec.get("decoded_action_dtype")
+    if transport not in (None, "float32"):
+        raise ValueError("Decoded replay action transport must be float32")
+    if transport == "float32":
+        decoded = decoded.astype(np.float32)
     error = decoded - actions
     return decoded, {
         "action_mse": float(np.mean(error**2)),
+        "decoded_action_dtype": str(decoded.dtype),
         "translation_command_mse": float(np.mean(error[:, :3] ** 2)),
         "rotation_command_mse": float(np.mean(error[:, 3:6] ** 2)),
         "gripper_mismatch": float(

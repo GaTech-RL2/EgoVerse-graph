@@ -1,0 +1,68 @@
+{
+  "reference": {
+    "shape_channels": 10,
+    "timing_channels": 2,
+    "action_dim": 12,
+    "action_parameters": 40345612
+  },
+  "gripper": {
+    "shape_channels": 10,
+    "timing_channels": 3,
+    "action_dim": 13,
+    "action_parameters": 40346893
+  },
+  "xyz_scalar": {
+    "shape_channels": 10,
+    "timing_channels": 5,
+    "action_dim": 15,
+    "action_parameters": 40349455
+  },
+  "component_velocity": {
+    "shape_channels": 10,
+    "timing_channels": 7,
+    "action_dim": 17,
+    "action_parameters": 40352017
+  },
+  "component_time": {
+    "shape_channels": 10,
+    "timing_channels": 7,
+    "action_dim": 17,
+    "action_parameters": 40352017
+  },
+  "x_yz": {
+    "shape_channels": 10,
+    "timing_channels": 4,
+    "action_dim": 14,
+    "action_parameters": 40348174
+  },
+  "y_xz": {
+    "shape_channels": 10,
+    "timing_channels": 4,
+    "action_dim": 14,
+    "action_parameters": 40348174
+  },
+  "z_xy": {
+    "shape_channels": 10,
+    "timing_channels": 4,
+    "action_dim": 14,
+    "action_parameters": 40348174
+  },
+  "angular_driver": {
+    "shape_channels": 7,
+    "timing_channels": 3,
+    "action_dim": 10,
+    "action_parameters": 40343050
+  },
+  "angular_scalar": {
+    "shape_channels": 7,
+    "timing_channels": 5,
+    "action_dim": 12,
+    "action_parameters": 40345612
+  },
+  "all_scalar": {
+    "shape_channels": 7,
+    "timing_channels": 7,
+    "action_dim": 14,
+    "action_parameters": 40348174
+  }
+}

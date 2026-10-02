@@ -1,5 +1,21 @@
 # Repo Agent Rules
 
+## LIBERO stream experiment checkout
+
+This isolated experiment branch builds on PR #195's proven LIBERO runtime.
+Do not reset or modify other agents' worktrees, including consolidation PR #198.
+The sweep entry point is `scripts/benchmarks/launch_libero_streams.py`; numeric
+choices and the full matrix are in `egomimic/hydra_configs/benchmark/libero_arc_streams.yaml`.
+
+Tests, docs, notebooks and historical reports are preserved on
+[codex/libero-stream-validation-20261001](https://github.com/GaTech-RL2/EgoVerse-graph/tree/codex/libero-stream-validation-20261001).
+The immutable revision is `.github/validation-ref`. Restore its checksummed
+files into a clean runtime checkout with `python .github/scripts/restore_validation.py`.
+They are untracked validation inputs; do not add them back to the runtime branch.
+Make test/doc changes on the companion branch, refresh its validation manifest,
+then update the runtime pin. Relative doc/test links below resolve after restore.
+Read `docs/LIBERO_ARC_STREAMS.md` for grouping, clock, rotation and replay semantics.
+
 ## Shell / Command Execution
 To run commands in the interactive shell, source `emimic/bin/activate` when it
 exists. In worktrees where `emimic` is absent and the checked project

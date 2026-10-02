@@ -1,0 +1,15 @@
+name: reference
+action_dim: 12
+spec:
+  translation_groups:
+  - - 0
+    - 1
+    - 2
+  rotation_groups:
+  - - 0
+    - 1
+    - 2
+  rotation_representation: so3
+  gripper: translation
+  timing: group
+  clocks: group

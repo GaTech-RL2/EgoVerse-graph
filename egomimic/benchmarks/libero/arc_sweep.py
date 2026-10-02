@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).parents[3]
-PROFILES = ROOT / "docs/results/libero_arc_common_configs_20260921.json"
+PROFILES = ROOT / "egomimic/hydra_configs/benchmark/libero_arc_profiles.json"
 
 
 def profile_settings(profile_id, mode):

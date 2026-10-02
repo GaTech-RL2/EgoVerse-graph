@@ -1,0 +1,15 @@
+name: y_xz
+action_dim: 14
+spec:
+  translation_groups:
+  - - 1
+  - - 0
+    - 2
+  rotation_groups:
+  - - 0
+    - 1
+    - 2
+  rotation_representation: so3
+  gripper: separate
+  timing: group
+  clocks: group

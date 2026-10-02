@@ -1,0 +1,15 @@
+name: angular_driver
+action_dim: 10
+spec:
+  translation_groups:
+  - - 0
+    - 1
+    - 2
+  rotation_groups:
+  - - 0
+    - 1
+    - 2
+  rotation_representation: angular_driver
+  gripper: separate
+  timing: group
+  clocks: group

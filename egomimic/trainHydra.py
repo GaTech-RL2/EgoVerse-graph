@@ -32,7 +32,11 @@ from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.utils.ema_callback import EMACallback
 from egomimic.utils.env import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.utils.logging_utils import configure_runner_wandb, log_hyperparameters
+from egomimic.utils.logging_utils import (
+    configure_runner_wandb,
+    log_hyperparameters,
+    persist_wandb_run_identity,
+)
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.slurm_requeue import SaveOnlySignalCheckpoint
 from egomimic.utils.utils import extras, task_wrapper
@@ -155,6 +159,14 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
             run_provenance["run_id"] = str(wandb_run_id)
         config_tree["run_provenance"] = run_provenance
     return OmegaConf.create(config_tree)
+
+
+def _arc_normalization_contract(cfg: DictConfig) -> dict | None:
+    """Bind retained ARC recipes to cache provenance without changing old configs."""
+    contract = OmegaConf.select(cfg, "run_provenance.action_contract", default=None)
+    if contract is None or "arc_tokenizer" not in str(contract.get("representation", "")):
+        return None
+    return OmegaConf.to_container(contract, resolve=True)
 
 
 def _validate_run_config(cfg: DictConfig) -> str:
@@ -583,8 +595,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         callbacks.extend(_instantiate_slurm_callbacks(cfg))
 
     callbacks = _callbacks_for_mode(callbacks, mode)
-    # Evaluator loop requirements were applied before expensive construction.
-    if mode == "eval":
+    # Evaluator requirements were applied before expensive construction.
+    if mode == "eval" and not cfg.get("eval_logger_enabled", False):
         log.info("Eval mode: disabling logger")
         with open_dict(cfg):
             cfg.logger = None
@@ -597,6 +609,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     trainer: Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
+    persist_wandb_run_identity(cfg, logger, trainer)
 
     object_dict = {
         "cfg": cfg,

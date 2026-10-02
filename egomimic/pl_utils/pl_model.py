@@ -44,6 +44,18 @@ class ModelWrapper(LightningModule):
     grad_norm_mad_min_count = 100
     grad_norm_mad_window = 200
 
+    def log(self, *args, **kwargs):
+        """Log metrics without Lightning's validation-loader name suffix."""
+
+        kwargs.setdefault("add_dataloader_idx", False)
+        return super().log(*args, **kwargs)
+
+    def log_dict(self, *args, **kwargs):
+        """Apply the same stable metric-name default to metric dictionaries."""
+
+        kwargs.setdefault("add_dataloader_idx", False)
+        return super().log_dict(*args, **kwargs)
+
     def __init__(
         self,
         pipeline=None,

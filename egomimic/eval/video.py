@@ -431,10 +431,10 @@ class EvalVideo(Eval):
         return None
 
     def _log_wandb_videos(self) -> None:
-        """Upload every mp4 written this epoch as a ``wandb.Video`` panel.
+        """Upload the first MP4 per group/embodiment as a W&B panel.
 
-        One log call per (group, embodiment); the panel accepts a list so all
-        episode files for that pair land on the same chart.
+        All episode MP4s remain on disk. W&B receives the deterministically
+        first episode from each group/embodiment on every validation pass.
         """
         if not self._written_paths:
             return

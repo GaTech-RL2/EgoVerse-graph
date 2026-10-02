@@ -2,8 +2,10 @@
 
 Robot side: the slow-pace pool exactly as scratch_rl2_stattempo_slowpace_{time,arcdur} trains on it (Elmo + Aidan,
 217 train eps) and validates on it (the shared 24-episode held-out robot set). Human side: every RL2 Aria episode
-(SQL lab=rl2, embodiment=human_bimanual, frames > 0, zarr registered) whose task is in --tasks and whose hash date
-is on/after --since. The selection is frozen into the generated configs as an explicit hash list, plus a manifest.
+(SQL lab=rl2, embodiment in --embodiments, frames > 0, zarr registered) whose task is in --tasks and whose hash date
+is on/after --since. The selection is frozen into the generated configs as an explicit hash list, plus a manifest. Elmo's first upload (2026-10-01) registered as
+embodiment='aria', task='organize stationary' (space) before conversion; both spellings and both embodiment labels are
+accepted by default.
 
     build_slowpace_aria_cotrain.py --list [--since D]          rl2 Aria tasks/operators recorded since D, then exit
     build_slowpace_aria_cotrain.py --tasks T [T ...] [...]     write data/abc_arc/stationery_slowpace_aria_cotrain_{time,arcdur}.yaml
@@ -22,23 +24,24 @@ OUT = {v: H / f"data/abc_arc/stationery_slowpace_aria_cotrain_{v}.yaml" for v in
 MANIFEST = CONS / "scripts/e1/stationery_slowpace_aria_manifest.json"
 
 
-def rl2_aria(since):
+def rl2_aria(since, embodiments=("human_bimanual", "aria")):
     from egomimic.utils.aws.aws_data_utils import load_env
     from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
     load_env()
     df = episode_table_to_df(create_default_engine())
-    ok = ((df["lab"] == "rl2") & (df["embodiment"] == "human_bimanual") & ~df["is_deleted"].astype(bool)
+    ok = ((df["lab"] == "rl2") & df["embodiment"].isin(embodiments) & ~df["is_deleted"].astype(bool)
           & (df["num_frames"].fillna(-1) > 0) & (df["zarr_processed_path"].fillna("") != "")
           & (df["episode_hash"] >= since))
     return df[ok]
 
 
-def human_leaf(variant, hashes):
+def human_leaf(variant, hashes, embodiments):
     # 100 source frames = 3.33 s at the Aria 30 fps, the same window the YAM leaf uses; stride 1 so arc length is
     # measured on undecimated samples. Aria zarrs say attrs.embodiment=aria_bimanual, which has no embodiment id:
     # the override registers them as human_bimanual (3), the model's second domain.
     s = ",".join(f"'{h}'" for h in sorted(hashes))
-    lam = ("lambda row, S=frozenset({" + s + "}): row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' "
+    e = ", ".join(f"'{x}'" for x in sorted(embodiments))
+    lam = ("lambda row, S=frozenset({" + s + "}): row['embodiment'] in (" + e + ",) and row['lab'] == 'rl2' "
            "and row['zarr_processed_path'] != '' and row['is_deleted'] == False and row['episode_hash'] in S")
     return {
         "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver",
@@ -61,7 +64,7 @@ def human_leaf(variant, hashes):
 
 
 def build(args):
-    df = rl2_aria(args.since)
+    df = rl2_aria(args.since, args.embodiments)
     sel = df[df["task"].isin(args.tasks)]
     if args.operators:
         sel = sel[sel["operator"].isin(args.operators)]
@@ -77,7 +80,7 @@ def build(args):
     who = sel["operator"].value_counts().to_dict()
     for v in VARIANTS:
         cfg = OmegaConf.load(H / f"data/abc_arc/stationery_tempo_slowpace_{v}.yaml")
-        cfg.train_datasets.human_bimanual = human_leaf(v, hashes)
+        cfg.train_datasets.human_bimanual = human_leaf(v, hashes, set(sel["embodiment"]))
         cfg.train_dataloader_params.human_bimanual = {"batch_size": args.human_batch, "num_workers": 6, "persistent_workers": True}
         head = (f"# GENERATED {datetime.datetime.now():%Y-%m-%d %H:%M} by scripts/e1/build_slowpace_aria_cotrain.py -- rebuild, don't edit.\n"
                 f"# Robot: data/abc_arc/stationery_tempo_slowpace_{v}.yaml unchanged (slow-pace pool, 217 train, shared 24-ep val).\n"
@@ -87,7 +90,8 @@ def build(args):
     MANIFEST.write_text(json.dumps({
         "created": datetime.datetime.now().isoformat(timespec="seconds"), "query": vars(args), "n": len(hashes),
         "hours": round(hours, 3), "operators": who, "tasks": sel["task"].value_counts().to_dict(),
-        "rig_name": sel["rig_name"].value_counts().to_dict(), "episodes": hashes}, indent=1))
+        "rig_name": sel["rig_name"].value_counts().to_dict(), "embodiment": sel["embodiment"].value_counts().to_dict(),
+        "episodes": hashes}, indent=1))
     print(f"human: {len(hashes)} eps, {hours:.2f} h, operators {who}, rigs {sel['rig_name'].value_counts().to_dict()}")
     print("robot: slow-pace pool, 217 train eps (~2.2 h), shared 24-ep val")
     for v in VARIANTS:
@@ -123,7 +127,8 @@ def check():
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--tasks", nargs="+", default=["organize_stationary"], help="SQL task names of the Aria episodes")
+    p.add_argument("--tasks", nargs="+", default=["organize stationary", "organize_stationary"], help="SQL task names of the Aria episodes")
+    p.add_argument("--embodiments", nargs="+", default=["human_bimanual", "aria"], help="SQL embodiment labels of RL2 Aria rows")
     p.add_argument("--since", default="2026-10-01", help="earliest episode-hash date (YYYY-MM-DD)")
     p.add_argument("--operators", nargs="*", help="restrict to these SQL operators")
     p.add_argument("--human-batch", type=int, default=32)
@@ -132,10 +137,10 @@ if __name__ == "__main__":
     p.add_argument("--check", action="store_true")
     a = p.parse_args()
     if a.list:
-        df = rl2_aria(a.since)
-        print(f"rl2 Aria (human_bimanual) episodes with frames since {a.since}: {len(df)}")
+        df = rl2_aria(a.since, a.embodiments)
+        print(f"rl2 Aria ({'/'.join(a.embodiments)}) episodes with frames since {a.since}: {len(df)}")
         if len(df):
-            print(df.groupby(["task", "operator", "rig_name"]).agg(n=("episode_hash", "size"), frames=("num_frames", "sum"),
+            print(df.groupby(["embodiment", "task", "operator", "rig_name"]).agg(n=("episode_hash", "size"), frames=("num_frames", "sum"),
                   first=("episode_hash", "min"), last=("episode_hash", "max")).to_string())
     elif a.check:
         check()

@@ -2,7 +2,7 @@
 # Slow-pace YAM (Elmo + Aidan) + RL2 Aria cotrain on Phoenix, arcdur and time, 180M h640t8 recipe, 240k steps (Aidan 2026-10-01).
 # Run from a Phoenix login node once the Aria episodes are ingested (SQL rows with frames, zarr on R2):
 #   scripts/e1/launch_slowpace_aria_cotrain.sh --list                         which rl2 Aria tasks exist since --since
-#   scripts/e1/launch_slowpace_aria_cotrain.sh --tasks organize_stationary    build + data check + submit both runs
+#   scripts/e1/launch_slowpace_aria_cotrain.sh --tasks "organize stationary"  build + data check + submit both runs
 #   MODE=dry   ...   build + data check only        MODE=smoke ...   300-step W&B-offline smoke of both instead
 # Builder flags (--tasks --since --operators --human-batch --limit): scripts/e1/build_slowpace_aria_cotrain.py -h
 set -euo pipefail
@@ -18,8 +18,9 @@ $PY scripts/e1/build_slowpace_aria_cotrain.py "$@"
 for a in "$@"; do [ "$a" = --list ] && exit 0; done
 # Data check on a CPU node (login-node Lustre reads fail intermittently): compose both experiments, sync any
 # missing Aria zarrs into the mirror, load a sample per embodiment, assert 30 fps.
-srun -A gts-dxu345-rl2 -q inferno -p cpu-small -N1 -c8 --mem=64G -t 3:00:00 \
-  $PY scripts/e1/build_slowpace_aria_cotrain.py --check | grep -v -i warn
+CHECK=($PY scripts/e1/build_slowpace_aria_cotrain.py --check)
+if [ -n "${SLURM_JOB_ID:-}" ]; then "${CHECK[@]}"   # already on a compute node (e.g. a poller job)
+else srun -A gts-dxu345-rl2 -q inferno -p cpu-small -N1 -c8 --mem=64G -t 3:00:00 "${CHECK[@]}"; fi 2>&1 | grep -v -i warn
 [ "$MODE" = dry ] && exit 0
 # H100/H200 only; excluded: non-Hopper and known-throttled nodes (same list as the stattempo runs).
 EXCLUDE=$(cat scripts/e1/phoenix_exclude_nodes.txt)

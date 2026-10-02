@@ -106,6 +106,11 @@ To programatically view the SQL table of all episodes + metadata see [``sql_tuto
 
 #### Interactive Dataset Browser
 
+For data-config → modern multistream ARC tokenization → paired t-SNE, use the
+[offline ARC representation explorer](docs/ARC_TSNE.md). It exports self-contained
+HTML with non-ARC time baselines, optional clock removal, linked anchor selection,
+source trajectories, and configuration provenance. No checkpoint is required.
+
 `latent_inspector.py` also ships a local web app for browsing a **folder of per-episode zarrs** — scrub any episode, overlay the recorded actions (cartesian trajectory / orientation axes / MANO keypoints), and toggle language annotations. Frames are rendered server-side using each episode's `zarr.json` camera intrinsics, so it works for any embodiment (the overlay is drawn by that episode's embodiment class, e.g. `Human`/`Eva`; human poses are projected in the head frame).
 
 ```bash

@@ -99,6 +99,7 @@ include = ["egomimic*"]
 
 [tool.setuptools.package-data]
 egomimic = [
+    "scripts/data_visualization/arc_tsne.html",
     "hydra_configs/**/*.yaml",
     "hydra_configs/**/*.json",
     "robot/teleop_dashboard_static/*.html",

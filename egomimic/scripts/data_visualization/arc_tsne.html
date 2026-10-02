@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARC · Representation explorer</title>
+<style>
+:root{--bg:#f8fafc;--ink:#172c50;--muted:#475569;--line:#cbd5e1;--accent:#1e40af;--card:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif}
+main{max-width:1800px;margin:auto;padding:24px}header{border-bottom:1px solid var(--line);margin-bottom:24px;padding-bottom:16px}
+h1{font-size:28px;margin:4px 0}h2{font-size:18px;margin:0 0 8px}p{margin:8px 0}.eyebrow{font-size:12px;letter-spacing:.12em;font-weight:700;color:var(--accent)}
+.muted{color:var(--muted)}.toolbar{display:flex;flex-wrap:wrap;gap:16px;align-items:end;margin-bottom:20px}label{display:grid;gap:4px;font-size:14px;font-weight:600}
+select,button,input{font:inherit;min-height:44px;border:1px solid var(--line);border-radius:6px;background:white;padding:8px 12px;color:var(--ink);max-width:100%}
+button,select{cursor:pointer}button:hover{background:#dbeafe}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.plots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr));gap:16px}.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+canvas{display:block;width:100%;height:360px;cursor:crosshair}.detail{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace;max-height:340px;overflow:auto}#trajectory{height:220px;cursor:default}
+.legend{font-size:13px;display:flex;gap:12px;flex-wrap:wrap}.swatch{width:10px;height:10px;display:inline-block;margin-right:5px;border-radius:50%}
+.table-wrap{max-height:300px;overflow:auto;margin-top:12px}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:8px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}th{position:sticky;top:0;background:var(--bg)}tr.selected{background:#dbeafe}td button{min-height:36px;padding:4px 8px}details{margin-top:20px}summary{cursor:pointer}#status{min-height:24px}#point{width:120px}
+@media(max-width:700px){main{padding:16px}.detail{grid-template-columns:1fr}h1{font-size:24px}canvas{height:300px}}
+</style></head><body><main>
+<header><div class="eyebrow">EGOVERSE / DATA REPRESENTATIONS</div><h1>ARC representation explorer</h1>
+<p class="muted">Matched episode anchors · native action features · offline t-SNE</p>
+<p>Each panel is fitted independently. Axis positions and distances across panels are not comparable. Clusters are exploratory—not evidence of semantic similarity.</p></header>
+<section class="toolbar" aria-label="Projection controls">
+<label>Episode<select id="episode"><option value="">All episodes</option></select></label>
+<label>Color by<select id="color"><option value="episode">Episode</option><option value="task">Task</option><option value="embodiment">Embodiment</option></select></label>
+<label>Point ID<input id="point" type="number" min="0" value="0"></label>
+<button id="previous">Previous point</button><button id="next">Next point</button>
+<button id="download">Download coordinates</button></section>
+<p id="status" role="status" aria-live="polite"></p><div id="legend" class="legend"></div>
+<section id="plots" class="plots" aria-label="t-SNE projections"></section>
+<section class="detail"><div class="panel"><h2>Selected anchor</h2><pre id="selected"></pre>
+<h2>Source trajectories · XY</h2><p class="muted">Left: solid blue. Right: dashed amber. Displayed in the configured coordinate frame.</p><canvas id="trajectory" aria-label="Raw source XY trajectories"></canvas></div>
+<div class="panel"><h2>Browse anchors</h2><p class="muted">Select a row or use point controls for keyboard access. Episode filtering does not refit t-SNE.</p>
+<div class="table-wrap"><table><thead><tr><th>Point</th><th>Episode</th><th>Frame</th><th>Task</th></tr></thead><tbody id="rows"></tbody></table></div></div></section>
+<details><summary>Configuration, sampling, and projection provenance</summary><pre id="provenance"></pre></details>
+</main><script id="report" type="application/json">__REPORT_DATA__</script><script>
+'use strict';
+const report=JSON.parse(document.getElementById('report').textContent), records=report.records;
+const $=id=>document.getElementById(id), palette=['#1e40af','#b45309','#047857','#be185d','#6d28d9','#0e7490','#475569','#991b1b'];
+const titles={baseline:'Time baseline',arc_clock:'ARC · geometry + clock',arc_no_clock:'ARC · geometry only'};
+let selected=0; const plots=[];
+for(const ep of [...new Set(records.map(r=>r.episode))].sort()){$('episode').add(new Option(ep,ep));}
+$('point').max=records.length-1;
+$('provenance').textContent=JSON.stringify(report.provenance,null,2);
+function visible(){return records.map((r,i)=>i).filter(i=>!$('episode').value||records[i].episode===$('episode').value);}
+function categories(){return [...new Set(records.map(r=>r[$('color').value]))].sort();}
+function color(i){return palette[categories().indexOf(records[i][$('color').value])%palette.length];}
+function setup(canvas){const box=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;canvas.width=box.width*dpr;canvas.height=box.height*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);return [c,box.width,box.height];}
+function mapper(points,w,h){let xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);let xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);return p=>[24+(p[0]-xmin)/(xmax-xmin||1)*(w-48),h-24-(p[1]-ymin)/(ymax-ymin||1)*(h-48)];}
+for(const [key,xy] of Object.entries(report.projections)){const panel=document.createElement('article');panel.className='panel';const heading=document.createElement('h2');heading.textContent=titles[key]||key;const caption=document.createElement('p');caption.className='muted';const d=report.provenance.projections?.[key];caption.textContent=d?`${d.input_features} features · perplexity ${d.perplexity.toFixed(1)}`:'Independent t-SNE fit';const canvas=document.createElement('canvas');canvas.setAttribute('aria-label',heading.textContent+'; select anchors with the point controls or table');panel.append(heading,caption,canvas);$('plots').append(panel);const plot={canvas,xy,pixels:[]};plots.push(plot);canvas.addEventListener('click',e=>{const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;let best=null,dist=144;for(const i of visible()){const p=plot.pixels[i],dd=(p[0]-x)**2+(p[1]-y)**2;if(dd<dist){best=i;dist=dd;}}if(best!==null){selected=best;render();}});}
+function draw(){for(const p of plots){const [c,w,h]=setup(p.canvas),map=mapper(p.xy,w,h);p.pixels=p.xy.map(map);c.strokeStyle='#cbd5e1';c.strokeRect(12,12,w-24,h-24);for(const i of visible()){const [x,y]=p.pixels[i];c.beginPath();c.arc(x,y,i===selected?7:3.5,0,Math.PI*2);c.fillStyle=color(i);c.globalAlpha=i===selected?1:.7;c.fill();if(i===selected){c.globalAlpha=1;c.strokeStyle='#0f172a';c.lineWidth=2;c.stroke();}}c.globalAlpha=1;}
+const [c,w,h]=setup($('trajectory')),raw=records[selected].raw_xyz;const points=raw.flatMap(r=>[[r[0],r[1]],[r[3],r[4]]]),map=mapper(points,w,h);for(const arm of [0,1]){c.strokeStyle=arm?'#b45309':'#1e40af';c.lineWidth=2;c.setLineDash(arm?[5,4]:[]);c.beginPath();raw.forEach((r,i)=>{const p=map([r[arm*3],r[arm*3+1]]);if(i)c.lineTo(...p);else c.moveTo(...p);});c.stroke();}}
+function render(){const ids=visible();$('point').value=selected;$('status').textContent=`${ids.length} / ${records.length} anchors shown. Selected point ${selected}.`;
+const {raw_xyz,...metadata}=records[selected];$('selected').textContent=JSON.stringify({point:selected,...metadata},null,2);
+$('legend').replaceChildren();for(const [i,category] of categories().entries()){const item=document.createElement('span'),swatch=document.createElement('span');swatch.className='swatch';swatch.style.background=palette[i%palette.length];item.append(swatch,document.createTextNode(category));$('legend').append(item);}
+$('rows').replaceChildren();for(const i of ids){const r=records[i],tr=document.createElement('tr');if(i===selected)tr.className='selected';const td=document.createElement('td'),b=document.createElement('button');b.textContent=String(i);b.setAttribute('aria-label',`Select point ${i}, episode ${r.episode}, frame ${r.frame}`);b.onclick=()=>{selected=i;render();$('point').focus();};td.append(b);tr.append(td);for(const key of ['episode','frame','task']){const cell=document.createElement('td');cell.textContent=r[key];tr.append(cell);}$('rows').append(tr);}draw();}
+$('episode').onchange=()=>{selected=visible()[0];render();};$('color').onchange=render;
+$('point').onchange=()=>{const n=Number($('point').value);if(Number.isInteger(n)&&n>=0&&n<records.length){selected=n;if(!visible().includes(n))$('episode').value='';}render();};
+for(const [id,delta] of [['previous',-1],['next',1]])$(id).onclick=()=>{const ids=visible();selected=ids[(ids.indexOf(selected)+delta+ids.length)%ids.length];render();};
+$('download').onclick=()=>{const payload={records:records.map(({raw_xyz,...r})=>r),projections:report.projections};const url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='tsne-coordinates.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+new ResizeObserver(draw).observe($('plots'));render();
+</script></body></html>

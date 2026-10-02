@@ -786,18 +786,20 @@
       "category": "recipe",
       "owner": "graph-integration",
       "disposition": "ported",
-      "replacement": "egomimic/hydra_configs/model/hpt_bc_flow_aria.yaml",
+      "replacement": "egomimic/hydra_configs/model/hpt_bc_flow_human.yaml",
       "evidence": [
         "docs/integration/RECIPE_PARITY.md",
         "tests/test_retained_recipe_steps.py",
         "tests/test_retained_hpt_variants.py",
         "tests/test_retained_language.py",
-        "tests/test_alignment_parity.py"
+        "tests/test_alignment_parity.py",
+        "docs/integration/CONFIG_DEDUPLICATION.md"
       ],
       "remaining_gates": [
         "real-weight GPU smoke",
         "assembled-destination parity"
-      ]
+      ],
+      "compatibility_alias": "egomimic/hydra_configs/model/hpt_bc_flow_aria.yaml"
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_eva.yaml",
@@ -1014,18 +1016,20 @@
       "category": "recipe",
       "owner": "graph-integration",
       "disposition": "ported",
-      "replacement": "egomimic/hydra_configs/model/hpt_cotrain_scale_flow_shared_head.yaml",
+      "replacement": "egomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head.yaml",
       "evidence": [
         "docs/integration/RECIPE_PARITY.md",
         "tests/test_retained_recipe_steps.py",
         "tests/test_retained_hpt_variants.py",
         "tests/test_retained_language.py",
-        "tests/test_alignment_parity.py"
+        "tests/test_alignment_parity.py",
+        "docs/integration/CONFIG_DEDUPLICATION.md"
       ],
       "remaining_gates": [
         "real-weight GPU smoke",
         "assembled-destination parity"
-      ]
+      ],
+      "compatibility_alias": "egomimic/hydra_configs/model/hpt_cotrain_scale_flow_shared_head.yaml"
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_base.yaml",
@@ -1113,19 +1117,21 @@
       "category": "recipe",
       "owner": "graph-integration",
       "disposition": "ported",
-      "replacement": "egomimic/hydra_configs/model/pi0.5_bc_scale.yaml",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_bc_mecka.yaml",
       "evidence": [
         "docs/integration/RECIPE_PARITY.md",
         "tests/test_retained_recipe_steps.py",
         "tests/test_retained_pi_parity.py",
         "tests/test_token_diagnostics.py",
         "tests/test_episode_selection.py",
-        "tests/test_pi05_graph.py"
+        "tests/test_pi05_graph.py",
+        "docs/integration/CONFIG_DEDUPLICATION.md"
       ],
       "remaining_gates": [
         "real-weight GPU smoke",
         "assembled-destination parity"
-      ]
+      ],
+      "compatibility_alias": "egomimic/hydra_configs/model/pi0.5_bc_scale.yaml"
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/pi0.5_cotrain_eva_aria.yaml",
@@ -1153,19 +1159,21 @@
       "category": "recipe",
       "owner": "graph-integration",
       "disposition": "ported",
-      "replacement": "egomimic/hydra_configs/model/pi0.5_cotrain_mecka_scale.yaml",
+      "replacement": "egomimic/hydra_configs/model/pi0.5_bc_mecka.yaml",
       "evidence": [
         "docs/integration/RECIPE_PARITY.md",
         "tests/test_retained_recipe_steps.py",
         "tests/test_retained_pi_parity.py",
         "tests/test_token_diagnostics.py",
         "tests/test_episode_selection.py",
-        "tests/test_pi05_graph.py"
+        "tests/test_pi05_graph.py",
+        "docs/integration/CONFIG_DEDUPLICATION.md"
       ],
       "remaining_gates": [
         "real-weight GPU smoke",
         "assembled-destination parity"
-      ]
+      ],
+      "compatibility_alias": "egomimic/hydra_configs/model/pi0.5_cotrain_mecka_scale.yaml"
     },
     {
       "legacy_path": "egomimic/hydra_configs/train_zarr_keypoint_wrist.yaml",

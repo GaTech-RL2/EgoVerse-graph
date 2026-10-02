@@ -11,7 +11,8 @@ import math
 import numpy as np
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
-    CLOCK_COLUMNS,  # noqa: F401 - public re-export used by validation scripts
+    ARC_CHUNKING_MODES,  # noqa: F401 - public re-export used by validation scripts
+    CLOCK_COLUMNS,
     resolve_arc_chunking_mode,
     stack_arc_token,
 )

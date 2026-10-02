@@ -129,6 +129,54 @@ def test_baseline_window_does_not_inherit_distance_cutoff():
     assert len(leaf.transform) == 1
 
 
+@pytest.mark.parametrize("embodiment", ["human_bimanual", "yam_bimanual"])
+def test_rl2_inventory_configs_preserve_native_source(embodiment):
+    from pathlib import Path
+
+    from hydra.utils import instantiate
+    from omegaconf import OmegaConf
+
+    from egomimic.rldb.zarr.action_chunk_transforms import (
+        InterpolateLinear,
+        InterpolatePose,
+    )
+
+    path = (
+        Path(__file__).parents[1]
+        / "egomimic/hydra_configs/visualization"
+        / f"rl2_organize_{embodiment}.yaml"
+    )
+    cfg = OmegaConf.load(path)
+    assert cfg.data.valid_ratio == 0.05
+    key_map = instantiate(cfg.data.key_map)
+    assert not any(v.get("key_type") == "camera_keys" for v in key_map.values())
+    transforms = instantiate(cfg.data.transform_list)
+    for transform in transforms:
+        if isinstance(transform, (InterpolatePose, InterpolateLinear)):
+            assert transform.new_chunk_length is None
+    tokenizer = next(
+        t for t in transforms if isinstance(t, TokenizeBimanualArcLengthCartesian)
+    )
+    assert tokenizer.arc_chunking_mode == "multistream"
+    assert tokenizer.M == 100
+    assert tokenizer.velocity_layout == "wide"
+
+
+def test_inventory_sampling_uses_full_split():
+    from egomimic.scripts.data_visualization.arc_tsne_inventory import (
+        select_episode_ids,
+    )
+
+    names = [f"episode_{i:03}" for i in range(100)]
+    sampled, train, valid = select_episode_ids(names, 0.05, 42, 42, 12)
+    assert len(valid) == 5
+    assert len(train) == 95
+    assert len(sampled) == 12
+    assert set(sampled) <= set(train)
+    assert not set(sampled) & set(valid)
+    assert (sampled, train, valid) == select_episode_ids(names[::-1], 0.05, 42, 42, 12)
+
+
 def test_missing_codec_and_baseline_only():
     leaf = Leaf()
     leaf.transform = []

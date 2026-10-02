@@ -93,6 +93,29 @@ viewer is for exploratory neighborhoods, not a quantitative representation score
 
 ## Tests
 
+### Bounded SQL-inventory exports
+
+`arc_tsne_inventory` reads a configured SQL inventory in a read-only transaction,
+applies the 5% split to the full matching inventory, then opens only sampled
+episodes. The RL2 organizing recipes select exact `lab=rl2`,
+`task=organize_stationary`, and human/YAM bimanual embodiment. They explicitly
+preserve native source cadence before modern multistream tokenization and omit
+all camera keys. Missing sampled episodes cause an error unless `--action-cache`
+opts into sparse staging: only pose/action arrays and Zarr metadata are fetched,
+one object at a time, with a default 64 MiB total download limit. Shared caches
+are never overwritten; no missing episode is replaced with a different sample.
+
+```sh
+python -m egomimic.scripts.data_visualization.arc_tsne_inventory \
+  --data-config egomimic/hydra_configs/visualization/rl2_organize_human_bimanual.yaml \
+  --max-episodes 12 --samples-per-episode 64 --output /path/to/new/report
+```
+
+Use `rl2_organize_yam_bimanual.yaml` for YAM. Both export baseline, ARC-clock and
+ARC-no-clock panels. Reports retain the full split IDs, selected IDs, transfer
+counts, and exact tokenizer configuration. Human gripper channels are zero-padded
+because those recordings have no robot gripper signal.
+
 ```sh
 python -m pytest tests/test_arc_tsne.py tests/test_arc_chunking_modes.py -q
 ```

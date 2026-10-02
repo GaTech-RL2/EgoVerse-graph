@@ -1,0 +1,44 @@
+# SQL inventory is read-only; sample before opening any episode arrays.
+name: rl2_organize_stationary_human_bimanual
+source_fps: 30
+cache_roots:
+  - /workspace/datasets/arc_abc
+  - /workspace/users/ani-cheluva/datasets/egoverse_zarr
+inventory:
+  query: >-
+    SELECT episode_hash, lab, task, embodiment, zarr_processed_path, is_deleted
+    FROM app.episodes WHERE lab=:lab AND task=:task AND embodiment=:embodiment
+    AND is_deleted=false AND zarr_processed_path != '' ORDER BY episode_hash
+  parameters:
+    lab: rl2
+    task: organize_stationary
+    embodiment: human_bimanual
+data:
+  valid_ratio: 0.05
+  split_seed: 42
+  key_map:
+    _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+    keymap_mode: hybrid_arc_tokenizer_cartesian
+    norm_mode: true
+    annotation_key: null
+    min_distance_unit: 0.4
+    rotation_distance_unit: 0.4188790204786391
+    arc_chunking_mode: multistream
+  transform_list:
+    _target_: egomimic.scripts.data_visualization.arc_tsne_inventory.native_source_transforms
+    transforms:
+      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+      action_mode: hybrid_arc_tokenizer_cartesian
+      coord_frame: eef_frame
+      rotation_mode: euler
+      stride: 1
+      min_distance_unit: 0.4
+      rotation_distance_unit: 0.4188790204786391
+      arc_chunking_mode: multistream
+      resampled_vector_length: 100
+      velocity_mode: per_waypoint
+  filters:
+    _target_: egomimic.rldb.filters.DatasetFilter
+    filter_lambdas:
+      - "lambda row: row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and row['embodiment'] == 'human_bimanual' and row['is_deleted'] == False"
+

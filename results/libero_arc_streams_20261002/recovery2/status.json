@@ -1,13 +1,14 @@
 {
-  "checked_at_utc": "2026-10-02T16:17:19.590636+00:00",
+  "recorded_at_utc": "2026-10-02T22:38:23.495800+00:00",
   "osmo_access": "working",
   "full_policy_scores_available": false,
+  "progress_receipt": "progress/20261002T2236Z.json",
   "workflows": [
     {
       "suite": "libero_spatial",
       "workflow_id": "arc-str-20261002r2-spatial-1",
-      "verified_at_utc": "2026-10-02T16:15:57.512119+00:00",
-      "state": "PENDING",
+      "verified_at_utc": "2026-10-02T22:35:11.501768+00:00",
+      "state": "RUNNING",
       "tasks": [
         {
           "name": "evaluate-00",
@@ -165,15 +166,15 @@
         },
         {
           "name": "replay",
-          "status": "SCHEDULING",
-          "start_time": null,
-          "end_time": null,
-          "exit_code": null
+          "status": "COMPLETED",
+          "start_time": "2026-10-02T17:08:27.494574",
+          "end_time": "2026-10-02T17:15:47.310378",
+          "exit_code": 0
         },
         {
           "name": "train-00",
-          "status": "WAITING",
-          "start_time": null,
+          "status": "RUNNING",
+          "start_time": "2026-10-02T18:05:57.514841",
           "end_time": null,
           "exit_code": null
         },
@@ -329,8 +330,8 @@
     {
       "suite": "libero_object",
       "workflow_id": "arc-str-20261002r2-object-1",
-      "verified_at_utc": "2026-10-02T16:15:51.237875+00:00",
-      "state": "PENDING",
+      "verified_at_utc": "2026-10-02T22:35:07.891623+00:00",
+      "state": "RUNNING",
       "tasks": [
         {
           "name": "evaluate-00",
@@ -488,15 +489,15 @@
         },
         {
           "name": "replay",
-          "status": "SCHEDULING",
-          "start_time": null,
-          "end_time": null,
-          "exit_code": null
+          "status": "COMPLETED",
+          "start_time": "2026-10-02T17:08:52.414405",
+          "end_time": "2026-10-02T17:15:35.327576",
+          "exit_code": 0
         },
         {
           "name": "train-00",
-          "status": "WAITING",
-          "start_time": null,
+          "status": "RUNNING",
+          "start_time": "2026-10-02T18:00:27.998459",
           "end_time": null,
           "exit_code": null
         },
@@ -652,8 +653,8 @@
     {
       "suite": "libero_goal",
       "workflow_id": "arc-str-20261002r2-goal-1",
-      "verified_at_utc": "2026-10-02T16:15:57.362940+00:00",
-      "state": "PENDING",
+      "verified_at_utc": "2026-10-02T22:35:06.601418+00:00",
+      "state": "RUNNING",
       "tasks": [
         {
           "name": "evaluate-00",
@@ -811,15 +812,15 @@
         },
         {
           "name": "replay",
-          "status": "SCHEDULING",
-          "start_time": null,
-          "end_time": null,
-          "exit_code": null
+          "status": "COMPLETED",
+          "start_time": "2026-10-02T17:03:27.094608",
+          "end_time": "2026-10-02T17:10:16.118761",
+          "exit_code": 0
         },
         {
           "name": "train-00",
-          "status": "WAITING",
-          "start_time": null,
+          "status": "RUNNING",
+          "start_time": "2026-10-02T18:00:27.190653",
           "end_time": null,
           "exit_code": null
         },
@@ -975,8 +976,8 @@
     {
       "suite": "libero_10",
       "workflow_id": "arc-str-20261002r2-10-1",
-      "verified_at_utc": "2026-10-02T16:15:57.513502+00:00",
-      "state": "PENDING",
+      "verified_at_utc": "2026-10-02T22:35:07.122560+00:00",
+      "state": "RUNNING",
       "tasks": [
         {
           "name": "evaluate-00",
@@ -1134,15 +1135,15 @@
         },
         {
           "name": "replay",
-          "status": "SCHEDULING",
-          "start_time": null,
-          "end_time": null,
-          "exit_code": null
+          "status": "COMPLETED",
+          "start_time": "2026-10-02T17:09:02.770908",
+          "end_time": "2026-10-02T17:18:13.425164",
+          "exit_code": 0
         },
         {
           "name": "train-00",
-          "status": "WAITING",
-          "start_time": null,
+          "status": "RUNNING",
+          "start_time": "2026-10-02T18:00:27.137811",
           "end_time": null,
           "exit_code": null
         },

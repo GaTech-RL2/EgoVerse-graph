@@ -1,0 +1,71 @@
+{
+  "observed_at_utc": "2026-10-02T22:36:16+00:00",
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "running_policy_count": 4,
+  "total_policy_count": 88,
+  "completed_policy_count": 0,
+  "active_gpu_count": 16,
+  "estimate_basis": "Average optimizer throughput since training budget upload; estimates exclude evaluation, future scheduling and interruptions.",
+  "runs": [
+    {
+      "suite": "libero_spatial",
+      "workflow_id": "arc-str-20261002r2-spatial-1",
+      "variant": "reference",
+      "mode": "stk",
+      "state": "TRAINING",
+      "observed_ema_updates": 106350,
+      "total_optimizer_steps": 270054,
+      "progress_percent": 39.38,
+      "gpus": 4,
+      "estimated_remaining_hours": 6.5,
+      "gpu_preflight_passed": true,
+      "global_batch_size": 1024,
+      "policy_success_rate": null
+    },
+    {
+      "suite": "libero_object",
+      "workflow_id": "arc-str-20261002r2-object-1",
+      "variant": "reference",
+      "mode": "stk",
+      "state": "TRAINING",
+      "observed_ema_updates": 109780,
+      "total_optimizer_steps": 325065,
+      "progress_percent": 33.77,
+      "gpus": 4,
+      "estimated_remaining_hours": 8.3,
+      "gpu_preflight_passed": true,
+      "global_batch_size": 1024,
+      "policy_success_rate": null
+    },
+    {
+      "suite": "libero_goal",
+      "workflow_id": "arc-str-20261002r2-goal-1",
+      "variant": "reference",
+      "mode": "stk",
+      "state": "TRAINING",
+      "observed_ema_updates": 110240,
+      "total_optimizer_steps": 280056,
+      "progress_percent": 39.36,
+      "gpus": 4,
+      "estimated_remaining_hours": 6.6,
+      "gpu_preflight_passed": true,
+      "global_batch_size": 1024,
+      "policy_success_rate": null
+    },
+    {
+      "suite": "libero_10",
+      "workflow_id": "arc-str-20261002r2-10-1",
+      "variant": "reference",
+      "mode": "stk",
+      "state": "TRAINING",
+      "observed_ema_updates": 113340,
+      "total_optimizer_steps": 605121,
+      "progress_percent": 18.73,
+      "gpus": 4,
+      "estimated_remaining_hours": 18.1,
+      "gpu_preflight_passed": true,
+      "global_batch_size": 1024,
+      "policy_success_rate": null
+    }
+  ]
+}

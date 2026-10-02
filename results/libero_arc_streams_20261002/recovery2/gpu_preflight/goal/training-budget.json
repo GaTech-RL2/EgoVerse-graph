@@ -1,0 +1,12 @@
+{
+  "train_examples": 57763,
+  "microbatch_size": 256,
+  "world_size": 4,
+  "gradient_accumulation": 1,
+  "global_batch_size": 1024,
+  "optimizer_steps_per_epoch": 56,
+  "microbatches_per_epoch": 56,
+  "epochs": 5001,
+  "total_optimizer_steps": 280056,
+  "dropped_examples_per_epoch": 419
+}

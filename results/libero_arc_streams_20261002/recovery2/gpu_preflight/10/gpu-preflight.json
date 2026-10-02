@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "global_step": 2,
+  "ema_num_updates": 2,
+  "epochs_completed": 1,
+  "training_budget": null,
+  "representation": {
+    "version": 1,
+    "layout": "shape_then_timing",
+    "stream_spec": {
+      "translation_groups": [
+        [
+          0,
+          1,
+          2
+        ]
+      ],
+      "rotation_groups": [
+        [
+          0,
+          1,
+          2
+        ]
+      ],
+      "rotation_representation": "so3",
+      "gripper": "translation",
+      "timing": "group",
+      "clocks": "group"
+    },
+    "shape_dim": 10,
+    "action_dim": 12,
+    "gripper_distance": "absolute_command_variation_uncapped",
+    "component_rotation_basis": "world_frame_angular_increments"
+  }
+}

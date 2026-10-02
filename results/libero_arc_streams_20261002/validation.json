@@ -1,0 +1,24 @@
+{
+  "source_commit": "1a350d010ad031f1446d11b578719f3900e19522",
+  "validation_ref": "b0d4354c097266ba78f936308e3b4ecfcb4f38d5",
+  "tests": 313,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "seconds": 24.914,
+  "junit_sha256": "4db764301218655f2aa0852f33ac3795ef3c0b01e3ab6e9a66cb3661d112bf67",
+  "github_ci": [
+    {
+      "source_commit": "1a350d010ad031f1446d11b578719f3900e19522",
+      "name": "LIBERO stream checks / cpu",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/actions/runs/36977407862/job/110744122869"
+    },
+    {
+      "source_commit": "4cd369e9fde594642d55ba90182c2af1fe5e0ad6",
+      "name": "LIBERO stream checks / cpu",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/GaTech-RL2/EgoVerse-graph/actions/runs/36978765466/job/110748300892"
+    }
+  ]
+}

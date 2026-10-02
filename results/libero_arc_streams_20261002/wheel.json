@@ -1,0 +1,16 @@
+{
+  "runtime_commit": "4cd369e9fde594642d55ba90182c2af1fe5e0ad6",
+  "training_commit": "1a350d010ad031f1446d11b578719f3900e19522",
+  "build": "clean git archive",
+  "wheel": "egomimic-1.0-py3-none-any.whl",
+  "bytes": 1623751,
+  "sha256": "5ac343e19f891386cda47836b4857e92fa1f7668e544788d792e9e8191371a6f",
+  "entries": 655,
+  "tests_docs_notebooks_absent": true,
+  "runtime_files_equal_training_pin": [
+    "egomimic/rldb/zarr/libero_arc_grouped.py",
+    "egomimic/benchmarks/libero/arc_streams.py",
+    "egomimic/benchmarks/libero/replay.py",
+    "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml"
+  ]
+}

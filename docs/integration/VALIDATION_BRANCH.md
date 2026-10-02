@@ -29,7 +29,10 @@ locations expected by the existing tests and tools; running it again is safe
 when those files are unchanged. Use an isolated checkout for validation and do
 not stage those files into the runtime branch. Runtime licenses, third-party
 package readmes required by their build metadata, and the dataset-card template
-consumed by LeRobot remain with their packages.
+consumed by LeRobot remain with their packages. LeRobot's five mock-support
+modules also remain: its device implementations import them for the public
+`mock` mode, even though upstream placed them under a directory called `tests`.
+Actual test cases, fixtures and standalone validation launchers are externalized.
 
 To update tests or documentation, make the changes on the companion branch and
 run `python scripts/integration/update_validation_manifest.py`. Commit the files

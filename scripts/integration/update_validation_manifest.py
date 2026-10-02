@@ -8,11 +8,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 # These are consumed by package builds or runtime code, not documentation-only.
-RUNTIME_MARKDOWN = {
+RUNTIME_FILES = {
     "external/lerobot/README.md",
     "external/rpl_vision_utils/README.md",
     "egomimic/robot/oculus_reader/README.md",
     "external/lerobot/lerobot/common/datasets/card_template.md",
+    # LeRobot device classes import these when their public mock flag is set.
+    "external/lerobot/tests/__init__.py",
+    "external/lerobot/tests/mock_cv2.py",
+    "external/lerobot/tests/mock_dynamixel_sdk.py",
+    "external/lerobot/tests/mock_pyrealsense2.py",
+    "external/lerobot/tests/mock_scservo_sdk.py",
 }
 VALIDATION_FILES = {
     "scripts/audit_components.py",
@@ -20,6 +26,9 @@ VALIDATION_FILES = {
     "scripts/benchmark_arc_tokenizer.py",
     "scripts/integration_port_recipes.py",
     "scripts/e1/test_group_balance.py",
+    "scripts/e1/stationery_midtempo_tests.sbatch",
+    "scripts/e1/time_baseline_snapshot.json",
+    "scripts/train/verify_planar_training_smoke.py",
     "egomimic/rldb/zarr/test_dataset_filter.py",
     "egomimic/robot/eva/test_mink_solver.py",
     "egomimic/robot/test.py",
@@ -33,13 +42,21 @@ VALIDATION_FILES = {
 
 def is_companion_file(name: str) -> bool:
     path = Path(name)
-    if path.name == "AGENTS.md" or name in RUNTIME_MARKDOWN:
+    if path.name == "AGENTS.md" or name in RUNTIME_FILES:
         return False
     if path.name.upper().startswith(("LICENSE", "NOTICE", "COPYING")):
         return False
     return (
         "tests" in path.parts
-        or name.startswith(("docs/", "assets/", "scripts/integration/"))
+        or name.startswith(
+            (
+                "docs/",
+                "assets/",
+                "scripts/integration/",
+                "scripts/e1/e1_",
+                "scripts/eval/audit_",
+            )
+        )
         or path.suffix in {".md", ".ipynb"}
         or name in VALIDATION_FILES
     )

@@ -83,7 +83,7 @@ Preserve other people's branches, working changes, checkpoints and datasets.
 Use an isolated worktree for consolidation or substantial review follow-ups.
 
 The consolidated PR/source map is in [docs/ARC_STACK.md](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/ARC_STACK.md) and
-[docs/arc_consolidation.json](docs/arc_consolidation.json). PI environment and
+[docs/arc_consolidation.json](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/arc_consolidation.json). PI environment and
 graph behavior are documented in [docs/PI05_GRAPH.md](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/PI05_GRAPH.md).
 
 ## Tests and documentation

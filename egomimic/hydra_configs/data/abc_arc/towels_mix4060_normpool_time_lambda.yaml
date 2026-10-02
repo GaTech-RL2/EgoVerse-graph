@@ -1,0 +1,16 @@
+# NORM-ONLY pool for mix4060_towels394_time_lambda: one yam_bimanual source over a symlink folder holding the RL2 towels394
+# TRAIN split (375) + all 389 ABC towels = 764 episodes, so the fitted stats are pooled over both labs by frames (the
+# Phoenix mix5050 regime). Used only with norm_stats_only; validation is the RL2 split, instantiated but unused.
+defaults:
+- /data/abc_arc/towels_mix4060_normpool_arcdur_lambda@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: time
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: time

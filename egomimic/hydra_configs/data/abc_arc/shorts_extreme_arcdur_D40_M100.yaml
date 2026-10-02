@@ -47,6 +47,8 @@ train_datasets:
         drop_wrist_images: false
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        progress_smooth_hz: null
+        fixed_spacing: false
         variant: arcdur
         chunk_length: 200
         time_rows: 100
@@ -81,6 +83,8 @@ valid_datasets:
         drop_wrist_images: false
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        progress_smooth_hz: null
+        fixed_spacing: false
         variant: arcdur
         chunk_length: 200
         time_rows: 100

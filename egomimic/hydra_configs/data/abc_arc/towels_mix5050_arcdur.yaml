@@ -1,0 +1,21 @@
+# arcdur twin of towels_mix5050_arcvel (Aidan 2026-09-19 18:40: "start an arc dur variant as well"): identical pool, split and 50/50
+# lab-balanced sampler; only the tokenizer variant changes (duration per arc interval instead of per-waypoint speed).
+# MIXED ABC + RL2, LAB-BALANCED 50/50 -- Aidan 2026-09-19: "weight the data evenly so that there is proper exposure to
+# in-domain data ... RL2 consists of 50% of the data the model sees and ABC the other 50%". Explicitly authorised mix.
+# Same pool filter + valid_ratio 0.01 as towels_mix_arcvel; the ONLY change is train_dataloader_params.*.group_balance_sampler, which
+# replaces the uniform frame shuffle (RL2 was ~9 % of frames for stationery, ~30 % for towels) with draws that give each lab
+# half the samples, uniform over frames within a lab. Validation loaders are untouched. Do not copy this filter elsewhere.
+# persistent_workers true: default re-forks loader workers each epoch and this stack deadlocks there (job 13307279).
+defaults:
+- /data/abc_arc/towels_mix5050_arcvel@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcdur
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcdur

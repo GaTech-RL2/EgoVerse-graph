@@ -69,11 +69,6 @@ def _to_minus1_1(img: torch.Tensor) -> torch.Tensor:
     return img * 2.0 - 1.0
 
 
-def _mask_from_batch(B: int, device) -> torch.Tensor:
-    """Default per-image mask (all True)."""
-    return torch.ones(B, dtype=torch.bool, device=device)
-
-
 def _concat_proprio(
     batch: dict, proprio_keys: list[str], device: torch.device
 ) -> torch.Tensor:

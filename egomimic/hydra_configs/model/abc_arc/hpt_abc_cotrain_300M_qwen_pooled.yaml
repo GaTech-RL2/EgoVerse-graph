@@ -17,6 +17,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  loss_reduction: source_mean
   stage_ids:
     sampler: 5
   stages:
@@ -114,9 +115,9 @@ pipeline:
       condition_as_tokens: true
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
-        nblocks: 6
+        nblocks: ${model.flow_blocks}
         cond_dim: ${hpt.embed_dim}
-        hidden_dim: 320
+        hidden_dim: ${model.flow_hidden_dim}
         act_dim: ${hpt.action_dim}
         act_seq: ${hpt.action_horizon}
         n_heads: 8
@@ -258,3 +259,7 @@ data_requirements:
         rotation_mode: euler
         stride: 1
       source_fps: 30.0
+
+# Explicit architecture differences used by the retained 180M recipe.
+flow_hidden_dim: 320
+flow_blocks: 6

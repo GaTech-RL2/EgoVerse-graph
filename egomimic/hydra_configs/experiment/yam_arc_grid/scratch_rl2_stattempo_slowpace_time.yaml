@@ -1,0 +1,24 @@
+# @package _global_
+# FROM SCRATCH, RL2-only sort stationery, tempo bucket 'slowpace' (217 eps; see the data config header), variant time.
+# One of the stationery tempo cells {slow, medium, fast, mixed, slowpace, all} x {time, arcdur} sharing loader path, recipe (Elmo h640t8_d384x10, 240k, warmup 10k,
+# seed 42), evaluator (BimanualTempoEval) and the same 24-episode held-out validation set (8 per bucket). GENERATED from the
+# towels394 time cell by scripts/e1/make_stationery_tempo_configs.py.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_stattempo_fast_time
+- _self_
+- override /data: abc_arc/stationery_tempo_slowpace_time
+name: scratch_rl2_stattempo_slowpace_time
+description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_stattempo_slowpace_time
+logger:
+  wandb:
+    id: scratch_rl2_stattempo_slowpace_time_20260925_s42
+    tags:
+    - rl2
+    - stationery
+    - stattempo
+    - tempo_slowpace
+    - scratch
+    - time
+
+model:
+  data_requirements: ${model.data_contracts.yam}

@@ -25,6 +25,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
+from egomimic.utils.batch_utils import map_batches
 
 _PROMPT_SAMPLING = ("random", "first")
 
@@ -296,6 +297,10 @@ class HPTStemStage(Stage):
             if self.domain_first
             else shared_tokens + domain_tokens
         )
+        return self._write_tokens(batch, tokens)
+
+    @staticmethod
+    def _write_tokens(batch, tokens):
         if not tokens:
             raise RuntimeError("HPTStemStage produced no tokens")
         widths = {int(t.shape[-1]) for t in tokens}
@@ -306,6 +311,37 @@ class HPTStemStage(Stage):
             )
         batch["hpt/tokens"] = torch.cat(tokens, dim=1)
         return batch
+
+    def execute_batches(self, batches, *, mode):
+        requests, encoders, slots = {}, {}, {}
+        for source, batch in batches.items():
+            stems = [(key, self.stems[_module_name(key)]) for key in self.shared_keys]
+            domain = self._domain(batch)
+            if domain is not None:
+                module = self.domain_stems[_module_name(domain)]
+                domain_items = [
+                    (key, module[_module_name(key)]) for key in self.domain_keys[domain]
+                ]
+                stems = (
+                    domain_items + stems if self.domain_first else stems + domain_items
+                )
+            slots[source] = []
+            for index, (key, stem) in enumerate(stems):
+                slot = (source, index)
+                slots[source].append((id(stem), slot))
+                encoders[id(stem)] = stem
+                requests.setdefault(id(stem), {})[slot] = _as_stem_dtype(
+                    batch[key], stem
+                )
+        encoded = {
+            key: map_batches(values, encoders[key].compute_latent)
+            for key, values in requests.items()
+        }
+        for source, batch in batches.items():
+            self._write_tokens(
+                batch, [encoded[key][slot] for key, slot in slots[source]]
+            )
+        return batches
 
 
 class HPTTrunkStage(Stage):
@@ -459,6 +495,11 @@ class HPTTrunkStage(Stage):
 
         if self.domain_embedding is not None:
             tokens = self._add_domain_embedding(tokens, batch)
+        batch.update(self._encode_tokens(tokens, mode=mode))
+        return batch
+
+    def _encode_tokens(self, tokens, *, mode):
+        outputs = {}
         if self.action_token is not None:
             tokens = torch.cat(
                 (self.action_token.expand(len(tokens), -1, -1), tokens), dim=1
@@ -478,7 +519,7 @@ class HPTTrunkStage(Stage):
         if isinstance(out, tuple):
             out, blocks = out
             if mode == "train" and self.representation_block is not None:
-                batch[self.representation_key] = blocks[self.representation_block][
+                outputs[self.representation_key] = blocks[self.representation_block][
                     :, : self.action_token_count
                 ]
             if mode == "train" and self.detach_condition_before_block is not None:
@@ -498,8 +539,26 @@ class HPTTrunkStage(Stage):
             condition = out.mean(dim=1)
         else:
             condition = out[:, -1]
-        batch["condition"] = condition
-        return batch
+        outputs["condition"] = condition
+        return outputs
+
+    def execute_batches(self, batches, *, mode):
+        inputs = {}
+        for source, batch in batches.items():
+            tokens = batch["hpt/tokens"]
+            if tokens.ndim != 3 or tokens.shape[-1] != self.embed_dim:
+                raise ValueError(f"HPTTrunkStage expects (B, tokens, {self.embed_dim})")
+            inputs[source] = (
+                self._add_domain_embedding(tokens, batch)
+                if self.domain_embedding is not None
+                else tokens
+            )
+        encoded = map_batches(
+            inputs, lambda tokens: self._encode_tokens(tokens, mode=mode)
+        )
+        for source, batch in batches.items():
+            batch.update(encoded[source])
+        return batches
 
     def forward(self, batch: dict) -> dict:
         return self.execute(batch, mode="train")

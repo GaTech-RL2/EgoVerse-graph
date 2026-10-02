@@ -1,0 +1,24 @@
+# @package _global_
+# FROM SCRATCH, RL2-only fold_towels, 394-episode pool, variant arcdur. One of three cells (time / arcdur / arcvel) that share loader
+# path, pool, split, recipe (Elmo h640t8_d384x10, 240k, warmup 10k, seed 42) and evaluator (BimanualTempoEval). See the data config header.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_towels394_arcvel
+- _self_
+- override /data: abc_arc/towels_rl2_394_arcdur
+name: scratch_rl2_towels394_arcdur
+description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_towels394_arcdur
+logger:
+  wandb:
+    id: scratch_rl2_towels394_arcdur_20260925_s42
+    tags:
+    - rl2
+    - towels
+    - towels394
+    - scratch
+    - arcdur
+e1:
+  policy_domain: yam
+  variant: arcdur
+
+model:
+  data_requirements: ${model.data_contracts.yam}

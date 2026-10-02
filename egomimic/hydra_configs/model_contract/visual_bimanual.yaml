@@ -1,0 +1,163 @@
+# @package model
+# Model-owned visual input, normalization and output contracts.
+policy_domain: yam
+source_identities:
+  yam: 7
+  human: 3
+visual_inputs:
+  yam:
+  - observations.images.front_img_1
+  - observations.images.left_wrist_img
+  - observations.images.right_wrist_img
+  - observations.state.ee_pose
+  - embodiment
+  human:
+  - observations.images.front_img_1
+  - observations.state.ee_pose
+  - embodiment
+visual_history:
+  yam:
+  - observations.images.front_img_1
+  - observations.images.left_wrist_img
+  - observations.images.right_wrist_img
+  - observations.state.ee_pose
+  human:
+  - observations.images.front_img_1
+  - observations.state.ee_pose
+visual_inference:
+  cartesian:
+    input:
+      history_length: 1
+      keys: ${model.visual_inputs.${model.policy_domain}}
+      history_keys: ${model.visual_history.${model.policy_domain}}
+      constants:
+        embodiment: ${model.source_identities.${model.policy_domain}}
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape: &id001
+      - ${hpt.action_horizon}
+      - 14
+      frame: eef_frame
+      timing:
+        kind: uniform_resampled_target
+        temporally_resolved: true
+        source_fps: 30.0
+        first_source_frame: 0
+        last_source_frame: 99
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - 100
+      - 14
+      frame: eef_frame
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape: *id001
+      tokenizer: null
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id001
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.pipeline.sequence_decoder.UniformTimeGridDecoder
+            native_shape: *id001
+            native_duration: 3.3
+            output_horizon: 100
+            output_dt: 0.03333333333333333
+            angular_indices:
+            - 3
+            - 4
+            - 5
+            - 10
+            - 11
+            - 12
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 50
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+  arc_tokenizer_cartesian:
+    status: unsupported
+    reason: ABC ARC visual recipes require a validated mode-aware hybrid rollout adapter
+      profile; use their declared codec for offline reconstruction.
+    action_contract: ${run_provenance.action_contract}
+  hybrid_arc_tokenizer_cartesian:
+    status: unsupported
+    reason: ABC ARC visual recipes require a validated mode-aware hybrid rollout adapter
+      profile; use their declared codec for offline reconstruction.
+    action_contract: ${run_provenance.action_contract}
+inference: ${model.visual_inference.${abc.action_mode}}
+normalization_action_contracts:
+  cartesian: null
+  arc_tokenizer_cartesian: ${run_provenance.action_contract}
+  hybrid_arc_tokenizer_cartesian: ${run_provenance.action_contract}
+visual_data_contracts:
+  yam:
+    preprocessing:
+      '7':
+        key_map:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+          keymap_mode: ${abc.action_mode}
+        transforms:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+          coord_frame: eef_frame
+          rotation_mode: euler
+          action_mode: ${abc.action_mode}
+        source_fps: 30.0
+    normalizer_state:
+      shapes:
+        '7':
+          actions_cartesian:
+          - ${hpt.action_horizon}
+          - ${oc.select:hpt.token_dim,${hpt.action_dim}}
+  human:
+    preprocessing:
+      '3':
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: ${abc.action_mode}
+        transforms:
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          coord_frame: eef_frame
+          rotation_mode: euler
+          action_mode: ${model.human_action_modes.${abc.action_mode}}
+        source_fps: 30.0
+    normalizer_state:
+      shapes:
+        '3':
+          actions_cartesian:
+          - ${hpt.action_horizon}
+          - ${oc.select:hpt.token_dim,${hpt.action_dim}}
+human_action_modes:
+  cartesian: cartesian_gripper_padded
+  hybrid_arc_tokenizer_cartesian: hybrid_arc_tokenizer_cartesian
+  arc_tokenizer_cartesian: arc_tokenizer_cartesian_gripper_padded
+data_requirements: ${model.visual_data_contracts.${model.policy_domain}}

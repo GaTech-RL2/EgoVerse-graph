@@ -1,6 +1,9 @@
 # 30-hour deterministic ABC stationery slice plus all matching RL2 YAM data.
 # Validation is restricted to RL2; the evaluator retains four complete episodes.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
+normalization_action_contract: ${model.normalization_action_contracts.${abc.action_mode}}
 
 train_datasets:
   yam_bimanual:

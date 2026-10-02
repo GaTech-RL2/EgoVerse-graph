@@ -58,11 +58,11 @@ def _require_exact_keys(actual, expected, *, label: str) -> None:
         )
 
 
-def strict_load_pipeline_checkpoint(algo, checkpoint: dict, use_ema: bool = False):
-    """Strictly load current online state, optionally overlaying current EMA."""
+def _selected_pipeline_state(algo, checkpoint: dict, *, use_ema: bool, label: str):
+    """EMA contains parameters only; buffers always come from online state."""
     online = extract_pipeline_nets_state(checkpoint)
     expected = algo.nets.state_dict()
-    _require_exact_keys(online, expected, label="Pipeline checkpoint")
+    _require_exact_keys(online, expected, label=label)
 
     state = OrderedDict(online)
     if use_ema:
@@ -70,6 +70,54 @@ def strict_load_pipeline_checkpoint(algo, checkpoint: dict, use_ema: bool = Fals
         parameter_keys = set(dict(algo.nets.named_parameters()))
         _require_exact_keys(averaged, parameter_keys, label="EMA parameter")
         state.update((key, averaged[key]) for key in parameter_keys)
+    return state
 
+
+def strict_load_pipeline_checkpoint(algo, checkpoint: dict, use_ema: bool = False):
+    """Strictly load current online state, optionally overlaying current EMA."""
+    state = _selected_pipeline_state(
+        algo, checkpoint, use_ema=use_ema, label="Pipeline checkpoint"
+    )
     algo.nets.load_state_dict(state, strict=True)
     return algo
+
+
+def init_pipeline_weights_from_checkpoint(
+    algo, checkpoint: dict, use_ema: bool = False
+):
+    """Weights-only initialisation for fine-tuning.
+
+    Loads a checkpoint's Pipeline weights into a freshly built model and returns the
+    tensors it could NOT carry over. Unlike :func:`strict_load_pipeline_checkpoint`
+    this tolerates a *shape* mismatch on individual tensors, because a fine-tune may
+    change the action layout -- e.g. a 14-D cartesian chunk to a 16-D arc token, which
+    reshapes only the flow denoiser's ``proj_u`` / ``proj_d``. Those tensors keep their
+    freshly initialised values and are reported so the caller can log them. A
+    *key-set* mismatch is still a hard error: it means a different architecture.
+
+    This deliberately restores no optimizer, scheduler or ``global_step``. Passing the
+    checkpoint as ``cfg.ckpt_path`` instead would make Lightning resume the whole
+    training state, which for a 210k-step checkpoint under a shorter fine-tune budget
+    stops immediately.
+    """
+    online = _selected_pipeline_state(
+        algo, checkpoint, use_ema=use_ema, label="Fine-tune checkpoint"
+    )
+    expected = algo.nets.state_dict()
+
+    state = OrderedDict()
+    reinitialised = []
+    for key, want in expected.items():
+        got = online[key]
+        if not isinstance(got, torch.Tensor) or not torch.isfinite(got).all():
+            raise ValueError(
+                f"Fine-tune checkpoint tensor is invalid or nonfinite: {key}"
+            )
+        if tuple(got.shape) == tuple(want.shape):
+            state[key] = got
+        else:
+            state[key] = want
+            reinitialised.append((key, tuple(got.shape), tuple(want.shape)))
+
+    algo.nets.load_state_dict(state, strict=True)
+    return algo, reinitialised

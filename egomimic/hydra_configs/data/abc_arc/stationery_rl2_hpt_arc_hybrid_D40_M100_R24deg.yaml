@@ -1,6 +1,9 @@
 # Same mixed ABC/RL2 policy as the D40/M100 ARC run, with independent
 # translation (0.40 m) and rotation (24 degree) waypoint clocks.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
+normalization_action_contract: ${model.normalization_action_contracts.${abc.action_mode}}
 
 train_datasets:
   yam_bimanual:

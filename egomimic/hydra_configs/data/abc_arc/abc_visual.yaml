@@ -1,5 +1,8 @@
 # One shared deterministic episode split for baseline and hybrid experiments.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
+normalization_action_contract: ${model.normalization_action_contracts.${abc.action_mode}}
 train_datasets:
   yam_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver

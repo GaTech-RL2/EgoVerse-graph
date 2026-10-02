@@ -1,0 +1,20 @@
+# arcvel member of the towels mix4060 family (Aidan 2026-09-25: "start another mixed run using arc vel"); identical to
+# towels_mix4060_arcdur_lambda except variant arcvel. 40 % ABC / 60 % RL2 by PR #141 WeightedDataset; RL2 source = towels394
+# with the scratch split (375 / 19, same pins); ABC = 389 train-only; batch 16 per rank x 2; RL2-only validation.
+defaults:
+- /data/abc_arc/towels_mix4060_arcdur_lambda@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcvel
+  abc_yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcvel
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcvel

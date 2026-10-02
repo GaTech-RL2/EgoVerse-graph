@@ -19,6 +19,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  loss_reduction: source_mean
   stage_ids:
     sampler: 3
   stages:
@@ -132,6 +133,7 @@ inference:
     tokenizer:
       _target_: egomimic.robot.arc_decoder.BimanualIntervalArcDecoder
       velocity_mode: ${abc.arc_velocity_mode}
+      velocity_layout: stacked
       min_distance_unit: ${abc.arc_distance}
       resampled_vector_length: ${abc.arc_waypoints}
       dt: 0.03333333333333333
@@ -147,6 +149,7 @@ inference:
         decoder:
           _target_: egomimic.robot.arc_decoder.BimanualIntervalArcDecoder
           velocity_mode: ${abc.arc_velocity_mode}
+          velocity_layout: stacked
           min_distance_unit: ${abc.arc_distance}
           resampled_vector_length: ${abc.arc_waypoints}
           dt: 0.03333333333333333
@@ -193,6 +196,7 @@ data_requirements:
         min_distance_unit: 0.4
         resampled_vector_length: 100
         velocity_mode: ${abc.arc_velocity_mode}
+        velocity_layout: stacked
       source_fps: 30.0
     '3':
       key_map:
@@ -207,4 +211,5 @@ data_requirements:
         min_distance_unit: 0.4
         resampled_vector_length: 100
         velocity_mode: ${abc.arc_velocity_mode}
+        velocity_layout: stacked
       source_fps: 30.0

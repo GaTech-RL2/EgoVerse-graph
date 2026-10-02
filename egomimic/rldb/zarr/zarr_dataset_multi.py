@@ -1687,7 +1687,7 @@ class MultiDataset(torch.utils.data.Dataset):
             "quantile_99_99": np.percentile(X, 99.99, axis=0),
         }
 
-    def cache_stats(self, save_cache_dir: str):
+    def cache_stats(self, save_cache_dir: str, *, data_context=None):
         cache_dir = os.path.join(save_cache_dir, "norm_stats")
         os.makedirs(cache_dir, exist_ok=True)
         out_path = os.path.join(cache_dir, "norm_stats.json")
@@ -1723,6 +1723,8 @@ class MultiDataset(torch.utils.data.Dataset):
             "computing_time": None,
             "frames": None,
         }
+        if data_context is not None:
+            payload["data_context"] = data_context
         if self._norm_run_metadata is not None:
             for k in ("loading_time", "computing_time", "frames"):
                 if k in self._norm_run_metadata:
@@ -1898,7 +1900,11 @@ class MultiDataset(torch.utils.data.Dataset):
             "zarr_keys": copy.deepcopy(self.zarr_keys),
             "shapes": copy.deepcopy(self.shapes),
             "norm_stats": self._clone_norm_stats(self.norm_stats),
-            "action_contracts": copy.deepcopy(getattr(self, "action_contracts", {})),
+            **(
+                {"action_contracts": copy.deepcopy(self.action_contracts)}
+                if self.action_contracts
+                else {}
+            ),
         }
 
     @classmethod

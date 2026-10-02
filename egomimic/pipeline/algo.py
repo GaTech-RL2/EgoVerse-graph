@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.pipeline.core import Pipeline, Stage, sum_losses
+from egomimic.utils.batch_utils import batch_size, sample_mean
 
 
 class PipelineAlgo:
@@ -28,7 +29,13 @@ class PipelineAlgo:
         trainability=None,
         loss_pipeline: Pipeline | None = None,
         training_passes=None,
+        homogeneous_training=True,
+        loss_reduction="sample_mean",
     ):
+        self.homogeneous_training = bool(homogeneous_training)
+        if loss_reduction not in {"sample_mean", "source_mean"}:
+            raise ValueError("loss_reduction must be sample_mean or source_mean")
+        self.loss_reduction = loss_reduction
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
@@ -103,6 +110,8 @@ class PipelineAlgo:
 
     def _execute(self, batch: Mapping, *, mode: str) -> OrderedDict:
         self._validate_groups(batch)
+        if mode == "train" and self.homogeneous_training and len(batch) > 1:
+            return OrderedDict(self.pipeline.execute_batches(batch, mode=mode))
         return OrderedDict(
             (source, self.pipeline.execute(dict(value), mode=mode))
             for source, value in batch.items()
@@ -152,7 +161,13 @@ class PipelineAlgo:
                     diagnostics[f"source_{index}_{key.replace('/', '_')}"] = value
 
         source_losses = torch.stack(per_source)
-        total = source_losses.mean()
+        total = (
+            source_losses.mean()
+            if self.loss_reduction == "source_mean"
+            else sample_mean(
+                per_source, [batch_size(value) for value in batch.values()]
+            )
+        )
         if "loss_pipeline" in self.nets:
             # Source names remain opaque. Only the configured loss graph knows
             # which feature keys to compare across those sources.

@@ -7,6 +7,7 @@ from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from torch.utils.data import DataLoader, Dataset, default_collate
 
 from egomimic.eval.eval import EvaluationDataRequirements
+from egomimic.rldb.weighted_dataset import WeightedDataset
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,10 @@ class MultiDataModuleWrapper(LightningDataModule):
         train_loader_mode: str = "max_size_cycle",
         valid_loader_mode: str = "max_size_cycle",
         source_fps: float | None = None,
+        dataset_weights: dict | None = None,
+        weighted_dataloader_params: dict | None = None,
+        samples_per_epoch: int | None = None,
+        sampling_seed: int = 42,
     ):
         """
         Args:
@@ -185,6 +190,20 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.train_loader_mode = train_loader_mode
         self.valid_loader_mode = valid_loader_mode
         self.source_fps = source_fps
+        self.weighted_dataset = (
+            WeightedDataset(self.train_datasets, dataset_weights)
+            if dataset_weights is not None
+            else None
+        )
+        self.weighted_dataloader_params = weighted_dataloader_params
+        self.samples_per_epoch = samples_per_epoch
+        self.sampling_seed = sampling_seed
+        if self.weighted_dataset is not None and not weighted_dataloader_params:
+            raise ValueError("dataset_weights requires weighted_dataloader_params")
+        if self.weighted_dataset is None and (
+            weighted_dataloader_params is not None or samples_per_epoch is not None
+        ):
+            raise ValueError("Weighted loader settings require dataset_weights")
 
     def iter_valid_datasets(self):
         """Yield ``(group, source, dataset)`` for EVERY val dataset.
@@ -260,7 +279,10 @@ class MultiDataModuleWrapper(LightningDataModule):
                 self.valid_dataloader_params, group, set(self.valid_groups[group])
             )
             options = params.get(source, {})
-            if self.force_valid_order and options.get("sampler") is not None:
+            if self.force_valid_order and any(
+                options.get(key) is not None
+                for key in ("sampler", "anchor_sampler", "group_balance_sampler")
+            ):
                 raise ValueError(
                     f"Ordered validation does not accept an undeclared sampler: {group}/{source}"
                 )
@@ -279,6 +301,26 @@ class MultiDataModuleWrapper(LightningDataModule):
     def _make_loader(self, dataset, params, *, default_shuffle):
         params = dict(params)
         sampler = params.pop("sampler", None)
+        anchor = params.pop("anchor_sampler", None)
+        balance = params.pop("group_balance_sampler", None)
+        if sum(value is not None for value in (sampler, anchor, balance)) > 1:
+            raise ValueError("Configure only one sampler per source")
+        if anchor is not None:
+            from egomimic.rldb.zarr.e1_anchor_sampler import build_anchor_sampler
+
+            sampler = build_anchor_sampler(dataset, **dict(anchor))
+        if balance is not None:
+            from egomimic.rldb.zarr.group_balance_sampler import (
+                build_group_balance_sampler,
+            )
+
+            trainer = self.trainer
+            sampler = build_group_balance_sampler(
+                dataset,
+                **dict(balance),
+                num_replicas=trainer.world_size if trainer is not None else 1,
+                rank=trainer.global_rank if trainer is not None else 0,
+            )
         collate = params.pop("collate_fn", self.collate_fn)
         if isinstance(collate, Mapping):
             collate = hydra.utils.instantiate(collate)
@@ -294,6 +336,26 @@ class MultiDataModuleWrapper(LightningDataModule):
         )
 
     def train_dataloader(self):
+        if self.weighted_dataset is not None:
+            params = dict(self.weighted_dataloader_params)
+            if any(
+                key in params
+                for key in ("shuffle", "sampler", "batch_sampler", "collate_fn")
+            ):
+                raise ValueError("The weighted loader owns sampling and collation")
+            trainer = self.trainer
+            sampler = self.weighted_dataset.sampler(
+                num_samples=self.samples_per_epoch,
+                seed=self.sampling_seed,
+                num_replicas=trainer.world_size if trainer is not None else 1,
+                rank=trainer.global_rank if trainer is not None else 0,
+            )
+            return DataLoader(
+                self.weighted_dataset,
+                sampler=sampler,
+                collate_fn=weighted_collate,
+                **params,
+            )
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name)
@@ -323,8 +385,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             requested_shuffle = dataset_params.pop("shuffle", False)
             if self.force_valid_order and requested_shuffle:
                 logger.warning(
-                    "Forcing shuffle=False for ordered validation group %s, "
-                    "source %s",
+                    "Forcing shuffle=False for ordered validation group %s, source %s",
                     group_name,
                     dataset_name,
                 )
@@ -372,3 +433,11 @@ def annotation_collate(batch):
     collated = default_collate(batch)
     collated.update(extracted)
     return collated
+
+
+def weighted_collate(batch):
+    """Keep each dataset's schema intact until model-side homogeneous batching."""
+    by_dataset = {}
+    for name, sample in batch:
+        by_dataset.setdefault(name, []).append(sample)
+    return {name: annotation_collate(samples) for name, samples in by_dataset.items()}

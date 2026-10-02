@@ -21,6 +21,7 @@ flow_steps_per_reconstruction: 14
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  loss_reduction: source_mean
   stage_ids: {proprio: 0, observations: 1, target: 2, noise: 3, policy: 4}
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection

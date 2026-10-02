@@ -1,0 +1,429 @@
+# @package model
+# Shared E1 wrist observation, action and timing contract.
+inference_contracts:
+  time:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${model.action_horizon}
+      - ${model.action_token_dim}
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${model.action_horizon}
+      - ${model.action_token_dim}
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${model.action_horizon}
+        - ${model.action_token_dim}
+      tokenizer: null
+      source_frames: ${model.contract_source_frames.${e1.policy_domain}}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${model.action_horizon}
+        - ${model.action_token_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder: null
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: ${model.sampling_attribute}
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${model.action_horizon}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+  arcmean:
+    status: unsupported
+    reason: Chunk-mean ARC timing cannot reconstruct dwell or interval durations.
+      Retain this recipe for diagnostics; use a temporally resolved representation
+      for rollout.
+  arcvel:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${model.action_horizon}
+      - ${model.action_token_dim}
+      timing:
+        kind: per_waypoint_progress
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${model.action_horizon}
+        - ${model.action_token_dim}
+      tokenizer:
+        variant: arcvel
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+      source_frames: ${model.contract_source_frames.${e1.policy_domain}}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${model.action_horizon}
+        - ${model.action_token_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_profile
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: ${model.sampling_attribute}
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+  arcdur:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${model.action_horizon}
+      - ${model.action_token_dim}
+      timing:
+        kind: per_waypoint_duration
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${model.action_horizon}
+        - ${model.action_token_dim}
+      tokenizer:
+        variant: arcdur
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+      source_frames: ${model.contract_source_frames.${e1.policy_domain}}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${model.action_horizon}
+        - ${model.action_token_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_dur
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: ${model.sampling_attribute}
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+  arclogdur:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${model.action_horizon}
+      - ${model.action_token_dim}
+      timing:
+        kind: per_waypoint_log_duration
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${model.action_horizon}
+        - ${model.action_token_dim}
+      tokenizer:
+        variant: arclogdur
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+      source_frames: ${model.contract_source_frames.${e1.policy_domain}}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${model.action_horizon}
+        - ${model.action_token_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_logdur
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: ${model.sampling_attribute}
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+inference: ${model.inference_contracts.${e1.variant}}
+source_identities:
+  human: 3
+  yam: 7
+data_contracts:
+  human:
+    preprocessing:
+      '3':
+        key_map:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+          horizon: ${e1.chunk_length}
+          embodiment: human
+          drop_wrist_images: false
+        transforms:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+          variant: ${e1.variant}
+          embodiment: human
+          chunk_length: ${e1.chunk_length}
+          time_rows: ${e1.time_rows}
+          min_distance_unit: ${e1.D}
+          resampled_vector_length: ${e1.M}
+          stride: 1
+          rotation_mode: euler
+          progress_smooth_hz: ${e1.progress_smooth_hz}
+          velocity_norm: ${e1.velocity_norm}
+          fixed_spacing: ${e1.fixed_spacing}
+        source_fps: 30.0
+  yam:
+    preprocessing:
+      '7':
+        key_map:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+          embodiment: yam
+          drop_wrist_images: false
+          yam_source_frames: ${model.contract_source_frames.yam}
+        transforms:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+          variant: ${e1.variant}
+          time_rows: ${e1.time_rows}
+          min_distance_unit: ${e1.D}
+          resampled_vector_length: ${e1.M}
+          stride: 1
+          rotation_mode: euler
+          progress_smooth_hz: ${e1.progress_smooth_hz}
+          velocity_norm: ${e1.velocity_norm}
+          fixed_spacing: ${e1.fixed_spacing}
+          embodiment: yam
+        source_fps: 30.0
+data_requirements: ${model.data_contracts.${e1.policy_domain}}
+contract_source_frames:
+  yam: ${oc.select:e1.yam_source_frames,100}
+  human: ${e1.chunk_length}
+direct_time_data_requirements:
+  preprocessing:
+    '7':
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: cartesian
+      transforms:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+      source_fps: 30.0

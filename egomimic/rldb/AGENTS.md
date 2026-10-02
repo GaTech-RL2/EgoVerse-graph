@@ -24,7 +24,7 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
   evenly spaced episode sampling; preserve real frame indices.
 - `scripts/viz_language.py`, `scripts/check_data.py` (under `egomimic/`): use
   the DataModule's preview capabilities without fitting normalization. See
-  [data tools](../../docs/integration/DATA_TOOLS.md).
+  [data tools](https://github.com/GaTech-RL2/EgoVerse-graph/blob/codex/graph-validation-20261001/docs/integration/DATA_TOOLS.md).
 
 Transforms produce native values. `MultiDataset` owns normalization; graph
 training/inference consumes normalized values, and evaluation/rollout adapters

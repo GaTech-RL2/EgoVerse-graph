@@ -6,21 +6,21 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
-    StoreBimanualMetricFrame,
-    RotateLocalFrame,
-    KeypointsToGripper,
-    InsertGripperChannels,
-    CartesianRot6DToYPR,
-    UnpadGripperZeros,
     ActionChunkCoordinateFrameTransform,
+    CartesianRot6DToYPR,
     ConcatKeys,
     DeleteKeys,
+    InsertGripperChannels,
     InterpolatePose,
+    KeypointsToGripper,
     PadGripperZeros,
     PoseCoordinateFrameTransform,
     Reshape,
+    RotateLocalFrame,
     SplitKeys,
+    StoreBimanualMetricFrame,
     Transform,
+    UnpadGripperZeros,
     transforms_for_rotation_mode,
 )
 from egomimic.utils.viz_utils import (
@@ -235,12 +235,20 @@ class Human(Embodiment):
         min_distance_unit: float = 0.60,
         rotation_distance_unit: float | None = None,
         arc_chunking_mode: str | None = None,
+        action_horizon: int | None = None,
+        source_buffer_frames: int | None = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
         (Aria=True). ``norm_mode``/``annotation_key``/``high_annotation_key``
         behave as in the base (subtask mode splits the single annotation array
         into a ``level == "low"`` target and a ``level == "high"`` prompt).
+
+        ``action_horizon`` overrides the raw rows a non-ARC action chunk reads
+        (default ``ACTION_HORIZON``); ``source_buffer_frames`` overrides the
+        ARC read window (default ``ARC_TOK_ACTION_HORIZON``). Native 30 Hz
+        cotraining sets them to match the robot's 100-frame chunk and 200-frame
+        ARC window.
         """
         key_map = cls._get_keymap(
             keymap_mode,
@@ -253,12 +261,18 @@ class Human(Embodiment):
             "arc_tokenizer_cartesian_gripper_padded",
             "hybrid_arc_tokenizer_cartesian",
         ) and (arc_chunking_mode is not None or rotation_distance_unit is not None):
-            from egomimic.rldb.zarr.arc_length_tokenizer import resolve_arc_chunking_mode
+            from egomimic.rldb.zarr.arc_length_tokenizer import (
+                resolve_arc_chunking_mode,
+            )
 
             horizon = {
-                "type": "arc_hybrid" if rotation_distance_unit is not None else "arc_distance",
+                "type": "arc_hybrid"
+                if rotation_distance_unit is not None
+                else "arc_distance",
                 "distance": float(min_distance_unit),
-                "source_buffer_frames": cls.ARC_TOK_ACTION_HORIZON,
+                "source_buffer_frames": int(
+                    source_buffer_frames or cls.ARC_TOK_ACTION_HORIZON
+                ),
                 "pose_zarr_keys": ["left.obs_ee_pose", "right.obs_ee_pose"],
                 "arc_chunking_mode": resolve_arc_chunking_mode(
                     arc_chunking_mode, rotation_distance_unit
@@ -269,6 +283,10 @@ class Human(Embodiment):
             for spec in key_map.values():
                 if spec.get("key_type") == "action_keys":
                     spec["horizon"] = horizon
+        elif action_horizon is not None:
+            for spec in key_map.values():
+                if spec.get("key_type") == "action_keys":
+                    spec["horizon"] = int(action_horizon)
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",
@@ -449,6 +467,7 @@ class Human(Embodiment):
         pad_proprio_gripper: bool = False,
         keypoint_gripper: bool = False,
         arc_chunking_mode: str | None = None,
+        velocity_layout: str | None = None,
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -546,6 +565,7 @@ class Human(Embodiment):
                 dt=1.0 / 30.0 if native_arc else float(stride) / 30.0,
                 velocity_mode=velocity_mode,
                 arc_chunking_mode=arc_chunking_mode,
+                velocity_layout=velocity_layout,
                 preserve_action_rows=100 if native_arc else None,
             )
         prefix = []
@@ -1215,8 +1235,11 @@ def _build_human_cartesian_eef_frame_transform_list(
             keys_to_delete.append(target_world_ypr)
 
     transform_list: list[Transform] = [
-        *([StoreBimanualMetricFrame(left_obs_pose, right_obs_pose)]
-          if rotation_mode == "euler" else []),
+        *(
+            [StoreBimanualMetricFrame(left_obs_pose, right_obs_pose)]
+            if rotation_mode == "euler"
+            else []
+        ),
         ActionChunkCoordinateFrameTransform(
             target_world=target_world,
             chunk_world=left_action_world,

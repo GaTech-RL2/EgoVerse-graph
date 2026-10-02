@@ -49,6 +49,7 @@ from egomimic.eval.distance_budget_dtw import (
 from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
+    CLOCK_COLUMNS,
     bimanual_arc_token_rows,
     bimanual_arc_token_shapes,
     cumulative_rotation_length,
@@ -129,9 +130,10 @@ def truncate_arc_token_by_waypoints(
 ) -> np.ndarray:
     """Keep exactly ``execute_fraction * M`` waypoints and timing rows."""
     mode = validate_bimanual_velocity_mode(velocity_mode)
-    if mode != "per_waypoint":
+    if mode not in ("per_waypoint", "duration"):
         raise ValueError(
-            f"M-based ARC execution requires velocity_mode='per_waypoint', got {mode!r}"
+            "M-based ARC execution requires per-interval timing "
+            f"(per_waypoint or duration), got {mode!r}"
         )
     value = stack_arc_token(np.asarray(token, dtype=np.float64))
     if value.ndim != 2 or value.shape[1] != 14:
@@ -191,9 +193,9 @@ def truncate_arc_token(
     rotation_cumulatives = None
     rotation_boundaries = None
     if rotation_distance_unit is not None:
-        if mode != "per_waypoint":
+        if mode not in ("per_waypoint", "duration"):
             raise ValueError(
-                "independent rotation clock requires velocity_mode='per_waypoint'"
+                "independent rotation clock requires per_waypoint or duration timing"
             )
         rotation_cumulatives = [
             cumulative_rotation_length(all_waypoints[:, offset + 3 : offset + 6])
@@ -292,9 +294,11 @@ def truncate_arc_token(
         if granular:
             rates = all_timing[:rows].copy()
             if mode == "duration":
-                for offset in (0, 7):
-                    if offset in columns:
-                        rates[rows - 2, offset] *= boundary - (rows - 2)
+                # Stored seconds, unlike rates, shrink with a fractional final
+                # interval. Each clock column scales with its own stream.
+                for column in CLOCK_COLUMNS:
+                    if column in columns:
+                        rates[rows - 2, column] *= boundary - (rows - 2)
             timing[:rows, columns] = rates[:, columns]
             timing[rows:, columns] = rates[-1, columns]
         else:
@@ -362,7 +366,9 @@ def _arc_clock_durations(
         clocks = [
             codec._hybrid_clock_durations(waypoints, timing, action_horizon=horizon)
         ]
-    elif velocity_mode == "per_waypoint":
+    elif velocity_mode == "per_waypoint" or (
+        velocity_mode == "duration" and rotation_distance_unit is not None
+    ):
         clocks = [
             codec._arm_durations(waypoints, timing, offset, horizon)
             for offset in (0, 7)
@@ -394,8 +400,9 @@ def _arc_clock_durations(
                 if rotation
                 else np.linalg.norm(np.diff(waypoints[:, columns], axis=0), axis=1)
             )
-            if velocity_mode == "duration" and not rotation:
-                rate = timing[:-1, offset]
+            if velocity_mode == "duration":
+                # Stored seconds: a moving interval with no time is invalid.
+                rate = timing[:-1, offset + 3 if rotation else offset]
             else:
                 rate = np.linalg.norm(
                     (
@@ -841,10 +848,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if (
             mode == "arc"
             and self.arc_execution_cap_mode == "waypoints"
-            and self.velocity_mode != "per_waypoint"
+            and self.velocity_mode not in ("per_waypoint", "duration")
         ):
             raise ValueError(
-                "M-based ARC execution requires velocity_mode='per_waypoint'"
+                "M-based ARC execution requires per_waypoint or duration timing"
             )
         self.log_step = None if log_step is None else int(log_step)
         if self.log_step is not None and self.log_step < 0:

@@ -1,0 +1,234 @@
+"""Four-clock duration ARC token, (M, 18), and the cotraining recipes that use it."""
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+from hydra import compose, initialize_config_dir
+
+from egomimic.eval import distance_budget_dtw as dtw
+from egomimic.eval.open_loop_sim import OpenLoopSimEval
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    CLOCK_COLUMNS,
+    TokenizeBimanualArcLengthCartesian,
+    bimanual_arc_token_shapes,
+    stack_arc_token,
+)
+
+DT = 1.0 / 30.0
+OPTIONS = dict(
+    action_key="actions",
+    output_action_key="actions",
+    min_distance_unit=0.42,
+    rotation_distance_unit=0.4188790204786391,
+    resampled_vector_length=100,
+    dt=DT,
+)
+
+
+def chunk(frames=200, right_still=False):
+    """Arms moving at different rates, rotating, and operating grippers."""
+    time = np.arange(frames) * DT
+    raw = np.zeros((frames, 14))
+    raw[:, 0], raw[:, 1] = 0.25 * np.sin(time), 0.1 * time
+    raw[:, 3], raw[:, 6] = 0.3 * time, np.clip(time - 2, 0, 1)
+    if not right_still:
+        raw[:, 7] = 0.05 * np.minimum(time, 1.5)
+    raw[:, 10], raw[:, 13] = 0.05 * np.sin(3 * time), np.clip(4 - time, 0, 1)
+    return raw
+
+
+def codec(mode, velocity_mode="duration", velocity_layout="clock"):
+    return TokenizeBimanualArcLengthCartesian(
+        **OPTIONS,
+        arc_chunking_mode=mode,
+        velocity_mode=velocity_mode,
+        velocity_layout=velocity_layout,
+    )
+
+
+@pytest.mark.parametrize("mode", ["multistream", "race"])
+def test_clock_token_decodes_exactly_like_per_waypoint_rates(mode):
+    raw = chunk()
+    clock = codec(mode).transform({"actions": raw.copy()})["actions"]
+    rates = codec(mode, "per_waypoint", "wide").transform({"actions": raw.copy()})[
+        "actions"
+    ]
+    assert clock.shape == (100, 18)
+    np.testing.assert_array_equal(clock[:, :14], rates[:, :14])
+    np.testing.assert_allclose(
+        codec(mode).detokenize(clock, 200),
+        codec(mode, "per_waypoint", "wide").detokenize(rates, 200),
+        atol=1e-9,
+    )
+
+
+def test_clock_columns_are_per_interval_seconds_and_restack_losslessly():
+    clock = codec("multistream").transform({"actions": chunk()})["actions"]
+    seconds = clock[:, 14:]
+    assert np.all(seconds >= 0)
+    # Each clock's intervals sum to at most the 200-frame source window.
+    assert np.all(seconds[:-1].sum(axis=0) <= 200 * DT + 1e-9)
+    stacked = stack_arc_token(clock)
+    assert stacked.shape == (200, 14)
+    np.testing.assert_array_equal(stacked[100:, list(CLOCK_COLUMNS)], seconds)
+    other = [c for c in range(14) if c not in CLOCK_COLUMNS]
+    assert not stacked[100:, other].any()
+    stacked_codec = codec("multistream", velocity_layout="stacked")
+    np.testing.assert_allclose(
+        stacked_codec.detokenize(stacked, 200),
+        codec("multistream").detokenize(clock, 200),
+    )
+    assert (100, 18) in bimanual_arc_token_shapes(100, "duration")
+    assert (100, 18) not in bimanual_arc_token_shapes(100, "per_waypoint")
+
+
+def test_held_arm_parks_xyz_but_times_its_gripper_on_the_translation_clock():
+    raw = chunk(right_still=True)
+    clock = codec("multistream").transform({"actions": raw})["actions"]
+    np.testing.assert_array_equal(clock[:, 7:10], np.repeat(raw[:1, 7:10], 100, 0))
+    right_translation_seconds = clock[:-1, 14 + CLOCK_COLUMNS.index(7)]
+    assert right_translation_seconds.sum() > 0
+    decoded = codec("multistream").detokenize(clock, 200)
+    np.testing.assert_allclose(decoded[:, 7:10], raw[:1, 7:10].repeat(200, 0))
+    # The hold walks the gripper to its state at the end of the covered span
+    # over that span's duration, instead of jumping at frame 0.
+    assert decoded[0, 13] == pytest.approx(1.0)
+    assert np.all(np.diff(decoded[:, 13]) <= 1e-12)
+    assert decoded[-1, 13] == pytest.approx(raw[-1, 13])
+
+
+def test_joint_distance_cannot_use_per_arm_duration_clocks():
+    with pytest.raises(ValueError, match="joint_distance"):
+        codec("joint_distance")
+
+
+def evaluator(velocity_mode, **extra):
+    return OpenLoopSimEval(
+        action_mode="arc",
+        arc_chunking_mode="multistream",
+        execute_fraction=0.3,
+        min_distance_unit=OPTIONS["min_distance_unit"],
+        rotation_distance_unit=OPTIONS["rotation_distance_unit"],
+        resampled_vector_length=100,
+        control_dt=DT,
+        velocity_mode=velocity_mode,
+        **extra,
+    )
+
+
+@pytest.mark.parametrize("cap", ["waypoints", "distance"])
+def test_evaluator_executes_the_same_prefix_from_either_timing_form(cap):
+    raw = chunk()
+    clock = codec("multistream").transform({"actions": raw.copy()})["actions"]
+    rates = codec("multistream", "per_waypoint", "wide").transform(
+        {"actions": raw.copy()}
+    )["actions"]
+    by_clock, clock_steps = evaluator(
+        "duration", arc_execution_cap_mode=cap
+    )._decode_prediction_with_steps(clock, max_steps=100)
+    by_rate, rate_steps = evaluator(
+        "per_waypoint", arc_execution_cap_mode=cap
+    )._decode_prediction_with_steps(rates, max_steps=100)
+    assert clock_steps == rate_steps
+    np.testing.assert_allclose(by_clock, by_rate, atol=1e-9)
+
+
+def test_dtw_scores_oracle_clock_tokens_near_zero():
+    time = np.arange(90 + 200) * DT
+    raw = np.zeros((len(time), 14))
+    raw[:, 0], raw[:, 7] = 0.30 * time, 0.08 * time
+    raw[:, 3] = raw[:, 10] = 0.2 * time
+    tokenize = codec("multistream")
+    records = [
+        dict(
+            frame=frame,
+            ground_truth=raw[frame : frame + 200],
+            prediction=tokenize.transform({"actions": raw[frame : frame + 200].copy()})[
+                "actions"
+            ],
+            **{dtw.METRIC_FRAME_KEY: np.repeat(np.eye(4)[None], 2, axis=0)},
+        )
+        for frame in range(90)
+    ]
+    result = dtw.score_distance_dtw_episode(evaluator("duration"), records)
+    assert result["xyz_mse"] < 1e-4
+    # Each arm decodes only its own translation time, so a long rotation clock
+    # or the other arm's stall does not inflate the rollout.
+    assert result["duration_ratio"] < 1.5
+
+
+def test_fractional_prefix_scales_stored_seconds_with_the_waypoint_fraction():
+    raw = chunk()
+    clock = stack_arc_token(
+        codec("multistream").transform({"actions": raw.copy()})["actions"]
+    )
+    rates = stack_arc_token(
+        codec("multistream", "per_waypoint", "wide").transform({"actions": raw.copy()})[
+            "actions"
+        ]
+    )
+    partial_clock = dtw.fractional_waypoint_prefix(clock, 0.335, "duration")
+    partial_rate = dtw.fractional_waypoint_prefix(rates, 0.335)
+    stacked = dict(velocity_layout="stacked")
+    np.testing.assert_allclose(
+        codec("multistream", **stacked).detokenize(partial_clock, 120),
+        codec("multistream", "per_waypoint", **stacked).detokenize(partial_rate, 120),
+        atol=1e-9,
+    )
+
+
+_CONFIGS = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
+
+
+def _cfg(name, monkeypatch):
+    monkeypatch.setenv("EGOVERSE_ABC_DATASET_DIR", "/tmp/arc_abc")
+    with initialize_config_dir(version_base=None, config_dir=str(_CONFIGS)):
+        return compose(
+            config_name="train_zarr_cartesian",
+            overrides=[f"+experiment=abc_arc/cotrain/{name}", "++paths.root_dir=."],
+        )
+
+
+@pytest.mark.parametrize(
+    "name,dim,evaluator_mode",
+    [
+        ("organize_rl2_elmo_hpt300_cotrain_baseline", 14, "baseline"),
+        ("organize_rl2_elmo_hpt300_cotrain_multistream", 18, "arc"),
+    ],
+)
+def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
+    cfg = _cfg(name, monkeypatch)
+    stages = cfg.model.pipeline.stages
+    stem = stages[0].stems["observations.images.front_img_1"]._target_
+    assert stem.endswith("ResNetMLPImageStem")
+    assert list(stages[1].domains) == ["human_bimanual", "yam_bimanual"]
+    assert stages[-3].action_horizon == 100 and stages[-3].action_dim == dim
+    assert (cfg.hpt.embed_dim, cfg.hpt.num_blocks) == (840, 19)
+    assert cfg.evaluator.action_mode == evaluator_mode
+    assert cfg.abc.arc_distance == 0.42
+    assert cfg.abc.arc_rotation_distance == pytest.approx(np.radians(24))
+    train = cfg.data.train_datasets
+    assert set(train) == {"yam_bimanual", "human_bimanual"}
+    human = train.human_bimanual.resolver.key_map
+    assert (human.action_horizon, human.source_buffer_frames) == (100, 200)
+    assert train.human_bimanual.resolver.transform_list.stride == 1
+    row = dict(
+        lab="rl2",
+        task="organize_stationary",
+        operator="Elmo",
+        zarr_processed_path="x",
+        is_deleted=False,
+    )
+    for embodiment, dataset in train.items():
+        (rule,) = dataset.filters.filter_lambdas
+        keep = eval(rule)
+        assert keep({**row, "embodiment": embodiment})
+        assert not keep({**row, "embodiment": embodiment, "operator": "Aidan"})
+        assert not keep({**row, "embodiment": embodiment, "lab": "abc"})
+        assert dataset.valid_ratio == 0.05
+    if dim == 18:
+        assert cfg.evaluator.velocity_mode == "duration"
+        assert cfg.evaluator.arc_chunking_mode == "multistream"
+        robot = train.yam_bimanual.resolver.transform_list
+        assert (robot.velocity_mode, robot.velocity_layout) == ("duration", "clock")

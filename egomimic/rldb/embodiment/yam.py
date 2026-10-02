@@ -175,6 +175,7 @@ class Yam(Embodiment):
         # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
         velocity_mode: str = "mean",
         arc_chunking_mode: str | None = None,
+        velocity_layout: str | None = None,
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -262,6 +263,7 @@ class Yam(Embodiment):
                 rotation_mode=rotation_mode,
                 velocity_mode=velocity_mode,
                 arc_chunking_mode=arc_chunking_mode,
+                velocity_layout=velocity_layout,
                 # Keep a fixed 100-step native-cadence GT copy for evaluator
                 # metrics/videos. The source window itself is variable, but
                 # the control horizon is always 100 steps; repeat-last at an

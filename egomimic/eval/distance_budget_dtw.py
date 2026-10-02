@@ -11,7 +11,7 @@ import math
 import numpy as np
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
-    ARC_CHUNKING_MODES,  # noqa: F401 - public re-export used by validation scripts
+    CLOCK_COLUMNS,  # noqa: F401 - public re-export used by validation scripts
     resolve_arc_chunking_mode,
     stack_arc_token,
 )
@@ -264,11 +264,15 @@ def global_dtw(
     return result
 
 
-def fractional_waypoint_prefix(token: np.ndarray, fraction: float) -> np.ndarray:
+def fractional_waypoint_prefix(
+    token: np.ndarray, fraction: float, velocity_mode: str = "per_waypoint"
+) -> np.ndarray:
     """Trim an already-capped per-waypoint token at fractional source progress.
 
     Only the final partial episode budget may interpolate an M-based boundary.
     Velocities remain unchanged: no GT-clock retiming or spatial rescaling.
+    Duration tokens store seconds, so the partial interval keeps its rate by
+    scaling its stored durations by the same fraction.
     """
     from egomimic.rldb.zarr.arc_length_tokenizer import slerp_pair_ypr
 
@@ -291,11 +295,14 @@ def fractional_waypoint_prefix(token: np.ndarray, fraction: float) -> np.ndarray
     # An exact waypoint endpoint must not be repeated (zero extra interval).
     if alpha <= 1e-12 and lower >= 1:
         return np.concatenate((value[: lower + 1], value[m : m + lower + 1]))
+    timing = value[m : m + lower + 1].copy()
+    if velocity_mode == "duration":
+        timing[lower, list(CLOCK_COLUMNS)] *= alpha
     return np.concatenate(
         (
             value[: lower + 1],
             terminal[None],
-            value[m : m + lower + 1],
+            timing,
             value[m + lower + 1 : m + lower + 2],
         )
     )
@@ -311,9 +318,18 @@ def _distance_rollout(
     chunking_mode,
     tokenizer,
     gt_frames,
+    arm=None,
 ):
-    """Concatenate each anchor's decoded prefix in world XYZ."""
+    """Concatenate each anchor's decoded prefix in world XYZ.
+
+    With ``arm`` set, each prefix is decoded for as long as that arm's own
+    translation clock runs. The other arm and both rotation streams can run far
+    longer (an idle arm or a rotation short of R spends the whole source
+    window), and none of that time moves this arm's XYZ, so decoding it only
+    appends a held endpoint that the arm's DTW then has to absorb.
+    """
     from egomimic.eval.open_loop_sim import (
+        _arc_clock_durations,
         arc_execution_prefix,
         arc_prefix_control_steps,
     )
@@ -344,7 +360,9 @@ def _distance_rollout(
                 control_dt=evaluator.control_dt,
             )
             if evaluator.arc_execution_cap_mode == "waypoints" and fraction < 1:
-                partial = fractional_waypoint_prefix(partial, fraction)
+                partial = fractional_waypoint_prefix(
+                    partial, fraction, evaluator.velocity_mode
+                )
             # Decode the entire prefix on its OWN clock, even if slower than GT.
             n = arc_prefix_control_steps(
                 partial,
@@ -358,6 +376,20 @@ def _distance_rollout(
                 arc_execution_cap_mode="waypoints",
                 arc_chunking_mode=chunking_mode,
             )
+            if arm is not None:
+                m = len(partial) // 2
+                clocks, _ = _arc_clock_durations(
+                    partial[:m],
+                    partial[m:],
+                    evaluator.velocity_mode,
+                    evaluator.control_dt,
+                    evaluator.min_distance_unit,
+                    chunking_mode,
+                    getattr(evaluator, "rotation_distance_unit", None),
+                    n,
+                )
+                arm_seconds = float(np.sum(clocks[arm]))
+                n = min(n, max(1, math.ceil(arm_seconds / evaluator.control_dt - 1e-9)))
             if n > evaluator.dtw_max_prediction_steps:
                 raise ValueError(
                     f"DTW prefix has {n} samples; increase dtw_max_prediction_steps explicitly"
@@ -408,8 +440,8 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
     chunking_mode = evaluator_chunking_mode(evaluator)
     cumulative = translation_progress(gt, chunking_mode) if is_arc else joint_distance
     if is_arc:
-        if evaluator.velocity_mode != "per_waypoint":
-            raise ValueError("Distance-budget DTW requires per-waypoint ARC velocity")
+        if evaluator.velocity_mode not in ("per_waypoint", "duration"):
+            raise ValueError("Distance-budget DTW requires per-interval ARC timing")
         m = evaluator.resampled_vector_length
         fraction = evaluator.execute_fraction
         if evaluator.arc_execution_cap_mode == "waypoints":
@@ -451,6 +483,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
                 chunking_mode,
                 tokenizer,
                 len(gt),
+                arm=arm,
             )
             score = global_dtw(
                 prediction[:, columns],

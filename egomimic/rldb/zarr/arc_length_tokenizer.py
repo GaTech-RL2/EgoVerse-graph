@@ -1141,10 +1141,18 @@ BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
 #              layout. Shape and velocity share a column, so a per-column
 #              normalizer pools metres with metres/second.
 #
+#   "clock"    duration mode only: (M, 18). Columns 0..13 are the waypoint and
+#              14..17 the four clocks' per-interval durations in seconds,
+#              [left translation, left rotation, right translation, right
+#              rotation]. Each gripper rides its arm's translation clock. In the
+#              stacked form those four values sit at CLOCK_COLUMNS of the timing
+#              rows and every other timing column is zero.
+#
 # "wide" needs one velocity row per waypoint, so it is undefined for the "mean"
 # velocity mode, which emits a single row for the whole token. That is the only
 # place "stacked" is still the default.
-BIMANUAL_VELOCITY_LAYOUTS = ("wide", "stacked")
+BIMANUAL_VELOCITY_LAYOUTS = ("wide", "stacked", "clock")
+CLOCK_COLUMNS = (0, 3, 7, 10)
 ARC_CHUNKING_MODES = ("race", "multistream", "joint_distance")
 
 
@@ -1191,6 +1199,8 @@ def validate_bimanual_velocity_layout(
             "velocity_layout='wide' needs one velocity row per waypoint; "
             "velocity_mode='mean' emits a single row for the whole token"
         )
+    if velocity_layout == "clock" and velocity_mode != "duration":
+        raise ValueError("velocity_layout='clock' requires velocity_mode='duration'")
     return velocity_layout
 
 
@@ -1217,6 +1227,8 @@ def bimanual_arc_token_shape(
     rows = bimanual_arc_token_rows(resampled_vector_length, velocity_mode)
     if velocity_layout == "stacked":
         return rows, ARC_TOK_BIMANUAL_DIM
+    if velocity_layout == "clock":
+        return rows // 2, ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS)
     return rows // 2, 2 * ARC_TOK_BIMANUAL_DIM
 
 
@@ -1230,7 +1242,12 @@ def bimanual_arc_token_shapes(
     to accept both. "wide" is undefined for the "mean" mode (see
     ``validate_bimanual_velocity_layout``), which leaves it a single shape.
     """
-    layouts = ("stacked",) if velocity_mode == "mean" else BIMANUAL_VELOCITY_LAYOUTS
+    if velocity_mode == "mean":
+        layouts = ("stacked",)
+    elif velocity_mode == "duration":
+        layouts = BIMANUAL_VELOCITY_LAYOUTS
+    else:
+        layouts = ("wide", "stacked")
     return tuple(
         bimanual_arc_token_shape(resampled_vector_length, velocity_mode, layout)
         for layout in layouts
@@ -1252,6 +1269,10 @@ def stack_arc_token(token: np.ndarray) -> np.ndarray:
             (value[..., :ARC_TOK_BIMANUAL_DIM], value[..., ARC_TOK_BIMANUAL_DIM:]),
             axis=-2,
         )
+    if value.ndim >= 2 and value.shape[-1] == ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS):
+        timing = np.zeros(value.shape[:-1] + (ARC_TOK_BIMANUAL_DIM,))
+        timing[..., CLOCK_COLUMNS] = value[..., ARC_TOK_BIMANUAL_DIM:]
+        return np.concatenate((value[..., :ARC_TOK_BIMANUAL_DIM], timing), axis=-2)
     return value
 
 
@@ -1331,14 +1352,24 @@ class TokenizeBimanualArcLengthCartesian:
             rotation_distance_unit = float(rotation_distance_unit)
             if not np.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0.0:
                 raise ValueError("rotation_distance_unit must be positive and finite")
-            if self.velocity_mode != "per_waypoint":
+            if self.velocity_mode not in ("per_waypoint", "duration"):
                 raise ValueError(
-                    "independent rotation clock requires velocity_mode='per_waypoint'"
+                    "independent rotation clock requires velocity_mode="
+                    "'per_waypoint' or 'duration'"
                 )
         self.rotation_distance_unit = rotation_distance_unit
         self.arc_chunking_mode = resolve_arc_chunking_mode(
             arc_chunking_mode, rotation_distance_unit
         )
+        if (
+            rotation_distance_unit is not None
+            and self.velocity_mode == "duration"
+            and self.arc_chunking_mode == "joint_distance"
+        ):
+            raise ValueError(
+                "duration timing stores one clock per arm and stream; "
+                "joint_distance shares one translation clock, use per_waypoint"
+            )
         if rotation_distance_unit is None and arc_chunking_mode is not None:
             raise ValueError(
                 "explicit arc_chunking_mode requires hybrid rotation_distance_unit; "
@@ -1384,9 +1415,9 @@ class TokenizeBimanualArcLengthCartesian:
                         axis=0,
                     )
             batch[self.preserve_action_key] = preserved
-        if (
-            self.rotation_distance_unit is not None
-            and self.velocity_mode == "per_waypoint"
+        if self.rotation_distance_unit is not None and self.velocity_mode in (
+            "per_waypoint",
+            "duration",
         ):
             # The hybrid path replaces every waypoint and recomputes every
             # velocity row, so tokenize()'s output below would be discarded
@@ -1394,7 +1425,11 @@ class TokenizeBimanualArcLengthCartesian:
             # guard is narrower than the hybrid branch further down because the
             # "duration" and "mean" velocity modes still consume that token.
             waypoints = self._hybrid_waypoints(raw)
-            velocity_rows = self._hybrid_per_waypoint_velocity(raw, waypoints)
+            velocity_rows = (
+                self._hybrid_per_waypoint_duration(raw)
+                if self.velocity_mode == "duration"
+                else self._hybrid_per_waypoint_velocity(raw, waypoints)
+            )
             batch[self.output_action_key] = self._join_token(waypoints, velocity_rows)
             return batch
 
@@ -1486,6 +1521,8 @@ class TokenizeBimanualArcLengthCartesian:
         beside. Both output paths go through here so the two layouts cannot
         drift apart.
         """
+        if self.velocity_layout == "clock":
+            velocity_rows = velocity_rows[:, CLOCK_COLUMNS]
         axis = 0 if self.velocity_layout == "stacked" else 1
         out = np.concatenate([waypoints, velocity_rows], axis=axis)
         expected = bimanual_arc_token_shape(
@@ -1780,6 +1817,36 @@ class TokenizeBimanualArcLengthCartesian:
             rows[-1, offset + 3 : offset + 6] = angular_rate[-1]
         return rows
 
+    def _hybrid_per_waypoint_duration(self, raw: np.ndarray) -> np.ndarray:
+        """Per-interval seconds on each of the four clocks, at CLOCK_COLUMNS.
+
+        Same source timestamps as :meth:`_hybrid_per_waypoint_velocity`, stored
+        as elapsed time instead of rate. A held arm's translation clock carries
+        its gripper's timeline across the span the arm covers, so a grip with no
+        arm motion is still timed. The final row repeats the last interval.
+        """
+        rows = np.zeros((self.M, ARC_TOK_BIMANUAL_DIM), dtype=np.float64)
+        dt = self.tokenizer.config.dt
+        translation, rotation = self._hybrid_source_coordinates(raw)
+        for offset, (translation_cumulative, translation_targets, hold), (
+            rotation_cumulative,
+            rotation_targets,
+        ) in zip((0, 7), translation, rotation):
+            if hold is None:
+                times = self._translation_source_times(
+                    translation_cumulative, translation_targets, dt
+                )
+            else:
+                times = np.linspace(0.0, float(hold), self.M) * dt
+            rotation_times = _source_times_at_targets(
+                rotation_cumulative, rotation_targets, dt
+            )
+            for column, values in ((offset, times), (offset + 3, rotation_times)):
+                interval = np.diff(values)
+                rows[:-1, column] = interval
+                rows[-1, column] = interval[-1]
+        return rows
+
     def _per_waypoint_velocity(
         self, raw: np.ndarray, waypoints: np.ndarray
     ) -> np.ndarray:
@@ -1862,6 +1929,10 @@ class TokenizeBimanualArcLengthCartesian:
         rotation: bool = False,
     ) -> np.ndarray:
         """Recover one arm's clock, including holds and unreachable intervals."""
+        if self.velocity_mode == "duration":
+            return self._arm_stored_durations(
+                waypoints, velocity_rows, offset, action_horizon, rotation=rotation
+            )
         if rotation:
             block = waypoints[:, offset + 3 : offset + 6]
             steps = np.diff(cumulative_rotation_length(block))
@@ -1905,6 +1976,51 @@ class TokenizeBimanualArcLengthCartesian:
             component_duration(position_steps, position_rates),
             component_duration(grip_steps, grip_rates),
         )
+
+    def _arm_stored_durations(
+        self,
+        waypoints: np.ndarray,
+        timing_rows: np.ndarray,
+        offset: int,
+        action_horizon: int,
+        *,
+        rotation: bool,
+    ) -> np.ndarray:
+        """Duration-mode counterpart of the rate path in :meth:`_arm_durations`.
+
+        The stored seconds are used directly. As in the rate path, an interval
+        that does not move takes no time, and a moving interval with no usable
+        duration holds instead of teleporting.
+        """
+        if rotation:
+            steps = np.diff(
+                cumulative_rotation_length(waypoints[:, offset + 3 : offset + 6])
+            )
+        else:
+            steps = np.maximum(
+                np.linalg.norm(
+                    np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
+                ),
+                np.abs(np.diff(waypoints[:, offset + 6])),
+            )
+        stored = np.clip(
+            timing_rows[:-1, offset + 3 if rotation else offset], 0.0, None
+        )
+        moving, usable = steps > 1e-12, stored > 1e-8
+        duration = np.where(moving & usable, stored, 0.0)
+        fallback = self.tokenizer.config.dt * (action_horizon + 1)
+        missing = moving & ~usable
+        if rotation:
+            # Same terminal-turn rule as the rate path: finish a last moving
+            # interval in one control step rather than stretching it.
+            future_motion = np.r_[
+                np.logical_or.accumulate(moving[::-1])[::-1][1:], False
+            ]
+            duration[missing & ~future_motion] = self.tokenizer.config.dt
+            duration[missing & future_motion] = fallback
+        else:
+            duration[missing] = fallback
+        return duration
 
     def _hybrid_clock_durations(
         self,
@@ -2041,11 +2157,11 @@ class TokenizeBimanualArcLengthCartesian:
         and by the deploy path in rollout-arc.py.
         """
         arc_actions = np.asarray(arc_actions, dtype=np.float64)
-        expected_dim = (
-            ARC_TOK_BIMANUAL_DIM
-            if self.velocity_layout == "stacked"
-            else 2 * ARC_TOK_BIMANUAL_DIM
-        )
+        expected_dim = {
+            "stacked": ARC_TOK_BIMANUAL_DIM,
+            "wide": 2 * ARC_TOK_BIMANUAL_DIM,
+            "clock": ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS),
+        }[self.velocity_layout]
         if arc_actions.ndim != 2 or arc_actions.shape[1] != expected_dim:
             raise ValueError(
                 f"detokenize expects (rows, {expected_dim}) for "
@@ -2053,7 +2169,7 @@ class TokenizeBimanualArcLengthCartesian:
             )
         rows = arc_actions.shape[0]
         granular = self.velocity_mode in ("per_waypoint", "duration")
-        if self.velocity_layout == "wide":
+        if self.velocity_layout in ("wide", "clock"):
             M = rows
         else:
             M = rows // 2 if granular else rows - 1
@@ -2073,6 +2189,9 @@ class TokenizeBimanualArcLengthCartesian:
             # Columns 0..13 are the waypoint, 14..27 the velocity riding on it.
             waypoints = arc_actions[:, :ARC_TOK_BIMANUAL_DIM]  # (M, 14)
             vel_rows = arc_actions[:, ARC_TOK_BIMANUAL_DIM:]  # (M, 14)
+        elif self.velocity_layout == "clock":
+            stacked = stack_arc_token(arc_actions)
+            waypoints, vel_rows = stacked[:M], stacked[M:]
         else:
             waypoints = arc_actions[:M]  # (M, 14)
             vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular

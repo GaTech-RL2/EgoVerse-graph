@@ -1,0 +1,23 @@
+# @package _global_
+# Multistream ARC with four duration clocks: each arm's translation runs to D
+# and each arm's rotation to R on its own clock. The token is (M, 18): 14 pose
+# columns, then the four clocks' per-interval seconds.
+defaults:
+  - /experiment/abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_baseline
+  - _self_
+name: organize_rl2_elmo_hpt300_cotrain_multistream
+description: HPT300 ResNet-MLP cotraining, multistream ARC D0.42 R24deg M100 duration clocks
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+  human_keymap_mode: hybrid_arc_tokenizer_cartesian
+  human_action_mode: hybrid_arc_tokenizer_cartesian
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+  velocity_mode: ${abc.arc_velocity_mode}
+logger:
+  wandb:
+    tags: [hpt300m, resnet_mlp, rl2, organize_stationary, elmo, cotrain, human_bimanual, multistream, D042, R24deg, M100, duration_clock, open_loop, video]

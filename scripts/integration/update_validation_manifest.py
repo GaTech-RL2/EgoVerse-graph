@@ -37,6 +37,13 @@ VALIDATION_FILES = {
     "egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/export.log",
     "convention.png",
     "mano_keypoints.png",
+    "egomimic/robot/eva/stanford_repo/python/examples/test_bimanual.py",
+    "egomimic/robot/eva/stanford_repo/python/examples/test_gripper_force_compensation.py",
+    "egomimic/robot/eva/stanford_repo/python/examples/test_joint_control.py",
+    "egomimic/robot/eva/stanford_repo/python/examples/test_solver.py",
+    "egomimic/robot/eva/stanford_repo/python/examples/test_torque_control.py",
+    "egomimic/robot/eva/stanford_repo/python/examples/test_upside_down.py",
+    "egomimic/robot/eva/stanford_repo/python/examples/test_x7.py",
 }
 
 

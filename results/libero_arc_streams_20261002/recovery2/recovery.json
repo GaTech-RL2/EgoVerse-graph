@@ -1,0 +1,48 @@
+{
+  "recorded_at_utc": "2026-10-02T16:15:07.210454+00:00",
+  "reason": "All suites passed paired replay and completed the two-update GPU training preflight. The checkpoint verifier then looked for top-level benchmark and seed fields, but ModelWrapper only saves its resolved model tree. Full training had not started.",
+  "fix": "Save campaign geometry, seed and loader provenance in model.benchmark_protocol, validate that persisted protocol, and test production checkpoint verification after real training.",
+  "previous_source_commit": "1a350d010ad031f1446d11b578719f3900e19522",
+  "replacement_source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "training_config_changed": false,
+  "full_training_resumed": false,
+  "replay_will_run_again_at_replacement_source": true,
+  "failed_workflows": [
+    {
+      "suite": "libero_spatial",
+      "workflow_id": "arc-str-20261002-spatial-1",
+      "replay_status": "COMPLETED",
+      "training_task_status": "FAILED",
+      "training_task_start": "2026-10-02T14:57:34.102734",
+      "training_task_end": "2026-10-02T15:12:44.270772",
+      "error": "ConfigKeyError: Missing key benchmark"
+    },
+    {
+      "suite": "libero_object",
+      "workflow_id": "arc-str-20261002r1-object-1",
+      "replay_status": "COMPLETED",
+      "training_task_status": "FAILED",
+      "training_task_start": "2026-10-02T14:59:13.277440",
+      "training_task_end": "2026-10-02T15:17:23.462604",
+      "error": "ConfigKeyError: Missing key benchmark"
+    },
+    {
+      "suite": "libero_goal",
+      "workflow_id": "arc-str-20261002r1-goal-1",
+      "replay_status": "COMPLETED",
+      "training_task_status": "FAILED",
+      "training_task_start": "2026-10-02T15:00:42.114591",
+      "training_task_end": "2026-10-02T15:15:36.886795",
+      "error": "ConfigKeyError: Missing key benchmark"
+    },
+    {
+      "suite": "libero_10",
+      "workflow_id": "arc-str-20261002r1-10-1",
+      "replay_status": "COMPLETED",
+      "training_task_status": "FAILED",
+      "training_task_start": "2026-10-02T15:00:44.260589",
+      "training_task_end": "2026-10-02T15:15:27.790755",
+      "error": "ConfigKeyError: Missing key benchmark"
+    }
+  ]
+}

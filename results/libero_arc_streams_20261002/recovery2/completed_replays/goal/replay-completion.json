@@ -1,0 +1,696 @@
+{
+  "source_commit": "1a350d010ad031f1446d11b578719f3900e19522",
+  "suite": "libero_goal",
+  "sources": {
+    "egomimic/rldb/zarr/libero_arc.py": "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03",
+    "egomimic/rldb/zarr/libero_arc_timed.py": "84e3d53649b8e56330afa00c6c25c8cc0db81df4aa229ab0cc5d897b823636ab",
+    "egomimic/rldb/zarr/libero_arc_grouped.py": "5df31854f814b520ba6e63ca22b46c911952996bd9da30e5b553de729bd25df0",
+    "egomimic/rldb/zarr/planar_arc.py": "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1",
+    "egomimic/benchmarks/libero/replay.py": "7c356e24b58fe2625e709f3c9c7b4fb5da89ae2b5ab2401c7a1a49167f9826fe",
+    "egomimic/benchmarks/libero/arc_streams.py": "7bc388d817697d64352940c730c279fbb2bed3f03128638bb19dd735a4729a88",
+    "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml": "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc",
+    "egomimic/hydra_configs/arc_stream/reference.yaml": "15f1b7073ee9e96a321790e41787d1917167bada4bd05ee41ab0a69a77218d4c",
+    "egomimic/hydra_configs/arc_stream/gripper.yaml": "901a62841e49141bd0e1cf8443997295be22df4e71505e62220d0db760c1f63b",
+    "egomimic/hydra_configs/arc_stream/xyz_scalar.yaml": "09617a87b8664db39518d463973ac6e4571e1756b5176b874c8c759867e3e9ba",
+    "egomimic/hydra_configs/arc_stream/component_velocity.yaml": "98200b034e16e0253f91260dd73431056ff1e5224c85f376ebd2e1f96b53602f",
+    "egomimic/hydra_configs/arc_stream/component_time.yaml": "ae5fa4e52eed470c5cac21e0d928be66a6a84ab576d0713d0b48a759111f92d5",
+    "egomimic/hydra_configs/arc_stream/x_yz.yaml": "ae1e8e3245c99e737e1b27a0853eb43fc6d0ba11ba8834b71ae1d5fbfab54a43",
+    "egomimic/hydra_configs/arc_stream/y_xz.yaml": "0bf87570afde88eed770d70784283acfd00a6105f409a507629a1b120446af05",
+    "egomimic/hydra_configs/arc_stream/z_xy.yaml": "f5a881a94228e7c761f046c693c076f3b89c4fe0a9575927df6507f62e7ee1d7",
+    "egomimic/hydra_configs/arc_stream/angular_driver.yaml": "3e4a10ba342135bc617bff80b21f5ca721579040a7ed424e2e48827bbe3cb4f9",
+    "egomimic/hydra_configs/arc_stream/angular_scalar.yaml": "64d44516acc2f85b67e3f93735e910f9c4d6012d747c20c8252a2de271970e69",
+    "egomimic/hydra_configs/arc_stream/all_scalar.yaml": "0f228c73c52559fb8c607c644d222cf44cdb5ec329849efad3621a82234fcf5d"
+  },
+  "candidates": {
+    "reference-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "translation",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "reference-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "translation",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "gripper-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "gripper-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "xyz_scalar-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "xyz_scalar-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "component_velocity-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "component",
+        "clocks": "group"
+      }
+    },
+    "component_velocity-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "component",
+        "clocks": "group"
+      }
+    },
+    "component_time-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "component",
+        "clocks": "component"
+      }
+    },
+    "component_time-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "component",
+        "clocks": "component"
+      }
+    },
+    "x_yz-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "x_yz-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "y_xz-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "y_xz-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "z_xy-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            2
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "z_xy-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            2
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "angular_driver-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "angular_driver",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "angular_driver-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "angular_driver",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "angular_scalar-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "rotation_representation": "angular_driver",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "angular_scalar-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "rotation_representation": "angular_driver",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "all_scalar-stk": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "stk",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "rotation_representation": "angular_driver",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    },
+    "all_scalar-dur": {
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384.0,
+      "horizon": 32,
+      "dt": 0.05,
+      "mode": "dur",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "rotation_representation": "angular_driver",
+        "gripper": "separate",
+        "timing": "group",
+        "clocks": "group"
+      }
+    }
+  },
+  "controls_passed": true,
+  "episodes": 30,
+  "demonstrations": [
+    0,
+    1,
+    2
+  ],
+  "use": "paired_reconstruction_not_parameter_selection",
+  "results_sha256": "125c10c98bbde3cd9ab30d050b116fa2dac9028bd14bbf047ad21d71d3588738",
+  "replay_run": "arc-str-20261002r1-goal-replay"
+}

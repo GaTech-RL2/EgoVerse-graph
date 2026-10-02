@@ -108,7 +108,12 @@ stationary actions, gripper events and overflow, sub-R rotation, noncommuting
 rotations, per-component time changes, duration-vs-velocity dwell behavior,
 normalization bounds, invalid partitions, cache identity, all 88 Hydra cells,
 workflow dependencies, stale replay rejection, and real shared training / EMA
-reload / target-free inference for three representative codecs.
+reload / target-free inference for the reference and three representative codecs.
+The reference uses the full production U-Net and the same checkpoint verifier
+as the GPU preflight. All 88 configuration checks use the model-only tree
+serialized by ModelWrapper. The seed, geometry and loader provenance required
+for checkpoint verification are resolved into the saved benchmark protocol;
+verification never assumes the top-level Hydra configuration is in a checkpoint.
 
 Paired replay success and trained-policy success are distinct measurements.
 No full policy scores are claimed until the full optimizer/EMA and rollout

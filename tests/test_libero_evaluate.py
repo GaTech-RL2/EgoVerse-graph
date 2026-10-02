@@ -91,6 +91,23 @@ def test_completion_rejects_incompatible_checkpoint(checkpoint, invalid):
         checkpoint_completion(payload, request)
 
 
+def test_stream_evaluation_accepts_model_only_checkpoint_and_checks_saved_seed(checkpoint):
+    from tests.test_libero_stream_campaign import experiment
+
+    payload, _, request = checkpoint
+    _, config = experiment("component_time", "dur")
+    assert "benchmark" not in config and "seed" not in config
+    payload["hyper_parameters"]["config_tree"] = config
+    request.update(method="arc_dur", arc_stream_variant="component_time")
+    proof = checkpoint_completion(payload, request)
+    assert proof["epochs_completed"] == 5001
+    assert proof["global_step"] == 270054
+
+    config["model"]["benchmark_protocol"]["seed"] = 1
+    with pytest.raises(ValueError, match="seed"):
+        checkpoint_completion(payload, request)
+
+
 @pytest.mark.parametrize("invalid", [None, "hash", "runtime", "partial"])
 def test_restores_only_pinned_complete_policy_without_training_data(
     tmp_path, checkpoint, invalid

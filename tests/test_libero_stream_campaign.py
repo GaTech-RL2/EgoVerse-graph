@@ -13,6 +13,7 @@ from egomimic.benchmarks.libero.arc_streams import (
     stream_training_arguments,
     validate_replay_proof,
     validate_stream_config,
+    verify_checkpoint,
 )
 from scripts.benchmarks.launch_libero_streams import stream_workflow
 
@@ -28,11 +29,10 @@ def experiment(variant, mode, suite="libero_spatial", train_mode="full", gpus=4)
             config_name="train_zarr_cartesian",
             overrides=arguments[3:] + ["norm_stats.save_cache_dir=out/norm_stats"],
         )
-    tree = {
-        key: OmegaConf.to_container(cfg[key], resolve=True)
-        for key in ("model", "benchmark")
-    }
-    tree["seed"] = cfg.seed
+    from egomimic.trainHydra import _build_model_config_tree
+
+    tree = OmegaConf.to_container(_build_model_config_tree(cfg), resolve=True)
+    assert "benchmark" not in tree and "seed" not in tree
     return cfg, tree
 
 
@@ -63,12 +63,13 @@ def test_all_88_cells_use_the_same_geometry_optimizer_budget_and_backbone(
 )
 def test_checkpoint_recipe_mismatches_fail_closed(corruption):
     _, tree = experiment("component_time", "dur")
+    protocol = tree["model"]["benchmark_protocol"]
     if corruption == "clock":
-        tree["benchmark"]["arc_stream_spec"]["clocks"] = "group"
+        protocol["arc_stream_spec"]["clocks"] = "group"
     elif corruption == "encoder":
         tree["model"]["pipeline"]["stages"][1]["stream_spec"]["gripper"] = "translation"
     elif corruption == "budget":
-        tree["benchmark"]["arc_max_translation"] = 0.8
+        protocol["arc_max_translation"] = 0.8
     elif corruption == "width":
         tree["model"]["pipeline"]["stages"][3]["policy"]["model"]["down_dims"] = [
             128,
@@ -76,11 +77,11 @@ def test_checkpoint_recipe_mismatches_fail_closed(corruption):
             512,
         ]
     elif corruption == "mode":
-        tree["benchmark"]["arc_mode"] = "stk"
+        protocol["arc_mode"] = "stk"
     elif corruption == "suite":
-        tree["benchmark"]["suite"] = "libero_object"
+        protocol["suite"] = "libero_object"
     else:
-        tree["seed"] = 1
+        protocol["seed"] = 1
     with pytest.raises(ValueError):
         validate_stream_config(
             tree, suite="libero_spatial", variant="component_time", arc_mode="dur"
@@ -264,7 +265,12 @@ def test_cross_representation_comparison_keeps_exact_pairing(tmp_path, mismatch)
 
 @pytest.mark.parametrize(
     "variant,mode",
-    [("gripper", "stk"), ("component_time", "dur"), ("all_scalar", "stk")],
+    [
+        ("reference", "stk"),
+        ("gripper", "stk"),
+        ("component_time", "dur"),
+        ("all_scalar", "stk"),
+    ],
 )
 def test_real_training_checkpoint_ema_reload_and_target_free_inference(
     tmp_path, variant, mode
@@ -278,7 +284,7 @@ def test_real_training_checkpoint_ema_reload_and_target_free_inference(
     path = tmp_path / "data.zarr"
     make_replay(path)
     arguments = stream_training_arguments(
-        "libero10", path, tmp_path, "smoke", variant=variant, arc_mode=mode, gpus=1
+        "libero_10", path, tmp_path, "smoke", variant=variant, arc_mode=mode, gpus=1
     )
     overrides = [
         x
@@ -299,15 +305,24 @@ def test_real_training_checkpoint_ema_reload_and_target_free_inference(
                 f"paths.work_dir={tmp_path}",
             ],
         )
-    cfg.model.pipeline.stages[3].policy.model.down_dims = [16, 32]
-    cfg.model.pipeline.stages[3].policy.model.diffusion_step_embed_dim = 16
-    cfg.model.pipeline.stages[3].policy.num_inference_steps = 2
+    if variant != "reference":
+        cfg.model.pipeline.stages[3].policy.model.down_dims = [16, 32]
+        cfg.model.pipeline.stages[3].policy.model.diffusion_step_embed_dim = 16
+        cfg.model.pipeline.stages[3].policy.num_inference_steps = 2
     _, objects = train(cfg)
     assert objects["trainer"].global_step == 2
     checkpoint = tmp_path / f"training/arc_{mode}/checkpoints/last.ckpt"
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
     assert payload["ema_num_updates"] == 2
     assert payload["optimizer_states"]
+    if variant == "reference":
+        # Exercise the production verifier on a real, full-width checkpoint,
+        # including the model-only config tree and Lightning's epoch counters.
+        proof = verify_checkpoint(
+            checkpoint, suite="libero_10", variant=variant, arc_mode=mode, mode="smoke"
+        )
+        assert proof["epochs_completed"] == 1
+        assert proof["global_step"] == proof["ema_num_updates"] == 2
     policy, protocol = load_policy(checkpoint, device="cpu")
     assert protocol["arc_stream_variant"] == variant
     observation = {

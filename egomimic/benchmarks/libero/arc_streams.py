@@ -199,9 +199,9 @@ def stream_training_arguments(
 
 
 def validate_stream_config(config, *, suite, variant, arc_mode):
+    """Validate the resolved model tree actually serialized by ModelWrapper."""
     expected = variant_settings(variant, arc_mode)
     codec = LiberoArcGroupedCodec(**expected)
-    benchmark = config["benchmark"]
     protocol = config["model"]["benchmark_protocol"]
     geometry = {
         "arc_mode": arc_mode,
@@ -218,13 +218,13 @@ def validate_stream_config(config, *, suite, variant, arc_mode):
         "max_episode_steps": 550,
         "decoded_replay_cache": True,
     }
-    if any(benchmark.get(k) != v for k, v in geometry.items()):
+    if any(protocol.get(k) != v for k, v in geometry.items()):
         raise ValueError("Stream checkpoint geometry, timing or data recipe differs")
     if (
         protocol.get("arc_stream_variant") != variant
         or protocol.get("arc_stream_spec") != expected["stream_spec"]
         or protocol.get("arc_backbone") != campaign()["backbone"]
-        or config["seed"] != campaign()["seed"]
+        or protocol.get("seed") != campaign()["seed"]
     ):
         raise ValueError("Stream checkpoint protocol or training seed differs")
     stages = config["model"]["pipeline"]["stages"]

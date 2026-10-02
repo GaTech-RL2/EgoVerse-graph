@@ -19,3 +19,13 @@ model:
     arc_stream_variant: ${benchmark.arc_stream_variant}
     arc_stream_spec: ${benchmark.arc_stream_spec}
     arc_backbone: unet
+    # ModelWrapper saves the resolved model tree, not the top-level Hydra tree.
+    # Keep the experiment provenance needed for checkpoint gates with the model.
+    arc_mode: ${benchmark.arc_mode}
+    arc_action_dim: ${benchmark.arc_action_dim}
+    arc_waypoints: ${benchmark.arc_waypoints}
+    arc_max_translation: ${benchmark.arc_max_translation}
+    arc_max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
+    max_episode_steps: ${benchmark.max_episode_steps}
+    decoded_replay_cache: ${benchmark.decoded_replay_cache}
+    seed: ${seed}

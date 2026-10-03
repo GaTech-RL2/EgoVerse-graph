@@ -35,7 +35,7 @@ for spec in $RUNS; do
       "norm_stats.precomputed_norm_path=$RD/norm_stats/norm_stats.json" \
       "evaluator.results_path=$OUT/open_loop_sim.json" \
       "paths.output_dir=$OUT" "hydra.run.dir=$OUT" 2>&1 | grep -vi "warn" | tail -25
-    "$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); m=d.get('metrics', d); print('RESULT', sys.argv[2], sys.argv[3], {k: m[k] for k in m if k in ('paired_mse','mse','xyz_mse','grip_mse','ypr_mse')})" "$OUT/open_loop_sim.json" "$v" "$STEP"
+    "$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); m=d['micro']; print('RESULT', sys.argv[2], sys.argv[3], 'episodes', d['episodes'], 'coverage', d['coverage'], {k: round(m[k], 6) for k in ('paired_mse', 'xyz_mse', 'grip_mse', 'ypr_mse')})" "$OUT/open_loop_sim.json" "$v" "$STEP"
   done
 done
 echo EVAL_DONE

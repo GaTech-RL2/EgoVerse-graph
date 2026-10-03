@@ -485,24 +485,43 @@ def arc_prefix_control_steps(
 
 # E1 wide (M, 16) layouts: each row is one waypoint's 14 pose columns followed by
 # one timing column per arm. Names and velocity modes match
-# robot/arc_decoder.E1_VELOCITY_MODE, the decoder the robot runs.
+# robot/arc_decoder.E1_VELOCITY_MODE, the decoder the robot runs. The hybrid
+# layouts (M, 18) carry a translation and a rotation timing column per arm, and
+# their row M-1 is each stream's start delay rather than an interval.
 E1_WIDE_TOKEN_DIM = 16
-E1_WIDE_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
+E1_WIDE_VELOCITY_MODE = {
+    "e1_dur": "dur",
+    "e1_logdur": "logdur",
+    "e1_profile": "profile",
+    "e1_durhyb": "durhyb",
+    "e1_profhyb": "profhyb",
+}
+E1_HYBRID_LAYOUTS = ("e1_durhyb", "e1_profhyb")
 TOKEN_LAYOUTS = ("lab", *E1_WIDE_VELOCITY_MODE)
 
 
-def truncate_e1_wide_token(token: np.ndarray, execute_fraction: float) -> np.ndarray:
+def e1_token_dim(layout: str) -> int:
+    return 18 if layout in E1_HYBRID_LAYOUTS else E1_WIDE_TOKEN_DIM
+
+
+def truncate_e1_wide_token(
+    token: np.ndarray, execute_fraction: float, hybrid: bool = False
+) -> np.ndarray:
     """Keep the first distance fraction of an E1 wide ``(M, 16)`` ARC token.
 
     Every row carries one waypoint together with that waypoint's timing entry
     for each arm, so truncating rows keeps each executed waypoint with its own
     timing -- the ``(M, 16)`` counterpart of :func:`truncate_arc_token`.
+    ``hybrid`` (M, 18): each stream is cut to the first fraction of its own arc,
+    and the kept last row takes the stream's start delay from row M-1, which is
+    where the hybrid codec reads it.
     """
 
     value = np.asarray(token, dtype=np.float64)
-    if value.ndim != 2 or value.shape[1] != E1_WIDE_TOKEN_DIM:
+    dim = 18 if hybrid else E1_WIDE_TOKEN_DIM
+    if value.ndim != 2 or value.shape[1] != dim:
         raise ValueError(
-            f"E1 wide ARC token must have shape (M, {E1_WIDE_TOKEN_DIM}), "
+            f"E1 wide ARC token must have shape (M, {dim}), "
             f"got {value.shape}"
         )
     fraction = float(execute_fraction)
@@ -510,7 +529,10 @@ def truncate_e1_wide_token(token: np.ndarray, execute_fraction: float) -> np.nda
         raise ValueError("execute_fraction must be in (0, 1]")
     M = int(value.shape[0])
     K = max(2, min(M, int(math.ceil(M * fraction))))
-    return value[:K].copy()
+    out = value[:K].copy()
+    if hybrid:
+        out[K - 1, 14:] = value[M - 1, 14:]
+    return out
 
 
 class OpenLoopSimEval(BimanualCartesianEval):
@@ -524,8 +546,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
     timing recovers the corresponding variable control-frame stride.
 
     ``token_layout`` selects the ARC codec: ``lab`` for the ``(M+1, 14)`` /
-    ``(2M, 14)`` layouts chosen by ``velocity_mode``, or ``e1_dur`` /
-    ``e1_logdur`` / ``e1_profile`` for the E1 wide ``(M, 16)`` layouts.
+    ``(2M, 14)`` layouts chosen by ``velocity_mode``, ``e1_dur`` /
+    ``e1_logdur`` / ``e1_profile`` for the E1 wide ``(M, 16)`` layouts, or
+    ``e1_durhyb`` / ``e1_profhyb`` for the E1 hybrid ``(M, 18)`` layouts.
 
     The evaluator expects validation to contain every frame of each episode,
     with ``episode_hash`` and ``frame_index`` metadata. It accumulates model
@@ -1176,10 +1199,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
         return self.normalizer.unnormalize({key: value}, embodiment_id).get(key, value)
 
     def _is_arc_prediction(self, prediction: np.ndarray) -> bool:
-        if getattr(self, "token_layout", "lab") in E1_WIDE_VELOCITY_MODE:
+        layout = getattr(self, "token_layout", "lab")
+        if layout in E1_WIDE_VELOCITY_MODE:
             return prediction.ndim == 2 and prediction.shape == (
                 self.resampled_vector_length,
-                E1_WIDE_TOKEN_DIM,
+                e1_token_dim(layout),
             )
         expected = bimanual_arc_token_rows(
             self.resampled_vector_length, self.velocity_mode
@@ -1231,7 +1255,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     velocity_norm="path",
                     velocity_mode=E1_WIDE_VELOCITY_MODE[layout],
                 )
-            partial = truncate_e1_wide_token(prediction, self.execute_fraction)
+            partial = truncate_e1_wide_token(
+                prediction, self.execute_fraction, hybrid=layout in E1_HYBRID_LAYOUTS
+            )
             steps = self.execute_steps
             if max_steps is not None:
                 steps = min(steps, int(max_steps))

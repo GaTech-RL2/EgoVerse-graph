@@ -19,6 +19,8 @@ abc:
   arc_velocity_mode: duration
   arc_velocity_layout: clock
   arc_token_dim: 18
+  # ARC read window in native frames, shared by robot and human.
+  arc_source_buffer_frames: 200
 evaluator:
   limit_val_episodes: null
 logger:

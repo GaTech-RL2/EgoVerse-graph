@@ -1,7 +1,8 @@
 # Classic robot + human cotraining on RL2 organize_stationary, operator Elmo.
 # Robot: yam_bimanual. Human: Aria gen1 recordings processed as human_bimanual.
 # Both run at native 30 Hz with the same action contract: 100-frame baseline
-# chunks, or ARC tokens read from a 200-frame source window. Validation holds
+# chunks, or ARC tokens read from a shared source window
+# (abc.arc_source_buffer_frames). Validation holds
 # out 5% of each embodiment's episodes (10 robot, 1 human).
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
@@ -20,6 +21,7 @@ train_datasets:
         min_distance_unit: ${abc.arc_distance}
         rotation_distance_unit: ${abc.arc_rotation_distance}
         arc_chunking_mode: ${abc.arc_chunking_mode}
+        source_buffer_frames: ${abc.arc_source_buffer_frames}
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
         action_mode: ${abc.action_mode}
@@ -53,10 +55,10 @@ train_datasets:
         min_distance_unit: ${abc.arc_distance}
         rotation_distance_unit: ${abc.arc_rotation_distance}
         arc_chunking_mode: ${abc.arc_chunking_mode}
-        # Match the robot: 100 native frames per baseline chunk, and a
-        # 200-frame ARC read window.
+        # Match the robot: 100 native frames per baseline chunk and the same
+        # ARC read window.
         action_horizon: ${abc.action_horizon}
-        source_buffer_frames: 200
+        source_buffer_frames: ${abc.arc_source_buffer_frames}
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         action_mode: ${abc.human_action_mode}

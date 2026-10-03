@@ -1833,18 +1833,40 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     group: self._summarize_episodes(items)
                     for group, items in sorted(by_group.items())
                 },
+                # Same summary restricted to one embodiment (episode label),
+                # so cotraining reports robot and human separately.
+                "per_group_embodiment": {
+                    group: {
+                        label: {
+                            k: v
+                            for k, v in self._summarize_episodes(
+                                [i for i in items if i["label"] == label]
+                            ).items()
+                            if k != "episode_results"
+                        }
+                        for label in sorted({i["label"] for i in items})
+                    }
+                    for group, items in sorted(by_group.items())
+                },
             }
         )
         return results
 
     def _metric_tensors(self, results: dict[str, Any]) -> dict[str, torch.Tensor]:
         metrics = {}
+        summaries = []
         for group, summary in results["per_group"].items():
             prefix = (
                 "Valid/open_loop_sim"
                 if group == DEFAULT_VALID_GROUP
                 else f"Valid_{group}/open_loop_sim"
             )
+            summaries.append((prefix, summary))
+            per_embodiment = results.get("per_group_embodiment", {}).get(group, {})
+            summaries.extend(
+                (f"{prefix}/{label}", item) for label, item in per_embodiment.items()
+            )
+        for prefix, summary in summaries:
             if "distance_dtw" in summary:
                 dtw = summary["distance_dtw"]
                 for name, key in {

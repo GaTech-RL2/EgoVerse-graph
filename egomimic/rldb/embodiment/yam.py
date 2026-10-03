@@ -363,8 +363,13 @@ class Yam(Embodiment):
         arc_chunking_mode: str | None = None,
         task_key: str | None = None,
         task_zarr_key: str = "task_description",
+        source_buffer_frames: int | None = None,
     ):
-        """Keep the raw-data read horizon aligned with configured ARC caps."""
+        """Keep the raw-data read horizon aligned with configured ARC caps.
+
+        ``source_buffer_frames`` overrides the ARC read window
+        (``ARC_SOURCE_BUFFER_FRAMES``); baseline keymaps ignore it.
+        """
         key_map = super().get_keymap(
             keymap_mode,
             norm_mode=norm_mode,
@@ -377,6 +382,8 @@ class Yam(Embodiment):
             horizon = spec.get("horizon")
             if not isinstance(horizon, dict):
                 continue
+            if source_buffer_frames is not None:
+                horizon["source_buffer_frames"] = int(source_buffer_frames)
             if min_distance_unit is not None:
                 horizon["distance"] = float(min_distance_unit)
             if rotation_distance_unit is not None:

@@ -267,6 +267,39 @@ def test_open_loop_sim_keeps_validation_groups_separate():
     assert result["per_group"]["nested"]["micro"]["mse"] == pytest.approx(1.0)
 
 
+def test_open_loop_sim_reports_each_embodiment_separately():
+    """Cotraining validation must not average robot and human into one number."""
+    evaluator = _baseline_evaluator()
+    evaluator._metric_device = "cpu"
+    records = []
+    for label, error in (("yam_bimanual", 1.0), ("human_bimanual", 3.0)):
+        for frame in range(2):
+            records.append(
+                {
+                    "group": "valid",
+                    "source": label,
+                    "label": label,
+                    "episode": f"episode-{label}",
+                    "frame": frame,
+                    "prediction": np.full((4, 14), error),
+                    "ground_truth": np.zeros((4, 14)),
+                }
+            )
+
+    result = evaluator._compute_results(records)
+    split = result["per_group_embodiment"]["valid"]
+    assert split["yam_bimanual"]["micro"]["mse"] == pytest.approx(1.0)
+    assert split["human_bimanual"]["micro"]["mse"] == pytest.approx(9.0)
+    assert result["per_group"]["valid"]["micro"]["mse"] == pytest.approx(5.0)
+    metrics = evaluator._metric_tensors(result)
+    assert metrics["Valid/open_loop_sim/MSE"].item() == pytest.approx(5.0)
+    assert metrics["Valid/open_loop_sim/yam_bimanual/MSE"].item() == pytest.approx(1.0)
+    assert metrics["Valid/open_loop_sim/human_bimanual/MSE"].item() == pytest.approx(
+        9.0
+    )
+    assert metrics["Valid/open_loop_sim/human_bimanual/Episodes"].item() == 1
+
+
 def test_open_loop_sim_limits_complete_episodes_not_batches():
     evaluator = _baseline_evaluator()
     evaluator.limit_val_episodes = 1

@@ -212,6 +212,8 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
     assert set(train) == {"yam_bimanual", "human_bimanual"}
     human = train.human_bimanual.resolver.key_map
     assert (human.action_horizon, human.source_buffer_frames) == (100, 200)
+    robot_keymap = train.yam_bimanual.resolver.key_map
+    assert robot_keymap.source_buffer_frames == 200
     assert train.human_bimanual.resolver.transform_list.stride == 1
     row = dict(
         lab="rl2",
@@ -268,3 +270,30 @@ def test_dtw_segment_cap_clips_and_reports_instead_of_raising():
     assert result["clipped_segments"] >= 2
     assert max(max(steps) for steps in result["segment_control_steps"]) <= 300
     assert np.isfinite(result["xyz_mse"])
+
+
+def test_yam_keymap_source_buffer_override():
+    from egomimic.rldb.embodiment.yam import Yam
+
+    keymap = Yam.get_keymap(
+        "hybrid_arc_tokenizer_cartesian",
+        min_distance_unit=0.42,
+        rotation_distance_unit=0.42,
+        arc_chunking_mode="multistream",
+        source_buffer_frames=400,
+    )
+    horizons = [
+        v["horizon"] for v in keymap.values() if isinstance(v.get("horizon"), dict)
+    ]
+    assert horizons and all(h["source_buffer_frames"] == 400 for h in horizons)
+    default = Yam.get_keymap(
+        "hybrid_arc_tokenizer_cartesian",
+        min_distance_unit=0.42,
+        rotation_distance_unit=0.42,
+        arc_chunking_mode="multistream",
+    )
+    assert all(
+        v["horizon"]["source_buffer_frames"] == Yam.ARC_SOURCE_BUFFER_FRAMES
+        for v in default.values()
+        if isinstance(v.get("horizon"), dict)
+    )

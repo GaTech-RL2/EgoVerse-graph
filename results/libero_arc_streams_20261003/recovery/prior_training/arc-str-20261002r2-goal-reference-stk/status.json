@@ -1,0 +1,47 @@
+{
+  "state": "TRAINING_COMPLETE",
+  "global_step": 280056,
+  "ema_num_updates": 280056,
+  "epochs_completed": 5001,
+  "training_budget": {
+    "train_examples": 57763,
+    "microbatch_size": 256,
+    "world_size": 4,
+    "gradient_accumulation": 1,
+    "global_batch_size": 1024,
+    "optimizer_steps_per_epoch": 56,
+    "microbatches_per_epoch": 56,
+    "epochs": 5001,
+    "total_optimizer_steps": 280056,
+    "dropped_examples_per_epoch": 419
+  },
+  "representation": {
+    "version": 1,
+    "layout": "shape_then_timing",
+    "stream_spec": {
+      "translation_groups": [
+        [
+          0,
+          1,
+          2
+        ]
+      ],
+      "rotation_groups": [
+        [
+          0,
+          1,
+          2
+        ]
+      ],
+      "rotation_representation": "so3",
+      "gripper": "translation",
+      "timing": "group",
+      "clocks": "group"
+    },
+    "shape_dim": 10,
+    "action_dim": 12,
+    "gripper_distance": "absolute_command_variation_uncapped",
+    "component_rotation_basis": "world_frame_angular_increments"
+  },
+  "action_parameters": 40345612
+}

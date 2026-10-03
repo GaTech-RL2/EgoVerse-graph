@@ -1,0 +1,41 @@
+{
+  "run_kind": "arc_streams",
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "suite": "libero_goal",
+  "mode": "full",
+  "operation": "train",
+  "gpu_type": "L40S",
+  "gpu": "NVIDIA L40S",
+  "torch": "2.7.1+cu126",
+  "arc_stream_variant": "reference",
+  "arc_mode": "stk",
+  "training_layout": {
+    "world_size": 4,
+    "microbatch_size": 256,
+    "gradient_accumulation": 1,
+    "global_batch_size": 1024
+  },
+  "epochs": 5001,
+  "global_batch_size": 1024,
+  "campaign_manifest_sha256": "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc",
+  "sources": {
+    "egomimic/rldb/zarr/libero_arc.py": "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03",
+    "egomimic/rldb/zarr/libero_arc_timed.py": "84e3d53649b8e56330afa00c6c25c8cc0db81df4aa229ab0cc5d897b823636ab",
+    "egomimic/rldb/zarr/libero_arc_grouped.py": "5df31854f814b520ba6e63ca22b46c911952996bd9da30e5b553de729bd25df0",
+    "egomimic/rldb/zarr/planar_arc.py": "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1",
+    "egomimic/benchmarks/libero/replay.py": "7c356e24b58fe2625e709f3c9c7b4fb5da89ae2b5ab2401c7a1a49167f9826fe",
+    "egomimic/benchmarks/libero/arc_streams.py": "2143a6d76e6a0cb793da718b2a30ed779a83bb2a983e663734288bdf4b4dbdc8",
+    "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml": "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc",
+    "egomimic/hydra_configs/arc_stream/reference.yaml": "15f1b7073ee9e96a321790e41787d1917167bada4bd05ee41ab0a69a77218d4c",
+    "egomimic/hydra_configs/arc_stream/gripper.yaml": "901a62841e49141bd0e1cf8443997295be22df4e71505e62220d0db760c1f63b",
+    "egomimic/hydra_configs/arc_stream/xyz_scalar.yaml": "09617a87b8664db39518d463973ac6e4571e1756b5176b874c8c759867e3e9ba",
+    "egomimic/hydra_configs/arc_stream/component_velocity.yaml": "98200b034e16e0253f91260dd73431056ff1e5224c85f376ebd2e1f96b53602f",
+    "egomimic/hydra_configs/arc_stream/component_time.yaml": "ae5fa4e52eed470c5cac21e0d928be66a6a84ab576d0713d0b48a759111f92d5",
+    "egomimic/hydra_configs/arc_stream/x_yz.yaml": "ae1e8e3245c99e737e1b27a0853eb43fc6d0ba11ba8834b71ae1d5fbfab54a43",
+    "egomimic/hydra_configs/arc_stream/y_xz.yaml": "0bf87570afde88eed770d70784283acfd00a6105f409a507629a1b120446af05",
+    "egomimic/hydra_configs/arc_stream/z_xy.yaml": "f5a881a94228e7c761f046c693c076f3b89c4fe0a9575927df6507f62e7ee1d7",
+    "egomimic/hydra_configs/arc_stream/angular_driver.yaml": "3e4a10ba342135bc617bff80b21f5ca721579040a7ed424e2e48827bbe3cb4f9",
+    "egomimic/hydra_configs/arc_stream/angular_scalar.yaml": "64d44516acc2f85b67e3f93735e910f9c4d6012d747c20c8252a2de271970e69",
+    "egomimic/hydra_configs/arc_stream/all_scalar.yaml": "0f228c73c52559fb8c607c644d222cf44cdb5ec329849efad3621a82234fcf5d"
+  }
+}

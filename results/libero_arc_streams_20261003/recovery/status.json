@@ -1,0 +1,1911 @@
+{
+  "observed_at_utc": "2026-10-03T20:37:20.850604+00:00",
+  "workflows": [
+    {
+      "name": "arc-sr-20261003-spatial-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "submit_time": "2026-10-03T20:32:05.538561",
+      "start_time": "2026-10-03T20:32:14.966991",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-spatial-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:14.966991",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:16.643151",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-se-20261003-spatial-reference-stk-eval-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "submit_time": "2026-10-03T20:20:21.712797",
+      "start_time": "2026-10-03T20:20:31.486586",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-se-20261003-spatial-reference-stk-eval-1",
+      "tasks": [
+        {
+          "name": "libero",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:20:31.486586",
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-object-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "submit_time": "2026-10-03T20:32:20.276097",
+      "start_time": "2026-10-03T20:32:30.627089",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-object-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-train",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:30.627089",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-goal-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "submit_time": "2026-10-03T20:32:36.775094",
+      "start_time": "2026-10-03T20:32:45.222829",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-goal-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:45.222829",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:47.309348",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-se-20261003-goal-reference-stk-eval-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "submit_time": "2026-10-03T20:20:23.637477",
+      "start_time": "2026-10-03T20:20:31.629342",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-se-20261003-goal-reference-stk-eval-1",
+      "tasks": [
+        {
+          "name": "libero",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:20:31.629342",
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-10-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "submit_time": "2026-10-03T20:33:01.585278",
+      "start_time": "2026-10-03T20:33:13.196345",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-10-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-train",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:33:14.026047",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:33:13.196345",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    }
+  ],
+  "saved_training_progress": [
+    {
+      "training_run_id": "arc-str-20261002r2-spatial-reference-stk",
+      "suite": "libero_spatial",
+      "variant": "reference",
+      "mode": "stk",
+      "complete": true,
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint": {
+        "sha256": "a1cb1c022b538cb603d320bc8582cd0e0c4a26177c49057b5e389c50f6040c7f",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-str-20261002r2-spatial-reference-stk/checkpoints/a1cb1c022b538cb603d320bc8582cd0e0c4a26177c49057b5e389c50f6040c7f/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-spatial-reference-dur",
+      "suite": "libero_spatial",
+      "variant": "reference",
+      "mode": "dur",
+      "complete": false,
+      "saved_epochs_at_least": 1840,
+      "saved_progress_percent_at_least": 36.79,
+      "checkpoint": {
+        "sha256": "7ba05cc7ecd96a1ec0bd9dec8b957eb23c36d2862b345d144c0699839319015c",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-spatial-reference-dur/checkpoints/7ba05cc7ecd96a1ec0bd9dec8b957eb23c36d2862b345d144c0699839319015c/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-spatial-gripper-stk",
+      "suite": "libero_spatial",
+      "variant": "gripper",
+      "mode": "stk",
+      "complete": false,
+      "saved_epochs_at_least": 1860,
+      "saved_progress_percent_at_least": 37.19,
+      "checkpoint": {
+        "sha256": "8e0556c96f9089ef20f276bc43cef0bbba5a4b52bc61e8fbed2b2bd7758a325f",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-spatial-gripper-stk/checkpoints/8e0556c96f9089ef20f276bc43cef0bbba5a4b52bc61e8fbed2b2bd7758a325f/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-spatial-component-time-dur",
+      "suite": "libero_spatial",
+      "variant": "component_time",
+      "mode": "dur",
+      "complete": false,
+      "saved_epochs_at_least": 1690,
+      "saved_progress_percent_at_least": 33.79,
+      "checkpoint": {
+        "sha256": "69cedbca62d153853a39d6526dcd03c9a43119e6a371576e7770e9516461a7c6",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-spatial-component-time-dur/checkpoints/69cedbca62d153853a39d6526dcd03c9a43119e6a371576e7770e9516461a7c6/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-str-20261002r2-object-reference-stk",
+      "suite": "libero_object",
+      "variant": "reference",
+      "mode": "stk",
+      "complete": false,
+      "saved_epochs_at_least": 4430,
+      "saved_progress_percent_at_least": 88.58,
+      "checkpoint": {
+        "sha256": "4a84a2ac09cd5dfb7c4ea286cb15338ca5d0fd7102fa52ef77e1456a5625fea1",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-str-20261002r2-object-reference-stk/checkpoints/4a84a2ac09cd5dfb7c4ea286cb15338ca5d0fd7102fa52ef77e1456a5625fea1/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-object-reference-dur",
+      "suite": "libero_object",
+      "variant": "reference",
+      "mode": "dur",
+      "complete": false,
+      "saved_epochs_at_least": 1520,
+      "saved_progress_percent_at_least": 30.39,
+      "checkpoint": {
+        "sha256": "c2fa195d0daa434704093d351beee35dcc33867578b79d5006d3a22590c5adfd",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-object-reference-dur/checkpoints/c2fa195d0daa434704093d351beee35dcc33867578b79d5006d3a22590c5adfd/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-object-gripper-stk",
+      "suite": "libero_object",
+      "variant": "gripper",
+      "mode": "stk",
+      "complete": false,
+      "saved_epochs_at_least": 1520,
+      "saved_progress_percent_at_least": 30.39,
+      "checkpoint": {
+        "sha256": "fc8906e6d6c5d44198d90a7cf24555c9645ddb66d6bf7fdfe68307761d2e5c2a",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-object-gripper-stk/checkpoints/fc8906e6d6c5d44198d90a7cf24555c9645ddb66d6bf7fdfe68307761d2e5c2a/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-object-component-time-dur",
+      "suite": "libero_object",
+      "variant": "component_time",
+      "mode": "dur",
+      "complete": false,
+      "saved_epochs_at_least": 1400,
+      "saved_progress_percent_at_least": 27.99,
+      "checkpoint": {
+        "sha256": "b815fb511abad2b0caa44311852cba691313caf1b91c11b5a754c757c3c63545",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-object-component-time-dur/checkpoints/b815fb511abad2b0caa44311852cba691313caf1b91c11b5a754c757c3c63545/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-str-20261002r2-goal-reference-stk",
+      "suite": "libero_goal",
+      "variant": "reference",
+      "mode": "stk",
+      "complete": true,
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint": {
+        "sha256": "7e0190fc02729a3ef45d6f8d4663b2e035526308cb4559286f137d997457aa33",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-str-20261002r2-goal-reference-stk/checkpoints/7e0190fc02729a3ef45d6f8d4663b2e035526308cb4559286f137d997457aa33/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-goal-reference-dur",
+      "suite": "libero_goal",
+      "variant": "reference",
+      "mode": "dur",
+      "complete": false,
+      "saved_epochs_at_least": 1730,
+      "saved_progress_percent_at_least": 34.59,
+      "checkpoint": {
+        "sha256": "ed1845a5252c6380404936e77442088e09e7a9a4cb22f1b86d6befef674c2a08",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-goal-reference-dur/checkpoints/ed1845a5252c6380404936e77442088e09e7a9a4cb22f1b86d6befef674c2a08/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-goal-gripper-stk",
+      "suite": "libero_goal",
+      "variant": "gripper",
+      "mode": "stk",
+      "complete": false,
+      "saved_epochs_at_least": 1700,
+      "saved_progress_percent_at_least": 33.99,
+      "checkpoint": {
+        "sha256": "5337e76353ed8e0d3a3160c77e82f10098d452f0b344a51a4cf0bcae2249deb6",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-goal-gripper-stk/checkpoints/5337e76353ed8e0d3a3160c77e82f10098d452f0b344a51a4cf0bcae2249deb6/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-goal-component-time-dur",
+      "suite": "libero_goal",
+      "variant": "component_time",
+      "mode": "dur",
+      "complete": false,
+      "saved_epochs_at_least": 1510,
+      "saved_progress_percent_at_least": 30.19,
+      "checkpoint": {
+        "sha256": "f9d42b4628d03a702ff0916fb07203eeefec283dcc5b6a8363762f663ca31eca",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-goal-component-time-dur/checkpoints/f9d42b4628d03a702ff0916fb07203eeefec283dcc5b6a8363762f663ca31eca/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-str-20261002r2-10-reference-stk",
+      "suite": "libero_10",
+      "variant": "reference",
+      "mode": "stk",
+      "complete": false,
+      "saved_epochs_at_least": 2470,
+      "saved_progress_percent_at_least": 49.39,
+      "checkpoint": {
+        "sha256": "3f422cde0f73eea967257b23ca7cd54f81e9fa72110c62641498fa11e13f384d",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-str-20261002r2-10-reference-stk/checkpoints/3f422cde0f73eea967257b23ca7cd54f81e9fa72110c62641498fa11e13f384d/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-10-reference-dur",
+      "suite": "libero_10",
+      "variant": "reference",
+      "mode": "dur",
+      "complete": false,
+      "saved_epochs_at_least": 780,
+      "saved_progress_percent_at_least": 15.6,
+      "checkpoint": {
+        "sha256": "c4dc820f80ce8030cdf84858fe8e15c55d107cec9752aeea67145b1fc1d8e6c7",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-10-reference-dur/checkpoints/c4dc820f80ce8030cdf84858fe8e15c55d107cec9752aeea67145b1fc1d8e6c7/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-10-gripper-stk",
+      "suite": "libero_10",
+      "variant": "gripper",
+      "mode": "stk",
+      "complete": false,
+      "saved_epochs_at_least": 790,
+      "saved_progress_percent_at_least": 15.8,
+      "checkpoint": {
+        "sha256": "d8118eefb1f8580c3ca6e411e5f6c82c1c0f8c43afe609c9ff79496d42631de2",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-10-gripper-stk/checkpoints/d8118eefb1f8580c3ca6e411e5f6c82c1c0f8c43afe609c9ff79496d42631de2/last.ckpt"
+      }
+    },
+    {
+      "training_run_id": "arc-sq-20261002-10-component-time-dur",
+      "suite": "libero_10",
+      "variant": "component_time",
+      "mode": "dur",
+      "complete": false,
+      "saved_epochs_at_least": 740,
+      "saved_progress_percent_at_least": 14.8,
+      "checkpoint": {
+        "sha256": "cacc060b596e69f4635d40ac9eeac5f6824a3e41d044d0063cdad33b7b95671b",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-10-component-time-dur/checkpoints/cacc060b596e69f4635d40ac9eeac5f6824a3e41d044d0063cdad33b7b95671b/last.ckpt"
+      }
+    }
+  ],
+  "live_artifacts": {
+    "arc-sr-20261003-goal-component-time-dur": {},
+    "arc-sr-20261003-10-component-time-dur": {
+      "recovered-training.json": {
+        "request": {
+          "source_run": "arc-sq-20261002-10-component-time-dur",
+          "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+          "suite": "libero_10",
+          "method": "arc_dur",
+          "arc_stream_variant": "component_time",
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "checkpoint": {
+            "sha256": "cacc060b596e69f4635d40ac9eeac5f6824a3e41d044d0063cdad33b7b95671b",
+            "bytes": 1004565320,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-10-component-time-dur/checkpoints/cacc060b596e69f4635d40ac9eeac5f6824a3e41d044d0063cdad33b7b95671b/last.ckpt"
+          }
+        },
+        "restored": {
+          "global_step": 89540,
+          "epochs_completed": 740,
+          "serialized_epoch_completed": 739,
+          "ema_num_updates": 89540,
+          "representation": {
+            "version": 1,
+            "layout": "shape_then_timing",
+            "stream_spec": {
+              "translation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_representation": "so3",
+              "gripper": "separate",
+              "timing": "component",
+              "clocks": "component"
+            },
+            "shape_dim": 10,
+            "action_dim": 17,
+            "gripper_distance": "absolute_command_variation_uncapped",
+            "component_rotation_basis": "world_frame_angular_increments"
+          },
+          "training_budget": {
+            "train_examples": 124087,
+            "microbatch_size": 256,
+            "world_size": 4,
+            "gradient_accumulation": 1,
+            "global_batch_size": 1024,
+            "optimizer_steps_per_epoch": 121,
+            "microbatches_per_epoch": 121,
+            "epochs": 5001,
+            "total_optimizer_steps": 605121,
+            "dropped_examples_per_epoch": 183
+          }
+        }
+      },
+      "status.json": {
+        "state": "STAGING_DATA"
+      }
+    },
+    "arc-sr-20261003-10-reference-dur": {},
+    "arc-sr-20261003-spatial-reference-dur": {},
+    "arc-sr-20261003-spatial-gripper-stk": {
+      "recovered-training.json": {
+        "request": {
+          "source_run": "arc-sq-20261002-spatial-gripper-stk",
+          "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+          "suite": "libero_spatial",
+          "method": "arc_stk",
+          "arc_stream_variant": "gripper",
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "checkpoint": {
+            "sha256": "8e0556c96f9089ef20f276bc43cef0bbba5a4b52bc61e8fbed2b2bd7758a325f",
+            "bytes": 1004483144,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-spatial-gripper-stk/checkpoints/8e0556c96f9089ef20f276bc43cef0bbba5a4b52bc61e8fbed2b2bd7758a325f/last.ckpt"
+          }
+        },
+        "restored": {
+          "global_step": 100440,
+          "epochs_completed": 1860,
+          "serialized_epoch_completed": 1859,
+          "ema_num_updates": 100440,
+          "representation": {
+            "version": 1,
+            "layout": "shape_then_timing",
+            "stream_spec": {
+              "translation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_representation": "so3",
+              "gripper": "separate",
+              "timing": "group",
+              "clocks": "group"
+            },
+            "shape_dim": 10,
+            "action_dim": 13,
+            "gripper_distance": "absolute_command_variation_uncapped",
+            "component_rotation_basis": "world_frame_angular_increments"
+          },
+          "training_budget": {
+            "train_examples": 55861,
+            "microbatch_size": 256,
+            "world_size": 4,
+            "gradient_accumulation": 1,
+            "global_batch_size": 1024,
+            "optimizer_steps_per_epoch": 54,
+            "microbatches_per_epoch": 54,
+            "epochs": 5001,
+            "total_optimizer_steps": 270054,
+            "dropped_examples_per_epoch": 565
+          }
+        }
+      },
+      "status.json": {
+        "state": "STAGING_DATA"
+      }
+    },
+    "arc-se-20261003-goal-reference-stk-eval": {
+      "status.json": {
+        "state": "ROLLOUTS",
+        "method": "arc_stk"
+      },
+      "evaluation-progress.json": {
+        "episodes": 576,
+        "planned": 2500,
+        "per_repetition": [
+          115,
+          116,
+          111,
+          121,
+          113
+        ],
+        "workers": 5
+      }
+    },
+    "arc-sr-20261003-object-reference-stk": {},
+    "arc-sr-20261003-10-gripper-stk": {
+      "recovered-training.json": {
+        "request": {
+          "source_run": "arc-sq-20261002-10-gripper-stk",
+          "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+          "suite": "libero_10",
+          "method": "arc_stk",
+          "arc_stream_variant": "gripper",
+          "epochs": 5001,
+          "total_optimizer_steps": 605121,
+          "checkpoint": {
+            "sha256": "d8118eefb1f8580c3ca6e411e5f6c82c1c0f8c43afe609c9ff79496d42631de2",
+            "bytes": 1004483144,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-10-gripper-stk/checkpoints/d8118eefb1f8580c3ca6e411e5f6c82c1c0f8c43afe609c9ff79496d42631de2/last.ckpt"
+          }
+        },
+        "restored": {
+          "global_step": 95590,
+          "epochs_completed": 790,
+          "serialized_epoch_completed": 789,
+          "ema_num_updates": 95590,
+          "representation": {
+            "version": 1,
+            "layout": "shape_then_timing",
+            "stream_spec": {
+              "translation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_representation": "so3",
+              "gripper": "separate",
+              "timing": "group",
+              "clocks": "group"
+            },
+            "shape_dim": 10,
+            "action_dim": 13,
+            "gripper_distance": "absolute_command_variation_uncapped",
+            "component_rotation_basis": "world_frame_angular_increments"
+          },
+          "training_budget": {
+            "train_examples": 124087,
+            "microbatch_size": 256,
+            "world_size": 4,
+            "gradient_accumulation": 1,
+            "global_batch_size": 1024,
+            "optimizer_steps_per_epoch": 121,
+            "microbatches_per_epoch": 121,
+            "epochs": 5001,
+            "total_optimizer_steps": 605121,
+            "dropped_examples_per_epoch": 183
+          }
+        }
+      },
+      "status.json": {
+        "state": "STAGING_DATA"
+      }
+    },
+    "arc-sr-20261003-spatial-component-time-dur": {},
+    "arc-sr-20261003-object-component-time-dur": {},
+    "arc-sr-20261003-10-reference-stk": {},
+    "arc-sr-20261003-object-gripper-stk": {},
+    "arc-se-20261003-spatial-reference-stk-eval": {
+      "status.json": {
+        "state": "ROLLOUTS",
+        "method": "arc_stk"
+      },
+      "evaluation-progress.json": {
+        "episodes": 168,
+        "planned": 2500,
+        "per_repetition": [
+          30,
+          32,
+          34,
+          34,
+          38
+        ],
+        "workers": 5
+      }
+    },
+    "arc-sr-20261003-goal-gripper-stk": {},
+    "arc-sr-20261003-object-reference-dur": {
+      "recovered-training.json": {
+        "request": {
+          "source_run": "arc-sq-20261002-object-reference-dur",
+          "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+          "suite": "libero_object",
+          "method": "arc_dur",
+          "arc_stream_variant": "reference",
+          "epochs": 5001,
+          "total_optimizer_steps": 325065,
+          "checkpoint": {
+            "sha256": "c2fa195d0daa434704093d351beee35dcc33867578b79d5006d3a22590c5adfd",
+            "bytes": 1004462664,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-object-reference-dur/checkpoints/c2fa195d0daa434704093d351beee35dcc33867578b79d5006d3a22590c5adfd/last.ckpt"
+          }
+        },
+        "restored": {
+          "global_step": 98800,
+          "epochs_completed": 1520,
+          "serialized_epoch_completed": 1519,
+          "ema_num_updates": 98800,
+          "representation": {
+            "version": 1,
+            "layout": "shape_then_timing",
+            "stream_spec": {
+              "translation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_representation": "so3",
+              "gripper": "translation",
+              "timing": "group",
+              "clocks": "group"
+            },
+            "shape_dim": 10,
+            "action_dim": 12,
+            "gripper_distance": "absolute_command_variation_uncapped",
+            "component_rotation_basis": "world_frame_angular_increments"
+          },
+          "training_budget": {
+            "train_examples": 66940,
+            "microbatch_size": 256,
+            "world_size": 4,
+            "gradient_accumulation": 1,
+            "global_batch_size": 1024,
+            "optimizer_steps_per_epoch": 65,
+            "microbatches_per_epoch": 65,
+            "epochs": 5001,
+            "total_optimizer_steps": 325065,
+            "dropped_examples_per_epoch": 380
+          }
+        }
+      },
+      "status.json": {
+        "state": "STAGING_DATA"
+      }
+    },
+    "arc-sr-20261003-goal-reference-dur": {
+      "recovered-training.json": {
+        "request": {
+          "source_run": "arc-sq-20261002-goal-reference-dur",
+          "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+          "suite": "libero_goal",
+          "method": "arc_dur",
+          "arc_stream_variant": "reference",
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "checkpoint": {
+            "sha256": "ed1845a5252c6380404936e77442088e09e7a9a4cb22f1b86d6befef674c2a08",
+            "bytes": 1004462664,
+            "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-goal-reference-dur/checkpoints/ed1845a5252c6380404936e77442088e09e7a9a4cb22f1b86d6befef674c2a08/last.ckpt"
+          }
+        },
+        "restored": {
+          "global_step": 96880,
+          "epochs_completed": 1730,
+          "serialized_epoch_completed": 1729,
+          "ema_num_updates": 96880,
+          "representation": {
+            "version": 1,
+            "layout": "shape_then_timing",
+            "stream_spec": {
+              "translation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_groups": [
+                [
+                  0,
+                  1,
+                  2
+                ]
+              ],
+              "rotation_representation": "so3",
+              "gripper": "translation",
+              "timing": "group",
+              "clocks": "group"
+            },
+            "shape_dim": 10,
+            "action_dim": 12,
+            "gripper_distance": "absolute_command_variation_uncapped",
+            "component_rotation_basis": "world_frame_angular_increments"
+          },
+          "training_budget": {
+            "train_examples": 57763,
+            "microbatch_size": 256,
+            "world_size": 4,
+            "gradient_accumulation": 1,
+            "global_batch_size": 1024,
+            "optimizer_steps_per_epoch": 56,
+            "microbatches_per_epoch": 56,
+            "epochs": 5001,
+            "total_optimizer_steps": 280056,
+            "dropped_examples_per_epoch": 419
+          }
+        }
+      },
+      "status.json": {
+        "state": "STAGING_DATA"
+      }
+    }
+  }
+}

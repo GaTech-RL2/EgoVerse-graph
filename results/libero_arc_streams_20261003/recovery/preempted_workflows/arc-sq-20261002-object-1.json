@@ -1,0 +1,312 @@
+{
+  "name": "arc-sq-20261002-object-1",
+  "status": "FAILED_CANCELED",
+  "pool": "groot-l40s-01",
+  "submit_time": "2026-10-03T00:05:37.055260",
+  "start_time": "2026-10-03T01:08:36.119564",
+  "end_time": "2026-10-03T05:22:16.626833",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sq-20261002-object-1",
+  "tasks": [
+    {
+      "name": "evaluate-00",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.493001",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "evaluate-01",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.954014",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-02",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.106352",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-03",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.322145",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-04",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.947472",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-05",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.170479",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-06",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.974773",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-07",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.236030",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-08",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.918465",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-09",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.951691",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-10",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.262775",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-11",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.918684",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-12",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.154682",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-13",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.956866",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-14",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.226790",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-15",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.946411",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-16",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.081935",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-17",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.918674",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-18",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.152002",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-19",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.930981",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-20",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:56.175743",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "reference-stk-ready",
+      "status": "FAILED_IMAGE_PULL",
+      "start_time": null,
+      "end_time": "2026-10-03T00:05:55.551228",
+      "failure_message": "Failure reason: Exit code 302 due to Task reference-stk-ready failed with ErrImagePull: short name mode is enforcing, but image name python:3.11-slim@sha256:bab1b7ef4b450c81002278d035eff85ebe394ae94df904f7a3ba14f7e16e487b returns ambiguous list."
+    },
+    {
+      "name": "train-00",
+      "status": "FAILED_CANCELED",
+      "start_time": "2026-10-03T01:08:36.119564",
+      "end_time": "2026-10-03T05:22:16.501490",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-01",
+      "status": "FAILED_CANCELED",
+      "start_time": "2026-10-03T01:10:23.151710",
+      "end_time": "2026-10-03T05:22:16.507244",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-02",
+      "status": "FAILED_CANCELED",
+      "start_time": "2026-10-03T01:10:24.733145",
+      "end_time": "2026-10-03T05:22:16.510780",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-03",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.520797",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-04",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.522194",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-05",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.530626",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-06",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.533784",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-07",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.538611",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-08",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.544589",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-09",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.550637",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-10",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.558375",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-11",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.567041",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-12",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.586227",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-13",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.591682",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-14",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.594535",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-15",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.604404",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-16",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.615691",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-17",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.623444",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-18",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.635503",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-19",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.637916",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "train-20",
+      "status": "FAILED_CANCELED",
+      "start_time": null,
+      "end_time": "2026-10-03T05:22:16.638706",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    }
+  ]
+}

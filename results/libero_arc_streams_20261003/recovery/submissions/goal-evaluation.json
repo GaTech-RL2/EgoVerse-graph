@@ -1,0 +1,7 @@
+{
+    "name": "arc-se-20261003-goal-reference-stk-eval-1",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-se-20261003-goal-reference-stk-eval-1",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-se-20261003-goal-reference-stk-eval-1/logs",
+    "spec": null,
+    "dashboard_url": "https://ovx-l40s-01.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=8f23412934ef45af"
+}

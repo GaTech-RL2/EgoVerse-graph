@@ -1,0 +1,29 @@
+{
+  "launcher_commit": "4958afb70d212082762ba97b8e7f7e1b50896778",
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "validation_ref": "53db481556c95006e93644d0c4d0f6fc60cf30dd",
+  "local_recovery_and_parallel_tests": {
+    "file": "validation/local-junit.xml.gz",
+    "sha256": "ff89be57613a1dd9e0c6b97db9a7f4fae7140baf911ddc65a977e028e4c76799",
+    "uncompressed_bytes": 4822,
+    "tests": 31,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 40.209
+  },
+  "linux_ci": {
+    "file": "validation/linux-junit.xml.gz",
+    "sha256": "4e9ed9345dfab57a9e20b665b915d61baaf881f3ef38e8d0fc20f8d8fc775690",
+    "uncompressed_bytes": 46195,
+    "tests": 304,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 99.91,
+    "url": "https://github.com/GaTech-RL2/EgoVerse-graph/actions/runs/37151823454/job/111287103886"
+  },
+  "osmo_service_validation": "passed",
+  "actual_object_checkpoint": "Full object hash, live runtime/receipt hashes and training-state checks passed at step 287950; no local GPU training was performed.",
+  "trainer_resume": "Real CPU train/save/resume from a periodic checkpoint continued optimizer/EMA updates 2 -> 4 and completed exactly two epochs."
+}

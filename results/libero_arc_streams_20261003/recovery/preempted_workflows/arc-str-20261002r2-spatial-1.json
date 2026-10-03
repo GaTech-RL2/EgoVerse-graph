@@ -1,0 +1,326 @@
+{
+  "name": "arc-str-20261002r2-spatial-1",
+  "status": "FAILED_CANCELED",
+  "pool": "groot-l40s-01",
+  "submit_time": "2026-10-02T16:14:18.445721",
+  "start_time": "2026-10-02T17:08:27.494574",
+  "end_time": "2026-10-03T05:12:23.078504",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-str-20261002r2-spatial-1",
+  "tasks": [
+    {
+      "name": "evaluate-00",
+      "status": "FAILED_CANCELED",
+      "start_time": "2026-10-03T05:07:56.080511",
+      "end_time": "2026-10-03T05:12:23.078504",
+      "failure_message": "Canceled by shared-pool GPU quota enforcement to reclaim lower-priority capacity."
+    },
+    {
+      "name": "evaluate-01",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.066908",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-02",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.106172",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-03",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.158979",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-04",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.195814",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-05",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.233933",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-06",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.278181",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-07",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.319720",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-08",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.359627",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-09",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.400368",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-10",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.442846",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-11",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.487273",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-12",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.542366",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-13",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.593547",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-14",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.654969",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-15",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.698105",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-16",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.753284",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-17",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.807889",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-18",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.851112",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-19",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.907654",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-20",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.958484",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "evaluate-21",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:24.006310",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "replay",
+      "status": "COMPLETED",
+      "start_time": "2026-10-02T17:08:27.494574",
+      "end_time": "2026-10-02T17:15:47.310378",
+      "failure_message": null
+    },
+    {
+      "name": "train-00",
+      "status": "COMPLETED",
+      "start_time": "2026-10-02T18:05:57.514841",
+      "end_time": "2026-10-03T05:02:52.032129",
+      "failure_message": null
+    },
+    {
+      "name": "train-01",
+      "status": "FAILED",
+      "start_time": "2026-10-03T05:07:44.548484",
+      "end_time": "2026-10-03T05:10:23.008298",
+      "failure_message": "Failure reason:\n- Exit code 1 due to Task train-01 failure. "
+    },
+    {
+      "name": "train-02",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.060855",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-03",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.110076",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-04",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.151000",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-05",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.202898",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-06",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.253983",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-07",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.308374",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-08",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.355485",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-09",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.412710",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-10",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.470121",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-11",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.516751",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-12",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.563323",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-13",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.605272",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-14",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.649033",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-15",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.688752",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-16",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.733355",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-17",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.775917",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-18",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.831428",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-19",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.875899",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-20",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.916766",
+      "failure_message": "Upstream task failed."
+    },
+    {
+      "name": "train-21",
+      "status": "FAILED_UPSTREAM",
+      "start_time": null,
+      "end_time": "2026-10-03T05:10:23.963205",
+      "failure_message": "Upstream task failed."
+    }
+  ]
+}

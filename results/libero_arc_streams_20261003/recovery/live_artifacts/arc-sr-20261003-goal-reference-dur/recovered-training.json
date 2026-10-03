@@ -1,0 +1,62 @@
+{
+  "request": {
+    "source_run": "arc-sq-20261002-goal-reference-dur",
+    "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+    "suite": "libero_goal",
+    "method": "arc_dur",
+    "arc_stream_variant": "reference",
+    "epochs": 5001,
+    "total_optimizer_steps": 280056,
+    "checkpoint": {
+      "sha256": "ed1845a5252c6380404936e77442088e09e7a9a4cb22f1b86d6befef674c2a08",
+      "bytes": 1004462664,
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sq-20261002-goal-reference-dur/checkpoints/ed1845a5252c6380404936e77442088e09e7a9a4cb22f1b86d6befef674c2a08/last.ckpt"
+    }
+  },
+  "restored": {
+    "global_step": 96880,
+    "epochs_completed": 1730,
+    "serialized_epoch_completed": 1729,
+    "ema_num_updates": 96880,
+    "representation": {
+      "version": 1,
+      "layout": "shape_then_timing",
+      "stream_spec": {
+        "translation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_groups": [
+          [
+            0,
+            1,
+            2
+          ]
+        ],
+        "rotation_representation": "so3",
+        "gripper": "translation",
+        "timing": "group",
+        "clocks": "group"
+      },
+      "shape_dim": 10,
+      "action_dim": 12,
+      "gripper_distance": "absolute_command_variation_uncapped",
+      "component_rotation_basis": "world_frame_angular_increments"
+    },
+    "training_budget": {
+      "train_examples": 57763,
+      "microbatch_size": 256,
+      "world_size": 4,
+      "gradient_accumulation": 1,
+      "global_batch_size": 1024,
+      "optimizer_steps_per_epoch": 56,
+      "microbatches_per_epoch": 56,
+      "epochs": 5001,
+      "total_optimizer_steps": 280056,
+      "dropped_examples_per_epoch": 419
+    }
+  }
+}

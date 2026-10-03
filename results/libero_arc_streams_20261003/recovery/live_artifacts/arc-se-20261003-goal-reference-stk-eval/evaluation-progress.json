@@ -1,0 +1,12 @@
+{
+  "episodes": 576,
+  "planned": 2500,
+  "per_repetition": [
+    115,
+    116,
+    111,
+    121,
+    113
+  ],
+  "workers": 5
+}

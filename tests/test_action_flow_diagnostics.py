@@ -12,7 +12,9 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
+from egomimic.eval.action_flow_diagnostic_forward import _decoder_singular_values
 from egomimic.eval.pipeline_diagnostics import ActionFlowDiagnosticProvider
+from egomimic.models.unite_action_decoder import UniteActionDecoder
 from egomimic.eval.planar_action_eval import (
     USOCKET_NATIVE_ERROR_CONFIG,
     PlanarActionEval,
@@ -30,6 +32,44 @@ from egomimic.pl_utils.training_behavior_action_flow import (
 )
 
 _CONFIG_DIR = Path(__file__).parents[1] / "egomimic/hydra_configs"
+
+
+def test_chunked_decoder_jacobian_singular_values_match_full_jacrev():
+    torch.manual_seed(29)
+    decoder = nn.Sequential(nn.Linear(3, 12), nn.Tanh(), nn.Linear(12, 10))
+    values = torch.randn(2, 5, 3)
+    actual = _decoder_singular_values(decoder, values, sample_count=2)
+    expected = []
+    for value in values:
+        jacobian = torch.func.jacrev(
+            lambda item: decoder(item.unsqueeze(0)).squeeze(0)
+        )(value)
+        matrix = jacobian.float().reshape(jacobian.numel() // value.numel(), -1)
+        expected.append(torch.linalg.svdvals(matrix))
+    torch.testing.assert_close(actual, torch.stack(expected))
+
+
+def test_forward_math_decoder_jacobian_matches_reverse_for_transformer():
+    torch.manual_seed(31)
+    decoder = UniteActionDecoder(
+        latent_dim=4,
+        action_dim=2,
+        num_latent_tokens=2,
+        action_horizon=3,
+        hidden_dim=24,
+        depth=2,
+        num_heads=4,
+        dropout=0.0,
+        gradient_checkpointing=False,
+    ).eval()
+    values = torch.randn(2, 2, 4)
+    forward = _decoder_singular_values(
+        decoder, values, sample_count=2, jacobian_method="forward_math_chunk4"
+    )
+    reverse = _decoder_singular_values(
+        decoder, values, sample_count=2, jacobian_method="reverse_chunked"
+    )
+    torch.testing.assert_close(forward, reverse, rtol=1e-4, atol=1e-5)
 
 
 @pytest.fixture(autouse=True)

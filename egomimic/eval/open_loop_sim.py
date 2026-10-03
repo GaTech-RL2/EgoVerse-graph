@@ -1856,16 +1856,21 @@ class OpenLoopSimEval(BimanualCartesianEval):
         metrics = {}
         summaries = []
         for group, summary in results["per_group"].items():
-            prefix = (
-                "Valid/open_loop_sim"
-                if group == DEFAULT_VALID_GROUP
-                else f"Valid_{group}/open_loop_sim"
-            )
-            summaries.append((prefix, summary))
+            section = "Valid" if group == DEFAULT_VALID_GROUP else f"Valid_{group}"
             per_embodiment = results.get("per_group_embodiment", {}).get(group, {})
-            summaries.extend(
-                (f"{prefix}/{label}", item) for label, item in per_embodiment.items()
-            )
+            # W&B groups panels by the first path segment, so each embodiment
+            # gets its own section (Valid_yam_bimanual/...), scored on that
+            # embodiment's episodes only. With several embodiments the pooled
+            # summary moves to Valid_all_embodiments so no chart mixes them
+            # under an unlabeled name.
+            if len(per_embodiment) > 1:
+                summaries.append((f"{section}_all_embodiments/open_loop_sim", summary))
+                summaries.extend(
+                    (f"{section}_{label}/open_loop_sim", item)
+                    for label, item in per_embodiment.items()
+                )
+            else:
+                summaries.append((f"{section}/open_loop_sim", summary))
         for prefix, summary in summaries:
             if "distance_dtw" in summary:
                 dtw = summary["distance_dtw"]

@@ -292,12 +292,16 @@ def test_open_loop_sim_reports_each_embodiment_separately():
     assert split["human_bimanual"]["micro"]["mse"] == pytest.approx(9.0)
     assert result["per_group"]["valid"]["micro"]["mse"] == pytest.approx(5.0)
     metrics = evaluator._metric_tensors(result)
-    assert metrics["Valid/open_loop_sim/MSE"].item() == pytest.approx(5.0)
-    assert metrics["Valid/open_loop_sim/yam_bimanual/MSE"].item() == pytest.approx(1.0)
-    assert metrics["Valid/open_loop_sim/human_bimanual/MSE"].item() == pytest.approx(
+    # One W&B section per embodiment; no unlabeled pooled chart.
+    assert metrics["Valid_yam_bimanual/open_loop_sim/MSE"].item() == pytest.approx(1.0)
+    assert metrics["Valid_human_bimanual/open_loop_sim/MSE"].item() == pytest.approx(
         9.0
     )
-    assert metrics["Valid/open_loop_sim/human_bimanual/Episodes"].item() == 1
+    assert metrics["Valid_human_bimanual/open_loop_sim/Episodes"].item() == 1
+    assert metrics["Valid_all_embodiments/open_loop_sim/MSE"].item() == pytest.approx(
+        5.0
+    )
+    assert not any(key.startswith("Valid/") for key in metrics)
 
 
 def test_open_loop_sim_limits_complete_episodes_not_batches():

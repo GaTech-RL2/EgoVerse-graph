@@ -77,7 +77,7 @@ def test_profhyb_columns_are_speeds_with_the_start_delay_row():
     assert arc.shape == (100, 18) and np.all(arc[:, 14:] >= 0)
     assert np.allclose(arc[:, :14], dur[:, :14])  # identical waypoints
     assert 0.1 < np.median(arc[:99, 14]) < 0.5  # left arm: 0.2 m in 1 s -> ~0.2 m/s
-    assert np.allclose(arc[:99, 15], 0) and np.isclose(arc[99, 15], dur[:99, 15].sum())  # hold: its time in row M-1
+    assert np.allclose(arc[:, 15], 0)  # right arm translation hold: all zeros (no rare large value in row M-1)
     assert arc[:, 17].sum() == 0  # right arm never rotates
 
 

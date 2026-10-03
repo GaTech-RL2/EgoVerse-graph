@@ -11,7 +11,7 @@ from pathlib import Path
 from botocore.exceptions import ClientError
 
 
-def reference_ready(client, run_id, suite, commit):
+def reference_ready(client, run_id, suite, commit, *, training_run=None):
     prefix = f"experiments/arc-oat-20260919/{run_id}/"
 
     def read(name):
@@ -41,7 +41,7 @@ def reference_ready(client, run_id, suite, commit):
         "method": "arc_stk",
         "run_kind": "policy_evaluation",
         "mode": "full",
-        "evaluate_from_run": run_id.removesuffix("-eval"),
+        "evaluate_from_run": training_run or run_id.removesuffix("-eval"),
     }
     if any(runtime.get(key) != value for key, value in expected.items()):
         raise ValueError("Reference evaluation source or protocol differs")
@@ -62,6 +62,7 @@ def main():
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--suite", required=True)
     parser.add_argument("--commit", required=True)
+    parser.add_argument("--training-run")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=7 * 86400)
     args = parser.parse_args()
@@ -72,6 +73,10 @@ def main():
         not in {"libero_spatial", "libero_object", "libero_goal", "libero_10"}
         or not re.fullmatch(r"[0-9a-f]{40}", args.commit)
         or args.timeout_seconds <= 0
+        or (
+            args.training_run is not None
+            and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", args.training_run)
+        )
     ):
         raise ValueError("Invalid reference readiness request")
     client = boto3.client(
@@ -84,7 +89,9 @@ def main():
     )
     deadline = time.monotonic() + args.timeout_seconds
     while time.monotonic() < deadline:
-        receipt = reference_ready(client, args.run_id, args.suite, args.commit)
+        receipt = reference_ready(
+            client, args.run_id, args.suite, args.commit, training_run=args.training_run
+        )
         if receipt is not None:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(receipt, indent=2) + "\n")

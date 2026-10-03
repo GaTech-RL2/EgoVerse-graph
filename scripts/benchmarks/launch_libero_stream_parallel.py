@@ -52,7 +52,7 @@ def parallel_workflow(commit, name, suite, *, replay_proof, reference_run, lanes
     body["tasks"] = [
         {
             "name": "reference-stk-ready",
-            "image": "python:3.11-slim",
+            "image": "docker.io/library/python:3.11-slim",
             "resource": "reference_wait",
             "credentials": {
                 "grabber-arc-r2-20260916": copy.deepcopy(

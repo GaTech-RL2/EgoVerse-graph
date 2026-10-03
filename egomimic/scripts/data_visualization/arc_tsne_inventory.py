@@ -11,7 +11,12 @@ from urllib.parse import urlparse
 
 import numpy as np
 
-from egomimic.scripts.data_visualization.arc_tsne import collect, project, write_report
+from egomimic.scripts.data_visualization.arc_tsne import (
+    collect,
+    drop_gripper,
+    project,
+    write_report,
+)
 
 
 def native_source_transforms(transforms):
@@ -96,15 +101,7 @@ def stage_action_arrays(uri, destination, keys, budget):
     return destination
 
 
-def run(
-    config_path,
-    output,
-    max_episodes,
-    samples_per_episode,
-    seed,
-    action_cache,
-    max_download_mb,
-):
+def load_leaves(config_path, max_episodes, seed, action_cache, budget):
     from hydra.utils import instantiate
     from omegaconf import OmegaConf
     from sqlalchemy import text
@@ -112,13 +109,6 @@ def run(
     from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset, episode_names_sha256
     from egomimic.utils.aws.aws_sql import create_default_engine
 
-    if output.exists():
-        raise FileExistsError(output)
-    if (
-        min(max_episodes, samples_per_episode) < 1
-        or max_episodes * samples_per_episode > 10000
-    ):
-        raise ValueError("Invalid sampling budget")
     config = OmegaConf.to_container(OmegaConf.load(config_path), resolve=True)
     data = config["data"]
     engine = create_default_engine()
@@ -163,11 +153,7 @@ def run(
         not in ("camera_keys", "annotation_keys", "episode_metadata")
     }
     transforms = instantiate(data["transform_list"])
-    budget = {
-        "remaining_bytes": int(max_download_mb * 1024**2),
-        "downloaded_bytes": 0,
-        "downloaded_objects": 0,
-    }
+    embodiment = config["inventory"]["parameters"]["embodiment"]
     leaves = {}
     for name in selected:
         if Path(name).name != name:
@@ -185,7 +171,7 @@ def run(
                 )
             path = stage_action_arrays(
                 inventory[name]["zarr_processed_path"],
-                action_cache / name,
+                action_cache / embodiment / name,
                 [v["zarr_key"] for v in key_map.values()],
                 budget,
             )
@@ -197,50 +183,112 @@ def run(
             raise ValueError(
                 f"Episode {name} fps={fps} differs from configured {config['source_fps']}"
             )
-        if leaf.embodiment.lower() != config["inventory"]["parameters"]["embodiment"]:
+        if leaf.embodiment.lower() != embodiment:
             raise ValueError(f"Episode {name} embodiment mismatch: {leaf.embodiment}")
         leaves[name] = leaf
-    features, records, codecs = collect(
-        leaves,
-        max_episodes=max_episodes,
-        samples_per_episode=samples_per_episode,
-        seed=seed,
-        representations="both",
-        clock="both",
-    )
-    print(
-        f"TOKENIZED {config['name']}: {len(records)} anchors; fitting t-SNE", flush=True
-    )
-    projections, diagnostics = project(features, seed=seed)
-    repo = Path(__file__).resolve().parents[3]
     provenance = {
         "config": config,
-        "split": "train",
         "valid_ratio": data["valid_ratio"],
         "inventory_sha256": episode_names_sha256(inventory),
         "train_episodes": train,
         "valid_episodes": valid,
         "selected_episodes": selected,
+    }
+    return embodiment, leaves, provenance
+
+
+def run(
+    config_paths,
+    output,
+    max_episodes,
+    samples_per_episode,
+    seed,
+    action_cache,
+    max_download_mb,
+    keep_gripper=False,
+):
+    """One t-SNE per representation over every config's anchors together."""
+    if output.exists():
+        raise FileExistsError(output)
+    if (
+        min(max_episodes, samples_per_episode) < 1
+        or len(config_paths) * max_episodes * samples_per_episode > 10000
+    ):
+        raise ValueError("Invalid sampling budget")
+    budget = {
+        "remaining_bytes": int(max_download_mb * 1024**2),
+        "downloaded_bytes": 0,
+        "downloaded_objects": 0,
+    }
+    features, records, datasets = {}, [], {}
+    for config_path in config_paths:
+        embodiment, leaves, meta = load_leaves(
+            config_path, max_episodes, seed, action_cache, budget
+        )
+        if embodiment in datasets:
+            raise ValueError(f"Duplicate embodiment {embodiment}")
+        part, part_records, codecs = collect(
+            leaves,
+            max_episodes=max_episodes,
+            samples_per_episode=samples_per_episode,
+            seed=seed,
+            representations="both",
+            clock="both",
+        )
+        for record in part_records:
+            record["embodiment"] = embodiment
+        if features and part.keys() != features.keys():
+            raise ValueError("Representations differ between configs")
+        for name, values in part.items():
+            if name in features and features[name].shape[1] != values.shape[1]:
+                raise ValueError(f"{name}: feature width differs between configs")
+            features[name] = (
+                np.concatenate([features[name], values]) if name in features else values
+            )
+        records += part_records
+        datasets[embodiment] = dict(meta, codecs=codecs, anchors=len(part_records))
+        print(f"TOKENIZED {embodiment}: {len(part_records)} anchors", flush=True)
+    joint = len(datasets) > 1
+    fit_features = features if keep_gripper or not joint else drop_gripper(features)
+    print(f"FITTING joint t-SNE on {len(records)} anchors", flush=True)
+    projections, diagnostics, neighbors = project(
+        fit_features, seed=seed, groups=[r["embodiment"] for r in records]
+    )
+    repo = Path(__file__).resolve().parents[3]
+    provenance = {
+        "datasets": datasets,
+        "split": "train",
         "seed": seed,
         "sample_limit": {
             "episodes": max_episodes,
             "anchors_per_episode": samples_per_episode,
         },
-        "codecs": codecs,
+        "gripper_columns": "kept" if keep_gripper or not joint else "dropped",
         "projections": diagnostics,
         "transfer": budget,
         "source_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=repo, text=True
         ).strip(),
-        "semantics": "Native token features, not learned latents. Independent t-SNE fits. Human grippers are zero-padded.",
+        "semantics": (
+            "Native token features, not learned latents. One t-SNE per "
+            "representation over all embodiments; panels are fitted separately. "
+            "Human grippers are zero-padded, so gripper columns are dropped from "
+            "joint fits unless --keep-gripper is set."
+        ),
     }
-    write_report(output, features, records, projections, provenance)
+    write_report(output, features, records, projections, provenance, neighbors)
     print(f"REPORT_READY {output / 'index.html'}", flush=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-config", type=Path, required=True)
+    parser.add_argument(
+        "--data-config",
+        type=Path,
+        action="append",
+        required=True,
+        help="Repeat to embed several embodiments in one joint t-SNE",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-episodes", type=int, default=12)
     parser.add_argument("--samples-per-episode", type=int, default=64)
@@ -251,6 +299,11 @@ def main():
         help="Opt in to sparse missing-array staging; images are excluded",
     )
     parser.add_argument("--max-download-mb", type=float, default=64)
+    parser.add_argument(
+        "--keep-gripper",
+        action="store_true",
+        help="Keep gripper columns in joint fits (human grippers are zero-padded)",
+    )
     args = parser.parse_args()
     run(
         args.data_config,
@@ -260,6 +313,7 @@ def main():
         args.seed,
         args.action_cache,
         args.max_download_mb,
+        args.keep_gripper,
     )
 
 

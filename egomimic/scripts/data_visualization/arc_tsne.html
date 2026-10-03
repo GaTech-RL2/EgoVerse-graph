@@ -1,60 +1,118 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ARC · Representation explorer</title>
+<title>ARC · Action-chunk embedding explorer</title>
 <style>
-:root{--bg:#f8fafc;--ink:#172c50;--muted:#475569;--line:#cbd5e1;--accent:#1e40af;--card:#fff}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif}
-main{max-width:1800px;margin:auto;padding:24px}header{border-bottom:1px solid var(--line);margin-bottom:24px;padding-bottom:16px}
-h1{font-size:28px;margin:4px 0}h2{font-size:18px;margin:0 0 8px}p{margin:8px 0}.eyebrow{font-size:12px;letter-spacing:.12em;font-weight:700;color:var(--accent)}
-.muted{color:var(--muted)}.toolbar{display:flex;flex-wrap:wrap;gap:16px;align-items:end;margin-bottom:20px}label{display:grid;gap:4px;font-size:14px;font-weight:600}
-select,button,input{font:inherit;min-height:44px;border:1px solid var(--line);border-radius:6px;background:white;padding:8px 12px;color:var(--ink);max-width:100%}
-button,select{cursor:pointer}button:hover{background:#dbeafe}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
-.plots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr));gap:16px}.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
-canvas{display:block;width:100%;height:360px;cursor:crosshair}.detail{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace;max-height:340px;overflow:auto}#trajectory{height:220px;cursor:default}
-.legend{font-size:13px;display:flex;gap:12px;flex-wrap:wrap}.swatch{width:10px;height:10px;display:inline-block;margin-right:5px;border-radius:50%}
-.table-wrap{max-height:300px;overflow:auto;margin-top:12px}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:8px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}th{position:sticky;top:0;background:var(--bg)}tr.selected{background:#dbeafe}td button{min-height:36px;padding:4px 8px}details{margin-top:20px}summary{cursor:pointer}#status{min-height:24px}#point{width:120px}
-@media(max-width:700px){main{padding:16px}.detail{grid-template-columns:1fr}h1{font-size:24px}canvas{height:300px}}
+:root{--page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--focus:#2a78d6;--s1:#2a78d6;--s2:#eb6834;--seq0:#cde2fb;--seq1:#104281;--sel:#dbe8f9}
+@media(prefers-color-scheme:dark){:root{--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--focus:#3987e5;--s1:#3987e5;--s2:#d95926;--seq0:#1c5cab;--seq1:#cde2fb;--sel:#1f2b3d}}
+*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+main{max-width:1900px;margin:auto;padding:24px}header{border-bottom:1px solid var(--grid);margin-bottom:16px;padding-bottom:12px}
+h1{font-size:26px;margin:2px 0}h2{font-size:16px;margin:0 0 4px}p{margin:6px 0}.eyebrow{font-size:12px;letter-spacing:.12em;font-weight:700;color:var(--ink2)}.muted{color:var(--ink2)}
+.summary{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:14px}.summary b{font-variant-numeric:tabular-nums}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:12px 0}label{display:grid;gap:2px;font-size:13px;font-weight:600;color:var(--ink2)}
+select,button,input{font:inherit;min-height:40px;border:1px solid var(--axis);border-radius:6px;background:var(--surface);padding:6px 10px;color:var(--ink);max-width:100%}
+button,select{cursor:pointer}button:hover{background:var(--sel)}:focus-visible{outline:3px solid var(--focus);outline-offset:2px}#point{width:110px}
+.legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-height:40px}.legend button{display:inline-flex;gap:8px;align-items:center}.legend button[aria-pressed=false]{opacity:.45;text-decoration:line-through}
+.key{display:inline-block;width:12px;height:12px}.ramp{width:120px;height:10px;background:linear-gradient(90deg,var(--seq0),var(--seq1));border-radius:2px}
+.plots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px}.panel{background:var(--surface);border:1px solid var(--grid);border-radius:10px;padding:12px 14px;min-width:0;position:relative}
+.metric{font-size:13px;color:var(--ink2)}.metric b{color:var(--ink);font-variant-numeric:tabular-nums}
+canvas.plot{display:block;width:100%;height:440px;cursor:crosshair;touch-action:none}
+#tip{position:fixed;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--axis);border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.4;box-shadow:0 2px 8px #0003;display:none;z-index:9;white-space:nowrap}
+.detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:12px;margin-top:12px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,monospace;max-height:260px;overflow:auto;margin:0}#trajectory{display:block;width:100%;height:260px}
+.table-wrap{max-height:340px;overflow:auto;margin-top:8px}table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}td,th{text-align:left;padding:4px 8px;border-bottom:1px solid var(--grid);overflow-wrap:anywhere}th{position:sticky;top:0;background:var(--surface);color:var(--ink2);font-weight:600}tr.selected{background:var(--sel)}td button{min-height:30px;padding:2px 8px}
+details{margin-top:16px}summary{cursor:pointer;color:var(--ink2)}
+@media(max-width:800px){main{padding:12px}.detail{grid-template-columns:1fr}canvas.plot{height:340px}}
 </style></head><body><main>
-<header><div class="eyebrow">EGOVERSE / DATA REPRESENTATIONS</div><h1>ARC representation explorer</h1>
-<p class="muted">Matched episode anchors · native action features · offline t-SNE</p>
-<p>Each panel is fitted independently. Axis positions and distances across panels are not comparable. Clusters are exploratory—not evidence of semantic similarity.</p></header>
+<header><div class="eyebrow">EGOVERSE / ACTION-CHUNK EMBEDDINGS</div><h1 id="title">ARC vs time-chunk embedding explorer</h1>
+<p class="muted">Native action features (not learned latents). Each panel is one t-SNE over every embodiment's anchors, so human and robot chunks share a space within a panel. Positions are not comparable across panels.</p>
+<div id="summary" class="summary"></div></header>
 <section class="toolbar" aria-label="Projection controls">
-<label>Episode<select id="episode"><option value="">All episodes</option></select></label>
-<label>Color by<select id="color"><option value="episode">Episode</option><option value="task">Task</option><option value="embodiment">Embodiment</option></select></label>
-<label>Point ID<input id="point" type="number" min="0" value="0"></label>
-<button id="previous">Previous point</button><button id="next">Next point</button>
-<button id="download">Download coordinates</button></section>
-<p id="status" role="status" aria-live="polite"></p><div id="legend" class="legend"></div>
+<label>Color by<select id="color"><option value="embodiment">Embodiment</option><option value="source_rows">ARC source window (frames)</option><option value="frame">Frame in episode</option></select></label>
+<label>Focus episode<select id="episode"><option value="">All episodes</option></select></label>
+<label>Point<input id="point" type="number" min="0" value="0"></label>
+<button id="previous" type="button">Previous</button><button id="next" type="button">Next</button>
+<button id="reset" type="button">Reset zoom</button><button id="download" type="button">Download coordinates</button>
+<div id="legend" class="legend" aria-label="Legend"></div></section>
+<p class="muted" style="font-size:13px">Scroll to zoom, drag to pan, double-click to reset. Hover a point to see it in every panel; click to select it and ring its 8 nearest neighbours in that panel's feature space.</p>
 <section id="plots" class="plots" aria-label="t-SNE projections"></section>
-<section class="detail"><div class="panel"><h2>Selected anchor</h2><pre id="selected"></pre>
-<h2>Source trajectories · XY</h2><p class="muted">Left: solid blue. Right: dashed amber. Displayed in the configured coordinate frame.</p><canvas id="trajectory" aria-label="Raw source XY trajectories"></canvas></div>
-<div class="panel"><h2>Browse anchors</h2><p class="muted">Select a row or use point controls for keyboard access. Episode filtering does not refit t-SNE.</p>
-<div class="table-wrap"><table><thead><tr><th>Point</th><th>Episode</th><th>Frame</th><th>Task</th></tr></thead><tbody id="rows"></tbody></table></div></div></section>
-<details><summary>Configuration, sampling, and projection provenance</summary><pre id="provenance"></pre></details>
-</main><script id="report" type="application/json">__REPORT_DATA__</script><script>
+<section class="detail">
+<div class="panel"><h2>Selected anchor</h2><pre id="selected"></pre>
+<h2 style="margin-top:10px">Source trajectory · XY</h2><p class="metric">Solid: left arm. Dashed: right arm. Faint: hovered neighbour, for comparison.</p><canvas id="trajectory" aria-label="Raw source XY trajectories"></canvas></div>
+<div class="panel"><h2>Nearest neighbours of the selected anchor</h2><p class="metric">Computed in each panel's pre-t-SNE feature space. Cross-embodiment neighbours show which human and robot chunks the representation treats as alike.</p>
+<div class="table-wrap"><table><thead><tr><th>Panel</th><th>#</th><th>Embodiment</th><th>Episode</th><th>Frame</th><th>Point</th></tr></thead><tbody id="neighbors"></tbody></table></div></div>
+</section>
+<details><summary>All anchors (table view)</summary><div class="table-wrap"><table><thead><tr><th>Point</th><th>Embodiment</th><th>Episode</th><th>Frame</th><th>ARC window</th></tr></thead><tbody id="rows"></tbody></table></div></details>
+<details><summary>Configuration, sampling and projection provenance</summary><pre id="provenance"></pre></details>
+</main><div id="tip" role="tooltip"></div>
+<script id="report" type="application/json">__REPORT_DATA__</script><script>
 'use strict';
-const report=JSON.parse(document.getElementById('report').textContent), records=report.records;
-const $=id=>document.getElementById(id), palette=['#1e40af','#b45309','#047857','#be185d','#6d28d9','#0e7490','#475569','#991b1b'];
-const titles={baseline:'Time baseline',arc_clock:'ARC · geometry + clock',arc_no_clock:'ARC · geometry only'};
-let selected=0; const plots=[];
-for(const ep of [...new Set(records.map(r=>r.episode))].sort()){$('episode').add(new Option(ep,ep));}
-$('point').max=records.length-1;
-$('provenance').textContent=JSON.stringify(report.provenance,null,2);
-function visible(){return records.map((r,i)=>i).filter(i=>!$('episode').value||records[i].episode===$('episode').value);}
-function categories(){return [...new Set(records.map(r=>r[$('color').value]))].sort();}
-function color(i){return palette[categories().indexOf(records[i][$('color').value])%palette.length];}
-function setup(canvas){const box=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;canvas.width=box.width*dpr;canvas.height=box.height*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);return [c,box.width,box.height];}
-function mapper(points,w,h){let xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);let xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);return p=>[24+(p[0]-xmin)/(xmax-xmin||1)*(w-48),h-24-(p[1]-ymin)/(ymax-ymin||1)*(h-48)];}
-for(const [key,xy] of Object.entries(report.projections)){const panel=document.createElement('article');panel.className='panel';const heading=document.createElement('h2');heading.textContent=titles[key]||key;const caption=document.createElement('p');caption.className='muted';const d=report.provenance.projections?.[key];caption.textContent=d?`${d.input_features} features · perplexity ${d.perplexity.toFixed(1)}`:'Independent t-SNE fit';const canvas=document.createElement('canvas');canvas.setAttribute('aria-label',heading.textContent+'; select anchors with the point controls or table');panel.append(heading,caption,canvas);$('plots').append(panel);const plot={canvas,xy,pixels:[]};plots.push(plot);canvas.addEventListener('click',e=>{const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;let best=null,dist=144;for(const i of visible()){const p=plot.pixels[i],dd=(p[0]-x)**2+(p[1]-y)**2;if(dd<dist){best=i;dist=dd;}}if(best!==null){selected=best;render();}});}
-function draw(){for(const p of plots){const [c,w,h]=setup(p.canvas),map=mapper(p.xy,w,h);p.pixels=p.xy.map(map);c.strokeStyle='#cbd5e1';c.strokeRect(12,12,w-24,h-24);for(const i of visible()){const [x,y]=p.pixels[i];c.beginPath();c.arc(x,y,i===selected?7:3.5,0,Math.PI*2);c.fillStyle=color(i);c.globalAlpha=i===selected?1:.7;c.fill();if(i===selected){c.globalAlpha=1;c.strokeStyle='#0f172a';c.lineWidth=2;c.stroke();}}c.globalAlpha=1;}
-const [c,w,h]=setup($('trajectory')),raw=records[selected].raw_xyz;const points=raw.flatMap(r=>[[r[0],r[1]],[r[3],r[4]]]),map=mapper(points,w,h);for(const arm of [0,1]){c.strokeStyle=arm?'#b45309':'#1e40af';c.lineWidth=2;c.setLineDash(arm?[5,4]:[]);c.beginPath();raw.forEach((r,i)=>{const p=map([r[arm*3],r[arm*3+1]]);if(i)c.lineTo(...p);else c.moveTo(...p);});c.stroke();}}
-function render(){const ids=visible();$('point').value=selected;$('status').textContent=`${ids.length} / ${records.length} anchors shown. Selected point ${selected}.`;
-const {raw_xyz,...metadata}=records[selected];$('selected').textContent=JSON.stringify({point:selected,...metadata},null,2);
-$('legend').replaceChildren();for(const [i,category] of categories().entries()){const item=document.createElement('span'),swatch=document.createElement('span');swatch.className='swatch';swatch.style.background=palette[i%palette.length];item.append(swatch,document.createTextNode(category));$('legend').append(item);}
-$('rows').replaceChildren();for(const i of ids){const r=records[i],tr=document.createElement('tr');if(i===selected)tr.className='selected';const td=document.createElement('td'),b=document.createElement('button');b.textContent=String(i);b.setAttribute('aria-label',`Select point ${i}, episode ${r.episode}, frame ${r.frame}`);b.onclick=()=>{selected=i;render();$('point').focus();};td.append(b);tr.append(td);for(const key of ['episode','frame','task']){const cell=document.createElement('td');cell.textContent=r[key];tr.append(cell);}$('rows').append(tr);}draw();}
-$('episode').onchange=()=>{selected=visible()[0];render();};$('color').onchange=render;
-$('point').onchange=()=>{const n=Number($('point').value);if(Number.isInteger(n)&&n>=0&&n<records.length){selected=n;if(!visible().includes(n))$('episode').value='';}render();};
-for(const [id,delta] of [['previous',-1],['next',1]])$(id).onclick=()=>{const ids=visible();selected=ids[(ids.indexOf(selected)+delta+ids.length)%ids.length];render();};
-$('download').onclick=()=>{const payload={records:records.map(({raw_xyz,...r})=>r),projections:report.projections};const url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='tsne-coordinates.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+const report=JSON.parse(document.getElementById('report').textContent),records=report.records,N=records.length,neighbors=report.neighbors||{};
+const $=id=>document.getElementById(id),css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const titles={baseline:'Time baseline · 100-frame chunks',arc_clock:'ARC · geometry + clocks',arc_no_clock:'ARC · geometry only'};
+const order=['arc_clock','arc_no_clock','baseline'];
+const embodiments=[...new Set(records.map(r=>r.embodiment))].sort(),shapes=['circle','square','triangle','diamond'];
+const hidden=new Set();let selected=0,hover=null;const plots=[];
+if(embodiments.length<2)$('color').value='source_rows';
+for(const ep of [...new Set(records.map(r=>r.episode))].sort())$('episode').add(new Option(`${records.find(r=>r.episode===ep).embodiment} · ${ep}`,ep));
+$('point').max=N-1;$('provenance').textContent=JSON.stringify(report.provenance,null,2);
+$('summary').innerHTML=embodiments.map(e=>`<span>${e}: <b>${records.filter(r=>r.embodiment===e).length}</b> anchors from <b>${new Set(records.filter(r=>r.embodiment===e).map(r=>r.episode)).size}</b> episodes</span>`).join('');
+function hex(h){h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));}
+function mix(a,b,t){const x=hex(a),y=hex(b);return `rgb(${x.map((v,i)=>Math.round(v+(y[i]-v)*t)).join(',')})`;}
+const range=k=>{const v=records.map(r=>+r[k]);return [Math.min(...v),Math.max(...v)];};
+function color(i){const k=$('color').value,r=records[i];if(k==='embodiment')return css(['--s1','--s2'][embodiments.indexOf(r.embodiment)%2]);const [a,b]=range(k);return mix(css('--seq0'),css('--seq1'),(r[k]-a)/((b-a)||1));}
+function shape(c,x,y,s,kind){c.beginPath();if(kind==='square')c.rect(x-s,y-s,2*s,2*s);else if(kind==='triangle'){c.moveTo(x,y-s*1.2);c.lineTo(x+s*1.1,y+s*.8);c.lineTo(x-s*1.1,y+s*.8);c.closePath();}else if(kind==='diamond'){c.moveTo(x,y-s*1.3);c.lineTo(x+s*1.3,y);c.lineTo(x,y+s*1.3);c.lineTo(x-s*1.3,y);c.closePath();}else c.arc(x,y,s,0,Math.PI*2);}
+const kindOf=i=>shapes[embodiments.indexOf(records[i].embodiment)%shapes.length];
+const visible=i=>!hidden.has(records[i].embodiment);
+function legend(){const L=$('legend');L.replaceChildren();if($('color').value==='embodiment'||embodiments.length>1){for(const [n,e] of embodiments.entries()){const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',String(!hidden.has(e)));const k=document.createElement('canvas');k.width=k.height=14;k.className='key';const c=k.getContext('2d');c.fillStyle=$('color').value==='embodiment'?css(['--s1','--s2'][n%2]):css('--muted');shape(c,7,7,5,shapes[n%shapes.length]);c.fill();b.append(k,document.createTextNode(e));b.title='Show or hide '+e;b.onclick=()=>{hidden.has(e)?hidden.delete(e):hidden.add(e);if(hidden.size===embodiments.length)hidden.delete(e);render();};L.append(b);}}
+if($('color').value!=='embodiment'){const [a,b]=range($('color').value),s=document.createElement('span');s.className='metric';s.innerHTML=`<b>${a}</b> <span class="ramp key" style="display:inline-block;vertical-align:middle"></span> <b>${b}</b>`;L.append(s);}}
+function setup(cv){const box=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=box.width*d;cv.height=box.height*d;const c=cv.getContext('2d');c.scale(d,d);return [c,box.width,box.height];}
+function bounds(xy){const xs=xy.map(p=>p[0]),ys=xy.map(p=>p[1]);return {x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};}
+for(const key of [...order.filter(k=>k in report.projections),...Object.keys(report.projections).filter(k=>!order.includes(k))]){
+ const xy=report.projections[key],d=report.provenance.projections?.[key]||{};
+ const panel=document.createElement('article');panel.className='panel';const h=document.createElement('h2');h.textContent=titles[key]||key;
+ const m=document.createElement('p');m.className='metric';const mixTxt=d.mixing==null?'':` · embodiment mixing <b>${d.mixing.toFixed(2)}</b> <span title="Cross-embodiment share of each point's 10 nearest neighbours, divided by the share expected if embodiment labels were random. 1 = fully interleaved, 0 = separate islands.">ⓘ</span>`;
+ m.innerHTML=`<b>${d.input_features??'?'}</b> features → PCA <b>${d.pca_features??'?'}</b> · perplexity <b>${(d.perplexity??0).toFixed(0)}</b>${mixTxt}`;
+ const cv=document.createElement('canvas');cv.className='plot';cv.tabIndex=0;cv.setAttribute('aria-label',h.textContent+' scatter; use the point controls or table to select anchors');
+ panel.append(h,m,cv);$('plots').append(panel);
+ const p={key,cv,xy,full:bounds(xy),view:null,px:[]};p.view={...p.full};plots.push(p);
+ const pick=(e,r2=100)=>{const b=cv.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;let best=null,dd=r2;for(let i=0;i<N;i++){if(!visible(i))continue;const q=p.px[i],v=(q[0]-x)**2+(q[1]-y)**2;if(v<dd){dd=v;best=i;}}return best;};
+ let drag=null;
+ cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,v:{...p.view},moved:false};cv.setPointerCapture(e.pointerId);});
+ cv.addEventListener('pointermove',e=>{if(drag){const b=cv.getBoundingClientRect(),dx=(e.clientX-drag.x)/b.width*(drag.v.x1-drag.v.x0),dy=(e.clientY-drag.y)/b.height*(drag.v.y1-drag.v.y0);if(Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y)>3)drag.moved=true;p.view={x0:drag.v.x0-dx,x1:drag.v.x1-dx,y0:drag.v.y0+dy,y1:drag.v.y1+dy};draw();return;}
+  const i=pick(e);if(i!==hover){hover=i;draw();}tip(e,i);});
+ cv.addEventListener('pointerup',e=>{const moved=drag?.moved;drag=null;if(!moved){const i=pick(e,144);if(i!==null){selected=i;render();}}});
+ cv.addEventListener('pointerleave',()=>{hover=null;tip(null,null);draw();});
+ cv.addEventListener('wheel',e=>{e.preventDefault();const b=cv.getBoundingClientRect(),fx=(e.clientX-b.left)/b.width,fy=1-(e.clientY-b.top)/b.height,s=Math.exp(e.deltaY*.0015),v=p.view,cx=v.x0+fx*(v.x1-v.x0),cy=v.y0+fy*(v.y1-v.y0);p.view={x0:cx-(cx-v.x0)*s,x1:cx+(v.x1-cx)*s,y0:cy-(cy-v.y0)*s,y1:cy+(v.y1-cy)*s};draw();},{passive:false});
+ cv.addEventListener('dblclick',()=>{p.view={...p.full};draw();});
+}
+function tip(e,i){const t=$('tip');if(i===null||!e){t.style.display='none';return;}const r=records[i];t.textContent='';for(const line of [`point ${i} · ${r.embodiment}`,`${r.episode} @ frame ${r.frame}`,`ARC window ${r.source_rows} frames`]){const div=document.createElement('div');div.textContent=line;t.append(div);}t.style.display='block';t.style.left=Math.min(e.clientX+14,innerWidth-t.offsetWidth-8)+'px';t.style.top=(e.clientY+14)+'px';}
+function draw(){const focus=$('episode').value;for(const p of plots){const [c,w,h]=setup(p.cv),v=p.view,pad=16;
+ p.px=p.xy.map(q=>[pad+(q[0]-v.x0)/((v.x1-v.x0)||1)*(w-2*pad),h-pad-(q[1]-v.y0)/((v.y1-v.y0)||1)*(h-2*pad)]);
+ c.strokeStyle=css('--grid');c.lineWidth=1;c.strokeRect(.5,.5,w-1,h-1);
+ const nb=new Set(neighbors[p.key]?.[selected]||[]);
+ const layers=[[],[]];for(let i=0;i<N;i++)if(visible(i))layers[focus&&records[i].episode!==focus?0:1].push(i);
+ for(const [L,ids] of layers.entries())for(const i of ids){const [x,y]=p.px[i];if(x<-8||y<-8||x>w+8||y>h+8)continue;shape(c,x,y,3.2,kindOf(i));c.globalAlpha=L?(focus?.95:.72):.12;c.fillStyle=color(i);c.fill();}
+ c.globalAlpha=1;c.lineWidth=1.5;c.strokeStyle=css('--ink');for(const i of nb){if(!visible(i))continue;const [x,y]=p.px[i];shape(c,x,y,6,kindOf(i));c.stroke();}
+ for(const [i,s,lw] of [[selected,8,2.5],[hover,7,1.5]]){if(i===null||!visible(i))continue;const [x,y]=p.px[i];shape(c,x,y,s,kindOf(i));c.fillStyle=color(i);c.fill();c.lineWidth=lw;c.strokeStyle=css('--ink');c.stroke();}}
+ trajectory();}
+function trajectory(){const [c,w,h]=setup($('trajectory')),sets=[[records[selected].raw_xyz,1]];if(hover!==null&&hover!==selected)sets.push([records[hover].raw_xyz,.3]);
+ const pts=sets.flatMap(([raw])=>raw.flatMap(r=>[[r[0],r[1]],[r[3],r[4]]])),b=bounds(pts),pad=16,sx=(w-2*pad)/((b.x1-b.x0)||1),sy=(h-2*pad)/((b.y1-b.y0)||1),s=Math.min(sx,sy);
+ const map=q=>[pad+(q[0]-b.x0)*s,h-pad-(q[1]-b.y0)*s];c.strokeStyle=css('--grid');c.strokeRect(.5,.5,w-1,h-1);
+ for(const [raw,a] of sets){const col=color(raw===records[selected].raw_xyz?selected:hover);for(const arm of [0,1]){c.globalAlpha=a;c.strokeStyle=col;c.lineWidth=2;c.setLineDash(arm?[5,4]:[]);c.beginPath();raw.forEach((r,i)=>{const q=map([r[arm*3],r[arm*3+1]]);i?c.lineTo(...q):c.moveTo(...q);});c.stroke();}}c.globalAlpha=1;c.setLineDash([]);}
+function button(i){const b=document.createElement('button');b.type='button';b.textContent=String(i);b.setAttribute('aria-label',`Select point ${i}`);b.onclick=()=>{selected=i;render();};return b;}
+function row(cells,i){const tr=document.createElement('tr');if(i===selected)tr.className='selected';for(const v of cells){const td=document.createElement('td');v instanceof Node?td.append(v):td.textContent=v;tr.append(td);}return tr;}
+let rowsBuilt=false;
+function render(){$('point').value=selected;const {raw_xyz,...meta}=records[selected];$('selected').textContent=JSON.stringify({point:selected,...meta},null,2);legend();
+ $('neighbors').replaceChildren();for(const p of plots){const ids=neighbors[p.key]?.[selected]||[],cross=ids.filter(i=>records[i].embodiment!==records[selected].embodiment).length;for(const [k,i] of ids.entries()){const r=records[i];$('neighbors').append(row([k?'':`${titles[p.key]||p.key} (${cross}/${ids.length} cross-embodiment)`,k+1,r.embodiment,r.episode,r.frame,button(i)],-1));}}
+ if(!Object.keys(neighbors).length)$('neighbors').append(row(['Neighbours are exported for joint reports only','','','','',''],-1));
+ if(!rowsBuilt&&document.querySelector('details:has(#rows)')?.open){rowsBuilt=true;for(let i=0;i<N;i++){const r=records[i];$('rows').append(row([button(i),r.embodiment,r.episode,r.frame,r.source_rows],i));}}
+ draw();}
+document.querySelector('details:has(#rows)').addEventListener('toggle',render);
+$('color').onchange=render;$('episode').onchange=()=>{const f=$('episode').value;if(f)selected=records.findIndex(r=>r.episode===f);render();};
+$('point').onchange=()=>{const n=Number($('point').value);if(Number.isInteger(n)&&n>=0&&n<N){selected=n;hidden.delete(records[n].embodiment);}render();};
+for(const [id,d] of [['previous',-1],['next',1]])$(id).onclick=()=>{const ids=[...Array(N).keys()].filter(i=>visible(i)&&(!$('episode').value||records[i].episode===$('episode').value));selected=ids[(ids.indexOf(selected)+d+ids.length)%ids.length];render();};
+$('reset').onclick=()=>{for(const p of plots)p.view={...p.full};draw();};
+$('download').onclick=()=>{const payload={records:records.map(({raw_xyz,...r})=>r),projections:report.projections,neighbors};const url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='tsne-coordinates.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',render);
 new ResizeObserver(draw).observe($('plots'));render();
 </script></body></html>

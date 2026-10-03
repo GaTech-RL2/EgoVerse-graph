@@ -198,7 +198,43 @@ def collect(
     return {k: np.stack(v) for k, v in features.items()}, records, codecs
 
 
-def project(features, seed=42, perplexity=30.0, scaling="standard"):
+def drop_gripper(features):
+    """Remove both gripper columns from every 14-wide row of every representation.
+
+    Human grippers are zero-padded, so in a joint fit those columns would
+    separate the embodiments by construction rather than by motion.
+    """
+    keep = [c for c in range(14) if c not in (6, 13)]
+    out = {}
+    for name, values in features.items():
+        values = array(values)
+        if values.shape[1] % 14:
+            raise ValueError(f"{name}: width {values.shape[1]} is not a multiple of 14")
+        out[name] = values.reshape(len(values), -1, 14)[:, :, keep].reshape(
+            len(values), -1
+        )
+    return out
+
+
+def mixing(x, groups, k=10):
+    """Neighbour indices plus how mixed the groups are among k nearest neighbours.
+
+    Score = observed cross-group neighbour fraction / fraction expected under
+    random labels: 1 means fully mixed, 0 means every group is its own island.
+    """
+    from sklearn.neighbors import NearestNeighbors
+
+    groups = np.asarray(groups)
+    k = min(k, len(x) - 1)
+    idx = NearestNeighbors(n_neighbors=k + 1).fit(x).kneighbors(x)[1][:, 1:]
+    observed = (groups[idx] != groups[:, None]).mean()
+    counts = {g: (groups == g).sum() for g in set(groups)}
+    expected = np.mean([(len(groups) - counts[g]) / (len(groups) - 1) for g in groups])
+    score = float(observed / expected) if expected > 0 else None
+    return idx[:, :8].tolist(), score
+
+
+def project(features, seed=42, perplexity=30.0, scaling="standard", groups=None):
     from sklearn.decomposition import PCA
     from sklearn.manifold import TSNE
     from sklearn.preprocessing import StandardScaler
@@ -206,7 +242,7 @@ def project(features, seed=42, perplexity=30.0, scaling="standard"):
 
     if not np.isfinite(perplexity) or perplexity <= 0:
         raise ValueError("Perplexity must be finite and positive")
-    projections, diagnostics = {}, {}
+    projections, diagnostics, neighbors = {}, {}, {}
     for name, values in features.items():
         values = array(values)
         if values.ndim != 2 or len(values) < 3:
@@ -240,6 +276,10 @@ def project(features, seed=42, perplexity=30.0, scaling="standard"):
             "perplexity": effective,
             "kl_divergence": float(fit.kl_divergence_),
         }
+        if groups is not None:
+            neighbors[name], diagnostics[name]["mixing"] = mixing(x, groups)
+    if groups is not None:
+        return projections, diagnostics, neighbors
     return projections, diagnostics
 
 
@@ -308,7 +348,7 @@ def load_data(path, overrides, dataset_name, split, allow_remote):
     return {k: leaves[k] for k in sorted(chosen)}, provenance
 
 
-def write_report(output, features, records, projections, provenance):
+def write_report(output, features, records, projections, provenance, neighbors=None):
     output = Path(output)
     if output.exists():
         raise FileExistsError(
@@ -316,6 +356,8 @@ def write_report(output, features, records, projections, provenance):
         )
     output.mkdir(parents=True)
     payload = {"records": records, "projections": projections, "provenance": provenance}
+    if neighbors:
+        payload["neighbors"] = neighbors
     encoded = json.dumps(payload, allow_nan=False, default=str)
     (output / "report.json").write_text(encoded)
     np.savez_compressed(output / "features.npz", **features)

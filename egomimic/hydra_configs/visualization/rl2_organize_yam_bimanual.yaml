@@ -1,4 +1,5 @@
 # SQL inventory is read-only; sample before opening any episode arrays.
+# ARC settings mirror experiment/abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_multistream.
 name: rl2_organize_stationary_yam_bimanual
 source_fps: 30
 cache_roots:
@@ -6,13 +7,14 @@ cache_roots:
   - /workspace/users/ani-cheluva/datasets/egoverse_zarr
 inventory:
   query: >-
-    SELECT episode_hash, lab, task, embodiment, zarr_processed_path, is_deleted
+    SELECT episode_hash, lab, task, embodiment, operator, zarr_processed_path, is_deleted
     FROM app.episodes WHERE lab=:lab AND task=:task AND embodiment=:embodiment
-    AND is_deleted=false AND zarr_processed_path != '' ORDER BY episode_hash
+    AND lower(operator)=:operator AND is_deleted=false AND zarr_processed_path != '' ORDER BY episode_hash
   parameters:
     lab: rl2
     task: organize_stationary
     embodiment: yam_bimanual
+    operator: elmo
 data:
   valid_ratio: 0.05
   split_seed: 42
@@ -21,7 +23,7 @@ data:
     keymap_mode: hybrid_arc_tokenizer_cartesian
     norm_mode: true
     annotation_key: null
-    min_distance_unit: 0.4
+    min_distance_unit: 0.42
     rotation_distance_unit: 0.4188790204786391
     arc_chunking_mode: multistream
   transform_list:
@@ -31,13 +33,14 @@ data:
       action_mode: hybrid_arc_tokenizer_cartesian
       coord_frame: eef_frame
       rotation_mode: euler
-      min_distance_unit: 0.4
+      min_distance_unit: 0.42
       rotation_distance_unit: 0.4188790204786391
       arc_chunking_mode: multistream
       resampled_vector_length: 100
-      velocity_mode: per_waypoint
+      velocity_mode: duration
+      velocity_layout: clock
   filters:
     _target_: egomimic.rldb.filters.DatasetFilter
     filter_lambdas:
-      - "lambda row: row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and row['embodiment'] == 'yam_bimanual' and row['is_deleted'] == False"
+      - "lambda row: row['lab'] == 'rl2' and row['task'] == 'organize_stationary' and row['embodiment'] == 'yam_bimanual' and str(row.get('operator') or '').lower() == 'elmo' and row['is_deleted'] == False"
 

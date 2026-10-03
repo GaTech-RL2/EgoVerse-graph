@@ -159,7 +159,47 @@ def test_rl2_inventory_configs_preserve_native_source(embodiment):
     )
     assert tokenizer.arc_chunking_mode == "multistream"
     assert tokenizer.M == 100
-    assert tokenizer.velocity_layout == "wide"
+    assert tokenizer.velocity_mode == "duration"
+    assert tokenizer.velocity_layout == "clock"
+    assert tokenizer.tokenizer.config.min_distance_unit == 0.42
+    assert "elmo" in str(cfg.data.filters.filter_lambdas[0])
+
+
+def test_clock_layout_features_separate_waypoints_from_clocks():
+    from egomimic.rldb.zarr.arc_length_tokenizer import CLOCK_COLUMNS
+    from egomimic.scripts.data_visualization.arc_tsne import arc_features
+
+    class Codec:
+        M, velocity_mode, velocity_layout = 4, "duration", "clock"
+
+    token = np.arange(4 * 18, dtype=float).reshape(4, 18) + 1
+    with_clock = arc_features(token, Codec, True).reshape(-1, 14)
+    without = arc_features(token, Codec, False).reshape(-1, 14)
+    assert np.array_equal(without, token[:, :14])
+    assert np.array_equal(with_clock[4:, list(CLOCK_COLUMNS)], token[:, 14:])
+
+
+def test_joint_fit_drops_gripper_and_scores_mixing():
+    from egomimic.scripts.data_visualization.arc_tsne import (
+        drop_gripper,
+        mixing,
+        project,
+    )
+
+    rng = np.random.default_rng(0)
+    human = rng.normal(size=(40, 2 * 14))
+    robot = rng.normal(size=(40, 2 * 14))
+    human.reshape(40, 2, 14)[:, :, [6, 13]] = 0.0
+    robot.reshape(40, 2, 14)[:, :, [6, 13]] = 5.0 + rng.normal(size=(40, 2, 2))
+    dropped = drop_gripper({"baseline": np.concatenate([human, robot])})["baseline"]
+    assert dropped.shape == (80, 2 * 12)
+    groups = ["human"] * 40 + ["robot"] * 40
+    _, mixed = mixing(dropped, groups)
+    _, split = mixing(np.concatenate([human, robot]), groups)
+    assert mixed > 0.7 and split < 0.2
+    xy, diagnostics, neighbors = project({"baseline": dropped}, groups=groups)
+    assert len(xy["baseline"]) == 80 and len(neighbors["baseline"][0]) == 8
+    assert diagnostics["baseline"]["mixing"] > 0.7
 
 
 def test_inventory_sampling_uses_full_split():

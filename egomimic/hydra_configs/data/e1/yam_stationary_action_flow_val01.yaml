@@ -1,0 +1,85 @@
+# Candidate YAM front-camera dataset contract. The same complete 229-episode
+# root feeds both resolvers; episode-level train/valid modes partition it.
+# The YAM_* hashes must be exported from the immutable split manifest by the
+# eventual maintained launcher, never typed into a submission command.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
+      folder_path: ${e1.data_root}
+      embodiment_override: yam_bimanual
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: ${e1.chunk_length}
+        embodiment: yam
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: ${e1.variant}
+        chunk_length: ${e1.chunk_length}
+        time_rows: ${e1.time_rows}
+        min_distance_unit: ${e1.D}
+        resampled_vector_length: ${e1.M}
+        stride: 1
+        rotation_mode: euler
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        embodiment: yam
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 227
+    expected_train_episode_names_sha256: ${oc.env:YAM_TRAIN_IDS_SHA256}
+    expected_valid_episode_count: 2
+    expected_valid_episode_names_sha256: ${oc.env:YAM_VALID_IDS_SHA256}
+    bounds_check: false
+
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
+      folder_path: ${e1.data_root}
+      embodiment_override: yam_bimanual
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: ${e1.chunk_length}
+        embodiment: yam
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: ${e1.variant}
+        chunk_length: ${e1.chunk_length}
+        time_rows: ${e1.time_rows}
+        min_distance_unit: ${e1.D}
+        resampled_vector_length: ${e1.M}
+        stride: 1
+        rotation_mode: euler
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        embodiment: yam
+    mode: valid
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 227
+    expected_train_episode_names_sha256: ${oc.env:YAM_TRAIN_IDS_SHA256}
+    expected_valid_episode_count: 2
+    expected_valid_episode_names_sha256: ${oc.env:YAM_VALID_IDS_SHA256}
+    bounds_check: false
+
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 8
+    num_workers: 12
+    anchor_sampler: ${e1.anchor_sampler}
+
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 4
+    num_workers: 8
+    shuffle: false

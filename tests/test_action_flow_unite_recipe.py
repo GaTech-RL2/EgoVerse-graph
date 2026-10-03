@@ -9,12 +9,41 @@ from egomimic.models.action_flow_unite import (
     UniteActionFlowContentEncoder,
     UniteActionFlowVelocityField,
 )
+from egomimic.models.unite_action_decoder import UniteActionDecoder
 from egomimic.models.unite_dit import UniteDiTBackbone
 from egomimic.pipeline.stages_action_flow import (
     ConditionalVelocityStage,
     ContentDecoderStage,
     LatentBridgeStage,
 )
+from egomimic.utils.unite_optim import released_unite_two_stage_scheduler
+
+
+def test_released_warmup_first_optimizer_update_has_zero_lr():
+    """An optimizer-step-1 smoke cannot test zero-initialized latent projections."""
+
+    parameter = torch.nn.Parameter(torch.tensor(0.0))
+    optimizer = torch.optim.AdamW([parameter], lr=1.0e-4)
+    scheduler = released_unite_two_stage_scheduler(
+        optimizer,
+        warmup_steps=8000,
+        decay_start_1_steps=12000,
+        decay_end_1_steps=20000,
+        decay_start_2_steps=1200000,
+        decay_end_2_steps=1200000,
+        base_lr_1=1.0e-4,
+        base_lr_2=5.0e-5,
+        final_lr=5.0e-5,
+    )
+    assert optimizer.param_groups[0]["lr"] == 0.0
+    parameter.grad = torch.ones_like(parameter)
+    optimizer.step()
+    scheduler.step()
+    assert parameter.item() == 0.0
+    assert optimizer.param_groups[0]["lr"] > 0.0
+    parameter.grad = torch.ones_like(parameter)
+    optimizer.step()
+    assert parameter.item() != 0.0
 
 
 def _backbone(*, horizon: int = 2) -> UniteDiTBackbone:
@@ -75,6 +104,44 @@ def test_unite_action_flow_adapters_preserve_compact_register_contract():
     assert encoder.backbone is not field.backbone
     assert encoder.blocks is encoder.backbone.blocks
     assert field.blocks is field.backbone.blocks
+
+
+def test_zero_initialized_content_encoder_activates_after_reconstruction_step():
+    """An early diagnostic must not assume a nonzero latent before step one."""
+    torch.manual_seed(19)
+    encoder = UniteActionFlowContentEncoder(
+        backbone=_backbone(),
+        action_dim=3,
+        action_horizon=4,
+        latent_dim=4,
+        num_latent_tokens=2,
+        condition_dim=8,
+    )
+    decoder = UniteActionDecoder(
+        latent_dim=4,
+        action_dim=3,
+        num_latent_tokens=2,
+        action_horizon=4,
+        hidden_dim=32,
+        depth=1,
+        num_heads=4,
+        gradient_checkpointing=False,
+    )
+    actions = torch.randn(3, 4, 3)
+    optimizer = torch.optim.AdamW(
+        list(encoder.parameters()) + list(decoder.parameters()), lr=1e-3
+    )
+    initial = encoder(actions)
+    torch.testing.assert_close(initial, torch.zeros_like(initial))
+    loss = (decoder(initial) - actions).square().mean()
+    loss.backward()
+    gradient = encoder.backbone.proj_d.weight.grad
+    assert gradient is not None and torch.isfinite(gradient).all()
+    assert torch.count_nonzero(gradient) > 0
+    optimizer.step()
+    updated = encoder(actions)
+    assert torch.isfinite(updated).all()
+    assert torch.linalg.vector_norm(updated) > 0
 
 
 def test_unite_diagnostic_activations_align_registers_after_context_insertion():

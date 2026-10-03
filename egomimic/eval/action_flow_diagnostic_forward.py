@@ -9,6 +9,7 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from egomimic.pipeline.action_flow_topology import resolve_action_flow_topology
 from egomimic.utils.tensor_tree import clone_inference_tensors, cuda_devices
@@ -84,8 +85,14 @@ def _cap_batch_rows(batch: Mapping, count: int, limit: int) -> dict:
 
 
 def _decoder_singular_values(
-    decoder: nn.Module, values: torch.Tensor, sample_count: int
+    decoder: nn.Module,
+    values: torch.Tensor,
+    sample_count: int,
+    *,
+    jacobian_method: str = "reverse_chunked",
 ) -> torch.Tensor:
+    if jacobian_method not in {"reverse_chunked", "forward_math_chunk4"}:
+        raise ValueError(f"Unsupported decoder Jacobian method: {jacobian_method}")
     selected = values[:sample_count].detach().clone()
     singular_values = []
     for value in selected:
@@ -94,8 +101,26 @@ def _decoder_singular_values(
             return decoder(item.unsqueeze(0)).squeeze(0)
 
         with torch.enable_grad():
-            jacobian = torch.func.jacrev(decode_one)(value)
-            matrix = jacobian.float().reshape(jacobian.numel() // value.numel(), -1)
+            if jacobian_method == "forward_math_chunk4":
+                # The YAM 100x14 output has 1,400 reverse-AD rows but only
+                # 128 latent input columns. Flash SDPA lacks forward AD, so
+                # select math SDPA only for this exact Jacobian calculation.
+                basis = torch.eye(
+                    value.numel(), device=value.device, dtype=value.dtype
+                ).reshape(-1, *value.shape)
+
+                def direction(tangent: torch.Tensor) -> torch.Tensor:
+                    return torch.func.jvp(decode_one, (value,), (tangent,))[1]
+
+                with sdpa_kernel([SDPBackend.MATH]):
+                    columns = torch.func.vmap(direction, chunk_size=4)(basis)
+                matrix = columns.float().reshape(value.numel(), -1).T.contiguous()
+            else:
+                # Retain the existing method for all other experiments.
+                jacobian = torch.func.jacrev(decode_one, chunk_size=32)(value)
+                matrix = jacobian.float().reshape(
+                    jacobian.numel() // value.numel(), -1
+                )
             singular_values.append(torch.linalg.svdvals(matrix).detach())
     return torch.stack(singular_values)
 
@@ -146,6 +171,7 @@ def _diagnostic_source(
     max_samples: int | None,
     jacobian_samples: int,
     capture_activations: bool,
+    jacobian_method: str = "reverse_chunked",
 ) -> OrderedDict[str, Any]:
     encoder_stage, field_stage, decoder_stage = resolve_action_flow_topology(model)
     stages = tuple(model.pipeline.stages)
@@ -308,11 +334,17 @@ def _diagnostic_source(
     decoded_trajectory = decode_leading(trajectory_tensor)
 
     jacobian_count = min(batch_size, jacobian_samples)
-    clean_singular = _decoder_singular_values(decoder, clean, jacobian_count)
-    noise_singular = _decoder_singular_values(decoder, noise, jacobian_count)
+    clean_singular = _decoder_singular_values(
+        decoder, clean, jacobian_count, jacobian_method=jacobian_method
+    )
+    noise_singular = _decoder_singular_values(
+        decoder, noise, jacobian_count, jacobian_method=jacobian_method
+    )
     fixed_singular = torch.stack(
         [
-            _decoder_singular_values(decoder, value, jacobian_count)
+            _decoder_singular_values(
+                decoder, value, jacobian_count, jacobian_method=jacobian_method
+            )
             for value in fixed_states_tensor
         ]
     )
@@ -379,6 +411,7 @@ def collect_action_flow_diagnostics(
     jacobian_samples: int,
     capture_activations: bool,
     already_processed: bool,
+    jacobian_method: str = "reverse_chunked",
 ) -> OrderedDict[str, OrderedDict[str, Any]]:
     """Run the fixed-bank diagnostic forward and return detached tensors."""
 
@@ -412,5 +445,6 @@ def collect_action_flow_diagnostics(
                         max_samples=max_samples,
                         jacobian_samples=jacobian_samples,
                         capture_activations=capture_activations,
+                        jacobian_method=jacobian_method,
                     )
     return output

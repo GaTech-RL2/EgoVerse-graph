@@ -8,6 +8,7 @@ from contextlib import nullcontext
 import torch
 import torch.nn as nn
 from torch.func import jvp
+from torch.utils.checkpoint import checkpoint
 
 from egomimic.pipeline.core import Stage
 
@@ -580,9 +581,11 @@ class ContentDecoderStage(Stage):
         decoded_noise_key: str = "action_flow/decoded_noise",
         inference_latent_key: str = "action_flow/generated_latent",
         prediction_key: str = "pred_action",
+        jvp_activation_checkpointing: bool = False,
     ):
         super().__init__()
         self.decoder = _module(decoder, label="decoder")
+        self.jvp_activation_checkpointing = bool(jvp_activation_checkpointing)
         self.reconstruction_noising_start = float(reconstruction_noising_start)
         self.reconstruction_noising_probability = float(
             reconstruction_noising_probability
@@ -658,42 +661,51 @@ class ContentDecoderStage(Stage):
         # hooks that are incompatible with ``torch.func`` transforms. Preserve
         # checkpointing for the reconstruction pass, but disable it only while
         # computing this required forward-mode JVP.
-        checkpointing = getattr(self.decoder, "gradient_checkpointing", None)
-        if isinstance(checkpointing, bool):
-            self.decoder.gradient_checkpointing = False
-        # CUDA FlashAttention does not implement forward-mode AD. Restrict the
-        # decoder JVP to the mathematically equivalent SDPA math kernel; normal
-        # reconstruction, training, and inference forwards keep their default
-        # optimized attention selection.
-        attention_context = (
-            torch.backends.cuda.sdp_kernel(
-                enable_flash=False,
-                enable_math=True,
-                enable_mem_efficient=False,
-            )
-            if state.is_cuda
-            else nullcontext()
-        )
-        # Higher-order backward through the math kernel also requires matching
-        # primal/tangent dtypes, so keep this isolated derivative in FP32 when
-        # the surrounding trainer uses CUDA mixed precision.
-        precision_context = (
-            torch.autocast(device_type="cuda", enabled=False)
-            if state.is_cuda
-            else nullcontext()
-        )
-        jvp_state = state.float() if state.is_cuda else state
-        jvp_residual = residual.float() if residual.is_cuda else residual
-        try:
-            with precision_context, attention_context:
-                decoded_residual = jvp(
-                    self.decoder,
-                    (jvp_state,),
-                    (jvp_residual,),
-                )[1]
-        finally:
+        def decode_jvp(primal: torch.Tensor, tangent: torch.Tensor) -> torch.Tensor:
+            checkpointing = getattr(self.decoder, "gradient_checkpointing", None)
             if isinstance(checkpointing, bool):
-                self.decoder.gradient_checkpointing = checkpointing
+                self.decoder.gradient_checkpointing = False
+            # Forward AD requires math SDPA and matching FP32 primal/tangent
+            # dtypes. Keep both contexts inside the function so checkpoint
+            # replay uses the same numerical path as its forward pass.
+            attention_context = (
+                torch.backends.cuda.sdp_kernel(
+                    enable_flash=False,
+                    enable_math=True,
+                    enable_mem_efficient=False,
+                )
+                if primal.is_cuda
+                else nullcontext()
+            )
+            precision_context = (
+                torch.autocast(device_type="cuda", enabled=False)
+                if primal.is_cuda
+                else nullcontext()
+            )
+            try:
+                with precision_context, attention_context:
+                    return jvp(
+                        self.decoder,
+                        (primal.float() if primal.is_cuda else primal,),
+                        (tangent.float() if tangent.is_cuda else tangent,),
+                    )[1]
+            finally:
+                if isinstance(checkpointing, bool):
+                    self.decoder.gradient_checkpointing = checkpointing
+
+        if (
+            self.jvp_activation_checkpointing
+            and self.training
+            and torch.is_grad_enabled()
+            and (state.requires_grad or residual.requires_grad)
+        ):
+            # Reentrant checkpointing is outside torch.func.jvp. The decoder's
+            # non-reentrant per-layer checkpointing remains disabled inside it.
+            decoded_residual = checkpoint(
+                decode_jvp, state, residual, use_reentrant=True
+            )
+        else:
+            decoded_residual = decode_jvp(state, residual)
         if not torch.is_tensor(decoded_residual) or decoded_residual.ndim < 2:
             shape = (
                 tuple(decoded_residual.shape)

@@ -1,0 +1,216 @@
+# Provisional YAM stationery Action Flow; review and exact-source smoke required.
+# Hidden width 816 preserves 12 even-width RoPE attention heads.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+training_behavior:
+  _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
+diagnostic_provider:
+  _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
+
+action_horizon: 100
+action_dim: 14
+num_latent_tokens: 8
+latent_dim: 16
+condition_dim: 256
+hidden_dim: 816
+denoiser_hidden_dim: ${model.hidden_dim}
+denoiser_num_heads: 12
+flow_samples_per_content: 14
+flow_mini_batch: 14
+condition_dropout_probability: 0.1
+flow_loss_aggregation: mean
+cfg_scale: 1.0
+cfg_interval: [0.0, 1.0]
+num_inference_steps: 50
+reconstruction_weight: 1.0
+flow_weight: 1.0
+decoded_noise_scale_weight: 0.0
+decode_noise: false
+action_flow_method: latent_fm_stopgrad_unite
+optimizer_named_parameters: true
+gradient_checkpointing: true
+jvp_activation_checkpointing: true
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
+      stems:
+        observations.images.front_img_1:
+          _target_: egomimic.models.stems.e1_image.E1ImageStem
+          output_dim: ${hpt.embed_dim}
+          weights: ${e1.image_weights}
+          specs: ${hpt.stem_specs}
+      domain_stems:
+        yam_bimanual:
+          observations.state.ee_pose:
+            _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+            input_dim: 14
+            output_dim: ${hpt.embed_dim}
+            widths:
+              - ${hpt.embed_dim}
+            specs: ${hpt.stem_specs}
+      selector_aliases: {'7': yam_bimanual}
+    - _target_: egomimic.pipeline.stages_hpt.HPTTrunkStage
+      embed_dim: ${hpt.embed_dim}
+      token_postprocessing: action_token
+      use_position_embedding: true
+      max_tokens: 512
+      trunk:
+        _target_: egomimic.models.cores.hpt_transformer.SimpleTransformer
+        embed_dim: ${hpt.embed_dim}
+        num_blocks: ${hpt.num_blocks}
+        drop_path_rate: 0.1
+        weight_init_style: pytorch
+        attn_target:
+          _target_: egomimic.models.cores.hpt_transformer.MultiheadAttention
+          _partial_: true
+          embed_dim: ${hpt.embed_dim}
+          num_heads: ${hpt.num_heads}
+          batch_first: true
+      use_domain_embedding: true
+      domains: [yam_bimanual]
+      selector_aliases: {'7': yam_bimanual}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+      action_key: actions_cartesian
+    - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+      num_tokens: ${model.num_latent_tokens}
+      latent_dim: ${model.latent_dim}
+    - _target_: egomimic.pipeline.stages_action_flow.ContentEncoderStage
+      encoder:
+        _target_: egomimic.models.action_flow_unite.UniteActionFlowContentEncoder
+        action_dim: ${model.action_dim}
+        action_horizon: ${model.action_horizon}
+        latent_dim: ${model.latent_dim}
+        num_latent_tokens: ${model.num_latent_tokens}
+        condition_dim: ${model.condition_dim}
+        tokenization_time_max: 0.01
+        backbone:
+          _target_: egomimic.models.unite_dit.UniteDiTBackbone
+          input_dim: ${model.latent_dim}
+          output_dim: ${model.latent_dim}
+          horizon: ${model.num_latent_tokens}
+          condition_dim: ${model.condition_dim}
+          max_condition_tokens: 1
+          max_content_tokens: ${model.action_horizon}
+          hidden_dim: ${model.hidden_dim}
+          depth: 12
+          num_heads: 12
+          mlp_ratio: 4.0
+          qk_norm: true
+          use_rope: true
+          use_rmsnorm: true
+          use_swiglu: true
+          block_norm: true
+          time_fourier_dim: 256
+          context_adaln_summary: false
+          in_context_start: 4
+          in_context_len: 32
+          trainable_position_embeddings: false
+          trainable_register_position_embeddings: true
+          trainable_content_position_embeddings: false
+          trainable_condition_position_embeddings: false
+          trainable_in_context_position_embeddings: true
+          gradient_checkpointing: ${model.gradient_checkpointing}
+    - _target_: egomimic.pipeline.stages_action_flow.LatentBridgeStage
+      samples_per_content: ${model.flow_samples_per_content}
+      condition_dropout_probability: ${model.condition_dropout_probability}
+      time_sampling: lognormal_shifted
+      lognorm_mu: 0.0
+      lognorm_sigma: 1.0
+      timestep_shift_alpha: 0.5
+      independent_noise_per_sample: true
+      independent_condition_dropout_per_sample: true
+    - _target_: egomimic.pipeline.stages_action_flow.ConditionalVelocityStage
+      flow_clean_gradient_mode: all_stopgrad
+      num_inference_steps: ${model.num_inference_steps}
+      inference_method: dopri5
+      timestep_shift_alpha: 0.5
+      dopri5_atol: 1.0e-6
+      dopri5_rtol: 1.0e-3
+      cfg_scale: ${model.cfg_scale}
+      cfg_interval: ${model.cfg_interval}
+      field:
+        _target_: egomimic.models.action_flow_unite.UniteActionFlowVelocityField
+        input_dim: ${model.latent_dim}
+        output_dim: ${model.latent_dim}
+        horizon: ${model.num_latent_tokens}
+        condition_dim: ${model.condition_dim}
+        condition_dropout_probability: ${model.condition_dropout_probability}
+        backbone:
+          _target_: egomimic.models.unite_dit.UniteDiTBackbone
+          input_dim: ${model.latent_dim}
+          output_dim: ${model.latent_dim}
+          horizon: ${model.num_latent_tokens}
+          condition_dim: ${model.condition_dim}
+          max_condition_tokens: 1
+          max_content_tokens: ${model.action_horizon}
+          hidden_dim: ${model.denoiser_hidden_dim}
+          depth: 12
+          num_heads: ${model.denoiser_num_heads}
+          mlp_ratio: 4.0
+          qk_norm: true
+          use_rope: true
+          use_rmsnorm: true
+          use_swiglu: true
+          block_norm: true
+          time_fourier_dim: 256
+          context_adaln_summary: false
+          in_context_start: 4
+          in_context_len: 32
+          trainable_position_embeddings: false
+          trainable_register_position_embeddings: true
+          trainable_content_position_embeddings: false
+          trainable_condition_position_embeddings: false
+          trainable_in_context_position_embeddings: true
+          gradient_checkpointing: ${model.gradient_checkpointing}
+    - _target_: egomimic.pipeline.stages_action_flow.ContentDecoderStage
+      jvp_activation_checkpointing: ${model.jvp_activation_checkpointing}
+      reconstruction_noising_start: 0.7
+      reconstruction_noising_probability: 0.5
+      decode_noise: ${model.decode_noise}
+      decoder:
+        _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
+        latent_dim: ${model.latent_dim}
+        action_dim: ${model.action_dim}
+        num_latent_tokens: ${model.num_latent_tokens}
+        action_horizon: ${model.action_horizon}
+        hidden_dim: ${model.hidden_dim}
+        depth: 12
+        num_heads: 12
+        mlp_ratio: 4.0
+        dropout: 0.0
+        gradient_checkpointing: ${model.gradient_checkpointing}
+    - _target_: egomimic.pipeline.stages_action_flow.ActionFlowObjectiveStage
+      residual_key: action_flow/fm_velocity_residual
+      flow_weight: ${model.flow_weight}
+      reconstruction_weight: ${model.reconstruction_weight}
+      action_velocity_weight: 1.0
+      moment_weight: ${model.decoded_noise_scale_weight}
+      flow_aggregation: ${model.flow_loss_aggregation}
+      flow_samples_per_content: ${model.flow_samples_per_content}
+
+enable_grad_norm: false
+gradient_telemetry_cadence: 100
+
+optimizer:
+  _target_: egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer
+  _partial_: true
+  lr: 1.0e-4
+  betas: [0.9, 0.999]
+  eps: 1.0e-6
+  adamw_weight_decay: 0.0
+  muon_weight_decay: 0.0
+  muon_momentum: 0.95
+  muon_adjust_lr_fn: match_rms_adamw
+
+scheduler:
+  _target_: egomimic.utils.unite_optim.released_unite_two_stage_scheduler
+  _partial_: true
+  warmup_steps: 8000
+  decay_start_1_steps: 12000
+  decay_end_1_steps: 20000
+  decay_start_2_steps: 1200000
+  decay_end_2_steps: 1200000
+  base_lr_1: 1.0e-4
+  base_lr_2: 5.0e-5
+  final_lr: 5.0e-5

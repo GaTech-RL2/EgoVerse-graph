@@ -1,0 +1,65 @@
+_target_: egomimic.eval.yam_action_flow_eval.YamCartesianActionFlowEval
+limit_val_batches: 8
+action_key: actions_cartesian
+native_decoder: null
+energy_score_enabled: true
+deterministic_seed: 420042
+seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+artifact_root: ${paths.output_dir}/validation_predictions/energy_score
+energy_score_max_batches_per_rank: 1
+energy_score_validation_view:
+  definition: first_deterministic_validation_batch_per_rank
+  split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+  per_rank_batch_size: ${data.valid_dataloader_params.yam_bimanual.batch_size}
+  world_size: 1
+energy_score_provenance:
+  source_commit: ${run_provenance.source_commit}
+  normalization_sha256: ${run_provenance.normalization_sha256}
+  split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+  action_representation: yam_cartesian_xyz_ypr_gripper_14d
+  prediction_horizon: 100
+  sampler: dopri5
+  sampler_steps: 50
+  model_autocast_precision: bf16
+  distance_contract:
+    type: yam_cartesian_14d_chunk_v1
+    space: normalized_xyz_gripper_plus_unnormalized_wrapped_ypr
+    semantic_weights: {translation: 0.3333333333333333, rotation: 0.3333333333333333, gripper: 0.3333333333333333}
+    complete_normalized_chunk_shape: [100, 14]
+unite_diagnostics:
+  enabled: false
+action_flow_diagnostics:
+  enabled: true
+  noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+  noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+  raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+  max_batches_per_rank: 1
+  max_samples: 16
+  jacobian_samples: 2
+  jacobian_method: forward_math_chunk4
+  capture_activations: true
+  activation_layer_map: {0: 0, 1: 11}
+  cknna_k: 2
+  native_error:
+    enabled: true
+    type: yam_cartesian_xyz_wrapped_ypr_gripper_mse_v1
+    space: unnormalized_cartesian_14d
+    rotation_indices: [3, 4, 5, 10, 11, 12]
+    wrap_period_radians: 6.283185307179586
+    reduction: mean_squared_error_over_horizon_and_native_coordinates
+    normalizer: bound_train_only_evaluator_normalizer
+  artifact_root: ${paths.output_dir}/validation_predictions/action_flow_diagnostics
+  validation_view:
+    definition: first_deterministic_validation_batch_per_rank
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    per_rank_batch_size: ${data.valid_dataloader_params.yam_bimanual.batch_size}
+    world_size: 1
+  provenance:
+    source_commit: ${run_provenance.source_commit}
+    normalization_sha256: ${run_provenance.normalization_sha256}
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    action_representation: yam_cartesian_xyz_ypr_gripper_14d
+    latent_shape: [8, 16]
+    sampler: dopri5
+    sampler_steps: 50

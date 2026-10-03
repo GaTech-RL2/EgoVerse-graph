@@ -1,0 +1,29 @@
+# @package _global_
+# RL2 cotrain, sort stationery, variant arcvelhyb (arcdurhyb's token with interval speeds instead of durations, (100, 18)), built on the arcdur recipe: the slow-pace YAM pool (Elmo + Aidan, 217 train eps, shared 24-episode held-out
+# robot val) PLUS RL2 Aria human episodes. Twin of scratch_rl2_stattempo_slowpace_arcdur (same robot data, val, 240k / warmup 10k /
+# seed 42 recipe, BimanualTempoEval on the robot val) with the human domain added. Each step draws one robot batch (32) and one
+# human batch (32 by default). The data config is GENERATED at launch from the live SQL table by
+# scripts/e1/build_slowpace_aria_cotrain.py -- launch with scripts/e1/launch_slowpace_aria_cotrain.sh.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_stattempo_slowpace_arcdur
+- _self_
+- override /model: e1/hpt_flow_wrists_ft_arcdurhyb_cotrain
+- override /data: abc_arc/stationery_slowpace_aria_cotrain_arcvelhyb
+name: cotrain_rl2_stattempo_slowpace_aria_arcvelhyb
+description: h640t8_d384x10_cos10k_240k_s42_cotrain_rl2_stattempo_slowpace_aria_arcvelhyb
+logger:
+  wandb:
+    id: cotrain_rl2_stattempo_slowpace_aria_arcvelhyb_20261001_s42
+    tags:
+    - rl2
+    - stationery
+    - stattempo
+    - tempo_slowpace
+    - cotrain
+    - aria
+    - arcvelhyb
+e1:
+  variant: arcvelhyb
+  action_dim: 18
+hpt:
+  action_dim: 18

@@ -8,7 +8,8 @@ embodiment='aria', task='organize stationary' (space) before conversion; both sp
 accepted by default.
 
     build_slowpace_aria_cotrain.py --list [--since D]          rl2 Aria tasks/operators recorded since D, then exit
-    build_slowpace_aria_cotrain.py --tasks T [T ...] [...]     write data/abc_arc/stationery_slowpace_aria_cotrain_{time,arcdur}.yaml
+    build_slowpace_aria_cotrain.py --tasks T [T ...] [...]     write data/abc_arc/stationery_slowpace_aria_cotrain_<variant>.yaml
+                                                               for --variants (default: all five below)
     build_slowpace_aria_cotrain.py --check                     compose both experiments and load real samples (CPU node;
                                                                syncs any missing Aria zarrs from R2 into the mirror)
 Normally run through scripts/e1/launch_slowpace_aria_cotrain.sh.
@@ -19,8 +20,18 @@ from pathlib import Path
 CONS = Path(__file__).resolve().parents[2]
 H = CONS / "egomimic/hydra_configs"
 MIRROR = "/storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets"
-VARIANTS = ("time", "arcdur")
+VARIANTS = ("time", "arcdur", "arcdurhyb", "arcvel", "arcvelhyb")
 OUT = {v: H / f"data/abc_arc/stationery_slowpace_aria_cotrain_{v}.yaml" for v in VARIANTS}
+
+
+def robot_base(v):
+    """The slow-pace robot leaves for variant v: the time / arcdur data configs as generated for the robot-only runs; the
+    other arc variants are the arcdur config with only the transform's variant changed (same window, D, M, episodes)."""
+    from omegaconf import OmegaConf
+    cfg = OmegaConf.load(H / f"data/abc_arc/stationery_tempo_slowpace_{'time' if v == 'time' else 'arcdur'}.yaml")
+    for group in ("train_datasets", "valid_datasets"):
+        cfg[group].yam_bimanual.resolver.transform_list.variant = v
+    return cfg
 MANIFEST = CONS / "scripts/e1/stationery_slowpace_aria_manifest.json"
 
 
@@ -78,23 +89,23 @@ def build(args):
     hashes = list(sel["episode_hash"])
     hours = float(sel["num_frames"].sum()) / 30 / 3600
     who = sel["operator"].value_counts().to_dict()
-    for v in VARIANTS:
-        cfg = OmegaConf.load(H / f"data/abc_arc/stationery_tempo_slowpace_{v}.yaml")
+    for v in args.variants:
+        cfg = robot_base(v)
         cfg.train_datasets.human_bimanual = human_leaf(v, hashes, set(sel["embodiment"]))
         cfg.train_dataloader_params.human_bimanual = {"batch_size": args.human_batch, "num_workers": 6, "persistent_workers": True}
         head = (f"# GENERATED {datetime.datetime.now():%Y-%m-%d %H:%M} by scripts/e1/build_slowpace_aria_cotrain.py -- rebuild, don't edit.\n"
-                f"# Robot: data/abc_arc/stationery_tempo_slowpace_{v}.yaml unchanged (slow-pace pool, 217 train, shared 24-ep val).\n"
+                f"# Robot: data/abc_arc/stationery_tempo_slowpace_{'time' if v == 'time' else 'arcdur'}.yaml, variant {v} (slow-pace pool, 217 train, shared 24-ep val).\n"
                 f"# Human: {len(hashes)} RL2 Aria eps / {hours:.2f} h, tasks {args.tasks}, since {args.since}, operators {who}.\n"
                 f"# Per step: robot batch 32 + human batch {args.human_batch}; validation is robot-only.\n")
         OUT[v].write_text(head + OmegaConf.to_yaml(cfg))
     MANIFEST.write_text(json.dumps({
-        "created": datetime.datetime.now().isoformat(timespec="seconds"), "query": vars(args), "n": len(hashes),
+        "created": datetime.datetime.now().isoformat(timespec="seconds"), "query": vars(args), "variants": list(args.variants), "n": len(hashes),
         "hours": round(hours, 3), "operators": who, "tasks": sel["task"].value_counts().to_dict(),
         "rig_name": sel["rig_name"].value_counts().to_dict(), "embodiment": sel["embodiment"].value_counts().to_dict(),
         "episodes": hashes}, indent=1))
     print(f"human: {len(hashes)} eps, {hours:.2f} h, operators {who}, rigs {sel['rig_name'].value_counts().to_dict()}")
     print("robot: slow-pace pool, 217 train eps (~2.2 h), shared 24-ep val")
-    for v in VARIANTS:
+    for v in args.variants:
         print("wrote", OUT[v].relative_to(CONS))
 
 
@@ -104,7 +115,7 @@ def check():
     from hydra.core.hydra_config import HydraConfig
     from hydra.utils import instantiate
     man = json.loads(MANIFEST.read_text())
-    for v in VARIANTS:
+    for v in man.get("variants", ["time", "arcdur"]):
         with initialize_config_dir(config_dir=str(H), version_base=None):
             cfg = compose("train_zarr_cartesian", overrides=[f"+experiment=yam_arc_grid/cotrain_rl2_stattempo_slowpace_aria_{v}"],
                           return_hydra_config=True)
@@ -119,7 +130,7 @@ def check():
             if emb == "human_bimanual" and v == "time":
                 fps = {zarr.open_group(f"{MIRROR}/{h}", mode="r").attrs.get("fps") for h in man["episodes"]}
                 assert fps <= {30, "30"}, f"Aria fps {fps}: the 100-frame window assumes 30 fps -- set horizon/chunk_length"
-                a = np.asarray(item["actions_cartesian"])
+                a = np.asarray(item["actions_time"])
                 print(f"   human chunk: xyz travel L {np.linalg.norm(np.diff(a[:, :3], axis=0), axis=1).sum():.3f} m,"
                       f" R {np.linalg.norm(np.diff(a[:, 7:10], axis=0), axis=1).sum():.3f} m over 3.33 s; grip cols {a[0, [6, 13]]}")
     print("CHECK_OK")
@@ -132,6 +143,7 @@ if __name__ == "__main__":
     p.add_argument("--since", default="2026-10-01", help="earliest episode-hash date (YYYY-MM-DD)")
     p.add_argument("--operators", nargs="*", help="restrict to these SQL operators")
     p.add_argument("--human-batch", type=int, default=32)
+    p.add_argument("--variants", nargs="+", default=list(VARIANTS), choices=VARIANTS)
     p.add_argument("--limit", type=int, help="first N episodes only (smoke tests)")
     p.add_argument("--list", action="store_true")
     p.add_argument("--check", action="store_true")

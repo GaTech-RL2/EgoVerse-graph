@@ -1,5 +1,5 @@
 # GENERATED 2026-10-03 02:36 by scripts/e1/build_slowpace_aria_cotrain.py -- rebuild, don't edit.
-# Robot: data/abc_arc/stationery_tempo_slowpace_arcdur.yaml, variant arcdur (slow-pace pool, 217 train, shared 24-ep val).
+# Robot: data/abc_arc/stationery_tempo_slowpace_arcdur.yaml, variant arcdurhyb (slow-pace pool, 217 train, shared 24-ep val).
 # Human: 37 RL2 Aria eps / 1.20 h, tasks ['organize stationary', 'organize_stationary'], since 2026-10-01, operators {'Elmo': 37}.
 # Per step: robot batch 32 + human batch 32; validation is robot-only.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
@@ -20,7 +20,7 @@ train_datasets:
         drop_wrist_images: false
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
-        variant: arcdur
+        variant: arcdurhyb
         chunk_length: 200
         time_rows: 100
         min_distance_unit: 0.4
@@ -55,7 +55,7 @@ train_datasets:
         embodiment: human
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
-        variant: arcdur
+        variant: arcdurhyb
         chunk_length: 100
         time_rows: 100
         min_distance_unit: 0.4
@@ -91,7 +91,7 @@ valid_datasets:
         drop_wrist_images: false
       transform_list:
         _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
-        variant: arcdur
+        variant: arcdurhyb
         chunk_length: 200
         time_rows: 100
         min_distance_unit: 0.4

@@ -1,0 +1,9 @@
+Workflow validation succeeded.
+WARNING: New client 6.3.1 available.
+Current version: 6.2.10.fa46f7f09.
+Please run the following command:
+curl -fsSL https://us-west-2-aws.osmo.nvidia.com/cli/install.sh | bash
+WARNING: New client 6.3.1 available.
+Current version: 6.2.10.fa46f7f09.
+Please run the following command:
+curl -fsSL https://us-west-2-aws.osmo.nvidia.com/cli/install.sh | bash

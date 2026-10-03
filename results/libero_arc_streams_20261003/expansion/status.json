@@ -1,0 +1,2741 @@
+{
+  "observed_at_utc": "2026-10-03T22:16:29.718389+00:00",
+  "workflows": [
+    {
+      "workflow": "arc-sr-20261003-spatial-1",
+      "status": "RUNNING",
+      "active_training_slots": {
+        "RUNNING": 3
+      },
+      "all_training_tasks": {
+        "RUNNING": 3,
+        "WAITING": 18
+      }
+    },
+    {
+      "workflow": "arc-sr-20261003-object-1",
+      "status": "RUNNING",
+      "active_training_slots": {
+        "RUNNING": 4
+      },
+      "all_training_tasks": {
+        "RUNNING": 4,
+        "WAITING": 18
+      }
+    },
+    {
+      "workflow": "arc-sr-20261003-goal-1",
+      "status": "RUNNING",
+      "active_training_slots": {
+        "RUNNING": 3
+      },
+      "all_training_tasks": {
+        "RUNNING": 3,
+        "WAITING": 18
+      }
+    },
+    {
+      "workflow": "arc-sr-20261003-10-1",
+      "status": "RUNNING",
+      "active_training_slots": {
+        "RUNNING": 4
+      },
+      "all_training_tasks": {
+        "RUNNING": 4,
+        "WAITING": 18
+      }
+    },
+    {
+      "workflow": "arc-sx-20261003-spatial-1",
+      "status": "RUNNING",
+      "active_training_slots": {
+        "INITIALIZING": 3,
+        "RUNNING": 3
+      },
+      "all_training_tasks": {
+        "INITIALIZING": 3,
+        "RUNNING": 3,
+        "WAITING": 12
+      }
+    },
+    {
+      "workflow": "arc-sx-20261003-object-1",
+      "status": "RUNNING",
+      "active_training_slots": {
+        "INITIALIZING": 3,
+        "RUNNING": 3
+      },
+      "all_training_tasks": {
+        "INITIALIZING": 3,
+        "RUNNING": 3,
+        "WAITING": 12
+      }
+    },
+    {
+      "workflow": "arc-sx-20261003-goal-1",
+      "status": "RUNNING",
+      "active_training_slots": {
+        "INITIALIZING": 5,
+        "RUNNING": 1
+      },
+      "all_training_tasks": {
+        "INITIALIZING": 5,
+        "RUNNING": 1,
+        "WAITING": 12
+      }
+    },
+    {
+      "workflow": "arc-sx-20261003-10-1",
+      "status": "RUNNING",
+      "active_training_slots": {
+        "INITIALIZING": 2,
+        "RUNNING": 3,
+        "SCHEDULING": 1
+      },
+      "all_training_tasks": {
+        "INITIALIZING": 2,
+        "RUNNING": 3,
+        "SCHEDULING": 1,
+        "WAITING": 12
+      }
+    },
+    {
+      "workflow": "arc-se-20261003-spatial-reference-stk-eval-1",
+      "status": "RUNNING",
+      "active_training_slots": {},
+      "all_training_tasks": {}
+    },
+    {
+      "workflow": "arc-se-20261003-goal-reference-stk-eval-1",
+      "status": "COMPLETED",
+      "active_training_slots": {},
+      "all_training_tasks": {}
+    }
+  ],
+  "preserved_artifacts": [
+    {
+      "run_id": "arc-sr-20261003-spatial-reference-dur",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-spatial-gripper-stk",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-spatial-component-time-dur",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-se-20261003-spatial-reference-stk-eval",
+      "file": "status.json",
+      "state": "ROLLOUTS",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-se-20261003-spatial-reference-stk-eval",
+      "file": "evaluation-progress.json",
+      "state": null,
+      "episodes": 1587
+    },
+    {
+      "run_id": "arc-sr-20261003-object-reference-dur",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-object-gripper-stk",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-object-component-time-dur",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-object-reference-stk",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-goal-reference-dur",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-goal-gripper-stk",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-goal-component-time-dur",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-se-20261003-goal-reference-stk-eval",
+      "file": "status.json",
+      "state": "POLICY_EVALUATION_COMPLETE",
+      "episodes": 2500
+    },
+    {
+      "run_id": "arc-se-20261003-goal-reference-stk-eval",
+      "file": "evaluation-progress.json",
+      "state": null,
+      "episodes": 2500
+    },
+    {
+      "run_id": "arc-sr-20261003-10-reference-dur",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-10-gripper-stk",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-10-component-time-dur",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    },
+    {
+      "run_id": "arc-sr-20261003-10-reference-stk",
+      "file": "status.json",
+      "state": "TRAINING",
+      "episodes": null
+    }
+  ],
+  "new_training_artifact_states": [
+    {
+      "run": "arc-sx-20261003-10-gripper-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-10-xyz-scalar-stk",
+      "state": "STAGING_DATA"
+    },
+    {
+      "run": "arc-sx-20261003-10-xyz-scalar-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-10-component-velocity-stk",
+      "state": "STAGING_DATA"
+    },
+    {
+      "run": "arc-sx-20261003-10-component-velocity-dur",
+      "state": "STAGING_DATA"
+    },
+    {
+      "run": "arc-sx-20261003-10-component-time-stk",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-goal-gripper-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-goal-xyz-scalar-stk",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-goal-xyz-scalar-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-goal-component-velocity-stk",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-goal-component-velocity-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-goal-component-time-stk",
+      "state": "STAGING_DATA"
+    },
+    {
+      "run": "arc-sx-20261003-object-gripper-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-object-xyz-scalar-stk",
+      "state": "STAGING_DATA"
+    },
+    {
+      "run": "arc-sx-20261003-object-xyz-scalar-dur",
+      "state": "STAGING_DATA"
+    },
+    {
+      "run": "arc-sx-20261003-object-component-velocity-stk",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-object-component-velocity-dur",
+      "state": "STAGING_DATA"
+    },
+    {
+      "run": "arc-sx-20261003-object-component-time-stk",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-spatial-gripper-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-spatial-xyz-scalar-stk",
+      "state": "STAGING_DATA"
+    },
+    {
+      "run": "arc-sx-20261003-spatial-xyz-scalar-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-spatial-component-velocity-stk",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-spatial-component-velocity-dur",
+      "state": "no_status_yet"
+    },
+    {
+      "run": "arc-sx-20261003-spatial-component-time-stk",
+      "state": "STAGING_DATA"
+    }
+  ],
+  "detailed_workflows": [
+    {
+      "name": "arc-se-20261003-goal-reference-stk-eval-1",
+      "status": "COMPLETED",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:20:23.637477",
+      "start_time": "2026-10-03T20:20:31.629342",
+      "end_time": "2026-10-03T22:07:22.619489",
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-se-20261003-goal-reference-stk-eval-1",
+      "tasks": [
+        {
+          "name": "libero",
+          "status": "COMPLETED",
+          "start_time": "2026-10-03T20:20:31.629342",
+          "end_time": "2026-10-03T22:07:22.619489",
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-se-20261003-spatial-reference-stk-eval-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:20:21.712797",
+      "start_time": "2026-10-03T20:20:31.486586",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-se-20261003-spatial-reference-stk-eval-1",
+      "tasks": [
+        {
+          "name": "libero",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:20:31.486586",
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-10-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:33:01.585278",
+      "start_time": "2026-10-03T20:33:13.196345",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-10-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-train",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:38:30.368367",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:38:35.635467",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:33:14.026047",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:33:13.196345",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-goal-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:32:36.775094",
+      "start_time": "2026-10-03T20:32:45.222829",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-goal-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:45.222829",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:47.309348",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:38:07.712987",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:38:08.740195",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-object-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:32:20.276097",
+      "start_time": "2026-10-03T20:32:30.627089",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-object-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-train",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:51.822639",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:30.627089",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:56.085991",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:46.952690",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-spatial-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:32:05.538561",
+      "start_time": "2026-10-03T20:32:14.966991",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-spatial-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:14.966991",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:29.573264",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:16.643151",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:31.331387",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sx-20261003-10-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T22:12:59.523257",
+      "start_time": "2026-10-03T22:13:08.664215",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sx-20261003-10-1",
+      "tasks": [
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:08.664215",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:09.687592",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:13.193967",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:13.347820",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:14.571917",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "SCHEDULING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sx-20261003-goal-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T22:12:40.675067",
+      "start_time": "2026-10-03T22:12:48.444861",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sx-20261003-goal-1",
+      "tasks": [
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:48.444861",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:49.478682",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:54.977029",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sx-20261003-object-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T22:12:22.305732",
+      "start_time": "2026-10-03T22:12:29.207567",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sx-20261003-object-1",
+      "tasks": [
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:29.207567",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:31.204469",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:34.121963",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:34.908788",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:36.627824",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sx-20261003-spatial-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T22:12:06.154549",
+      "start_time": "2026-10-03T22:12:14.362921",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sx-20261003-spatial-1",
+      "tasks": [
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:14.362921",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:17.043998",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:21.095978",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:22.540307",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:24.346842",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    }
+  ]
+}

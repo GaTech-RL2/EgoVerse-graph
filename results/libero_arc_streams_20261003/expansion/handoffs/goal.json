@@ -1,0 +1,73 @@
+{
+  "operation": "recovery_tail_moved_to_expanded_workflow",
+  "old_workflow": "arc-sr-20261003-goal-1",
+  "new_workflow": "arc-sx-20261003-goal-1",
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "preserved_tasks": [
+    "evaluate-00",
+    "evaluate-01",
+    "evaluate-02",
+    "reference-stk-ready",
+    "train-00",
+    "train-01",
+    "train-02"
+  ],
+  "retired_tasks": [
+    "evaluate-03",
+    "evaluate-04",
+    "evaluate-05",
+    "evaluate-06",
+    "evaluate-07",
+    "evaluate-08",
+    "evaluate-09",
+    "evaluate-10",
+    "evaluate-11",
+    "evaluate-12",
+    "evaluate-13",
+    "evaluate-14",
+    "evaluate-15",
+    "evaluate-16",
+    "evaluate-17",
+    "evaluate-18",
+    "evaluate-19",
+    "evaluate-20",
+    "train-03",
+    "train-04",
+    "train-05",
+    "train-06",
+    "train-07",
+    "train-08",
+    "train-09",
+    "train-10",
+    "train-11",
+    "train-12",
+    "train-13",
+    "train-14",
+    "train-15",
+    "train-16",
+    "train-17",
+    "train-18",
+    "train-19",
+    "train-20"
+  ],
+  "retired_lane_heads": [
+    "train-03",
+    "train-04",
+    "train-05"
+  ],
+  "expected_retirement": "ArtifactUploader rejects the occupied prefixes before training; only their descendants become FAILED_UPSTREAM.",
+  "markers": [
+    {
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-gripper-dur/orchestration-handoff.json",
+      "sha256": "36c5fbd2d812c880f2fcd33244a26c9d9c9be9604ceb325434ff9052fbeb80ff"
+    },
+    {
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-xyz-scalar-stk/orchestration-handoff.json",
+      "sha256": "36c5fbd2d812c880f2fcd33244a26c9d9c9be9604ceb325434ff9052fbeb80ff"
+    },
+    {
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-xyz-scalar-dur/orchestration-handoff.json",
+      "sha256": "36c5fbd2d812c880f2fcd33244a26c9d9c9be9604ceb325434ff9052fbeb80ff"
+    }
+  ]
+}

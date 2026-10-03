@@ -133,6 +133,34 @@ and evaluation completed successfully. Treat only its handed-off tasks as retire
 and use the new workflow IDs for those cells. The receipt records the exact old
 and new IDs; no in-progress training or checkpoint is overwritten or interrupted.
 
+## Checkpoint recovery, October 3
+
+Shared-pool quota enforcement canceled all active workflows overnight, after
+Spatial and Goal reference-STK training finished. Their standalone evaluations
+resume checksummed, paired rollout episodes from the same final checkpoints.
+Object, LIBERO-10 and the first twelve additional cells have partial checkpoints.
+`launch_libero_stream_recovery.py` resumes these fourteen cells and preserves the
+remaining seventy-two unstarted cells in the parallel queue.
+
+The recovery helper runs against the same checked-out training source,
+`69ff3fab69c2d322b590809461c80d70878ba71f`. Its own source hash is recorded separately.
+It verifies the source runtime, replay, representation, original preflight,
+checkpoint checksum, optimizer, normalizer, EMA and original four-GPU budget
+before passing `ckpt_path` to the unchanged trainer. It performs a simulator
+smoke test of the recovered checkpoint and never falls back to fresh training
+when recovery fails. Lightning's periodic saves contain the final batch of an
+epoch before incrementing its completed-epoch counter; the helper validates this
+boundary and preserves Lightning's loop state. A real train/save/resume test
+verifies that optimizer and EMA updates continue without repeating that epoch.
+
+CPU waiter images use the fully qualified `docker.io/library/python:3.11-slim`
+name, since L40S-01 rejects ambiguous short image names. Recovered reference
+evaluations explicitly identify their original training run. Object and LIBERO-10
+reference training/evaluation are dependencies within their recovery workflows;
+Spatial and Goal wait for the separate evaluations of their completed policies.
+All recovery submissions retain NORMAL priority and remain subject to shared-pool
+preemption. This is explicit recovery, not automatic requeue or protected capacity.
+
 ## Validation
 
 CPU coverage includes legacy column-permutation equivalence, diagonal motion,

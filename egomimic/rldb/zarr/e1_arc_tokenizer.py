@@ -50,6 +50,15 @@ changes. Three things over the parent:
   banked the no-division half of that argument, are in the class docstring of
   ``durations_to_clock_abs``.
 
+* ``velocity_mode="profhyb"`` (variant ``arcvelhyb``) — ``durhyb``'s token with SPEEDS in place of
+  durations: the same (M, 18) layout and waypoints (xyz + gripper on the translation arc, ypr on
+  the arm's own rotation arc), but rows ``0..M-2`` of each timing column hold the interval's mean
+  speed, its waypoint-polyline segment length over its duration (m/s for translation, rad/s for
+  rotation), and row ``M-1`` keeps the start delay. Decode turns speeds back into durations with the
+  same segment lengths and runs ``durhyb``'s clock, so the two carry identical timing content and
+  differ only in parameterization, as ``arcvel`` and ``arcdur`` do. A translation hold has no length
+  to time, so its row ``M-1`` holds the hold's duration (the gripper ramps over it).
+
 * ``fixed_spacing`` — theory design rule 1: waypoints are ALWAYS ``h = D / (M - 1)`` apart.
   A partial token (path shorter than D inside the window — 29 % of arm-tokens on ABC
   skirts, 50 % on stationery, 8 % on mecka) keeps its first ``n_valid`` waypoints at
@@ -91,13 +100,39 @@ except ImportError:  # pragma: no cover
 ARM_LAYOUT = ((0, 3, 6, slice(0, 3)), (7, 10, 13, slice(7, 10)))
 E1_ARCVEL_DIM = 16
 # durhyb: [14 canonical | translation dt L, R | rotation dt L, R]
-E1_ARCDURHYB_DIM = 18
+E1_ARCDURHYB_DIM = 18  # also profhyb: [14 canonical | translation v L, R | rotation omega L, R]
+HYBRID_MODES = ("durhyb", "profhyb")
 # Rotation budget of the hybrid token: a full turn, i.e. the rotation stream spans the whole source window.
 # The lab hybrid's 24 deg (R24deg) fits a chunk that ENDS when a budget is spent; the E1 YAM window is a fixed
 # 100 frames, and on rl2 stationery the wrist turns more than 24 deg in 63 % of arm-windows (median 52 deg,
 # p90 123 deg), so a 24 deg stream froze the wrist for the rest of the window: GT round-trip geodesic error
 # 11.7 deg vs 1.1 deg for plain arcdur, and 0.07 deg with this budget (1,500 val windows, 2026-09-30).
 DEFAULT_ROTATION_DISTANCE_UNIT = 2 * np.pi
+
+
+def _dur_col_to_speed(col: np.ndarray, seg: np.ndarray) -> np.ndarray:
+    """durhyb timing column -> profhyb: rows 0..M-2 become segment length / duration; row M-1 (start
+    delay) is kept. A hold (no length) keeps its rows' total time in row M-1 instead."""
+    out = np.zeros_like(col)
+    if float(seg.sum()) < 1e-9:
+        out[-1] = float(np.maximum(col[:-1], 0.0).sum())
+        return out
+    out[:-1] = seg / np.maximum(col[:-1], LOGDUR_MIN_DT)
+    out[-1] = col[-1]
+    return out
+
+
+def _speed_col_to_dur(col: np.ndarray, seg: np.ndarray) -> np.ndarray:
+    """profhyb timing column -> the durhyb column it encodes (inverse of ``_dur_col_to_speed``)."""
+    col = np.asarray(col, dtype=np.float64)
+    M = len(col)
+    out = np.zeros(M)
+    if float(seg.sum()) < 1e-9:  # hold: spread the stored time evenly over the rows
+        out[:-1] = max(float(col[-1]), 0.0) / max(M - 1, 1)
+        return out
+    out[:-1] = seg / np.maximum(col[:-1], 1e-6)
+    out[-1] = col[-1]
+    return out
 
 
 def rotation_arc_length(ypr: np.ndarray) -> np.ndarray:
@@ -358,12 +393,12 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             raise ValueError(
                 f"velocity_norm must be 'chord' or 'path', got {velocity_norm!r}"
             )
-        if velocity_mode not in ("mean", "profile", "logdur", "dur", "durhyb"):
+        if velocity_mode not in ("mean", "profile", "logdur", "dur", *HYBRID_MODES):
             raise ValueError(
-                f"velocity_mode must be 'mean', 'profile', 'logdur', 'dur' or 'durhyb', got {velocity_mode!r}"
+                f"velocity_mode must be 'mean', 'profile', 'logdur', 'dur', 'durhyb' or 'profhyb', got {velocity_mode!r}"
             )
-        if velocity_mode == "durhyb" and self.fixed_spacing:
-            raise ValueError("durhyb does not implement fixed_spacing")
+        if velocity_mode in HYBRID_MODES and self.fixed_spacing:
+            raise ValueError(f"{velocity_mode} does not implement fixed_spacing")
         self.velocity_norm = velocity_norm
         self.velocity_mode = velocity_mode
         self.speed_smooth_frames = int(speed_smooth_frames)
@@ -375,11 +410,11 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
     @property
     def wide(self) -> bool:
         """(M, 16) layouts: a per-waypoint timing column per arm."""
-        return self.velocity_mode in ("profile", "logdur", "dur", "durhyb")
+        return self.velocity_mode in ("profile", "logdur", "dur", *HYBRID_MODES)
 
     @property
     def token_dim(self) -> int:
-        return E1_ARCDURHYB_DIM if self.velocity_mode == "durhyb" else E1_ARCVEL_DIM
+        return E1_ARCDURHYB_DIM if self.velocity_mode in HYBRID_MODES else E1_ARCVEL_DIM
 
     def _tokenize_arm_hybrid(self, arm: np.ndarray):
         """durhyb, one arm (T, 7) -> (waypoints (M, 7), translation dt (M,), rotation dt (M,)).
@@ -444,12 +479,12 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             xyz_wp = arc[:, xyz_off : xyz_off + 3]
             ypr_wp = arc[:, ypr_off : ypr_off + 3]
             grip_wp = arc[:, grip_off : grip_off + 1]
-            f_t = self._stream_index(
-                arc[:, 14 + k], float(cumulative_arc_length(xyz_wp)[-1]), t, self.min_speed, 5.0
-            )
-            f_r = self._stream_index(
-                arc[:, 16 + k], float(rotation_arc_length(ypr_wp)[-1]), t, 0.01, 20.0
-            )
+            cum_t, cum_r = cumulative_arc_length(xyz_wp), rotation_arc_length(ypr_wp)
+            t_col, r_col = arc[:, 14 + k], arc[:, 16 + k]
+            if self.velocity_mode == "profhyb":
+                t_col, r_col = _speed_col_to_dur(t_col, np.diff(cum_t)), _speed_col_to_dur(r_col, np.diff(cum_r))
+            f_t = self._stream_index(t_col, float(cum_t[-1]), t, self.min_speed, 5.0)
+            f_r = self._stream_index(r_col, float(cum_r[-1]), t, 0.01, 20.0)
             arms.append(
                 np.concatenate(
                     [_lerp_rows(xyz_wp, f_t), _slerp_rows(ypr_wp, f_r), _lerp_rows(grip_wp, f_t)],
@@ -534,10 +569,13 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             )
             return batch
 
-        if self.velocity_mode == "durhyb":
+        if self.velocity_mode in HYBRID_MODES:
             wps, t_dts, r_dts = [], [], []
             for xyz_off, _, _, _ in ARM_LAYOUT:
                 wp, t_dt, r_dt = self._tokenize_arm_hybrid(chunk[:, xyz_off : xyz_off + 7])
+                if self.velocity_mode == "profhyb":
+                    t_dt = _dur_col_to_speed(t_dt, np.diff(cumulative_arc_length(wp[:, 0:3])))
+                    r_dt = _dur_col_to_speed(r_dt, np.diff(rotation_arc_length(wp[:, 3:6])))
                 wps.append(wp)
                 t_dts.append(t_dt)
                 r_dts.append(r_dt)
@@ -644,7 +682,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 raise ValueError(
                     f"{self.velocity_mode} detokenize expects (M, {self.token_dim}), got {arc.shape}"
                 )
-            if self.velocity_mode == "durhyb":
+            if self.velocity_mode in HYBRID_MODES:
                 return self._detokenize_hybrid(arc, h)
             M = arc.shape[0]
         else:
@@ -697,6 +735,8 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             return durations_to_clock(col, cum, min_speed=self.min_speed)
         if self.velocity_mode in ("dur", "durhyb"):  # durhyb: the translation clock
             return durations_to_clock_abs(col, cum, min_speed=self.min_speed)
+        if self.velocity_mode == "profhyb":  # the translation clock, from speeds
+            return durations_to_clock_abs(_speed_col_to_dur(col, np.diff(cum)), cum, min_speed=self.min_speed)
         return integral_clock(cum, np.maximum(col, self.min_speed))
 
     def clock_at_waypoints(self, arc_actions: np.ndarray) -> list[np.ndarray]:

@@ -1,0 +1,49 @@
+workflow:
+  name: arc-parallel-dependency-check
+  resources:
+    default:
+      cpu: 1
+      gpu: 0
+      memory: 1Gi
+      storage: 4Gi
+      platform: ovx-l40s
+  timeout:
+    queue_timeout: 1h
+    exec_timeout: 10m
+  tasks:
+  - name: start
+    image: python:3.11-slim
+    command:
+    - bash
+    args:
+    - -ceu
+    - echo started
+  - name: retired-tail
+    image: python:3.11-slim
+    command:
+    - bash
+    args:
+    - -ceu
+    - exit 7
+    inputs:
+    - task: start
+  - name: retained-evaluation
+    image: python:3.11-slim
+    command:
+    - bash
+    args:
+    - -ceu
+    - 'sleep 20
+
+      echo retained-evaluation-completed'
+    inputs:
+    - task: start
+  - name: retained-result
+    image: python:3.11-slim
+    command:
+    - bash
+    args:
+    - -ceu
+    - echo retained-result-completed
+    inputs:
+    - task: retained-evaluation

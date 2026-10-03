@@ -1,0 +1,27 @@
+{
+  "launcher_commit": "7c9ebf5c6c16470bf56c402d583b9b5c3d5cb77c",
+  "training_source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "validation_ref": "04a7eef7bea0442dd0d77e8802c6c87013bf7a39",
+  "local_focused": {
+    "file": "validation/local-junit.xml.gz",
+    "uncompressed_sha256": "69a7dd4a36f111ef41b3743f0ab391acfa4743e35f2d2c80d2e4163cc0609a14",
+    "tests": 123,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "seconds": 55.765
+  },
+  "linux_ci": {
+    "file": "validation/linux-junit.xml.gz",
+    "uncompressed_sha256": "77f3a91b0eafd94e19a054df1babb9e37217cf1e2d28eafb2c8a0a7a205af068",
+    "tests": 285,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "seconds": 89.939,
+    "url": "https://github.com/GaTech-RL2/EgoVerse-graph/actions/runs/37079697729/job/111077262147",
+    "conclusion": "success"
+  },
+  "osmo_spec_validation": "passed",
+  "dependency_failure_probe": "passed"
+}

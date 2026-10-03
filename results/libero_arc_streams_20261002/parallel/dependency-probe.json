@@ -1,0 +1,50 @@
+{
+  "purpose": "Verify an intentionally failed retired branch leaves independent evaluation branches running to completion.",
+  "expected_failed_task": "retired-tail",
+  "result": {
+    "name": "arc-parallel-dependency-check-1",
+    "status": "FAILED",
+    "pool": "groot-l40s-03",
+    "priority": "NORMAL",
+    "submit_time": "2026-10-02T23:53:06.420719",
+    "start_time": "2026-10-02T23:53:16.664669",
+    "end_time": "2026-10-02T23:54:31.990489",
+    "cancelled_by": null,
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-parallel-dependency-check-1",
+    "tasks": [
+      {
+        "name": "retained-evaluation",
+        "status": "COMPLETED",
+        "start_time": "2026-10-02T23:53:36.247752",
+        "end_time": "2026-10-02T23:54:09.458612",
+        "failure_message": null,
+        "exit_code": 0
+      },
+      {
+        "name": "retained-result",
+        "status": "COMPLETED",
+        "start_time": "2026-10-02T23:54:17.947408",
+        "end_time": "2026-10-02T23:54:31.990489",
+        "failure_message": null,
+        "exit_code": 0
+      },
+      {
+        "name": "retired-tail",
+        "status": "FAILED",
+        "start_time": "2026-10-02T23:53:35.440828",
+        "end_time": "2026-10-02T23:53:47.318793",
+        "failure_message": "Failure reason:\n- Exit code 7 due to Task retired-tail failure. ",
+        "exit_code": 7
+      },
+      {
+        "name": "start",
+        "status": "COMPLETED",
+        "start_time": "2026-10-02T23:53:16.664669",
+        "end_time": "2026-10-02T23:53:25.730921",
+        "failure_message": null,
+        "exit_code": 0
+      }
+    ]
+  },
+  "passed": true
+}

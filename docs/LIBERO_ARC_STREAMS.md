@@ -161,6 +161,30 @@ Spatial and Goal wait for the separate evaluations of their completed policies.
 All recovery submissions retain NORMAL priority and remain subject to shared-pool
 preemption. This is explicit recovery, not automatic requeue or protected capacity.
 
+## Additional GPU slots, October 3
+
+`launch_libero_stream_expansion.py` moves the 72 unstarted cells into six training
+lanes per suite. Its four workflows request 24 additional four-L40S jobs (96 GPUs),
+while the 14 checkpoint recoveries continue. The overlap permits 38 training jobs
+(152 GPUs); once the recoveries finish, the new workflows retain 24 training slots.
+These are concurrency ceilings, not promises of allocated capacity. All work uses
+NORMAL priority on L40S-01 and remains subject to shared-pool scheduling.
+
+Each new workflow contains two CPU waiters for the existing STK and DUR reference
+evaluations. Candidate evaluations require the matching reference's complete,
+checksummed 2,500-episode result, exact source revision and original training run.
+Training does not depend on either waiter. The expansion does not rerun reference
+training, checkpoint recoveries or replay, and retains the pinned model and budget.
+
+After each replacement is accepted, the handoff verifies that old tasks 03..20
+remain WAITING and that retiring training heads 03, 04 and 05 affects exactly those
+cells. Conditional checksummed markers reserve only their empty artifact prefixes.
+The no-overwrite guards stop the superseded tails; existing training tasks 00..02,
+their evaluations, and the reference-STK jobs remain independent. Old workflow
+wrappers may eventually report FAILED for these intentional retirements. The
+canonical expansion manifest records all 88 unique cells and replacement IDs.
+The maximum simultaneous evaluation allocation during overlap is 12 L40S GPUs.
+
 ## Validation
 
 CPU coverage includes legacy column-permutation equivalence, diagonal motion,

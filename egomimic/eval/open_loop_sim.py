@@ -49,7 +49,9 @@ from egomimic.eval.distance_budget_dtw import (
 from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
+    ARC_TOK_BIMANUAL_DIM,
     CLOCK_COLUMNS,
+    LOG_CLOCK_EPS,
     _rotation_to_ypr,
     _ypr_to_rotation,
     bimanual_arc_token_rows,
@@ -824,6 +826,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 100,
         velocity_mode: str = "per_waypoint",
+        velocity_layout: str | None = None,
         log_step: int | None = None,
         results_path: str | None = None,
         records_dump_path: str | None = None,
@@ -889,6 +892,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
+        # Only "log_clock" changes decoding: its timing columns are converted
+        # back to seconds as soon as a token is unnormalized (see _native).
+        self.velocity_layout = None if velocity_layout is None else str(velocity_layout)
         self.execute_arc_waypoints = (
             executed_arc_waypoints(self.resampled_vector_length, self.execute_fraction)
             if mode == "arc" and self.arc_execution_cap_mode == "waypoints"
@@ -1625,7 +1631,28 @@ class OpenLoopSimEval(BimanualCartesianEval):
     def _native_key(self, value: torch.Tensor, key: str, embodiment_id: int):
         if self.normalizer is None:
             raise RuntimeError("open_loop_sim evaluator data context was not bound")
-        return self.normalizer.unnormalize({key: value}, embodiment_id).get(key, value)
+        return self._clock_seconds(
+            self.normalizer.unnormalize({key: value}, embodiment_id).get(key, value)
+        )
+
+    def _native(self, normalized, embodiment_id):
+        return self._clock_seconds(super()._native(normalized, embodiment_id))
+
+    def _clock_seconds(self, value):
+        """Decode a log_clock token's timing columns to seconds.
+
+        Every reader downstream of unnormalization (prefix, detokenizer, DTW,
+        videos) expects seconds, so this is the one place the log is undone.
+        """
+        if (
+            getattr(self, "velocity_layout", None) != "log_clock"
+            or value.shape[-1] != ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS)
+        ):
+            return value
+        out = value.clone()
+        timing = out[..., ARC_TOK_BIMANUAL_DIM:]
+        out[..., ARC_TOK_BIMANUAL_DIM:] = (timing.exp() - LOG_CLOCK_EPS).clamp_min(0.0)
+        return out
 
     def _is_arc_prediction(self, prediction: np.ndarray) -> bool:
         """Either velocity layout counts: (2M, 14) stacked or (M, 28) wide."""

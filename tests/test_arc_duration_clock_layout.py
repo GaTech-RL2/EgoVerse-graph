@@ -12,6 +12,7 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     CLOCK_COLUMNS,
     TokenizeBimanualArcLengthCartesian,
     bimanual_arc_token_shapes,
+    clock_token_seconds,
     stack_arc_token,
 )
 
@@ -96,6 +97,40 @@ def test_held_arm_parks_xyz_but_times_its_gripper_on_the_translation_clock():
     assert decoded[0, 13] == pytest.approx(1.0)
     assert np.all(np.diff(decoded[:, 13]) <= 1e-12)
     assert decoded[-1, 13] == pytest.approx(raw[-1, 13])
+
+
+def test_log_clock_stores_log_seconds_and_decodes_like_clock():
+    import torch
+
+    raw = chunk(right_still=True)
+    clock = codec("multistream").transform({"actions": raw.copy()})["actions"]
+    logged = codec("multistream", velocity_layout="log_clock").transform(
+        {"actions": raw.copy()}
+    )["actions"]
+    assert logged.shape == clock.shape == (100, 18)
+    np.testing.assert_array_equal(logged[:, :14], clock[:, :14])
+    assert np.isfinite(logged).all()
+    # A zero (hold) interval encodes to a finite log and decodes back to zero.
+    held = np.zeros((2, 18))
+    held[:, 14:] = np.log(1e-3)
+    np.testing.assert_allclose(clock_token_seconds(held, "log_clock")[:, 14:], 0.0, atol=1e-15)
+    np.testing.assert_allclose(clock_token_seconds(logged, "log_clock"), clock, atol=1e-12)
+    np.testing.assert_array_equal(clock_token_seconds(logged, "clock"), logged)
+    np.testing.assert_allclose(
+        codec("multistream", velocity_layout="log_clock").detokenize(logged, 200),
+        codec("multistream").detokenize(clock, 200),
+        atol=1e-9,
+    )
+    # The evaluator undoes the log once, at unnormalization.
+    ev = OpenLoopSimEval.__new__(OpenLoopSimEval)
+    ev.velocity_layout = "log_clock"
+    np.testing.assert_allclose(
+        ev._clock_seconds(torch.from_numpy(logged)).numpy(), clock, atol=1e-12
+    )
+    ev.velocity_layout = "clock"
+    assert ev._clock_seconds(torch.from_numpy(clock)).numpy() is not None
+    with pytest.raises(ValueError, match="velocity_mode='duration'"):
+        codec("multistream", velocity_mode="per_waypoint", velocity_layout="log_clock")
 
 
 def test_joint_distance_cannot_use_per_arm_duration_clocks():

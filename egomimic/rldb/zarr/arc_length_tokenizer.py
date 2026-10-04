@@ -1147,12 +1147,38 @@ BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
 #              rotation]. Each gripper rides its arm's translation clock. In the
 #              stacked form those four values sit at CLOCK_COLUMNS of the timing
 #              rows and every other timing column is zero.
+#   "log_clock" the clock layout with each duration stored as
+#              log(seconds + LOG_CLOCK_EPS). A duration is a positive quantity
+#              spread over orders of magnitude; regressing it linearly lets a
+#              small error on a short interval become a large relative error,
+#              and a slow stream then never finishes its chunk. Decode with
+#              ``clock_token_seconds`` before anything reads the timing.
 #
 # "wide" needs one velocity row per waypoint, so it is undefined for the "mean"
 # velocity mode, which emits a single row for the whole token. That is the only
 # place "stacked" is still the default.
-BIMANUAL_VELOCITY_LAYOUTS = ("wide", "stacked", "clock")
+BIMANUAL_VELOCITY_LAYOUTS = ("wide", "stacked", "clock", "log_clock")
+CLOCK_LAYOUTS = ("clock", "log_clock")
 CLOCK_COLUMNS = (0, 3, 7, 10)
+# Seconds added before the log so a zero (hold) interval stays finite. Small
+# against one 30 Hz control step, so decoded holds round to zero steps.
+LOG_CLOCK_EPS = 1e-3
+
+
+def clock_token_seconds(token, velocity_layout: str | None) -> np.ndarray:
+    """Return a clock-layout token with its durations in seconds.
+
+    A ``log_clock`` token's four timing columns are decoded; any other layout
+    passes through unchanged. Accepts one token or a batch.
+    """
+    value = np.array(token, dtype=np.float64)
+    if velocity_layout != "log_clock":
+        return value
+    if value.shape[-1] != ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS):
+        raise ValueError(f"log_clock token must have 18 columns, got {value.shape}")
+    timing = value[..., ARC_TOK_BIMANUAL_DIM:]
+    value[..., ARC_TOK_BIMANUAL_DIM:] = np.maximum(np.exp(timing) - LOG_CLOCK_EPS, 0.0)
+    return value
 ARC_CHUNKING_MODES = ("race", "multistream", "joint_distance")
 
 
@@ -1199,8 +1225,10 @@ def validate_bimanual_velocity_layout(
             "velocity_layout='wide' needs one velocity row per waypoint; "
             "velocity_mode='mean' emits a single row for the whole token"
         )
-    if velocity_layout == "clock" and velocity_mode != "duration":
-        raise ValueError("velocity_layout='clock' requires velocity_mode='duration'")
+    if velocity_layout in CLOCK_LAYOUTS and velocity_mode != "duration":
+        raise ValueError(
+            f"velocity_layout={velocity_layout!r} requires velocity_mode='duration'"
+        )
     return velocity_layout
 
 
@@ -1227,7 +1255,7 @@ def bimanual_arc_token_shape(
     rows = bimanual_arc_token_rows(resampled_vector_length, velocity_mode)
     if velocity_layout == "stacked":
         return rows, ARC_TOK_BIMANUAL_DIM
-    if velocity_layout == "clock":
+    if velocity_layout in CLOCK_LAYOUTS:
         return rows // 2, ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS)
     return rows // 2, 2 * ARC_TOK_BIMANUAL_DIM
 
@@ -1521,8 +1549,10 @@ class TokenizeBimanualArcLengthCartesian:
         beside. Both output paths go through here so the two layouts cannot
         drift apart.
         """
-        if self.velocity_layout == "clock":
+        if self.velocity_layout in CLOCK_LAYOUTS:
             velocity_rows = velocity_rows[:, CLOCK_COLUMNS]
+        if self.velocity_layout == "log_clock":
+            velocity_rows = np.log(np.maximum(velocity_rows, 0.0) + LOG_CLOCK_EPS)
         axis = 0 if self.velocity_layout == "stacked" else 1
         out = np.concatenate([waypoints, velocity_rows], axis=axis)
         expected = bimanual_arc_token_shape(
@@ -2161,6 +2191,7 @@ class TokenizeBimanualArcLengthCartesian:
             "stacked": ARC_TOK_BIMANUAL_DIM,
             "wide": 2 * ARC_TOK_BIMANUAL_DIM,
             "clock": ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS),
+            "log_clock": ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS),
         }[self.velocity_layout]
         if arc_actions.ndim != 2 or arc_actions.shape[1] != expected_dim:
             raise ValueError(
@@ -2169,7 +2200,7 @@ class TokenizeBimanualArcLengthCartesian:
             )
         rows = arc_actions.shape[0]
         granular = self.velocity_mode in ("per_waypoint", "duration")
-        if self.velocity_layout in ("wide", "clock"):
+        if self.velocity_layout in ("wide", *CLOCK_LAYOUTS):
             M = rows
         else:
             M = rows // 2 if granular else rows - 1
@@ -2189,8 +2220,10 @@ class TokenizeBimanualArcLengthCartesian:
             # Columns 0..13 are the waypoint, 14..27 the velocity riding on it.
             waypoints = arc_actions[:, :ARC_TOK_BIMANUAL_DIM]  # (M, 14)
             vel_rows = arc_actions[:, ARC_TOK_BIMANUAL_DIM:]  # (M, 14)
-        elif self.velocity_layout == "clock":
-            stacked = stack_arc_token(arc_actions)
+        elif self.velocity_layout in CLOCK_LAYOUTS:
+            stacked = stack_arc_token(
+                clock_token_seconds(arc_actions, self.velocity_layout)
+            )
             waypoints, vel_rows = stacked[:M], stacked[M:]
         else:
             waypoints = arc_actions[:M]  # (M, 14)

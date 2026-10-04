@@ -1,0 +1,122 @@
+# dp180pt time: model/e1/dp300pt_wrists_arcdur.yaml (graph Diffusion Policy, one ImageNet-pretrained ResNet-18
+# VisualCore encoder per camera, unfrozen, stock BatchNorm; ConditionalUnet1D; DDIM 100; epsilon loss) with two changes:
+# the time action (100, 14) instead of arcdur (100, 16), and UNet down_dims [488, 976, 1952] instead of
+# [512, 1024, 2048] so the model has the HPT h640t8 stationery runs' parameter count (~180 M; the 'dp300'
+# widths come to 195 M here).
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 1
+    inputs:
+      front_img_1: observations.images.front_img_1
+      left_wrist_img: observations.images.left_wrist_img
+      right_wrist_img: observations.images.right_wrist_img
+      ee_pose: observations.state.ee_pose
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        ee_pose:
+          input_dim: 14
+          input_slice:
+          - 0
+          - 14
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 480
+          image_width: 640
+          num_kp: 64
+          feature_dimension: 128
+          pretrained: true
+          crop_aug: true
+          crop_height: 432
+          crop_width: 576
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: batch
+          pool_type: spatial_softmax
+        left_wrist_img:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 480
+          image_width: 640
+          num_kp: 64
+          feature_dimension: 128
+          pretrained: true
+          crop_aug: true
+          crop_height: 432
+          crop_width: 576
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: batch
+          pool_type: spatial_softmax
+        right_wrist_img:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 480
+          image_width: 640
+          num_kp: 64
+          feature_dimension: 128
+          pretrained: true
+          crop_aug: true
+          crop_height: 432
+          crop_width: 576
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: batch
+          pool_type: spatial_softmax
+  - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    action_key: actions_cartesian
+  - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+    action_horizon: 100
+    action_dim: 14
+    noise_scheduler:
+      _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+      num_train_timesteps: 100
+      beta_schedule: squaredcos_cap_v2
+      prediction_type: epsilon
+  - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+    action_horizon: 100
+    action_dim: 14
+    condition_input_dim: 398
+    policy:
+      _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+      action_horizon: 100
+      num_inference_steps: 100
+      model:
+        _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+        input_dim: 14
+        cond_dim: 398
+        ac_latent_seq: 1
+        diffusion_step_embed_dim: 512
+        down_dims:
+        - 488
+        - 976
+        - 1952
+        kernel_size: 3
+      noise_scheduler:
+        _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        prediction_type: epsilon
+  - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0001
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: ${ft.max_steps}
+  warmup_steps: ${ft.warmup_steps}
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-05
+scheduler_interval: step

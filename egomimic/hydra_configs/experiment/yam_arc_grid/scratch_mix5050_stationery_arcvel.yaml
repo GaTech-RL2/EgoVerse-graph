@@ -1,0 +1,21 @@
+# @package _global_
+# FROM SCRATCH on MIXED ABC + RL2 (stationery), arcvel, LAB-BALANCED 50/50 sampling -- see the data config header.
+# Supersedes scratch_mix_stationery_arcvel (cancelled 2026-09-19 15:42 by Aidan). Elmo recipe: 240k, warmup 10k, valid_ratio 0.01.
+# evaluator = BimanualTempoEval (evaluator/e1/fold_tempo.yaml spelled out): the earlier arc runs had evaluator null and logged no Valid/*.
+defaults:
+- /experiment/yam_arc_grid/scratch_mix5050_towels_arcvel
+- _self_
+- override /data: abc_arc/stationery_mix5050_arcvel
+name: scratch_mix5050_stationery_arcvel
+description: h640t8_d384x10_cos10k_240k_s42_scratch_mix5050_stationery_arcvel
+logger:
+  wandb:
+    id: scratch_mix5050_stationery_arcvel_20260918_s42
+    tags:
+    - abc
+    - rl2
+    - mixed
+    - balanced5050
+    - stationery
+    - scratch
+    - arcvel

@@ -1,0 +1,22 @@
+# @package _global_
+# (arcdur twin of the arcvel run; same everything else)
+# FROM SCRATCH on MIXED ABC + RL2 (stationery), arcdur, LAB-BALANCED 50/50 sampling -- see the data config header.
+# New cell (no unbalanced arcdur mixed run ever existed). Elmo recipe: 240k, warmup 10k, valid_ratio 0.01.
+# evaluator = BimanualTempoEval (evaluator/e1/fold_tempo.yaml spelled out): the earlier arc runs had evaluator null and logged no Valid/*.
+defaults:
+- /experiment/yam_arc_grid/scratch_mix5050_towels_arcdur
+- _self_
+- override /data: abc_arc/stationery_mix5050_arcdur
+name: scratch_mix5050_stationery_arcdur
+description: h640t8_d384x10_cos10k_240k_s42_scratch_mix5050_stationery_arcdur
+logger:
+  wandb:
+    id: scratch_mix5050_stationery_arcdur_20260918_s42
+    tags:
+    - abc
+    - rl2
+    - mixed
+    - balanced5050
+    - stationery
+    - scratch
+    - arcdur

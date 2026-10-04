@@ -1,0 +1,30 @@
+# @package _global_
+# MIXED 40 % ABC / 60 % RL2 fold towels from scratch (PR #141 weights), variant time. Lambda loaner, 2-GPU DDP x batch 16 (global 32 as the grid), recipe as scratch_rl2_towels394_time (h640t8_d384x10,
+# 240k steps, warmup 10k, seed 42, BimanualTempoEval). Launched by scripts/clusters/lambda/pack_train.sbatch.
+# Normalisation: loads pooled stats (RL2 375 train + ABC 389) from norm_mix4060_towels394_time_lambda; without this the
+# per-source fit would leave ABC-only stats (the second source overwrites the first for the same embodiment).
+defaults:
+- /experiment/yam_arc_grid/mix4060_towels394_arcdur_lambda
+- _self_
+- override /model: e1/hpt_flow_wrists_ft
+- override /data: abc_arc/towels_mix4060_time_lambda
+name: mix4060_towels394_time_lambda
+description: h640t8_d384x10_cos10k_240k_s42_mix4060_towels394_time_lambda
+logger:
+  wandb:
+    id: mix4060_towels394_time_lambda_20260925_s42
+    tags:
+    - rl2
+    - towels
+    - towels394
+    - scratch
+    - time
+    - mix4060
+    - lambda
+norm_stats:
+  precomputed_norm_path: /workspace/users/agao81/norm_runs/norm_mix4060_towels394_time_lambda/norm_stats/norm_stats.json
+e1:
+  variant: time
+  action_dim: 14
+hpt:
+  action_dim: 14

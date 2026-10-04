@@ -1,0 +1,32 @@
+# @package _global_
+# EVAL-ONLY twin of scratch_rl2_stattempo_<bucket>_arcdur (identical model; bucket-independent). The training
+# experiments carry an inline BimanualTempoEval block; this one uses the open-loop evaluator at the stationery
+# mid-tempo settings (execute_fraction 0.25, distance DTW off, no videos) so scores compare with that holdout.
+# Always pair with data=abc_arc/stationery_tempo_eval_arcdur_<set>, mode=eval and the run's own norm stats.
+defaults:
+- /experiment/yam_arc_grid/stattempo_eval_time
+- _self_
+- override /model: e1/hpt_flow_wrists_ft_arcdur
+- override /data: abc_arc/stationery_tempo_fast_arcdur
+name: stattempo_eval_arcdur
+description: h640t8_d384x10_cos10k_240k_s42_stattempo_eval_arcdur
+logger:
+  wandb:
+    id: scratch_rl2_stattempo_fast_arcdur_20260925_s42
+    tags:
+    - rl2
+    - stationery
+    - stattempo
+    - tempo_fast
+    - scratch
+    - arcdur
+e1:
+  variant: arcdur
+  action_dim: 16
+hpt:
+  action_dim: 16
+evaluator:
+  action_mode: arc
+  token_layout: e1_dur
+  min_distance_unit: 0.4
+  resampled_vector_length: 100

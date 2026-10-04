@@ -6,6 +6,7 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
+    StoreBimanualMetricFrame,
     RotateLocalFrame,
     KeypointsToGripper,
     InsertGripperChannels,
@@ -280,7 +281,10 @@ class Human(Embodiment):
         front_key = cls.VIZ_IMAGE_KEY
         # The arc keymap is plain cartesian with a wider raw window, so per-arm
         # arc length has room to reach D before the padded tail begins.
-        if keymap_mode == "arc_tokenizer_cartesian":
+        if keymap_mode in (
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             horizon = cls.ARC_TOK_ACTION_HORIZON
             keymap_mode = "cartesian"
         else:
@@ -395,6 +399,7 @@ class Human(Embodiment):
             "cartesian_gripper_padded",
             "arc_tokenizer_cartesian",
             "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
             "keypoints",
         ] = "cartesian",
         coord_frame: Literal[
@@ -409,6 +414,7 @@ class Human(Embodiment):
         stride: int = 3,
         # Arc-tokenizer args, consulted only by the arc_tokenizer_* modes.
         min_distance_unit: float = 0.60,
+        rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 20,
         chunk_length: int | None = None,
         # How the arc token carries timing; see
@@ -450,6 +456,7 @@ class Human(Embodiment):
             "cartesian",
             "cartesian_gripper_padded",
             "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
         ):
             builders = {
                 "camframe": _build_human_cartesian_bimanual_transform_list,
@@ -475,6 +482,7 @@ class Human(Embodiment):
         if action_mode in (
             "cartesian_gripper_padded",
             "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
         ):
             # Padding runs BEFORE the tokenizer: human has no gripper signal,
             # and the tokenizer's layout routes gripper into slot 6 per arm, so
@@ -482,7 +490,10 @@ class Human(Embodiment):
             transform_list = _pad_human_cartesian_gripper(
                 transform_list, rotation_mode=rotation_mode
             )
-        if action_mode == "arc_tokenizer_cartesian_gripper_padded":
+        if action_mode in (
+            "arc_tokenizer_cartesian_gripper_padded",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             from egomimic.rldb.embodiment.eva import _append_arc_tokenizer
 
             # dt MUST reflect the stride. The action chunk is subsampled by
@@ -495,6 +506,7 @@ class Human(Embodiment):
             return _append_arc_tokenizer(
                 transform_list,
                 min_distance_unit=min_distance_unit,
+                rotation_distance_unit=rotation_distance_unit,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 dt=float(stride) / 30.0,
@@ -1167,6 +1179,8 @@ def _build_human_cartesian_eef_frame_transform_list(
             keys_to_delete.append(target_world_ypr)
 
     transform_list: list[Transform] = [
+        *([StoreBimanualMetricFrame(left_obs_pose, right_obs_pose)]
+          if rotation_mode == "euler" else []),
         ActionChunkCoordinateFrameTransform(
             target_world=target_world,
             chunk_world=left_action_world,

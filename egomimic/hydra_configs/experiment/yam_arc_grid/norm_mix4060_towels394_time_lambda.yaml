@@ -1,0 +1,25 @@
+# @package _global_
+# Norm-only pass (no training) fitting the pooled stats that mix4060_towels394_time_lambda loads. Same sample_frac 0.2 / quantile.
+defaults:
+- /experiment/yam_arc_grid/norm_mix4060_towels394_arcdur_lambda
+- _self_
+- override /model: e1/hpt_flow_wrists_ft
+- override /data: abc_arc/towels_mix4060_normpool_time_lambda
+name: norm_mix4060_towels394_time_lambda
+description: pooled norm stats for mix4060_towels394_time_lambda
+logger:
+  wandb:
+    id: norm_mix4060_towels394_time_lambda
+    tags:
+    - rl2
+    - towels
+    - towels394
+    - scratch
+    - time
+    - mix4060
+    - lambda
+e1:
+  variant: time
+  action_dim: 14
+hpt:
+  action_dim: 14

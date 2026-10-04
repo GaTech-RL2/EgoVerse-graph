@@ -1,0 +1,24 @@
+# ROOT-CAUSE TEST for Elmo's Lambda w400 twins (yam_rl2_towels298_scratch_arcdur_w400_*_lambda_20260921).
+# towels_rl2_394_arcdur_lambda with ONE change: the YAM source window is 400 frames (13.3 s) instead of the fixed
+# 100 (3.3 s). yam_source_frames: 400 is the knob that makes this branch honour it; horizon / chunk_length 400 mirror
+# Elmo's resolved config (his max_steps_per_chunk has no counterpart here: this tokenizer consumes the whole window).
+# Same pool, split, pins, recipe and 2 GPU x batch 16 as the 100-frame arcdur cell, so the two differ only in window.
+defaults:
+- /data/abc_arc/towels_rl2_394_arcdur_lambda@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      key_map:
+        horizon: 400
+        yam_source_frames: 400
+      transform_list:
+        chunk_length: 400
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      key_map:
+        horizon: 400
+        yam_source_frames: 400
+      transform_list:
+        chunk_length: 400

@@ -26,6 +26,7 @@ image_key: observations.images.front_img_1
 
 # Must match data/abc_arc/abc_fstshirt_arc_bc_D40_M100.yaml.
 min_distance_unit: 0.40
+rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,null}
 resampled_vector_length: 100
 # Control steps to reconstruct for the overlay.
 action_horizon: 100
@@ -46,8 +47,8 @@ revert_transforms:
 # Arc metric families, all scored against the time-indexed ground truth the
 # tokenizer preserved (actions_cartesian_untokenized):
 #
-#   Valid/arcmatch_*   re-tokenized onto a matched per-arm span; travel is
-#                      divided out, so this is path SHAPE alone. Read
+#   Valid/arcmatch_*   re-tokenized on combined left-plus-right EEF travel;
+#                      distance is divided out, so this is path SHAPE. Read
 #                      arcmatch_span_m and arcmatch_travel_ratio beside it --
 #                      a policy that stalls scores well here while those fall.
 #   Valid/dtw_*        warped against the GT chunk; elastic in time, so unlike

@@ -1,0 +1,21 @@
+# @package _global_
+# FROM SCRATCH on MIXED ABC + RL2 (stationery), Arc+Vel tokenizer -- explicitly authorised mix, see the data config header.
+# Elmo's recipe (240k, warmup 10k, valid_ratio 0.01 as in his own mixed run). Model = the 16-dim action variant of his architecture
+# (file is named *_arcdur for history; it only fixes act_dim 16 / act_seq 100, which Arc+Vel shares). evaluator null: his evaluator
+# decodes cartesian actions; the matching open-loop layout for this codec is token_layout=e1_profile.
+defaults:
+- /experiment/yam_arc_grid/scratch_mix_towels_arcvel
+- _self_
+- override /data: abc_arc/stationery_mix_arcvel
+name: scratch_mix_stationery_arcvel
+description: h640t8_d384x10_cos10k_240k_s42_scratch_mix_stationery_arcvel
+logger:
+  wandb:
+    id: scratch_mix_stationery_arcvel_20260918_s42
+    tags:
+    - abc
+    - rl2
+    - mixed
+    - stationery
+    - scratch
+    - arcvel

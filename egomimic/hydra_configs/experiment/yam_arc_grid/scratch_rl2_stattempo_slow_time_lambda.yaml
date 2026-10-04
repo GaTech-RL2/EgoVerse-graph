@@ -1,0 +1,22 @@
+# @package _global_
+# FROM SCRATCH, RL2-only sort stationery, tempo bucket 'slow' (133 eps; see the data config header), variant time.
+# One of 8 cells {slow, medium, fast, mixed} x {time, arcdur} sharing loader path, recipe (Elmo h640t8_d384x10, 240k, warmup 10k,
+# seed 42), evaluator (BimanualTempoEval) and the same 24-episode held-out validation set (8 per bucket). GENERATED from the
+# towels394 time cell by scripts/e1/make_stationery_tempo_configs.py. LAMBDA twin: local data, rolling last.ckpt, W&B resume allow.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_stattempo_medium_time_lambda
+- _self_
+- override /data: abc_arc/stationery_tempo_slow_time_lambda
+name: scratch_rl2_stattempo_slow_time_lambda
+description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_stattempo_slow_time_lambda
+logger:
+  wandb:
+    id: scratch_rl2_stattempo_slow_time_lambda_20260925_s42
+    tags:
+    - rl2
+    - stationery
+    - stattempo
+    - tempo_slow
+    - lambda
+    - scratch
+    - time

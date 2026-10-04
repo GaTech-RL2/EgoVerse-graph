@@ -1,0 +1,21 @@
+# @package _global_
+# FROM SCRATCH, RL2-only fold towels, 394 episodes, variant arcvel. Lambda loaner, 2-GPU DDP x batch 16 (global 32 as the grid), recipe as scratch_rl2_towels394_arcvel (h640t8_d384x10,
+# 240k steps, warmup 10k, seed 42, BimanualTempoEval). Launched by scripts/clusters/lambda/pack_train.sbatch.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_towels394_arcdur_lambda
+- _self_
+- override /data: abc_arc/towels_rl2_394_arcvel_lambda
+name: scratch_rl2_towels394_arcvel_lambda
+description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_towels394_arcvel_lambda
+logger:
+  wandb:
+    id: scratch_rl2_towels394_arcvel_lambda_20260925_s42
+    tags:
+    - rl2
+    - towels
+    - towels394
+    - scratch
+    - arcvel
+    - lambda
+e1:
+  variant: arcvel

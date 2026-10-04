@@ -1,0 +1,132 @@
+# HPT-300M time twin of hpt300_flow_wrists_arcdur.yaml: identical except the three action dims (FlowNoising, FlowDenoiser,
+# CrossTransformer act_dim) are 14 for the (100, 14) time chunk, exactly as hpt_flow_wrists_ft differs from _ft_arcdur.
+# HPT-300M arcdur model for the towels394 grid (Aidan 2026-09-27: "the higher model size for HPT").
+# hpt_flow_wrists_ft_arcdur (h640t8_d384x10, 180M) resized to the lab's HPT-300M dims from
+# experiment/abc_arc/robot_bc/abc_visual_hpt300_base.yaml: embed_dim 840, trunk 19 blocks x 10 heads,
+# cross-attention dim_head 84, flow CrossTransformer 6 blocks x hidden 320. Everything else (stems, three
+# cameras, E1 arcdur (100, 16) action, flow loss, optimizer, schedule) is unchanged.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+  - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
+    stems:
+      observations.images.front_img_1:
+        _target_: egomimic.models.stems.e1_image.E1ImageStem
+        output_dim: 840
+        weights: DEFAULT
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 10
+            crossattn_dim_head: 84
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+    domain_stems:
+      yam_bimanual:
+        observations.state.ee_pose:
+          _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+          input_dim: 14
+          output_dim: 840
+          widths:
+          - 840
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 10
+              crossattn_dim_head: 84
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: 840
+        observations.images.left_wrist_img:
+          _target_: egomimic.models.stems.e1_image.E1ImageStem
+          output_dim: 840
+          weights: DEFAULT
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 10
+              crossattn_dim_head: 84
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: 840
+        observations.images.right_wrist_img:
+          _target_: egomimic.models.stems.e1_image.E1ImageStem
+          output_dim: 840
+          weights: DEFAULT
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 10
+              crossattn_dim_head: 84
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: 840
+    selector_aliases:
+      '3': human_bimanual
+      '7': yam_bimanual
+  - _target_: egomimic.pipeline.stages_hpt.HPTTrunkStage
+    embed_dim: 840
+    token_postprocessing: action_token
+    use_position_embedding: true
+    max_tokens: 512
+    trunk:
+      _target_: egomimic.models.cores.hpt_transformer.SimpleTransformer
+      embed_dim: 840
+      num_blocks: 19
+      drop_path_rate: 0.1
+      weight_init_style: pytorch
+      attn_target:
+        _target_: egomimic.models.cores.hpt_transformer.MultiheadAttention
+        _partial_: true
+        embed_dim: 840
+        num_heads: 10
+        batch_first: true
+    use_domain_embedding: true
+    domains:
+    - yam_bimanual
+    selector_aliases:
+      '3': human_bimanual
+      '7': yam_bimanual
+  - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    action_key: actions_cartesian
+  - _target_: egomimic.pipeline.stages_flow.FlowNoisingStage
+    action_horizon: 100
+    action_dim: 14
+    time_dist: beta
+    beta_alpha: 1.5
+    beta_beta: 1.0
+  - _target_: egomimic.pipeline.stages_flow.FlowDenoiserStage
+    action_horizon: 100
+    action_dim: 14
+    condition_input_dim: 840
+    num_inference_steps: 50
+    condition_as_tokens: true
+    model:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: 6
+      cond_dim: 840
+      hidden_dim: 320
+      act_dim: 14
+      act_seq: 100
+      n_heads: 8
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+      time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_flow.FlowVelocityLossStage
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0001
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: ${ft.max_steps}
+  warmup_steps: ${ft.warmup_steps}
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-05
+scheduler_interval: step

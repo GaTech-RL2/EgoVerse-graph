@@ -1,0 +1,14 @@
+# NORM-ONLY pool for mix4060_towels394_arcvel_lambda (RL2 375 train + ABC 389 = 764 episodes, pooled by frames).
+defaults:
+- /data/abc_arc/towels_mix4060_normpool_arcdur_lambda@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcvel
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcvel

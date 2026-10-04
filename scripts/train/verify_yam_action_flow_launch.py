@@ -66,7 +66,8 @@ def verify_config(cfg_path: Path, args, train_hash: str, valid_hash: str, conten
     require("launch_params.nodes", 1)
     require("trainer.max_steps", 4 if args.phase == "smoke" else 80000)
     require("trainer.precision", "bf16-mixed")
-    require("trainer.accumulate_grad_batches", 16)
+    require("trainer.accumulate_grad_batches", args.accumulation)
+    require("run_provenance.grad_accumulation", args.accumulation)
     require("data.train_dataloader_params.yam_bimanual.batch_size", 8)
     require("data.valid_dataloader_params.yam_bimanual.batch_size", 4)
     require("evaluator.energy_score_validation_view.per_rank_batch_size", 4)
@@ -112,7 +113,7 @@ def verify_config(cfg_path: Path, args, train_hash: str, valid_hash: str, conten
     require("logger.wandb.project", args.wandb_project)
     require("logger.wandb.id", args.wandb_id)
     if args.phase == "smoke":
-        require("trainer.val_check_interval", 64)
+        require("trainer.val_check_interval", 4 * args.accumulation)
         require("trainer.log_every_n_steps", 1)
         warmup_steps = int(OmegaConf.select(cfg, "model.scheduler.warmup_steps"))
         if warmup_steps > 0 and cfg.trainer.max_steps < 2:
@@ -144,6 +145,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--phase", choices=("smoke", "full"))
+    parser.add_argument("--accumulation", type=int, choices=(1, 16), default=16)
     parser.add_argument("--source-commit")
     parser.add_argument("--data-root", type=Path)
     parser.add_argument("--norm-json", type=Path)

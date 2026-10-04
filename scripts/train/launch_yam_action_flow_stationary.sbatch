@@ -20,6 +20,8 @@ for name in AF_YAM_MODE AF_YAM_PHASE AF_YAM_REPO AF_YAM_SOURCE_COMMIT \
 done
 case "$AF_YAM_MODE" in preflight|run) ;; *) fail 'mode must be preflight or run';; esac
 case "$AF_YAM_PHASE" in smoke|full) ;; *) fail 'phase must be smoke or full';; esac
+AF_YAM_ACCUMULATION=${AF_YAM_ACCUMULATION:-16}
+case "$AF_YAM_ACCUMULATION" in 1|16) ;; *) fail 'accumulation must be 1 or 16';; esac
 for name in AF_YAM_REPO AF_YAM_PYTHON AF_YAM_DATA_ROOT AF_YAM_SPLIT_MANIFEST \
   AF_YAM_CONTENT_SUMMARY AF_YAM_NORM_JSON AF_YAM_RUN_DIR AF_YAM_PREFLIGHT_DIR; do
   value=${!name}
@@ -63,6 +65,8 @@ export YAM_VALID_IDS_SHA256=$valid_sha
 
 overrides=(
   '+experiment=e1/yam_stationary_action_flow_h816_s42'
+  "trainer.accumulate_grad_batches=$AF_YAM_ACCUMULATION"
+  "++run_provenance.grad_accumulation=$AF_YAM_ACCUMULATION"
   "e1.data_root=$AF_YAM_DATA_ROOT"
   "norm_stats.precomputed_norm_path=$AF_YAM_NORM_JSON"
   "hydra.run.dir=$AF_YAM_RUN_DIR"
@@ -81,7 +85,7 @@ overrides=(
 if test "$AF_YAM_PHASE" = smoke; then
   overrides+=(
     'trainer.max_steps=4'
-    'trainer.val_check_interval=64'
+    "trainer.val_check_interval=$((4 * AF_YAM_ACCUMULATION))"
     '+trainer.log_every_n_steps=1'
     'trainer.limit_val_batches=1'
     'callbacks.model_checkpoint.every_n_train_steps=1'
@@ -101,6 +105,7 @@ if test "$AF_YAM_MODE" = preflight; then
     --content-summary "$AF_YAM_CONTENT_SUMMARY" \
     --content-summary-sha "$AF_YAM_CONTENT_SUMMARY_SHA" \
     --config "$resolved" --receipt "$receipt" --phase "$AF_YAM_PHASE" \
+    --accumulation "$AF_YAM_ACCUMULATION" \
     --source-commit "$AF_YAM_SOURCE_COMMIT" --data-root "$AF_YAM_DATA_ROOT" \
     --norm-json "$AF_YAM_NORM_JSON" --norm-sha "$AF_YAM_NORM_SHA" \
     --wandb-entity "$AF_YAM_WANDB_ENTITY" --wandb-project "$AF_YAM_WANDB_PROJECT" \

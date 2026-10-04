@@ -1,0 +1,15 @@
+name: angular_scalar
+action_dim: 12
+spec:
+  translation_groups:
+  - - 0
+    - 1
+    - 2
+  rotation_groups:
+  - - 0
+  - - 1
+  - - 2
+  rotation_representation: angular_driver
+  gripper: separate
+  timing: group
+  clocks: group

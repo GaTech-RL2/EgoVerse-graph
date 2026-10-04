@@ -251,7 +251,11 @@ class LiberoArcTimedCodec(LiberoArcCodec):
         ).astype(np.float32)
 
 
-def make_libero_arc_codec(mode="joint_dur", **kwargs):
+def make_libero_arc_codec(mode="joint_dur", stream_spec=None, **kwargs):
+    if stream_spec is not None:
+        from egomimic.rldb.zarr.libero_arc_grouped import LiberoArcGroupedCodec
+
+        return LiberoArcGroupedCodec(mode=mode, stream_spec=stream_spec, **kwargs)
     if mode == "joint_dur":
         return LiberoArcCodec(**kwargs)
     return LiberoArcTimedCodec(mode=mode, **kwargs)

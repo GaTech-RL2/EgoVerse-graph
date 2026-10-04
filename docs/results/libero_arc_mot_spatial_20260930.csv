@@ -1,8 +1,0 @@
-variant,label,success_rate_percent,delta_vs_original_pp,episodes,source
-joint_features,Original ARC (joint tokens),76.16,+0.00,2500,completed_reference
-shared,Shared decoder (split shape/velocity tokens),70.40,-5.76,2500,completed_reference
-separate,Separate shape/velocity decoders,76.04,-0.12,2500,completed_reference
-shape_masked,Shared decoder + shape-to-velocity mask,77.12,+0.96,2500,completed_reference
-mot_xyz_rot_gripper,MoT xyz / rotation / gripper,64.60,-11.56,2500,arc-mot-20260930-xyz-spatial-r2-eval
-mot_shape_velocity,MoT shape / velocity,60.44,-15.72,2500,arc-mot-20260930-velshape-spatial-r2-eval
-mot_shape_velocity_masked,MoT shape / velocity + mask,72.48,-3.68,2500,arc-mot-20260930-masked-spatial-r2-eval

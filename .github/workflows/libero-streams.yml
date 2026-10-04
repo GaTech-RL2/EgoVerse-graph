@@ -1,0 +1,54 @@
+name: LIBERO stream checks
+
+on:
+  pull_request:
+    paths:
+      - 'egomimic/benchmarks/libero/**'
+      - 'egomimic/rldb/zarr/libero_arc*'
+      - 'egomimic/pipeline/stages_libero_arc.py'
+      - 'egomimic/hydra_configs/arc_stream/**'
+      - 'egomimic/hydra_configs/benchmark/libero_arc_streams.yaml'
+      - 'egomimic/hydra_configs/model/oat/arc_grouped_policy.yaml'
+      - 'egomimic/hydra_configs/experiment/oat/libero_arc_streams.yaml'
+      - 'scripts/benchmarks/**'
+      - '.github/validation-ref'
+      - '.github/workflows/libero-streams.yml'
+
+concurrency:
+  group: libero-streams-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.11'
+      - name: Install the LIBERO model environment
+        run: |
+          uv venv --python 3.11 emimic
+          source emimic/bin/activate
+          uv pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cpu
+          uv pip install -e '.[oat]' numpy==2.3.5
+      - name: Build the runtime wheel before restoring companion files
+        run: uv build --wheel --out-dir /tmp/libero-wheel
+      - name: Restore immutable validation inputs
+        run: |
+          source emimic/bin/activate
+          python .github/scripts/restore_validation.py
+      - name: Codec, full matrix, checkpoint and real training tests
+        env:
+          WANDB_MODE: disabled
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+        run: |
+          source emimic/bin/activate
+          python -m pytest -q tests/test_libero_arc_grouped.py tests/test_libero_stream_campaign.py tests/test_libero_stream_parallel.py tests/test_libero_stream_recovery.py tests/test_libero_stream_expansion.py tests/test_libero_stream_repair.py tests/test_libero_arc_timed.py tests/test_libero_benchmark.py tests/test_libero_evaluate.py tests/test_libero_replay.py --junitxml=libero-streams-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: libero-streams-cpu-receipts
+          path: libero-streams-junit.xml

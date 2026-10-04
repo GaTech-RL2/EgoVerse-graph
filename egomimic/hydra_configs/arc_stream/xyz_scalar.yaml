@@ -1,0 +1,15 @@
+name: xyz_scalar
+action_dim: 15
+spec:
+  translation_groups:
+  - - 0
+  - - 1
+  - - 2
+  rotation_groups:
+  - - 0
+    - 1
+    - 2
+  rotation_representation: so3
+  gripper: separate
+  timing: group
+  clocks: group

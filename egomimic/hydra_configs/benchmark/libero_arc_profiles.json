@@ -1,0 +1,58 @@
+{
+  "source_report_sha256": "f6b10feebf56d9148309cd46527a84960fd2b010dd95f066e62d2c05122c18ff",
+  "source_report_commit": "5c162c13a9b5c44fa8cc1df477eb98b6acc5d7d8",
+  "source_report_path": "docs/results/libero_arc_common_configs_20260921.json",
+  "profiles": [
+    {
+      "id": "stk_1",
+      "modes": [
+        "stk"
+      ],
+      "recipe": "oat/libero_arc_stk_1_r192_d1p6_m36",
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 192
+    },
+    {
+      "id": "stk_2",
+      "modes": [
+        "stk"
+      ],
+      "recipe": "oat/libero_arc_stk_2_r192_d0p8_m32",
+      "num_waypoints": 32,
+      "max_translation": 0.8,
+      "max_rotation_degrees": 192
+    },
+    {
+      "id": "dur_1",
+      "modes": [
+        "dur"
+      ],
+      "recipe": "oat/libero_arc_dur_1_r192_d1p6_m24",
+      "num_waypoints": 24,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 192
+    },
+    {
+      "id": "dur_2",
+      "modes": [
+        "dur"
+      ],
+      "recipe": "oat/libero_arc_dur_2_r384_d0p8_m32",
+      "num_waypoints": 32,
+      "max_translation": 0.8,
+      "max_rotation_degrees": 384
+    },
+    {
+      "id": "shared",
+      "modes": [
+        "stk",
+        "dur"
+      ],
+      "recipe": "oat/libero_arc_shared_r384_d1p6_m36",
+      "num_waypoints": 36,
+      "max_translation": 1.6,
+      "max_rotation_degrees": 384
+    }
+  ]
+}

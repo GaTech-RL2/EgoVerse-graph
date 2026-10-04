@@ -8,6 +8,7 @@ import torch
 
 from egomimic.pipeline.pushshapes import ChainGripperPointsNativeDecoder
 from egomimic.rldb.embodiment.pushshapes import (
+    get_chain_gripper_native4_action_rotvec_state_transform_list,
     get_chain_gripper_paper_points_transform_list,
     get_chain_gripper_points_action_state_transform_list,
 )
@@ -126,3 +127,18 @@ def test_decoder_and_embodiment_transform_lists():
     for transform in paper:
         aligned = transform.transform(aligned)
     assert aligned["actions"].shape == (16, 6)
+
+
+def test_native4_paired_route_does_not_change_actions():
+    control = _controls(16, seed=7)
+    state = np.zeros((16, 6))
+    state[:, :3] = control[:, :3]
+    batch = {
+        "actions": torch.from_numpy(control).float(),
+        "state_agent_model": torch.from_numpy(state).float(),
+    }
+    original_actions = batch["actions"].clone()
+    for transform in get_chain_gripper_native4_action_rotvec_state_transform_list():
+        batch = transform.transform(batch)
+    torch.testing.assert_close(batch["actions"], original_actions)
+    assert tuple(batch["state_agent_model"].shape) == (16, 4)

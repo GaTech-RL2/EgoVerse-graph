@@ -12,6 +12,16 @@ DEFAULT_PLANAR_BLOCKS = ((0, 2), (2, 4), (4, 5))
 
 USOCKET_ENERGY_DISTANCE_TYPE = "usocket_normalized_xy_wrapped_theta_v1"
 USOCKET_NATIVE_DECODER = "egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder"
+CHAIN_NATIVE4_ENERGY_DISTANCE_TYPE = "chain_native4_xy_wrapped_theta_grip_v1"
+CHAIN_NATIVE4_DECODER = "egomimic.pipeline.pushshapes.ChainGripperNative4Decoder"
+CHAIN_NATIVE4_ENERGY_DISTANCE_CONFIG = {
+    "type": CHAIN_NATIVE4_ENERGY_DISTANCE_TYPE,
+    "complete_normalized_chunk_shape": (16, 4),
+    "native_theta_index": 2,
+    "rotation_scale_radians": math.pi,
+    "semantic_weights": {"translation": 1.0 / 3.0, "rotation": 1.0 / 3.0, "grip": 1.0 / 3.0},
+    "native_decoder": CHAIN_NATIVE4_DECODER,
+}
 USOCKET_ENERGY_DISTANCE_CONFIG = {
     "type": USOCKET_ENERGY_DISTANCE_TYPE,
     "complete_normalized_chunk_shape": (16, 4),
@@ -109,6 +119,50 @@ def usocket_energy_distance_metadata(config: Mapping) -> dict:
         },
         "combine": "equal_semantic_weighted_sum",
     }
+
+
+def normalize_chain_native4_energy_distance_config(value: Mapping) -> dict:
+    """Fail closed on the exact complete native4 circular-distance contract."""
+    if not isinstance(value, Mapping):
+        raise TypeError("Chain native4 EnergyScore distance must be a mapping")
+    if set(value) != set(CHAIN_NATIVE4_ENERGY_DISTANCE_CONFIG):
+        raise ValueError("Chain native4 EnergyScore distance keys differ")
+    weights = value["semantic_weights"]
+    if not isinstance(weights, Mapping) or set(weights) != {"translation", "rotation", "grip"}:
+        raise ValueError("Chain native4 EnergyScore semantic weights differ")
+    normalized = {
+        "type": str(value["type"]),
+        "complete_normalized_chunk_shape": tuple(int(item) for item in value["complete_normalized_chunk_shape"]),
+        "native_theta_index": int(value["native_theta_index"]),
+        "rotation_scale_radians": float(value["rotation_scale_radians"]),
+        "semantic_weights": {key: float(weights[key]) for key in ("translation", "rotation", "grip")},
+        "native_decoder": str(value["native_decoder"]),
+    }
+    if normalized != CHAIN_NATIVE4_ENERGY_DISTANCE_CONFIG:
+        raise ValueError("unsupported Chain native4 EnergyScore distance contract")
+    return copy.deepcopy(normalized)
+
+
+def chain_native4_chunk_distance(
+    normalized_left: torch.Tensor,
+    normalized_right: torch.Tensor,
+    native_left: torch.Tensor,
+    native_right: torch.Tensor,
+    *,
+    config: Mapping,
+) -> torch.Tensor:
+    """Equal-weight XY, circular theta, and grip RMS over all 16 actions."""
+    contract = normalize_chain_native4_energy_distance_config(config)
+    expected = contract["complete_normalized_chunk_shape"]
+    for normalized, native in ((normalized_left, native_left), (normalized_right, native_right)):
+        if tuple(normalized.shape[-2:]) != expected or native.shape != normalized.shape:
+            raise ValueError("Chain native4 EnergyScore requires complete aligned (16,4) chunks")
+    xy = (normalized_left[..., :2] - normalized_right[..., :2]).square().mean(dim=(-2, -1)).sqrt()
+    theta_delta = native_left[..., 2] - native_right[..., 2]
+    theta = (torch.atan2(torch.sin(theta_delta), torch.cos(theta_delta)) / math.pi).square().mean(dim=-1).sqrt()
+    grip = (normalized_left[..., 3] - normalized_right[..., 3]).square().mean(dim=-1).sqrt()
+    weights = contract["semantic_weights"]
+    return weights["translation"] * xy + weights["rotation"] * theta + weights["grip"] * grip
 
 
 def semantic_chunk_distance(

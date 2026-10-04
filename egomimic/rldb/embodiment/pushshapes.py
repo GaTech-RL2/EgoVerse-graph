@@ -238,6 +238,19 @@ def get_chain_gripper_points_action_state_transform_list(
     ]
 
 
+def get_chain_gripper_native4_action_rotvec_state_transform_list(
+    action_key: str = "actions",
+    state_key: str = "state_agent_model",
+):
+    """Keep native ``[x, y, theta, grip]`` actions; encode only model proprio.
+
+    The paired six-point view uses the same raw episodes and its own action
+    transform. This route must not silently replace the native grip command.
+    """
+    del action_key
+    return [PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2)]
+
+
 def get_chain_common5_action_rotvec_state_transform_list(
     action_key: str = "actions",
     state_key: str = "state_agent_model",

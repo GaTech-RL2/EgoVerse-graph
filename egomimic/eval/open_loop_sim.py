@@ -780,6 +780,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         velocity_mode: str = "per_waypoint",
         log_step: int | None = None,
         results_path: str | None = None,
+        records_dump_path: str | None = None,
         trajectory_snapshot_path: str | None = None,
         video_only: bool = False,
         distance_dtw_enabled: bool = False,
@@ -858,6 +859,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if self.log_step is not None and self.log_step < 0:
             raise ValueError("log_step must be nonnegative")
         self.results_path = Path(results_path) if results_path else None
+        # Optional diagnostic: every validation frame's raw prediction, GT and
+        # metric frame, so decoding can be re-run offline (e.g. jitter studies).
+        self.records_dump_path = Path(records_dump_path) if records_dump_path else None
         self.trajectory_snapshot_path = (
             Path(trajectory_snapshot_path) if trajectory_snapshot_path else None
         )
@@ -1924,6 +1928,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.last_results = results
         if dist.is_available() and dist.is_initialized() and dist.get_rank() != 0:
             return results
+        if getattr(self, "records_dump_path", None) is not None:
+            self.records_dump_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save(records, self.records_dump_path)
         if self.trainer is not None and not getattr(
             self.trainer, "is_global_zero", True
         ):

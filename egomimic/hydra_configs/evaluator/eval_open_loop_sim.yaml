@@ -50,6 +50,8 @@ velocity_mode: ${oc.select:abc.arc_velocity_mode,per_waypoint}
 log_step: null
 
 results_path: ${paths.output_dir}/open_loop_sim.json
+# Optional diagnostic dump of every validation record (prediction, GT, frame).
+records_dump_path: null
 trajectory_snapshot_path: null
 # Video-only checkpoint sweeps skip episode scoring and scalar/JSON metrics.
 video_only: false

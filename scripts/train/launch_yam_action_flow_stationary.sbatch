@@ -80,10 +80,12 @@ overrides=(
 )
 if test "$AF_YAM_PHASE" = smoke; then
   overrides+=(
-    'trainer.max_steps=2'
-    'trainer.val_check_interval=32'
+    'trainer.max_steps=4'
+    'trainer.val_check_interval=64'
+    '+trainer.log_every_n_steps=1'
     'trainer.limit_val_batches=1'
     'callbacks.model_checkpoint.every_n_train_steps=1'
+    'model.gradient_telemetry_cadence=3'
   )
 fi
 

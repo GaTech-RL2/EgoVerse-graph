@@ -64,7 +64,7 @@ def verify_config(cfg_path: Path, args, train_hash: str, valid_hash: str, conten
     require("e1.action_dim", 14)
     require("launch_params.gpus_per_node", 1)
     require("launch_params.nodes", 1)
-    require("trainer.max_steps", 2 if args.phase == "smoke" else 80000)
+    require("trainer.max_steps", 4 if args.phase == "smoke" else 80000)
     require("trainer.precision", "bf16-mixed")
     require("trainer.accumulate_grad_batches", 16)
     require("data.train_dataloader_params.yam_bimanual.batch_size", 8)
@@ -89,6 +89,7 @@ def verify_config(cfg_path: Path, args, train_hash: str, valid_hash: str, conten
     require("model.hidden_dim", 816)
     require("model.flow_samples_per_content", 14)
     require("model.jvp_activation_checkpointing", True)
+    require("model.gradient_telemetry_cadence", 3 if args.phase == "smoke" else 100)
     train_microbatch = int(
         OmegaConf.select(cfg, "data.train_dataloader_params.yam_bimanual.batch_size")
     )
@@ -111,12 +112,17 @@ def verify_config(cfg_path: Path, args, train_hash: str, valid_hash: str, conten
     require("logger.wandb.project", args.wandb_project)
     require("logger.wandb.id", args.wandb_id)
     if args.phase == "smoke":
-        require("trainer.val_check_interval", 32)
+        require("trainer.val_check_interval", 64)
+        require("trainer.log_every_n_steps", 1)
         warmup_steps = int(OmegaConf.select(cfg, "model.scheduler.warmup_steps"))
         if warmup_steps > 0 and cfg.trainer.max_steps < 2:
             raise ValueError("smoke must include a positive-LR optimizer update")
         if cfg.trainer.val_check_interval < 2 * cfg.trainer.accumulate_grad_batches:
             raise ValueError("smoke validation must follow a positive-LR optimizer update")
+        if cfg.trainer.max_steps <= cfg.model.gradient_telemetry_cadence:
+            raise ValueError("smoke must continue past gradient telemetry cadence to flush online metrics")
+        if cfg.trainer.log_every_n_steps > cfg.model.gradient_telemetry_cadence:
+            raise ValueError("smoke logging cadence cannot exceed gradient telemetry cadence")
         require("callbacks.model_checkpoint.every_n_train_steps", 1)
     else:
         require("trainer.val_check_interval", 5000)

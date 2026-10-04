@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_multistream
+  - _self_
+name: organize_rl2_elmo_hpt300_cotrain_multistream_logclock
+description: HPT300 ResNet-MLP cotraining, multistream ARC D0.42 R24deg M100, log-seconds duration clocks
+# Same (M, 18) four-clock token, durations stored as log(seconds + 1e-3).
+abc:
+  arc_velocity_layout: log_clock
+logger:
+  wandb:
+    tags: [hpt300m, resnet_mlp, rl2, organize_stationary, elmo, cotrain, human_bimanual, multistream, D042, R24deg, M100, duration_log_clock, open_loop, video]

@@ -244,6 +244,7 @@ def _cfg(name, monkeypatch):
     [
         ("organize_rl2_elmo_hpt300_cotrain_baseline", 14, "baseline"),
         ("organize_rl2_elmo_hpt300_cotrain_multistream", 18, "arc"),
+        ("organize_rl2_elmo_hpt300_cotrain_multistream_logclock", 18, "arc"),
     ],
 )
 def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
@@ -282,7 +283,27 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
         assert cfg.evaluator.velocity_mode == "duration"
         assert cfg.evaluator.arc_chunking_mode == "multistream"
         robot = train.yam_bimanual.resolver.transform_list
-        assert (robot.velocity_mode, robot.velocity_layout) == ("duration", "clock")
+        layout = "log_clock" if name.endswith("_logclock") else "clock"
+        assert (robot.velocity_mode, robot.velocity_layout) == ("duration", layout)
+        human = train.human_bimanual.resolver.transform_list
+        assert human.velocity_layout == layout
+        assert cfg.evaluator.velocity_layout == layout
+
+
+def test_towel_logclock_recipe_tokenizes_and_evaluates_as_log_clock(monkeypatch):
+    monkeypatch.setenv("EGOVERSE_ABC_DATASET_DIR", "/tmp/arc_abc")
+    with initialize_config_dir(version_base=None, config_dir=str(_CONFIGS)):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "+experiment=abc_arc/robot_bc/abc_rl2_towels_abcdit_multistream_logclock_visual_openloop",
+                "++paths.root_dir=.",
+            ],
+        )
+    robot = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
+    assert (robot.velocity_mode, robot.velocity_layout) == ("duration", "log_clock")
+    assert (cfg.evaluator.velocity_mode, cfg.evaluator.velocity_layout) == ("duration", "log_clock")
+    assert cfg.abc_dit.token_dim == 18
 
 
 def test_dtw_segment_cap_clips_and_reports_instead_of_raising():

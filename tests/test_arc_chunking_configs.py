@@ -33,10 +33,18 @@ PINNED_MODES = {
     "abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_multistream_openloop": "multistream",
     "abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_race_openloop": "race",
 }
+# Duration-clock recipes store per-arm durations, which joint_distance cannot
+# use, so the per_waypoint contract checks below do not apply to them.
+# test_arc_duration_clock_layout.py covers them.
+DURATION_RECIPES = {
+    "abc_arc/robot_bc/abc_rl2_towels_abcdit_multistream_logclock_visual_openloop",
+}
 RECIPES = sorted(
-    str(path.relative_to(CONFIG_ROOT / "experiment").with_suffix(""))
+    recipe
     for population in ("robot_bc", "human_bc")
     for path in (CONFIG_ROOT / "experiment/abc_arc" / population).glob("*.yaml")
+    if (recipe := str(path.relative_to(CONFIG_ROOT / "experiment").with_suffix("")))
+    not in DURATION_RECIPES
 )
 
 

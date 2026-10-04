@@ -2000,9 +2000,12 @@ class TokenizeBimanualArcLengthCartesian:
             return duration
 
         # A stationary arm can still operate its gripper. Its hold-token
-        # velocity rows carry that source-time clock, so use the longer of the
-        # position and gripper intervals when reconstructing the arm timeline.
-        return np.maximum(
+        # velocity rows carry that source-time clock, so a hold interval takes
+        # the gripper's duration. A moving interval is timed by position alone:
+        # taking the longer of the two let a predicted gripper twitch (tiny
+        # step over a near-zero rate) stretch the arm's clock about eightfold.
+        return np.where(
+            position_steps > 1e-12,
             component_duration(position_steps, position_rates),
             component_duration(grip_steps, grip_rates),
         )

@@ -133,6 +133,20 @@ def test_log_clock_stores_log_seconds_and_decodes_like_clock():
         codec("multistream", velocity_mode="per_waypoint", velocity_layout="log_clock")
 
 
+def test_gripper_twitch_does_not_stretch_a_moving_arms_clock():
+    raw = chunk()
+    rates_codec = codec("multistream", "per_waypoint", "wide")
+    token = rates_codec.transform({"actions": raw.copy()})["actions"]
+    clean = rates_codec.detokenize(token, 200)
+    # A model-style twitch: tiny gripper changes with near-zero gripper rates
+    # on intervals where the arm is moving.
+    noisy = token.copy()
+    noisy[:, 6] += 1e-3 * (np.arange(100) % 2)
+    noisy[:, 14 + 6] = 1e-4
+    decoded = rates_codec.detokenize(noisy, 200)
+    np.testing.assert_allclose(decoded[:, :3], clean[:, :3], atol=1e-9)
+
+
 def test_joint_distance_cannot_use_per_arm_duration_clocks():
     with pytest.raises(ValueError, match="joint_distance"):
         codec("joint_distance")

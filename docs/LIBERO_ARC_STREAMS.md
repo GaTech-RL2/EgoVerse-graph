@@ -185,6 +185,23 @@ wrappers may eventually report FAILED for these intentional retirements. The
 canonical expansion manifest records all 88 unique cells and replacement IDs.
 The maximum simultaneous evaluation allocation during overlap is 12 L40S GPUs.
 
+## Isolated task repair, October 4 UTC
+
+A GitHub dependency fetch timed out before Spatial XYZ-scalar-DUR training
+started. Its two dependent training cells and sixteen evaluations were marked
+FAILED_UPSTREAM, while the other training lanes continued. The repair launcher
+selects only terminal failed tasks and requires every affected artifact prefix
+to be empty; existing checkpoint data instead requires explicit resume.
+
+The three training tasks retain their source, recipes, run IDs and four-L40S
+allocation. Dependency installation gets three bounded attempts. Thirteen CPU
+tasks wait for policies being trained in the healthy original lanes, validate
+checksummed completion/optimizer/EMA/layout receipts, and reconstruct the pinned
+evaluation requests. The native evaluator independently validates the downloaded
+checkpoint and complete training budget before rollouts. Sixteen recovered
+evaluations run in up to four independent lanes, retaining their STK/DUR reference
+gates. No healthy job is canceled, and already successful training is not repeated.
+
 ## Validation
 
 CPU coverage includes legacy column-permutation equivalence, diagonal motion,

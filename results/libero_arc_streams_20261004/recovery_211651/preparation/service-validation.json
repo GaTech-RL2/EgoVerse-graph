@@ -1,0 +1,52 @@
+[
+  {
+    "name": "arc-sc-20261004-object-reference-dur-eval",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sc-20261004-spatial-gripper-stk-eval",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sc-20261004-spatial-component-time-dur-eval",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sc-20261004-object-gripper-stk-eval",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sc-20261004-object-component-time-dur-eval",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sc-20261004-goal-component-time-dur-eval",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sb-20261004-spatial",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sb-20261004-goal",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sb-20261004-10",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  },
+  {
+    "name": "arc-sv-20261004-object",
+    "exit_code": 0,
+    "output": "Workflow validation succeeded.\n"
+  }
+]

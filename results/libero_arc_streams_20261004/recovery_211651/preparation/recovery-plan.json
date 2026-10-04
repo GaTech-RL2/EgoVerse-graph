@@ -1,0 +1,1548 @@
+{
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "host_commit": "9c36037a5da54d5a84cd753fe57353be91e436a8",
+  "assembly_sha256": "0e15c450d87f1c9dc5b3696bb557730765e32ccf30c96ad9976b579321b23236",
+  "specs": [
+    {
+      "name": "arc-sc-20261004-object-reference-dur-eval",
+      "role": "completed_policy_evaluation",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sc-20261004-object-reference-dur-eval.yaml",
+      "sha256": "23a3305dd0ab029124255b52193d17b6b75f04888407ca7fdbc5927cff6aa386"
+    },
+    {
+      "name": "arc-sc-20261004-spatial-gripper-stk-eval",
+      "role": "completed_policy_evaluation",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sc-20261004-spatial-gripper-stk-eval.yaml",
+      "sha256": "64a892a75ca92839b0f631b5d1c2622f9d2f8ec29b827ab0fa2f1d4e48782412"
+    },
+    {
+      "name": "arc-sc-20261004-spatial-component-time-dur-eval",
+      "role": "completed_policy_evaluation",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sc-20261004-spatial-component-time-dur-eval.yaml",
+      "sha256": "617e079a9d9d6211f04ca6984fa5e2bee3ab82023f581d2f33817ee40297e693"
+    },
+    {
+      "name": "arc-sc-20261004-object-gripper-stk-eval",
+      "role": "completed_policy_evaluation",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sc-20261004-object-gripper-stk-eval.yaml",
+      "sha256": "1113fad4e3183decaa846c11215556a1ab7315d617e5f69c700e2d0db3cad46c"
+    },
+    {
+      "name": "arc-sc-20261004-object-component-time-dur-eval",
+      "role": "completed_policy_evaluation",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sc-20261004-object-component-time-dur-eval.yaml",
+      "sha256": "4d26f9aea62ea187180d6e3692bd5fbeafbb2139f1a25f730ef32db56ddca086"
+    },
+    {
+      "name": "arc-sc-20261004-goal-component-time-dur-eval",
+      "role": "completed_policy_evaluation",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sc-20261004-goal-component-time-dur-eval.yaml",
+      "sha256": "a3600c6a1461ab8c66257924631ca66787f5fd5daf75dd7768cd8f7dc07df977"
+    },
+    {
+      "name": "arc-sb-20261004-spatial",
+      "role": "cancelled_suite_recovery",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sb-20261004-spatial.yaml",
+      "sha256": "f866e680b934ea7e905b708a46bed4d6447003aebf308c391619fc3ae4797e96"
+    },
+    {
+      "name": "arc-sb-20261004-goal",
+      "role": "cancelled_suite_recovery",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sb-20261004-goal.yaml",
+      "sha256": "ac54f754ccd67421d13c60c89ecc0b7240ca450d21ca4b47867fdca11d2e04c9"
+    },
+    {
+      "name": "arc-sb-20261004-10",
+      "role": "cancelled_suite_recovery",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sb-20261004-10.yaml",
+      "sha256": "17397cf09b9d33cb701a11d575d7f2c4f71fc973d523cad132309309e31d23db"
+    },
+    {
+      "name": "arc-sv-20261004-object",
+      "role": "healthy_object_evaluation_relay",
+      "file": "/tmp/libero-streams-status/20261004T211651Z/specs/arc-sv-20261004-object.yaml",
+      "sha256": "66f3b3b524c2f1b0e27830f34df325f45d243496230f4409c16bea2467606f62"
+    }
+  ],
+  "evaluation_replacements": [
+    {
+      "cell": [
+        "libero_object",
+        "reference",
+        "dur"
+      ],
+      "old_run": "arc-sr-20261003-object-reference-dur-eval",
+      "new_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": "arc-sr-20261003-object-reference-dur-eval",
+      "request": {
+        "source_run": "arc-sr-20261003-object-reference-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "reference",
+        "total_optimizer_steps": 325065,
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "1b34091ba7453e213eab2dad467d283c79477889617a85cd8e9e93dea6d371d8",
+          "bytes": 1004462664,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-reference-dur/checkpoints/1b34091ba7453e213eab2dad467d283c79477889617a85cd8e9e93dea6d371d8/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "07d1b2f618cd319bf640806ef457bcb02082fcaab80909ffa3bd8bc7062e9cde",
+        "runtime.json": "c10ee756d75587c8e8f2f7e8f027e598cd0ecfe70d6814ed59b0b87de1ba84da",
+        "checkpoint-receipts.json": "1f180cc70aae37e7f66e5edb2842efc6c67a7f11a52841310a5f5caec047b399"
+      }
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "gripper",
+        "stk"
+      ],
+      "old_run": "arc-sr-20261003-spatial-gripper-stk-eval",
+      "new_run": "arc-sc-20261004-spatial-gripper-stk-eval",
+      "resume_from": "arc-sr-20261003-spatial-gripper-stk-eval",
+      "request": {
+        "source_run": "arc-sr-20261003-spatial-gripper-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "gripper",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "b94c152c4786fe9feabb9a39b9216a03159aec62aafbf48508b3b85a5a9741f1",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-gripper-stk/checkpoints/b94c152c4786fe9feabb9a39b9216a03159aec62aafbf48508b3b85a5a9741f1/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "463aec76e8acfd441428a6eaa9e722d22d41d503f37cc2afa44301fd362a02dc",
+        "runtime.json": "b7742ed3215dde8ca1795f01c1e8f507afb8bd088d5ed1a6cad76fe4ccdb6110",
+        "checkpoint-receipts.json": "9790ce1950b718b4d0a9d8c72599f83cedc65916e53925da792a6d945e3c61ec"
+      }
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "component_time",
+        "dur"
+      ],
+      "old_run": "arc-sr-20261003-spatial-component-time-dur-eval",
+      "new_run": "arc-sc-20261004-spatial-component-time-dur-eval",
+      "resume_from": null,
+      "request": {
+        "source_run": "arc-sr-20261003-spatial-component-time-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "7922b52b0ac65620d5d22b90e00a3b45aec58d20d6ed416c28c10b00a0678d79",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-component-time-dur/checkpoints/7922b52b0ac65620d5d22b90e00a3b45aec58d20d6ed416c28c10b00a0678d79/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "108675f50c7b05d5b30f330e8325c2f1c76e2853dfe4850928fa1a180c43461d",
+        "runtime.json": "a3afb9ebc7ee95922dee4785268a52f22dc363570a711acf24ec48f6a3af187f",
+        "checkpoint-receipts.json": "c16a1c718ec39fa863dac9cbdf3483e18d586b629155d8e8a3b17f97547660c7"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "gripper",
+        "stk"
+      ],
+      "old_run": "arc-sr-20261003-object-gripper-stk-eval",
+      "new_run": "arc-sc-20261004-object-gripper-stk-eval",
+      "resume_from": null,
+      "request": {
+        "source_run": "arc-sr-20261003-object-gripper-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "gripper",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "4ade6e97205ca763d44109ce5f6785fa89b2b8d64b1dc25e0da74a8dbeeb142d",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-gripper-stk/checkpoints/4ade6e97205ca763d44109ce5f6785fa89b2b8d64b1dc25e0da74a8dbeeb142d/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "72c186d2102cb6dc5aa678d5aed08418be102eedc366e22a98c1cf69d6e847aa",
+        "runtime.json": "e4e5297f03e60ed260ac96c4c28b00f730c0df98ba2d6c72fdeb2aaeb9352d6d",
+        "checkpoint-receipts.json": "3c580697f3d490e7541e441882b87651bb18fbf3cc6c8c33333d3a5e96b2bc6d"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "component_time",
+        "dur"
+      ],
+      "old_run": "arc-sr-20261003-object-component-time-dur-eval",
+      "new_run": "arc-sc-20261004-object-component-time-dur-eval",
+      "resume_from": null,
+      "request": {
+        "source_run": "arc-sr-20261003-object-component-time-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "00d8fffc6b861ba178eb9b7660fefb2edec8ef6d06df54fa05198eb37f2072fc",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-component-time-dur/checkpoints/00d8fffc6b861ba178eb9b7660fefb2edec8ef6d06df54fa05198eb37f2072fc/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "822138b1f2a15d2923b295542f5b4cc3f80b234ba100d02df7ee4e55c6ac6dad",
+        "runtime.json": "af74ee059b676a319115a899efc22a22c8cf2fdaee04be6d25c6ffc4983a810a",
+        "checkpoint-receipts.json": "6a89351123f676064887f8ba6f6339402fd5b8577ad037120de98aa756c2a8be"
+      }
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "component_time",
+        "dur"
+      ],
+      "old_run": "arc-sr-20261003-goal-component-time-dur-eval",
+      "new_run": "arc-sc-20261004-goal-component-time-dur-eval",
+      "resume_from": "arc-sr-20261003-goal-component-time-dur-eval",
+      "request": {
+        "source_run": "arc-sr-20261003-goal-component-time-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 280056,
+        "stream_reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "47f3febed31ff7379631ef2c1c3973567a9900ec3cfec335bebf2ed7f076978c",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-component-time-dur/checkpoints/47f3febed31ff7379631ef2c1c3973567a9900ec3cfec335bebf2ed7f076978c/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "6f96b68c1c79a6be1081b6bcb9530a02c2864a3b32b059d39d511ac0477af0de",
+        "runtime.json": "4b1b5ec407797b3c90c535b00af0147da68964a318b6a2f9bcf5727bc81b8d6b",
+        "checkpoint-receipts.json": "a50e9961a08ff09a7f5122870344ad5bba7f622a1dd64b0521d3b1e038b29a81"
+      }
+    }
+  ],
+  "training_replacements": [
+    {
+      "cell": [
+        "libero_spatial",
+        "gripper",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-gripper-dur",
+      "new_run": "arc-sb-20261004-spatial-gripper-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-03",
+      "evaluation_task": "evaluate-03",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-spatial-gripper-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "gripper",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "7c243401ed93e49109ad5cbaae5613be8c2b607e26f27109999217572cc638cf",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-gripper-dur/checkpoints/7c243401ed93e49109ad5cbaae5613be8c2b607e26f27109999217572cc638cf/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "xyz_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-xyz-scalar-stk",
+      "new_run": "arc-sb-20261004-spatial-xyz-scalar-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-04",
+      "evaluation_task": "evaluate-04",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-spatial-xyz-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "c8a05380652936661397226f32337b7cfe0e8cd958e01eeadd69ca3fbbbc5ef4",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-xyz-scalar-stk/checkpoints/c8a05380652936661397226f32337b7cfe0e8cd958e01eeadd69ca3fbbbc5ef4/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "xyz_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-xyz-scalar-dur",
+      "new_run": "arc-sb-20261004-spatial-xyz-scalar-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-05",
+      "evaluation_task": "evaluate-05",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-spatial-xyz-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "3d07506c26eca54086e5ecf0c41df008ce1f4020997931b9e9a88e7fa4d3747e",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-xyz-scalar-dur/checkpoints/3d07506c26eca54086e5ecf0c41df008ce1f4020997931b9e9a88e7fa4d3747e/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "component_velocity",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-component-velocity-stk",
+      "new_run": "arc-sb-20261004-spatial-component-velocity-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-06",
+      "evaluation_task": "evaluate-06",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-spatial-component-velocity-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_velocity",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "658869b67f76ca96187443d51bab0f42f1b8f2da8efd97f8048aaac08684f2f4",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-velocity-stk/checkpoints/658869b67f76ca96187443d51bab0f42f1b8f2da8efd97f8048aaac08684f2f4/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "component_velocity",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-component-velocity-dur",
+      "new_run": "arc-sb-20261004-spatial-component-velocity-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-07",
+      "evaluation_task": "evaluate-07",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-spatial-component-velocity-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_velocity",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "4562a536f706e553dbb22d5571c76a3db56a10cba9daa31e9b70223fae810a83",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-velocity-dur/checkpoints/4562a536f706e553dbb22d5571c76a3db56a10cba9daa31e9b70223fae810a83/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "component_time",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-component-time-stk",
+      "new_run": "arc-sb-20261004-spatial-component-time-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-08",
+      "evaluation_task": "evaluate-08",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-spatial-component-time-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_time",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "8f8cf55e673a0bc1c87e87f2b20f5bf9eab0cd47949ee919bf69f8ab681dd1f4",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-time-stk/checkpoints/8f8cf55e673a0bc1c87e87f2b20f5bf9eab0cd47949ee919bf69f8ab681dd1f4/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "x_yz",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-x-yz-stk",
+      "new_run": "arc-sb-20261004-spatial-x-yz-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-09",
+      "evaluation_task": "evaluate-09",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "x_yz",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-x-yz-dur",
+      "new_run": "arc-sb-20261004-spatial-x-yz-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-10",
+      "evaluation_task": "evaluate-10",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "y_xz",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-y-xz-stk",
+      "new_run": "arc-sb-20261004-spatial-y-xz-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-11",
+      "evaluation_task": "evaluate-11",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "y_xz",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-y-xz-dur",
+      "new_run": "arc-sb-20261004-spatial-y-xz-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-12",
+      "evaluation_task": "evaluate-12",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "z_xy",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-z-xy-stk",
+      "new_run": "arc-sb-20261004-spatial-z-xy-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-13",
+      "evaluation_task": "evaluate-13",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "z_xy",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-z-xy-dur",
+      "new_run": "arc-sb-20261004-spatial-z-xy-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-14",
+      "evaluation_task": "evaluate-14",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_driver",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-angular-driver-stk",
+      "new_run": "arc-sb-20261004-spatial-angular-driver-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-15",
+      "evaluation_task": "evaluate-15",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_driver",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-angular-driver-dur",
+      "new_run": "arc-sb-20261004-spatial-angular-driver-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-16",
+      "evaluation_task": "evaluate-16",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-angular-scalar-stk",
+      "new_run": "arc-sb-20261004-spatial-angular-scalar-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-17",
+      "evaluation_task": "evaluate-17",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-angular-scalar-dur",
+      "new_run": "arc-sb-20261004-spatial-angular-scalar-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-18",
+      "evaluation_task": "evaluate-18",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "all_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-spatial-all-scalar-stk",
+      "new_run": "arc-sb-20261004-spatial-all-scalar-stk",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-19",
+      "evaluation_task": "evaluate-19",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "all_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-spatial-all-scalar-dur",
+      "new_run": "arc-sb-20261004-spatial-all-scalar-dur",
+      "workflow": "arc-sb-20261004-spatial",
+      "training_task": "train-20",
+      "evaluation_task": "evaluate-20",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "gripper",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-gripper-dur",
+      "new_run": "arc-sb-20261004-goal-gripper-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-03",
+      "evaluation_task": "evaluate-03",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-goal-gripper-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "gripper",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "ef3380d56dd89ef8bd8302deb5f1c3944138338a1e5c0f5a8e26108d81ccfc54",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-gripper-dur/checkpoints/ef3380d56dd89ef8bd8302deb5f1c3944138338a1e5c0f5a8e26108d81ccfc54/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "xyz_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-xyz-scalar-stk",
+      "new_run": "arc-sb-20261004-goal-xyz-scalar-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-04",
+      "evaluation_task": "evaluate-04",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-goal-xyz-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "ba2979b6780dda3d491e4ea7fd1b85b72efb64226745caf0dfd2dc4863f41835",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-xyz-scalar-stk/checkpoints/ba2979b6780dda3d491e4ea7fd1b85b72efb64226745caf0dfd2dc4863f41835/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "xyz_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-xyz-scalar-dur",
+      "new_run": "arc-sb-20261004-goal-xyz-scalar-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-05",
+      "evaluation_task": "evaluate-05",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-goal-xyz-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "ce0b00dea3ebf7a4ee04985ef7a7bdbbd3499bb3f6127dea3f82a296c9f4649e",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-xyz-scalar-dur/checkpoints/ce0b00dea3ebf7a4ee04985ef7a7bdbbd3499bb3f6127dea3f82a296c9f4649e/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "component_velocity",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-component-velocity-stk",
+      "new_run": "arc-sb-20261004-goal-component-velocity-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-06",
+      "evaluation_task": "evaluate-06",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-goal-component-velocity-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_velocity",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "cafdc462ac09f17dccdf02ef08fdb9d5fff8ee4e12833d0e0d2aeb4f901f76a5",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-velocity-stk/checkpoints/cafdc462ac09f17dccdf02ef08fdb9d5fff8ee4e12833d0e0d2aeb4f901f76a5/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "component_velocity",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-component-velocity-dur",
+      "new_run": "arc-sb-20261004-goal-component-velocity-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-07",
+      "evaluation_task": "evaluate-07",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-goal-component-velocity-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_velocity",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "13e63017e50b66b3834cf39306474007d008f8f1ffe78833f6ac2e5815480073",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-velocity-dur/checkpoints/13e63017e50b66b3834cf39306474007d008f8f1ffe78833f6ac2e5815480073/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "component_time",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-component-time-stk",
+      "new_run": "arc-sb-20261004-goal-component-time-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-08",
+      "evaluation_task": "evaluate-08",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-goal-component-time-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_time",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "e60c1cb8d115ff88b92738fd197169a8bad6e59c2cb4cd62579aa6e0a243485d",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-time-stk/checkpoints/e60c1cb8d115ff88b92738fd197169a8bad6e59c2cb4cd62579aa6e0a243485d/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "x_yz",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-x-yz-stk",
+      "new_run": "arc-sb-20261004-goal-x-yz-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-09",
+      "evaluation_task": "evaluate-09",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "x_yz",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-x-yz-dur",
+      "new_run": "arc-sb-20261004-goal-x-yz-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-10",
+      "evaluation_task": "evaluate-10",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "y_xz",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-y-xz-stk",
+      "new_run": "arc-sb-20261004-goal-y-xz-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-11",
+      "evaluation_task": "evaluate-11",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "y_xz",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-y-xz-dur",
+      "new_run": "arc-sb-20261004-goal-y-xz-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-12",
+      "evaluation_task": "evaluate-12",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "z_xy",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-z-xy-stk",
+      "new_run": "arc-sb-20261004-goal-z-xy-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-13",
+      "evaluation_task": "evaluate-13",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "z_xy",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-z-xy-dur",
+      "new_run": "arc-sb-20261004-goal-z-xy-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-14",
+      "evaluation_task": "evaluate-14",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_driver",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-angular-driver-stk",
+      "new_run": "arc-sb-20261004-goal-angular-driver-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-15",
+      "evaluation_task": "evaluate-15",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_driver",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-angular-driver-dur",
+      "new_run": "arc-sb-20261004-goal-angular-driver-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-16",
+      "evaluation_task": "evaluate-16",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-angular-scalar-stk",
+      "new_run": "arc-sb-20261004-goal-angular-scalar-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-17",
+      "evaluation_task": "evaluate-17",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-angular-scalar-dur",
+      "new_run": "arc-sb-20261004-goal-angular-scalar-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-18",
+      "evaluation_task": "evaluate-18",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "all_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-goal-all-scalar-stk",
+      "new_run": "arc-sb-20261004-goal-all-scalar-stk",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-19",
+      "evaluation_task": "evaluate-19",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "all_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-goal-all-scalar-dur",
+      "new_run": "arc-sb-20261004-goal-all-scalar-dur",
+      "workflow": "arc-sb-20261004-goal",
+      "training_task": "train-20",
+      "evaluation_task": "evaluate-20",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "gripper",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-gripper-dur",
+      "new_run": "arc-sb-20261004-10-gripper-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-03",
+      "evaluation_task": "evaluate-03",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-10-gripper-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_dur",
+        "arc_stream_variant": "gripper",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "f373bf7e8a22b6e20eb23f8859cd75cd4cb292a5fc44656d357063b3f6b57d88",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-gripper-dur/checkpoints/f373bf7e8a22b6e20eb23f8859cd75cd4cb292a5fc44656d357063b3f6b57d88/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_10",
+        "xyz_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-xyz-scalar-stk",
+      "new_run": "arc-sb-20261004-10-xyz-scalar-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-04",
+      "evaluation_task": "evaluate-04",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-10-xyz-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_stk",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "e96ba5c6c318ac021e84a96a8ba17e05cb3d6bf5cfb790684e3f67cdca47b76a",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-xyz-scalar-stk/checkpoints/e96ba5c6c318ac021e84a96a8ba17e05cb3d6bf5cfb790684e3f67cdca47b76a/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_10",
+        "xyz_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-xyz-scalar-dur",
+      "new_run": "arc-sb-20261004-10-xyz-scalar-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-05",
+      "evaluation_task": "evaluate-05",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-10-xyz-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_dur",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "fe2f63853f0f4827a218d0583b450157a13462cb4e02d443224f93c1fdf83e24",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-xyz-scalar-dur/checkpoints/fe2f63853f0f4827a218d0583b450157a13462cb4e02d443224f93c1fdf83e24/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_velocity",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-component-velocity-stk",
+      "new_run": "arc-sb-20261004-10-component-velocity-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-06",
+      "evaluation_task": "evaluate-06",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-10-component-velocity-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_velocity",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "b392239c1e1e5404b833ed118b8afbbd6f0cf77edaa0b81dd86e5eb1761a9bd8",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-velocity-stk/checkpoints/b392239c1e1e5404b833ed118b8afbbd6f0cf77edaa0b81dd86e5eb1761a9bd8/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_velocity",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-component-velocity-dur",
+      "new_run": "arc-sb-20261004-10-component-velocity-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-07",
+      "evaluation_task": "evaluate-07",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-10-component-velocity-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_velocity",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "7d54c9fe58f1c5469cecf8664e0d748fc461bc710091d2402f15005323310c2a",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-velocity-dur/checkpoints/7d54c9fe58f1c5469cecf8664e0d748fc461bc710091d2402f15005323310c2a/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_time",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-component-time-stk",
+      "new_run": "arc-sb-20261004-10-component-time-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-08",
+      "evaluation_task": "evaluate-08",
+      "resume_request": {
+        "source_run": "arc-sx-20261003-10-component-time-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_time",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "d6ac8084ea7bfe628859477767ca1a0b618d76a159e36cb078ce3a190b183d4f",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-time-stk/checkpoints/d6ac8084ea7bfe628859477767ca1a0b618d76a159e36cb078ce3a190b183d4f/last.ckpt"
+        }
+      }
+    },
+    {
+      "cell": [
+        "libero_10",
+        "x_yz",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-x-yz-stk",
+      "new_run": "arc-sb-20261004-10-x-yz-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-09",
+      "evaluation_task": "evaluate-09",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "x_yz",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-x-yz-dur",
+      "new_run": "arc-sb-20261004-10-x-yz-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-10",
+      "evaluation_task": "evaluate-10",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "y_xz",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-y-xz-stk",
+      "new_run": "arc-sb-20261004-10-y-xz-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-11",
+      "evaluation_task": "evaluate-11",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "y_xz",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-y-xz-dur",
+      "new_run": "arc-sb-20261004-10-y-xz-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-12",
+      "evaluation_task": "evaluate-12",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "z_xy",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-z-xy-stk",
+      "new_run": "arc-sb-20261004-10-z-xy-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-13",
+      "evaluation_task": "evaluate-13",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "z_xy",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-z-xy-dur",
+      "new_run": "arc-sb-20261004-10-z-xy-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-14",
+      "evaluation_task": "evaluate-14",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_driver",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-angular-driver-stk",
+      "new_run": "arc-sb-20261004-10-angular-driver-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-15",
+      "evaluation_task": "evaluate-15",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_driver",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-angular-driver-dur",
+      "new_run": "arc-sb-20261004-10-angular-driver-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-16",
+      "evaluation_task": "evaluate-16",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-angular-scalar-stk",
+      "new_run": "arc-sb-20261004-10-angular-scalar-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-17",
+      "evaluation_task": "evaluate-17",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-angular-scalar-dur",
+      "new_run": "arc-sb-20261004-10-angular-scalar-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-18",
+      "evaluation_task": "evaluate-18",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "all_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-10-all-scalar-stk",
+      "new_run": "arc-sb-20261004-10-all-scalar-stk",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-19",
+      "evaluation_task": "evaluate-19",
+      "resume_request": null
+    },
+    {
+      "cell": [
+        "libero_10",
+        "all_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-10-all-scalar-dur",
+      "new_run": "arc-sb-20261004-10-all-scalar-dur",
+      "workflow": "arc-sb-20261004-10",
+      "training_task": "train-20",
+      "evaluation_task": "evaluate-20",
+      "resume_request": null
+    }
+  ],
+  "object_evaluation_replacements": [
+    {
+      "cell": [
+        "libero_object",
+        "gripper",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-gripper-dur-eval",
+      "new_run": "arc-sv-20261004-object-gripper-dur-eval",
+      "evaluation_task": "evaluate-03",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-gripper-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "gripper",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "xyz_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-xyz-scalar-stk-eval",
+      "new_run": "arc-sv-20261004-object-xyz-scalar-stk-eval",
+      "evaluation_task": "evaluate-04",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-xyz-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "xyz_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "xyz_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-xyz-scalar-dur-eval",
+      "new_run": "arc-sv-20261004-object-xyz-scalar-dur-eval",
+      "evaluation_task": "evaluate-05",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-xyz-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "xyz_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "component_velocity",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-component-velocity-stk-eval",
+      "new_run": "arc-sv-20261004-object-component-velocity-stk-eval",
+      "evaluation_task": "evaluate-06",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-component-velocity-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_velocity",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "component_velocity",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-component-velocity-dur-eval",
+      "new_run": "arc-sv-20261004-object-component-velocity-dur-eval",
+      "evaluation_task": "evaluate-07",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-component-velocity-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_velocity",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "component_time",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-component-time-stk-eval",
+      "new_run": "arc-sv-20261004-object-component-time-stk-eval",
+      "evaluation_task": "evaluate-08",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-component-time-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "x_yz",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-x-yz-stk-eval",
+      "new_run": "arc-sv-20261004-object-x-yz-stk-eval",
+      "evaluation_task": "evaluate-09",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-x-yz-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "x_yz",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "x_yz",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-x-yz-dur-eval",
+      "new_run": "arc-sv-20261004-object-x-yz-dur-eval",
+      "evaluation_task": "evaluate-10",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-x-yz-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "x_yz",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "y_xz",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-y-xz-stk-eval",
+      "new_run": "arc-sv-20261004-object-y-xz-stk-eval",
+      "evaluation_task": "evaluate-11",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-y-xz-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "y_xz",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "y_xz",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-y-xz-dur-eval",
+      "new_run": "arc-sv-20261004-object-y-xz-dur-eval",
+      "evaluation_task": "evaluate-12",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-y-xz-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "y_xz",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "z_xy",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-z-xy-stk-eval",
+      "new_run": "arc-sv-20261004-object-z-xy-stk-eval",
+      "evaluation_task": "evaluate-13",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-z-xy-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "z_xy",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "z_xy",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-z-xy-dur-eval",
+      "new_run": "arc-sv-20261004-object-z-xy-dur-eval",
+      "evaluation_task": "evaluate-14",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-z-xy-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "z_xy",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "angular_driver",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-angular-driver-stk-eval",
+      "new_run": "arc-sv-20261004-object-angular-driver-stk-eval",
+      "evaluation_task": "evaluate-15",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-angular-driver-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "angular_driver",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "angular_driver",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-angular-driver-dur-eval",
+      "new_run": "arc-sv-20261004-object-angular-driver-dur-eval",
+      "evaluation_task": "evaluate-16",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-angular-driver-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "angular_driver",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "angular_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-angular-scalar-stk-eval",
+      "new_run": "arc-sv-20261004-object-angular-scalar-stk-eval",
+      "evaluation_task": "evaluate-17",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-angular-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "angular_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "angular_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-angular-scalar-dur-eval",
+      "new_run": "arc-sv-20261004-object-angular-scalar-dur-eval",
+      "evaluation_task": "evaluate-18",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-angular-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "angular_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "all_scalar",
+        "stk"
+      ],
+      "old_run": "arc-sx-20261003-object-all-scalar-stk-eval",
+      "new_run": "arc-sv-20261004-object-all-scalar-stk-eval",
+      "evaluation_task": "evaluate-19",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-all-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "all_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval"
+      }
+    },
+    {
+      "cell": [
+        "libero_object",
+        "all_scalar",
+        "dur"
+      ],
+      "old_run": "arc-sx-20261003-object-all-scalar-dur-eval",
+      "new_run": "arc-sv-20261004-object-all-scalar-dur-eval",
+      "evaluation_task": "evaluate-20",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "identity": {
+        "source_run": "arc-sx-20261003-object-all-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "all_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval"
+      }
+    }
+  ]
+}

@@ -729,6 +729,39 @@ def _diagnostic_wrapper():
     return wrapper, encoder, field, decoder
 
 
+def test_action_flow_diagnostics_route_private_codecs_through_one_field():
+    torch.manual_seed(9)
+    encoder_yam, encoder_human = _TinySequenceModule(), _TinySequenceModule()
+    decoder_yam, decoder_human = _TinySequenceModule(), _TinySequenceModule()
+    field = _TinyField()
+    wrapper = _action_flow_wrapper(
+        pipeline=PipelineAlgo(
+            stages=[
+                ContentEncoderStage(encoders={'yam': encoder_yam, 'human': encoder_human}),
+                ConditionalVelocityStage(field=field, num_inference_steps=2),
+                ContentDecoderStage(decoders={'yam': decoder_yam, 'human': decoder_human}),
+            ],
+            device='cpu',
+        ),
+        gradient_telemetry_cadence=0,
+    )
+    wrapper.eval()
+    results = _inference_mode_diagnostics(
+        wrapper,
+        {
+            'yam': {'target': torch.randn(2, 2, 2), 'condition': torch.randn(2, 2), 'embodiment': ['yam', 'yam']},
+            'human': {'target': torch.randn(2, 2, 2), 'condition': torch.randn(2, 2), 'embodiment': ['human', 'human']},
+        },
+    )
+    assert set(results) == {'yam', 'human'}
+    assert wrapper.training_behavior.field_v is field
+    assert wrapper.training_behavior.encoder_e['yam'] is encoder_yam
+    assert wrapper.training_behavior.encoder_e['human'] is encoder_human
+    assert wrapper.training_behavior.decoder_g['yam'] is decoder_yam
+    assert wrapper.training_behavior.decoder_g['human'] is decoder_human
+    assert all(result['latent/clean'].shape == (2, 2, 2) for result in results.values())
+
+
 @torch.inference_mode()
 def _inference_mode_diagnostics(wrapper, batch):
     return wrapper.run_diagnostic(

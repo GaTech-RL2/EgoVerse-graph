@@ -219,7 +219,8 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
     def encoder_e(self) -> nn.Module:
         """The exact encoder instance registered by the pipeline."""
 
-        return self._action_flow_topology()[0].encoder
+        stage = self._action_flow_topology()[0]
+        return stage.encoder if stage.encoders is None else stage.encoders
 
     @property
     def field_v(self) -> nn.Module:
@@ -231,7 +232,8 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
     def decoder_g(self) -> nn.Module:
         """The exact decoder instance registered by the pipeline."""
 
-        return self._action_flow_topology()[2].decoder
+        stage = self._action_flow_topology()[2]
+        return stage.decoder if stage.decoders is None else stage.decoders
 
     @classmethod
     def _source_values(

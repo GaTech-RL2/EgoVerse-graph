@@ -25,7 +25,10 @@ def resolve_action_flow_topology(model: Any) -> tuple[Any, Any, Any]:
     encoder_stages = tuple(
         stage
         for stage in stages
-        if isinstance(getattr(stage, "encoder", None), nn.Module)
+        if (
+            isinstance(getattr(stage, "encoder", None), nn.Module)
+            or isinstance(getattr(stage, "encoders", None), nn.ModuleDict)
+        )
         and any(key.endswith("/clean_latent") for key in writes(stage, "train"))
     )
     field_stages = tuple(
@@ -38,7 +41,10 @@ def resolve_action_flow_topology(model: Any) -> tuple[Any, Any, Any]:
     decoder_stages = tuple(
         stage
         for stage in stages
-        if isinstance(getattr(stage, "decoder", None), nn.Module)
+        if (
+            isinstance(getattr(stage, "decoder", None), nn.Module)
+            or isinstance(getattr(stage, "decoders", None), nn.ModuleDict)
+        )
         and any(key.endswith("/reconstruction") for key in writes(stage, "train"))
     )
     counts = (len(encoder_stages), len(field_stages), len(decoder_stages))

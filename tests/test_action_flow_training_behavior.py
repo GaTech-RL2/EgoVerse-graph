@@ -446,6 +446,48 @@ def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypat
     assert checkpoint["action_flow_gradient_route_manifest"] == manifest
 
 
+def test_action_flow_component_telemetry_preserves_accumulated_grad_with_reentrant_checkpoint():
+    from torch.utils.checkpoint import checkpoint as activation_checkpoint
+
+    parameter = torch.nn.Parameter(torch.tensor(2.0))
+    input_value = torch.tensor(3.0, requires_grad=True)
+    loss = activation_checkpoint(
+        lambda value: parameter * value,
+        input_value,
+        use_reentrant=True,
+    )
+    accumulated = torch.tensor(7.0)
+    parameter.grad = accumulated
+    behavior = ActionFlowTrainingBehavior(gradient_telemetry_cadence=1)
+    behavior._checkpointed_jvp_telemetry = True
+
+    gradients = behavior._component_gradients(
+        loss, (("parameter", parameter),), "FM"
+    )
+
+    assert float(gradients[0]) == pytest.approx(3.0)
+    assert parameter.grad is accumulated
+    assert float(parameter.grad) == pytest.approx(7.0)
+    torch.autograd.backward(loss)
+    assert float(parameter.grad) == pytest.approx(10.0)
+
+
+def test_checkpointed_gradient_telemetry_deduplicates_optimizer_step_not_batch_index():
+    behavior = ActionFlowTrainingBehavior(gradient_telemetry_cadence=3)
+    behavior.gradient_telemetry_cadence = 3
+    behavior._checkpointed_jvp_telemetry = True
+    behavior._last_gradient_telemetry_step = None
+
+    # Lightning can report the first microbatch of step three at a batch
+    # index that is not divisible by the accumulation count. It must still
+    # exercise the diagnostic exactly once for that optimizer step.
+    assert not behavior._should_log_gradient_telemetry(2)
+    assert behavior._should_log_gradient_telemetry(3)
+    behavior._last_gradient_telemetry_step = 3
+    assert not behavior._should_log_gradient_telemetry(3)
+    assert not behavior._should_log_gradient_telemetry(4)
+
+
 def test_action_flow_wrapper_exposes_generic_inference():
     wrapper = _action_flow_wrapper(pipeline=_ToyAlgo(), gradient_telemetry_cadence=0)
     condition = torch.arange(6, dtype=torch.float32).reshape(2, 3)

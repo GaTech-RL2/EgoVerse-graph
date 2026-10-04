@@ -12,6 +12,8 @@
 #   sbatch --export=ALL,RUNS="<variant>:<run dir> ...",STEPS="90000 ..." scripts/e1/cotrain_ol_eval.sbatch
 # STEPS empty = each run's newest step checkpoint. Uses each run's OWN norm stats and the data config on disk (must be the
 # config the run trained with -- the committed generated config). Writes $OUT_ROOT/<run dir name>/step<N>/open_loop_sim.json.
+# EXTRA = extra Hydra overrides. Overlay videos (off in the cotrain experiments) into <out>/val_videos, in a separate root so
+# the scored evals are not skipped as done:  OUT_ROOT=.../runs/aria_cotrain_viz EXTRA="evaluator.viz_every_n_epochs=1"
 set -euo pipefail
 : "${RUNS:?}"
 WT=${WT:-$(git rev-parse --show-toplevel)}; cd "$WT"
@@ -33,7 +35,7 @@ for spec in $RUNS; do
       +experiment=yam_arc_grid/cotrain_rl2_stattempo_slowpace_aria_${v} seed=42 mode=eval \
       "ckpt_path=$CK" \
       "norm_stats.precomputed_norm_path=$RD/norm_stats/norm_stats.json" \
-      "evaluator.results_path=$OUT/open_loop_sim.json" \
+      "evaluator.results_path=$OUT/open_loop_sim.json" ${EXTRA:-} \
       "paths.output_dir=$OUT" "hydra.run.dir=$OUT" 2>&1 | grep -vi "warn" | tail -25
     "$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); m=d['micro']; print('RESULT', sys.argv[2], sys.argv[3], 'episodes', d['episodes'], 'coverage', d['coverage'], {k: round(m[k], 6) for k in ('paired_mse', 'xyz_mse', 'grip_mse', 'ypr_mse')})" "$OUT/open_loop_sim.json" "$v" "$STEP"
   done

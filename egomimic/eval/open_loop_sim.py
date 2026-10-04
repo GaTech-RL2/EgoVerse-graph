@@ -50,6 +50,8 @@ from egomimic.eval.video import EvalVideo
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     CLOCK_COLUMNS,
+    _rotation_to_ypr,
+    _ypr_to_rotation,
     bimanual_arc_token_rows,
     bimanual_arc_token_shapes,
     cumulative_rotation_length,
@@ -64,6 +66,41 @@ GRIP_COLS = (6, 13)
 PAIRED_COLS = XYZ_COLS + GRIP_COLS
 ARC_EXECUTION_CAP_MODES = ("waypoints", "distance")
 ARC_VIDEO_TRAJECTORY_CAP_MODES = ("execution_horizon", "distance", "joint_distance")
+
+
+def gt_chunk_in_anchor_frame(
+    rows: np.ndarray, frames: np.ndarray, anchor: np.ndarray
+) -> np.ndarray:
+    """Recorded poses of later frames, expressed in the anchor frame's wrist frame.
+
+    ``rows`` holds each later frame's own first ground-truth row (its commanded
+    pose in that frame's wrist frame), ``frames`` their EEF-to-world anchors
+    (m, 2, 4, 4) and ``anchor`` the replanning frame's (2, 4, 4). The result is
+    an (m, 14) chunk directly comparable with a prediction decoded at the
+    anchor, for any m: an ARC chunk executes a fixed distance, so its length in
+    frames is not bounded by the 100-row preserved ground-truth copy.
+    """
+    from scipy.spatial.transform import Rotation
+
+    rows = np.asarray(rows, dtype=np.float64)
+    frames = np.asarray(frames, dtype=np.float64)
+    anchor = np.asarray(anchor, dtype=np.float64)
+    out = rows.copy()
+    for arm, offset in enumerate((0, 7)):
+        rotation, origin = frames[:, arm, :3, :3], frames[:, arm, :3, 3]
+        anchor_rotation, anchor_origin = anchor[arm, :3, :3], anchor[arm, :3, 3]
+        world = np.einsum("mij,mj->mi", rotation, rows[:, offset : offset + 3])
+        out[:, offset : offset + 3] = (world + origin - anchor_origin) @ anchor_rotation
+        relative = np.einsum(
+            "ji,mjk,mkl->mil",
+            anchor_rotation,
+            rotation,
+            _ypr_to_rotation(rows[:, offset + 3 : offset + 6]).as_matrix(),
+        )
+        out[:, offset + 3 : offset + 6] = _rotation_to_ypr(
+            Rotation.from_matrix(relative)
+        )
+    return out
 
 
 def validate_arc_execution_cap_mode(mode: str) -> str:
@@ -727,12 +764,21 @@ def arc_prefix_control_steps(
         max_steps,
     )
     durations = [float(np.sum(clock)) for clock in clocks]
-    # The distance prefix already enforces the race endpoint. All retained
-    # stream prefixes must finish, including exact M prefixes whose predicted
-    # per-arm clocks may disagree; rotation remains independently timed.
-    duration = max(durations, default=0.0)
-    if rotation_clock is not None:
-        duration = max(duration, *(float(np.sum(clock)) for clock in rotation_clock))
+    rotation_durations = [float(np.sum(clock)) for clock in rotation_clock or []]
+    if chunking_mode == "multistream":
+        # Execute until the FIRST stream runs out of its retained waypoints:
+        # either arm's translation or either arm's rotation, each on its own
+        # clock. A stream that does not move in the prefix takes no time and
+        # cannot end the chunk. An unbounded (stalled) stream only decides it
+        # when no stream finishes.
+        moving = [d for d in durations + rotation_durations if d > 1e-9]
+        finite = [d for d in moving if math.isfinite(d)]
+        duration = min(finite) if finite else (math.inf if moving else 0.0)
+    else:
+        # The distance prefix already enforces the race endpoint. All retained
+        # stream prefixes must finish, including exact M prefixes whose
+        # predicted per-arm clocks may disagree; rotation is timed separately.
+        duration = max(durations + rotation_durations, default=0.0)
     if math.isfinite(duration):
         steps = max(1, int(math.ceil(duration / dt - 1e-9)))
     elif max_steps is not None:
@@ -781,6 +827,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         log_step: int | None = None,
         results_path: str | None = None,
         records_dump_path: str | None = None,
+        video_overlay_mode: str = "per_frame",
         trajectory_snapshot_path: str | None = None,
         video_only: bool = False,
         distance_dtw_enabled: bool = False,
@@ -862,6 +909,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         # Optional diagnostic: every validation frame's raw prediction, GT and
         # metric frame, so decoding can be re-run offline (e.g. jitter studies).
         self.records_dump_path = Path(records_dump_path) if records_dump_path else None
+        if video_overlay_mode not in ("per_frame", "executed_chunk"):
+            raise ValueError("video_overlay_mode must be per_frame or executed_chunk")
+        self.video_overlay_mode = video_overlay_mode
         self.trajectory_snapshot_path = (
             Path(trajectory_snapshot_path) if trajectory_snapshot_path else None
         )
@@ -946,6 +996,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
     def on_validation_start(self):
         if self._video_enabled:
             EvalVideo.on_validation_start(self)
+        self._chunk_states = {}
         self._records = []
         self.last_results = None
         self._trajectory_snapshot_written = False
@@ -1164,6 +1215,16 @@ class OpenLoopSimEval(BimanualCartesianEval):
         viz_partial = self.viz_func.get(embodiment_name)
         if viz_partial is None or self.obs_pose_key not in source_batch:
             return
+        if getattr(self, "video_overlay_mode", "per_frame") == "executed_chunk":
+            self._log_executed_chunk_frame(
+                source_id=source_id,
+                source_batch=source_batch,
+                prediction=prediction,
+                embodiment_id=embodiment_id,
+                embodiment_name=embodiment_name,
+                viz_partial=viz_partial,
+            )
+            return
         target_key = (
             self.ground_truth_action_key
             if self.ground_truth_action_key in source_batch
@@ -1283,6 +1344,168 @@ class OpenLoopSimEval(BimanualCartesianEval):
         buf_key = (group, embodiment_name)
         out_dir = self._group_video_dir(group, embodiment_name)
         self._buffer_per_episode(buf_key, out_dir, list(frame_tensor), hashes)
+
+    def _frame_image(self, source_batch: Mapping) -> torch.Tensor:
+        images = source_batch[self.image_key]
+        if images.ndim == 5:
+            images = images[:, 0]
+        images = images.detach().cpu()
+        if images.ndim == 4 and images.shape[1] in (1, 3):
+            images = images.permute(0, 2, 3, 1)
+        return images
+
+    def _log_executed_chunk_frame(
+        self,
+        *,
+        source_id,
+        source_batch: Mapping,
+        prediction: torch.Tensor,
+        embodiment_id: int,
+        embodiment_name: str,
+        viz_partial,
+    ) -> None:
+        """Hold one executed chunk's overlay for the frames it spans, then replan.
+
+        At a replanning frame the prediction is decoded exactly as the open-loop
+        metric executes it: the first execute_fraction of the waypoints, every
+        stream on its own clock, stopping when the first moving stream runs
+        out. That chunk of n frames (no fixed frame count) stays on screen for
+        the next n frames while the video advances. The GT overlay is the
+        recorded trajectory over those same n frames, in the replanning frame's
+        wrist frame, so both lines cover identical time. Frames are buffered
+        until the chunk ends because its GT needs the later frames.
+        """
+        episode = str(
+            self._batch_values(source_batch["episode_hash"], 1, "episode_hash")[0]
+        )
+        frame = int(
+            self._batch_values(source_batch["frame_index"], 1, "frame_index")[0]
+        )
+        if METRIC_FRAME_KEY not in source_batch:
+            raise ValueError(
+                f"executed_chunk videos need {METRIC_FRAME_KEY} (euler wrist-frame data)"
+            )
+        key = (self._validation_group or DEFAULT_VALID_GROUP, embodiment_name)
+        states = self.__dict__.setdefault("_chunk_states", {})
+        state = states.get(key)
+        if state is not None and (state["episode"] != episode or frame >= state["end"]):
+            self._flush_executed_chunk(key)
+            state = None
+        metric = np.asarray(
+            torch.as_tensor(source_batch[METRIC_FRAME_KEY]).detach().cpu(),
+            dtype=np.float64,
+        )[0]
+        target_key = (
+            self.ground_truth_action_key
+            if self.ground_truth_action_key in source_batch
+            else self.action_key
+        )
+        gt_row = (
+            self._native_key(source_batch[target_key], target_key, embodiment_id)
+            .detach()
+            .cpu()
+            .numpy()[0, 0]
+        )
+        if state is None:
+            native = self._native(prediction, embodiment_id).detach().cpu().numpy()[0]
+            decoded, steps = self._decode_prediction_with_steps(
+                native, max_steps=getattr(self, "dtw_max_prediction_steps", 100_000)
+            )
+            obs_pose = (
+                self._native_pose(source_batch[self.obs_pose_key], embodiment_id)
+                .detach()
+                .cpu()
+            )
+            if obs_pose.ndim == 3 and obs_pose.shape[1] == 1:
+                obs_pose = obs_pose.squeeze(1)
+            state = dict(
+                episode=episode,
+                end=frame + steps,
+                viz_partial=viz_partial,
+                prediction=decoded,
+                obs_pose=obs_pose,
+                anchor=metric,
+                frames=[],
+            )
+            states[key] = state
+        state["frames"].append(
+            dict(
+                image=self._frame_image(source_batch),
+                gt_row=gt_row,
+                metric=metric,
+                embodiment=source_batch["embodiment"].detach().cpu(),
+                intrinsics=source_batch.get("intrinsics"),
+                annotations=overlay_annotation_fields(
+                    viz_partial, {**source_batch, "source": source_id}
+                ),
+            )
+        )
+
+    def _flush_executed_chunk(self, key) -> None:
+        state = self.__dict__.get("_chunk_states", {}).pop(key, None)
+        if not state or not state["frames"]:
+            return
+        group, embodiment_name = key
+        frames = state["frames"]
+        gt = gt_chunk_in_anchor_frame(
+            [item["gt_row"] for item in frames],
+            [item["metric"] for item in frames],
+            state["anchor"],
+        )
+
+        def batched(values):
+            return torch.from_numpy(np.asarray(values, dtype=np.float32)[None])
+
+        pred_camframe = self._revert_to_camframe(
+            actions=batched(state["prediction"]),
+            obs_pose=state["obs_pose"],
+            embodiment_name=embodiment_name,
+        )
+        gt_camframe = self._revert_to_camframe(
+            actions=batched(gt),
+            obs_pose=state["obs_pose"],
+            embodiment_name=embodiment_name,
+        )
+        if pred_camframe is None or gt_camframe is None:
+            return
+        out_dir = self._group_video_dir(group, embodiment_name)
+        for item in frames:
+            flat_batch = {
+                self.image_key: item["image"],
+                self.action_key: gt_camframe,
+                "embodiment": item["embodiment"],
+                **item["annotations"],
+            }
+            if item["intrinsics"] is not None:
+                flat_batch["intrinsics"] = (
+                    torch.as_tensor(item["intrinsics"]).detach().cpu()
+                )
+            try:
+                rendered = state["viz_partial"](
+                    predictions={f"{embodiment_name}_{self.action_key}": pred_camframe},
+                    batch=flat_batch,
+                )
+            except Exception as exc:  # noqa: BLE001 -- overlays are best effort
+                print(
+                    f"[OpenLoopSimEval] skipped {embodiment_name} overlay: {exc}",
+                    flush=True,
+                )
+                return
+            rendered = np.asarray(rendered)
+            if rendered.dtype != np.uint8:
+                rendered = np.clip(rendered, 0, 255).astype(np.uint8)
+            if rendered.ndim == 3:
+                rendered = rendered[None]
+            self._buffer_per_episode(
+                key,
+                out_dir,
+                list(torch.from_numpy(rendered)),
+                [state["episode"]] * len(rendered),
+            )
+
+    def _flush_all_executed_chunks(self) -> None:
+        for key in list(self.__dict__.get("_chunk_states", {})):
+            self._flush_executed_chunk(key)
 
     def _write_trajectory_snapshot(
         self,
@@ -1655,9 +1878,25 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     "open_loop_sim ground truth must be a control-frequency "
                     f"(T, 14) trajectory, got {ground_truth.shape}"
                 )
-            prediction, n = self._decode_prediction_with_steps(
-                record["prediction"], max_steps=min(len(ground_truth), remaining)
+            from_episode = METRIC_FRAME_KEY in record and self._is_arc_prediction(
+                np.asarray(record["prediction"])
             )
+            prediction, n = self._decode_prediction_with_steps(
+                record["prediction"],
+                # An ARC chunk spans a fixed distance, not a fixed frame count:
+                # with metric frames its ground truth comes from the episode
+                # itself, so only the episode end bounds the executed chunk.
+                max_steps=remaining
+                if from_episode
+                else min(len(ground_truth), remaining),
+            )
+            if from_episode:
+                later = [by_frame[cursor + i] for i in range(n)]
+                ground_truth = gt_chunk_in_anchor_frame(
+                    [item["ground_truth"][0] for item in later],
+                    [item[METRIC_FRAME_KEY] for item in later],
+                    record[METRIC_FRAME_KEY],
+                )
             error = prediction[:n] - ground_truth[:n]
             sq["mse"] += float(np.square(error).sum())
             sq["xyz_mse"] += float(np.square(error[:, XYZ_COLS]).sum())
@@ -1920,6 +2159,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 self.trainer, "is_global_zero", True
             ):
                 return None
+            self._flush_all_executed_chunks()
             EvalVideo.on_validation_end(self)
             return None
 
@@ -1939,6 +2179,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         # validation frames have arrived.  This must happen before returning
         # on the rank-zero path; otherwise the last episode never gets a file.
         if getattr(self, "_video_enabled", False):
+            self._flush_all_executed_chunks()
             EvalVideo.on_validation_end(self)
         # This hook is called from LightningModule.on_validation_end(). Calling
         # LightningModule.log_dict() here recursively enters Lightning's

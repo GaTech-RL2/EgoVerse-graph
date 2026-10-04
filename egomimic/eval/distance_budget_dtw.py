@@ -17,7 +17,7 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     stack_arc_token,
 )
 
-METRIC_VERSION = "arc_chunking_global_dtw_v4"
+METRIC_VERSION = "arc_chunking_global_dtw_v5"
 METRIC_FRAME_KEY = "evaluation.eef_to_world"
 XYZ_COLS = (0, 1, 2, 7, 8, 9)
 ARC_DISTANCE_SEMANTICS = {
@@ -319,18 +319,9 @@ def _distance_rollout(
     chunking_mode,
     tokenizer,
     gt_frames,
-    arm=None,
 ):
-    """Concatenate each anchor's decoded prefix in world XYZ.
-
-    With ``arm`` set, each prefix is decoded for as long as that arm's own
-    translation clock runs. The other arm and both rotation streams can run far
-    longer (an idle arm or a rotation short of R spends the whole source
-    window), and none of that time moves this arm's XYZ, so decoding it only
-    appends a held endpoint that the arm's DTW then has to absorb.
-    """
+    """Concatenate each anchor's decoded prefix in world XYZ."""
     from egomimic.eval.open_loop_sim import (
-        _arc_clock_durations,
         arc_execution_prefix,
         arc_prefix_control_steps,
     )
@@ -381,20 +372,6 @@ def _distance_rollout(
                 # instead of raising "no finite replan boundary".
                 max_steps=(None if segment_cap is None else int(segment_cap) + 1),
             )
-            if arm is not None:
-                m = len(partial) // 2
-                clocks, _ = _arc_clock_durations(
-                    partial[:m],
-                    partial[m:],
-                    evaluator.velocity_mode,
-                    evaluator.control_dt,
-                    evaluator.min_distance_unit,
-                    chunking_mode,
-                    getattr(evaluator, "rotation_distance_unit", None),
-                    n,
-                )
-                arm_seconds = float(np.sum(clocks[arm]))
-                n = min(n, max(1, math.ceil(arm_seconds / evaluator.control_dt - 1e-9)))
             if segment_cap is not None and n > segment_cap:
                 # A predicted token with near-zero timing on a moving interval
                 # decodes to an arbitrarily long hold. Score its first
@@ -477,56 +454,28 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         anchors = np.arange(0, len(records), evaluator.execute_steps)
         budgets = np.zeros(len(anchors))
     if is_arc and chunking_mode == "multistream":
-        # A multistream token covers D on EACH arm's own clock, so each arm
-        # replans on its own distance milestones and gets its own DTW. Shared
-        # windows that wait for the slower arm charge the faster arm for travel
-        # its token never claimed: a perfect model scored ~1e-2 instead of ~0.
-        per_arm, all_anchors, all_steps, all_budgets, total = [], [], [], [], 0
-        clipped = []
-        arm_cumulative = per_arm_cumulative_distance(gt)
-        for arm, columns in enumerate((slice(0, 3), slice(3, 6))):
-            arm_anchors, arm_budgets = distance_windows(arm_cumulative[:, arm], budget)
-            prediction, steps, arm_total, arm_clipped = _distance_rollout(
-                evaluator,
-                records,
-                arm_anchors,
-                arm_budgets,
-                budget,
-                is_arc,
-                chunking_mode,
-                tokenizer,
-                len(gt),
-                arm=arm,
+        # One closed-loop-style rollout: from the current frame, execute the
+        # first 30% of the predicted waypoints with every stream on its own
+        # clock, stop when the first moving stream runs out, then replan from
+        # the recorded observation at that frame. Both arms share the replan
+        # points and are scored by one DTW, exactly as the open-loop metric
+        # and the videos execute a chunk.
+        predictions, segment_steps, anchor_frames, clipped = [], [], [], []
+        cursor, total = 0, 0
+        while cursor < len(records):
+            record = records[cursor]
+            decoded, n = evaluator._decode_prediction_with_steps(
+                record["prediction"], max_steps=len(records) - cursor
             )
-            score = global_dtw(
-                prediction[:, columns],
-                gt[:, columns],
-                max_cells=evaluator.dtw_max_cells,
-            )
-            per_arm.append(score)
-            all_anchors.append([int(records[int(i)]["frame"]) for i in arm_anchors])
-            all_steps.append(steps)
-            clipped.extend(arm_clipped)
-            all_budgets.append(arm_budgets.tolist())
-            total = max(total, arm_total)
-        # Each arm averages its 3 coordinates over the same GT frames, so the
-        # arm mean equals the 6-coordinate mean used by the other modes.
-        result = {
-            "xyz_mse": float(np.mean([item["xyz_mse"] for item in per_arm])),
-            "gt_frames": len(gt),
-            "predicted_samples": max(item["predicted_samples"] for item in per_arm),
-            "gt_coverage": float(np.mean([item["gt_coverage"] for item in per_arm])),
-            "prediction_coverage": min(item["prediction_coverage"] for item in per_arm),
-            "path_pairs": sum(item["path_pairs"] for item in per_arm),
-            "path_cost_sum": sum(item["path_cost_sum"] for item in per_arm),
-            "per_arm": per_arm,
-        }
-        segments = sum(len(item) for item in all_anchors)
-        anchor_frames, segment_steps, segment_budgets = (
-            all_anchors,
-            all_steps,
-            all_budgets,
-        )
+            predictions.append(world_xyz(decoded, record[METRIC_FRAME_KEY]))
+            segment_steps.append(n)
+            anchor_frames.append(int(record["frame"]))
+            cursor += n
+            total += n
+        prediction = np.concatenate(predictions)
+        result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells)
+        segments = len(segment_steps)
+        segment_budgets = None
     else:
         prediction, segment_steps, total, clipped = _distance_rollout(
             evaluator,
@@ -559,7 +508,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
                 {
                     "joint_distance": "global_joint_distance_milestones",
                     "race": "chunk_local_per_arm_reset",
-                    "multistream": "independent_per_arm_milestones",
+                    "multistream": "first_stream_replan",
                 }[chunking_mode]
             )
             if is_arc
@@ -580,7 +529,11 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         predicted_duration_s=float(total * evaluator.control_dt),
         gt_duration_s=float(len(gt) * evaluator.control_dt),
         duration_ratio=float(total / len(gt)),
-        rollout_mode="gt_distance_budget" if is_arc else "fixed_control_frames",
+        rollout_mode=(
+            "first_stream_replan"
+            if is_arc and chunking_mode == "multistream"
+            else ("gt_distance_budget" if is_arc else "fixed_control_frames")
+        ),
     )
     return result
 

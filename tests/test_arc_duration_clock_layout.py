@@ -153,9 +153,9 @@ def test_dtw_scores_oracle_clock_tokens_near_zero():
     ]
     result = dtw.score_distance_dtw_episode(evaluator("duration"), records)
     assert result["xyz_mse"] < 1e-4
-    # Each arm decodes only its own translation time, so a long rotation clock
-    # or the other arm's stall does not inflate the rollout.
-    assert result["duration_ratio"] < 1.5
+    # Multistream replays the episode once, replanning where each chunk ends,
+    # so the rollout spans exactly the recorded episode.
+    assert result["duration_ratio"] == pytest.approx(1.0)
 
 
 def test_fractional_prefix_scales_stored_seconds_with_the_waypoint_fraction():
@@ -260,15 +260,40 @@ def test_dtw_segment_cap_clips_and_reports_instead_of_raising():
                 **{dtw.METRIC_FRAME_KEY: np.repeat(np.eye(4)[None], 2, axis=0)},
             )
         )
-    strict = evaluator("duration", dtw_max_prediction_steps=1000)
+    # Race keeps per-window decodes, where one stalled token is unbounded.
+    tokenize = codec("race")
+    records = [
+        dict(
+            r,
+            prediction=tokenize.transform(
+                {"actions": raw[r["frame"] : r["frame"] + 200].copy()}
+            )["actions"],
+        )
+        for r in records
+    ]
+    for frame, value in ((0, 50.0), (1, 0.0)):
+        records[frame]["prediction"][:, 14:] = value
+
+    def evaluator_race(**extra):
+        return OpenLoopSimEval(
+            action_mode="arc",
+            arc_chunking_mode="race",
+            execute_fraction=0.3,
+            min_distance_unit=OPTIONS["min_distance_unit"],
+            rotation_distance_unit=OPTIONS["rotation_distance_unit"],
+            resampled_vector_length=100,
+            control_dt=DT,
+            velocity_mode="duration",
+            **extra,
+        )
+
+    strict = evaluator_race(dtw_max_prediction_steps=1000)
     with pytest.raises(ValueError, match="dtw_max_prediction_steps"):
         dtw.score_distance_dtw_episode(strict, records[:1] + records[2:])
-    capped = evaluator(
-        "duration", dtw_max_prediction_steps=1000, dtw_max_segment_steps=300
-    )
+    capped = evaluator_race(dtw_max_prediction_steps=1000, dtw_max_segment_steps=300)
     result = dtw.score_distance_dtw_episode(capped, records)
-    assert result["clipped_segments"] >= 2
-    assert max(max(steps) for steps in result["segment_control_steps"]) <= 300
+    assert result["clipped_segments"] >= 1  # frame 0 is always a race anchor
+    assert max(result["segment_control_steps"]) <= 300
     assert np.isfinite(result["xyz_mse"])
 
 
@@ -297,3 +322,72 @@ def test_yam_keymap_source_buffer_override():
         for v in default.values()
         if isinstance(v.get("horizon"), dict)
     )
+
+
+def test_gt_chunk_in_anchor_frame_preserves_world_pose():
+    from scipy.spatial.transform import Rotation
+
+    from egomimic.eval.open_loop_sim import gt_chunk_in_anchor_frame
+
+    rng = np.random.default_rng(0)
+
+    def pose():
+        value = np.eye(4)
+        value[:3, :3] = Rotation.random(random_state=rng).as_matrix()
+        value[:3, 3] = rng.normal(size=3)
+        return value
+
+    frames = np.stack([[pose(), pose()] for _ in range(6)])
+    rows = rng.normal(size=(6, 14)) * 0.2
+    chunk = gt_chunk_in_anchor_frame(rows, frames, frames[2])
+    for i in range(6):
+        for arm, offset in enumerate((0, 7)):
+            own = frames[i, arm] @ np.r_[rows[i, offset : offset + 3], 1]
+            via_anchor = frames[2, arm] @ np.r_[chunk[i, offset : offset + 3], 1]
+            np.testing.assert_allclose(own, via_anchor, atol=1e-9)
+            own_rot = (
+                frames[i, arm, :3, :3]
+                @ Rotation.from_euler(
+                    "ZYX", rows[i, offset + 3 : offset + 6]
+                ).as_matrix()
+            )
+            anchor_rot = (
+                frames[2, arm, :3, :3]
+                @ Rotation.from_euler(
+                    "ZYX", chunk[i, offset + 3 : offset + 6]
+                ).as_matrix()
+            )
+            np.testing.assert_allclose(own_rot, anchor_rot, atol=1e-9)
+        np.testing.assert_allclose(chunk[i, [6, 13]], rows[i, [6, 13]])
+
+
+def test_open_loop_executes_long_chunks_against_episode_ground_truth():
+    """Chunks are not cut at the 100-row preserved GT copy (here only 20 rows)."""
+    time = np.arange(300 + 400) * DT
+    raw = np.zeros((len(time), 14))
+    raw[:, 0], raw[:, 7] = 0.05 * time, 0.02 * time  # slow: chunks span >20 frames
+    tokenize = codec("multistream")
+    ev = evaluator("duration")
+    ev.require_episode_start = True
+    eye = np.repeat(np.eye(4)[None], 2, axis=0)
+    records = []
+    for frame in range(300):
+        anchors = eye.copy()
+        anchors[:, :3, 3] = raw[frame, [0, 1, 2]], raw[frame, [7, 8, 9]]
+        window = raw[frame : frame + 400] - raw[frame]
+        records.append(
+            dict(
+                group="valid",
+                source="yam_bimanual",
+                label="yam_bimanual",
+                episode="e",
+                frame=frame,
+                ground_truth=window[:20],
+                prediction=tokenize.transform({"actions": window.copy()})["actions"],
+                **{dtw.METRIC_FRAME_KEY: anchors},
+            )
+        )
+    result = ev._score_episode(records)
+    assert max(result["segment_control_steps"]) > 20
+    assert result["executed_steps"] == 300
+    assert result["metrics"]["xyz_mse"] < 1e-8

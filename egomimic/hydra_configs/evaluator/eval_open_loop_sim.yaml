@@ -87,6 +87,10 @@ revert_transforms:
     is_quat: false
     gripper_padded: true
 video_output_dir: ${paths.output_dir}/val_videos
+# executed_chunk: draw each replan's executed chunk (and the GT over the same
+# frames) and hold it until the chunk ends, then replan -- what the robot would
+# execute. per_frame: redraw a fresh prediction on every frame.
+video_overlay_mode: executed_chunk
 video_chunk_frames: 1000
 max_episode_frames: 6000
 viz_every_n_epochs: 1

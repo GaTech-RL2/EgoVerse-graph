@@ -1,0 +1,2603 @@
+{
+  "observed_at_utc": "2026-10-04T05:44:47.040937+00:00",
+  "runs": [
+    {
+      "suite": "libero_spatial",
+      "variant": "reference",
+      "mode": "stk",
+      "training_run_id": "arc-str-20261002r2-spatial-reference-stk",
+      "evaluation_run_id": "arc-se-20261003-spatial-reference-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 270054,
+        "ema_num_updates": 270054,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 55861,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 54,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "df5c98183b915ecf7d5388b936ab260b2bd4024c3e71095d22421595295969e1",
+        "last_modified": "2026-10-03T05:00:36+00:00"
+      },
+      "evaluation_status": {
+        "state": "POLICY_EVALUATION_COMPLETE",
+        "method": "arc_stk",
+        "episodes": 2500,
+        "complete_protocol": true
+      },
+      "evaluation_status_receipt": {
+        "sha256": "59c778f395c9b209efbb1953b00d2b1533ed6674f37560589ece24e41d708606",
+        "last_modified": "2026-10-03T23:26:47+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "a79d20a99ce6e0c857332dc718bba8f89080a74f1272c210b00fb65ac7f7acae",
+        "last_modified": "2026-10-03T05:01:01+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "a1cb1c022b538cb603d320bc8582cd0e0c4a26177c49057b5e389c50f6040c7f",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-str-20261002r2-spatial-reference-stk/checkpoints/a1cb1c022b538cb603d320bc8582cd0e0c4a26177c49057b5e389c50f6040c7f/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 2500,
+        "planned": 2500,
+        "per_repetition": [
+          500,
+          500,
+          500,
+          500,
+          500
+        ],
+        "workers": 5
+      },
+      "scores": {
+        "episodes": 2500,
+        "mean_success_rate": 0.6864,
+        "success_rate_std": 0.01505988047761332,
+        "success_rate_stderr": 0.006734983296193076,
+        "per_repetition_success": [
+          0.704,
+          0.68,
+          0.684,
+          0.666,
+          0.698
+        ],
+        "per_task_success": {
+          "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.56,
+          "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.812,
+          "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.816,
+          "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.756,
+          "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.54,
+          "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.848,
+          "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.928,
+          "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.06,
+          "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.916,
+          "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.628
+        },
+        "inference_seconds_mean": 0.7247900707206908,
+        "inference_seconds_p95": 0.86565324049443
+      },
+      "scores_receipt": {
+        "sha256": "129b5fd57f490fe70523170fd2546406b8beed171873fd8bdd1f327c67135d34",
+        "last_modified": "2026-10-03T23:26:47+00:00"
+      },
+      "evaluation_runtime_receipt": {
+        "sha256": "625a85129ae24886fa2e8b13dbea3ae5ecc19880973119e620110721570a5a2a",
+        "last_modified": "2026-10-03T20:22:48+00:00"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "reference",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-spatial-reference-dur",
+      "evaluation_run_id": "arc-sr-20261003-spatial-reference-dur-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 270054,
+        "ema_num_updates": 270054,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 55861,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 54,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "df5c98183b915ecf7d5388b936ab260b2bd4024c3e71095d22421595295969e1",
+        "last_modified": "2026-10-04T03:32:24+00:00"
+      },
+      "evaluation_status": {
+        "state": "ROLLOUTS",
+        "method": "arc_dur"
+      },
+      "evaluation_status_receipt": {
+        "sha256": "b3dcc1890a41903e737de6ae8b2c3fb23e5915ab5811064323e39dd950b1cc80",
+        "last_modified": "2026-10-04T03:38:30+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "1d3e53df05d03bd2cd5d08bff6bb76c39f76c3841c3d3f8b1481c88beb9b41ef",
+        "last_modified": "2026-10-04T03:32:52+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "71e7a7e9af2a596591a73bf3dac9d872d82a591645dc7929c9186aac72225413",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-reference-dur/checkpoints/71e7a7e9af2a596591a73bf3dac9d872d82a591645dc7929c9186aac72225413/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 1715,
+        "planned": 2500,
+        "per_repetition": [
+          343,
+          388,
+          330,
+          332,
+          322
+        ],
+        "workers": 5
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "gripper",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-spatial-gripper-stk",
+      "evaluation_run_id": "arc-sr-20261003-spatial-gripper-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 270054,
+        "ema_num_updates": 270054,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 55861,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 54,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "separate",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 13,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40346893
+      },
+      "training_status_receipt": {
+        "sha256": "463aec76e8acfd441428a6eaa9e722d22d41d503f37cc2afa44301fd362a02dc",
+        "last_modified": "2026-10-04T03:26:54+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "9790ce1950b718b4d0a9d8c72599f83cedc65916e53925da792a6d945e3c61ec",
+        "last_modified": "2026-10-04T03:27:25+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "b94c152c4786fe9feabb9a39b9216a03159aec62aafbf48508b3b85a5a9741f1",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-gripper-stk/checkpoints/b94c152c4786fe9feabb9a39b9216a03159aec62aafbf48508b3b85a5a9741f1/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "component_time",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-spatial-component-time-dur",
+      "evaluation_run_id": "arc-sr-20261003-spatial-component-time-dur-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 270054,
+        "ema_num_updates": 270054,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 55861,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 54,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "separate",
+            "timing": "component",
+            "clocks": "component"
+          },
+          "shape_dim": 10,
+          "action_dim": 17,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40352017
+      },
+      "training_status_receipt": {
+        "sha256": "108675f50c7b05d5b30f330e8325c2f1c76e2853dfe4850928fa1a180c43461d",
+        "last_modified": "2026-10-04T04:29:17+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "c16a1c718ec39fa863dac9cbdf3483e18d586b629155d8e8a3b17f97547660c7",
+        "last_modified": "2026-10-04T04:29:17+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "7922b52b0ac65620d5d22b90e00a3b45aec58d20d6ed416c28c10b00a0678d79",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-component-time-dur/checkpoints/7922b52b0ac65620d5d22b90e00a3b45aec58d20d6ed416c28c10b00a0678d79/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-gripper-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-gripper-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "gripper"
+      },
+      "training_status_receipt": {
+        "sha256": "6a31f5e8e0ffb03a2eb4888d2083ab779bf3424db370c497f19f36be1a3ff6c8",
+        "last_modified": "2026-10-03T22:30:42+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3360,
+      "saved_progress_percent_at_least": 67.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "cc29bcaa53a86592e6bf943e0b1cb39344a2b8f2b6d15dffcc55f7e878e7dc17",
+        "last_modified": "2026-10-04T05:43:24+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "e2215a1111a8cf60a7a4cf002045246f37857c22a02771f19c47d5c9da050887",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-gripper-dur/checkpoints/e2215a1111a8cf60a7a4cf002045246f37857c22a02771f19c47d5c9da050887/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-xyz-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-xyz-scalar-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:26:26+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3350,
+      "saved_progress_percent_at_least": 66.99,
+      "checkpoint_manifest_receipt": {
+        "sha256": "000032c5c864f13ebc01c1a6afed94981aade7aac96eb34b415c51391bbdea7a",
+        "last_modified": "2026-10-04T05:43:30+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "e04bd32c5afccd65cdd3b76958fdba4be912dc63a93e58d07357800534a6e445",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-xyz-scalar-stk/checkpoints/e04bd32c5afccd65cdd3b76958fdba4be912dc63a93e58d07357800534a6e445/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-xyz-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-xyz-scalar-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-04T01:31:45+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1940,
+      "saved_progress_percent_at_least": 38.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "4e48fbcfaa9171992ac3567dbf1fe324df807cd841bde3dd073b1a426d2ac95a",
+        "last_modified": "2026-10-04T05:43:45+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "4153d3f3d1cf276612f818930bb2b6a938a897b7e5451d196cfd05c5bd04d7ed",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-xyz-scalar-dur/checkpoints/4153d3f3d1cf276612f818930bb2b6a938a897b7e5451d196cfd05c5bd04d7ed/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-component-velocity-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-component-velocity-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:31:03+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3320,
+      "saved_progress_percent_at_least": 66.39,
+      "checkpoint_manifest_receipt": {
+        "sha256": "eb84b086edd9fef9aaebf267f6f3ff0bb16d7b05ecfd18906e915fa12900379c",
+        "last_modified": "2026-10-04T05:43:31+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "1f4737d19e3e48d008c282779acab8d6136ccdd36186af816379f3f59f169b89",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-velocity-stk/checkpoints/1f4737d19e3e48d008c282779acab8d6136ccdd36186af816379f3f59f169b89/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-component-velocity-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-component-velocity-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:30:55+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3390,
+      "saved_progress_percent_at_least": 67.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "b2c8157f0e0b7c318ca838773241c2a324c4fde57b327dd9e5513502016415db",
+        "last_modified": "2026-10-04T05:44:17+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "a3877f72d48f8ae4a82d5bdc2177dcdce00e59347bb1f130b7877ff7efa8e306",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-velocity-dur/checkpoints/a3877f72d48f8ae4a82d5bdc2177dcdce00e59347bb1f130b7877ff7efa8e306/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-component-time-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-component-time-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_time"
+      },
+      "training_status_receipt": {
+        "sha256": "7eb147dca67cfe21f0b85cdb261c2f6872d32c103905c63a469eb2c3a0d67f51",
+        "last_modified": "2026-10-03T22:25:55+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3140,
+      "saved_progress_percent_at_least": 62.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "122823409a296e369d9a79afcd04bb8b17300cfd27d15495c0d9fba645961498",
+        "last_modified": "2026-10-04T05:43:39+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "6fcea4c15835047833668e82d4dba8b218765ec87d6ccdcebe08f61f895210bf",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-time-stk/checkpoints/6fcea4c15835047833668e82d4dba8b218765ec87d6ccdcebe08f61f895210bf/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-x-yz-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-x-yz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-x-yz-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-x-yz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-y-xz-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-y-xz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-y-xz-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-y-xz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-z-xy-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-z-xy-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-z-xy-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-z-xy-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-angular-driver-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-angular-driver-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-angular-driver-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-angular-driver-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-angular-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-angular-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-angular-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-angular-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-all-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-all-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-all-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-all-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "reference",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-object-reference-stk",
+      "evaluation_run_id": "arc-sr-20261003-object-reference-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 325065,
+        "ema_num_updates": 325065,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 66940,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 65,
+          "microbatches_per_epoch": 65,
+          "epochs": 5001,
+          "total_optimizer_steps": 325065,
+          "dropped_examples_per_epoch": 380
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "07d1b2f618cd319bf640806ef457bcb02082fcaab80909ffa3bd8bc7062e9cde",
+        "last_modified": "2026-10-03T22:20:52+00:00"
+      },
+      "evaluation_status": {
+        "state": "POLICY_EVALUATION_COMPLETE",
+        "method": "arc_stk",
+        "episodes": 2500,
+        "complete_protocol": true
+      },
+      "evaluation_status_receipt": {
+        "sha256": "59c778f395c9b209efbb1953b00d2b1533ed6674f37560589ece24e41d708606",
+        "last_modified": "2026-10-04T01:56:34+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "55a21ac35ce2a06486001e2263b7cd32f07fcb3c7e7f4b328e8e62a66a671b15",
+        "last_modified": "2026-10-03T22:20:52+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "e87ac92b8179aa4dd07d0ca6679e476af90f856b9ea43501bcafa061781dbee5",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-reference-stk/checkpoints/e87ac92b8179aa4dd07d0ca6679e476af90f856b9ea43501bcafa061781dbee5/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 2500,
+        "planned": 2500,
+        "per_repetition": [
+          500,
+          500,
+          500,
+          500,
+          500
+        ],
+        "workers": 5
+      },
+      "scores": {
+        "episodes": 2500,
+        "mean_success_rate": 0.4715999999999999,
+        "success_rate_std": 0.008173126696680999,
+        "success_rate_stderr": 0.0036551333764994033,
+        "per_repetition_success": [
+          0.478,
+          0.46,
+          0.476,
+          0.466,
+          0.478
+        ],
+        "per_task_success": {
+          "pick_up_the_alphabet_soup_and_place_it_in_the_basket": 0.984,
+          "pick_up_the_bbq_sauce_and_place_it_in_the_basket": 0.2,
+          "pick_up_the_butter_and_place_it_in_the_basket": 0.148,
+          "pick_up_the_chocolate_pudding_and_place_it_in_the_basket": 0.12,
+          "pick_up_the_cream_cheese_and_place_it_in_the_basket": 0.028,
+          "pick_up_the_ketchup_and_place_it_in_the_basket": 0.972,
+          "pick_up_the_milk_and_place_it_in_the_basket": 0.912,
+          "pick_up_the_orange_juice_and_place_it_in_the_basket": 0.936,
+          "pick_up_the_salad_dressing_and_place_it_in_the_basket": 0.416,
+          "pick_up_the_tomato_sauce_and_place_it_in_the_basket": 0.0
+        },
+        "inference_seconds_mean": 0.7553438272742015,
+        "inference_seconds_p95": 0.8370373231125996
+      },
+      "scores_receipt": {
+        "sha256": "49708814ca359f705d43b6b5ef45e71ce94ef224a5b854d43a6b5b234a444a7e",
+        "last_modified": "2026-10-04T01:56:34+00:00"
+      },
+      "evaluation_runtime_receipt": {
+        "sha256": "6ec8eb8a5d71c56a1c556b4a31a430e34931d30e2aaedbcfae97c61955f757bd",
+        "last_modified": "2026-10-03T22:38:18+00:00"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "reference",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-object-reference-dur",
+      "evaluation_run_id": "arc-sr-20261003-object-reference-dur-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 325065,
+        "ema_num_updates": 325065,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 66940,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 65,
+          "microbatches_per_epoch": 65,
+          "epochs": 5001,
+          "total_optimizer_steps": 325065,
+          "dropped_examples_per_epoch": 380
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "07d1b2f618cd319bf640806ef457bcb02082fcaab80909ffa3bd8bc7062e9cde",
+        "last_modified": "2026-10-04T05:30:29+00:00"
+      },
+      "evaluation_status": {
+        "state": "ROLLOUTS",
+        "method": "arc_dur"
+      },
+      "evaluation_status_receipt": {
+        "sha256": "b3dcc1890a41903e737de6ae8b2c3fb23e5915ab5811064323e39dd950b1cc80",
+        "last_modified": "2026-10-04T05:34:32+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "1f180cc70aae37e7f66e5edb2842efc6c67a7f11a52841310a5f5caec047b399",
+        "last_modified": "2026-10-04T05:30:28+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "1b34091ba7453e213eab2dad467d283c79477889617a85cd8e9e93dea6d371d8",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-reference-dur/checkpoints/1b34091ba7453e213eab2dad467d283c79477889617a85cd8e9e93dea6d371d8/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 85,
+        "planned": 2500,
+        "per_repetition": [
+          18,
+          15,
+          17,
+          19,
+          16
+        ],
+        "workers": 5
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "gripper",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-object-gripper-stk",
+      "evaluation_run_id": "arc-sr-20261003-object-gripper-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 325065,
+        "ema_num_updates": 325065,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 66940,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 65,
+          "microbatches_per_epoch": 65,
+          "epochs": 5001,
+          "total_optimizer_steps": 325065,
+          "dropped_examples_per_epoch": 380
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "separate",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 13,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40346893
+      },
+      "training_status_receipt": {
+        "sha256": "72c186d2102cb6dc5aa678d5aed08418be102eedc366e22a98c1cf69d6e847aa",
+        "last_modified": "2026-10-04T05:31:49+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "3c580697f3d490e7541e441882b87651bb18fbf3cc6c8c33333d3a5e96b2bc6d",
+        "last_modified": "2026-10-04T05:31:48+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "4ade6e97205ca763d44109ce5f6785fa89b2b8d64b1dc25e0da74a8dbeeb142d",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-gripper-stk/checkpoints/4ade6e97205ca763d44109ce5f6785fa89b2b8d64b1dc25e0da74a8dbeeb142d/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "component_time",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-object-component-time-dur",
+      "evaluation_run_id": "arc-sr-20261003-object-component-time-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 91000
+      },
+      "training_status_receipt": {
+        "sha256": "875931b73f8abde3cd8315a700c13372900177b6171d6a0455f71a2fc49f61ea",
+        "last_modified": "2026-10-03T20:47:12+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 4690,
+      "saved_progress_percent_at_least": 93.78,
+      "checkpoint_manifest_receipt": {
+        "sha256": "40159a14039a3d98153645f8010446296b9fd98a4e1285c02462816b8caa491f",
+        "last_modified": "2026-10-04T05:44:09+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "359b81922c841cfcc01237410c22f24c9a4373dbfa1611f9acc881de2f86290e",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-component-time-dur/checkpoints/359b81922c841cfcc01237410c22f24c9a4373dbfa1611f9acc881de2f86290e/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-gripper-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-gripper-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "gripper"
+      },
+      "training_status_receipt": {
+        "sha256": "6a31f5e8e0ffb03a2eb4888d2083ab779bf3424db370c497f19f36be1a3ff6c8",
+        "last_modified": "2026-10-03T22:33:47+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2700,
+      "saved_progress_percent_at_least": 53.99,
+      "checkpoint_manifest_receipt": {
+        "sha256": "3d511dbf45281876d57b973c077fbfe8dee7ba1fdd81604d449658420e598c01",
+        "last_modified": "2026-10-04T05:43:35+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "b60d6d844be90fe3736296a87cf1ffa6da0f37af47a7fd49dfb98060a4775689",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-gripper-dur/checkpoints/b60d6d844be90fe3736296a87cf1ffa6da0f37af47a7fd49dfb98060a4775689/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-xyz-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-xyz-scalar-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:28:02+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2860,
+      "saved_progress_percent_at_least": 57.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "ef4b6d8f36d683d73698b0014e0e94bd89bb1c8bf2a7a86404b2a7e73acf6509",
+        "last_modified": "2026-10-04T05:44:15+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "f3cbe28afe5d52fa6ba53848d8442f5e10389effad1a057d8701a683791ead1d",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-xyz-scalar-stk/checkpoints/f3cbe28afe5d52fa6ba53848d8442f5e10389effad1a057d8701a683791ead1d/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-xyz-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-xyz-scalar-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:27:05+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2860,
+      "saved_progress_percent_at_least": 57.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "8b9eeabd3a4ec32efb56936df8eca75d1bbc620f61f4d20bbda9ca002bd113ec",
+        "last_modified": "2026-10-04T05:43:48+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "7c68c1b02423528750d0af05e9bbcb60977a8a5edee3320978332aad5f69e97d",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-xyz-scalar-dur/checkpoints/7c68c1b02423528750d0af05e9bbcb60977a8a5edee3320978332aad5f69e97d/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-component-velocity-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-component-velocity-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:33:10+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2810,
+      "saved_progress_percent_at_least": 56.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "b02b56a494bd1c4fb1e090c9839ca2aa392a44ebff3fc0cfe58aa0aa4e2f2b8c",
+        "last_modified": "2026-10-04T05:43:43+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "8d1e20ac7da07997af8c2e7d6ed2ecf7f726b05c6e6fb2ad7d9f1cc2ca4df320",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-velocity-stk/checkpoints/8d1e20ac7da07997af8c2e7d6ed2ecf7f726b05c6e6fb2ad7d9f1cc2ca4df320/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-component-velocity-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-component-velocity-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:28:05+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2850,
+      "saved_progress_percent_at_least": 56.99,
+      "checkpoint_manifest_receipt": {
+        "sha256": "08948da27410536a973905b8a0f557ddbfd78cda93197be410080f05d9c0c8d2",
+        "last_modified": "2026-10-04T05:44:27+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "41d5fbe412e23ae9567762981df328c5b341692f7f5f29bb9a689670d4bd87a7",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-velocity-dur/checkpoints/41d5fbe412e23ae9567762981df328c5b341692f7f5f29bb9a689670d4bd87a7/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-component-time-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-component-time-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_time"
+      },
+      "training_status_receipt": {
+        "sha256": "7eb147dca67cfe21f0b85cdb261c2f6872d32c103905c63a469eb2c3a0d67f51",
+        "last_modified": "2026-10-03T22:32:47+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2630,
+      "saved_progress_percent_at_least": 52.59,
+      "checkpoint_manifest_receipt": {
+        "sha256": "310e369e9a6d6a80cece39a031f523f93aeae58c85907f5e35c078ec1d0d50ef",
+        "last_modified": "2026-10-04T05:43:23+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "f1eea8d1848d813404b7cfd67110065bf2e7f50366f769ecbc7f3ceefba66b7a",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-time-stk/checkpoints/f1eea8d1848d813404b7cfd67110065bf2e7f50366f769ecbc7f3ceefba66b7a/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-x-yz-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-x-yz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-x-yz-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-x-yz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-y-xz-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-y-xz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-y-xz-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-y-xz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-z-xy-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-z-xy-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-z-xy-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-z-xy-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-angular-driver-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-angular-driver-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-angular-driver-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-angular-driver-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-angular-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-angular-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-angular-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-angular-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-all-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-all-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-all-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-all-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "reference",
+      "mode": "stk",
+      "training_run_id": "arc-str-20261002r2-goal-reference-stk",
+      "evaluation_run_id": "arc-se-20261003-goal-reference-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 280056,
+        "ema_num_updates": 280056,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 57763,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 56,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "ad07ee1647e02a354ef65fb4d69f9acd702ad1f0e6fe676b154d85e06f3eb324",
+        "last_modified": "2026-10-03T05:10:50+00:00"
+      },
+      "evaluation_status": {
+        "state": "POLICY_EVALUATION_COMPLETE",
+        "method": "arc_stk",
+        "episodes": 2500,
+        "complete_protocol": true
+      },
+      "evaluation_status_receipt": {
+        "sha256": "59c778f395c9b209efbb1953b00d2b1533ed6674f37560589ece24e41d708606",
+        "last_modified": "2026-10-03T22:07:15+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "7e8d3b5aef507edcfe4856cd0d69c4db6fa018c31d59369f7e1ecb079d249393",
+        "last_modified": "2026-10-03T05:11:11+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "7e0190fc02729a3ef45d6f8d4663b2e035526308cb4559286f137d997457aa33",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-str-20261002r2-goal-reference-stk/checkpoints/7e0190fc02729a3ef45d6f8d4663b2e035526308cb4559286f137d997457aa33/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 2500,
+        "planned": 2500,
+        "per_repetition": [
+          500,
+          500,
+          500,
+          500,
+          500
+        ],
+        "workers": 5
+      },
+      "scores": {
+        "episodes": 2500,
+        "mean_success_rate": 0.8552,
+        "success_rate_std": 0.020717142660125715,
+        "success_rate_stderr": 0.009264987857520383,
+        "per_repetition_success": [
+          0.836,
+          0.83,
+          0.874,
+          0.872,
+          0.864
+        ],
+        "per_task_success": {
+          "open_the_middle_drawer_of_the_cabinet": 0.996,
+          "open_the_top_drawer_and_put_the_bowl_inside": 0.72,
+          "push_the_plate_to_the_front_of_the_stove": 0.772,
+          "put_the_bowl_on_the_plate": 0.768,
+          "put_the_bowl_on_the_stove": 0.984,
+          "put_the_bowl_on_top_of_the_cabinet": 0.944,
+          "put_the_cream_cheese_in_the_bowl": 0.66,
+          "put_the_wine_bottle_on_the_rack": 0.84,
+          "put_the_wine_bottle_on_top_of_the_cabinet": 0.872,
+          "turn_on_the_stove": 0.996
+        },
+        "inference_seconds_mean": 0.7133341537794095,
+        "inference_seconds_p95": 0.8425099356099963
+      },
+      "scores_receipt": {
+        "sha256": "6add3da91edea4542ee8c0b631f06b37e5b6a808abdbc5ca1f335a157eb4e989",
+        "last_modified": "2026-10-03T22:07:14+00:00"
+      },
+      "evaluation_runtime_receipt": {
+        "sha256": "180df4e1c24dd83340b4f2c3e94fcd4f062b70a55b7c0fe2230bdb48d7576eae",
+        "last_modified": "2026-10-03T20:22:40+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "reference",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-goal-reference-dur",
+      "evaluation_run_id": "arc-sr-20261003-goal-reference-dur-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 280056,
+        "ema_num_updates": 280056,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 57763,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 56,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "ad07ee1647e02a354ef65fb4d69f9acd702ad1f0e6fe676b154d85e06f3eb324",
+        "last_modified": "2026-10-04T03:49:38+00:00"
+      },
+      "evaluation_status": {
+        "state": "POLICY_EVALUATION_COMPLETE",
+        "method": "arc_dur",
+        "episodes": 2500,
+        "complete_protocol": true
+      },
+      "evaluation_status_receipt": {
+        "sha256": "31098169b54ced284ffb8049b3e5e6cd08a62863535f9f53990750f2f9e1594d",
+        "last_modified": "2026-10-04T05:35:46+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "41df6a251e3b10c3414e7e6d804b6e75f648e54774fb95ae4a35186c3743ca6a",
+        "last_modified": "2026-10-04T03:50:01+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "481d36ab24d849f1b8559782a75dd7c54c69f329688b81f4d69476132148e9db",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-reference-dur/checkpoints/481d36ab24d849f1b8559782a75dd7c54c69f329688b81f4d69476132148e9db/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 2500,
+        "planned": 2500,
+        "per_repetition": [
+          500,
+          500,
+          500,
+          500,
+          500
+        ],
+        "workers": 5
+      },
+      "scores": {
+        "episodes": 2500,
+        "mean_success_rate": 0.8936,
+        "success_rate_std": 0.011081516141756065,
+        "success_rate_stderr": 0.0049558046773455515,
+        "per_repetition_success": [
+          0.888,
+          0.9,
+          0.884,
+          0.91,
+          0.886
+        ],
+        "per_task_success": {
+          "open_the_middle_drawer_of_the_cabinet": 0.996,
+          "open_the_top_drawer_and_put_the_bowl_inside": 0.812,
+          "push_the_plate_to_the_front_of_the_stove": 0.832,
+          "put_the_bowl_on_the_plate": 0.8,
+          "put_the_bowl_on_the_stove": 0.964,
+          "put_the_bowl_on_top_of_the_cabinet": 0.964,
+          "put_the_cream_cheese_in_the_bowl": 0.776,
+          "put_the_wine_bottle_on_the_rack": 0.888,
+          "put_the_wine_bottle_on_top_of_the_cabinet": 0.92,
+          "turn_on_the_stove": 0.984
+        },
+        "inference_seconds_mean": 0.7127331870737563,
+        "inference_seconds_p95": 0.8358680191449821
+      },
+      "scores_receipt": {
+        "sha256": "d3170ff02f6eb9f171f6152443fada9bed1c9009810a474b089d6bed1e36302f",
+        "last_modified": "2026-10-04T05:35:46+00:00"
+      },
+      "evaluation_runtime_receipt": {
+        "sha256": "a50df921d3e0b18edc22c6a834036506ad1bf123e47a64df86f6a987430b114b",
+        "last_modified": "2026-10-04T03:57:46+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "gripper",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-goal-gripper-stk",
+      "evaluation_run_id": "arc-sr-20261003-goal-gripper-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 280056,
+        "ema_num_updates": 280056,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 57763,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 56,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "separate",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 13,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40346893
+      },
+      "training_status_receipt": {
+        "sha256": "225f99202aed86be2ae84e9425af2592e3345657b91002d4d970acc38b3f36b8",
+        "last_modified": "2026-10-04T04:02:04+00:00"
+      },
+      "evaluation_status": {
+        "state": "ROLLOUTS",
+        "method": "arc_stk"
+      },
+      "evaluation_status_receipt": {
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-04T05:42:05+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "193bc08490f5b57f733901df30af39ac74df1dd1720bbeca8a52aa0a1691ea33",
+        "last_modified": "2026-10-04T04:02:32+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "b18156bf9c0e16d52c82ad71ffc24df247bec85316f91be4d82188eaa94e7812",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-gripper-stk/checkpoints/b18156bf9c0e16d52c82ad71ffc24df247bec85316f91be4d82188eaa94e7812/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 68,
+        "planned": 2500,
+        "per_repetition": [
+          14,
+          15,
+          15,
+          12,
+          12
+        ],
+        "workers": 5
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "component_time",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-goal-component-time-dur",
+      "evaluation_run_id": "arc-sr-20261003-goal-component-time-dur-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 280056,
+        "ema_num_updates": 280056,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 57763,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 56,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "separate",
+            "timing": "component",
+            "clocks": "component"
+          },
+          "shape_dim": 10,
+          "action_dim": 17,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40352017
+      },
+      "training_status_receipt": {
+        "sha256": "6f96b68c1c79a6be1081b6bcb9530a02c2864a3b32b059d39d511ac0477af0de",
+        "last_modified": "2026-10-04T04:55:42+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "a50e9961a08ff09a7f5122870344ad5bba7f622a1dd64b0521d3b1e038b29a81",
+        "last_modified": "2026-10-04T04:56:05+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "47f3febed31ff7379631ef2c1c3973567a9900ec3cfec335bebf2ed7f076978c",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-component-time-dur/checkpoints/47f3febed31ff7379631ef2c1c3973567a9900ec3cfec335bebf2ed7f076978c/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-gripper-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-gripper-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "gripper"
+      },
+      "training_status_receipt": {
+        "sha256": "6a31f5e8e0ffb03a2eb4888d2083ab779bf3424db370c497f19f36be1a3ff6c8",
+        "last_modified": "2026-10-03T22:30:17+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3280,
+      "saved_progress_percent_at_least": 65.59,
+      "checkpoint_manifest_receipt": {
+        "sha256": "c48324cbabbc88b3c2026003d314a1403f3f0944f9b76a6145f477de405d2d93",
+        "last_modified": "2026-10-04T05:44:06+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "55dcfa16560888af15f97cfeaa6990d3f68876b874dac397fa7e10fcd8a6283c",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-gripper-dur/checkpoints/55dcfa16560888af15f97cfeaa6990d3f68876b874dac397fa7e10fcd8a6283c/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-xyz-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-xyz-scalar-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:30:35+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3290,
+      "saved_progress_percent_at_least": 65.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "0e2aa5adcdb77a6d9e07f151467516783204d52a355223f91804cea8b2d13674",
+        "last_modified": "2026-10-04T05:44:20+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "daf70ed2fa2911f5f9345cee30414eb422fa2adc14e5455ad02c7535d3634b49",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-xyz-scalar-stk/checkpoints/daf70ed2fa2911f5f9345cee30414eb422fa2adc14e5455ad02c7535d3634b49/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-xyz-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-xyz-scalar-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:31:00+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3280,
+      "saved_progress_percent_at_least": 65.59,
+      "checkpoint_manifest_receipt": {
+        "sha256": "cafb132e02b18020e6a853eb249bc28889dfec2bce8bb20ba2664ad22c007450",
+        "last_modified": "2026-10-04T05:44:18+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "cecf1845f392ce69231ecfb590ce4d0eedb1ccb848ea3d0775fd06d188ca2d27",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-xyz-scalar-dur/checkpoints/cecf1845f392ce69231ecfb590ce4d0eedb1ccb848ea3d0775fd06d188ca2d27/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-component-velocity-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-component-velocity-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:33:39+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3250,
+      "saved_progress_percent_at_least": 64.99,
+      "checkpoint_manifest_receipt": {
+        "sha256": "c4acc54095fbb635a32e6c273a16b4dbc47209ba6eab27e7a7f8b09b7bf55f73",
+        "last_modified": "2026-10-04T05:43:44+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "1e3092c2ea8f4f7e2535314f919fb2ad67f8fc5a1a2324119880e734ff776355",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-velocity-stk/checkpoints/1e3092c2ea8f4f7e2535314f919fb2ad67f8fc5a1a2324119880e734ff776355/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-component-velocity-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-component-velocity-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:32:09+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3260,
+      "saved_progress_percent_at_least": 65.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "5cd2bbc08fd0b3681747ffaa24947b9dcc9c678531903acba61bd3925fee2264",
+        "last_modified": "2026-10-04T05:44:02+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "a56d903c31664850c01ae7eddc98c83252aa74958b13b33e4e70ef0538d1420f",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-velocity-dur/checkpoints/a56d903c31664850c01ae7eddc98c83252aa74958b13b33e4e70ef0538d1420f/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-component-time-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-component-time-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_time"
+      },
+      "training_status_receipt": {
+        "sha256": "7eb147dca67cfe21f0b85cdb261c2f6872d32c103905c63a469eb2c3a0d67f51",
+        "last_modified": "2026-10-03T22:26:09+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3150,
+      "saved_progress_percent_at_least": 62.99,
+      "checkpoint_manifest_receipt": {
+        "sha256": "19feda92f33c569260d3326a992efcd79c4db6c491b2eefa999605f18a43727c",
+        "last_modified": "2026-10-04T05:44:12+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "169b1a57c20c1bfeabb696617bff322a8da27e2b25915a339bb916be693231bb",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-time-stk/checkpoints/169b1a57c20c1bfeabb696617bff322a8da27e2b25915a339bb916be693231bb/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-x-yz-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-x-yz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-x-yz-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-x-yz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-y-xz-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-y-xz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-y-xz-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-y-xz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-z-xy-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-z-xy-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-z-xy-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-z-xy-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-angular-driver-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-angular-driver-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-angular-driver-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-angular-driver-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-angular-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-angular-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-angular-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-angular-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-all-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-all-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-all-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-all-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "reference",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-10-reference-stk",
+      "evaluation_run_id": "arc-sr-20261003-10-reference-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 298870
+      },
+      "training_status_receipt": {
+        "sha256": "73414d88ccc6105957bf9affe1160957f73a2a46c6443a1f34488e8298a0997c",
+        "last_modified": "2026-10-03T20:43:24+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 4480,
+      "saved_progress_percent_at_least": 89.58,
+      "checkpoint_manifest_receipt": {
+        "sha256": "d105f4f059c9c13f28da9217218e726ce0be2a44699d124dca713761bce7c415",
+        "last_modified": "2026-10-04T05:43:34+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "98c63790d6ee6cac74b8b6a2fa7b77d6ab0b20e5e90efc3cd6106f1921a31c09",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-10-reference-stk/checkpoints/98c63790d6ee6cac74b8b6a2fa7b77d6ab0b20e5e90efc3cd6106f1921a31c09/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "reference",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-10-reference-dur",
+      "evaluation_run_id": "arc-sr-20261003-10-reference-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 94380
+      },
+      "training_status_receipt": {
+        "sha256": "fc3fd312f8fb9e9d1321e2884fb5a666c8c8ebf1b43f59536a1a85d6c8f6bf7d",
+        "last_modified": "2026-10-03T20:43:22+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2790,
+      "saved_progress_percent_at_least": 55.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "75b45194336c5d17e71feb362bb62280653111daeb6786189ed9e4e9d7367bde",
+        "last_modified": "2026-10-04T05:42:03+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "595e6b418750c0f2e2775797717e5faba91da0208af8e22e85d06a175859f737",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-10-reference-dur/checkpoints/595e6b418750c0f2e2775797717e5faba91da0208af8e22e85d06a175859f737/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "gripper",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-10-gripper-stk",
+      "evaluation_run_id": "arc-sr-20261003-10-gripper-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 95590
+      },
+      "training_status_receipt": {
+        "sha256": "d0911aecdb98217d4b99f981c3791967a266e8e4a4ec65da74941b5c111f2124",
+        "last_modified": "2026-10-03T20:38:32+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2810,
+      "saved_progress_percent_at_least": 56.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "ee738bc0d4cd4869aa8c8f8f670b8948e2286e535aea7d552872fdb8205d4fc3",
+        "last_modified": "2026-10-04T05:43:51+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "be7a046c3d1e1424efab101f69f4017efc51d1f7f9a6a9cbfba79f5167779dd7",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-10-gripper-stk/checkpoints/be7a046c3d1e1424efab101f69f4017efc51d1f7f9a6a9cbfba79f5167779dd7/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_time",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-10-component-time-dur",
+      "evaluation_run_id": "arc-sr-20261003-10-component-time-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 89540
+      },
+      "training_status_receipt": {
+        "sha256": "395711be8c09799cc8d8e09fb73b3995e3d9dffc658b3970446ca6758ed76d9f",
+        "last_modified": "2026-10-03T20:38:33+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2600,
+      "saved_progress_percent_at_least": 51.99,
+      "checkpoint_manifest_receipt": {
+        "sha256": "62fc8758d20d2518a0d4366fa511ad081d0bc98c2cffefe12dc6756fd83d6d40",
+        "last_modified": "2026-10-04T05:43:42+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "340c658815c14a0cfce33169cb3258c6c9d7872493b4b2fbd81cc0e2f770ef21",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-10-component-time-dur/checkpoints/340c658815c14a0cfce33169cb3258c6c9d7872493b4b2fbd81cc0e2f770ef21/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-gripper-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-gripper-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "gripper"
+      },
+      "training_status_receipt": {
+        "sha256": "6a31f5e8e0ffb03a2eb4888d2083ab779bf3424db370c497f19f36be1a3ff6c8",
+        "last_modified": "2026-10-03T22:33:21+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1580,
+      "saved_progress_percent_at_least": 31.59,
+      "checkpoint_manifest_receipt": {
+        "sha256": "a7bb962d5d5c311bf87975f6af5ec2565a2da06eb62a3632df133ae500c7ba23",
+        "last_modified": "2026-10-04T05:43:20+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "3f6721fd4b5c9d62893680a9544eb03b4415a5ccb170e09733a7c6612860c35a",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-gripper-dur/checkpoints/3f6721fd4b5c9d62893680a9544eb03b4415a5ccb170e09733a7c6612860c35a/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-xyz-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-xyz-scalar-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:28:09+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1610,
+      "saved_progress_percent_at_least": 32.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "5a686ca8f472d79df57d6ae482feaa7f138a4ced14dc8253efec97d1fd347c97",
+        "last_modified": "2026-10-04T05:43:16+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "bbe39f17cce599b4cf5d25e44f4fafa5d84c109833974565ca9b9eab73754a99",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-xyz-scalar-stk/checkpoints/bbe39f17cce599b4cf5d25e44f4fafa5d84c109833974565ca9b9eab73754a99/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-xyz-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-xyz-scalar-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:32:54+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1520,
+      "saved_progress_percent_at_least": 30.39,
+      "checkpoint_manifest_receipt": {
+        "sha256": "387390b8390ec5141cef7bec41cafffbe1198fbb046fb8a851fdd33c527f0a50",
+        "last_modified": "2026-10-04T05:42:41+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "9b179303a1ee86cf147892b9fa23c68e7c9410096d474f9fd2f0eca0990bac30",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-xyz-scalar-dur/checkpoints/9b179303a1ee86cf147892b9fa23c68e7c9410096d474f9fd2f0eca0990bac30/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-component-velocity-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-component-velocity-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:28:02+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1600,
+      "saved_progress_percent_at_least": 31.99,
+      "checkpoint_manifest_receipt": {
+        "sha256": "8c6c80063d08b84cf876b25ebfcfeae8a6b33099fbf57acbdf6dc2c21411bfdb",
+        "last_modified": "2026-10-04T05:44:20+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "8e34c237f55bc05b8e8bf3f724a7def700c7f65b276681bb2d572f9230560dd9",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-velocity-stk/checkpoints/8e34c237f55bc05b8e8bf3f724a7def700c7f65b276681bb2d572f9230560dd9/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-component-velocity-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-component-velocity-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:28:50+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1590,
+      "saved_progress_percent_at_least": 31.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "28e72114ff64a9f733f071c9f1928ef3e7192dad7e22f51c460ce2f3a25cd7c1",
+        "last_modified": "2026-10-04T05:43:09+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "c57f9ec07921d92c460ea02d5d02f4ff77a0ae6b4a7ae0d6a104ee8a88fae01b",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-velocity-dur/checkpoints/c57f9ec07921d92c460ea02d5d02f4ff77a0ae6b4a7ae0d6a104ee8a88fae01b/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-component-time-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-component-time-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_time"
+      },
+      "training_status_receipt": {
+        "sha256": "7eb147dca67cfe21f0b85cdb261c2f6872d32c103905c63a469eb2c3a0d67f51",
+        "last_modified": "2026-10-03T22:34:13+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1460,
+      "saved_progress_percent_at_least": 29.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "5c625e08cb2f7c2dd78ad2a365244ab4d8f1cbe6aa7ec1e8e99e04a5ebc3cea5",
+        "last_modified": "2026-10-04T05:42:07+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "c5c946b701f79c48380ffeaf3fc66d6a2c41630b6d0b9051fa23928630fb2a6b",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-time-stk/checkpoints/c5c946b701f79c48380ffeaf3fc66d6a2c41630b6d0b9051fa23928630fb2a6b/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-x-yz-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-x-yz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-x-yz-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-x-yz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-y-xz-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-y-xz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-y-xz-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-y-xz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-z-xy-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-z-xy-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-z-xy-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-z-xy-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-angular-driver-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-angular-driver-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-angular-driver-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-angular-driver-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-angular-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-angular-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-angular-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-angular-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-all-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-all-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-all-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-all-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    }
+  ],
+  "launch_manifest": "../status_005629/launch.json",
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "workflows": [
+    {
+      "workflow": "arc-sr-20261003-spatial-1",
+      "state": "RUNNING",
+      "training": {
+        "COMPLETED": 3
+      },
+      "evaluation": {
+        "RUNNING": 1,
+        "WAITING": 2
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-se-20261003-spatial-reference-stk-eval-1",
+      "state": "COMPLETED",
+      "training": {},
+      "evaluation": {
+        "COMPLETED": 1
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-sr-20261003-object-1",
+      "state": "RUNNING",
+      "training": {
+        "COMPLETED": 3,
+        "RUNNING": 1
+      },
+      "evaluation": {
+        "RUNNING": 1,
+        "COMPLETED": 1,
+        "WAITING": 2
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-sr-20261003-goal-1",
+      "state": "RUNNING",
+      "training": {
+        "COMPLETED": 3
+      },
+      "evaluation": {
+        "COMPLETED": 1,
+        "RUNNING": 1,
+        "WAITING": 1
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-se-20261003-goal-reference-stk-eval-1",
+      "state": "COMPLETED",
+      "training": {},
+      "evaluation": {
+        "COMPLETED": 1
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-sr-20261003-10-1",
+      "state": "RUNNING",
+      "training": {
+        "RUNNING": 4
+      },
+      "evaluation": {
+        "WAITING": 4
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-sx-20261003-spatial-1",
+      "state": "RUNNING",
+      "training": {
+        "WAITING": 10,
+        "RUNNING": 5
+      },
+      "evaluation": {
+        "WAITING": 2
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-sx-20261003-object-1",
+      "state": "RUNNING",
+      "training": {
+        "WAITING": 12,
+        "RUNNING": 6
+      },
+      "evaluation": {
+        "WAITING": 18
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-sx-20261003-goal-1",
+      "state": "RUNNING",
+      "training": {
+        "WAITING": 12,
+        "RUNNING": 6
+      },
+      "evaluation": {
+        "WAITING": 18
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-sx-20261003-10-1",
+      "state": "RUNNING",
+      "training": {
+        "WAITING": 12,
+        "RUNNING": 6
+      },
+      "evaluation": {
+        "WAITING": 18
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    },
+    {
+      "workflow": "arc-sf-20261004-spatial-1",
+      "state": "RUNNING",
+      "training": {
+        "RUNNING": 1,
+        "WAITING": 2
+      },
+      "evaluation": {
+        "WAITING": 16
+      },
+      "unexpected_failure_count": 0,
+      "failures": []
+    }
+  ],
+  "training_counts": {
+    "TRAINING_COMPLETE": 11,
+    "TRAINING": 29,
+    "NOT_STARTED": 48
+  },
+  "evaluation_counts": {
+    "POLICY_EVALUATION_COMPLETE": 4,
+    "ROLLOUTS": 3,
+    "NOT_STARTED": 81
+  },
+  "completed_evaluation_files": [
+    {
+      "file": "scores/libero_spatial/stk/scores.json",
+      "sha256": "129b5fd57f490fe70523170fd2546406b8beed171873fd8bdd1f327c67135d34"
+    },
+    {
+      "file": "scores/libero_spatial/stk/status.json",
+      "sha256": "59c778f395c9b209efbb1953b00d2b1533ed6674f37560589ece24e41d708606"
+    },
+    {
+      "file": "scores/libero_spatial/stk/runtime.json",
+      "sha256": "625a85129ae24886fa2e8b13dbea3ae5ecc19880973119e620110721570a5a2a"
+    },
+    {
+      "file": "scores/libero_object/stk/scores.json",
+      "sha256": "49708814ca359f705d43b6b5ef45e71ce94ef224a5b854d43a6b5b234a444a7e"
+    },
+    {
+      "file": "scores/libero_object/stk/status.json",
+      "sha256": "59c778f395c9b209efbb1953b00d2b1533ed6674f37560589ece24e41d708606"
+    },
+    {
+      "file": "scores/libero_object/stk/runtime.json",
+      "sha256": "6ec8eb8a5d71c56a1c556b4a31a430e34931d30e2aaedbcfae97c61955f757bd"
+    },
+    {
+      "file": "scores/libero_goal/stk/scores.json",
+      "sha256": "6add3da91edea4542ee8c0b631f06b37e5b6a808abdbc5ca1f335a157eb4e989"
+    },
+    {
+      "file": "scores/libero_goal/stk/status.json",
+      "sha256": "59c778f395c9b209efbb1953b00d2b1533ed6674f37560589ece24e41d708606"
+    },
+    {
+      "file": "scores/libero_goal/stk/runtime.json",
+      "sha256": "180df4e1c24dd83340b4f2c3e94fcd4f062b70a55b7c0fe2230bdb48d7576eae"
+    },
+    {
+      "file": "scores/libero_goal/dur/scores.json",
+      "sha256": "d3170ff02f6eb9f171f6152443fada9bed1c9009810a474b089d6bed1e36302f"
+    },
+    {
+      "file": "scores/libero_goal/dur/status.json",
+      "sha256": "31098169b54ced284ffb8049b3e5e6cd08a62863535f9f53990750f2f9e1594d"
+    },
+    {
+      "file": "scores/libero_goal/dur/runtime.json",
+      "sha256": "a50df921d3e0b18edc22c6a834036506ad1bf123e47a64df86f6a987430b114b"
+    }
+  ]
+}

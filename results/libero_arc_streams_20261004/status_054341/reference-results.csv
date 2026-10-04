@@ -1,0 +1,9 @@
+suite,variant,mode,training_state,saved_training_percent_at_least,evaluation_state,episodes,success_rate_percent,success_rate_std_percent,observed_at_utc,training_workflow,evaluation_workflow
+libero_spatial,reference,stk,TRAINING_COMPLETE,100.0,POLICY_EVALUATION_COMPLETE,2500,68.64,1.506,2026-10-04T05:44:47.040937+00:00,arc-str-20261002r2-spatial-1,arc-se-20261003-spatial-reference-stk-eval-1
+libero_spatial,reference,dur,TRAINING_COMPLETE,100.0,ROLLOUTS,1715,,,2026-10-04T05:44:47.040937+00:00,arc-sr-20261003-spatial-1,arc-sr-20261003-spatial-1
+libero_object,reference,stk,TRAINING_COMPLETE,100.0,POLICY_EVALUATION_COMPLETE,2500,47.16,0.817,2026-10-04T05:44:47.040937+00:00,arc-sr-20261003-object-1,arc-sr-20261003-object-1
+libero_object,reference,dur,TRAINING_COMPLETE,100.0,ROLLOUTS,85,,,2026-10-04T05:44:47.040937+00:00,arc-sr-20261003-object-1,arc-sr-20261003-object-1
+libero_goal,reference,stk,TRAINING_COMPLETE,100.0,POLICY_EVALUATION_COMPLETE,2500,85.52,2.072,2026-10-04T05:44:47.040937+00:00,arc-str-20261002r2-goal-1,arc-se-20261003-goal-reference-stk-eval-1
+libero_goal,reference,dur,TRAINING_COMPLETE,100.0,POLICY_EVALUATION_COMPLETE,2500,89.36,1.108,2026-10-04T05:44:47.040937+00:00,arc-sr-20261003-goal-1,arc-sr-20261003-goal-1
+libero_10,reference,stk,TRAINING,89.58,PENDING,0,,,2026-10-04T05:44:47.040937+00:00,arc-sr-20261003-10-1,arc-sr-20261003-10-1
+libero_10,reference,dur,TRAINING,55.79,PENDING,0,,,2026-10-04T05:44:47.040937+00:00,arc-sr-20261003-10-1,arc-sr-20261003-10-1

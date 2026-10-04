@@ -1,0 +1,27 @@
+{
+  "episodes": 2500,
+  "mean_success_rate": 0.8552,
+  "success_rate_std": 0.020717142660125715,
+  "success_rate_stderr": 0.009264987857520383,
+  "per_repetition_success": [
+    0.836,
+    0.83,
+    0.874,
+    0.872,
+    0.864
+  ],
+  "per_task_success": {
+    "open_the_middle_drawer_of_the_cabinet": 0.996,
+    "open_the_top_drawer_and_put_the_bowl_inside": 0.72,
+    "push_the_plate_to_the_front_of_the_stove": 0.772,
+    "put_the_bowl_on_the_plate": 0.768,
+    "put_the_bowl_on_the_stove": 0.984,
+    "put_the_bowl_on_top_of_the_cabinet": 0.944,
+    "put_the_cream_cheese_in_the_bowl": 0.66,
+    "put_the_wine_bottle_on_the_rack": 0.84,
+    "put_the_wine_bottle_on_top_of_the_cabinet": 0.872,
+    "turn_on_the_stove": 0.996
+  },
+  "inference_seconds_mean": 0.7133341537794095,
+  "inference_seconds_p95": 0.8425099356099963
+}

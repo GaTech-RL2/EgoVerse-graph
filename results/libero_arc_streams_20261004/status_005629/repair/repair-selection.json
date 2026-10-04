@@ -1,0 +1,27 @@
+{
+  "source_workflow": "arc-sx-20261003-spatial-1",
+  "new_workflow": "arc-sf-20261004-spatial-1",
+  "failed_tasks": [
+    "evaluate-05",
+    "evaluate-06",
+    "evaluate-07",
+    "evaluate-08",
+    "evaluate-09",
+    "evaluate-10",
+    "evaluate-11",
+    "evaluate-12",
+    "evaluate-13",
+    "evaluate-14",
+    "evaluate-15",
+    "evaluate-16",
+    "evaluate-17",
+    "evaluate-18",
+    "evaluate-19",
+    "evaluate-20",
+    "train-05",
+    "train-11",
+    "train-17"
+  ],
+  "artifact_prefixes_verified_empty": true,
+  "launcher_commit": "9c36037a5da54d5a84cd753fe57353be91e436a8"
+}

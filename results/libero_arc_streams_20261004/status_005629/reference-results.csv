@@ -1,0 +1,5 @@
+suite,variant,mode,training_state,saved_training_percent,evaluation_state,episodes,success_rate_percent,observed_at_utc
+libero_spatial,reference,stk,TRAINING_COMPLETE,100.0,POLICY_EVALUATION_COMPLETE,2500,68.64,2026-10-04T01:12:01.562454+00:00
+libero_object,reference,stk,TRAINING_COMPLETE,100.0,ROLLOUTS,1834,,2026-10-04T01:12:01.562454+00:00
+libero_goal,reference,stk,TRAINING_COMPLETE,100.0,POLICY_EVALUATION_COMPLETE,2500,85.52,2026-10-04T01:12:01.562454+00:00
+libero_10,reference,stk,TRAINING,68.59,PENDING,0,,2026-10-04T01:12:01.562454+00:00

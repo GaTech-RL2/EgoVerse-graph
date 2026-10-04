@@ -1,0 +1,21 @@
+{
+  "request": {
+    "source_run": "arc-sr-20261003-object-reference-stk",
+    "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+    "suite": "libero_object",
+    "method": "arc_stk",
+    "arc_stream_variant": "reference",
+    "total_optimizer_steps": 325065,
+    "epochs": 5001,
+    "checkpoint": {
+      "sha256": "e87ac92b8179aa4dd07d0ca6679e476af90f856b9ea43501bcafa061781dbee5",
+      "bytes": 1004462664,
+      "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-reference-stk/checkpoints/e87ac92b8179aa4dd07d0ca6679e476af90f856b9ea43501bcafa061781dbee5/last.ckpt"
+    }
+  },
+  "artifact_hashes": {
+    "status.json": "07d1b2f618cd319bf640806ef457bcb02082fcaab80909ffa3bd8bc7062e9cde",
+    "runtime.json": "0ea3d33df2a7610f6476c1d09c659a0823cca7c7540e67d0c0ec554979a9b11d",
+    "checkpoint-receipts.json": "55a21ac35ce2a06486001e2263b7cd32f07fcb3c7e7f4b328e8e62a66a671b15"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "launcher_commit": "9c36037a5da54d5a84cd753fe57353be91e436a8",
+  "validation_ref": "a0e9b955e6f5ccad7fa75fc2ec89f368e6ef199c",
+  "local": {
+    "file": "validation/local-junit.xml.gz",
+    "sha256": "e46da5afc23826607f3281ffce49b81d1d8977daa1c57d5fd055f1e71f1b63a8",
+    "uncompressed_bytes": 5973,
+    "tests": 37,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "seconds": 3.821
+  },
+  "linux_ci": {
+    "file": "validation/linux-junit.xml.gz",
+    "sha256": "ccd64eaf187d6f0733f4c68a21ff7bff0845635f7c788f24ad0431e63007222b",
+    "uncompressed_bytes": 50054,
+    "tests": 329,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "seconds": 104.136,
+    "url": "https://github.com/GaTech-RL2/EgoVerse-graph/actions/runs/37167206184"
+  },
+  "osmo_validation": "passed",
+  "empty_prefixes_checked": 19,
+  "actual_policy_relay": "Completed Object reference passed full-budget, runtime, receipt and native request validation.",
+  "model_codec_trainer_diff_from_source": "empty"
+}

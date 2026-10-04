@@ -1,0 +1,4589 @@
+{
+  "observed_at_utc": "2026-10-04T01:12:01.562454+00:00",
+  "runs": [
+    {
+      "suite": "libero_spatial",
+      "variant": "reference",
+      "mode": "stk",
+      "training_run_id": "arc-str-20261002r2-spatial-reference-stk",
+      "evaluation_run_id": "arc-se-20261003-spatial-reference-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 270054,
+        "ema_num_updates": 270054,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 55861,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 54,
+          "microbatches_per_epoch": 54,
+          "epochs": 5001,
+          "total_optimizer_steps": 270054,
+          "dropped_examples_per_epoch": 565
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "df5c98183b915ecf7d5388b936ab260b2bd4024c3e71095d22421595295969e1",
+        "last_modified": "2026-10-03T05:00:36+00:00"
+      },
+      "evaluation_status": {
+        "state": "POLICY_EVALUATION_COMPLETE",
+        "method": "arc_stk",
+        "episodes": 2500,
+        "complete_protocol": true
+      },
+      "evaluation_status_receipt": {
+        "sha256": "59c778f395c9b209efbb1953b00d2b1533ed6674f37560589ece24e41d708606",
+        "last_modified": "2026-10-03T23:26:47+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "a79d20a99ce6e0c857332dc718bba8f89080a74f1272c210b00fb65ac7f7acae",
+        "last_modified": "2026-10-03T05:01:01+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "a1cb1c022b538cb603d320bc8582cd0e0c4a26177c49057b5e389c50f6040c7f",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-str-20261002r2-spatial-reference-stk/checkpoints/a1cb1c022b538cb603d320bc8582cd0e0c4a26177c49057b5e389c50f6040c7f/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 2500,
+        "planned": 2500,
+        "per_repetition": [
+          500,
+          500,
+          500,
+          500,
+          500
+        ],
+        "workers": 5
+      },
+      "scores": {
+        "episodes": 2500,
+        "mean_success_rate": 0.6864,
+        "success_rate_std": 0.01505988047761332,
+        "success_rate_stderr": 0.006734983296193076,
+        "per_repetition_success": [
+          0.704,
+          0.68,
+          0.684,
+          0.666,
+          0.698
+        ],
+        "per_task_success": {
+          "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.56,
+          "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.812,
+          "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.816,
+          "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.756,
+          "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.54,
+          "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.848,
+          "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.928,
+          "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.06,
+          "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.916,
+          "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.628
+        },
+        "inference_seconds_mean": 0.7247900707206908,
+        "inference_seconds_p95": 0.86565324049443
+      },
+      "scores_receipt": {
+        "sha256": "129b5fd57f490fe70523170fd2546406b8beed171873fd8bdd1f327c67135d34",
+        "last_modified": "2026-10-03T23:26:47+00:00"
+      },
+      "evaluation_runtime_receipt": {
+        "sha256": "625a85129ae24886fa2e8b13dbea3ae5ecc19880973119e620110721570a5a2a",
+        "last_modified": "2026-10-03T20:22:48+00:00"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "reference",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-spatial-reference-dur",
+      "evaluation_run_id": "arc-sr-20261003-spatial-reference-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 99360
+      },
+      "training_status_receipt": {
+        "sha256": "9e968a689c17b7158859c96e64744cd938142aeed6530fe098585e1ab14202bc",
+        "last_modified": "2026-10-03T20:45:43+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3880,
+      "saved_progress_percent_at_least": 77.58,
+      "checkpoint_manifest_receipt": {
+        "sha256": "346dba42099c3a1eecfd9cfc4f6076c763c090f03e732a0b30c2eaabfbcb9380",
+        "last_modified": "2026-10-04T01:10:23+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "4479d7367f0cd5a679ab3dd5b8eac84991540ed610cc357c132abe7d9e78ebc5",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-reference-dur/checkpoints/4479d7367f0cd5a679ab3dd5b8eac84991540ed610cc357c132abe7d9e78ebc5/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "gripper",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-spatial-gripper-stk",
+      "evaluation_run_id": "arc-sr-20261003-spatial-gripper-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 100440
+      },
+      "training_status_receipt": {
+        "sha256": "663f98e44d55f6eec50c21276894db5952b61fec5c3c17afe3c511e2053dc2e9",
+        "last_modified": "2026-10-03T20:40:38+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3930,
+      "saved_progress_percent_at_least": 78.58,
+      "checkpoint_manifest_receipt": {
+        "sha256": "e2a1f46b91db8745554aead9178fccb359661a817127fb0f3d9c98d7d1172659",
+        "last_modified": "2026-10-04T01:11:06+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "a92be93fd3a1577b5430e4382b147e6d4759b346ce50c1743491a5d016a50e91",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-gripper-stk/checkpoints/a92be93fd3a1577b5430e4382b147e6d4759b346ce50c1743491a5d016a50e91/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "component_time",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-spatial-component-time-dur",
+      "evaluation_run_id": "arc-sr-20261003-spatial-component-time-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 91260
+      },
+      "training_status_receipt": {
+        "sha256": "64dda91e620fba0e634f81358ebf754fa37e43c300fe037724885bc9478034a7",
+        "last_modified": "2026-10-03T20:45:13+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3560,
+      "saved_progress_percent_at_least": 71.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "14a0e382ac494396f1f0a5e12b1d87fb7fef6a440615b4b4dd377f192db08d5c",
+        "last_modified": "2026-10-04T01:11:01+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "8be1c791cf70ec167ced90281432c6c1298b9da30b7b97c70f9c74c6458cd040",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-component-time-dur/checkpoints/8be1c791cf70ec167ced90281432c6c1298b9da30b7b97c70f9c74c6458cd040/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-gripper-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-gripper-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "gripper"
+      },
+      "training_status_receipt": {
+        "sha256": "6a31f5e8e0ffb03a2eb4888d2083ab779bf3424db370c497f19f36be1a3ff6c8",
+        "last_modified": "2026-10-03T22:30:42+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1210,
+      "saved_progress_percent_at_least": 24.2,
+      "checkpoint_manifest_receipt": {
+        "sha256": "7e95744a9f1ab9a9e5126912fd7d210d9b0bc9b2f611b1b440771907a1aee67b",
+        "last_modified": "2026-10-04T01:11:34+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "2fef16239ff80f53936e391d510db468cbe27cb039e1e485a323453521099cdd",
+        "bytes": 1004483080,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-gripper-dur/checkpoints/2fef16239ff80f53936e391d510db468cbe27cb039e1e485a323453521099cdd/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-xyz-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-xyz-scalar-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:26:26+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1220,
+      "saved_progress_percent_at_least": 24.4,
+      "checkpoint_manifest_receipt": {
+        "sha256": "f860facbf86c2f35068bce89fb037b659ee013a931b85d06adda7ade01ccc16a",
+        "last_modified": "2026-10-04T01:10:34+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "2634810916fc6256f3ff46dc9c36b758b1a5f884552bd75fc94486cd7e547f13",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-xyz-scalar-stk/checkpoints/2634810916fc6256f3ff46dc9c36b758b1a5f884552bd75fc94486cd7e547f13/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-xyz-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-xyz-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-component-velocity-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-component-velocity-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:31:03+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1180,
+      "saved_progress_percent_at_least": 23.6,
+      "checkpoint_manifest_receipt": {
+        "sha256": "01069367b984d43aa9a905be369172b344a1ca1e9991bf75c1f766ea8cee10b4",
+        "last_modified": "2026-10-04T01:10:43+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "d6e727c31c1b3fe971a6c4b66a38a0e46d2ab1f75d2d4224213c49c57c292479",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-velocity-stk/checkpoints/d6e727c31c1b3fe971a6c4b66a38a0e46d2ab1f75d2d4224213c49c57c292479/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-component-velocity-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-component-velocity-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:30:55+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1210,
+      "saved_progress_percent_at_least": 24.2,
+      "checkpoint_manifest_receipt": {
+        "sha256": "781d3c8ae774b1d2812a370541d8a9a3862c736f63907fbadd35a471571e10b2",
+        "last_modified": "2026-10-04T01:11:45+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "8139346f71de6c4c4f9e5c94344dd694c78e4cf8e0976897afe59d7e07533fdb",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-velocity-dur/checkpoints/8139346f71de6c4c4f9e5c94344dd694c78e4cf8e0976897afe59d7e07533fdb/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-component-time-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-component-time-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_time"
+      },
+      "training_status_receipt": {
+        "sha256": "7eb147dca67cfe21f0b85cdb261c2f6872d32c103905c63a469eb2c3a0d67f51",
+        "last_modified": "2026-10-03T22:25:55+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1150,
+      "saved_progress_percent_at_least": 23.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "743b16e6a3f6910278b3ef3f7cc8d7ce298af60a8249bd71737c661993f697ad",
+        "last_modified": "2026-10-04T01:10:52+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "381ed6fc15c956d75621e259e98e42cbb0d01f276e91ba998d662f5a007489ad",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-spatial-component-time-stk/checkpoints/381ed6fc15c956d75621e259e98e42cbb0d01f276e91ba998d662f5a007489ad/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-x-yz-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-x-yz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-x-yz-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-x-yz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-y-xz-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-y-xz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-y-xz-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-y-xz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-z-xy-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-z-xy-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-z-xy-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-z-xy-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-angular-driver-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-angular-driver-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-angular-driver-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-angular-driver-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-angular-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-angular-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-angular-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-angular-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-spatial-all-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-spatial-all-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-spatial-all-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-spatial-all-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "reference",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-object-reference-stk",
+      "evaluation_run_id": "arc-sr-20261003-object-reference-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 325065,
+        "ema_num_updates": 325065,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 66940,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 65,
+          "microbatches_per_epoch": 65,
+          "epochs": 5001,
+          "total_optimizer_steps": 325065,
+          "dropped_examples_per_epoch": 380
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "07d1b2f618cd319bf640806ef457bcb02082fcaab80909ffa3bd8bc7062e9cde",
+        "last_modified": "2026-10-03T22:20:52+00:00"
+      },
+      "evaluation_status": {
+        "state": "ROLLOUTS",
+        "method": "arc_stk"
+      },
+      "evaluation_status_receipt": {
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-03T22:38:18+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "55a21ac35ce2a06486001e2263b7cd32f07fcb3c7e7f4b328e8e62a66a671b15",
+        "last_modified": "2026-10-03T22:20:52+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "e87ac92b8179aa4dd07d0ca6679e476af90f856b9ea43501bcafa061781dbee5",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-reference-stk/checkpoints/e87ac92b8179aa4dd07d0ca6679e476af90f856b9ea43501bcafa061781dbee5/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 1834,
+        "planned": 2500,
+        "per_repetition": [
+          368,
+          354,
+          379,
+          367,
+          366
+        ],
+        "workers": 5
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "reference",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-object-reference-dur",
+      "evaluation_run_id": "arc-sr-20261003-object-reference-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 98800
+      },
+      "training_status_receipt": {
+        "sha256": "efbf0599edb841ccd6bf32f09a4223444bb99f73b6f883b08f88466981703aff",
+        "last_modified": "2026-10-03T20:42:47+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3260,
+      "saved_progress_percent_at_least": 65.19,
+      "checkpoint_manifest_receipt": {
+        "sha256": "6113bdb23801c19028ee0502be358bc269aae040f9b771e95e911244ab5fec1b",
+        "last_modified": "2026-10-04T01:11:31+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "a91fdb51f5aaf9dfcaa19d36a5601c791fde5b6884f0eb51ec56409236b18d10",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-reference-dur/checkpoints/a91fdb51f5aaf9dfcaa19d36a5601c791fde5b6884f0eb51ec56409236b18d10/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "gripper",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-object-gripper-stk",
+      "evaluation_run_id": "arc-sr-20261003-object-gripper-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 98800
+      },
+      "training_status_receipt": {
+        "sha256": "efbf0599edb841ccd6bf32f09a4223444bb99f73b6f883b08f88466981703aff",
+        "last_modified": "2026-10-03T20:47:12+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3230,
+      "saved_progress_percent_at_least": 64.59,
+      "checkpoint_manifest_receipt": {
+        "sha256": "421048e9accb26f06d41d735c0648de92770cb8d973664c98d3fa83c7ee4ab17",
+        "last_modified": "2026-10-04T01:10:35+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "b78092414edafcd9e983c861c918d4f0d4f8ce99025e19aed3b6ab5a4dd8cff6",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-gripper-stk/checkpoints/b78092414edafcd9e983c861c918d4f0d4f8ce99025e19aed3b6ab5a4dd8cff6/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "component_time",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-object-component-time-dur",
+      "evaluation_run_id": "arc-sr-20261003-object-component-time-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 91000
+      },
+      "training_status_receipt": {
+        "sha256": "875931b73f8abde3cd8315a700c13372900177b6171d6a0455f71a2fc49f61ea",
+        "last_modified": "2026-10-03T20:47:12+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 2990,
+      "saved_progress_percent_at_least": 59.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "13526eb05843dc8116ee772043399c2a968219abb0834537d7c012319f7e12d0",
+        "last_modified": "2026-10-04T01:11:10+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "1c3a4b241c79719e9ff2662621cc4ca890997813a06c5448ae108924e76832cf",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-component-time-dur/checkpoints/1c3a4b241c79719e9ff2662621cc4ca890997813a06c5448ae108924e76832cf/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-gripper-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-gripper-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "gripper"
+      },
+      "training_status_receipt": {
+        "sha256": "6a31f5e8e0ffb03a2eb4888d2083ab779bf3424db370c497f19f36be1a3ff6c8",
+        "last_modified": "2026-10-03T22:33:47+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 950,
+      "saved_progress_percent_at_least": 19.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "efc27694716f0c02957f2d4c4da5e878e5e9a5eb5572836f68ce5c14715cf398",
+        "last_modified": "2026-10-04T01:11:44+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "982ad9413a7341819ebd2a89d5e3e64379827aa7372d15f98779c90ce2840519",
+        "bytes": 1004483080,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-gripper-dur/checkpoints/982ad9413a7341819ebd2a89d5e3e64379827aa7372d15f98779c90ce2840519/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-xyz-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-xyz-scalar-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:28:02+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1030,
+      "saved_progress_percent_at_least": 20.6,
+      "checkpoint_manifest_receipt": {
+        "sha256": "27b71a9a8b59f2371fa535e2bdc4e301d570c6a5a49437cb32de1936e657dcb1",
+        "last_modified": "2026-10-04T01:11:34+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "2b39302f1b2ef7ea46dddfa939b2d4dd818bd54c3172a2f389edb9e4bad4a156",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-xyz-scalar-stk/checkpoints/2b39302f1b2ef7ea46dddfa939b2d4dd818bd54c3172a2f389edb9e4bad4a156/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-xyz-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-xyz-scalar-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:27:05+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1030,
+      "saved_progress_percent_at_least": 20.6,
+      "checkpoint_manifest_receipt": {
+        "sha256": "378c3127138c924a442c420df52d06580448a0ea97cc4a027f2ccc1df5d6409c",
+        "last_modified": "2026-10-04T01:11:17+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "8ba5305900dec12a421ba869d4b94259b5cfe67941772a573f3b48be9a318b91",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-xyz-scalar-dur/checkpoints/8ba5305900dec12a421ba869d4b94259b5cfe67941772a573f3b48be9a318b91/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-component-velocity-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-component-velocity-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:33:10+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 990,
+      "saved_progress_percent_at_least": 19.8,
+      "checkpoint_manifest_receipt": {
+        "sha256": "5f958d651c40430222a3fe90e169f9fb7d5394a81149c367174d8f81e3d33552",
+        "last_modified": "2026-10-04T01:10:58+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "36273b263a503cde93f65c4315dfcd7676f05680d6e8a59e5052ea10d901055b",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-velocity-stk/checkpoints/36273b263a503cde93f65c4315dfcd7676f05680d6e8a59e5052ea10d901055b/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-component-velocity-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-component-velocity-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:28:05+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1020,
+      "saved_progress_percent_at_least": 20.4,
+      "checkpoint_manifest_receipt": {
+        "sha256": "71a774871683e477b3b706932aaa9fd90d8150d072da90199a3a91d81c4c030a",
+        "last_modified": "2026-10-04T01:10:24+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "e4d6d6e5187dd6976f4dbccbe35a3a2fab486f674f18f95d0e62d17c2730cdbe",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-velocity-dur/checkpoints/e4d6d6e5187dd6976f4dbccbe35a3a2fab486f674f18f95d0e62d17c2730cdbe/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-component-time-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-component-time-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_time"
+      },
+      "training_status_receipt": {
+        "sha256": "7eb147dca67cfe21f0b85cdb261c2f6872d32c103905c63a469eb2c3a0d67f51",
+        "last_modified": "2026-10-03T22:32:47+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 940,
+      "saved_progress_percent_at_least": 18.8,
+      "checkpoint_manifest_receipt": {
+        "sha256": "d5aa11268b0601e93ba40bc286a3dad670aad088a31bdea481b242e29483a901",
+        "last_modified": "2026-10-04T01:11:54+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "06b201fffa4c8f2863d02c16785e09582d0e93c2fdb9627acf5b32de7f0b8f65",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-time-stk/checkpoints/06b201fffa4c8f2863d02c16785e09582d0e93c2fdb9627acf5b32de7f0b8f65/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_object",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-x-yz-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-x-yz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-x-yz-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-x-yz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-y-xz-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-y-xz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-y-xz-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-y-xz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-z-xy-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-z-xy-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-z-xy-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-z-xy-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-angular-driver-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-angular-driver-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-angular-driver-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-angular-driver-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-angular-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-angular-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-angular-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-angular-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-object-all-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-object-all-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_object",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-object-all-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-object-all-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "reference",
+      "mode": "stk",
+      "training_run_id": "arc-str-20261002r2-goal-reference-stk",
+      "evaluation_run_id": "arc-se-20261003-goal-reference-stk-eval",
+      "training_status": {
+        "state": "TRAINING_COMPLETE",
+        "global_step": 280056,
+        "ema_num_updates": 280056,
+        "epochs_completed": 5001,
+        "training_budget": {
+          "train_examples": 57763,
+          "microbatch_size": 256,
+          "world_size": 4,
+          "gradient_accumulation": 1,
+          "global_batch_size": 1024,
+          "optimizer_steps_per_epoch": 56,
+          "microbatches_per_epoch": 56,
+          "epochs": 5001,
+          "total_optimizer_steps": 280056,
+          "dropped_examples_per_epoch": 419
+        },
+        "representation": {
+          "version": 1,
+          "layout": "shape_then_timing",
+          "stream_spec": {
+            "translation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_groups": [
+              [
+                0,
+                1,
+                2
+              ]
+            ],
+            "rotation_representation": "so3",
+            "gripper": "translation",
+            "timing": "group",
+            "clocks": "group"
+          },
+          "shape_dim": 10,
+          "action_dim": 12,
+          "gripper_distance": "absolute_command_variation_uncapped",
+          "component_rotation_basis": "world_frame_angular_increments"
+        },
+        "action_parameters": 40345612
+      },
+      "training_status_receipt": {
+        "sha256": "ad07ee1647e02a354ef65fb4d69f9acd702ad1f0e6fe676b154d85e06f3eb324",
+        "last_modified": "2026-10-03T05:10:50+00:00"
+      },
+      "evaluation_status": {
+        "state": "POLICY_EVALUATION_COMPLETE",
+        "method": "arc_stk",
+        "episodes": 2500,
+        "complete_protocol": true
+      },
+      "evaluation_status_receipt": {
+        "sha256": "59c778f395c9b209efbb1953b00d2b1533ed6674f37560589ece24e41d708606",
+        "last_modified": "2026-10-03T22:07:15+00:00"
+      },
+      "saved_epochs_at_least": 5001,
+      "saved_progress_percent_at_least": 100.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "7e8d3b5aef507edcfe4856cd0d69c4db6fa018c31d59369f7e1ecb079d249393",
+        "last_modified": "2026-10-03T05:11:11+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "7e0190fc02729a3ef45d6f8d4663b2e035526308cb4559286f137d997457aa33",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-str-20261002r2-goal-reference-stk/checkpoints/7e0190fc02729a3ef45d6f8d4663b2e035526308cb4559286f137d997457aa33/last.ckpt"
+      },
+      "evaluation_progress": {
+        "episodes": 2500,
+        "planned": 2500,
+        "per_repetition": [
+          500,
+          500,
+          500,
+          500,
+          500
+        ],
+        "workers": 5
+      },
+      "scores": {
+        "episodes": 2500,
+        "mean_success_rate": 0.8552,
+        "success_rate_std": 0.020717142660125715,
+        "success_rate_stderr": 0.009264987857520383,
+        "per_repetition_success": [
+          0.836,
+          0.83,
+          0.874,
+          0.872,
+          0.864
+        ],
+        "per_task_success": {
+          "open_the_middle_drawer_of_the_cabinet": 0.996,
+          "open_the_top_drawer_and_put_the_bowl_inside": 0.72,
+          "push_the_plate_to_the_front_of_the_stove": 0.772,
+          "put_the_bowl_on_the_plate": 0.768,
+          "put_the_bowl_on_the_stove": 0.984,
+          "put_the_bowl_on_top_of_the_cabinet": 0.944,
+          "put_the_cream_cheese_in_the_bowl": 0.66,
+          "put_the_wine_bottle_on_the_rack": 0.84,
+          "put_the_wine_bottle_on_top_of_the_cabinet": 0.872,
+          "turn_on_the_stove": 0.996
+        },
+        "inference_seconds_mean": 0.7133341537794095,
+        "inference_seconds_p95": 0.8425099356099963
+      },
+      "scores_receipt": {
+        "sha256": "6add3da91edea4542ee8c0b631f06b37e5b6a808abdbc5ca1f335a157eb4e989",
+        "last_modified": "2026-10-03T22:07:14+00:00"
+      },
+      "evaluation_runtime_receipt": {
+        "sha256": "180df4e1c24dd83340b4f2c3e94fcd4f062b70a55b7c0fe2230bdb48d7576eae",
+        "last_modified": "2026-10-03T20:22:40+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "reference",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-goal-reference-dur",
+      "evaluation_run_id": "arc-sr-20261003-goal-reference-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 96880
+      },
+      "training_status_receipt": {
+        "sha256": "ca539cb2491022b08808718f4976a4eacfe50bc65190bbd3a7c465c2d356f716",
+        "last_modified": "2026-10-03T20:41:51+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3760,
+      "saved_progress_percent_at_least": 75.18,
+      "checkpoint_manifest_receipt": {
+        "sha256": "9c5faf7b1788d8a5c260438e9b8ff33a91fda83091ce398d99002c15ba0b3b82",
+        "last_modified": "2026-10-04T01:11:34+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "b551646e7a040ba88e27e0edb0d4da3ab639f5a2a01ced6136fa1001c4ef39f5",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-reference-dur/checkpoints/b551646e7a040ba88e27e0edb0d4da3ab639f5a2a01ced6136fa1001c4ef39f5/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "gripper",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-goal-gripper-stk",
+      "evaluation_run_id": "arc-sr-20261003-goal-gripper-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 95200
+      },
+      "training_status_receipt": {
+        "sha256": "32c107a2d88b585093dabc87b845f1dc6e07d2c2d2eb87778ca6922ec97f5a51",
+        "last_modified": "2026-10-03T20:45:29+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3670,
+      "saved_progress_percent_at_least": 73.39,
+      "checkpoint_manifest_receipt": {
+        "sha256": "3fcf6ad25b2e3b09365d4db3cc32eef3bc0b0ce5b76e07e3c78f1f9e11ab01e6",
+        "last_modified": "2026-10-04T01:11:13+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "c073452dd8d98d163ba7d6615111ccb80051ee568a6af2f91c7ca91a0fa0bb1c",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-gripper-stk/checkpoints/c073452dd8d98d163ba7d6615111ccb80051ee568a6af2f91c7ca91a0fa0bb1c/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "component_time",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-goal-component-time-dur",
+      "evaluation_run_id": "arc-sr-20261003-goal-component-time-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 84560
+      },
+      "training_status_receipt": {
+        "sha256": "f39c95e5c7d9f413b2b7f4594ebd5b613bb11f948a4e65f19afb363b273e400f",
+        "last_modified": "2026-10-03T20:45:51+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3370,
+      "saved_progress_percent_at_least": 67.39,
+      "checkpoint_manifest_receipt": {
+        "sha256": "0262a098f5f3d4546edfcdfcb36e07c4b4e946210e955cf74d5818cb87970fc2",
+        "last_modified": "2026-10-04T01:10:50+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "bede8c6d07e876ca19ecea82630bd83f0fa9b2d2e6072c6d2f4a8175dd9e75f6",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-component-time-dur/checkpoints/bede8c6d07e876ca19ecea82630bd83f0fa9b2d2e6072c6d2f4a8175dd9e75f6/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-gripper-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-gripper-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "gripper"
+      },
+      "training_status_receipt": {
+        "sha256": "6a31f5e8e0ffb03a2eb4888d2083ab779bf3424db370c497f19f36be1a3ff6c8",
+        "last_modified": "2026-10-03T22:30:17+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1180,
+      "saved_progress_percent_at_least": 23.6,
+      "checkpoint_manifest_receipt": {
+        "sha256": "470fd0802acbfb744dc591eb841fed8e46c304a83827a82de3abc7b4aa62cb7b",
+        "last_modified": "2026-10-04T01:11:40+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "05bed383e6503cac806b5f6663f81bebc55ec43f9151881c7c5c78b6e7d2e605",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-gripper-dur/checkpoints/05bed383e6503cac806b5f6663f81bebc55ec43f9151881c7c5c78b6e7d2e605/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-xyz-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-xyz-scalar-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:30:35+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1170,
+      "saved_progress_percent_at_least": 23.4,
+      "checkpoint_manifest_receipt": {
+        "sha256": "7af4fff21fd885f7c71acb8db180b0591ecb56b00eb5de6ad8b30d0ee15b8354",
+        "last_modified": "2026-10-04T01:10:42+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "1c4f1b1fc5dfcd5e3ccedeac38182c17ecf6160acf2fff8fc107f7cb07ca6b30",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-xyz-scalar-stk/checkpoints/1c4f1b1fc5dfcd5e3ccedeac38182c17ecf6160acf2fff8fc107f7cb07ca6b30/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-xyz-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-xyz-scalar-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:31:00+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1160,
+      "saved_progress_percent_at_least": 23.2,
+      "checkpoint_manifest_receipt": {
+        "sha256": "02a489bd1fb7f9923f692f5891694d95644047a265158a9f927ca3cfa0d19301",
+        "last_modified": "2026-10-04T01:11:12+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "6dfb211a56028ad85af28c3968b1642a07303542eeccc121bd2f6c8738a2d4fb",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-xyz-scalar-dur/checkpoints/6dfb211a56028ad85af28c3968b1642a07303542eeccc121bd2f6c8738a2d4fb/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-component-velocity-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-component-velocity-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:33:39+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1150,
+      "saved_progress_percent_at_least": 23.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "dcf8f31a426626509a7e23efd64367774f3cb4b1049f55be8380d2656f99fa78",
+        "last_modified": "2026-10-04T01:10:52+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "e3500d587bb67df612e9ae2560e05b9bc148ffd836aa2930162208d87aa0717d",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-velocity-stk/checkpoints/e3500d587bb67df612e9ae2560e05b9bc148ffd836aa2930162208d87aa0717d/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-component-velocity-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-component-velocity-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:32:09+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1150,
+      "saved_progress_percent_at_least": 23.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "c8b49f7f70e4892468df614a3df79ce69773bc0332dfb2fbc41dadf299e0e806",
+        "last_modified": "2026-10-04T01:11:17+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "146474d10b3f96f773565c6c20b77a4e0b39dc5503264bfc29f7a3e558750508",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-velocity-dur/checkpoints/146474d10b3f96f773565c6c20b77a4e0b39dc5503264bfc29f7a3e558750508/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-component-time-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-component-time-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_time"
+      },
+      "training_status_receipt": {
+        "sha256": "7eb147dca67cfe21f0b85cdb261c2f6872d32c103905c63a469eb2c3a0d67f51",
+        "last_modified": "2026-10-03T22:26:09+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1150,
+      "saved_progress_percent_at_least": 23.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "58acbc05cfb7e3576993faf4fc8390845a46ac5e898c2a885688906b2f855bb0",
+        "last_modified": "2026-10-04T01:11:46+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "5a529da1df0383c6ae1c5846873c4539657d4dac545830d76bf4093a9f1e928e",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-goal-component-time-stk/checkpoints/5a529da1df0383c6ae1c5846873c4539657d4dac545830d76bf4093a9f1e928e/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-x-yz-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-x-yz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-x-yz-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-x-yz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-y-xz-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-y-xz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-y-xz-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-y-xz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-z-xy-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-z-xy-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-z-xy-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-z-xy-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-angular-driver-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-angular-driver-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-angular-driver-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-angular-driver-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-angular-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-angular-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-angular-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-angular-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-goal-all-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-goal-all-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-goal-all-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-goal-all-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "reference",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-10-reference-stk",
+      "evaluation_run_id": "arc-sr-20261003-10-reference-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 298870
+      },
+      "training_status_receipt": {
+        "sha256": "73414d88ccc6105957bf9affe1160957f73a2a46c6443a1f34488e8298a0997c",
+        "last_modified": "2026-10-03T20:43:24+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 3430,
+      "saved_progress_percent_at_least": 68.59,
+      "checkpoint_manifest_receipt": {
+        "sha256": "92fa19a3bc254c34ad2f92fcd1cf5087373ac77a6c6e16757842bc41ff2b8fc1",
+        "last_modified": "2026-10-04T01:09:13+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "c278257b86049c2f00bbe98956473b56cf1c5589520c6a2c22d80fe436ec99c7",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-10-reference-stk/checkpoints/c278257b86049c2f00bbe98956473b56cf1c5589520c6a2c22d80fe436ec99c7/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "reference",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-10-reference-dur",
+      "evaluation_run_id": "arc-sr-20261003-10-reference-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 94380
+      },
+      "training_status_receipt": {
+        "sha256": "fc3fd312f8fb9e9d1321e2884fb5a666c8c8ebf1b43f59536a1a85d6c8f6bf7d",
+        "last_modified": "2026-10-03T20:43:22+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1740,
+      "saved_progress_percent_at_least": 34.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "3f4866a9a83160e8557f0b05f3e6baf08d29a290027ab5a319920a7d523bb09c",
+        "last_modified": "2026-10-04T01:09:50+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "10287c78bf2699c9f1976b845fc2610d7576cf022367c67a854de6e18cb5b364",
+        "bytes": 1004462664,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-10-reference-dur/checkpoints/10287c78bf2699c9f1976b845fc2610d7576cf022367c67a854de6e18cb5b364/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "gripper",
+      "mode": "stk",
+      "training_run_id": "arc-sr-20261003-10-gripper-stk",
+      "evaluation_run_id": "arc-sr-20261003-10-gripper-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 95590
+      },
+      "training_status_receipt": {
+        "sha256": "d0911aecdb98217d4b99f981c3791967a266e8e4a4ec65da74941b5c111f2124",
+        "last_modified": "2026-10-03T20:38:32+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1770,
+      "saved_progress_percent_at_least": 35.39,
+      "checkpoint_manifest_receipt": {
+        "sha256": "0bf0c21456fb4425bbc323264419658ccf17e694dd39466ca05d5bde29b8f519",
+        "last_modified": "2026-10-04T01:10:29+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "4ddee13fcc9c7c9d3c5e3ae74bce06e0896cfe3da63e27d25ce80fc80090b4ee",
+        "bytes": 1004483144,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-10-gripper-stk/checkpoints/4ddee13fcc9c7c9d3c5e3ae74bce06e0896cfe3da63e27d25ce80fc80090b4ee/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_time",
+      "mode": "dur",
+      "training_run_id": "arc-sr-20261003-10-component-time-dur",
+      "evaluation_run_id": "arc-sr-20261003-10-component-time-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "resumed_from_step": 89540
+      },
+      "training_status_receipt": {
+        "sha256": "395711be8c09799cc8d8e09fb73b3995e3d9dffc658b3970446ca6758ed76d9f",
+        "last_modified": "2026-10-03T20:38:33+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 1640,
+      "saved_progress_percent_at_least": 32.79,
+      "checkpoint_manifest_receipt": {
+        "sha256": "e564dfc486f383e5c0511c0669d36d100d011df605c66e428e3d911440ccee50",
+        "last_modified": "2026-10-04T01:10:56+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "b56758328ad5d823188a0bfa7d50af0d91b8f7c8939433f7ad2f58a9d5a6dbd8",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-10-component-time-dur/checkpoints/b56758328ad5d823188a0bfa7d50af0d91b8f7c8939433f7ad2f58a9d5a6dbd8/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-gripper-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-gripper-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "gripper"
+      },
+      "training_status_receipt": {
+        "sha256": "6a31f5e8e0ffb03a2eb4888d2083ab779bf3424db370c497f19f36be1a3ff6c8",
+        "last_modified": "2026-10-03T22:33:21+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 540,
+      "saved_progress_percent_at_least": 10.8,
+      "checkpoint_manifest_receipt": {
+        "sha256": "f6b397ce1f69fe6e0498f12e6d15c50c129eb68113ed941e2c5cec355fba4541",
+        "last_modified": "2026-10-04T01:10:41+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "6b0c416b55247d854f18392907e049ca7d8d3ee470dfd7e524004406b09f359b",
+        "bytes": 1004483080,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-gripper-dur/checkpoints/6b0c416b55247d854f18392907e049ca7d8d3ee470dfd7e524004406b09f359b/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-xyz-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-xyz-scalar-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:28:09+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 560,
+      "saved_progress_percent_at_least": 11.2,
+      "checkpoint_manifest_receipt": {
+        "sha256": "e196bdee1e2cac7591c046f5974cfa54c3a6ce7106634d2d900587270ff87a9b",
+        "last_modified": "2026-10-04T01:10:58+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "83a78c6230d97b20e9f7b569fdf6d5e5aa4efd2d6c12d84496ff350442740a5b",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-xyz-scalar-stk/checkpoints/83a78c6230d97b20e9f7b569fdf6d5e5aa4efd2d6c12d84496ff350442740a5b/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-xyz-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-xyz-scalar-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "xyz_scalar"
+      },
+      "training_status_receipt": {
+        "sha256": "12bebfdd3d60cc7695b5c77e04704743eeb3ab3873364d38af3c89aaa985c724",
+        "last_modified": "2026-10-03T22:32:54+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 520,
+      "saved_progress_percent_at_least": 10.4,
+      "checkpoint_manifest_receipt": {
+        "sha256": "3eb07c8715018cb7978b333a503d250ce3aed40c0d617f718164e75e4aaf6b80",
+        "last_modified": "2026-10-04T01:11:02+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "91cc9df3a0a389782e2ca47f1bbf8ed43de7448a7dd94e4106f911485f5cc8cb",
+        "bytes": 1004525064,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-xyz-scalar-dur/checkpoints/91cc9df3a0a389782e2ca47f1bbf8ed43de7448a7dd94e4106f911485f5cc8cb/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-component-velocity-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-component-velocity-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:28:02+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 560,
+      "saved_progress_percent_at_least": 11.2,
+      "checkpoint_manifest_receipt": {
+        "sha256": "bbebdabf087ecbcba8350815ca18623a14395f13db7699cfa84452fd068e411a",
+        "last_modified": "2026-10-04T01:10:50+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "6c9cd58c5efd315358ac8031eebfeea5bade97421c622698654854e2f1230add",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-velocity-stk/checkpoints/6c9cd58c5efd315358ac8031eebfeea5bade97421c622698654854e2f1230add/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-component-velocity-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-component-velocity-dur-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_velocity"
+      },
+      "training_status_receipt": {
+        "sha256": "14614db85959067e80a8854b3adb8e17d9a0d97bdf648a4590128511ce2c8e62",
+        "last_modified": "2026-10-03T22:28:50+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 550,
+      "saved_progress_percent_at_least": 11.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "3e851ab6ee2c747652064cdd6144e0ab4efcfa7c4e4c3a6f88e5ae5a250fb2b5",
+        "last_modified": "2026-10-04T01:09:33+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "904428a3f7c97166b24697bf2bbc6078d3b536ee39b3148a40783d6a5eb82ea5",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-velocity-dur/checkpoints/904428a3f7c97166b24697bf2bbc6078d3b536ee39b3148a40783d6a5eb82ea5/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-component-time-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-component-time-stk-eval",
+      "training_status": {
+        "state": "TRAINING",
+        "variant": "component_time"
+      },
+      "training_status_receipt": {
+        "sha256": "7eb147dca67cfe21f0b85cdb261c2f6872d32c103905c63a469eb2c3a0d67f51",
+        "last_modified": "2026-10-03T22:34:13+00:00"
+      },
+      "evaluation_status": null,
+      "evaluation_status_receipt": null,
+      "saved_epochs_at_least": 500,
+      "saved_progress_percent_at_least": 10.0,
+      "checkpoint_manifest_receipt": {
+        "sha256": "6022dac467d4d4883664eff62a9154c36121010a0c0fc94f3b665789d0fadd06",
+        "last_modified": "2026-10-04T01:10:26+00:00"
+      },
+      "last_checkpoint": {
+        "sha256": "5a0f72c99c1dcd0ac7ac8f967d965e45d68ce58be9062c4c4de2e385a288b23d",
+        "bytes": 1004565320,
+        "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-10-component-time-stk/checkpoints/5a0f72c99c1dcd0ac7ac8f967d965e45d68ce58be9062c4c4de2e385a288b23d/last.ckpt"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-x-yz-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-x-yz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-x-yz-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-x-yz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-y-xz-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-y-xz-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-y-xz-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-y-xz-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-z-xy-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-z-xy-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-z-xy-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-z-xy-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-angular-driver-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-angular-driver-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-angular-driver-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-angular-driver-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-angular-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-angular-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-angular-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-angular-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-sx-20261003-10-all-scalar-stk",
+      "evaluation_run_id": "arc-sx-20261003-10-all-scalar-stk-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    },
+    {
+      "suite": "libero_10",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-sx-20261003-10-all-scalar-dur",
+      "evaluation_run_id": "arc-sx-20261003-10-all-scalar-dur-eval",
+      "training_status": null,
+      "training_status_receipt": null,
+      "evaluation_status": null,
+      "evaluation_status_receipt": null
+    }
+  ],
+  "workflows": [
+    {
+      "name": "arc-se-20261003-goal-reference-stk-eval-1",
+      "status": "COMPLETED",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:20:23.637477",
+      "start_time": "2026-10-03T20:20:31.629342",
+      "end_time": "2026-10-03T22:07:22.619489",
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-se-20261003-goal-reference-stk-eval-1",
+      "tasks": [
+        {
+          "name": "libero",
+          "status": "COMPLETED",
+          "start_time": "2026-10-03T20:20:31.629342",
+          "end_time": "2026-10-03T22:07:22.619489",
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-se-20261003-spatial-reference-stk-eval-1",
+      "status": "COMPLETED",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:20:21.712797",
+      "start_time": "2026-10-03T20:20:31.486586",
+      "end_time": "2026-10-03T23:26:55.624885",
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-se-20261003-spatial-reference-stk-eval-1",
+      "tasks": [
+        {
+          "name": "libero",
+          "status": "COMPLETED",
+          "start_time": "2026-10-03T20:20:31.486586",
+          "end_time": "2026-10-03T23:26:55.624885",
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sf-20261004-spatial-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-04T01:11:36.231118",
+      "start_time": "2026-10-04T01:11:45.586748",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sf-20261004-spatial-1",
+      "tasks": [
+        {
+          "name": "checkpoint-06",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:45.586748",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-07",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:45.606630",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-08",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:47.585868",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-09",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:47.522561",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-10",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:49.364848",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-12",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:51.418815",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-13",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:51.449425",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-14",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:51.383911",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-15",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:52.399828",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-16",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:53.460842",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-18",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:55.509731",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-19",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:55.474864",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "checkpoint-20",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:56.490123",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-04T01:11:57.508846",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "COMPLETED",
+          "start_time": "2026-10-04T01:11:57.539420",
+          "end_time": "2026-10-04T01:12:18.136042",
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "INITIALIZING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-10-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:33:01.585278",
+      "start_time": "2026-10-03T20:33:13.196345",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-10-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-train",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:38:30.368367",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:38:35.635467",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:33:14.026047",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:33:13.196345",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-goal-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:32:36.775094",
+      "start_time": "2026-10-03T20:32:45.222829",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-goal-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "COMPLETED",
+          "start_time": "2026-10-03T20:32:45.222829",
+          "end_time": "2026-10-03T22:35:55.706999",
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:47.309348",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:38:07.712987",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:38:08.740195",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-object-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:32:20.276097",
+      "start_time": "2026-10-03T20:32:30.627089",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-object-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:36:01.384856",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-train",
+          "status": "COMPLETED",
+          "start_time": "2026-10-03T20:37:51.822639",
+          "end_time": "2026-10-03T22:35:54.120546",
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:30.627089",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:56.085991",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:46.952690",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sr-20261003-spatial-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T20:32:05.538561",
+      "start_time": "2026-10-03T20:32:14.966991",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sr-20261003-spatial-1",
+      "tasks": [
+        {
+          "name": "evaluate-00",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-01",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-02",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "COMPLETED",
+          "start_time": "2026-10-03T20:32:14.966991",
+          "end_time": "2026-10-03T23:27:22.870374",
+          "failure_message": null
+        },
+        {
+          "name": "train-00",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:29.573264",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-01",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:32:16.643151",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-02",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T20:37:31.331387",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sx-20261003-10-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T22:12:59.523257",
+      "start_time": "2026-10-03T22:13:08.664215",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sx-20261003-10-1",
+      "tasks": [
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:08.664215",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:09.687592",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:18:36.283717",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:13.193967",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:18:32.190013",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:13.347820",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:13:14.571917",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:18:52.345786",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sx-20261003-goal-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T22:12:40.675067",
+      "start_time": "2026-10-03T22:12:48.444861",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sx-20261003-goal-1",
+      "tasks": [
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:48.444861",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "COMPLETED",
+          "start_time": "2026-10-03T22:12:49.478682",
+          "end_time": "2026-10-03T22:35:51.654357",
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:18:12.585744",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:18:03.067112",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:18:17.221837",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:18:19.639565",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:18:14.656227",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:54.977029",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sx-20261003-object-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T22:12:22.305732",
+      "start_time": "2026-10-03T22:12:29.207567",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sx-20261003-object-1",
+      "tasks": [
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-06",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-07",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-08",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:29.207567",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:31.204469",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:17:57.784384",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:34.121963",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:34.908788",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-06",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:17:57.441603",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:36.627824",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:17:58.942351",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    },
+    {
+      "name": "arc-sx-20261003-spatial-1",
+      "status": "RUNNING",
+      "pool": "groot-l40s-01",
+      "priority": "NORMAL",
+      "submit_time": "2026-10-03T22:12:06.154549",
+      "start_time": "2026-10-03T22:12:14.362921",
+      "end_time": null,
+      "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sx-20261003-spatial-1",
+      "tasks": [
+        {
+          "name": "evaluate-03",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-04",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "evaluate-05",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.748149",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-06",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.787593",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-07",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.832557",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-08",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.886853",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-09",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.941369",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-10",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.987144",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-11",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.804931",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-12",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.848031",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-13",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.891849",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-14",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.945923",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-15",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:29.003680",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-16",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:29.048118",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-17",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.860345",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-18",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.902706",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-19",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.945835",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "evaluate-20",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.988218",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "reference-dur-ready",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:14.362921",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "reference-stk-ready",
+          "status": "COMPLETED",
+          "start_time": "2026-10-03T22:12:17.043998",
+          "end_time": "2026-10-03T23:27:12.806897",
+          "failure_message": null
+        },
+        {
+          "name": "train-03",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:17:36.143659",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-04",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:21.095978",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-05",
+          "status": "FAILED",
+          "start_time": "2026-10-03T22:12:22.540307",
+          "end_time": "2026-10-03T22:24:28.675285",
+          "failure_message": "Failure reason:\n- Exit code 1 due to Task train-05 failure. "
+        },
+        {
+          "name": "train-06",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:17:46.810813",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-07",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:17:44.252413",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-08",
+          "status": "RUNNING",
+          "start_time": "2026-10-03T22:12:24.346842",
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-09",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-10",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-11",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.758877",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "train-12",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-13",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-14",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-15",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-16",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-17",
+          "status": "FAILED_UPSTREAM",
+          "start_time": null,
+          "end_time": "2026-10-03T22:24:28.815567",
+          "failure_message": "Upstream task failed."
+        },
+        {
+          "name": "train-18",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-19",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        },
+        {
+          "name": "train-20",
+          "status": "WAITING",
+          "start_time": null,
+          "end_time": null,
+          "failure_message": null
+        }
+      ]
+    }
+  ],
+  "repair": {
+    "source_workflow": "arc-sx-20261003-spatial-1",
+    "new_workflow": "arc-sf-20261004-spatial-1",
+    "failed_tasks": [
+      "evaluate-05",
+      "evaluate-06",
+      "evaluate-07",
+      "evaluate-08",
+      "evaluate-09",
+      "evaluate-10",
+      "evaluate-11",
+      "evaluate-12",
+      "evaluate-13",
+      "evaluate-14",
+      "evaluate-15",
+      "evaluate-16",
+      "evaluate-17",
+      "evaluate-18",
+      "evaluate-19",
+      "evaluate-20",
+      "train-05",
+      "train-11",
+      "train-17"
+    ],
+    "artifact_prefixes_verified_empty": true,
+    "launcher_commit": "9c36037a5da54d5a84cd753fe57353be91e436a8",
+    "status": "RUNNING"
+  }
+}

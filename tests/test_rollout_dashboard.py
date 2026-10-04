@@ -644,6 +644,11 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
         "directory": "/home/rohan/rollouts/yam_hptflow",
         "fps": 12,
     }
+    assert profile["episode_recording"] == {
+        "enabled": True,
+        "directory": "/home/rohan/rollouts/yam_hptflow/episodes",
+        "min_free_gb": 20,
+    }
     assert profile["model_browser"] == {
         "enabled": True,
         "root": "/home/rohan/checkpoints/EgoVerse",
@@ -676,7 +681,7 @@ def test_dashboard_uses_space_and_places_dynamic_inference_controls_below_camera
     assert 'class="rollout-button-grid"' in html
     assert ".rollout-button-grid { display: grid;" in (static / "style.css").read_text()
     assert ".recording[hidden]" in (static / "style.css").read_text()
-    assert "?v=9" in html
+    assert "app.js?v=10" in html
     assert "inference_override" in javascript
     assert "updateInferenceControls" in javascript
     assert "Apply settings" in javascript
@@ -1248,3 +1253,66 @@ def test_a_new_browser_tab_supersedes_the_stale_dashboard_tab(tmp_path):
         assert asyncio.run(two_tabs()) == SUPERSEDED_CLOSE_CODE
     finally:
         dashboard.close()
+
+
+def test_dashboard_episode_commands_reach_only_the_rollout_loop(tmp_path):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+        episode_recording={"enabled": True, "directory": str(tmp_path / "episodes")},
+    )
+
+    async def drive():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                config = await ws.receive_json()
+                assert config["episode_recording_enabled"] is True
+                assert config["episode_recording"] is False
+                for message, expected in (
+                    ({"record_episode": "start"}, {"action": "start"}),
+                    ({"save_episode": "not-an-outcome"}, None),
+                    ({"save_episode": "failure"}, {"action": "save", "outcome": "failure"}),
+                    ({"discard_episode": True}, {"action": "discard"}),
+                ):
+                    await ws.send_json(message)
+                    deadline = time.monotonic() + (0.3 if expected is None else 1.0)
+                    request = None
+                    while request is None and time.monotonic() < deadline:
+                        await asyncio.sleep(0.01)
+                        request = dashboard.take_episode_request()
+                    assert request == expected
+            async with session.get(f"{dashboard.url}/api/episodes") as response:
+                assert response.status == 200
+                assert await response.json() == []
+
+    try:
+        asyncio.run(drive())
+        dashboard.set_episode_recording(True, frames=12)
+        snapshot = dashboard._snapshot()
+        assert snapshot["episode_recording"] is True
+        assert snapshot["episode_frames"] == 12
+        dashboard.set_episode_recording(False, frames=12, saved={"id": "rollout_x"})
+        assert dashboard._snapshot()["episode_last_saved"] == {"id": "rollout_x"}
+    finally:
+        dashboard.close()
+
+
+def test_dashboard_offers_episode_recording_next_to_video():
+    static = ROOT / "egomimic/robot/rollout_dashboard_static"
+    html = (static / "index.html").read_text()
+    javascript = (static / "app.js").read_text()
+
+    assert 'id="record-episode"' in html and "Record episode <kbd>d</kbd>" in html
+    assert 'id="record-video"' in html  # video-only recording stays
+    for outcome in ("success", "failure", "unlabeled"):
+        assert f'data-episode-outcome="{outcome}"' in html
+    assert 'id="discard-episode"' in html and 'id="open-episodes"' in html
+    assert "event.key === 'd'" in javascript
+    assert "record_episode: 'start'" in javascript
+    assert "save_episode: outcome" in javascript
+    assert "/api/episodes" in javascript

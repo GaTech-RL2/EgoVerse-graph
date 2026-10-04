@@ -34,7 +34,8 @@ p { margin: 0; color: #9aa8b8; }
 .inference-apply { border-color: #80c9a0; min-width: 116px; }
 .inference-apply-status { flex-basis: 100%; text-align: right; color: #93a2b4; font-size: 12px; }
 .rollout-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; margin: 12px 0; }
-.video-launch { grid-column: 2; justify-self: center; padding: 9px 16px; font-size: 15px; font-weight: 650; }
+.launchers { grid-column: 2; justify-self: center; display: flex; gap: 10px; }
+.video-launch { padding: 9px 16px; font-size: 15px; font-weight: 650; }
 .inference-controls { grid-column: 3; justify-self: end; }
 button { border: 1px solid #3a4655; background: #242e39; color: #dce3ed; border-radius: 5px; padding: 7px 10px; cursor: pointer; }
 button:hover, button:focus-visible { border-color: #8cb5ca; }
@@ -61,6 +62,23 @@ kbd { font: inherit; font-size: 12px; padding: 1px 4px; border: 1px solid #66758
 
 .velocity-decision p { margin: 5px 0 10px; color: #ffe2b4; }
 button.warning { border-color: #edb769; background: #7b4510; color: #fff0d1; }
+
+.episode-save {
+  margin: 12px 0;
+  border: 1px solid #ec7977;
+  border-radius: 8px;
+  background: #2a1a1f;
+  padding: 12px;
+}
+.episode-save p { margin: 5px 0 10px; }
+.episode-save .actions { justify-content: start; max-width: none; }
+button.success { border-color: #80c9a0; background: #1e513b; color: #e3f6ea; }
+button.failure { border-color: #ec7977; background: #5c2023; color: #ffe2e1; }
+.episode-list { max-height: calc(100% - 64px); overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding: 8px; border: 1px solid #303a46; border-radius: 8px; background: #10151b; }
+.episode-row { display: flex; flex-direction: column; gap: 3px; padding: 7px 10px; border: 1px solid #3a4655; border-left-width: 4px; border-radius: 5px; background: #191e25; }
+.episode-row.success { border-left-color: #80c9a0; }
+.episode-row.failure { border-left-color: #ec7977; }
+.episode-row.unlabeled { border-left-color: #667587; }
 
 dialog { width: min(1500px, 96vw); height: min(900px, 92vh); padding: 18px; background: #191e25; color: #dce3ed; border: 1px solid #3a4655; border-radius: 10px; }
 dialog::backdrop { background: rgb(0 0 0 / 65%); }
@@ -93,7 +111,7 @@ dialog header { align-items: center; }
   .actions { justify-content: start; }
   .rollout-control-panel { flex-basis: 100%; }
   .rollout-controls { grid-template-columns: 1fr; }
-  .video-launch, .inference-controls { grid-column: 1; justify-self: start; }
+  .launchers, .inference-controls { grid-column: 1; justify-self: start; }
   .cameras { grid-template-columns: 1fr; }
   .video-browser { grid-template-columns: 220px minmax(0, 1fr); }
 }

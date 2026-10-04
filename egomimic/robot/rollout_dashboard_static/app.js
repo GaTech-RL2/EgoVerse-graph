@@ -11,6 +11,12 @@ let waitForStart = false;
 let videoEnabled = false;
 let videoRecording = false;
 let selectedVideo;
+let episodeEnabled = false;
+let episodeRecording = false;
+let episodeFrames = 0;
+let episodeRequestPending = false;
+let episodeLastSaved;
+let episodeRequestTimer;
 let modelBrowserEnabled = false;
 let currentCheckpoint;
 let modelDirectory = '.';
@@ -79,11 +85,41 @@ function updatePauseButton() {
   $('pause').textContent = paused ? 'Resume rollout (Space)' : 'Pause rollout (Space)';
 }
 
+function updateRecordingIndicator() {
+  const parts = [];
+  if (videoRecording) parts.push('VIDEO');
+  if (episodeRecording) parts.push(`EPISODE · ${episodeFrames} frames`);
+  $('recording-indicator').hidden = parts.length === 0;
+  $('recording-indicator').textContent = `● RECORDING ${parts.join(' + ') || 'VIDEO'}`;
+}
+
 function updateVideoControls() {
-  $('recording-indicator').hidden = !videoRecording;
+  updateRecordingIndicator();
   $('record-video').disabled = !videoEnabled || (!started && !videoRecording);
   $('record-video').textContent = videoRecording ? 'Save video (v)' : 'Record video (v)';
   $('open-videos').disabled = !videoEnabled;
+}
+
+function describeEpisode(episode) {
+  const state = episode.complete ? 'complete' : `incomplete (${episode.end_reason})`;
+  return `${episode.id} · ${episode.outcome} · ${episode.frames} frames · ${formatDuration(episode.duration_seconds)} · ${state}`;
+}
+
+function updateEpisodeControls() {
+  updateRecordingIndicator();
+  const button = $('record-episode');
+  button.disabled = !episodeEnabled || episodeRecording || !started || episodeRequestPending;
+  button.textContent = episodeRequestPending && !episodeRecording
+    ? 'Starting episode…' : 'Record episode (d)';
+  $('open-episodes').disabled = !episodeEnabled;
+  $('episode-save').hidden = !episodeRecording;
+  for (const save of document.querySelectorAll('#episode-save button')) {
+    save.disabled = episodeRequestPending;
+  }
+  $('episode-title').textContent = `Recording episode · ${episodeFrames} frames`;
+  const last = $('episode-status');
+  last.hidden = episodeRecording || !episodeLastSaved;
+  if (episodeLastSaved) last.textContent = `Last episode saved: ${describeEpisode(episodeLastSaved)}`;
 }
 
 function updateModelControl() {
@@ -169,6 +205,59 @@ function toggleVideoRecording() {
   }
   $('record-video').disabled = true;
   $('record-video').textContent = videoRecording ? 'Saving video…' : 'Starting video…';
+}
+
+function startEpisode() {
+  if (!episodeEnabled || episodeRecording || !started) return;
+  if (!send({record_episode: 'start'})) {
+    reportDisconnected();
+    return;
+  }
+  markEpisodeRequestPending();
+}
+
+function saveEpisode(outcome) {
+  if (!episodeRecording) return;
+  if (!send({save_episode: outcome})) {
+    reportDisconnected();
+    return;
+  }
+  markEpisodeRequestPending();
+}
+
+function discardEpisode() {
+  if (!episodeRecording) return;
+  if (!confirm('Discard this episode? Its HDF5 file is deleted.')) return;
+  if (!send({discard_episode: true})) {
+    reportDisconnected();
+    return;
+  }
+  markEpisodeRequestPending();
+}
+
+function markEpisodeRequestPending() {
+  // A request the rollout loop declines (no start yet, low disk) changes no
+  // recording state, so the pending state also clears on its own.
+  episodeRequestPending = true;
+  clearTimeout(episodeRequestTimer);
+  episodeRequestTimer = setTimeout(() => {
+    episodeRequestPending = false;
+    updateEpisodeControls();
+  }, 3000);
+  updateEpisodeControls();
+}
+
+function toggleEpisode() {
+  if (episodeRecording) saveEpisode('unlabeled');
+  else startEpisode();
+}
+
+function applyEpisodeState(message) {
+  const recording = Boolean(message.episode_recording);
+  if (recording !== episodeRecording) episodeRequestPending = false;
+  episodeRecording = recording;
+  episodeFrames = Number(message.episode_frames) || 0;
+  if (message.episode_last_saved) episodeLastSaved = message.episode_last_saved;
 }
 
 function togglePause() {
@@ -352,6 +441,9 @@ function configure(message) {
   started = Boolean(message.started);
   videoEnabled = Boolean(message.video_recording_enabled);
   videoRecording = Boolean(message.video_recording);
+  episodeEnabled = Boolean(message.episode_recording_enabled);
+  episodeRequestPending = false;
+  applyEpisodeState(message);
   modelBrowserEnabled = Boolean(message.model_browser_enabled);
   currentCheckpoint = message.checkpoint;
   updateCurrentModel();
@@ -386,6 +478,7 @@ function configure(message) {
   $('start').disabled = !waitForStart || started;
   updatePauseButton();
   updateVideoControls();
+  updateEpisodeControls();
   updateModelControl();
   $('restart').disabled = false;
   $('reconnect-cameras').disabled = false;
@@ -395,6 +488,7 @@ function frame(message) {
   paused = Boolean(message.paused);
   started = Boolean(message.started);
   videoRecording = Boolean(message.video_recording);
+  applyEpisodeState(message);
   currentCheckpoint = message.checkpoint;
   updateCurrentModel();
   updateInferenceControls(
@@ -403,6 +497,7 @@ function frame(message) {
   $('start').disabled = !waitForStart || started;
   updatePauseButton();
   updateVideoControls();
+  updateEpisodeControls();
   updateModelControl();
   $('status').textContent = `${message.status} · camera update ${message.age_ms} ms ago`;
   $('status').className = message.status === 'Running' ? 'running' : 'starting';
@@ -520,10 +615,48 @@ async function loadVideos() {
   }
 }
 
+async function loadEpisodes() {
+  const list = $('episode-list');
+  list.textContent = 'Loading…';
+  try {
+    const response = await fetch('/api/episodes', {cache: 'no-store'});
+    if (!response.ok) throw Error(`Could not load rollout episodes (${response.status})`);
+    const episodes = await response.json();
+    list.replaceChildren();
+    for (const episode of episodes) {
+      const row = document.createElement('div');
+      row.className = `episode-row ${episode.outcome}`;
+      const name = document.createElement('span');
+      name.className = 'video-name';
+      name.textContent = episode.filename;
+      const detail = document.createElement('span');
+      detail.className = 'video-detail';
+      const size = (episode.size_bytes / 1e9).toFixed(1);
+      detail.textContent = `${describeEpisode(episode)} · ${size} GB · ${episode.checkpoint || 'checkpoint unknown'}`;
+      row.append(name, detail);
+      list.append(row);
+    }
+    if (!episodes.length) list.textContent = 'No saved rollout episodes yet.';
+  } catch (error) {
+    list.textContent = error.message;
+  }
+}
+
 $('stop').onclick = stopRollout;
 $('start').onclick = startRollout;
 $('pause').onclick = togglePause;
 $('record-video').onclick = toggleVideoRecording;
+$('record-episode').onclick = startEpisode;
+for (const button of document.querySelectorAll('[data-episode-outcome]')) {
+  button.onclick = () => saveEpisode(button.dataset.episodeOutcome);
+}
+$('discard-episode').onclick = discardEpisode;
+$('open-episodes').onclick = () => {
+  $('episodes').showModal();
+  loadEpisodes();
+};
+$('refresh-episodes').onclick = loadEpisodes;
+$('close-episodes').onclick = () => $('episodes').close();
 $('select-model').onclick = () => {
   if (!modelBrowserEnabled) return;
   $('model-current').textContent = currentCheckpoint ? `Current: ${currentCheckpoint}` : 'Current checkpoint unavailable';
@@ -583,6 +716,10 @@ document.onkeydown = event => {
     event.preventDefault();
     toggleVideoRecording();
   }
+  if (event.key === 'd' || event.key === 'D') {
+    event.preventDefault();
+    toggleEpisode();
+  }
   if (event.key === 'e' || event.key === 'E') {
     event.preventDefault();
     chooseVelocityAction('execute');
@@ -623,8 +760,9 @@ function connect() {
       // A newer tab owns the dashboard. Reconnecting would only take it back
       // and leave the two tabs fighting over the rollout.
       $('status').textContent = 'A newer tab took over this dashboard; close this one.';
-      for (const id of ['start', 'pause', 'record-video', 'open-videos', 'select-model',
-                        'restart', 'reconnect-cameras', 'overlay']) $(id).disabled = true;
+      for (const id of ['start', 'pause', 'record-video', 'record-episode', 'open-videos',
+                        'open-episodes', 'select-model', 'restart', 'reconnect-cameras',
+                        'overlay']) $(id).disabled = true;
       setInferenceControlsDisabled(true);
       return;
     }
@@ -632,7 +770,9 @@ function connect() {
     $('start').disabled = true;
     $('pause').disabled = true;
     $('record-video').disabled = true;
+    $('record-episode').disabled = true;
     $('open-videos').disabled = true;
+    $('open-episodes').disabled = true;
     $('select-model').disabled = true;
     setInferenceControlsDisabled(true);
     $('restart').disabled = true;

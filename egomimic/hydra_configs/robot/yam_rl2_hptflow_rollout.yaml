@@ -61,6 +61,15 @@ video_recording:
   enabled: true
   directory: /home/rohan/rollouts/yam_hptflow
   fps: 12
+# The dashboard can also record a rollout episode (d) in the GELLO demo HDF5
+# layout: measured state, the joint command sent and its forward kinematics, and
+# every camera frame uncompressed (~2.8 MB per 30 Hz tick, about 5 GB per
+# minute), plus the policy's plans under rollout/. Saving labels the outcome.
+# Recording refuses to start, or stops, below min_free_gb on this disk.
+episode_recording:
+  enabled: true
+  directory: /home/rohan/rollouts/yam_hptflow/episodes
+  min_free_gb: 20
 # Browser-only checkpoint picker. It can browse only under this root, and a
 # chosen .ckpt is strictly loaded before the robot executes a fresh plan.
 model_browser:

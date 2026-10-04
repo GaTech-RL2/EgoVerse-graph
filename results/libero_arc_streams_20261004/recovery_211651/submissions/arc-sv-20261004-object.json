@@ -1,0 +1,7 @@
+{
+  "name": "arc-sv-20261004-object-1",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sv-20261004-object-1",
+  "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-sv-20261004-object-1/logs",
+  "spec": null,
+  "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=8da1c2142c384d61"
+}

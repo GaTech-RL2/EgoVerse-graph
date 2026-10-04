@@ -1,0 +1,7 @@
+{
+  "name": "arc-sb-20261004-goal-1",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sb-20261004-goal-1",
+  "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-sb-20261004-goal-1/logs",
+  "spec": null,
+  "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=5f83aa6cd4094480"
+}

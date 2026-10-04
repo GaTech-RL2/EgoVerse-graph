@@ -1,0 +1,6 @@
+{
+  "state": "POLICY_EVALUATION_COMPLETE",
+  "method": "arc_stk",
+  "episodes": 2500,
+  "complete_protocol": true
+}

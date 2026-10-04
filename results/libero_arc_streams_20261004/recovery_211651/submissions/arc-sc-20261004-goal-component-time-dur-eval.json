@@ -1,0 +1,7 @@
+{
+  "name": "arc-sc-20261004-goal-component-time-dur-eval-1",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-sc-20261004-goal-component-time-dur-eval-1",
+  "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-sc-20261004-goal-component-time-dur-eval-1/logs",
+  "spec": null,
+  "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=042718f640d346fc"
+}

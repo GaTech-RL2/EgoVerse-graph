@@ -1,0 +1,11 @@
+{
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "suite": "libero_goal",
+  "method": "arc_stk",
+  "mode": "full",
+  "run_kind": "policy_evaluation",
+  "evaluate_from_run": "arc-sr-20261003-goal-gripper-stk",
+  "gpu_type": "L40S",
+  "evaluation_workers": 5,
+  "resume_evaluation_from": null
+}

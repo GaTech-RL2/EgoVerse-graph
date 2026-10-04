@@ -1,0 +1,309 @@
+{
+  "observed_at_utc": "2026-10-04T21:35:35.278815+00:00",
+  "runs": [
+    {
+      "run": "arc-sb-20261004-spatial-gripper-dur"
+    },
+    {
+      "run": "arc-sb-20261004-spatial-xyz-scalar-stk",
+      "status.json": {
+        "data": {
+          "state": "STAGING_DATA"
+        },
+        "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+        "last_modified": "2026-10-04T21:32:43+00:00"
+      }
+    },
+    {
+      "run": "arc-sb-20261004-spatial-xyz-scalar-dur",
+      "status.json": {
+        "data": {
+          "state": "STAGING_DATA"
+        },
+        "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+        "last_modified": "2026-10-04T21:32:23+00:00"
+      }
+    },
+    {
+      "run": "arc-sb-20261004-spatial-component-velocity-stk",
+      "status.json": {
+        "data": {
+          "state": "STAGING_DATA"
+        },
+        "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+        "last_modified": "2026-10-04T21:32:23+00:00"
+      }
+    },
+    {
+      "run": "arc-sb-20261004-spatial-component-velocity-dur",
+      "status.json": {
+        "data": {
+          "state": "STAGING_DATA"
+        },
+        "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+        "last_modified": "2026-10-04T21:32:40+00:00"
+      }
+    },
+    {
+      "run": "arc-sb-20261004-spatial-component-time-stk",
+      "status.json": {
+        "data": {
+          "state": "STAGING_DATA"
+        },
+        "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+        "last_modified": "2026-10-04T21:32:33+00:00"
+      }
+    },
+    {
+      "run": "arc-sb-20261004-goal-gripper-dur"
+    },
+    {
+      "run": "arc-sb-20261004-goal-xyz-scalar-stk"
+    },
+    {
+      "run": "arc-sb-20261004-goal-xyz-scalar-dur",
+      "status.json": {
+        "data": {
+          "state": "STAGING_DATA"
+        },
+        "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+        "last_modified": "2026-10-04T21:33:09+00:00"
+      }
+    },
+    {
+      "run": "arc-sb-20261004-goal-component-velocity-stk"
+    },
+    {
+      "run": "arc-sb-20261004-goal-component-velocity-dur",
+      "status.json": {
+        "data": {
+          "state": "STAGING_DATA"
+        },
+        "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+        "last_modified": "2026-10-04T21:35:09+00:00"
+      }
+    },
+    {
+      "run": "arc-sb-20261004-goal-component-time-stk"
+    },
+    {
+      "run": "arc-sb-20261004-10-gripper-dur"
+    },
+    {
+      "run": "arc-sb-20261004-10-xyz-scalar-stk"
+    },
+    {
+      "run": "arc-sb-20261004-10-xyz-scalar-dur"
+    },
+    {
+      "run": "arc-sb-20261004-10-component-velocity-stk"
+    },
+    {
+      "run": "arc-sb-20261004-10-component-velocity-dur"
+    },
+    {
+      "run": "arc-sb-20261004-10-component-time-stk"
+    },
+    {
+      "run": "arc-sc-20261004-object-reference-dur-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_dur"
+        },
+        "sha256": "b3dcc1890a41903e737de6ae8b2c3fb23e5915ab5811064323e39dd950b1cc80",
+        "last_modified": "2026-10-04T21:31:33+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 1711,
+          "planned": 2500,
+          "per_repetition": [
+            341,
+            341,
+            340,
+            346,
+            343
+          ],
+          "workers": 5
+        },
+        "sha256": "0309c84f10d320b1425d8e2a25baa7403021e53345f08efaa485f6bce5dc5c90",
+        "last_modified": "2026-10-04T21:34:38+00:00"
+      }
+    },
+    {
+      "run": "arc-sc-20261004-spatial-gripper-stk-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_stk"
+        },
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-04T21:33:19+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 1435,
+          "planned": 2500,
+          "per_repetition": [
+            286,
+            283,
+            290,
+            288,
+            288
+          ],
+          "workers": 5
+        },
+        "sha256": "678cabe5067be797b6addebeaaa8b643f4dd83d1f58f9c38483c5f829b807436",
+        "last_modified": "2026-10-04T21:34:50+00:00"
+      }
+    },
+    {
+      "run": "arc-sc-20261004-spatial-component-time-dur-eval"
+    },
+    {
+      "run": "arc-sc-20261004-object-gripper-stk-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_stk"
+        },
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-04T21:33:17+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 14,
+          "planned": 2500,
+          "per_repetition": [
+            3,
+            2,
+            3,
+            3,
+            3
+          ],
+          "workers": 5
+        },
+        "sha256": "45d585203adef61740679dc3ccead744f5719c3874287c6d80348715505146bc",
+        "last_modified": "2026-10-04T21:35:25+00:00"
+      }
+    },
+    {
+      "run": "arc-sc-20261004-object-component-time-dur-eval"
+    },
+    {
+      "run": "arc-sc-20261004-goal-component-time-dur-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_dur"
+        },
+        "sha256": "b3dcc1890a41903e737de6ae8b2c3fb23e5915ab5811064323e39dd950b1cc80",
+        "last_modified": "2026-10-04T21:33:46+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 904,
+          "planned": 2500,
+          "per_repetition": [
+            182,
+            173,
+            190,
+            174,
+            185
+          ],
+          "workers": 5
+        },
+        "sha256": "23d2956b7c6b4a8b09f5c3594dd46d19d9173a32602f8173033f64c5fc4b7a71",
+        "last_modified": "2026-10-04T21:35:18+00:00"
+      }
+    },
+    {
+      "run": "arc-sv-20261004-object-gripper-dur-eval"
+    },
+    {
+      "run": "arc-sv-20261004-object-xyz-scalar-stk-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_stk"
+        },
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-04T21:35:25+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 0,
+          "planned": 2500,
+          "per_repetition": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "workers": 5
+        },
+        "sha256": "84ff71510f2619753959ffd6289bb9ef4a55ebb6482d7908ece252b46514d74c",
+        "last_modified": "2026-10-04T21:35:24+00:00"
+      }
+    },
+    {
+      "run": "arc-sv-20261004-object-xyz-scalar-dur-eval"
+    },
+    {
+      "run": "arc-sv-20261004-object-component-velocity-stk-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_stk"
+        },
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-04T21:34:11+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 4,
+          "planned": 2500,
+          "per_repetition": [
+            1,
+            1,
+            1,
+            0,
+            1
+          ],
+          "workers": 5
+        },
+        "sha256": "275103c1ffa9f2431ac97adf8a337993cdaf4ee19b7655f51b6bb565ed90f6c3",
+        "last_modified": "2026-10-04T21:35:14+00:00"
+      }
+    },
+    {
+      "run": "arc-sr-20261003-10-gripper-stk-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_stk"
+        },
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-04T19:17:14+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 1635,
+          "planned": 2500,
+          "per_repetition": [
+            328,
+            333,
+            319,
+            332,
+            323
+          ],
+          "workers": 5
+        },
+        "sha256": "c7cde153d8cf15cab34b456ea600d55a3d1a59b5700f74f6019609bdb1a49086",
+        "last_modified": "2026-10-04T21:35:16+00:00"
+      }
+    }
+  ]
+}

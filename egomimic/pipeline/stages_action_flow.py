@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.func import jvp
 from torch.utils.checkpoint import checkpoint
 
-from egomimic.pipeline.core import Stage
+from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
 
 
 def _key(value: str, *, label: str) -> str:
@@ -31,6 +31,14 @@ def _module(value: nn.Module, *, label: str) -> nn.Module:
     if not isinstance(value, nn.Module):
         raise TypeError(f"{label} must be an nn.Module, got {type(value).__name__}")
     return value
+
+
+def _routed_module(batch: dict, modules: nn.ModuleDict, selector_key: str, selector_aliases: dict[str, str], label: str) -> nn.Module:
+    raw = resolve_homogeneous_scalar(batch[selector_key], label=selector_key)
+    name = selector_aliases.get(str(raw), str(raw))
+    if name not in modules:
+        raise KeyError(f'{label} has no module for embodiment {name!r}; configured={tuple(modules)}')
+    return modules[name]
 
 
 class _SplitFieldPrediction(torch.autograd.Function):
@@ -90,16 +98,31 @@ class ContentEncoderStage(Stage):
 
     def __init__(
         self,
-        encoder: nn.Module,
+        encoder: nn.Module | None = None,
         input_key: str = "target",
         output_key: str = "action_flow/clean_latent",
+        encoders: dict[str, nn.Module] | None = None,
+        selector_key: str = 'embodiment',
+        selector_aliases: dict | None = None,
     ):
         super().__init__()
-        self.encoder = _module(encoder, label="encoder")
+        if (encoder is None) == (encoders is None):
+            raise ValueError('Provide exactly one encoder or embodiment encoder mapping')
+        self.encoder = _module(encoder, label="encoder") if encoder is not None else None
+        self.encoders = nn.ModuleDict({str(k): _module(v, label=f'encoder[{k}]') for k, v in encoders.items()}) if encoders is not None else None
+        if self.encoders is not None and len(self.encoders) < 2:
+            raise ValueError('Embodiment encoder mapping needs at least two domains')
+        self.selector_key = _key(selector_key, label='selector_key')
+        self.selector_aliases = {str(k): str(v) for k, v in dict(selector_aliases or {}).items()}
         self.input_key = _key(input_key, label="input_key")
         self.output_key = _key(output_key, label="output_key")
-        self.reads = (self.input_key,)
+        self.reads = (self.input_key,) + ((self.selector_key,) if self.encoders is not None else ())
         self.writes = (self.output_key,)
+
+    def encoder_for(self, batch: dict) -> nn.Module:
+        return self.encoder if self.encoders is None else _routed_module(
+            batch, self.encoders, self.selector_key, self.selector_aliases, 'ContentEncoderStage'
+        )
 
     def forward(self, batch: dict) -> dict:
         content = _tensor(batch, self.input_key)
@@ -107,7 +130,8 @@ class ContentEncoderStage(Stage):
             raise ValueError(
                 f"{self.input_key} must have shape (B, ...), got {tuple(content.shape)}"
             )
-        clean = self.encoder(content)
+        encoder = self.encoder_for(batch)
+        clean = encoder(content)
         if not torch.is_tensor(clean) or clean.ndim < 2:
             shape = tuple(clean.shape) if torch.is_tensor(clean) else None
             raise ValueError(f"encoder output must have shape (B, ...), got {shape}")
@@ -568,7 +592,7 @@ class ContentDecoderStage(Stage):
 
     def __init__(
         self,
-        decoder: nn.Module,
+        decoder: nn.Module | None = None,
         reconstruction_noising_start: float = 1.0,
         reconstruction_noising_probability: float = 0.0,
         clean_key: str = "action_flow/clean_latent",
@@ -582,9 +606,19 @@ class ContentDecoderStage(Stage):
         inference_latent_key: str = "action_flow/generated_latent",
         prediction_key: str = "pred_action",
         jvp_activation_checkpointing: bool = False,
+        decoders: dict[str, nn.Module] | None = None,
+        selector_key: str = 'embodiment',
+        selector_aliases: dict | None = None,
     ):
         super().__init__()
-        self.decoder = _module(decoder, label="decoder")
+        if (decoder is None) == (decoders is None):
+            raise ValueError('Provide exactly one decoder or embodiment decoder mapping')
+        self.decoder = _module(decoder, label="decoder") if decoder is not None else None
+        self.decoders = nn.ModuleDict({str(k): _module(v, label=f'decoder[{k}]') for k, v in decoders.items()}) if decoders is not None else None
+        if self.decoders is not None and len(self.decoders) < 2:
+            raise ValueError('Embodiment decoder mapping needs at least two domains')
+        self.selector_key = _key(selector_key, label='selector_key')
+        self.selector_aliases = {str(k): str(v) for k, v in dict(selector_aliases or {}).items()}
         self.jvp_activation_checkpointing = bool(jvp_activation_checkpointing)
         self.reconstruction_noising_start = float(reconstruction_noising_start)
         self.reconstruction_noising_probability = float(
@@ -612,16 +646,22 @@ class ContentDecoderStage(Stage):
             self.clean_key,
             self.state_key,
             self.residual_key,
-        ) + ((self.noise_key,) if self.decode_noise else ())
+        ) + ((self.noise_key,) if self.decode_noise else ()) + ((self.selector_key,) if self.decoders is not None else ())
         self.writes = (
             self.reconstruction_key,
             self.decoded_residual_key,
         ) + ((self.decoded_noise_key,) if self.decode_noise else ())
-        self.reads_by_mode = {"inference": (self.inference_latent_key,)}
+        self.reads_by_mode = {"inference": (self.inference_latent_key,) + ((self.selector_key,) if self.decoders is not None else ())}
         self.writes_by_mode = {"inference": (self.prediction_key,)}
 
-    def _decode(self, value: torch.Tensor, *, label: str) -> torch.Tensor:
-        decoded = self.decoder(value)
+    def decoder_for(self, batch: dict) -> nn.Module:
+        return self.decoder if self.decoders is None else _routed_module(batch, self.decoders, self.selector_key, self.selector_aliases, 'ContentDecoderStage')
+
+    def _selected_decoder(self, batch: dict) -> nn.Module:
+        return self.decoder_for(batch)
+
+    def _decode(self, value: torch.Tensor, *, label: str, decoder: nn.Module) -> torch.Tensor:
+        decoded = decoder(value)
         if not torch.is_tensor(decoded) or decoded.ndim < 2:
             shape = tuple(decoded.shape) if torch.is_tensor(decoded) else None
             raise ValueError(f"decoder {label} must have shape (B, ...), got {shape}")
@@ -630,6 +670,7 @@ class ContentDecoderStage(Stage):
         return decoded
 
     def _forward_train(self, batch: dict) -> dict:
+        decoder = self._selected_decoder(batch)
         clean = _tensor(batch, self.clean_key)
         state = _tensor(batch, self.state_key)
         residual = _tensor(batch, self.residual_key)
@@ -653,18 +694,18 @@ class ContentDecoderStage(Stage):
                 < self.reconstruction_noising_probability
             ).reshape(batch_size, *([1] * (clean.ndim - 1)))
             reconstruction_input = torch.where(mask, noised, clean)
-        reconstruction = self._decode(reconstruction_input, label="reconstruction")
+        reconstruction = self._decode(reconstruction_input, label="reconstruction", decoder=decoder)
         decoded_noise = (
-            self._decode(noise, label="noise") if noise is not None else None
+            self._decode(noise, label="noise", decoder=decoder) if noise is not None else None
         )
         # PyTorch's non-reentrant activation checkpointing installs saved-tensor
         # hooks that are incompatible with ``torch.func`` transforms. Preserve
         # checkpointing for the reconstruction pass, but disable it only while
         # computing this required forward-mode JVP.
         def decode_jvp(primal: torch.Tensor, tangent: torch.Tensor) -> torch.Tensor:
-            checkpointing = getattr(self.decoder, "gradient_checkpointing", None)
+            checkpointing = getattr(decoder, "gradient_checkpointing", None)
             if isinstance(checkpointing, bool):
-                self.decoder.gradient_checkpointing = False
+                decoder.gradient_checkpointing = False
             # Forward AD requires math SDPA and matching FP32 primal/tangent
             # dtypes. Keep both contexts inside the function so checkpoint
             # replay uses the same numerical path as its forward pass.
@@ -685,13 +726,13 @@ class ContentDecoderStage(Stage):
             try:
                 with precision_context, attention_context:
                     return jvp(
-                        self.decoder,
+                        decoder,
                         (primal.float() if primal.is_cuda else primal,),
                         (tangent.float() if tangent.is_cuda else tangent,),
                     )[1]
             finally:
                 if isinstance(checkpointing, bool):
-                    self.decoder.gradient_checkpointing = checkpointing
+                    decoder.gradient_checkpointing = checkpointing
 
         if (
             self.jvp_activation_checkpointing
@@ -723,7 +764,7 @@ class ContentDecoderStage(Stage):
 
     def _forward_inference(self, batch: dict) -> dict:
         latent = _tensor(batch, self.inference_latent_key)
-        batch[self.prediction_key] = self._decode(latent, label="prediction")
+        batch[self.prediction_key] = self._decode(latent, label="prediction", decoder=self._selected_decoder(batch))
         return batch
 
     def execute(self, batch: dict, *, mode: str) -> dict:

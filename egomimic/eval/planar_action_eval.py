@@ -91,6 +91,7 @@ class PlanarActionEval(Eval):
         semantic_blocks_by_embodiment: Mapping | None = None,
         energy_score_enabled: bool = True,
         action_key: str = "actions",
+        action_keys_by_embodiment: Mapping | None = None,
         native_decoder=None,
         native_decoders=None,
         deterministic_seed: int = _DEFAULT_DETERMINISTIC_SEED,
@@ -107,6 +108,12 @@ class PlanarActionEval(Eval):
         self.action_key = str(action_key)
         if not self.action_key:
             raise ValueError("action_key must be non-empty")
+        self.action_keys_by_embodiment = {
+            str(name).lower(): str(key)
+            for name, key in dict(action_keys_by_embodiment or {}).items()
+        }
+        if any(not name or not key for name, key in self.action_keys_by_embodiment.items()):
+            raise ValueError("action_keys_by_embodiment needs nonempty names and keys")
         if native_decoder is not None and native_decoders is not None:
             raise ValueError("configure native_decoder or native_decoders, not both")
         self.native_decoder = native_decoder
@@ -297,6 +304,21 @@ class PlanarActionEval(Eval):
             raise KeyError(f"Unknown Planar embodiment id {embodiment_id}")
         return embodiment_id, name.lower()
 
+    def _action_key_for_id(self, embodiment_id: int) -> str:
+        name = get_embodiment(int(embodiment_id))
+        if name is None:
+            raise KeyError(f"Unknown evaluator embodiment id {embodiment_id}")
+        if self.action_keys_by_embodiment:
+            try:
+                return self.action_keys_by_embodiment[name.lower()]
+            except KeyError as exc:
+                raise KeyError(f"No action key for evaluator embodiment {name!r}") from exc
+        return self.action_key
+
+    def _action_key_for_batch(self, source_batch: dict) -> str:
+        embodiment_id, _ = self._embodiment(source_batch)
+        return self._action_key_for_id(embodiment_id)
+
     @staticmethod
     def _cuda_devices(batch):
         return sorted(
@@ -475,7 +497,7 @@ class PlanarActionEval(Eval):
         for source_id, diagnostic in diagnostics.items():
             embodiment_id, domain = self._embodiment(batch[source_id])
             decoder = self._native_decoder(embodiment_id)
-            target = batch[source_id][self.action_key]
+            target = batch[source_id][self._action_key_for_batch(batch[source_id])]
             clean = diagnostic["clean_latent"].float()
             clean_decoded = diagnostic.get("clean_decoded_action_normalized")
             if clean_decoded is not None:
@@ -667,9 +689,10 @@ class PlanarActionEval(Eval):
     def _native(self, normalized, embodiment_id, decoder):
         if self.normalizer is None:
             raise RuntimeError("Planar evaluator data context was not bound")
+        action_key = self._action_key_for_id(embodiment_id)
         unnormalized = self.normalizer.unnormalize(
-            {self.action_key: normalized}, embodiment_id
-        )[self.action_key]
+            {action_key: normalized}, embodiment_id
+        )[action_key]
         if decoder is None:
             return unnormalized
         return decoder.decode(unnormalized)
@@ -1037,11 +1060,12 @@ class PlanarActionEval(Eval):
             if name in domains:
                 raise ValueError(f"Duplicate Planar evaluation embodiment {name!r}")
             values = scores[source_id]
-            target = batch[source_id][self.action_key].detach().float().cpu()
+            action_key = self._action_key_for_id(embodiment_id)
+            target = batch[source_id][action_key].detach().float().cpu()
             domain = {
                 "source_id": source_id,
                 "embodiment_id": embodiment_id,
-                "action_key": self.action_key,
+                "action_key": action_key,
                 "predictions": predictions.float().cpu(),
                 "targets": target,
                 "accuracy_by_condition": values["accuracy_by_condition"].float().cpu(),
@@ -1063,7 +1087,7 @@ class PlanarActionEval(Eval):
                 )
                 domain["native_targets"] = (
                     self._native(
-                        batch[source_id][self.action_key], embodiment_id, decoder
+                        batch[source_id][action_key], embodiment_id, decoder
                     )
                     .detach()
                     .float()
@@ -1157,7 +1181,7 @@ class PlanarActionEval(Eval):
                 raise ValueError(f"Duplicate Planar evaluation embodiment {label!r}")
             labels.add(label)
             prediction = result[source_id]["pred_action"]
-            target = source_batch[self.action_key]
+            target = source_batch[self._action_key_for_id(embodiment_id)]
             normalized_mse = (prediction - target).square().mean()
             decoder = self._native_decoder(embodiment_id)
             native_mse = self._native_mse(
@@ -1179,7 +1203,7 @@ class PlanarActionEval(Eval):
                 embodiment_id, label = self._embodiment(batch[source_id])
                 values = self._energy_values(
                     samples,
-                    batch[source_id][self.action_key],
+                    batch[source_id][self._action_key_for_id(embodiment_id)],
                     embodiment_id,
                     label,
                 )

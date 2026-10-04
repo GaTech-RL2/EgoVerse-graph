@@ -1,0 +1,92 @@
+# Historical/non-canonical YAM+human co-train. Exact roots and split hashes are
+# supplied by the run bundle; distinct validation groups avoid max-size cycling.
+_target_: egomimic.pl_utils.pl_data_utils.ProportionalMultiDataModuleWrapper
+proportional_train_batch_size: 8
+proportional_train_num_workers: 12
+proportional_train_seed: 42
+proportional_pin_memory: true
+
+train_datasets:
+  yam_bimanual: &yam
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
+      folder_path: ${e1.data_root}
+      embodiment_override: yam_bimanual
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: ${e1.chunk_length}
+        embodiment: yam
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: ${e1.variant}
+        chunk_length: ${e1.chunk_length}
+        time_rows: ${e1.time_rows}
+        min_distance_unit: ${e1.D}
+        resampled_vector_length: ${e1.M}
+        stride: 1
+        rotation_mode: euler
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        embodiment: yam
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 227
+    expected_train_episode_names_sha256: ${oc.env:YAM_TRAIN_IDS_SHA256}
+    expected_valid_episode_count: 2
+    expected_valid_episode_names_sha256: ${oc.env:YAM_VALID_IDS_SHA256}
+    bounds_check: false
+  human_bimanual: &human
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:AF_HUMAN_DATA_ROOT}
+      embodiment_override: human_bimanual
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: keypoints
+        has_head_pose: true
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: keypoints
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 3
+        chunk_length: 100
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 36
+    expected_train_episode_names_sha256: ${oc.env:HUMAN_TRAIN_IDS_SHA256}
+    expected_valid_episode_count: 1
+    expected_valid_episode_names_sha256: ${oc.env:HUMAN_VALID_IDS_SHA256}
+    bounds_check: false
+
+valid_datasets:
+  yam:
+    yam_bimanual:
+      <<: *yam
+      mode: valid
+  human:
+    human_bimanual:
+      <<: *human
+      mode: valid
+
+# The proportional loader owns training batches. These fields remain explicit
+# because the parent datamodule's constructor requires the mappings.
+train_dataloader_params: {}
+valid_dataloader_params:
+  yam:
+    yam_bimanual:
+      batch_size: 4
+      num_workers: 8
+      shuffle: false
+  human:
+    human_bimanual:
+      batch_size: 4
+      num_workers: 8
+      shuffle: false

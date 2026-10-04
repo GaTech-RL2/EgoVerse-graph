@@ -1,0 +1,141 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42
+  - override /data: pusht/action_flow_chain_native4_points6_manual4919_val01_h16
+  - override /model: bf/chain_native4_points6_action_flow_h384d12h12
+  - _self_
+
+name: action_flow_chain_native4_points6_manual4919_h384_150k_s42
+description: "ChainGripper 4919 native4/points6 paired Action Flow, shared H384 field, seed42, 150k"
+seed: 42
+val_at_end: true
+
+trainer:
+  max_steps: 150000
+  val_check_interval: 15000
+  limit_val_batches: 8
+  precision: bf16-mixed
+
+callbacks:
+  model_checkpoint:
+    filename: "epoch-{epoch}-step-{step}"
+    save_last: link
+    save_top_k: -1
+    every_n_train_steps: 5000
+    every_n_epochs: null
+
+planar:
+  action_model_dim: null
+  action_dims:
+    pushshapes_sim_chain_gripper_native4: 4
+    pushshapes_sim_chain_gripper: 6
+  eval_native_decoder: null
+
+data:
+  valid_dataloader_params:
+    pushshapes_sim_chain_gripper_native4:
+      batch_size: 32
+    pushshapes_sim_chain_gripper:
+      batch_size: 32
+
+model:
+  flow_loss_aggregation: sum_samples
+  cfg_scale: 4.0
+  cfg_interval: [0.0, 1.0]
+
+evaluator:
+  native_decoder: null
+  native_decoders:
+    pushshapes_sim_chain_gripper_native4:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperNative4Decoder
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+  semantic_blocks_by_embodiment:
+    pushshapes_sim_chain_gripper_native4: [[0, 2], [2, 3], [3, 4]]
+    pushshapes_sim_chain_gripper: [[0, 2], [2, 4], [4, 6]]
+  energy_score_distance: null
+  energy_score_distances_by_embodiment:
+    pushshapes_sim_chain_gripper_native4:
+      type: chain_native4_xy_wrapped_theta_grip_v1
+      complete_normalized_chunk_shape: [16, 4]
+      native_theta_index: 2
+      rotation_scale_radians: 3.141592653589793
+      semantic_weights: {translation: 0.3333333333333333, rotation: 0.3333333333333333, grip: 0.3333333333333333}
+      native_decoder: egomimic.pipeline.pushshapes.ChainGripperNative4Decoder
+    pushshapes_sim_chain_gripper: null
+  energy_score_provenance:
+    distance_contract: ${evaluator.energy_score_distances_by_embodiment}
+    action_representation: null
+    action_representations: ${run_provenance.action_contract.representations}
+  energy_score_validation_view:
+    per_rank_batch_size: 32
+  action_flow_diagnostics:
+    native_error: null
+    provenance:
+      action_representation: null
+      action_representations: ${run_provenance.action_contract.representations}
+    validation_view:
+      per_rank_batch_size: 32
+
+run_provenance:
+  source_commit: null
+  normalization_sha256: null
+  content_manifest_path: null
+  content_manifest_sha256: null
+  dataset_content_aggregate_sha256: null
+  split_manifest_path: null
+  split_manifest_sha256: null
+  split_seed: 42
+  valid_ratio: 0.01
+  train_episode_count_per_domain:
+    pushshapes_sim_chain_gripper_native4: 4870
+    pushshapes_sim_chain_gripper: 4870
+  valid_episode_count_per_domain:
+    pushshapes_sim_chain_gripper_native4: 49
+    pushshapes_sim_chain_gripper: 49
+  union_episode_count_per_domain:
+    pushshapes_sim_chain_gripper_native4: 4919
+    pushshapes_sim_chain_gripper: 4919
+  architecture:
+    family: action_flow_private_codecs_shared_field_h384d12h12
+    tokenizer: two_private_UniteDiTBackbone_h384_d12_h12
+    denoiser: one_shared_UniteDiTBackbone_h384_d12_h12
+    decoder: two_private_UniteActionDecoder_h384_d12_h12
+    tokenizer_denoiser_weight_sharing: false
+    action_shape: null
+    action_shapes:
+      pushshapes_sim_chain_gripper_native4: [16, 4]
+      pushshapes_sim_chain_gripper: [16, 6]
+  objective:
+    domain_aggregation: equal_mean_from_one_batch32_per_representation
+    flow_samples_per_content: 14
+    flow_aggregation: sum_of_14_per_sample_means
+  action_contract:
+    representation: null
+    native_decoder: null
+    representations:
+      pushshapes_sim_chain_gripper_native4: x_y_theta_radians_grip
+      pushshapes_sim_chain_gripper: left_xy_center_xy_right_xy_points6
+    prediction_horizon: 16
+  energy_score_contract:
+    sample_count: 32
+    seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    distance: ${evaluator.energy_score_distances_by_embodiment}
+  validation:
+    interval_optimizer_steps: 15000
+    limit_batches: 8
+    per_rank_batch_size: 32
+
+deployment:
+  observation_adapter: null
+  action_decoder: null
+  observation_adapters:
+    pushshapes_sim_chain_gripper_native4:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperModelStateObservationAdapter
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperModelStateObservationAdapter
+  action_decoders:
+    pushshapes_sim_chain_gripper_native4:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperNative4Decoder
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder

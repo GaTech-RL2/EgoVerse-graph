@@ -238,6 +238,22 @@ class ChainGripperModelStateObservationAdapter(USocketModelStateObservationAdapt
     """ChainGripper proprio: the same rotvec4 agent pose as the U-Socket adapter."""
 
 
+class ChainGripperNative4Decoder:
+    """Validate and pass through native ``[x, y, theta, grip]`` commands."""
+
+    preserves_decoded_timing = True
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        if actions.ndim < 2 or actions.shape[-1] != 4:
+            raise ValueError(
+                f"ChainGripperNative4Decoder expects (..., 4), got {actions.shape}"
+            )
+        return actions
+
+    __call__ = decode
+
+
 class ChainGripperPointsNativeDecoder:
     """Decode ``[L, C, R]`` six-point chunks into native ``[x, y, theta, grip]``.
 

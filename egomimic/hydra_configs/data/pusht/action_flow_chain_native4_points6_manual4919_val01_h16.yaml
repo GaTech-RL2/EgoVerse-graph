@@ -1,0 +1,73 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Two logical representations over the same immutable 4,919 physical episodes.
+# Both route IDs use the identical seed-42 episode split, never a second split.
+train_datasets:
+  pushshapes_sim_chain_gripper_native4: &native_train
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_CHAIN_GRIPPER_ROOT}
+      embodiment_override: pushshapes_sim_chain_gripper_native4
+      expected_episode_count: 4919
+      expected_episode_names_sha256: aec6051fcf76b941f480c52b71fc9a38e192caa3ff49d93929b6607daa9e0002
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_native4_action_rotvec_state_transform_list
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 4870
+    expected_train_episode_names_sha256: 3f5d78892b8efa0b312869c1638753d9795611d7680c64db0080fd62b07f91e7
+    expected_valid_episode_count: 49
+    expected_valid_episode_names_sha256: 4a10302d2bdad7f0b09b435ed1f865c98303e7488c726bedd71e1cc6803749b3
+    bounds_check: false
+  pushshapes_sim_chain_gripper: &points_train
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_CHAIN_GRIPPER_ROOT}
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 4919
+      expected_episode_names_sha256: aec6051fcf76b941f480c52b71fc9a38e192caa3ff49d93929b6607daa9e0002
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_points_action_state_transform_list
+    mode: train
+    valid_ratio: 0.01
+    split_seed: 42
+    expected_train_episode_count: 4870
+    expected_train_episode_names_sha256: 3f5d78892b8efa0b312869c1638753d9795611d7680c64db0080fd62b07f91e7
+    expected_valid_episode_count: 49
+    expected_valid_episode_names_sha256: 4a10302d2bdad7f0b09b435ed1f865c98303e7488c726bedd71e1cc6803749b3
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_chain_gripper_native4:
+    <<: *native_train
+    mode: valid
+  pushshapes_sim_chain_gripper:
+    <<: *points_train
+    mode: valid
+
+train_dataloader_params:
+  pushshapes_sim_chain_gripper_native4: &train_loader
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  pushshapes_sim_chain_gripper:
+    <<: *train_loader
+
+valid_dataloader_params:
+  pushshapes_sim_chain_gripper_native4: &valid_loader
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+  pushshapes_sim_chain_gripper:
+    <<: *valid_loader

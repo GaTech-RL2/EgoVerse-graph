@@ -31,6 +31,9 @@ class EMBODIMENT(Enum):
     YAM_BIMANUAL = 7
     PUSHSHAPES_SIM_U_SOCKET = 19
     PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
+    # A logical training route over the same physical ChainGripper episodes.
+    # Keep the original ID for the six-point target and never rewrite Zarr metadata.
+    PUSHSHAPES_SIM_CHAIN_GRIPPER_NATIVE4 = 21
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

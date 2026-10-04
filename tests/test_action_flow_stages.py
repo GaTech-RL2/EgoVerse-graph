@@ -11,6 +11,8 @@ from egomimic.pipeline.stages_action_flow import (
     ContentDecoderStage,
     ContentEncoderStage,
     LatentBridgeStage,
+    RoutedContentDecoderStage,
+    RoutedContentEncoderStage,
 )
 from egomimic.pipeline.stages_sampler import GaussianLatentNoise
 
@@ -61,6 +63,53 @@ class _ConstantField(nn.Module):
         self.seen_times.append(time.clone())
         self.seen_masks.append(condition_drop_mask.clone())
         return torch.full_like(value, self.value)
+
+
+def test_routed_chain_codecs_share_field_and_update_both_private_routes():
+    encoders = {"native4": _LastDimLinear(4, 3), "points6": _LastDimLinear(6, 3)}
+    decoders = {"native4": _LastDimLinear(3, 4), "points6": _LastDimLinear(3, 6)}
+    field = _TinyField(latent_dim=3, condition_dim=5)
+    stages = (
+        RoutedContentEncoderStage(
+            encoders, route_key="embodiment", route_aliases={21: "native4", 20: "points6"}
+        ),
+        LatentBridgeStage(samples_per_content=2, condition_dropout_probability=0.0),
+        ConditionalVelocityStage(field, num_inference_steps=3),
+        RoutedContentDecoderStage(
+            decoders, route_key="embodiment", route_aliases={21: "native4", 20: "points6"}
+        ),
+        ActionFlowObjectiveStage(),
+    )
+    for route_id, width in ((21, 4), (20, 6)):
+        batch = {
+            "embodiment": torch.full((2,), route_id),
+            "target": torch.randn(2, 4, width),
+            "condition": torch.randn(2, 5),
+            "sampler/noise": torch.randn(2, 4, 3),
+        }
+        for stage in stages:
+            batch = stage(batch)
+        assert batch["action_flow/reconstruction"].shape == (2, 4, width)
+        batch["loss/action_flow"].backward()
+
+    for module in (*encoders.values(), *decoders.values(), field):
+        assert any(
+            parameter.grad is not None
+            and bool(torch.isfinite(parameter.grad).all())
+            and float(parameter.grad.abs().sum()) > 0
+            for parameter in module.parameters()
+        )
+
+
+def test_routed_chain_codecs_reject_mixed_or_unknown_routes():
+    stage = RoutedContentEncoderStage(
+        {"native4": _LastDimLinear(4, 3)}, route_key="embodiment", route_aliases={21: "native4"}
+    )
+    target = torch.randn(2, 4, 4)
+    with pytest.raises(ValueError, match="homogeneous"):
+        stage({"embodiment": torch.tensor([21, 20]), "target": target})
+    with pytest.raises(KeyError, match="no routed module"):
+        stage({"embodiment": torch.tensor([20, 20]), "target": target})
 
 
 def test_bridge_reuses_one_base_noise_and_drop_mask_across_independent_times():

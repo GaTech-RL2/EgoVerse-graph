@@ -19,8 +19,11 @@ from egomimic.eval.artifact_paths import (
     artifact_execution_identity,
 )
 from egomimic.eval.energy_score import (
+    CHAIN_NATIVE4_DECODER,
     USOCKET_NATIVE_DECODER,
+    chain_native4_chunk_distance,
     energy_score,
+    normalize_chain_native4_energy_distance_config,
     normalize_usocket_energy_distance_config,
     usocket_energy_distance_metadata,
     usocket_xy_theta_chunk_distance,
@@ -98,6 +101,7 @@ class PlanarActionEval(Eval):
         energy_score_validation_view: Mapping | None = None,
         energy_score_provenance: Mapping | None = None,
         energy_score_distance: Mapping | None = None,
+        energy_score_distances_by_embodiment: Mapping | None = None,
         unite_diagnostics: Mapping | None = None,
         action_flow_diagnostics: Mapping | None = None,
     ):
@@ -135,6 +139,14 @@ class PlanarActionEval(Eval):
             if energy_score_distance is None
             else normalize_usocket_energy_distance_config(energy_score_distance)
         )
+        if self.energy_score_distance is not None and energy_score_distances_by_embodiment:
+            raise ValueError("configure one global or per-embodiment EnergyScore distance")
+        self.energy_score_distances_by_embodiment = {
+            str(label).lower(): (
+                None if value is None else normalize_chain_native4_energy_distance_config(value)
+            )
+            for label, value in dict(energy_score_distances_by_embodiment or {}).items()
+        }
         self.energy_score_distance_metadata = (
             {
                 "space": "normalized_action_chunk",
@@ -149,6 +161,12 @@ class PlanarActionEval(Eval):
             if self.energy_score_distance is None
             else usocket_energy_distance_metadata(self.energy_score_distance)
         )
+        if self.energy_score_distances_by_embodiment:
+            self.energy_score_distance_metadata = {
+                "space": "per_embodiment_fixed_contract",
+                "distances": self.energy_score_distances_by_embodiment,
+                "generic_blocks": dict(self.blocks_by_embodiment),
+            }
         self.unite_diagnostics = (
             self._metadata_copy(
                 unite_diagnostics,
@@ -750,7 +768,26 @@ class PlanarActionEval(Eval):
         if samples.ndim != 4 or samples.shape[0] != 32:
             raise ValueError("EnergyScore@32 requires exactly 32 samples")
         distance_fn = None
-        if self.energy_score_distance is not None:
+        if self.energy_score_distances_by_embodiment and str(label).lower() not in self.energy_score_distances_by_embodiment:
+            raise KeyError(f"no EnergyScore distance declared for {label!r}")
+        route_distance = self.energy_score_distances_by_embodiment.get(
+            str(label).lower()
+        )
+        if route_distance is not None:
+            decoder = self._native_decoder(embodiment_id)
+            if self._decoder_identity(decoder) != CHAIN_NATIVE4_DECODER:
+                raise TypeError("typed Chain native4 metric requires its exact decoder")
+
+            def distance_fn(left, right):
+                return chain_native4_chunk_distance(
+                    left,
+                    right,
+                    self._native(left, embodiment_id, decoder),
+                    self._native(right, embodiment_id, decoder),
+                    config=route_distance,
+                )
+
+        elif self.energy_score_distance is not None:
             decoder = self._native_decoder(embodiment_id)
             self._require_usocket_decoder(decoder)
 
@@ -870,7 +907,18 @@ class PlanarActionEval(Eval):
             )
 
         distance_contract = provenance.get("distance_contract")
-        if self.energy_score_distance is None:
+        if self.energy_score_distances_by_embodiment:
+            configured = {
+                label: value
+                for label, value in self.energy_score_distances_by_embodiment.items()
+            }
+            declared = dict(distance_contract or {})
+            if set(declared) != set(configured) or any(
+                (None if declared[label] is None else normalize_chain_native4_energy_distance_config(declared[label])) != value
+                for label, value in configured.items()
+            ):
+                raise ValueError("EnergyScore per-embodiment distance contract differs")
+        elif self.energy_score_distance is None:
             if distance_contract is not None:
                 raise ValueError("generic EnergyScore distance contract differs")
         else:
@@ -1050,7 +1098,8 @@ class PlanarActionEval(Eval):
                 .cpu(),
                 "score_by_condition": values["score_by_condition"].float().cpu(),
             }
-            if self.energy_score_distance is not None or self.native_decoder is not None:
+            if (self.energy_score_distance is not None or self.energy_score_distances_by_embodiment
+                    or self.native_decoder is not None or self.native_decoders):
                 decoder = self._native_decoder(embodiment_id)
                 if self.energy_score_distance is not None:
                     self._require_usocket_decoder(decoder)

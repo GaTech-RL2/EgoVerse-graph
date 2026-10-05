@@ -2009,6 +2009,18 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         self.key_map = key_map
         self.transform = transform_list
+        views = [t for t in (self.transform or []) if hasattr(t, "sample_views")]
+        if len(views) > 1:
+            raise ValueError("Only one virtual-view transform is supported")
+        self._view_transform = views[0] if views else None
+        self._valid_anchors = self.total_frames
+        if self._view_transform is not None:
+            t = self._view_transform
+            if float(self.metadata.get("fps", -1)) != t.fps:
+                raise ValueError("Episode FPS differs from retiming clock")
+            if self.key_map[t.action_key].get("horizon") != t.required_frames:
+                raise ValueError("Raw keymap horizon must equal retiming required_frames")
+            self._valid_anchors = max(0, self.total_frames - t.required_frames + 1)
         self.image_hw = tuple(image_hw) if image_hw else None
         # (H, W) of this episode's front camera BEFORE any resize, captured at
         # decode time so the intrinsics can be rescaled by the same factors.
@@ -2097,7 +2109,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         return valid_annotations
 
     def __len__(self) -> int:
-        return self.total_frames
+        views = self._view_transform.sample_views if self._view_transform else 1
+        return self._valid_anchors * views
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
         """End index (exclusive) for a windowed read starting at ``start_idx``.
@@ -2136,14 +2149,19 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         origin = _fallback_origin if _fallback_origin is not None else idx
         attempts = _attempts
+        if not 0 <= idx < len(self):
+            raise IndexError(idx)
+        view = 0
+        if self._view_transform is not None:
+            idx, view = divmod(idx, self._view_transform.sample_views)
 
         def _next(reason: str, key: str = "") -> int:
             nonlocal attempts
             next_idx, attempts = get_fallback_idx(
                 idx=idx,
-                candidates=range(self.total_frames),
+                candidates=range(self._valid_anchors),
                 _attempts=attempts,
-                max_attempts=self.total_frames,
+                max_attempts=self._valid_anchors,
                 exhausted_error=(
                     f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
                 ),
@@ -2174,6 +2192,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                     read_interval = (idx, None)
                 read_dict = {zarr_key: read_interval}
                 raw_data = self.episode_reader.read(read_dict)
+                if self._view_transform is not None and k == self._view_transform.action_key:
+                    if len(raw_data[zarr_key]) != self._view_transform.required_frames:
+                        raise ValueError("Retiming refuses padded or truncated command windows")
                 self._pad_sequences(raw_data, horizon)  # should be able to pad images
                 data[k] = raw_data[zarr_key]
 
@@ -2203,6 +2224,8 @@ class ZarrDataset(torch.utils.data.Dataset):
                 continue
 
             if self.transform:
+                if self._view_transform is not None:
+                    data["_retiming_view"] = view
                 for transform in self.transform or []:
                     data = transform.transform(data)
 

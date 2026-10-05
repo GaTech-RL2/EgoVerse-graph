@@ -1,0 +1,95 @@
+{
+  "observed_at_utc": "2026-10-05T17:59:02.996097+00:00",
+  "runs": [
+    {
+      "run": "arc-ss-20261005-object-gripper-stk-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_stk"
+        },
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-05T17:53:59+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 947,
+          "planned": 2500,
+          "per_repetition": [
+            180,
+            201,
+            189,
+            188,
+            189
+          ],
+          "workers": 5
+        },
+        "sha256": "0de15aff589ccad585a2bb5adf566f2ea5c34fb43887aaa4724ec3459e13b43d",
+        "last_modified": "2026-10-05T17:58:58+00:00"
+      }
+    },
+    {
+      "run": "arc-ss-20261005-object-xyz-scalar-stk-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_stk"
+        },
+        "sha256": "0f0e77fea747eff60c07c98e031cca847951f7989129316edcacc9099f86222d",
+        "last_modified": "2026-10-05T17:58:33+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 760,
+          "planned": 2500,
+          "per_repetition": [
+            153,
+            155,
+            143,
+            157,
+            152
+          ],
+          "workers": 5
+        },
+        "sha256": "d42746d65602cbb1cf30111fe595b6954ce8f28b350e3dbe5598c29c07a96a97",
+        "last_modified": "2026-10-05T17:58:27+00:00"
+      }
+    },
+    {
+      "run": "arc-ss-20261005-object-component-time-dur-eval",
+      "status.json": {
+        "data": {
+          "state": "ROLLOUTS",
+          "method": "arc_dur"
+        },
+        "sha256": "b3dcc1890a41903e737de6ae8b2c3fb23e5915ab5811064323e39dd950b1cc80",
+        "last_modified": "2026-10-05T17:54:14+00:00"
+      },
+      "evaluation-progress.json": {
+        "data": {
+          "episodes": 60,
+          "planned": 2500,
+          "per_repetition": [
+            13,
+            11,
+            12,
+            13,
+            11
+          ],
+          "workers": 5
+        },
+        "sha256": "cb4b0c09178ddbc9e3de44840b4c283eef7bb034545cc45cc1e046c36b4c2230",
+        "last_modified": "2026-10-05T17:58:40+00:00"
+      }
+    },
+    {
+      "run": "arc-st-20261005-spatial-xyz-scalar-dur"
+    },
+    {
+      "run": "arc-st-20261005-goal-x-yz-stk"
+    },
+    {
+      "run": "arc-st-20261005-10-gripper-dur"
+    }
+  ]
+}

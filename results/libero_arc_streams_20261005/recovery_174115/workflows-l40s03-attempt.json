@@ -1,0 +1,814 @@
+[
+  {
+    "name": "arc-ss-20261005-object-1",
+    "status": "RUNNING",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "submit_time": "2026-10-05T17:51:05.412963",
+    "start_time": "2026-10-05T17:51:12.848142",
+    "observed_at_utc": "2026-10-05T17:53:33.235708+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-01",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T17:51:38.663726",
+        "end_time": null
+      },
+      {
+        "name": "evaluate-02",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T17:51:42.310164",
+        "end_time": null
+      },
+      {
+        "name": "evaluate-03",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T17:51:43.069364",
+        "end_time": null
+      },
+      {
+        "name": "evaluate-04",
+        "status": "INITIALIZING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-05",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T17:51:43.739989",
+        "end_time": null
+      },
+      {
+        "name": "evaluate-06",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T17:51:38.788849",
+        "end_time": null
+      },
+      {
+        "name": "evaluate-07",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T17:51:42.761179",
+        "end_time": null
+      },
+      {
+        "name": "evaluate-08",
+        "status": "INITIALIZING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-09",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-10",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-11",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-12",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-13",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-14",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:12.883265",
+        "end_time": "2026-10-05T17:51:29.235354"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:12.848142",
+        "end_time": "2026-10-05T17:51:29.207986"
+      }
+    ]
+  },
+  {
+    "name": "arc-ss-20261005-spatial-1",
+    "status": "FAILED_CANCELED",
+    "pool": "groot-l40s-03",
+    "priority": "NORMAL",
+    "submit_time": "2026-10-05T17:51:20.919434",
+    "start_time": "2026-10-05T17:51:31.057305",
+    "observed_at_utc": "2026-10-05T17:53:34.806185+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-01",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:02.588207",
+        "end_time": "2026-10-05T17:52:24.796475"
+      },
+      {
+        "name": "evaluate-02",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:01.889374",
+        "end_time": "2026-10-05T17:52:24.799675"
+      },
+      {
+        "name": "evaluate-03",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:01.284414",
+        "end_time": "2026-10-05T17:52:24.807325"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:03.587415",
+        "end_time": "2026-10-05T17:52:24.808772"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.812116"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:03.573696",
+        "end_time": "2026-10-05T17:52:24.814563"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.820555"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.825968"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.829364"
+      },
+      {
+        "name": "evaluate-10",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.834263"
+      },
+      {
+        "name": "evaluate-11",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.839778"
+      },
+      {
+        "name": "evaluate-12",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.840310"
+      },
+      {
+        "name": "evaluate-13",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.845897"
+      },
+      {
+        "name": "evaluate-14",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.853847"
+      },
+      {
+        "name": "evaluate-15",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.863010"
+      },
+      {
+        "name": "evaluate-16",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.869321"
+      },
+      {
+        "name": "evaluate-17",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.880495"
+      },
+      {
+        "name": "evaluate-18",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.883402"
+      },
+      {
+        "name": "evaluate-19",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.904609"
+      },
+      {
+        "name": "evaluate-20",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.905718"
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:31.057305",
+        "end_time": "2026-10-05T17:51:49.431349"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:32.067299",
+        "end_time": "2026-10-05T17:51:49.491605"
+      },
+      {
+        "name": "train-05",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:51:31.857915",
+        "end_time": "2026-10-05T17:52:24.911939"
+      },
+      {
+        "name": "train-09",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.920527"
+      },
+      {
+        "name": "train-10",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:51:32.593770",
+        "end_time": "2026-10-05T17:52:24.927308"
+      },
+      {
+        "name": "train-11",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:51:33.600853",
+        "end_time": "2026-10-05T17:52:24.930107"
+      },
+      {
+        "name": "train-12",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:51:33.323530",
+        "end_time": "2026-10-05T17:52:24.932122"
+      },
+      {
+        "name": "train-13",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:51:33.305435",
+        "end_time": "2026-10-05T17:52:24.942868"
+      },
+      {
+        "name": "train-14",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.946147"
+      },
+      {
+        "name": "train-15",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.947972"
+      },
+      {
+        "name": "train-16",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.953585"
+      },
+      {
+        "name": "train-17",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.967526"
+      },
+      {
+        "name": "train-18",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.969870"
+      },
+      {
+        "name": "train-19",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.976080"
+      },
+      {
+        "name": "train-20",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:24.983751"
+      }
+    ]
+  },
+  {
+    "name": "arc-ss-20261005-goal-1",
+    "status": "FAILED_CANCELED",
+    "pool": "groot-l40s-03",
+    "priority": "NORMAL",
+    "submit_time": "2026-10-05T17:51:39.487689",
+    "start_time": "2026-10-05T17:51:48.169167",
+    "observed_at_utc": "2026-10-05T17:53:36.237216+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-02",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:15.220900",
+        "end_time": "2026-10-05T17:52:17.322082"
+      },
+      {
+        "name": "evaluate-03",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:17.191233",
+        "end_time": "2026-10-05T17:52:17.328574"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.331099"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:16.187725",
+        "end_time": "2026-10-05T17:52:17.336912"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.339379"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:15.180190",
+        "end_time": "2026-10-05T17:52:17.345517"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.351226"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.354268"
+      },
+      {
+        "name": "evaluate-10",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.358647"
+      },
+      {
+        "name": "evaluate-11",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.365234"
+      },
+      {
+        "name": "evaluate-12",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.369812"
+      },
+      {
+        "name": "evaluate-13",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.369902"
+      },
+      {
+        "name": "evaluate-14",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.382730"
+      },
+      {
+        "name": "evaluate-15",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.381653"
+      },
+      {
+        "name": "evaluate-16",
+        "status": "FAILED_UPSTREAM",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.420052"
+      },
+      {
+        "name": "evaluate-17",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.407538"
+      },
+      {
+        "name": "evaluate-18",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.409628"
+      },
+      {
+        "name": "evaluate-19",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.412499"
+      },
+      {
+        "name": "evaluate-20",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.417589"
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:48.169167",
+        "end_time": "2026-10-05T17:52:05.491295"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:50.163474",
+        "end_time": "2026-10-05T17:52:06.977985"
+      },
+      {
+        "name": "train-09",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.425015"
+      },
+      {
+        "name": "train-10",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.437304"
+      },
+      {
+        "name": "train-11",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:51:53.037543",
+        "end_time": "2026-10-05T17:52:17.433253"
+      },
+      {
+        "name": "train-12",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:51:53.017841",
+        "end_time": "2026-10-05T17:52:17.440974"
+      },
+      {
+        "name": "train-13",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:00.441213",
+        "end_time": "2026-10-05T17:52:17.459908"
+      },
+      {
+        "name": "train-14",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:51:59.904300",
+        "end_time": "2026-10-05T17:52:17.462896"
+      },
+      {
+        "name": "train-15",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.463534"
+      },
+      {
+        "name": "train-16",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.467261"
+      },
+      {
+        "name": "train-17",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.467712"
+      },
+      {
+        "name": "train-18",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.470100"
+      },
+      {
+        "name": "train-19",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.478020"
+      },
+      {
+        "name": "train-20",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:17.477116"
+      }
+    ]
+  },
+  {
+    "name": "arc-ss-20261005-10-1",
+    "status": "FAILED_CANCELED",
+    "pool": "groot-l40s-03",
+    "priority": "NORMAL",
+    "submit_time": "2026-10-05T17:51:52.836680",
+    "start_time": "2026-10-05T17:52:02.536048",
+    "observed_at_utc": "2026-10-05T17:53:38.916231+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-03",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:38.981563"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:38.987824"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:38.992948"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.000462"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.007117"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.021134"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.026932"
+      },
+      {
+        "name": "evaluate-10",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.030914"
+      },
+      {
+        "name": "evaluate-11",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.041379"
+      },
+      {
+        "name": "evaluate-12",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.042744"
+      },
+      {
+        "name": "evaluate-13",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.062755"
+      },
+      {
+        "name": "evaluate-14",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.071286"
+      },
+      {
+        "name": "evaluate-15",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.081611"
+      },
+      {
+        "name": "evaluate-16",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.089548"
+      },
+      {
+        "name": "evaluate-17",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.096506"
+      },
+      {
+        "name": "evaluate-18",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.096553"
+      },
+      {
+        "name": "evaluate-19",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.105233"
+      },
+      {
+        "name": "evaluate-20",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.131434"
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:52:02.536048",
+        "end_time": "2026-10-05T17:52:21.568296"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:52:03.223291",
+        "end_time": "2026-10-05T17:52:20.578678"
+      },
+      {
+        "name": "train-03",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:04.584466",
+        "end_time": "2026-10-05T17:52:39.141434"
+      },
+      {
+        "name": "train-04",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:05.646409",
+        "end_time": "2026-10-05T17:52:39.142992"
+      },
+      {
+        "name": "train-05",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:04.637565",
+        "end_time": "2026-10-05T17:52:39.152683"
+      },
+      {
+        "name": "train-06",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:06.403319",
+        "end_time": "2026-10-05T17:52:39.157547"
+      },
+      {
+        "name": "train-07",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:06.380959",
+        "end_time": "2026-10-05T17:52:39.157942"
+      },
+      {
+        "name": "train-08",
+        "status": "FAILED_CANCELED",
+        "start_time": "2026-10-05T17:52:08.150816",
+        "end_time": "2026-10-05T17:52:39.171851"
+      },
+      {
+        "name": "train-09",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.187481"
+      },
+      {
+        "name": "train-10",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.197245"
+      },
+      {
+        "name": "train-11",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.202199"
+      },
+      {
+        "name": "train-12",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.207110"
+      },
+      {
+        "name": "train-13",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.221105"
+      },
+      {
+        "name": "train-14",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.222947"
+      },
+      {
+        "name": "train-15",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.224522"
+      },
+      {
+        "name": "train-16",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.228233"
+      },
+      {
+        "name": "train-17",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.224781"
+      },
+      {
+        "name": "train-18",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.229218"
+      },
+      {
+        "name": "train-19",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.252376"
+      },
+      {
+        "name": "train-20",
+        "status": "FAILED_CANCELED",
+        "start_time": null,
+        "end_time": "2026-10-05T17:52:39.248409"
+      }
+    ]
+  }
+]

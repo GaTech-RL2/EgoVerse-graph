@@ -1,0 +1,7 @@
+{
+  "name": "arc-ss-20261005-spatial-1",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-ss-20261005-spatial-1",
+  "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/arc-ss-20261005-spatial-1/logs",
+  "spec": null,
+  "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=dabb21e8186b455d"
+}

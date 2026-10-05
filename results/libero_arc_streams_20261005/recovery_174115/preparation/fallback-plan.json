@@ -1,0 +1,47 @@
+[
+  {
+    "name": "arc-st-20261005-spatial",
+    "pool": "groot-l40s-01",
+    "file": "/tmp/libero-streams-analysis/20261005T174115Z/fallback/arc-st-20261005-spatial.yaml",
+    "sha256": "ea2247cb01ebbe319f226bb656a30c3966f7d8729e37952e6755c51f777b308d",
+    "training_cells": 13,
+    "evaluation_cells": 20,
+    "training_lanes": 6,
+    "evaluation_lanes": 6,
+    "old_name": "arc-ss-20261005-spatial",
+    "previous_status": "FAILED_CANCELED",
+    "previous_end_time": "2026-10-05T17:52:24.969870",
+    "previous_artifact_prefix_empty": true,
+    "validation_exit_code": 0
+  },
+  {
+    "name": "arc-st-20261005-goal",
+    "pool": "groot-l40s-01",
+    "file": "/tmp/libero-streams-analysis/20261005T174115Z/fallback/arc-st-20261005-goal.yaml",
+    "sha256": "4c292e1868317fe26268fb651da7c64523ec9362b14777272cdd00df28ba1aff",
+    "training_cells": 12,
+    "evaluation_cells": 19,
+    "training_lanes": 6,
+    "evaluation_lanes": 6,
+    "old_name": "arc-ss-20261005-goal",
+    "previous_status": "FAILED_CANCELED",
+    "previous_end_time": "2026-10-05T17:52:17.467261",
+    "previous_artifact_prefix_empty": true,
+    "validation_exit_code": 0
+  },
+  {
+    "name": "arc-st-20261005-10",
+    "pool": "groot-l40s-01",
+    "file": "/tmp/libero-streams-analysis/20261005T174115Z/fallback/arc-st-20261005-10.yaml",
+    "sha256": "2c181f1bbfde7c9ce16678a411fa89a95825a5b44e06788ce3e7b65284d9f45a",
+    "training_cells": 18,
+    "evaluation_cells": 18,
+    "training_lanes": 6,
+    "evaluation_lanes": 4,
+    "old_name": "arc-ss-20261005-10",
+    "previous_status": "FAILED_CANCELED",
+    "previous_end_time": "2026-10-05T17:52:39.250721",
+    "previous_artifact_prefix_empty": true,
+    "validation_exit_code": 0
+  }
+]

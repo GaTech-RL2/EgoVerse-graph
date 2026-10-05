@@ -1,7 +1,9 @@
-"""Data configs for the slow-pace YAM + RL2 Aria cotrain runs (Aidan, 2026-10-01).
+"""Data configs for the slow-pace YAM + RL2 Aria cotrain runs (Aidan, 2026-10-01) and their robot-only (BC) twins (10-05).
 
-Robot side: the slow-pace pool exactly as scratch_rl2_stattempo_slowpace_{time,arcdur} trains on it (Elmo + Aidan,
-217 train eps) and validates on it (the shared 24-episode held-out robot set). Human side: every RL2 Aria episode
+Robot side: the slow-pace pool by its rule (2a9f02b7: every rl2 YAM organize_stationary episode by Elmo or Aidan, minus
+the shared 24-episode held-out robot set), re-evaluated at build time so new uploads join; 217 train eps when the rule
+was made, and the build refuses if any of those 217 drops out. Validation is that held-out set. Same leaves as
+scratch_rl2_stattempo_slowpace_{time,arcdur}. Human side: every RL2 Aria episode
 (SQL lab=rl2, embodiment in --embodiments, frames > 0, zarr registered) whose task is in --tasks and whose hash date
 is on/after --since. The selection is frozen into the generated configs as an explicit hash list, plus a manifest. Elmo's first upload (2026-10-01) registered as
 embodiment='aria', task='organize stationary' (space) before conversion; both spellings and both embodiment labels are
@@ -9,9 +11,10 @@ accepted by default.
 
     build_slowpace_aria_cotrain.py --list [--since D]          rl2 Aria tasks/operators recorded since D, then exit
     build_slowpace_aria_cotrain.py --tasks T [T ...] [...]     write data/abc_arc/stationery_slowpace_aria_cotrain_<variant>.yaml
+                                                               and the robot-only data/abc_arc/stationery_slowpace_bc_<variant>.yaml
                                                                for --variants (default: all five below)
-    build_slowpace_aria_cotrain.py --check                     compose both experiments and load real samples (CPU node;
-                                                               syncs any missing Aria zarrs from R2 into the mirror)
+    build_slowpace_aria_cotrain.py --check                     compose the cotrain + BC experiments and load real samples
+                                                               (CPU node; syncs any missing zarrs from R2 into the mirror)
 Normally run through scripts/e1/launch_slowpace_aria_cotrain.sh.
 """
 import argparse, datetime, json, os, sys
@@ -22,28 +25,50 @@ H = CONS / "egomimic/hydra_configs"
 MIRROR = "/storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets"
 VARIANTS = ("time", "arcdur", "arcdurhyb", "arcvel", "arcvelhyb")
 OUT = {v: H / f"data/abc_arc/stationery_slowpace_aria_cotrain_{v}.yaml" for v in VARIANTS}
+OUT_BC = {v: H / f"data/abc_arc/stationery_slowpace_bc_{v}.yaml" for v in VARIANTS}
+TEMPO = CONS / "scripts/e1/stationery_tempo_manifest.json"
 
 
-def robot_base(v):
-    """The slow-pace robot leaves for variant v: the time / arcdur data configs as generated for the robot-only runs; the
-    other arc variants are the arcdur config with only the transform's variant changed (same window, D, M, episodes)."""
+def robot_base(v, hashes):
+    """The slow-pace robot leaves for variant v: the composed time / arcdur data config of the robot-only runs (the other
+    arc variants change only the transform's variant: same window, D, M), training on `hashes`."""
+    import re
+    from hydra import compose, initialize_config_dir
     from omegaconf import OmegaConf
-    cfg = OmegaConf.load(H / f"data/abc_arc/stationery_tempo_slowpace_{'time' if v == 'time' else 'arcdur'}.yaml")
+    with initialize_config_dir(config_dir=str(H), version_base=None):
+        cfg = compose("train_zarr_cartesian", overrides=[f"data=abc_arc/stationery_tempo_slowpace_{'time' if v == 'time' else 'arcdur'}"]).data
+    cfg = OmegaConf.create(OmegaConf.to_container(cfg))  # unstructured, so the human leaf can be added
     for group in ("train_datasets", "valid_datasets"):
         cfg[group].yam_bimanual.resolver.transform_list.variant = v
+    lams = cfg.train_datasets.yam_bimanual.filters.filter_lambdas
+    S = "frozenset({" + ",".join(f"'{h}'" for h in sorted(hashes)) + "})"
+    lams[0], n = re.subn(r"frozenset\(\{[^}]*\}\)", lambda m: S, lams[0])
+    assert n == 1, "slow-pace train filter has no frozenset to replace"
     return cfg
 MANIFEST = CONS / "scripts/e1/stationery_slowpace_aria_manifest.json"
 
 
-def rl2_aria(since, embodiments=("human_bimanual", "aria")):
+def rl2_episodes():
     from egomimic.utils.aws.aws_data_utils import load_env
     from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
     load_env()
     df = episode_table_to_df(create_default_engine())
-    ok = ((df["lab"] == "rl2") & df["embodiment"].isin(embodiments) & ~df["is_deleted"].astype(bool)
-          & (df["num_frames"].fillna(-1) > 0) & (df["zarr_processed_path"].fillna("") != "")
-          & (df["episode_hash"] >= since))
-    return df[ok]
+    return df[(df["lab"] == "rl2") & ~df["is_deleted"].astype(bool) & (df["num_frames"].fillna(-1) > 0)
+              & (df["zarr_processed_path"].fillna("") != "")]
+
+
+def rl2_aria(df, since, embodiments=("human_bimanual", "aria")):
+    return df[df["embodiment"].isin(embodiments) & (df["episode_hash"] >= since)]
+
+
+def robot_pool(df):
+    sets = json.loads(TEMPO.read_text())["sets"]
+    r = df[(df["embodiment"] == "yam_bimanual") & (df["task"] == "organize_stationary") & (df["rig_name"] == "rl2_abc")
+           & df["operator"].astype(str).str.lower().isin(["elmo", "aidan"]) & ~df["episode_hash"].isin(sets["val"]["episodes"])]
+    lost = set(sets["train_slowpace"]["episodes"]) - set(r["episode_hash"])
+    if lost:
+        sys.exit(f"{len(lost)} of the original 217 slow-pace episodes no longer match the rule (deleted/relabelled?): {sorted(lost)[:3]}")
+    return r.sort_values("episode_hash")
 
 
 def human_leaf(variant, hashes, embodiments):
@@ -75,8 +100,10 @@ def human_leaf(variant, hashes, embodiments):
 
 
 def build(args):
-    df = rl2_aria(args.since, args.embodiments)
-    sel = df[df["task"].isin(args.tasks)]
+    df = rl2_episodes()
+    robot = robot_pool(df)
+    sel = rl2_aria(df, args.since, args.embodiments)
+    sel = sel[sel["task"].isin(args.tasks)]
     if args.operators:
         sel = sel[sel["operator"].isin(args.operators)]
     sel = sel.sort_values("episode_hash")
@@ -89,12 +116,18 @@ def build(args):
     hashes = list(sel["episode_hash"])
     hours = float(sel["num_frames"].sum()) / 30 / 3600
     who = sel["operator"].value_counts().to_dict()
+    r_hashes = list(robot["episode_hash"])
+    r_hours = float(robot["num_frames"].sum()) / 30 / 3600
+    r_who = robot["operator"].value_counts().to_dict()
     for v in args.variants:
-        cfg = robot_base(v)
+        cfg = robot_base(v, r_hashes)
+        stamp = f"# GENERATED {datetime.datetime.now():%Y-%m-%d %H:%M} by scripts/e1/build_slowpace_aria_cotrain.py -- rebuild, don't edit.\n"
+        rn = (f"# Robot: slow-pace pool (Elmo + Aidan organize_stationary minus the shared 24-ep val) {len(r_hashes)} train eps / {r_hours:.2f} h,"
+              f" operators {r_who}; leaves of data/abc_arc/stationery_tempo_slowpace_{'time' if v == 'time' else 'arcdur'}.yaml, variant {v}.\n")
+        OUT_BC[v].write_text(stamp + rn + "# Robot-only (BC) twin of the cotrain config: no human leaf.\n" + OmegaConf.to_yaml(cfg))
         cfg.train_datasets.human_bimanual = human_leaf(v, hashes, set(sel["embodiment"]))
         cfg.train_dataloader_params.human_bimanual = {"batch_size": args.human_batch, "num_workers": 6, "persistent_workers": True}
-        head = (f"# GENERATED {datetime.datetime.now():%Y-%m-%d %H:%M} by scripts/e1/build_slowpace_aria_cotrain.py -- rebuild, don't edit.\n"
-                f"# Robot: data/abc_arc/stationery_tempo_slowpace_{'time' if v == 'time' else 'arcdur'}.yaml, variant {v} (slow-pace pool, 217 train, shared 24-ep val).\n"
+        head = (stamp + rn +
                 f"# Human: {len(hashes)} RL2 Aria eps / {hours:.2f} h, tasks {args.tasks}, since {args.since}, operators {who}.\n"
                 f"# Per step: robot batch 32 + human batch {args.human_batch}; validation is robot-only.\n")
         OUT[v].write_text(head + OmegaConf.to_yaml(cfg))
@@ -102,11 +135,13 @@ def build(args):
         "created": datetime.datetime.now().isoformat(timespec="seconds"), "query": vars(args), "variants": list(args.variants), "n": len(hashes),
         "hours": round(hours, 3), "operators": who, "tasks": sel["task"].value_counts().to_dict(),
         "rig_name": sel["rig_name"].value_counts().to_dict(), "embodiment": sel["embodiment"].value_counts().to_dict(),
-        "episodes": hashes}, indent=1))
+        "episodes": hashes,
+        "robot": {"n": len(r_hashes), "hours": round(r_hours, 3), "operators": r_who, "episodes": r_hashes}}, indent=1))
     print(f"human: {len(hashes)} eps, {hours:.2f} h, operators {who}, rigs {sel['rig_name'].value_counts().to_dict()}")
-    print("robot: slow-pace pool, 217 train eps (~2.2 h), shared 24-ep val")
+    print(f"robot: slow-pace pool, {len(r_hashes)} train eps ({len(r_hashes) - 217} beyond the original 217), {r_hours:.2f} h,"
+          f" operators {r_who}, shared 24-ep val")
     for v in args.variants:
-        print("wrote", OUT[v].relative_to(CONS))
+        print("wrote", OUT[v].relative_to(CONS), "and", OUT_BC[v].relative_to(CONS))
 
 
 def check():
@@ -114,7 +149,13 @@ def check():
     from hydra import compose, initialize_config_dir
     from hydra.core.hydra_config import HydraConfig
     from hydra.utils import instantiate
+    from omegaconf import OmegaConf
     man = json.loads(MANIFEST.read_text())
+
+    def dims(node):  # every action_dim / act_dim value in a resolved model config
+        if isinstance(node, dict):
+            return {f"{k}={v}" for k, v in node.items() if k in ("action_dim", "act_dim")} | {d for v in node.values() for d in dims(v)}
+        return {d for v in node for d in dims(v)} if isinstance(node, list) else set()
     for v in man.get("variants", ["time", "arcdur"]):
         with initialize_config_dir(config_dir=str(H), version_base=None):
             cfg = compose("train_zarr_cartesian", overrides=[f"+experiment=yam_arc_grid/cotrain_rl2_stattempo_slowpace_aria_{v}"],
@@ -133,6 +174,19 @@ def check():
                 a = np.asarray(item["actions_time"])
                 print(f"   human chunk: xyz travel L {np.linalg.norm(np.diff(a[:, :3], axis=0), axis=1).sum():.3f} m,"
                       f" R {np.linalg.norm(np.diff(a[:, 7:10], axis=0), axis=1).sum():.3f} m over 3.33 s; grip cols {a[0, [6, 13]]}")
+            if emb == "yam_bimanual" and "robot" in man:
+                assert len(ds.datasets) == man["robot"]["n"], f"robot leaf has {len(ds.datasets)} eps, manifest {man['robot']['n']}"
+        # BC twin: same robot leaves and action dims, no human leaf or domain
+        with initialize_config_dir(config_dir=str(H), version_base=None):
+            bc = compose("train_zarr_cartesian", overrides=[f"+experiment=yam_arc_grid/bc_rl2_stattempo_slowpace_{v}"])
+        assert list(bc.data.train_datasets) == ["yam_bimanual"], list(bc.data.train_datasets)
+        assert list(bc.model.pipeline.stages[1].domains) == ["yam_bimanual"], bc.model.pipeline.stages[1].domains
+        for g in ("train_datasets", "valid_datasets"):
+            assert OmegaConf.to_container(bc.data[g].yam_bimanual) == OmegaConf.to_container(cfg.data[g].yam_bimanual), f"bc {g} differs"
+        d_bc, d_co = dims(OmegaConf.to_container(bc.model, resolve=True)), dims(OmegaConf.to_container(cfg.model, resolve=True))
+        assert d_bc == d_co, (d_bc, d_co)
+        assert OmegaConf.to_container(bc.evaluator) == OmegaConf.to_container(cfg.evaluator), "bc evaluator differs"
+        print(f"   bc twin: robot leaves + evaluator identical, domains {list(bc.model.pipeline.stages[1].domains)}, {sorted(d_bc)}", flush=True)
     print("CHECK_OK")
 
 
@@ -149,7 +203,7 @@ if __name__ == "__main__":
     p.add_argument("--check", action="store_true")
     a = p.parse_args()
     if a.list:
-        df = rl2_aria(a.since, a.embodiments)
+        df = rl2_aria(rl2_episodes(), a.since, a.embodiments)
         print(f"rl2 Aria ({'/'.join(a.embodiments)}) episodes with frames since {a.since}: {len(df)}")
         if len(df):
             print(df.groupby(["embodiment", "task", "operator", "rig_name"]).agg(n=("episode_hash", "size"), frames=("num_frames", "sum"),

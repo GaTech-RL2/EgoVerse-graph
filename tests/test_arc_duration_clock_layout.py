@@ -278,6 +278,7 @@ def _cfg(name, monkeypatch):
         ("organize_rl2_elmo_hpt300_cotrain_baseline", 14, "baseline"),
         ("organize_rl2_elmo_hpt300_cotrain_multistream", 18, "arc"),
         ("organize_rl2_elmo_hpt300_cotrain_multistream_logclock", 18, "arc"),
+        ("organize_rl2_elmo_hpt300_cotrain_multistream_perwaypoint", 28, "arc"),
     ],
 )
 def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
@@ -312,6 +313,11 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
         assert not keep({**row, "embodiment": embodiment, "operator": "Aidan"})
         assert not keep({**row, "embodiment": embodiment, "lab": "abc"})
         assert dataset.valid_ratio == 0.05
+    if dim == 28:
+        assert cfg.evaluator.velocity_mode == "per_waypoint"
+        for dataset in train.values():
+            transforms = dataset.resolver.transform_list
+            assert (transforms.velocity_mode, transforms.velocity_layout) == ("per_waypoint", "wide")
     if dim == 18:
         assert cfg.evaluator.velocity_mode == "duration"
         assert cfg.evaluator.arc_chunking_mode == "multistream"

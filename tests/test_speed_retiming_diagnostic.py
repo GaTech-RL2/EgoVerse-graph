@@ -67,6 +67,17 @@ def test_unchanged_initialization_across_arms():
     assert all(torch.equal(a, b) for a, b in zip(*weights))
 
 
+def test_condition_initializer_never_reseeds_cuda(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Condition initializer must not reseed CUDA")
+    monkeypatch.setattr(torch, "manual_seed", forbidden)
+    monkeypatch.setattr(torch.cuda, "manual_seed_all", forbidden)
+    rng = torch.get_rng_state().clone()
+    for encoding in ("scalar", "fourier"):
+        SharedSpeedCondition(100., encoding)
+        assert torch.equal(rng, torch.get_rng_state())
+
+
 @pytest.mark.parametrize("encoding", ("scalar", "fourier"))
 def test_real_graph_consumes_speed_in_both_modes(encoding):
     from egomimic.pipeline.core import Pipeline

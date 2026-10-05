@@ -53,7 +53,10 @@ class SharedSpeedCondition(Stage):
         self.register_buffer("speed_reference", torch.tensor(float(speed_reference)))
         # Added layers must not shift initialization of the unchanged model.
         with torch.random.fork_rng(devices=[]):
-            torch.manual_seed(initialization_seed)
+            # These layers initialize on CPU. torch.manual_seed also reseeds
+            # CUDA generators, which fork_rng(devices=[]) does not restore.
+            torch.set_rng_state(torch.Generator(device="cpu").manual_seed(
+                initialization_seed).get_state())
             self.mlp = nn.Sequential(nn.Linear(1 if encoding == "scalar" else 5, hidden_dim),
                                      nn.SiLU(), nn.Linear(hidden_dim, condition_dim))
             nn.init.zeros_(self.mlp[-1].weight)

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Stationery tempo-bucket copy of the towels394 session's pack_train.sbatch (2545aac6): reuses that session's image + venv READ-ONLY
 # (VENV), runs code from a git-archive snapshot (SRC, which has no .git: the commit is read from SRC/COMMIT), writes only under RUN_ROOT.
-# Submit with --qos=loaner-low so the towels runs keep priority (they preempt + requeue us).
+# QOS: --qos=loaner-low kept the 9-25 towels runs ahead of us; loaner-high (slowpace366, 2026-10-05) preempts lower-QOS jobs.
 # Pack several small-DDP training runs onto ONE exclusive Lambda loaner node (8 x H100).
 # Loaner nodes are exclusive, so one run per job would idle most GPUs. Each run is its own srun step of
 # GPUS_PER_RUN tasks (default 2, Lightning DDP via the SLURM environment) inside the pytorch container, with its
@@ -22,6 +22,7 @@
 #SBATCH --partition=loaner
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:h100:8
+#SBATCH --mem-per-gpu=225G  # the partition default DefMemPerGPU=256000 MB x 8 exceeds a node: without it every submit fails "Requested node configuration is not available" (2026-10-05)
 #SBATCH --cpus-per-task=224
 #SBATCH --exclusive
 #SBATCH --time=2-00:00:00

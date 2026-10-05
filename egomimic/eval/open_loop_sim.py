@@ -830,7 +830,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         log_step: int | None = None,
         results_path: str | None = None,
         records_dump_path: str | None = None,
-        video_overlay_mode: str = "per_frame",
+        video_overlay_mode: str = "executed_chunk",
         trajectory_snapshot_path: str | None = None,
         video_only: bool = False,
         distance_dtw_enabled: bool = False,
@@ -1221,7 +1221,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         viz_partial = self.viz_func.get(embodiment_name)
         if viz_partial is None or self.obs_pose_key not in source_batch:
             return
-        if getattr(self, "video_overlay_mode", "per_frame") == "executed_chunk":
+        if getattr(self, "video_overlay_mode", "executed_chunk") == "executed_chunk":
             self._log_executed_chunk_frame(
                 source_id=source_id,
                 source_batch=source_batch,

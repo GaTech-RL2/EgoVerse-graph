@@ -64,7 +64,7 @@ with repeat-last padding at short tails.
 The public embodiment APIs and tokenizer use `arc_chunking_mode`. Omission
 remains `None` when forwarded to the codec: R present infers `joint_distance`;
 no R infers `multistream`. Any explicitly supplied mode requires a positive
-finite R and `velocity_mode=per_waypoint`. Legacy omitted-mode no-R APIs remain
+finite R and `velocity_mode` of `per_waypoint` or `duration`. Legacy omitted-mode no-R APIs remain
 usable. Human configs that omit both mode and R retain
 their existing fixed source window and stride settings.
 Old no-R resolver specs with `require_all_arms: false` retain race selection.
@@ -103,3 +103,32 @@ External caches of transformed targets and resume signatures must also
 distinguish the complete action contract. Pure image feature caches need no
 action-mode distinction if they contain no transformed actions or
 action-dependent sample selection.
+
+## Open-loop decoding
+
+This is the decoder every open-loop evaluation, DTW score and validation video
+uses.
+
+1. Keep the first `execute_fraction * M` waypoints of the predicted token
+   (`arc_execution_cap_mode: waypoints`).
+2. Interpolate each stream at the 30 Hz control rate on its own clock: each
+   arm's translation (D) and each arm's rotation (R). There is no fixed frame
+   cap; an ARC chunk covers a constant distance in a variable number of frames.
+3. Translation timing: a moving interval is timed by its position step over its
+   position rate (`per_waypoint`) or by its stored duration (`duration`,
+   `clock`, `log_clock`). The gripper rides the arm's translation clock and
+   sets the time only on a hold interval, where the arm's position does not
+   move. Do not take the longer of the position and gripper durations: a
+   predicted gripper twitch (a tiny step over a near-zero rate) then stretches
+   the whole arm's clock.
+4. `multistream` executes until the first stream (any arm, translation or
+   rotation) exhausts its retained waypoints, then replans. A stream that does
+   not move in the prefix cannot end the chunk. `race` and `joint_distance`
+   execute until every retained stream finishes.
+5. Ground truth for a chunk is the recorded episode over exactly the executed
+   frames, expressed in the replan frame's wrist frame. Distance DTW
+   (`arc_chunking_global_dtw_v5`) concatenates the executed chunks and aligns
+   them with the episode in world XYZ.
+6. Validation videos (`video_overlay_mode: executed_chunk`) draw the executed
+   chunk and its ground truth at the replan frame and hold that pair while the
+   video advances through the chunk, then replan.

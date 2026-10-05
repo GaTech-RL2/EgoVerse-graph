@@ -520,6 +520,7 @@ def test_open_loop_video_overlay_receives_only_matching_executed_prefixes(
 ):
     evaluator = _baseline_evaluator(execute_steps=2)
     evaluator._video_enabled = True
+    evaluator.video_overlay_mode = "per_frame"
     evaluator.trainer = SimpleNamespace(is_global_zero=True)
     evaluator.action_key = "actions_cartesian"
     evaluator.ground_truth_action_key = "actions_cartesian"

@@ -1,0 +1,5 @@
+# Validation flow-matching loss (the training objective on validation batches, fixed noise per batch).
+# Eval-only: see egomimic/eval/flow_loss_eval.py. Used by scripts/e1/cotrain_valloss_eval.sbatch.
+_target_: egomimic.eval.flow_loss_eval.FlowLossEval
+seed: 0
+results_path: ${paths.output_dir}/flow_loss.json

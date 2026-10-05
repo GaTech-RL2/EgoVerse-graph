@@ -147,39 +147,6 @@ def test_gripper_twitch_does_not_stretch_a_moving_arms_clock():
     np.testing.assert_allclose(decoded[:, :3], clean[:, :3], atol=1e-9)
 
 
-@pytest.mark.parametrize("layout", ["clock", "log_clock"])
-def test_non_positive_predicted_durations_cannot_stall_a_multistream_chunk(layout):
-    """A cotrain prediction (HPT300 240k, human frame 1) put zero or negative
-    seconds on moving intervals of all four streams. Read literally, every
-    stream stalled and the chunk ran to the end of the episode."""
-    from egomimic.rldb.zarr.arc_length_tokenizer import (
-        LOG_CLOCK_EPS,
-        MIN_INTERVAL_SECONDS,
-    )
-
-    raw = chunk()
-    clock = codec("multistream").transform({"actions": raw.copy()})["actions"]
-    bad = clock.copy()
-    bad[::2, 14:] = -1e-3
-    bad[1::2, 14:] = 0.0
-    if layout == "log_clock":
-        bad[:, 14:] = np.log(np.maximum(bad[:, 14:], 0.0) + LOG_CLOCK_EPS) - 1.0
-    ev = evaluator("duration")
-    decoded, steps = ev._decode_prediction_with_steps(
-        clock_token_seconds(bad, layout), max_steps=100_000
-    )
-    # 30 executed intervals at the floor take well under one control step.
-    assert steps == 1
-    assert np.isfinite(decoded).all()
-    # Holds still take no time: a stationary arm's zero is not floored.
-    still = codec("multistream").transform({"actions": chunk(right_still=True)})["actions"]
-    held = codec("multistream")._arm_stored_durations(
-        still[:, :14], stack_arc_token(still)[100:], 7, 200, rotation=False
-    )
-    moving = np.linalg.norm(np.diff(still[:, 7:10], axis=0), axis=1) > 1e-12
-    assert not moving.any() or np.all(held[moving] >= MIN_INTERVAL_SECONDS)
-
-
 def test_joint_distance_cannot_use_per_arm_duration_clocks():
     with pytest.raises(ValueError, match="joint_distance"):
         codec("joint_distance")

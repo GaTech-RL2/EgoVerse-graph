@@ -1163,13 +1163,6 @@ CLOCK_COLUMNS = (0, 3, 7, 10)
 # Seconds added before the log so a zero (hold) interval stays finite. Small
 # against one 30 Hz control step, so decoded holds round to zero steps.
 LOG_CLOCK_EPS = 1e-3
-# Shortest time a predicted duration-mode interval may take when it moves.
-# A hold (no motion) still takes zero time. A regressed duration can come out
-# zero or negative; read literally, that stream never finishes and a
-# multistream chunk never ends. Below every measured ground-truth moving
-# interval (shortest seen: 0.37 ms robot, 0.088 ms human), so ground-truth
-# decodes are unchanged.
-MIN_INTERVAL_SECONDS = 5e-5
 
 
 def clock_token_seconds(token, velocity_layout: str | None) -> np.ndarray:
@@ -2028,10 +2021,9 @@ class TokenizeBimanualArcLengthCartesian:
     ) -> np.ndarray:
         """Duration-mode counterpart of the rate path in :meth:`_arm_durations`.
 
-        The stored seconds are used directly. An interval that does not move
-        takes no time; a moving one takes at least ``MIN_INTERVAL_SECONDS``,
-        so a zero or negative prediction cannot stall the stream. Only a
-        non-finite duration holds instead of teleporting.
+        The stored seconds are used directly. As in the rate path, an interval
+        that does not move takes no time, and a moving interval with no usable
+        duration holds instead of teleporting.
         """
         if rotation:
             steps = np.diff(
@@ -2044,13 +2036,11 @@ class TokenizeBimanualArcLengthCartesian:
                 ),
                 np.abs(np.diff(waypoints[:, offset + 6])),
             )
-        stored = timing_rows[:-1, offset + 3 if rotation else offset]
-        moving, usable = steps > 1e-12, np.isfinite(stored)
-        duration = np.where(
-            moving & usable,
-            np.maximum(np.where(usable, stored, 0.0), MIN_INTERVAL_SECONDS),
-            0.0,
+        stored = np.clip(
+            timing_rows[:-1, offset + 3 if rotation else offset], 0.0, None
         )
+        moving, usable = steps > 1e-12, stored > 1e-8
+        duration = np.where(moving & usable, stored, 0.0)
         fallback = self.tokenizer.config.dt * (action_horizon + 1)
         missing = moving & ~usable
         if rotation:

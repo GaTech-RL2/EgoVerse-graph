@@ -440,12 +440,8 @@ def _arc_clock_durations(
                 else np.linalg.norm(np.diff(waypoints[:, columns], axis=0), axis=1)
             )
             if velocity_mode == "duration":
-                # Stored seconds are floored at MIN_INTERVAL_SECONDS when the
-                # interval moves (see _arm_stored_durations); only a non-finite
-                # duration is invalid.
-                seconds = timing[:-1, offset + 3 if rotation else offset]
-                masks.append((travel > 1e-12) & ~np.isfinite(seconds))
-                continue
+                # Stored seconds: a moving interval with no time is invalid.
+                rate = timing[:-1, offset + 3 if rotation else offset]
             else:
                 rate = np.linalg.norm(
                     (

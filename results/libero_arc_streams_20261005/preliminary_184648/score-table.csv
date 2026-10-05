@@ -9,3 +9,15 @@ xyz_scalar,STK,66.31% | 659/2500 episodes | 3/10 tasks | PARTIAL,39.59% | 1268/2
 xyz_scalar,DUR,pending,61.83% | 820/2500 episodes | 4/10 tasks | PARTIAL,89.45% | 1090/2500 episodes | 5/10 tasks | PARTIAL,pending
 component_velocity,STK,70.13% | 703/2500 episodes | 3/10 tasks | PARTIAL,50.36% | 1525/2500 episodes | 7/10 tasks | PARTIAL,90.19% | 1284/2500 episodes | 6/10 tasks | PARTIAL,pending
 component_velocity,DUR,73.70% | 829/2500 episodes | 4/10 tasks | PARTIAL,35.83% | 547/2500 episodes | 3/10 tasks | PARTIAL,87.12% | 1157/2500 episodes | 5/10 tasks | PARTIAL,pending
+x_yz,STK,pending,pending,pending,pending
+x_yz,DUR,pending,pending,pending,pending
+y_xz,STK,pending,pending,pending,pending
+y_xz,DUR,pending,pending,pending,pending
+z_xy,STK,pending,pending,pending,pending
+z_xy,DUR,pending,pending,pending,pending
+angular_driver,STK,pending,pending,pending,pending
+angular_driver,DUR,pending,pending,pending,pending
+angular_scalar,STK,pending,pending,pending,pending
+angular_scalar,DUR,pending,pending,pending,pending
+all_scalar,STK,pending,pending,pending,pending
+all_scalar,DUR,pending,pending,pending,pending

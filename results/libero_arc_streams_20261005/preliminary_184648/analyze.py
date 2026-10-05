@@ -23,7 +23,7 @@ def write(name, value):
 
 def csv_file(name, values):
     with (DEST / name).open('w') as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(values[0]))
+        writer = csv.DictWriter(stream, fieldnames=list(values[0]), lineterminator='\n')
         writer.writeheader()
         writer.writerows(values)
 
@@ -129,6 +129,22 @@ for row in data['runs']:
                   'tasks_seen': len({r['task'] for r in records}), 'observed_at_utc': data['observed_at_utc']})
 csv_file('all-88-cells.csv', table)
 csv_file('available-policy-scores.csv', [r for r in table if r['episodes']])
+
+score_index = {(r['variant'], r['mode'], r['suite']): r for r in table}
+compact_scores = []
+for variant in dict.fromkeys(r['variant'] for r in table):
+    for mode in ('stk', 'dur'):
+        compact = {'variant': variant, 'mode': mode.upper()}
+        for suite, label in (('libero_spatial', 'Spatial'), ('libero_object', 'Object'),
+                             ('libero_goal', 'Goal'), ('libero_10', 'LIBERO-10')):
+            row = score_index[(variant, mode, suite)]
+            compact[label] = (
+                f"{row['success_rate_percent']:.2f}% | {row['episodes']}/2500 episodes | "
+                f"{row['tasks_seen']}/10 tasks | {'FINAL' if row['score_is_final'] else 'PARTIAL'}"
+                if row['episodes'] else 'pending'
+            )
+        compact_scores.append(compact)
+csv_file('score-table.csv', compact_scores)
 
 replay_root = VAL / 'results/libero_arc_streams_20261002/recovery2/completed_replays'
 replays = {s: json.loads((replay_root / s / 'replay-results.json').read_text()) for s in ('spatial', 'object', 'goal', '10')}

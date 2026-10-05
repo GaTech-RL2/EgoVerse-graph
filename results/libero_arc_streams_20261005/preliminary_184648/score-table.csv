@@ -1,0 +1,11 @@
+variant,mode,Spatial,Object,Goal,LIBERO-10
+reference,STK,68.64% | 2500/2500 episodes | 10/10 tasks | FINAL,47.16% | 2500/2500 episodes | 10/10 tasks | FINAL,85.52% | 2500/2500 episodes | 10/10 tasks | FINAL,54.64% | 2500/2500 episodes | 10/10 tasks | FINAL
+reference,DUR,69.48% | 2500/2500 episodes | 10/10 tasks | FINAL,41.96% | 2500/2500 episodes | 10/10 tasks | FINAL,89.36% | 2500/2500 episodes | 10/10 tasks | FINAL,53.80% | 2500/2500 episodes | 10/10 tasks | FINAL
+gripper,STK,65.96% | 2500/2500 episodes | 10/10 tasks | FINAL,54.35% | 1518/2500 episodes | 7/10 tasks | PARTIAL,87.04% | 2500/2500 episodes | 10/10 tasks | FINAL,55.60% | 2500/2500 episodes | 10/10 tasks | FINAL
+gripper,DUR,71.94% | 1276/2500 episodes | 6/10 tasks | PARTIAL,66.98% | 960/2500 episodes | 4/10 tasks | PARTIAL,89.49% | 1427/2500 episodes | 6/10 tasks | PARTIAL,pending
+component_time,STK,55.07% | 69/2500 episodes | 1/10 tasks | PARTIAL,46.66% | 613/2500 episodes | 3/10 tasks | PARTIAL,95.10% | 286/2500 episodes | 2/10 tasks | PARTIAL,pending
+component_time,DUR,66.55% | 1411/2500 episodes | 6/10 tasks | PARTIAL,32.83% | 530/2500 episodes | 3/10 tasks | PARTIAL,88.12% | 2500/2500 episodes | 10/10 tasks | FINAL,54.68% | 2500/2500 episodes | 10/10 tasks | FINAL
+xyz_scalar,STK,66.31% | 659/2500 episodes | 3/10 tasks | PARTIAL,39.59% | 1268/2500 episodes | 6/10 tasks | PARTIAL,73.24% | 897/2500 episodes | 4/10 tasks | PARTIAL,pending
+xyz_scalar,DUR,pending,61.83% | 820/2500 episodes | 4/10 tasks | PARTIAL,89.45% | 1090/2500 episodes | 5/10 tasks | PARTIAL,pending
+component_velocity,STK,70.13% | 703/2500 episodes | 3/10 tasks | PARTIAL,50.36% | 1525/2500 episodes | 7/10 tasks | PARTIAL,90.19% | 1284/2500 episodes | 6/10 tasks | PARTIAL,pending
+component_velocity,DUR,73.70% | 829/2500 episodes | 4/10 tasks | PARTIAL,35.83% | 547/2500 episodes | 3/10 tasks | PARTIAL,87.12% | 1157/2500 episodes | 5/10 tasks | PARTIAL,pending

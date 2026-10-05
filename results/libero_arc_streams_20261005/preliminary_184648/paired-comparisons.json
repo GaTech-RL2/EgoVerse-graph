@@ -1,0 +1,3607 @@
+[
+  {
+    "suite": "libero_spatial",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "reference",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 69.48,
+    "control_sr_percent": 68.64,
+    "delta_pp": 0.8399999999999963,
+    "candidate_only_successes": 289,
+    "control_only_successes": 268,
+    "fully_evaluated_task_delta_pp": 0.8399999999999977,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-sr-20261003-spatial-reference-dur-eval",
+    "control_run": "arc-se-20261003-spatial-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 61.6,
+        "control_sr_percent": 56.00000000000001,
+        "delta_pp": 5.599999999999994
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 82.39999999999999,
+        "control_sr_percent": 81.2,
+        "delta_pp": 1.19999999999999
+      },
+      {
+        "task": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 74.0,
+        "control_sr_percent": 81.6,
+        "delta_pp": -7.599999999999996
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 84.39999999999999,
+        "control_sr_percent": 75.6,
+        "delta_pp": 8.799999999999997
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 58.4,
+        "control_sr_percent": 54.0,
+        "delta_pp": 4.399999999999993
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 78.8,
+        "control_sr_percent": 84.8,
+        "delta_pp": -5.999999999999995
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 87.2,
+        "control_sr_percent": 92.80000000000001,
+        "delta_pp": -5.600000000000005
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 3.5999999999999996,
+        "control_sr_percent": 6.0,
+        "delta_pp": -2.4
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 96.0,
+        "control_sr_percent": 91.60000000000001,
+        "delta_pp": 4.399999999999993
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 68.4,
+        "control_sr_percent": 62.8,
+        "delta_pp": 5.600000000000005
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "versus_reference",
+    "candidate_variant": "gripper",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 65.96,
+    "control_sr_percent": 68.64,
+    "delta_pp": -2.6800000000000046,
+    "candidate_only_successes": 277,
+    "control_only_successes": 344,
+    "fully_evaluated_task_delta_pp": -2.6800000000000024,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-gripper-stk-eval",
+    "control_run": "arc-se-20261003-spatial-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 56.8,
+        "control_sr_percent": 56.00000000000001,
+        "delta_pp": 0.7999999999999896
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 83.2,
+        "control_sr_percent": 81.2,
+        "delta_pp": 1.9999999999999907
+      },
+      {
+        "task": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 70.39999999999999,
+        "control_sr_percent": 81.6,
+        "delta_pp": -11.2
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 77.2,
+        "control_sr_percent": 75.6,
+        "delta_pp": 1.6000000000000014
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 46.400000000000006,
+        "control_sr_percent": 54.0,
+        "delta_pp": -7.600000000000001
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 78.4,
+        "control_sr_percent": 84.8,
+        "delta_pp": -6.399999999999995
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 89.2,
+        "control_sr_percent": 92.80000000000001,
+        "delta_pp": -3.600000000000003
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 2.4,
+        "control_sr_percent": 6.0,
+        "delta_pp": -3.5999999999999996
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 92.0,
+        "control_sr_percent": 91.60000000000001,
+        "delta_pp": 0.40000000000000036
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 63.6,
+        "control_sr_percent": 62.8,
+        "delta_pp": 0.8000000000000007
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 1411,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 5,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 66.54854712969525,
+    "control_sr_percent": 68.46208362863217,
+    "delta_pp": -1.9135364989369186,
+    "candidate_only_successes": 142,
+    "control_only_successes": 169,
+    "fully_evaluated_task_delta_pp": -1.7599999999999993,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-time-dur-eval",
+    "control_run": "arc-sr-20261003-spatial-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 56.00000000000001,
+        "control_sr_percent": 61.6,
+        "delta_pp": -5.599999999999994
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 82.8,
+        "control_sr_percent": 82.39999999999999,
+        "delta_pp": 0.40000000000000036
+      },
+      {
+        "task": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 70.39999999999999,
+        "control_sr_percent": 74.0,
+        "delta_pp": -3.600000000000003
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 77.2,
+        "control_sr_percent": 78.8,
+        "delta_pp": -1.6000000000000014
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 88.8,
+        "control_sr_percent": 87.2,
+        "delta_pp": 1.6000000000000014
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 161,
+        "candidate_sr_percent": 0.6211180124223602,
+        "control_sr_percent": 3.7267080745341614,
+        "delta_pp": -3.1055900621118013
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "component_velocity",
+    "control_mode": "dur",
+    "paired_episodes": 829,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 73.58262967430639,
+    "control_sr_percent": 73.70325693606755,
+    "delta_pp": -0.12062726176116367,
+    "candidate_only_successes": 78,
+    "control_only_successes": 79,
+    "fully_evaluated_task_delta_pp": 0.6000000000000005,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-time-dur-eval",
+    "control_run": "arc-st-20261005-spatial-component-velocity-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 56.00000000000001,
+        "control_sr_percent": 52.400000000000006,
+        "delta_pp": 3.600000000000003
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 243,
+        "candidate_sr_percent": 83.53909465020575,
+        "control_sr_percent": 84.77366255144034,
+        "delta_pp": -1.2345679012345734
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 77.2,
+        "control_sr_percent": 79.60000000000001,
+        "delta_pp": -2.400000000000002
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 86,
+        "candidate_sr_percent": 86.04651162790698,
+        "control_sr_percent": 87.20930232558139,
+        "delta_pp": -1.1627906976744207
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "combined_timing_change",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "dur",
+    "paired_episodes": 1276,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 73.11912225705329,
+    "control_sr_percent": 71.9435736677116,
+    "delta_pp": 1.1755485893416906,
+    "candidate_only_successes": 168,
+    "control_only_successes": 153,
+    "fully_evaluated_task_delta_pp": 2.500000000000002,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-time-dur-eval",
+    "control_run": "arc-st-20261005-spatial-gripper-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 56.00000000000001,
+        "control_sr_percent": 49.6,
+        "delta_pp": 6.400000000000006
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 82.8,
+        "control_sr_percent": 82.0,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+        "episodes": 243,
+        "candidate_sr_percent": 70.37037037037037,
+        "control_sr_percent": 74.48559670781893,
+        "delta_pp": -4.115226337448563
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 77.2,
+        "control_sr_percent": 75.2,
+        "delta_pp": 2.0000000000000018
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 88.8,
+        "control_sr_percent": 88.0,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 33,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 0.0,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "component_time",
+    "control_mode": "stk",
+    "paired_episodes": 69,
+    "tasks_seen": 1,
+    "fully_evaluated_tasks": 0,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 59.42028985507246,
+    "control_sr_percent": 55.072463768115945,
+    "delta_pp": 4.347826086956519,
+    "candidate_only_successes": 12,
+    "control_only_successes": 9,
+    "fully_evaluated_task_delta_pp": null,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-time-dur-eval",
+    "control_run": "arc-st-20261005-spatial-component-time-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 69,
+        "candidate_sr_percent": 59.42028985507246,
+        "control_sr_percent": 55.072463768115945,
+        "delta_pp": 4.347826086956519
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "versus_reference",
+    "candidate_variant": "gripper",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 1276,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 71.9435736677116,
+    "control_sr_percent": 75.07836990595611,
+    "delta_pp": -3.1347962382445083,
+    "candidate_only_successes": 145,
+    "control_only_successes": 185,
+    "fully_evaluated_task_delta_pp": -3.8000000000000007,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-gripper-dur-eval",
+    "control_run": "arc-sr-20261003-spatial-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 49.6,
+        "control_sr_percent": 61.6,
+        "delta_pp": -12.0
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 82.0,
+        "control_sr_percent": 82.39999999999999,
+        "delta_pp": -0.40000000000000036
+      },
+      {
+        "task": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+        "episodes": 243,
+        "candidate_sr_percent": 74.48559670781893,
+        "control_sr_percent": 74.07407407407408,
+        "delta_pp": 0.4115226337448652
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 75.2,
+        "control_sr_percent": 78.8,
+        "delta_pp": -3.600000000000003
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 87.2,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 33,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 9.090909090909092,
+        "delta_pp": -9.090909090909092
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "gripper",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 1276,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 71.9435736677116,
+    "control_sr_percent": 73.66771159874608,
+    "delta_pp": -1.724137931034475,
+    "candidate_only_successes": 157,
+    "control_only_successes": 179,
+    "fully_evaluated_task_delta_pp": -3.2,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-gripper-dur-eval",
+    "control_run": "arc-st-20261005-spatial-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 49.6,
+        "control_sr_percent": 56.8,
+        "delta_pp": -7.199999999999996
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 82.0,
+        "control_sr_percent": 83.2,
+        "delta_pp": -1.200000000000001
+      },
+      {
+        "task": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+        "episodes": 243,
+        "candidate_sr_percent": 74.48559670781893,
+        "control_sr_percent": 70.37037037037037,
+        "delta_pp": 4.115226337448563
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 75.2,
+        "control_sr_percent": 78.4,
+        "delta_pp": -3.200000000000003
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 89.2,
+        "delta_pp": -1.200000000000001
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 33,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 0.0,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "versus_reference",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 659,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 66.31259484066769,
+    "control_sr_percent": 72.3823975720789,
+    "delta_pp": -6.069802731411222,
+    "candidate_only_successes": 92,
+    "control_only_successes": 132,
+    "fully_evaluated_task_delta_pp": -4.800000000000004,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-xyz-scalar-stk-eval",
+    "control_run": "arc-se-20261003-spatial-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 57.599999999999994,
+        "control_sr_percent": 56.00000000000001,
+        "delta_pp": 1.5999999999999903
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 159,
+        "candidate_sr_percent": 68.55345911949685,
+        "control_sr_percent": 78.61635220125787,
+        "delta_pp": -10.062893081761015
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 73.6,
+        "control_sr_percent": 84.8,
+        "delta_pp": -11.2
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "design_contrast",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 659,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 66.31259484066769,
+    "control_sr_percent": 71.16843702579666,
+    "delta_pp": -4.855842185128978,
+    "candidate_only_successes": 105,
+    "control_only_successes": 137,
+    "fully_evaluated_task_delta_pp": -2.0000000000000018,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-xyz-scalar-stk-eval",
+    "control_run": "arc-st-20261005-spatial-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 57.599999999999994,
+        "control_sr_percent": 56.8,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 159,
+        "candidate_sr_percent": 68.55345911949685,
+        "control_sr_percent": 82.38993710691824,
+        "delta_pp": -13.836477987421391
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 73.6,
+        "control_sr_percent": 78.4,
+        "delta_pp": -4.800000000000004
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 703,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 70.1280227596017,
+    "control_sr_percent": 73.54196301564723,
+    "delta_pp": -3.4139402560455223,
+    "candidate_only_successes": 87,
+    "control_only_successes": 111,
+    "fully_evaluated_task_delta_pp": 0.0,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-velocity-stk-eval",
+    "control_run": "arc-se-20261003-spatial-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 47.599999999999994,
+        "control_sr_percent": 56.00000000000001,
+        "delta_pp": -8.400000000000007
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 203,
+        "candidate_sr_percent": 69.45812807881774,
+        "control_sr_percent": 81.2807881773399,
+        "delta_pp": -11.822660098522164
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 93.2,
+        "control_sr_percent": 84.8,
+        "delta_pp": 8.400000000000007
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 703,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 70.1280227596017,
+    "control_sr_percent": 72.83072546230441,
+    "delta_pp": -2.7027027027027084,
+    "candidate_only_successes": 91,
+    "control_only_successes": 110,
+    "fully_evaluated_task_delta_pp": 2.8000000000000025,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-velocity-stk-eval",
+    "control_run": "arc-st-20261005-spatial-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 47.599999999999994,
+        "control_sr_percent": 56.8,
+        "delta_pp": -9.199999999999998
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 203,
+        "candidate_sr_percent": 69.45812807881774,
+        "control_sr_percent": 85.71428571428571,
+        "delta_pp": -16.25615763546797
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 93.2,
+        "control_sr_percent": 78.4,
+        "delta_pp": 14.800000000000002
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 829,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 73.70325693606755,
+    "control_sr_percent": 75.27141133896261,
+    "delta_pp": -1.56815440289505,
+    "candidate_only_successes": 104,
+    "control_only_successes": 117,
+    "fully_evaluated_task_delta_pp": -4.199999999999998,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-velocity-dur-eval",
+    "control_run": "arc-sr-20261003-spatial-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 52.400000000000006,
+        "control_sr_percent": 61.6,
+        "delta_pp": -9.199999999999998
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 243,
+        "candidate_sr_percent": 84.77366255144034,
+        "control_sr_percent": 82.71604938271605,
+        "delta_pp": 2.0576131687242816
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 79.60000000000001,
+        "control_sr_percent": 78.8,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 86,
+        "candidate_sr_percent": 87.20930232558139,
+        "control_sr_percent": 83.72093023255815,
+        "delta_pp": 3.488372093023251
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "dur",
+    "paired_episodes": 829,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 73.70325693606755,
+    "control_sr_percent": 70.80820265379975,
+    "delta_pp": 2.895054282267795,
+    "candidate_only_successes": 120,
+    "control_only_successes": 96,
+    "fully_evaluated_task_delta_pp": 3.600000000000003,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-velocity-dur-eval",
+    "control_run": "arc-st-20261005-spatial-gripper-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 52.400000000000006,
+        "control_sr_percent": 49.6,
+        "delta_pp": 2.8000000000000025
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 243,
+        "candidate_sr_percent": 84.77366255144034,
+        "control_sr_percent": 81.89300411522635,
+        "delta_pp": 2.8806584362139898
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 79.60000000000001,
+        "control_sr_percent": 75.2,
+        "delta_pp": 4.400000000000004
+      },
+      {
+        "task": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "episodes": 86,
+        "candidate_sr_percent": 87.20930232558139,
+        "control_sr_percent": 88.37209302325581,
+        "delta_pp": -1.1627906976744207
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "component_velocity",
+    "control_mode": "stk",
+    "paired_episodes": 703,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 71.26600284495022,
+    "control_sr_percent": 70.1280227596017,
+    "delta_pp": 1.1379800853485111,
+    "candidate_only_successes": 100,
+    "control_only_successes": 92,
+    "fully_evaluated_task_delta_pp": -4.399999999999999,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-velocity-dur-eval",
+    "control_run": "arc-st-20261005-spatial-component-velocity-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 52.400000000000006,
+        "control_sr_percent": 47.599999999999994,
+        "delta_pp": 4.800000000000004
+      },
+      {
+        "task": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "episodes": 203,
+        "candidate_sr_percent": 84.23645320197043,
+        "control_sr_percent": 69.45812807881774,
+        "delta_pp": 14.778325123152703
+      },
+      {
+        "task": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 79.60000000000001,
+        "control_sr_percent": 93.2,
+        "delta_pp": -13.600000000000001
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 69,
+    "tasks_seen": 1,
+    "fully_evaluated_tasks": 0,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 55.072463768115945,
+    "control_sr_percent": 53.62318840579711,
+    "delta_pp": 1.449275362318836,
+    "candidate_only_successes": 11,
+    "control_only_successes": 10,
+    "fully_evaluated_task_delta_pp": null,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-time-stk-eval",
+    "control_run": "arc-se-20261003-spatial-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 69,
+        "candidate_sr_percent": 55.072463768115945,
+        "control_sr_percent": 53.62318840579711,
+        "delta_pp": 1.449275362318836
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "component_velocity",
+    "control_mode": "stk",
+    "paired_episodes": 69,
+    "tasks_seen": 1,
+    "fully_evaluated_tasks": 0,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 55.072463768115945,
+    "control_sr_percent": 59.42028985507246,
+    "delta_pp": -4.347826086956519,
+    "candidate_only_successes": 9,
+    "control_only_successes": 12,
+    "fully_evaluated_task_delta_pp": null,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-time-stk-eval",
+    "control_run": "arc-st-20261005-spatial-component-velocity-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 69,
+        "candidate_sr_percent": 55.072463768115945,
+        "control_sr_percent": 59.42028985507246,
+        "delta_pp": -4.347826086956519
+      }
+    ]
+  },
+  {
+    "suite": "libero_spatial",
+    "contrast": "combined_timing_change",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 69,
+    "tasks_seen": 1,
+    "fully_evaluated_tasks": 0,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 55.072463768115945,
+    "control_sr_percent": 65.21739130434783,
+    "delta_pp": -10.144927536231885,
+    "candidate_only_successes": 10,
+    "control_only_successes": 17,
+    "fully_evaluated_task_delta_pp": null,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-spatial-component-time-stk-eval",
+    "control_run": "arc-st-20261005-spatial-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "episodes": 69,
+        "candidate_sr_percent": 55.072463768115945,
+        "control_sr_percent": 65.21739130434783,
+        "delta_pp": -10.144927536231885
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "reference",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 41.959999999999994,
+    "control_sr_percent": 47.160000000000004,
+    "delta_pp": -5.200000000000005,
+    "candidate_only_successes": 190,
+    "control_only_successes": 320,
+    "fully_evaluated_task_delta_pp": -5.199999999999998,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-sc-20261004-object-reference-dur-eval",
+    "control_run": "arc-sr-20261003-object-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 26.8,
+        "control_sr_percent": 98.4,
+        "delta_pp": -71.6
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 0.8,
+        "control_sr_percent": 20.0,
+        "delta_pp": -19.2
+      },
+      {
+        "task": "pick_up_the_butter_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 14.799999999999999,
+        "delta_pp": -14.799999999999999
+      },
+      {
+        "task": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 0.4,
+        "control_sr_percent": 12.0,
+        "delta_pp": -11.6
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 1.2,
+        "control_sr_percent": 2.8000000000000003,
+        "delta_pp": -1.6
+      },
+      {
+        "task": "pick_up_the_ketchup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 97.2,
+        "delta_pp": 2.8000000000000025
+      },
+      {
+        "task": "pick_up_the_milk_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 91.2,
+        "delta_pp": 6.799999999999995
+      },
+      {
+        "task": "pick_up_the_orange_juice_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 92.4,
+        "control_sr_percent": 93.60000000000001,
+        "delta_pp": -1.200000000000001
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 41.6,
+        "delta_pp": 58.400000000000006
+      },
+      {
+        "task": "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 0.0,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "versus_reference",
+    "candidate_variant": "gripper",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 1518,
+    "tasks_seen": 7,
+    "fully_evaluated_tasks": 5,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 54.347826086956516,
+    "control_sr_percent": 43.01712779973649,
+    "delta_pp": 11.330698287220025,
+    "candidate_only_successes": 371,
+    "control_only_successes": 199,
+    "fully_evaluated_task_delta_pp": 11.2,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-gripper-stk-eval",
+    "control_run": "arc-sr-20261003-object-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 68.8,
+        "control_sr_percent": 98.4,
+        "delta_pp": -29.600000000000005
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 82.8,
+        "control_sr_percent": 20.0,
+        "delta_pp": 62.79999999999999
+      },
+      {
+        "task": "pick_up_the_butter_and_place_it_in_the_basket",
+        "episodes": 19,
+        "candidate_sr_percent": 10.526315789473683,
+        "control_sr_percent": 15.789473684210526,
+        "delta_pp": -5.263157894736842
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 6.800000000000001,
+        "control_sr_percent": 2.8000000000000003,
+        "delta_pp": 4.000000000000001
+      },
+      {
+        "task": "pick_up_the_ketchup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 58.4,
+        "control_sr_percent": 97.2,
+        "delta_pp": -38.800000000000004
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 99.2,
+        "control_sr_percent": 41.6,
+        "delta_pp": 57.60000000000001
+      },
+      {
+        "task": "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
+        "episodes": 249,
+        "candidate_sr_percent": 13.253012048192772,
+        "control_sr_percent": 0.0,
+        "delta_pp": 13.253012048192772
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 530,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 32.83018867924528,
+    "control_sr_percent": 18.867924528301888,
+    "delta_pp": 13.962264150943394,
+    "candidate_only_successes": 96,
+    "control_only_successes": 22,
+    "fully_evaluated_task_delta_pp": 14.8,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-time-dur-eval",
+    "control_run": "arc-sc-20261004-object-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 52.800000000000004,
+        "control_sr_percent": 26.8,
+        "delta_pp": 26.0
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 4.8,
+        "control_sr_percent": 1.2,
+        "delta_pp": 3.6000000000000005
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 30,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 100.0,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "component_velocity",
+    "control_mode": "dur",
+    "paired_episodes": 518,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 31.27413127413127,
+    "control_sr_percent": 32.239382239382245,
+    "delta_pp": -0.9652509652509689,
+    "candidate_only_successes": 26,
+    "control_only_successes": 31,
+    "fully_evaluated_task_delta_pp": -1.0000000000000013,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-time-dur-eval",
+    "control_run": "arc-ss-20261005-object-component-velocity-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 52.800000000000004,
+        "control_sr_percent": 56.00000000000001,
+        "delta_pp": -3.200000000000003
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 4.8,
+        "control_sr_percent": 3.5999999999999996,
+        "delta_pp": 1.2000000000000004
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 18,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 100.0,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "combined_timing_change",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "dur",
+    "paired_episodes": 530,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 32.83018867924528,
+    "control_sr_percent": 45.09433962264151,
+    "delta_pp": -12.26415094339623,
+    "candidate_only_successes": 34,
+    "control_only_successes": 99,
+    "fully_evaluated_task_delta_pp": -13.199999999999998,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-time-dur-eval",
+    "control_run": "arc-ss-20261005-object-gripper-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 52.800000000000004,
+        "control_sr_percent": 70.39999999999999,
+        "delta_pp": -17.599999999999994
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 4.8,
+        "control_sr_percent": 13.600000000000001,
+        "delta_pp": -8.8
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 30,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 96.66666666666667,
+        "delta_pp": 3.3333333333333326
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "component_time",
+    "control_mode": "stk",
+    "paired_episodes": 530,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 32.83018867924528,
+    "control_sr_percent": 45.660377358490564,
+    "delta_pp": -12.830188679245285,
+    "candidate_only_successes": 40,
+    "control_only_successes": 108,
+    "fully_evaluated_task_delta_pp": -16.6,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-time-dur-eval",
+    "control_run": "arc-ss-20261005-object-component-time-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 52.800000000000004,
+        "control_sr_percent": 88.4,
+        "delta_pp": -35.6
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 4.8,
+        "control_sr_percent": 2.4,
+        "delta_pp": 2.4
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 30,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 50.0,
+        "delta_pp": 50.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "versus_reference",
+    "candidate_variant": "gripper",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 960,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 3,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 66.97916666666667,
+    "control_sr_percent": 33.4375,
+    "delta_pp": 33.54166666666667,
+    "candidate_only_successes": 335,
+    "control_only_successes": 13,
+    "fully_evaluated_task_delta_pp": 18.533333333333335,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-gripper-dur-eval",
+    "control_run": "arc-sc-20261004-object-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 70.39999999999999,
+        "control_sr_percent": 26.8,
+        "delta_pp": 43.599999999999994
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 210,
+        "candidate_sr_percent": 87.61904761904762,
+        "control_sr_percent": 0.4761904761904762,
+        "delta_pp": 87.14285714285714
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 13.600000000000001,
+        "control_sr_percent": 1.2,
+        "delta_pp": 12.400000000000002
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 99.6,
+        "control_sr_percent": 100.0,
+        "delta_pp": -0.40000000000000036
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "gripper",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 960,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 3,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 66.97916666666667,
+    "control_sr_percent": 63.645833333333336,
+    "delta_pp": 3.3333333333333326,
+    "candidate_only_successes": 106,
+    "control_only_successes": 74,
+    "fully_evaluated_task_delta_pp": 2.933333333333334,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-gripper-dur-eval",
+    "control_run": "arc-ss-20261005-object-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 70.39999999999999,
+        "control_sr_percent": 68.8,
+        "delta_pp": 1.6000000000000014
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 210,
+        "candidate_sr_percent": 87.61904761904762,
+        "control_sr_percent": 82.85714285714286,
+        "delta_pp": 4.761904761904756
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 13.600000000000001,
+        "control_sr_percent": 6.800000000000001,
+        "delta_pp": 6.800000000000001
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 99.6,
+        "control_sr_percent": 99.2,
+        "delta_pp": 0.40000000000000036
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "versus_reference",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 1268,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 39.58990536277602,
+    "control_sr_percent": 50.552050473186114,
+    "delta_pp": -10.962145110410093,
+    "candidate_only_successes": 140,
+    "control_only_successes": 279,
+    "fully_evaluated_task_delta_pp": -7.0,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-xyz-scalar-stk-eval",
+    "control_run": "arc-sr-20261003-object-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 40.0,
+        "control_sr_percent": 98.4,
+        "delta_pp": -58.4
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 9.2,
+        "control_sr_percent": 20.0,
+        "delta_pp": -10.8
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 2.0,
+        "control_sr_percent": 2.8000000000000003,
+        "delta_pp": -0.8
+      },
+      {
+        "task": "pick_up_the_ketchup_and_place_it_in_the_basket",
+        "episodes": 241,
+        "candidate_sr_percent": 68.46473029045643,
+        "control_sr_percent": 97.0954356846473,
+        "delta_pp": -28.63070539419087
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 83.6,
+        "control_sr_percent": 41.6,
+        "delta_pp": 42.0
+      },
+      {
+        "task": "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
+        "episodes": 27,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 0.0,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "design_contrast",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 1268,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 39.58990536277602,
+    "control_sr_percent": 62.06624605678234,
+    "delta_pp": -22.476340694006314,
+    "candidate_only_successes": 120,
+    "control_only_successes": 405,
+    "fully_evaluated_task_delta_pp": -30.7,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-xyz-scalar-stk-eval",
+    "control_run": "arc-ss-20261005-object-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 40.0,
+        "control_sr_percent": 68.8,
+        "delta_pp": -28.799999999999994
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 9.2,
+        "control_sr_percent": 82.8,
+        "delta_pp": -73.6
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 2.0,
+        "control_sr_percent": 6.800000000000001,
+        "delta_pp": -4.8
+      },
+      {
+        "task": "pick_up_the_ketchup_and_place_it_in_the_basket",
+        "episodes": 241,
+        "candidate_sr_percent": 68.46473029045643,
+        "control_sr_percent": 58.09128630705395,
+        "delta_pp": 10.373443983402487
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 83.6,
+        "control_sr_percent": 99.2,
+        "delta_pp": -15.600000000000003
+      },
+      {
+        "task": "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
+        "episodes": 27,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 11.11111111111111,
+        "delta_pp": -11.11111111111111
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "versus_reference",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 820,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 3,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 61.829268292682926,
+    "control_sr_percent": 39.02439024390244,
+    "delta_pp": 22.804878048780488,
+    "candidate_only_successes": 298,
+    "control_only_successes": 111,
+    "fully_evaluated_task_delta_pp": 16.533333333333328,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-xyz-scalar-dur-eval",
+    "control_run": "arc-sc-20261004-object-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 26.8,
+        "delta_pp": 61.199999999999996
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 70,
+        "candidate_sr_percent": 90.0,
+        "control_sr_percent": 0.0,
+        "delta_pp": 90.0
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 31.2,
+        "control_sr_percent": 1.2,
+        "delta_pp": 30.0
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 58.4,
+        "control_sr_percent": 100.0,
+        "delta_pp": -41.6
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "design_contrast",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "dur",
+    "paired_episodes": 820,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 3,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 61.829268292682926,
+    "control_sr_percent": 63.29268292682927,
+    "delta_pp": -1.4634146341463428,
+    "candidate_only_successes": 132,
+    "control_only_successes": 144,
+    "fully_evaluated_task_delta_pp": -2.0,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-xyz-scalar-dur-eval",
+    "control_run": "arc-ss-20261005-object-gripper-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 70.39999999999999,
+        "delta_pp": 17.600000000000005
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 70,
+        "candidate_sr_percent": 90.0,
+        "control_sr_percent": 85.71428571428571,
+        "delta_pp": 4.285714285714293
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 31.2,
+        "control_sr_percent": 13.600000000000001,
+        "delta_pp": 17.599999999999998
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 58.4,
+        "control_sr_percent": 99.6,
+        "delta_pp": -41.2
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "dur",
+    "control_variant": "xyz_scalar",
+    "control_mode": "stk",
+    "paired_episodes": 820,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 3,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 61.829268292682926,
+    "control_sr_percent": 39.63414634146341,
+    "delta_pp": 22.19512195121951,
+    "candidate_only_successes": 287,
+    "control_only_successes": 105,
+    "fully_evaluated_task_delta_pp": 17.333333333333332,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-xyz-scalar-dur-eval",
+    "control_run": "arc-ss-20261005-object-xyz-scalar-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 40.0,
+        "delta_pp": 48.0
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 70,
+        "candidate_sr_percent": 90.0,
+        "control_sr_percent": 15.714285714285714,
+        "delta_pp": 74.28571428571429
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 31.2,
+        "control_sr_percent": 2.0,
+        "delta_pp": 29.2
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 58.4,
+        "control_sr_percent": 83.6,
+        "delta_pp": -25.2
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 1525,
+    "tasks_seen": 7,
+    "fully_evaluated_tasks": 6,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 50.36065573770492,
+    "control_sr_percent": 42.885245901639344,
+    "delta_pp": 7.475409836065571,
+    "candidate_only_successes": 192,
+    "control_only_successes": 78,
+    "fully_evaluated_task_delta_pp": 7.86666666666667,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-velocity-stk-eval",
+    "control_run": "arc-sr-20261003-object-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 92.80000000000001,
+        "control_sr_percent": 98.4,
+        "delta_pp": -5.599999999999994
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 16.8,
+        "control_sr_percent": 20.0,
+        "delta_pp": -3.2
+      },
+      {
+        "task": "pick_up_the_butter_and_place_it_in_the_basket",
+        "episodes": 25,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 16.0,
+        "delta_pp": -16.0
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 2.8000000000000003,
+        "delta_pp": -2.8000000000000003
+      },
+      {
+        "task": "pick_up_the_ketchup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 97.2,
+        "delta_pp": 2.8000000000000025
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 97.6,
+        "control_sr_percent": 41.6,
+        "delta_pp": 56.00000000000001
+      },
+      {
+        "task": "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 0.0,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 1505,
+    "tasks_seen": 7,
+    "fully_evaluated_tasks": 5,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 51.02990033222591,
+    "control_sr_percent": 54.684385382059794,
+    "delta_pp": -3.6544850498338888,
+    "candidate_only_successes": 185,
+    "control_only_successes": 240,
+    "fully_evaluated_task_delta_pp": -1.7599999999999938,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-velocity-stk-eval",
+    "control_run": "arc-ss-20261005-object-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 92.80000000000001,
+        "control_sr_percent": 68.8,
+        "delta_pp": 24.00000000000001
+      },
+      {
+        "task": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 16.8,
+        "control_sr_percent": 82.8,
+        "delta_pp": -65.99999999999999
+      },
+      {
+        "task": "pick_up_the_butter_and_place_it_in_the_basket",
+        "episodes": 6,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 0.0,
+        "delta_pp": 0.0
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 6.800000000000001,
+        "delta_pp": -6.800000000000001
+      },
+      {
+        "task": "pick_up_the_ketchup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 58.4,
+        "delta_pp": 41.6
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 97.6,
+        "control_sr_percent": 99.2,
+        "delta_pp": -1.6000000000000014
+      },
+      {
+        "task": "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
+        "episodes": 249,
+        "candidate_sr_percent": 0.0,
+        "control_sr_percent": 13.253012048192772,
+        "delta_pp": -13.253012048192772
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 547,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 35.831809872029254,
+    "control_sr_percent": 21.389396709323584,
+    "delta_pp": 14.44241316270567,
+    "candidate_only_successes": 97,
+    "control_only_successes": 18,
+    "fully_evaluated_task_delta_pp": 15.8,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-velocity-dur-eval",
+    "control_run": "arc-sc-20261004-object-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 56.00000000000001,
+        "control_sr_percent": 26.8,
+        "delta_pp": 29.200000000000003
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 3.5999999999999996,
+        "control_sr_percent": 1.2,
+        "delta_pp": 2.4
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 47,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 100.0,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "dur",
+    "paired_episodes": 547,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 35.831809872029254,
+    "control_sr_percent": 46.80073126142596,
+    "delta_pp": -10.968921389396707,
+    "candidate_only_successes": 33,
+    "control_only_successes": 93,
+    "fully_evaluated_task_delta_pp": -12.199999999999996,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-velocity-dur-eval",
+    "control_run": "arc-ss-20261005-object-gripper-dur-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 56.00000000000001,
+        "control_sr_percent": 70.39999999999999,
+        "delta_pp": -14.399999999999991
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 3.5999999999999996,
+        "control_sr_percent": 13.600000000000001,
+        "delta_pp": -10.0
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 47,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 97.87234042553192,
+        "delta_pp": 2.127659574468088
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "component_velocity",
+    "control_mode": "stk",
+    "paired_episodes": 547,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 35.831809872029254,
+    "control_sr_percent": 50.6398537477148,
+    "delta_pp": -14.80804387568555,
+    "candidate_only_successes": 22,
+    "control_only_successes": 103,
+    "fully_evaluated_task_delta_pp": -16.599999999999998,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-velocity-dur-eval",
+    "control_run": "arc-ss-20261005-object-component-velocity-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 56.00000000000001,
+        "control_sr_percent": 92.80000000000001,
+        "delta_pp": -36.8
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 3.5999999999999996,
+        "control_sr_percent": 0.0,
+        "delta_pp": 3.5999999999999996
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 47,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 95.74468085106383,
+        "delta_pp": 4.255319148936165
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 613,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 46.6557911908646,
+    "control_sr_percent": 49.26590538336052,
+    "delta_pp": -2.6101141924959217,
+    "candidate_only_successes": 43,
+    "control_only_successes": 59,
+    "fully_evaluated_task_delta_pp": -5.199999999999999,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-time-stk-eval",
+    "control_run": "arc-sr-20261003-object-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 88.4,
+        "control_sr_percent": 98.4,
+        "delta_pp": -9.999999999999998
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 2.4,
+        "control_sr_percent": 2.8000000000000003,
+        "delta_pp": -0.4
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 113,
+        "candidate_sr_percent": 52.21238938053098,
+        "control_sr_percent": 43.36283185840708,
+        "delta_pp": 8.849557522123897
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "component_velocity",
+    "control_mode": "stk",
+    "paired_episodes": 613,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 46.6557911908646,
+    "control_sr_percent": 55.791190864600324,
+    "delta_pp": -9.135399673735728,
+    "candidate_only_successes": 19,
+    "control_only_successes": 75,
+    "fully_evaluated_task_delta_pp": -1.000000000000002,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-time-stk-eval",
+    "control_run": "arc-ss-20261005-object-component-velocity-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 88.4,
+        "control_sr_percent": 92.80000000000001,
+        "delta_pp": -4.400000000000004
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 2.4,
+        "control_sr_percent": 0.0,
+        "delta_pp": 2.4
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 113,
+        "candidate_sr_percent": 52.21238938053098,
+        "control_sr_percent": 97.34513274336283,
+        "delta_pp": -45.13274336283185
+      }
+    ]
+  },
+  {
+    "suite": "libero_object",
+    "contrast": "combined_timing_change",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 613,
+    "tasks_seen": 3,
+    "fully_evaluated_tasks": 2,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 46.6557911908646,
+    "control_sr_percent": 49.10277324632953,
+    "delta_pp": -2.44698205546493,
+    "candidate_only_successes": 72,
+    "control_only_successes": 87,
+    "fully_evaluated_task_delta_pp": 7.600000000000002,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-ss-20261005-object-component-time-stk-eval",
+    "control_run": "arc-ss-20261005-object-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 88.4,
+        "control_sr_percent": 68.8,
+        "delta_pp": 19.600000000000005
+      },
+      {
+        "task": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 2.4,
+        "control_sr_percent": 6.800000000000001,
+        "delta_pp": -4.4
+      },
+      {
+        "task": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "episodes": 113,
+        "candidate_sr_percent": 52.21238938053098,
+        "control_sr_percent": 99.11504424778761,
+        "delta_pp": -46.90265486725663
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "reference",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 89.36,
+    "control_sr_percent": 85.52,
+    "delta_pp": 3.839999999999999,
+    "candidate_only_successes": 270,
+    "control_only_successes": 174,
+    "fully_evaluated_task_delta_pp": 3.840000000000001,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-sr-20261003-goal-reference-dur-eval",
+    "control_run": "arc-se-20261003-goal-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 99.6,
+        "control_sr_percent": 99.6,
+        "delta_pp": 0.0
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 81.2,
+        "control_sr_percent": 72.0,
+        "delta_pp": 9.200000000000008
+      },
+      {
+        "task": "push_the_plate_to_the_front_of_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 83.2,
+        "control_sr_percent": 77.2,
+        "delta_pp": 5.999999999999995
+      },
+      {
+        "task": "put_the_bowl_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 80.0,
+        "control_sr_percent": 76.8,
+        "delta_pp": 3.200000000000003
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 96.39999999999999,
+        "control_sr_percent": 98.4,
+        "delta_pp": -2.0000000000000018
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 96.39999999999999,
+        "control_sr_percent": 94.39999999999999,
+        "delta_pp": 2.0000000000000018
+      },
+      {
+        "task": "put_the_cream_cheese_in_the_bowl",
+        "episodes": 250,
+        "candidate_sr_percent": 77.60000000000001,
+        "control_sr_percent": 66.0,
+        "delta_pp": 11.6
+      },
+      {
+        "task": "put_the_wine_bottle_on_the_rack",
+        "episodes": 250,
+        "candidate_sr_percent": 88.8,
+        "control_sr_percent": 84.0,
+        "delta_pp": 4.800000000000004
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 92.0,
+        "control_sr_percent": 87.2,
+        "delta_pp": 4.800000000000004
+      },
+      {
+        "task": "turn_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 98.4,
+        "control_sr_percent": 99.6,
+        "delta_pp": -1.200000000000001
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "versus_reference",
+    "candidate_variant": "gripper",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 87.03999999999999,
+    "control_sr_percent": 85.52,
+    "delta_pp": 1.5199999999999991,
+    "candidate_only_successes": 259,
+    "control_only_successes": 221,
+    "fully_evaluated_task_delta_pp": 1.5200000000000002,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-sr-20261003-goal-gripper-stk-eval",
+    "control_run": "arc-se-20261003-goal-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.8,
+        "control_sr_percent": 99.6,
+        "delta_pp": -0.8000000000000007
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 74.0,
+        "control_sr_percent": 72.0,
+        "delta_pp": 2.0000000000000018
+      },
+      {
+        "task": "push_the_plate_to_the_front_of_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 72.39999999999999,
+        "control_sr_percent": 77.2,
+        "delta_pp": -4.800000000000004
+      },
+      {
+        "task": "put_the_bowl_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 83.6,
+        "control_sr_percent": 76.8,
+        "delta_pp": 6.799999999999995
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 98.4,
+        "delta_pp": -0.40000000000000036
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 85.6,
+        "control_sr_percent": 94.39999999999999,
+        "delta_pp": -8.799999999999997
+      },
+      {
+        "task": "put_the_cream_cheese_in_the_bowl",
+        "episodes": 250,
+        "candidate_sr_percent": 80.80000000000001,
+        "control_sr_percent": 66.0,
+        "delta_pp": 14.800000000000002
+      },
+      {
+        "task": "put_the_wine_bottle_on_the_rack",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 84.0,
+        "delta_pp": 4.0000000000000036
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 89.60000000000001,
+        "control_sr_percent": 87.2,
+        "delta_pp": 2.400000000000002
+      },
+      {
+        "task": "turn_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 99.6,
+        "control_sr_percent": 99.6,
+        "delta_pp": 0.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 88.12,
+    "control_sr_percent": 89.36,
+    "delta_pp": -1.2399999999999967,
+    "candidate_only_successes": 198,
+    "control_only_successes": 229,
+    "fully_evaluated_task_delta_pp": -1.2400000000000009,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-time-dur-eval",
+    "control_run": "arc-sr-20261003-goal-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 99.6,
+        "delta_pp": -1.6000000000000014
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 63.2,
+        "control_sr_percent": 81.2,
+        "delta_pp": -18.000000000000004
+      },
+      {
+        "task": "push_the_plate_to_the_front_of_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 94.8,
+        "control_sr_percent": 83.2,
+        "delta_pp": 11.6
+      },
+      {
+        "task": "put_the_bowl_on_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 95.19999999999999,
+        "control_sr_percent": 80.0,
+        "delta_pp": 15.199999999999992
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 92.80000000000001,
+        "control_sr_percent": 96.39999999999999,
+        "delta_pp": -3.599999999999992
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 95.19999999999999,
+        "control_sr_percent": 96.39999999999999,
+        "delta_pp": -1.200000000000001
+      },
+      {
+        "task": "put_the_cream_cheese_in_the_bowl",
+        "episodes": 250,
+        "candidate_sr_percent": 80.0,
+        "control_sr_percent": 77.60000000000001,
+        "delta_pp": 2.400000000000002
+      },
+      {
+        "task": "put_the_wine_bottle_on_the_rack",
+        "episodes": 250,
+        "candidate_sr_percent": 74.0,
+        "control_sr_percent": 88.8,
+        "delta_pp": -14.800000000000002
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 92.0,
+        "delta_pp": -4.0000000000000036
+      },
+      {
+        "task": "turn_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 100.0,
+        "control_sr_percent": 98.4,
+        "delta_pp": 1.6000000000000014
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "component_velocity",
+    "control_mode": "dur",
+    "paired_episodes": 1157,
+    "tasks_seen": 5,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 86.60328435609334,
+    "control_sr_percent": 87.1218668971478,
+    "delta_pp": -0.5185825410544465,
+    "candidate_only_successes": 60,
+    "control_only_successes": 66,
+    "fully_evaluated_task_delta_pp": -0.3999999999999976,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-time-dur-eval",
+    "control_run": "arc-st-20261005-goal-component-velocity-dur-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 98.4,
+        "delta_pp": -0.40000000000000036
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 63.2,
+        "control_sr_percent": 64.0,
+        "delta_pp": -0.8000000000000007
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 92.80000000000001,
+        "control_sr_percent": 94.39999999999999,
+        "delta_pp": -1.5999999999999903
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 157,
+        "candidate_sr_percent": 93.63057324840764,
+        "control_sr_percent": 94.90445859872611,
+        "delta_pp": -1.273885350318471
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 86.8,
+        "delta_pp": 1.200000000000001
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "combined_timing_change",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "dur",
+    "paired_episodes": 1427,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 5,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 88.2270497547302,
+    "control_sr_percent": 89.48843728100911,
+    "delta_pp": -1.261387526278912,
+    "candidate_only_successes": 109,
+    "control_only_successes": 127,
+    "fully_evaluated_task_delta_pp": -3.759999999999999,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-time-dur-eval",
+    "control_run": "arc-st-20261005-goal-gripper-dur-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 99.2,
+        "delta_pp": -1.200000000000001
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 63.2,
+        "control_sr_percent": 74.4,
+        "delta_pp": -11.2
+      },
+      {
+        "task": "push_the_plate_to_the_front_of_the_stove",
+        "episodes": 177,
+        "candidate_sr_percent": 93.78531073446328,
+        "control_sr_percent": 77.40112994350282,
+        "delta_pp": 16.384180790960457
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 92.80000000000001,
+        "control_sr_percent": 98.0,
+        "delta_pp": -5.199999999999994
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 95.19999999999999,
+        "control_sr_percent": 95.6,
+        "delta_pp": -0.40000000000000036
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 88.8,
+        "delta_pp": -0.8000000000000007
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "component_time",
+    "control_mode": "stk",
+    "paired_episodes": 286,
+    "tasks_seen": 2,
+    "fully_evaluated_tasks": 1,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 97.2027972027972,
+    "control_sr_percent": 95.1048951048951,
+    "delta_pp": 2.0979020979020935,
+    "candidate_only_successes": 14,
+    "control_only_successes": 8,
+    "fully_evaluated_task_delta_pp": 0.0,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-time-dur-eval",
+    "control_run": "arc-st-20261005-goal-component-time-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 98.0,
+        "delta_pp": 0.0
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 36,
+        "candidate_sr_percent": 91.66666666666666,
+        "control_sr_percent": 75.0,
+        "delta_pp": 16.666666666666664
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "versus_reference",
+    "candidate_variant": "gripper",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 1427,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 5,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 89.48843728100911,
+    "control_sr_percent": 91.87105816398038,
+    "delta_pp": -2.3826208829712647,
+    "candidate_only_successes": 90,
+    "control_only_successes": 124,
+    "fully_evaluated_task_delta_pp": -1.9200000000000017,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-gripper-dur-eval",
+    "control_run": "arc-sr-20261003-goal-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 99.2,
+        "control_sr_percent": 99.6,
+        "delta_pp": -0.40000000000000036
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 74.4,
+        "control_sr_percent": 81.2,
+        "delta_pp": -6.800000000000006
+      },
+      {
+        "task": "push_the_plate_to_the_front_of_the_stove",
+        "episodes": 177,
+        "candidate_sr_percent": 77.40112994350282,
+        "control_sr_percent": 83.05084745762711,
+        "delta_pp": -5.649717514124298
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 96.39999999999999,
+        "delta_pp": 1.6000000000000014
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 95.6,
+        "control_sr_percent": 96.39999999999999,
+        "delta_pp": -0.8000000000000007
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 88.8,
+        "control_sr_percent": 92.0,
+        "delta_pp": -3.200000000000003
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "gripper",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 1427,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 5,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 89.48843728100911,
+    "control_sr_percent": 87.17589348283111,
+    "delta_pp": 2.3125437981780017,
+    "candidate_only_successes": 135,
+    "control_only_successes": 102,
+    "fully_evaluated_task_delta_pp": 1.9999999999999996,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-gripper-dur-eval",
+    "control_run": "arc-sr-20261003-goal-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 99.2,
+        "control_sr_percent": 98.8,
+        "delta_pp": 0.40000000000000036
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 74.4,
+        "control_sr_percent": 74.0,
+        "delta_pp": 0.40000000000000036
+      },
+      {
+        "task": "push_the_plate_to_the_front_of_the_stove",
+        "episodes": 177,
+        "candidate_sr_percent": 77.40112994350282,
+        "control_sr_percent": 72.88135593220339,
+        "delta_pp": 4.519774011299438
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 98.0,
+        "delta_pp": 0.0
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 95.6,
+        "control_sr_percent": 85.6,
+        "delta_pp": 9.999999999999998
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 88.8,
+        "control_sr_percent": 89.60000000000001,
+        "delta_pp": -0.8000000000000007
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "versus_reference",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 897,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 3,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 73.24414715719062,
+    "control_sr_percent": 90.63545150501672,
+    "delta_pp": -17.391304347826086,
+    "candidate_only_successes": 43,
+    "control_only_successes": 199,
+    "fully_evaluated_task_delta_pp": -16.0,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-xyz-scalar-stk-eval",
+    "control_run": "arc-se-20261003-goal-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 89.2,
+        "control_sr_percent": 99.6,
+        "delta_pp": -10.399999999999999
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 147,
+        "candidate_sr_percent": 43.53741496598639,
+        "control_sr_percent": 68.02721088435374,
+        "delta_pp": -24.489795918367346
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 88.8,
+        "control_sr_percent": 98.4,
+        "delta_pp": -9.599999999999998
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 59.199999999999996,
+        "control_sr_percent": 87.2,
+        "delta_pp": -28.000000000000004
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "design_contrast",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 897,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 3,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 73.24414715719062,
+    "control_sr_percent": 91.9732441471572,
+    "delta_pp": -18.729096989966564,
+    "candidate_only_successes": 36,
+    "control_only_successes": 204,
+    "fully_evaluated_task_delta_pp": -16.400000000000002,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-xyz-scalar-stk-eval",
+    "control_run": "arc-sr-20261003-goal-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 89.2,
+        "control_sr_percent": 98.8,
+        "delta_pp": -9.599999999999998
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 147,
+        "candidate_sr_percent": 43.53741496598639,
+        "control_sr_percent": 74.14965986394559,
+        "delta_pp": -30.61224489795919
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 88.8,
+        "control_sr_percent": 98.0,
+        "delta_pp": -9.199999999999998
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 59.199999999999996,
+        "control_sr_percent": 89.60000000000001,
+        "delta_pp": -30.400000000000006
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "versus_reference",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 1090,
+    "tasks_seen": 5,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 89.44954128440367,
+    "control_sr_percent": 92.56880733944955,
+    "delta_pp": -3.1192660550458773,
+    "candidate_only_successes": 69,
+    "control_only_successes": 103,
+    "fully_evaluated_task_delta_pp": -3.300000000000003,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-xyz-scalar-dur-eval",
+    "control_run": "arc-sr-20261003-goal-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 97.6,
+        "control_sr_percent": 99.6,
+        "delta_pp": -2.0000000000000018
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 73.2,
+        "control_sr_percent": 81.2,
+        "delta_pp": -8.000000000000007
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 97.2,
+        "control_sr_percent": 96.39999999999999,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 90,
+        "candidate_sr_percent": 94.44444444444444,
+        "control_sr_percent": 95.55555555555556,
+        "delta_pp": -1.1111111111111183
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 92.0,
+        "delta_pp": -4.0000000000000036
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "design_contrast",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "dur",
+    "paired_episodes": 1090,
+    "tasks_seen": 5,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 89.44954128440367,
+    "control_sr_percent": 90.64220183486239,
+    "delta_pp": -1.192660550458724,
+    "candidate_only_successes": 68,
+    "control_only_successes": 81,
+    "fully_evaluated_task_delta_pp": -1.100000000000001,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-xyz-scalar-dur-eval",
+    "control_run": "arc-st-20261005-goal-gripper-dur-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 97.6,
+        "control_sr_percent": 99.2,
+        "delta_pp": -1.6000000000000014
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 73.2,
+        "control_sr_percent": 74.4,
+        "delta_pp": -1.200000000000001
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 97.2,
+        "control_sr_percent": 98.0,
+        "delta_pp": -0.8000000000000007
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 90,
+        "candidate_sr_percent": 94.44444444444444,
+        "control_sr_percent": 96.66666666666667,
+        "delta_pp": -2.2222222222222254
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 88.8,
+        "delta_pp": -0.8000000000000007
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "xyz_scalar",
+    "candidate_mode": "dur",
+    "control_variant": "xyz_scalar",
+    "control_mode": "stk",
+    "paired_episodes": 897,
+    "tasks_seen": 4,
+    "fully_evaluated_tasks": 3,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 91.75027870680044,
+    "control_sr_percent": 73.24414715719062,
+    "delta_pp": 18.506131549609815,
+    "candidate_only_successes": 207,
+    "control_only_successes": 41,
+    "fully_evaluated_task_delta_pp": 15.199999999999998,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-xyz-scalar-dur-eval",
+    "control_run": "arc-st-20261005-goal-xyz-scalar-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 97.6,
+        "control_sr_percent": 89.2,
+        "delta_pp": 8.399999999999997
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 147,
+        "candidate_sr_percent": 78.91156462585033,
+        "control_sr_percent": 43.53741496598639,
+        "delta_pp": 35.374149659863946
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 97.2,
+        "control_sr_percent": 88.8,
+        "delta_pp": 8.399999999999997
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 59.199999999999996,
+        "delta_pp": 28.800000000000004
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 1284,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 90.18691588785047,
+    "control_sr_percent": 89.797507788162,
+    "delta_pp": 0.3894080996884819,
+    "candidate_only_successes": 100,
+    "control_only_successes": 95,
+    "fully_evaluated_task_delta_pp": -0.40000000000000036,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-velocity-stk-eval",
+    "control_run": "arc-se-20261003-goal-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 99.6,
+        "control_sr_percent": 99.6,
+        "delta_pp": 0.0
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 75.2,
+        "control_sr_percent": 72.0,
+        "delta_pp": 3.200000000000003
+      },
+      {
+        "task": "push_the_plate_to_the_front_of_the_stove",
+        "episodes": 37,
+        "candidate_sr_percent": 78.37837837837837,
+        "control_sr_percent": 72.97297297297297,
+        "delta_pp": 5.405405405405405
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 99.2,
+        "control_sr_percent": 98.4,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 247,
+        "candidate_sr_percent": 97.16599190283401,
+        "control_sr_percent": 94.33198380566802,
+        "delta_pp": 2.8340080971659853
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 81.6,
+        "control_sr_percent": 87.2,
+        "delta_pp": -5.600000000000005
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 1284,
+    "tasks_seen": 6,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 90.18691588785047,
+    "control_sr_percent": 88.78504672897196,
+    "delta_pp": 1.4018691588785104,
+    "candidate_only_successes": 113,
+    "control_only_successes": 95,
+    "fully_evaluated_task_delta_pp": -1.200000000000001,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-velocity-stk-eval",
+    "control_run": "arc-sr-20261003-goal-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 99.6,
+        "control_sr_percent": 98.8,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 75.2,
+        "control_sr_percent": 74.0,
+        "delta_pp": 1.200000000000001
+      },
+      {
+        "task": "push_the_plate_to_the_front_of_the_stove",
+        "episodes": 37,
+        "candidate_sr_percent": 78.37837837837837,
+        "control_sr_percent": 75.67567567567568,
+        "delta_pp": 2.7027027027026973
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 99.2,
+        "control_sr_percent": 98.0,
+        "delta_pp": 1.200000000000001
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 247,
+        "candidate_sr_percent": 97.16599190283401,
+        "control_sr_percent": 85.4251012145749,
+        "delta_pp": 11.740890688259109
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 81.6,
+        "control_sr_percent": 89.60000000000001,
+        "delta_pp": -8.000000000000007
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 1157,
+    "tasks_seen": 5,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 87.1218668971478,
+    "control_sr_percent": 92.73984442523768,
+    "delta_pp": -5.61797752808989,
+    "candidate_only_successes": 63,
+    "control_only_successes": 128,
+    "fully_evaluated_task_delta_pp": -6.400000000000002,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-velocity-dur-eval",
+    "control_run": "arc-sr-20261003-goal-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.4,
+        "control_sr_percent": 99.6,
+        "delta_pp": -1.200000000000001
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 64.0,
+        "control_sr_percent": 81.2,
+        "delta_pp": -17.200000000000003
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 94.39999999999999,
+        "control_sr_percent": 96.39999999999999,
+        "delta_pp": -2.0000000000000018
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 157,
+        "candidate_sr_percent": 94.90445859872611,
+        "control_sr_percent": 95.54140127388536,
+        "delta_pp": -0.6369426751592355
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 86.8,
+        "control_sr_percent": 92.0,
+        "delta_pp": -5.200000000000005
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "gripper",
+    "control_mode": "dur",
+    "paired_episodes": 1157,
+    "tasks_seen": 5,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 87.1218668971478,
+    "control_sr_percent": 90.75194468452895,
+    "delta_pp": -3.6300777873811585,
+    "candidate_only_successes": 73,
+    "control_only_successes": 115,
+    "fully_evaluated_task_delta_pp": -4.200000000000001,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-velocity-dur-eval",
+    "control_run": "arc-st-20261005-goal-gripper-dur-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.4,
+        "control_sr_percent": 99.2,
+        "delta_pp": -0.8000000000000007
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 64.0,
+        "control_sr_percent": 74.4,
+        "delta_pp": -10.399999999999999
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 94.39999999999999,
+        "control_sr_percent": 98.0,
+        "delta_pp": -3.600000000000003
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 157,
+        "candidate_sr_percent": 94.90445859872611,
+        "control_sr_percent": 94.90445859872611,
+        "delta_pp": 0.0
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 86.8,
+        "control_sr_percent": 88.8,
+        "delta_pp": -2.0000000000000018
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "component_velocity",
+    "candidate_mode": "dur",
+    "control_variant": "component_velocity",
+    "control_mode": "stk",
+    "paired_episodes": 1157,
+    "tasks_seen": 5,
+    "fully_evaluated_tasks": 4,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 87.1218668971478,
+    "control_sr_percent": 90.14693171996542,
+    "delta_pp": -3.025064822817636,
+    "candidate_only_successes": 87,
+    "control_only_successes": 122,
+    "fully_evaluated_task_delta_pp": -2.9999999999999996,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-velocity-dur-eval",
+    "control_run": "arc-st-20261005-goal-component-velocity-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.4,
+        "control_sr_percent": 99.6,
+        "delta_pp": -1.200000000000001
+      },
+      {
+        "task": "open_the_top_drawer_and_put_the_bowl_inside",
+        "episodes": 250,
+        "candidate_sr_percent": 64.0,
+        "control_sr_percent": 75.2,
+        "delta_pp": -11.2
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 94.39999999999999,
+        "control_sr_percent": 99.2,
+        "delta_pp": -4.800000000000004
+      },
+      {
+        "task": "put_the_bowl_on_top_of_the_cabinet",
+        "episodes": 157,
+        "candidate_sr_percent": 94.90445859872611,
+        "control_sr_percent": 98.08917197452229,
+        "delta_pp": -3.1847133757961776
+      },
+      {
+        "task": "put_the_wine_bottle_on_top_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 86.8,
+        "control_sr_percent": 81.6,
+        "delta_pp": 5.200000000000005
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 286,
+    "tasks_seen": 2,
+    "fully_evaluated_tasks": 1,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 95.1048951048951,
+    "control_sr_percent": 99.3006993006993,
+    "delta_pp": -4.1958041958041985,
+    "candidate_only_successes": 1,
+    "control_only_successes": 13,
+    "fully_evaluated_task_delta_pp": -1.6000000000000014,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-time-stk-eval",
+    "control_run": "arc-se-20261003-goal-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 99.6,
+        "delta_pp": -1.6000000000000014
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 36,
+        "candidate_sr_percent": 75.0,
+        "control_sr_percent": 97.22222222222221,
+        "delta_pp": -22.22222222222222
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "design_contrast",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "component_velocity",
+    "control_mode": "stk",
+    "paired_episodes": 286,
+    "tasks_seen": 2,
+    "fully_evaluated_tasks": 1,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 95.1048951048951,
+    "control_sr_percent": 99.65034965034964,
+    "delta_pp": -4.545454545454541,
+    "candidate_only_successes": 1,
+    "control_only_successes": 14,
+    "fully_evaluated_task_delta_pp": -1.6000000000000014,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-time-stk-eval",
+    "control_run": "arc-st-20261005-goal-component-velocity-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 99.6,
+        "delta_pp": -1.6000000000000014
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 36,
+        "candidate_sr_percent": 75.0,
+        "control_sr_percent": 100.0,
+        "delta_pp": -25.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_goal",
+    "contrast": "combined_timing_change",
+    "candidate_variant": "component_time",
+    "candidate_mode": "stk",
+    "control_variant": "gripper",
+    "control_mode": "stk",
+    "paired_episodes": 286,
+    "tasks_seen": 2,
+    "fully_evaluated_tasks": 1,
+    "complete_suite_comparison": false,
+    "candidate_sr_percent": 95.1048951048951,
+    "control_sr_percent": 98.95104895104895,
+    "delta_pp": -3.8461538461538436,
+    "candidate_only_successes": 3,
+    "control_only_successes": 14,
+    "fully_evaluated_task_delta_pp": -0.8000000000000007,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-st-20261005-goal-component-time-stk-eval",
+    "control_run": "arc-sr-20261003-goal-gripper-stk-eval",
+    "per_task": [
+      {
+        "task": "open_the_middle_drawer_of_the_cabinet",
+        "episodes": 250,
+        "candidate_sr_percent": 98.0,
+        "control_sr_percent": 98.8,
+        "delta_pp": -0.8000000000000007
+      },
+      {
+        "task": "put_the_bowl_on_the_stove",
+        "episodes": 36,
+        "candidate_sr_percent": 75.0,
+        "control_sr_percent": 100.0,
+        "delta_pp": -25.0
+      }
+    ]
+  },
+  {
+    "suite": "libero_10",
+    "contrast": "duration_vs_stk",
+    "candidate_variant": "reference",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 53.800000000000004,
+    "control_sr_percent": 54.64,
+    "delta_pp": -0.8399999999999963,
+    "candidate_only_successes": 407,
+    "control_only_successes": 428,
+    "fully_evaluated_task_delta_pp": -0.8400000000000016,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-sr-20261003-10-reference-dur-eval",
+    "control_run": "arc-sr-20261003-10-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
+        "episodes": 250,
+        "candidate_sr_percent": 85.2,
+        "control_sr_percent": 80.0,
+        "delta_pp": 5.199999999999994
+      },
+      {
+        "task": "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+        "episodes": 250,
+        "candidate_sr_percent": 84.0,
+        "control_sr_percent": 76.8,
+        "delta_pp": 7.199999999999996
+      },
+      {
+        "task": "KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it",
+        "episodes": 250,
+        "candidate_sr_percent": 62.0,
+        "control_sr_percent": 65.60000000000001,
+        "delta_pp": -3.600000000000003
+      },
+      {
+        "task": "KITCHEN_SCENE8_put_both_moka_pots_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 15.6,
+        "control_sr_percent": 31.2,
+        "delta_pp": -15.6
+      },
+      {
+        "task": "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 32.0,
+        "control_sr_percent": 32.800000000000004,
+        "delta_pp": -0.8000000000000007
+      },
+      {
+        "task": "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 39.6,
+        "control_sr_percent": 54.800000000000004,
+        "delta_pp": -15.200000000000003
+      },
+      {
+        "task": "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 57.99999999999999,
+        "control_sr_percent": 49.6,
+        "delta_pp": 8.399999999999997
+      },
+      {
+        "task": "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 40.0,
+        "control_sr_percent": 36.0,
+        "delta_pp": 4.0000000000000036
+      },
+      {
+        "task": "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 33.6,
+        "control_sr_percent": 33.6,
+        "delta_pp": 0.0
+      },
+      {
+        "task": "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy",
+        "episodes": 250,
+        "candidate_sr_percent": 88.0,
+        "control_sr_percent": 86.0,
+        "delta_pp": 2.0000000000000018
+      }
+    ]
+  },
+  {
+    "suite": "libero_10",
+    "contrast": "versus_reference",
+    "candidate_variant": "gripper",
+    "candidate_mode": "stk",
+    "control_variant": "reference",
+    "control_mode": "stk",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 55.60000000000001,
+    "control_sr_percent": 54.64,
+    "delta_pp": 0.9600000000000053,
+    "candidate_only_successes": 447,
+    "control_only_successes": 423,
+    "fully_evaluated_task_delta_pp": 0.9599999999999991,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-sr-20261003-10-gripper-stk-eval",
+    "control_run": "arc-sr-20261003-10-reference-stk-eval",
+    "per_task": [
+      {
+        "task": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
+        "episodes": 250,
+        "candidate_sr_percent": 80.80000000000001,
+        "control_sr_percent": 80.0,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+        "episodes": 250,
+        "candidate_sr_percent": 77.60000000000001,
+        "control_sr_percent": 76.8,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it",
+        "episodes": 250,
+        "candidate_sr_percent": 70.39999999999999,
+        "control_sr_percent": 65.60000000000001,
+        "delta_pp": 4.799999999999994
+      },
+      {
+        "task": "KITCHEN_SCENE8_put_both_moka_pots_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 38.800000000000004,
+        "control_sr_percent": 31.2,
+        "delta_pp": 7.600000000000001
+      },
+      {
+        "task": "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 28.000000000000004,
+        "control_sr_percent": 32.800000000000004,
+        "delta_pp": -4.799999999999999
+      },
+      {
+        "task": "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 53.2,
+        "control_sr_percent": 54.800000000000004,
+        "delta_pp": -1.6000000000000014
+      },
+      {
+        "task": "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 57.599999999999994,
+        "control_sr_percent": 49.6,
+        "delta_pp": 7.9999999999999964
+      },
+      {
+        "task": "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 36.8,
+        "control_sr_percent": 36.0,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 28.000000000000004,
+        "control_sr_percent": 33.6,
+        "delta_pp": -5.6
+      },
+      {
+        "task": "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy",
+        "episodes": 250,
+        "candidate_sr_percent": 84.8,
+        "control_sr_percent": 86.0,
+        "delta_pp": -1.200000000000001
+      }
+    ]
+  },
+  {
+    "suite": "libero_10",
+    "contrast": "versus_reference",
+    "candidate_variant": "component_time",
+    "candidate_mode": "dur",
+    "control_variant": "reference",
+    "control_mode": "dur",
+    "paired_episodes": 2500,
+    "tasks_seen": 10,
+    "fully_evaluated_tasks": 10,
+    "complete_suite_comparison": true,
+    "candidate_sr_percent": 54.67999999999999,
+    "control_sr_percent": 53.800000000000004,
+    "delta_pp": 0.8799999999999919,
+    "candidate_only_successes": 414,
+    "control_only_successes": 392,
+    "fully_evaluated_task_delta_pp": 0.8800000000000002,
+    "initial_state_mismatches": 0,
+    "candidate_run": "arc-sr-20261003-10-component-time-dur-eval",
+    "control_run": "arc-sr-20261003-10-reference-dur-eval",
+    "per_task": [
+      {
+        "task": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
+        "episodes": 250,
+        "candidate_sr_percent": 93.60000000000001,
+        "control_sr_percent": 85.2,
+        "delta_pp": 8.400000000000007
+      },
+      {
+        "task": "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+        "episodes": 250,
+        "candidate_sr_percent": 82.0,
+        "control_sr_percent": 84.0,
+        "delta_pp": -2.0000000000000018
+      },
+      {
+        "task": "KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it",
+        "episodes": 250,
+        "candidate_sr_percent": 59.599999999999994,
+        "control_sr_percent": 62.0,
+        "delta_pp": -2.400000000000002
+      },
+      {
+        "task": "KITCHEN_SCENE8_put_both_moka_pots_on_the_stove",
+        "episodes": 250,
+        "candidate_sr_percent": 24.0,
+        "control_sr_percent": 15.6,
+        "delta_pp": 8.399999999999999
+      },
+      {
+        "task": "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 32.800000000000004,
+        "control_sr_percent": 32.0,
+        "delta_pp": 0.8000000000000007
+      },
+      {
+        "task": "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 52.400000000000006,
+        "control_sr_percent": 39.6,
+        "delta_pp": 12.8
+      },
+      {
+        "task": "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+        "episodes": 250,
+        "candidate_sr_percent": 54.800000000000004,
+        "control_sr_percent": 57.99999999999999,
+        "delta_pp": -3.1999999999999917
+      },
+      {
+        "task": "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 40.400000000000006,
+        "control_sr_percent": 40.0,
+        "delta_pp": 0.40000000000000036
+      },
+      {
+        "task": "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
+        "episodes": 250,
+        "candidate_sr_percent": 24.8,
+        "control_sr_percent": 33.6,
+        "delta_pp": -8.800000000000002
+      },
+      {
+        "task": "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy",
+        "episodes": 250,
+        "candidate_sr_percent": 82.39999999999999,
+        "control_sr_percent": 88.0,
+        "delta_pp": -5.600000000000005
+      }
+    ]
+  }
+]

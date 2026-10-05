@@ -13,8 +13,10 @@ abc_dit:
   num_heads: 24
   action_dim: 14
   action_horizon: ${abc.action_horizon}
-  backbone_checkpoint: /workspace/users/ani-cheluva/.cache/dinov3/dinov3_vitb16_pretrain_lvd1689m.pth
-  text_checkpoint: /workspace/users/ani-cheluva/.cache/clip/clip-vit-base-patch32
+  # Local weight files; set per cluster. No default: a missing path must fail,
+  # never silently train from random weights.
+  backbone_checkpoint: ${oc.env:EGOVERSE_DINOV3_CHECKPOINT}
+  text_checkpoint: ${oc.env:EGOVERSE_CLIP_CHECKPOINT}
 data:
   train_datasets:
     yam_bimanual:

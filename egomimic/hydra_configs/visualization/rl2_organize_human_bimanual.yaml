@@ -3,8 +3,8 @@
 name: rl2_organize_stationary_human_bimanual
 source_fps: 30
 cache_roots:
-  - /workspace/datasets/arc_abc
-  - /workspace/users/ani-cheluva/datasets/egoverse_zarr
+  - ${oc.env:EGOVERSE_ABC_DATASET_DIR}
+  - ${oc.env:EGOVERSE_ZARR_CACHE_DIR,${oc.env:EGOVERSE_ABC_DATASET_DIR}}
 inventory:
   query: >-
     SELECT episode_hash, lab, task, embodiment, operator, zarr_processed_path, is_deleted

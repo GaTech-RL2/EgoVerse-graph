@@ -32,6 +32,10 @@ PINNED_MODES = {
     "abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_joint_distance_openloop": "joint_distance",
     "abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_multistream_openloop": "multistream",
     "abc_arc/robot_bc/stationery_rl2_organize_hpt300_arc_race_openloop": "race",
+    # Towel recipes calibrate D/R per arm and pin multistream.
+    "abc_arc/robot_bc/abc_rl2_towels_abcdit_baseline_visual_openloop": "multistream",
+    "abc_arc/robot_bc/abc_rl2_towels_abcdit_multistream_visual_openloop": "multistream",
+    "abc_arc/robot_bc/abc_rl2_towels_hpt180_multistream_visual_openloop": "multistream",
 }
 # Duration-clock recipes store per-arm durations, which joint_distance cannot
 # use, so the per_waypoint contract checks below do not apply to them.

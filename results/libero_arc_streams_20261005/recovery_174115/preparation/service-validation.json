@@ -1,0 +1,26 @@
+[
+  {
+    "name": "arc-ss-20261005-object",
+    "pool": "groot-l40s-01",
+    "sha256": "45f2bf35c50d1d6fdb6d32e182ebe71d96dbd565331b11efa39db64822a85755",
+    "exit_code": 0
+  },
+  {
+    "name": "arc-ss-20261005-spatial",
+    "pool": "groot-l40s-03",
+    "sha256": "9fa8b49a74a29e11ec5f21823d8a71f29b1e5e8961f3c73ba50c22db2ea88be8",
+    "exit_code": 0
+  },
+  {
+    "name": "arc-ss-20261005-goal",
+    "pool": "groot-l40s-03",
+    "sha256": "8cbc9005168212e97652ee72a2a16c2ac9ee2ec064235c95ccacbe415a168e48",
+    "exit_code": 0
+  },
+  {
+    "name": "arc-ss-20261005-10",
+    "pool": "groot-l40s-03",
+    "sha256": "df6f281d61d2b010fb47572a87111beb0cefc71a2cfa327f07de23f8f1e5f4a8",
+    "exit_code": 0
+  }
+]

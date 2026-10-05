@@ -1,0 +1,3006 @@
+{
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "host_commit": "9c36037a5da54d5a84cd753fe57353be91e436a8",
+  "previous_manifest": "/Users/rpunamiya/Desktop/GEAR/EgoVerse/scratch/libero-stream-validation-20261001/results/libero_arc_streams_20261004/recovery_211651/launch.json",
+  "assembly_sha256": "8d451412695c0aa99fab867328ddf21592b60edd6829720c0f81f7eec039af32",
+  "specs": [
+    {
+      "name": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "file": "/tmp/libero-streams-analysis/20261005T174115Z/specs/arc-ss-20261005-object.yaml",
+      "sha256": "45f2bf35c50d1d6fdb6d32e182ebe71d96dbd565331b11efa39db64822a85755",
+      "training_cells": 0,
+      "evaluation_cells": 20,
+      "training_lanes": 0,
+      "evaluation_lanes": 8
+    },
+    {
+      "name": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "file": "/tmp/libero-streams-analysis/20261005T174115Z/specs/arc-ss-20261005-spatial.yaml",
+      "sha256": "9fa8b49a74a29e11ec5f21823d8a71f29b1e5e8961f3c73ba50c22db2ea88be8",
+      "training_cells": 13,
+      "evaluation_cells": 20,
+      "training_lanes": 6,
+      "evaluation_lanes": 6
+    },
+    {
+      "name": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "file": "/tmp/libero-streams-analysis/20261005T174115Z/specs/arc-ss-20261005-goal.yaml",
+      "sha256": "8cbc9005168212e97652ee72a2a16c2ac9ee2ec064235c95ccacbe415a168e48",
+      "training_cells": 12,
+      "evaluation_cells": 19,
+      "training_lanes": 6,
+      "evaluation_lanes": 6
+    },
+    {
+      "name": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "file": "/tmp/libero-streams-analysis/20261005T174115Z/specs/arc-ss-20261005-10.yaml",
+      "sha256": "df6f281d61d2b010fb47572a87111beb0cefc71a2cfa327f07de23f8f1e5f4a8",
+      "training_cells": 18,
+      "evaluation_cells": 18,
+      "training_lanes": 6,
+      "evaluation_lanes": 4
+    }
+  ],
+  "training_replacements": [
+    {
+      "cell": [
+        "libero_spatial",
+        "xyz_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-xyz-scalar-dur",
+      "new_run": "arc-ss-20261005-spatial-xyz-scalar-dur",
+      "training_task": "train-05",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-spatial-xyz-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "36e27e262685dbe94869d4f4e44770798c2a654b3b8a4019a43f40613d9b5cec",
+          "bytes": 1004525128,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-xyz-scalar-dur/checkpoints/36e27e262685dbe94869d4f4e44770798c2a654b3b8a4019a43f40613d9b5cec/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 4160,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "x_yz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-x-yz-stk",
+      "new_run": "arc-ss-20261005-spatial-x-yz-stk",
+      "training_task": "train-09",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-spatial-x-yz-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "x_yz",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "19fb2fa0fc589dabbd06c7d369083f65bf58719e9d9df9e5b0012831dc722b99",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-x-yz-stk/checkpoints/19fb2fa0fc589dabbd06c7d369083f65bf58719e9d9df9e5b0012831dc722b99/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 430,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "x_yz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-x-yz-dur",
+      "new_run": "arc-ss-20261005-spatial-x-yz-dur",
+      "training_task": "train-10",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-spatial-x-yz-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "x_yz",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "e81ca51fba9995072830441d645f5238d727ba3ac0f990b4071c196e34858e74",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-x-yz-dur/checkpoints/e81ca51fba9995072830441d645f5238d727ba3ac0f990b4071c196e34858e74/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 400,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "y_xz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-y-xz-stk",
+      "new_run": "arc-ss-20261005-spatial-y-xz-stk",
+      "training_task": "train-11",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "y_xz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-y-xz-dur",
+      "new_run": "arc-ss-20261005-spatial-y-xz-dur",
+      "training_task": "train-12",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-spatial-y-xz-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "y_xz",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "2e0173597a80fd97d09db3cd6182f637eb8f0ebfb0c6e582665a2ce67a98a096",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-y-xz-dur/checkpoints/2e0173597a80fd97d09db3cd6182f637eb8f0ebfb0c6e582665a2ce67a98a096/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 370,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "z_xy",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-z-xy-stk",
+      "new_run": "arc-ss-20261005-spatial-z-xy-stk",
+      "training_task": "train-13",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-spatial-z-xy-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "z_xy",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "35f0e5d37844148bbdd7996aff90db3d07a6d8d5a9bee4f8b2622f84d9937649",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-z-xy-stk/checkpoints/35f0e5d37844148bbdd7996aff90db3d07a6d8d5a9bee4f8b2622f84d9937649/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 490,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "z_xy",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-z-xy-dur",
+      "new_run": "arc-ss-20261005-spatial-z-xy-dur",
+      "training_task": "train-14",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-spatial-z-xy-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "z_xy",
+        "epochs": 5001,
+        "total_optimizer_steps": 270054,
+        "checkpoint": {
+          "sha256": "1edb2e74eaf66503424361bb3b0ba1c8048a06cb042f6f21d9f1cf0f4fc67a3e",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-z-xy-dur/checkpoints/1edb2e74eaf66503424361bb3b0ba1c8048a06cb042f6f21d9f1cf0f4fc67a3e/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 80,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_driver",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-angular-driver-stk",
+      "new_run": "arc-ss-20261005-spatial-angular-driver-stk",
+      "training_task": "train-15",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_driver",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-angular-driver-dur",
+      "new_run": "arc-ss-20261005-spatial-angular-driver-dur",
+      "training_task": "train-16",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-angular-scalar-stk",
+      "new_run": "arc-ss-20261005-spatial-angular-scalar-stk",
+      "training_task": "train-17",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-angular-scalar-dur",
+      "new_run": "arc-ss-20261005-spatial-angular-scalar-dur",
+      "training_task": "train-18",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "all_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-all-scalar-stk",
+      "new_run": "arc-ss-20261005-spatial-all-scalar-stk",
+      "training_task": "train-19",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "all_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-all-scalar-dur",
+      "new_run": "arc-ss-20261005-spatial-all-scalar-dur",
+      "training_task": "train-20",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "x_yz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-x-yz-stk",
+      "new_run": "arc-ss-20261005-goal-x-yz-stk",
+      "training_task": "train-09",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-goal-x-yz-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "x_yz",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "0f4eb2d497c4f9cff5d532f0e3d07a76f676c70b300e44c26f73760d9ca1b28f",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-x-yz-stk/checkpoints/0f4eb2d497c4f9cff5d532f0e3d07a76f676c70b300e44c26f73760d9ca1b28f/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 230,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "x_yz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-x-yz-dur",
+      "new_run": "arc-ss-20261005-goal-x-yz-dur",
+      "training_task": "train-10",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-goal-x-yz-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "x_yz",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "ec175653a84db67fcc40e72256f2b6dab38eacbeb09622282d71dc9182a2a1f6",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-x-yz-dur/checkpoints/ec175653a84db67fcc40e72256f2b6dab38eacbeb09622282d71dc9182a2a1f6/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 230,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "y_xz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-y-xz-stk",
+      "new_run": "arc-ss-20261005-goal-y-xz-stk",
+      "training_task": "train-11",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-goal-y-xz-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "y_xz",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "411cf8a63c32a5d05d31f3a82a3591aa9354179edef52c8d6cf2058441452cb0",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-y-xz-stk/checkpoints/411cf8a63c32a5d05d31f3a82a3591aa9354179edef52c8d6cf2058441452cb0/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 260,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "y_xz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-y-xz-dur",
+      "new_run": "arc-ss-20261005-goal-y-xz-dur",
+      "training_task": "train-12",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-goal-y-xz-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "y_xz",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "370b8697fb0fab03a63dd148cb092449eb172a2d547ebaee9ed3053bc07c624b",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-y-xz-dur/checkpoints/370b8697fb0fab03a63dd148cb092449eb172a2d547ebaee9ed3053bc07c624b/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 220,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "z_xy",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-z-xy-stk",
+      "new_run": "arc-ss-20261005-goal-z-xy-stk",
+      "training_task": "train-13",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-goal-z-xy-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "z_xy",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "e4686ef5a1eb9b594e3b36871be971254ad5989328c7e5cb2f52d721e149a4a0",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-z-xy-stk/checkpoints/e4686ef5a1eb9b594e3b36871be971254ad5989328c7e5cb2f52d721e149a4a0/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 220,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "z_xy",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-z-xy-dur",
+      "new_run": "arc-ss-20261005-goal-z-xy-dur",
+      "training_task": "train-14",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-goal-z-xy-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "z_xy",
+        "epochs": 5001,
+        "total_optimizer_steps": 280056,
+        "checkpoint": {
+          "sha256": "9d2800879dd1efacc9e4c9a9f1ba12fd5ec84b3d8f14544ba8e936a66be5b700",
+          "bytes": 1004504072,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-z-xy-dur/checkpoints/9d2800879dd1efacc9e4c9a9f1ba12fd5ec84b3d8f14544ba8e936a66be5b700/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 50,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_driver",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-angular-driver-stk",
+      "new_run": "arc-ss-20261005-goal-angular-driver-stk",
+      "training_task": "train-15",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_driver",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-angular-driver-dur",
+      "new_run": "arc-ss-20261005-goal-angular-driver-dur",
+      "training_task": "train-16",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-angular-scalar-stk",
+      "new_run": "arc-ss-20261005-goal-angular-scalar-stk",
+      "training_task": "train-17",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-angular-scalar-dur",
+      "new_run": "arc-ss-20261005-goal-angular-scalar-dur",
+      "training_task": "train-18",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "all_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-all-scalar-stk",
+      "new_run": "arc-ss-20261005-goal-all-scalar-stk",
+      "training_task": "train-19",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "all_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-all-scalar-dur",
+      "new_run": "arc-ss-20261005-goal-all-scalar-dur",
+      "training_task": "train-20",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "gripper",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-gripper-dur",
+      "new_run": "arc-ss-20261005-10-gripper-dur",
+      "training_task": "train-03",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-10-gripper-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_dur",
+        "arc_stream_variant": "gripper",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "6006e9c88399c96ddd004ffe000d038b583a07c0c053c3c7c32d74e4d903469f",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-10-gripper-dur/checkpoints/6006e9c88399c96ddd004ffe000d038b583a07c0c053c3c7c32d74e4d903469f/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 2620,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "xyz_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-xyz-scalar-stk",
+      "new_run": "arc-ss-20261005-10-xyz-scalar-stk",
+      "training_task": "train-04",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-10-xyz-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_stk",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "5d90661d7e85b7d998dc6037ce468a5a96ca65d24b73926917b0647e3bcc485d",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-10-xyz-scalar-stk/checkpoints/5d90661d7e85b7d998dc6037ce468a5a96ca65d24b73926917b0647e3bcc485d/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 2640,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "xyz_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-xyz-scalar-dur",
+      "new_run": "arc-ss-20261005-10-xyz-scalar-dur",
+      "training_task": "train-05",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-10-xyz-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_dur",
+        "arc_stream_variant": "xyz_scalar",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "08af875c04aa15bab3c86d819d2cd772c01fcbaaa8bd547702bb4ad8e07eac3a",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-10-xyz-scalar-dur/checkpoints/08af875c04aa15bab3c86d819d2cd772c01fcbaaa8bd547702bb4ad8e07eac3a/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 2520,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_velocity",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-component-velocity-stk",
+      "new_run": "arc-ss-20261005-10-component-velocity-stk",
+      "training_task": "train-06",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-10-component-velocity-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_velocity",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "15c68a493de652327efdf826b695a4dcd6f18f8cd3128dc0c17f11b7ceb2119d",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-10-component-velocity-stk/checkpoints/15c68a493de652327efdf826b695a4dcd6f18f8cd3128dc0c17f11b7ceb2119d/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 2590,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_velocity",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-component-velocity-dur",
+      "new_run": "arc-ss-20261005-10-component-velocity-dur",
+      "training_task": "train-07",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-10-component-velocity-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_velocity",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "80fbfd2f93f64a519eb4fd4f1527501c1e6b71191a4c903287ec052f3fc83e83",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-10-component-velocity-dur/checkpoints/80fbfd2f93f64a519eb4fd4f1527501c1e6b71191a4c903287ec052f3fc83e83/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 2580,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_time",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-component-time-stk",
+      "new_run": "arc-ss-20261005-10-component-time-stk",
+      "training_task": "train-08",
+      "resume_request": {
+        "source_run": "arc-sb-20261004-10-component-time-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_10",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_time",
+        "epochs": 5001,
+        "total_optimizer_steps": 605121,
+        "checkpoint": {
+          "sha256": "112b77ea627f69661426054d9e48c54f57e506429b1fb7f9655bbc1cbc0059fd",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-10-component-time-stk/checkpoints/112b77ea627f69661426054d9e48c54f57e506429b1fb7f9655bbc1cbc0059fd/last.ckpt"
+        }
+      },
+      "source_saved_epochs_at_least": 2420,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "x_yz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-x-yz-stk",
+      "new_run": "arc-ss-20261005-10-x-yz-stk",
+      "training_task": "train-09",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "x_yz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-x-yz-dur",
+      "new_run": "arc-ss-20261005-10-x-yz-dur",
+      "training_task": "train-10",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "y_xz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-y-xz-stk",
+      "new_run": "arc-ss-20261005-10-y-xz-stk",
+      "training_task": "train-11",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "y_xz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-y-xz-dur",
+      "new_run": "arc-ss-20261005-10-y-xz-dur",
+      "training_task": "train-12",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "z_xy",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-z-xy-stk",
+      "new_run": "arc-ss-20261005-10-z-xy-stk",
+      "training_task": "train-13",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "z_xy",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-z-xy-dur",
+      "new_run": "arc-ss-20261005-10-z-xy-dur",
+      "training_task": "train-14",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_driver",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-angular-driver-stk",
+      "new_run": "arc-ss-20261005-10-angular-driver-stk",
+      "training_task": "train-15",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_driver",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-angular-driver-dur",
+      "new_run": "arc-ss-20261005-10-angular-driver-dur",
+      "training_task": "train-16",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-angular-scalar-stk",
+      "new_run": "arc-ss-20261005-10-angular-scalar-stk",
+      "training_task": "train-17",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-angular-scalar-dur",
+      "new_run": "arc-ss-20261005-10-angular-scalar-dur",
+      "training_task": "train-18",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "all_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-all-scalar-stk",
+      "new_run": "arc-ss-20261005-10-all-scalar-stk",
+      "training_task": "train-19",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "all_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-all-scalar-dur",
+      "new_run": "arc-ss-20261005-10-all-scalar-dur",
+      "training_task": "train-20",
+      "resume_request": null,
+      "source_saved_epochs_at_least": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    }
+  ],
+  "evaluation_replacements": [
+    {
+      "cell": [
+        "libero_object",
+        "gripper",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sc-20261004-object-gripper-stk-eval",
+      "new_run": "arc-ss-20261005-object-gripper-stk-eval",
+      "evaluation_task": "evaluate-01",
+      "source_run": "arc-sr-20261003-object-gripper-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": "arc-sc-20261004-object-gripper-stk-eval",
+      "saved_episodes": 851,
+      "request": {
+        "source_run": "arc-sr-20261003-object-gripper-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "gripper",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "4ade6e97205ca763d44109ce5f6785fa89b2b8d64b1dc25e0da74a8dbeeb142d",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-gripper-stk/checkpoints/4ade6e97205ca763d44109ce5f6785fa89b2b8d64b1dc25e0da74a8dbeeb142d/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "72c186d2102cb6dc5aa678d5aed08418be102eedc366e22a98c1cf69d6e847aa",
+        "runtime.json": "e4e5297f03e60ed260ac96c4c28b00f730c0df98ba2d6c72fdeb2aaeb9352d6d",
+        "checkpoint-receipts.json": "3c580697f3d490e7541e441882b87651bb18fbf3cc6c8c33333d3a5e96b2bc6d"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "gripper",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-gripper-dur-eval",
+      "new_run": "arc-ss-20261005-object-gripper-dur-eval",
+      "evaluation_task": "evaluate-03",
+      "source_run": "arc-sx-20261003-object-gripper-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": "arc-sv-20261004-object-gripper-dur-eval",
+      "saved_episodes": 115,
+      "request": {
+        "source_run": "arc-sx-20261003-object-gripper-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "gripper",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "9f53a247929f9a30d49d13c8ca6ca072af912c4b4f5d4aa06a9fc3abfd8b9473",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-gripper-dur/checkpoints/9f53a247929f9a30d49d13c8ca6ca072af912c4b4f5d4aa06a9fc3abfd8b9473/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "72c186d2102cb6dc5aa678d5aed08418be102eedc366e22a98c1cf69d6e847aa",
+        "runtime.json": "80773308bd47d435437b4c113180831ffe614d0d42d744de7046c80b95b07fa5",
+        "checkpoint-receipts.json": "5371b00f1f99d7096614477b5d60361449f03f56fe9981007a1542c36d55add1"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "xyz_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-xyz-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-object-xyz-scalar-stk-eval",
+      "evaluation_task": "evaluate-04",
+      "source_run": "arc-sx-20261003-object-xyz-scalar-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": "arc-sv-20261004-object-xyz-scalar-stk-eval",
+      "saved_episodes": 760,
+      "request": {
+        "source_run": "arc-sx-20261003-object-xyz-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "xyz_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "b1892ec7fc0f9fd4e004aa686d54748e42dfa68fd788685fcd96808faf7e86b7",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-xyz-scalar-stk/checkpoints/b1892ec7fc0f9fd4e004aa686d54748e42dfa68fd788685fcd96808faf7e86b7/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "2945c5147a45261c85d4d2e33a7dbf0113a14317c1ae7c7ff2599aa413b884dd",
+        "runtime.json": "6ceff49290d9c6c3a22f99318b09751ea224d45158e16130cf2334b097c9b177",
+        "checkpoint-receipts.json": "974f6aff2fda4786f54aa37119fad54a3598b456163d340a16bbe996773a319a"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "xyz_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-xyz-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-object-xyz-scalar-dur-eval",
+      "evaluation_task": "evaluate-05",
+      "source_run": "arc-sx-20261003-object-xyz-scalar-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": "arc-sv-20261004-object-xyz-scalar-dur-eval",
+      "saved_episodes": 150,
+      "request": {
+        "source_run": "arc-sx-20261003-object-xyz-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "xyz_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "637b6a2bff716570033a089ef4af040c94d10cc36fd4df6dbea649a45c466dea",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-xyz-scalar-dur/checkpoints/637b6a2bff716570033a089ef4af040c94d10cc36fd4df6dbea649a45c466dea/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "2945c5147a45261c85d4d2e33a7dbf0113a14317c1ae7c7ff2599aa413b884dd",
+        "runtime.json": "4ac16e8b9a5d90805f85f2254bdca9c4d246f187658324a775cbd220889d1d43",
+        "checkpoint-receipts.json": "f3c5a4a9dac9fa822c34d5de0986654afecefe1e85bd99d72adeb1d6721afdff"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "component_velocity",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-component-velocity-stk-eval",
+      "new_run": "arc-ss-20261005-object-component-velocity-stk-eval",
+      "evaluation_task": "evaluate-06",
+      "source_run": "arc-sx-20261003-object-component-velocity-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": "arc-sv-20261004-object-component-velocity-stk-eval",
+      "saved_episodes": 886,
+      "request": {
+        "source_run": "arc-sx-20261003-object-component-velocity-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_velocity",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "dbb1f31f86638b39943c37f104c3fe3ffde898cec08166dc0dc2d4e03dceb66d",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-velocity-stk/checkpoints/dbb1f31f86638b39943c37f104c3fe3ffde898cec08166dc0dc2d4e03dceb66d/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "2b87d41a4d74c802312a98b2e8763a3d54bb452704ad1fe70f2264aef61d4c23",
+        "runtime.json": "ba9e9769684ed33160a353c825901936ecf8cdda2c0797f4898715749685e8ff",
+        "checkpoint-receipts.json": "4968be3aa37a52823f3c969ff590902c2a67b8928d4514053cf0acf13b0352ed"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "component_time",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sc-20261004-object-component-time-dur-eval",
+      "new_run": "arc-ss-20261005-object-component-time-dur-eval",
+      "evaluation_task": "evaluate-02",
+      "source_run": "arc-sr-20261003-object-component-time-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sr-20261003-object-component-time-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "00d8fffc6b861ba178eb9b7660fefb2edec8ef6d06df54fa05198eb37f2072fc",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-object-component-time-dur/checkpoints/00d8fffc6b861ba178eb9b7660fefb2edec8ef6d06df54fa05198eb37f2072fc/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "822138b1f2a15d2923b295542f5b4cc3f80b234ba100d02df7ee4e55c6ac6dad",
+        "runtime.json": "af74ee059b676a319115a899efc22a22c8cf2fdaee04be6d25c6ffc4983a810a",
+        "checkpoint-receipts.json": "6a89351123f676064887f8ba6f6339402fd5b8577ad037120de98aa756c2a8be"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "component_velocity",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-component-velocity-dur-eval",
+      "new_run": "arc-ss-20261005-object-component-velocity-dur-eval",
+      "evaluation_task": "evaluate-07",
+      "source_run": "arc-sx-20261003-object-component-velocity-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-component-velocity-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_velocity",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "c5bcdff7337780891e24acea0ff4b6251bc333b072e9b280661329aa98b0793c",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-velocity-dur/checkpoints/c5bcdff7337780891e24acea0ff4b6251bc333b072e9b280661329aa98b0793c/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "2b87d41a4d74c802312a98b2e8763a3d54bb452704ad1fe70f2264aef61d4c23",
+        "runtime.json": "f3abe9051accb81cdd93c772bd22811867904113d840bbce36d47d58b8cb2f85",
+        "checkpoint-receipts.json": "94f5df1b02a7da3fc6c70e9158d88bb84e4963297894bd6d5a99b7bc5520919c"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "component_time",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-component-time-stk-eval",
+      "new_run": "arc-ss-20261005-object-component-time-stk-eval",
+      "evaluation_task": "evaluate-08",
+      "source_run": "arc-sx-20261003-object-component-time-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-component-time-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "9f4fe16e88867a40e11811d5c43013744e55a9365ce0f2b5590c68a0f11debee",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-component-time-stk/checkpoints/9f4fe16e88867a40e11811d5c43013744e55a9365ce0f2b5590c68a0f11debee/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "822138b1f2a15d2923b295542f5b4cc3f80b234ba100d02df7ee4e55c6ac6dad",
+        "runtime.json": "0fb6b3c2f1b1a37a6e1bd7903f120f2061d8c8af3e10eb152c3f55ac4ceea126",
+        "checkpoint-receipts.json": "290f319982ada35454f063b1d4348a08c042e92c8e0b82e589f888dceae61b5a"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "x_yz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-x-yz-stk-eval",
+      "new_run": "arc-ss-20261005-object-x-yz-stk-eval",
+      "evaluation_task": "evaluate-09",
+      "source_run": "arc-sx-20261003-object-x-yz-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-x-yz-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "x_yz",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "ea1971e505e3dc53f22ff45ad0d3c33e3fb728469c811d9a478dbdae33cde64c",
+          "bytes": 1004504136,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-x-yz-stk/checkpoints/ea1971e505e3dc53f22ff45ad0d3c33e3fb728469c811d9a478dbdae33cde64c/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "5436fdc36c4b35c4cdfbba4c9b426e5b1ad344a9cc8a1cd72be0a0476dfdc530",
+        "runtime.json": "313ea44ac909167409821d6573a5c8bcf51f0bf86c390ace00b4e38ebd85bf64",
+        "checkpoint-receipts.json": "e488f3aafe5af700e63a60c2133f5842341ea3ffc34fe48d50566a8be6d7f0f0"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "x_yz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-x-yz-dur-eval",
+      "new_run": "arc-ss-20261005-object-x-yz-dur-eval",
+      "evaluation_task": "evaluate-10",
+      "source_run": "arc-sx-20261003-object-x-yz-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-x-yz-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "x_yz",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "dbb1addb0f084e08196dc9334ee4bba907767354ea8b93b223bf1b43f9da550f",
+          "bytes": 1004504136,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-x-yz-dur/checkpoints/dbb1addb0f084e08196dc9334ee4bba907767354ea8b93b223bf1b43f9da550f/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "5436fdc36c4b35c4cdfbba4c9b426e5b1ad344a9cc8a1cd72be0a0476dfdc530",
+        "runtime.json": "88f2bb5f56cf733b39af0163148e9411db07610bbaff31155145ef3921642bc7",
+        "checkpoint-receipts.json": "638fbed38c2443d6a38d0cff4aca91f12661dd5042f8cc227466bb23d440d3c2"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "y_xz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-y-xz-stk-eval",
+      "new_run": "arc-ss-20261005-object-y-xz-stk-eval",
+      "evaluation_task": "evaluate-11",
+      "source_run": "arc-sx-20261003-object-y-xz-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-y-xz-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "y_xz",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "c52ee292b19c4a692b21382cf0828770087057b3e7de406a5b2d74baf2dfdb89",
+          "bytes": 1004504136,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-y-xz-stk/checkpoints/c52ee292b19c4a692b21382cf0828770087057b3e7de406a5b2d74baf2dfdb89/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "6201dc92e47395726d4258f7ab186ba217c33082d058480764dbfb127769f4e5",
+        "runtime.json": "863caec8155a7d31678aa562193d986fcb5ccd3d19499673f694296eaaaeee31",
+        "checkpoint-receipts.json": "50361accb47fa033d4472adf6b1350af98621bbdb33891b2478793d3761ec77d"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "y_xz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-y-xz-dur-eval",
+      "new_run": "arc-ss-20261005-object-y-xz-dur-eval",
+      "evaluation_task": "evaluate-12",
+      "source_run": "arc-sx-20261003-object-y-xz-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-y-xz-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "y_xz",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "cfc0a76f622f0c8a09d549090d33cf542a41ce098495f1367edd18155bef8a0c",
+          "bytes": 1004504136,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-y-xz-dur/checkpoints/cfc0a76f622f0c8a09d549090d33cf542a41ce098495f1367edd18155bef8a0c/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "6201dc92e47395726d4258f7ab186ba217c33082d058480764dbfb127769f4e5",
+        "runtime.json": "9d120cad613699de18dabaa100a1d9529c220b17f660a8aca13ba5349bf1bb61",
+        "checkpoint-receipts.json": "9750b1ed32735d4268a864c34fce034515478f3a2c6806fd849cbef68d8a07ef"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "z_xy",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-z-xy-stk-eval",
+      "new_run": "arc-ss-20261005-object-z-xy-stk-eval",
+      "evaluation_task": "evaluate-13",
+      "source_run": "arc-sx-20261003-object-z-xy-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-z-xy-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "z_xy",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "a6a677ae70905571b7279ce650c6bf234d7d7ce435336bc3b9320011b9a10373",
+          "bytes": 1004504136,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-z-xy-stk/checkpoints/a6a677ae70905571b7279ce650c6bf234d7d7ce435336bc3b9320011b9a10373/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "f8a497fd06a195480caaee30b15449913c541a1cd6bcfefe8c2c500063c82e06",
+        "runtime.json": "2f5c5a88db7231329ad31343f948abece8d3127f887196a05dc182da713ab452",
+        "checkpoint-receipts.json": "3adcae378222b3b197ac27513220acbd506ecada84d0c7e28d5552a872967e03"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "z_xy",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-z-xy-dur-eval",
+      "new_run": "arc-ss-20261005-object-z-xy-dur-eval",
+      "evaluation_task": "evaluate-14",
+      "source_run": "arc-sx-20261003-object-z-xy-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-z-xy-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "z_xy",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "66994c67c878cd9bec15108ef0307d280cab80f940a8ef1b8a98efce055fbea0",
+          "bytes": 1004504136,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-z-xy-dur/checkpoints/66994c67c878cd9bec15108ef0307d280cab80f940a8ef1b8a98efce055fbea0/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "f8a497fd06a195480caaee30b15449913c541a1cd6bcfefe8c2c500063c82e06",
+        "runtime.json": "7334ee4910ad37c2b4efda7cac71617996c52626b69ce9b4261b7a20c7efa57e",
+        "checkpoint-receipts.json": "ae6eabd9baa15a74e9a07ed9a069e0c964984222d9611a65dd640c0f4b0530ad"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "angular_driver",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-angular-driver-stk-eval",
+      "new_run": "arc-ss-20261005-object-angular-driver-stk-eval",
+      "evaluation_task": "evaluate-15",
+      "source_run": "arc-sx-20261003-object-angular-driver-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-angular-driver-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "angular_driver",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "a982dbb155d0c41219573b119b613e4c49949e5225f7b05a59ea973583381f99",
+          "bytes": 1004421704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-angular-driver-stk/checkpoints/a982dbb155d0c41219573b119b613e4c49949e5225f7b05a59ea973583381f99/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "29052c6db5816be04d91308b3a88b268a6c1bcacf08cc9fe3e06bdd6f0553796",
+        "runtime.json": "04d65507a96f89d8f58060816be345889fe6cf32c43dac1c10043ae455bcd57f",
+        "checkpoint-receipts.json": "d5b4ff0723c6d60c83d9fa50ee7a4d8cff6b8bab1138bb0db71ed8413ae5ed86"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "angular_driver",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-angular-driver-dur-eval",
+      "new_run": "arc-ss-20261005-object-angular-driver-dur-eval",
+      "evaluation_task": "evaluate-16",
+      "source_run": "arc-sx-20261003-object-angular-driver-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-angular-driver-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "angular_driver",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "b1934d4137bd218da9ba9292cab7831d7ec865173dae4853702f2e6a304dee09",
+          "bytes": 1004421704,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-angular-driver-dur/checkpoints/b1934d4137bd218da9ba9292cab7831d7ec865173dae4853702f2e6a304dee09/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "29052c6db5816be04d91308b3a88b268a6c1bcacf08cc9fe3e06bdd6f0553796",
+        "runtime.json": "0d1d2cb60accb2dac4660b8fd9040916e40a9df555875702fe5ed2979ef9b5a3",
+        "checkpoint-receipts.json": "f3c87fede008d4861aa8e3fd53d8c1d69ce217166f26517e0ddf559e7d9bb0cd"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "angular_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-angular-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-object-angular-scalar-stk-eval",
+      "evaluation_task": "evaluate-17",
+      "source_run": "arc-sx-20261003-object-angular-scalar-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-angular-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "angular_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "0527dfd7f9573ebfcaebca62f477d0f291ca8205ce4d91488b68ed6b2dde25c9",
+          "bytes": 1004463688,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-angular-scalar-stk/checkpoints/0527dfd7f9573ebfcaebca62f477d0f291ca8205ce4d91488b68ed6b2dde25c9/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "68a836e3e1772edb9dbaef34affd907170fb61cf084f00ecf42956da5033e27f",
+        "runtime.json": "4ec2fabd475fc47851e92197eda5700b2c57c711352819d2ca9e7151e2c60ac0",
+        "checkpoint-receipts.json": "e43ead47bf0e93ad7a3271c98ca5ccf3276d7561c0422018c3d9313b525ba92e"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "angular_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-angular-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-object-angular-scalar-dur-eval",
+      "evaluation_task": "evaluate-18",
+      "source_run": "arc-sx-20261003-object-angular-scalar-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-angular-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "angular_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "b937ed7d89c1a371bcad810d06d235d7c200d160166b060adac083afdd7e11af",
+          "bytes": 1004463688,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-angular-scalar-dur/checkpoints/b937ed7d89c1a371bcad810d06d235d7c200d160166b060adac083afdd7e11af/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "68a836e3e1772edb9dbaef34affd907170fb61cf084f00ecf42956da5033e27f",
+        "runtime.json": "87e5a87be0286b2f1644f9fb7b083f5a74f60b106307f5f2d3f2945a926e70d1",
+        "checkpoint-receipts.json": "348fd630aef74b3c7894ea5a6db375cba4eedc73af1eee8b37b4056be16a24cd"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "all_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-all-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-object-all-scalar-stk-eval",
+      "evaluation_task": "evaluate-19",
+      "source_run": "arc-sx-20261003-object-all-scalar-stk",
+      "reference_run": "arc-sr-20261003-object-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-all-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_stk",
+        "arc_stream_variant": "all_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sr-20261003-object-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "91a25cf83d3f1c6404f27d1e4c3564c02560c3e56dcd7f416f038d1d230062f0",
+          "bytes": 1004505608,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-all-scalar-stk/checkpoints/91a25cf83d3f1c6404f27d1e4c3564c02560c3e56dcd7f416f038d1d230062f0/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "3e81613366cdba8f54245c8ef669d743cab5787d1757efb77077016c7274fbf6",
+        "runtime.json": "41e3eb439680f462d8fa3f6b952cf179af38a09732fe2861eede76e4abadde27",
+        "checkpoint-receipts.json": "1cb56bed900a206be4763b4ef7f223a175178c10ef06ed27381414d9da24d34c"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_object",
+        "all_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-object",
+      "pool": "groot-l40s-01",
+      "old_run": "arc-sv-20261004-object-all-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-object-all-scalar-dur-eval",
+      "evaluation_task": "evaluate-20",
+      "source_run": "arc-sx-20261003-object-all-scalar-dur",
+      "reference_run": "arc-sc-20261004-object-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sx-20261003-object-all-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_object",
+        "method": "arc_dur",
+        "arc_stream_variant": "all_scalar",
+        "total_optimizer_steps": 325065,
+        "stream_reference_run": "arc-sc-20261004-object-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "25dab5c5e152db98f9f30d1b43375b0fc38f1fda4bec75edd3d63f8f6e1230d9",
+          "bytes": 1004505608,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sx-20261003-object-all-scalar-dur/checkpoints/25dab5c5e152db98f9f30d1b43375b0fc38f1fda4bec75edd3d63f8f6e1230d9/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "3e81613366cdba8f54245c8ef669d743cab5787d1757efb77077016c7274fbf6",
+        "runtime.json": "3ad60e3389d1cec5070856f298fc1db84da6d59463d6f853cefdd2c56f7964ff",
+        "checkpoint-receipts.json": "7eb5caa58a1ebc9020cfd975cd2beaeec694d0c243e6f161e5671e60cef6d42f"
+      },
+      "source_scheduler_state": "FAILED_UPSTREAM"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "gripper",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sc-20261004-spatial-gripper-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-gripper-stk-eval",
+      "evaluation_task": "evaluate-01",
+      "source_run": "arc-sr-20261003-spatial-gripper-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": "arc-sc-20261004-spatial-gripper-stk-eval",
+      "saved_episodes": 2072,
+      "request": {
+        "source_run": "arc-sr-20261003-spatial-gripper-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "gripper",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "b94c152c4786fe9feabb9a39b9216a03159aec62aafbf48508b3b85a5a9741f1",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-gripper-stk/checkpoints/b94c152c4786fe9feabb9a39b9216a03159aec62aafbf48508b3b85a5a9741f1/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "463aec76e8acfd441428a6eaa9e722d22d41d503f37cc2afa44301fd362a02dc",
+        "runtime.json": "b7742ed3215dde8ca1795f01c1e8f507afb8bd088d5ed1a6cad76fe4ccdb6110",
+        "checkpoint-receipts.json": "9790ce1950b718b4d0a9d8c72599f83cedc65916e53925da792a6d945e3c61ec"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "component_time",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sc-20261004-spatial-component-time-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-component-time-dur-eval",
+      "evaluation_task": "evaluate-02",
+      "source_run": "arc-sr-20261003-spatial-component-time-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": "arc-sc-20261004-spatial-component-time-dur-eval",
+      "saved_episodes": 693,
+      "request": {
+        "source_run": "arc-sr-20261003-spatial-component-time-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "7922b52b0ac65620d5d22b90e00a3b45aec58d20d6ed416c28c10b00a0678d79",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-spatial-component-time-dur/checkpoints/7922b52b0ac65620d5d22b90e00a3b45aec58d20d6ed416c28c10b00a0678d79/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "108675f50c7b05d5b30f330e8325c2f1c76e2853dfe4850928fa1a180c43461d",
+        "runtime.json": "a3afb9ebc7ee95922dee4785268a52f22dc363570a711acf24ec48f6a3af187f",
+        "checkpoint-receipts.json": "c16a1c718ec39fa863dac9cbdf3483e18d586b629155d8e8a3b17f97547660c7"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "gripper",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-gripper-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-gripper-dur-eval",
+      "evaluation_task": "evaluate-03",
+      "source_run": "arc-sb-20261004-spatial-gripper-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": "arc-sb-20261004-spatial-gripper-dur-eval",
+      "saved_episodes": 369,
+      "request": {
+        "source_run": "arc-sb-20261004-spatial-gripper-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "gripper",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "fb142c55f7467f0a8ce99122ce392f0308301c2aecc68b93cd27b252de770c9d",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-gripper-dur/checkpoints/fb142c55f7467f0a8ce99122ce392f0308301c2aecc68b93cd27b252de770c9d/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "463aec76e8acfd441428a6eaa9e722d22d41d503f37cc2afa44301fd362a02dc",
+        "runtime.json": "f84d2a167067a92d78e332fd44e518338fd5e15eaf55b6ad521f4c964e499e2e",
+        "checkpoint-receipts.json": "c203933ad24ff0363a60a1cd5d847cd80ba8736cd5500ac1b031c0cd6ead0161"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "xyz_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-xyz-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-xyz-scalar-stk-eval",
+      "evaluation_task": "evaluate-04",
+      "source_run": "arc-sb-20261004-spatial-xyz-scalar-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-spatial-xyz-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "xyz_scalar",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "746bd5445e2a89d85bd9b3ede8a77944959c3883fdbf1ca9acba7d740bdf32ae",
+          "bytes": 1004525128,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-xyz-scalar-stk/checkpoints/746bd5445e2a89d85bd9b3ede8a77944959c3883fdbf1ca9acba7d740bdf32ae/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "27974d6ccd658d279b5ceda90e8988884d7943c3b8f473284dac33a91203ca9d",
+        "runtime.json": "c0a18dd9b82c33456fa4f31c5fb1040848b3e044edcfa1e2a6d626014aa7be0d",
+        "checkpoint-receipts.json": "627b0548984e6c320cdce36e5887ebc5968987e27e630d3a2ad8c55bc7f27c19"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "component_velocity",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-component-velocity-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-component-velocity-stk-eval",
+      "evaluation_task": "evaluate-06",
+      "source_run": "arc-sb-20261004-spatial-component-velocity-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-spatial-component-velocity-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_velocity",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "108ec06826cedc5f9a698392c8eea6dbc31b622fc1f862d495a48344d271e0e2",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-component-velocity-stk/checkpoints/108ec06826cedc5f9a698392c8eea6dbc31b622fc1f862d495a48344d271e0e2/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "15a608755239c6d571674a6df1c4cbdec3d7b4265fad2cff477d339b3a4f1066",
+        "runtime.json": "0dcde42634cf7b1252a8d809ae2c6d61aefe6ceb6ff654ebe9540919c8e53ff9",
+        "checkpoint-receipts.json": "e361b30abbf8acf6fc954a97b001776ab58998f86993e4155933295f8110ba2b"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "component_velocity",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-component-velocity-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-component-velocity-dur-eval",
+      "evaluation_task": "evaluate-07",
+      "source_run": "arc-sb-20261004-spatial-component-velocity-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-spatial-component-velocity-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_velocity",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "87b2c8e4f8dddecfe1b12f1624045e0b818903e7e54ac89f6b059653f9ff466c",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-component-velocity-dur/checkpoints/87b2c8e4f8dddecfe1b12f1624045e0b818903e7e54ac89f6b059653f9ff466c/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "15a608755239c6d571674a6df1c4cbdec3d7b4265fad2cff477d339b3a4f1066",
+        "runtime.json": "d1ef545e0a379c28442cbec7469f76152053fee730ded1de4f3229eb2e868a1c",
+        "checkpoint-receipts.json": "a7c90cc7ed624cffede964439e3bf00b8ba14b83a682a446f9431b16b44058df"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "component_time",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-component-time-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-component-time-stk-eval",
+      "evaluation_task": "evaluate-08",
+      "source_run": "arc-sb-20261004-spatial-component-time-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-spatial-component-time-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_spatial",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 270054,
+        "stream_reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "93b1e2927649763558863871d3fccd631d6ec1c3ca8bf11e5b15c3ba6d135cd3",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-spatial-component-time-stk/checkpoints/93b1e2927649763558863871d3fccd631d6ec1c3ca8bf11e5b15c3ba6d135cd3/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "108675f50c7b05d5b30f330e8325c2f1c76e2853dfe4850928fa1a180c43461d",
+        "runtime.json": "4d4f8d90e332750f26dc4e0f0f94a81ca28492c64d81cc47bc82b3cb0ff3353c",
+        "checkpoint-receipts.json": "867ed8872bc70511413449fff66341220334814e98a2be9601a2e2249a933091"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "xyz_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-xyz-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-xyz-scalar-dur-eval",
+      "evaluation_task": "evaluate-05",
+      "source_run": "arc-ss-20261005-spatial-xyz-scalar-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "x_yz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-x-yz-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-x-yz-stk-eval",
+      "evaluation_task": "evaluate-09",
+      "source_run": "arc-ss-20261005-spatial-x-yz-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "x_yz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-x-yz-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-x-yz-dur-eval",
+      "evaluation_task": "evaluate-10",
+      "source_run": "arc-ss-20261005-spatial-x-yz-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "y_xz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-y-xz-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-y-xz-stk-eval",
+      "evaluation_task": "evaluate-11",
+      "source_run": "arc-ss-20261005-spatial-y-xz-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "y_xz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-y-xz-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-y-xz-dur-eval",
+      "evaluation_task": "evaluate-12",
+      "source_run": "arc-ss-20261005-spatial-y-xz-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "z_xy",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-z-xy-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-z-xy-stk-eval",
+      "evaluation_task": "evaluate-13",
+      "source_run": "arc-ss-20261005-spatial-z-xy-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "z_xy",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-z-xy-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-z-xy-dur-eval",
+      "evaluation_task": "evaluate-14",
+      "source_run": "arc-ss-20261005-spatial-z-xy-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_driver",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-angular-driver-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-angular-driver-stk-eval",
+      "evaluation_task": "evaluate-15",
+      "source_run": "arc-ss-20261005-spatial-angular-driver-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_driver",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-angular-driver-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-angular-driver-dur-eval",
+      "evaluation_task": "evaluate-16",
+      "source_run": "arc-ss-20261005-spatial-angular-driver-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-angular-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-angular-scalar-stk-eval",
+      "evaluation_task": "evaluate-17",
+      "source_run": "arc-ss-20261005-spatial-angular-scalar-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "angular_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-angular-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-angular-scalar-dur-eval",
+      "evaluation_task": "evaluate-18",
+      "source_run": "arc-ss-20261005-spatial-angular-scalar-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "all_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-all-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-spatial-all-scalar-stk-eval",
+      "evaluation_task": "evaluate-19",
+      "source_run": "arc-ss-20261005-spatial-all-scalar-stk",
+      "reference_run": "arc-se-20261003-spatial-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_spatial",
+        "all_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-spatial",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-spatial-all-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-spatial-all-scalar-dur-eval",
+      "evaluation_task": "evaluate-20",
+      "source_run": "arc-ss-20261005-spatial-all-scalar-dur",
+      "reference_run": "arc-sr-20261003-spatial-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "component_time",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sc-20261004-goal-component-time-dur-eval",
+      "new_run": "arc-ss-20261005-goal-component-time-dur-eval",
+      "evaluation_task": "evaluate-02",
+      "source_run": "arc-sr-20261003-goal-component-time-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": "arc-sc-20261004-goal-component-time-dur-eval",
+      "saved_episodes": 1904,
+      "request": {
+        "source_run": "arc-sr-20261003-goal-component-time-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 280056,
+        "stream_reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "47f3febed31ff7379631ef2c1c3973567a9900ec3cfec335bebf2ed7f076978c",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sr-20261003-goal-component-time-dur/checkpoints/47f3febed31ff7379631ef2c1c3973567a9900ec3cfec335bebf2ed7f076978c/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "6f96b68c1c79a6be1081b6bcb9530a02c2864a3b32b059d39d511ac0477af0de",
+        "runtime.json": "4b1b5ec407797b3c90c535b00af0147da68964a318b6a2f9bcf5727bc81b8d6b",
+        "checkpoint-receipts.json": "a50e9961a08ff09a7f5122870344ad5bba7f622a1dd64b0521d3b1e038b29a81"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "gripper",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-gripper-dur-eval",
+      "new_run": "arc-ss-20261005-goal-gripper-dur-eval",
+      "evaluation_task": "evaluate-03",
+      "source_run": "arc-sb-20261004-goal-gripper-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": "arc-sb-20261004-goal-gripper-dur-eval",
+      "saved_episodes": 597,
+      "request": {
+        "source_run": "arc-sb-20261004-goal-gripper-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "gripper",
+        "total_optimizer_steps": 280056,
+        "stream_reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "3b04b64cd3aeb681397e79f16d40ee375c77b9321343c538a2e8baae3d3fbd40",
+          "bytes": 1004483144,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-gripper-dur/checkpoints/3b04b64cd3aeb681397e79f16d40ee375c77b9321343c538a2e8baae3d3fbd40/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "225f99202aed86be2ae84e9425af2592e3345657b91002d4d970acc38b3f36b8",
+        "runtime.json": "4faac9e6ba9d4e3dea68444987cf283fdba9226124bc71d28c45e3da70595698",
+        "checkpoint-receipts.json": "7be19f3f85d20639440993c4e393c2fcefa1fb7ba42431a02db17d9bd9bed8a6"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "xyz_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-xyz-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-goal-xyz-scalar-stk-eval",
+      "evaluation_task": "evaluate-04",
+      "source_run": "arc-sb-20261004-goal-xyz-scalar-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-goal-xyz-scalar-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "xyz_scalar",
+        "total_optimizer_steps": 280056,
+        "stream_reference_run": "arc-se-20261003-goal-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "b9256b90011a421ae59050b42ad09916c3505707c48c94b6c65c944adcc40698",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-xyz-scalar-stk/checkpoints/b9256b90011a421ae59050b42ad09916c3505707c48c94b6c65c944adcc40698/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "9a7e441e2b1f4590019f74143a9da54c1e68c471184e1b7f404fbf319a7d8173",
+        "runtime.json": "8782a374042022f290cacb702126efb3e084bc968c06470d72ff96c0123aed48",
+        "checkpoint-receipts.json": "a56eb1d78e2b83c1f3add397725ad712ec452c1b458bedc78e589b2bcada6c88"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "xyz_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-xyz-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-goal-xyz-scalar-dur-eval",
+      "evaluation_task": "evaluate-05",
+      "source_run": "arc-sb-20261004-goal-xyz-scalar-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-goal-xyz-scalar-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "xyz_scalar",
+        "total_optimizer_steps": 280056,
+        "stream_reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "1c02b53253e2d8cf2c2e520eba7cb8dbdbc76f438e1bc953b77d47d2d45bcb53",
+          "bytes": 1004525064,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-xyz-scalar-dur/checkpoints/1c02b53253e2d8cf2c2e520eba7cb8dbdbc76f438e1bc953b77d47d2d45bcb53/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "9a7e441e2b1f4590019f74143a9da54c1e68c471184e1b7f404fbf319a7d8173",
+        "runtime.json": "4b7df70f7b090ce1a04530788b09b2313c340c3e9d642f8d70a60a7b473edb3b",
+        "checkpoint-receipts.json": "d38802eb4d3a18b459a5267ffd501234d0588dd3fae5ae474f25cc54909edf8b"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "component_velocity",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-component-velocity-stk-eval",
+      "new_run": "arc-ss-20261005-goal-component-velocity-stk-eval",
+      "evaluation_task": "evaluate-06",
+      "source_run": "arc-sb-20261004-goal-component-velocity-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-goal-component-velocity-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_velocity",
+        "total_optimizer_steps": 280056,
+        "stream_reference_run": "arc-se-20261003-goal-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "afbda457c8ec0b19676982e26c10d5d81b30de5fa8e8eb7c3b055a7b7ccbe770",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-component-velocity-stk/checkpoints/afbda457c8ec0b19676982e26c10d5d81b30de5fa8e8eb7c3b055a7b7ccbe770/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "cd53c208a3d611bbaa6732c17e6ed6a93fbaa2113127e41f5e211316af380af7",
+        "runtime.json": "c778a8cc334dac0e1ead381a927665efc944a00357a04253ca339bd0dfaa3f2b",
+        "checkpoint-receipts.json": "f374475cd4c450da9c9b6164e8db8c7bd24ed5d280dbb2611c7ee65d62a01474"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "component_velocity",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-component-velocity-dur-eval",
+      "new_run": "arc-ss-20261005-goal-component-velocity-dur-eval",
+      "evaluation_task": "evaluate-07",
+      "source_run": "arc-sb-20261004-goal-component-velocity-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-goal-component-velocity-dur",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_dur",
+        "arc_stream_variant": "component_velocity",
+        "total_optimizer_steps": 280056,
+        "stream_reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "aacef48383bc0cfa061e2b5219ae4758362a7be166eb760284aa11716f648c00",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-component-velocity-dur/checkpoints/aacef48383bc0cfa061e2b5219ae4758362a7be166eb760284aa11716f648c00/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "cd53c208a3d611bbaa6732c17e6ed6a93fbaa2113127e41f5e211316af380af7",
+        "runtime.json": "25ff8bba1fc8193b2e0b1e4ef179ee323f94ac6b781e69d1456ed93bc55facff",
+        "checkpoint-receipts.json": "89ea83187843f7ccc3cee780d6463f638a699c5c172f4fb42fff5be18b7dbf4c"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "component_time",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-component-time-stk-eval",
+      "new_run": "arc-ss-20261005-goal-component-time-stk-eval",
+      "evaluation_task": "evaluate-08",
+      "source_run": "arc-sb-20261004-goal-component-time-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": {
+        "source_run": "arc-sb-20261004-goal-component-time-stk",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+        "suite": "libero_goal",
+        "method": "arc_stk",
+        "arc_stream_variant": "component_time",
+        "total_optimizer_steps": 280056,
+        "stream_reference_run": "arc-se-20261003-goal-reference-stk-eval",
+        "epochs": 5001,
+        "checkpoint": {
+          "sha256": "27a8de7c700bb75c00b2f44479fe08afacdb38cea34716684628c02e1bc8d519",
+          "bytes": 1004565320,
+          "uri": "s3://rldb/experiments/arc-oat-20260919/arc-sb-20261004-goal-component-time-stk/checkpoints/27a8de7c700bb75c00b2f44479fe08afacdb38cea34716684628c02e1bc8d519/last.ckpt"
+        }
+      },
+      "artifact_hashes": {
+        "status.json": "6f96b68c1c79a6be1081b6bcb9530a02c2864a3b32b059d39d511ac0477af0de",
+        "runtime.json": "f3d8a6d41b708eb85f68fe98892eef604c75f6ff8dbb631f663e4867a2ef8686",
+        "checkpoint-receipts.json": "722fd07779c80f4933c7d4061fbf160d801cc39d44eb4a25a4b3f1803ff292e1"
+      },
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "x_yz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-x-yz-stk-eval",
+      "new_run": "arc-ss-20261005-goal-x-yz-stk-eval",
+      "evaluation_task": "evaluate-09",
+      "source_run": "arc-ss-20261005-goal-x-yz-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "x_yz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-x-yz-dur-eval",
+      "new_run": "arc-ss-20261005-goal-x-yz-dur-eval",
+      "evaluation_task": "evaluate-10",
+      "source_run": "arc-ss-20261005-goal-x-yz-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "y_xz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-y-xz-stk-eval",
+      "new_run": "arc-ss-20261005-goal-y-xz-stk-eval",
+      "evaluation_task": "evaluate-11",
+      "source_run": "arc-ss-20261005-goal-y-xz-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "y_xz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-y-xz-dur-eval",
+      "new_run": "arc-ss-20261005-goal-y-xz-dur-eval",
+      "evaluation_task": "evaluate-12",
+      "source_run": "arc-ss-20261005-goal-y-xz-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "z_xy",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-z-xy-stk-eval",
+      "new_run": "arc-ss-20261005-goal-z-xy-stk-eval",
+      "evaluation_task": "evaluate-13",
+      "source_run": "arc-ss-20261005-goal-z-xy-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "z_xy",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-z-xy-dur-eval",
+      "new_run": "arc-ss-20261005-goal-z-xy-dur-eval",
+      "evaluation_task": "evaluate-14",
+      "source_run": "arc-ss-20261005-goal-z-xy-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_driver",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-angular-driver-stk-eval",
+      "new_run": "arc-ss-20261005-goal-angular-driver-stk-eval",
+      "evaluation_task": "evaluate-15",
+      "source_run": "arc-ss-20261005-goal-angular-driver-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_driver",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-angular-driver-dur-eval",
+      "new_run": "arc-ss-20261005-goal-angular-driver-dur-eval",
+      "evaluation_task": "evaluate-16",
+      "source_run": "arc-ss-20261005-goal-angular-driver-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-angular-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-goal-angular-scalar-stk-eval",
+      "evaluation_task": "evaluate-17",
+      "source_run": "arc-ss-20261005-goal-angular-scalar-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "angular_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-angular-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-goal-angular-scalar-dur-eval",
+      "evaluation_task": "evaluate-18",
+      "source_run": "arc-ss-20261005-goal-angular-scalar-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "all_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-all-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-goal-all-scalar-stk-eval",
+      "evaluation_task": "evaluate-19",
+      "source_run": "arc-ss-20261005-goal-all-scalar-stk",
+      "reference_run": "arc-se-20261003-goal-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_goal",
+        "all_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-goal",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-goal-all-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-goal-all-scalar-dur-eval",
+      "evaluation_task": "evaluate-20",
+      "source_run": "arc-ss-20261005-goal-all-scalar-dur",
+      "reference_run": "arc-sr-20261003-goal-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "gripper",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-gripper-dur-eval",
+      "new_run": "arc-ss-20261005-10-gripper-dur-eval",
+      "evaluation_task": "evaluate-03",
+      "source_run": "arc-ss-20261005-10-gripper-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "xyz_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-xyz-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-10-xyz-scalar-stk-eval",
+      "evaluation_task": "evaluate-04",
+      "source_run": "arc-ss-20261005-10-xyz-scalar-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "xyz_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-xyz-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-10-xyz-scalar-dur-eval",
+      "evaluation_task": "evaluate-05",
+      "source_run": "arc-ss-20261005-10-xyz-scalar-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_velocity",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-component-velocity-stk-eval",
+      "new_run": "arc-ss-20261005-10-component-velocity-stk-eval",
+      "evaluation_task": "evaluate-06",
+      "source_run": "arc-ss-20261005-10-component-velocity-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_velocity",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-component-velocity-dur-eval",
+      "new_run": "arc-ss-20261005-10-component-velocity-dur-eval",
+      "evaluation_task": "evaluate-07",
+      "source_run": "arc-ss-20261005-10-component-velocity-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "component_time",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-component-time-stk-eval",
+      "new_run": "arc-ss-20261005-10-component-time-stk-eval",
+      "evaluation_task": "evaluate-08",
+      "source_run": "arc-ss-20261005-10-component-time-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "x_yz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-x-yz-stk-eval",
+      "new_run": "arc-ss-20261005-10-x-yz-stk-eval",
+      "evaluation_task": "evaluate-09",
+      "source_run": "arc-ss-20261005-10-x-yz-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "x_yz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-x-yz-dur-eval",
+      "new_run": "arc-ss-20261005-10-x-yz-dur-eval",
+      "evaluation_task": "evaluate-10",
+      "source_run": "arc-ss-20261005-10-x-yz-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "y_xz",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-y-xz-stk-eval",
+      "new_run": "arc-ss-20261005-10-y-xz-stk-eval",
+      "evaluation_task": "evaluate-11",
+      "source_run": "arc-ss-20261005-10-y-xz-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "y_xz",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-y-xz-dur-eval",
+      "new_run": "arc-ss-20261005-10-y-xz-dur-eval",
+      "evaluation_task": "evaluate-12",
+      "source_run": "arc-ss-20261005-10-y-xz-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "z_xy",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-z-xy-stk-eval",
+      "new_run": "arc-ss-20261005-10-z-xy-stk-eval",
+      "evaluation_task": "evaluate-13",
+      "source_run": "arc-ss-20261005-10-z-xy-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "z_xy",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-z-xy-dur-eval",
+      "new_run": "arc-ss-20261005-10-z-xy-dur-eval",
+      "evaluation_task": "evaluate-14",
+      "source_run": "arc-ss-20261005-10-z-xy-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_driver",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-angular-driver-stk-eval",
+      "new_run": "arc-ss-20261005-10-angular-driver-stk-eval",
+      "evaluation_task": "evaluate-15",
+      "source_run": "arc-ss-20261005-10-angular-driver-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_driver",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-angular-driver-dur-eval",
+      "new_run": "arc-ss-20261005-10-angular-driver-dur-eval",
+      "evaluation_task": "evaluate-16",
+      "source_run": "arc-ss-20261005-10-angular-driver-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-angular-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-10-angular-scalar-stk-eval",
+      "evaluation_task": "evaluate-17",
+      "source_run": "arc-ss-20261005-10-angular-scalar-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-angular-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-10-angular-scalar-dur-eval",
+      "evaluation_task": "evaluate-18",
+      "source_run": "arc-ss-20261005-10-angular-scalar-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "all_scalar",
+        "stk"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-all-scalar-stk-eval",
+      "new_run": "arc-ss-20261005-10-all-scalar-stk-eval",
+      "evaluation_task": "evaluate-19",
+      "source_run": "arc-ss-20261005-10-all-scalar-stk",
+      "reference_run": "arc-sr-20261003-10-reference-stk-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "all_scalar",
+        "dur"
+      ],
+      "workflow": "arc-ss-20261005-10",
+      "pool": "groot-l40s-03",
+      "old_run": "arc-sb-20261004-10-all-scalar-dur-eval",
+      "new_run": "arc-ss-20261005-10-all-scalar-dur-eval",
+      "evaluation_task": "evaluate-20",
+      "source_run": "arc-ss-20261005-10-all-scalar-dur",
+      "reference_run": "arc-sr-20261003-10-reference-dur-eval",
+      "resume_from": null,
+      "saved_episodes": 0,
+      "request": null,
+      "artifact_hashes": null,
+      "source_scheduler_state": "FAILED_CANCELED"
+    }
+  ]
+}

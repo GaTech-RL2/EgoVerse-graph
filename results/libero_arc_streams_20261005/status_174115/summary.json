@@ -1,0 +1,37 @@
+{
+  "observed_at_utc": "2026-10-05T17:44:05.860627+00:00",
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "canonical_manifest": "../../libero_arc_streams_20261004/recovery_211651/launch.json",
+  "training_complete": 45,
+  "final_evaluations": 11,
+  "partial_evaluations": 10,
+  "native_episode_directories_validated": 61,
+  "paired_initial_state_mismatches": 0,
+  "method": "Partial success is pooled over completed episodes. Each comparison uses the intersection of exact episode IDs and identical initial-state hashes.",
+  "limits": [
+    "Partial evaluations follow fixed task order and do not yet represent every task equally.",
+    "One training seed; five evaluation repetitions are not independent trained policies.",
+    "All evaluated policies reached the full training budget. Partial refers to rollout coverage.",
+    "Component-time versus reference also changes gripper grouping and timing labels; the clean shared-clock component-duration control has no policy score yet.",
+    "Replay uses 30 demonstrations per suite, previously used during development. It measures reconstruction, not policy learning.",
+    "Representation widths change parameter count by less than 0.03% and timing loss weight is not separately normalized."
+  ],
+  "replay_sources": {
+    "spatial": {
+      "file": "results/libero_arc_streams_20261002/recovery2/completed_replays/spatial/replay-results.json",
+      "sha256": "5f48925392314fb879ea2bb7842384c509d2c6781380301c674f7a7fb12edf87"
+    },
+    "object": {
+      "file": "results/libero_arc_streams_20261002/recovery2/completed_replays/object/replay-results.json",
+      "sha256": "4f3fa4c7bd6a88ca188f480fb46a8da5ef5c403f2c034443b02aace709771912"
+    },
+    "goal": {
+      "file": "results/libero_arc_streams_20261002/recovery2/completed_replays/goal/replay-results.json",
+      "sha256": "125c10c98bbde3cd9ab30d050b116fa2dac9028bd14bbf047ad21d71d3588738"
+    },
+    "10": {
+      "file": "results/libero_arc_streams_20261002/recovery2/completed_replays/10/replay-results.json",
+      "sha256": "448d0964221e7fdd3f43dc0ef09c72ae9add7157a1b7ae1cf95fa2b41c0f40db"
+    }
+  }
+}

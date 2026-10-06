@@ -1,0 +1,12 @@
+# @package _global_
+# Human-slowdown twin of cotrain_rl2_stattempo_slowpace_aria_time_lambda (Aidan 2026-10-06, time cotrain only): each human chunk is H=27 source frames
+# resampled to 100 rows, so human motion plays at about robot speed. Ratio 3.65 = median 100-frame chunk path as loaded (human 0.985 m vs robot 0.270 m, 3000 windows each, 2026-10-06; Aria converter gaps included, since the model sees kept frames as consecutive). Robot data, validation, recipe and model unchanged.
+defaults:
+- /experiment/yam_arc_grid/cotrain_rl2_stattempo_slowpace_aria_time_lambda
+- _self_
+- override /data: abc_arc/stationery_slowpace_aria_cotrain_time_hslow27_lambda
+name: cotrain_rl2_stattempo_slowpace_aria_time_hslow27_lambda
+description: h640t8_d384x10_cos10k_240k_s42_cotrain_rl2_stattempo_slowpace_aria_time_hslow27_lambda
+logger:
+  wandb:
+    id: stattempo_slowpace366_aria38_cotrain_time_hslow27_lambda_20261006_s42

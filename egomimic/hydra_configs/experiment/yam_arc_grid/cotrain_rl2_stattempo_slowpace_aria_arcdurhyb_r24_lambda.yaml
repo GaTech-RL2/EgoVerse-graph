@@ -1,0 +1,13 @@
+# @package _global_
+# R24 twin of cotrain_rl2_stattempo_slowpace_aria_arcdurhyb_lambda (Aidan 2026-10-06): the rotation stream is capped at 24 deg (rotation_distance_unit 0.4188790204786391 rad)
+# instead of the codec default 2*pi, which in practice let the 100-frame window end every rotation stream. Same data,
+# recipe, model and open-loop validation; only the tokenizer's rotation budget differs.
+defaults:
+- /experiment/yam_arc_grid/cotrain_rl2_stattempo_slowpace_aria_arcdurhyb_lambda
+- _self_
+- override /data: abc_arc/stationery_slowpace_aria_cotrain_arcdurhyb_r24_lambda
+name: cotrain_rl2_stattempo_slowpace_aria_arcdurhyb_r24_lambda
+description: h640t8_d384x10_cos10k_240k_s42_cotrain_rl2_stattempo_slowpace_aria_arcdurhyb_r24_lambda
+logger:
+  wandb:
+    id: stattempo_slowpace366_aria38_cotrain_arcdurhyb_r24_lambda_20261006_s42

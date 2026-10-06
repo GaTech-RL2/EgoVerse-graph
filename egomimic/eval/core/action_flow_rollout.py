@@ -89,8 +89,10 @@ class RoutedActionFlowPolicy:
 
     @torch.inference_mode()
     def predict_native_actions(self, obs_env):
-        raw = {k: v.unsqueeze(1) for k, v in
-               _env_to_zarr_pushshapes_oriented(dict(obs_env), self.device).items()}
+        # The checkpoint's FusedObsEncoder(n_obs_steps=1) consumes packed
+        # [B,...] rows, not [B,1,...]. An extra temporal axis survives feature
+        # concatenation and produces an invalid [B,1,C] condition.
+        raw = _env_to_zarr_pushshapes_oriented(dict(obs_env), self.device)
         adapted = self.adapter.encode(raw)
         normalized = self.normalizer.normalize(adapted, self.embodiment_id)
         normalized["embodiment"] = torch.tensor([self.embodiment_id], device=self.device)

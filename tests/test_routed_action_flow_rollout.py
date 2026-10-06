@@ -7,6 +7,7 @@ from egomimic.eval.core.action_flow_rollout import (
     RoutedActionFlowPolicy, action_flow_contract, action_flow_metadata,
 )
 from egomimic.pipeline.stages_action_flow import ConditionalVelocityStage
+from egomimic.pipeline.stages_sampler import DPStyleObsEncoder, FusedObsEncoder
 from egomimic.rldb.zarr.chain_gripper_points import pose_control_to_points
 
 
@@ -40,11 +41,23 @@ def test_boundary_routes_rotvec_state_and_decodes_native(name, emb, width):
     control = np.tile([256., 128., .3, .5], (16, 1))
     tokens = (np.column_stack((control[:, :2], np.cos(control[:, 2]), np.sin(control[:, 2])))
               if emb == 19 else pose_control_to_points(control))
+    class ImageEncoder(torch.nn.Module):
+        def forward(self, image):
+            assert image.shape == (1, 3, 96, 96)
+            return torch.zeros(image.shape[0], 64)
+    fused = FusedObsEncoder(
+        DPStyleObsEncoder(obs_specs={"state_agent_model": {"input_dim": 4}},
+                          img_encoders={"front_img_1": ImageEncoder()}),
+        inputs={"state_agent_model": "state_agent_model", "front_img_1": "front_img_1"},
+        n_obs_steps=1)
     class Normalizer:
         def normalize(self, data, embodiment_id):
             assert embodiment_id == emb
-            assert data["state_agent_model"].shape == (1, 1, 4)
-            assert data["front_img_1"].shape == (1, 1, 3, 96, 96)
+            assert data["state_agent_model"].shape == (1, 4)
+            assert data["front_img_1"].shape == (1, 3, 96, 96)
+            # Exercise the original checkpoint's packed single-observation
+            # encoder contract, rather than accepting a shape-only fake Algo.
+            assert fused.forward(dict(data))["condition"].shape == (1, 68)
             return dict(data, state_agent_model=data["state_agent_model"] / 512)
         def unnormalize(self, data, embodiment_id):
             assert embodiment_id == emb

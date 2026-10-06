@@ -103,3 +103,17 @@ def test_euler50_uses_original_stage_and_unshifted_grid():
     torch.testing.assert_close(torch.cat(field.times[::2]), torch.arange(50) * -.02 + 1.)
     torch.testing.assert_close(result["action_flow/generated_latent"], torch.zeros(1, 8, 16), atol=1e-6, rtol=0)
     assert action_flow_metadata(config())["timestep_shift_active"] is False
+
+
+def test_bf16_refuses_cpu_instead_of_silently_using_fp32():
+    with pytest.raises(ValueError, match="BF16-capable CUDA"):
+        RoutedActionFlowPolicy(algo=None, normalizer=None, decoder=None,
+            embodiment_id=19, device=torch.device("cpu"), cfg=config(),
+            embodiment_name="pushshapes_sim_u_socket", model_autocast_precision="bf16")
+
+
+def test_canonical_precision_cli_is_explicit():
+    from egomimic.eval.core.ckpt_loading import build_parser
+    action = next(a for a in build_parser()._actions if a.dest == "model_autocast_precision")
+    assert action.default == "fp32"
+    assert action.choices == ("fp32", "bf16")

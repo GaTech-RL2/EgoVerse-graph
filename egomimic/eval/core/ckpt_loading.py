@@ -680,6 +680,8 @@ def _validate_runtime_args(args) -> None:
             raise ValueError("routed Action Flow requires observation stride 1")
     elif args.embodiment_name != _LEGACY_EMBODIMENT:
         raise ValueError(f"only {_LEGACY_EMBODIMENT} is supported")
+    if args.model_autocast_precision == "bf16" and not flow:
+        raise ValueError("BF16 model autocast is implemented only for routed Action Flow")
     expected_id = int(get_embodiment_id(args.embodiment_name))
     if args.only_emb != expected_id:
         raise ValueError(f"only-emb must be {expected_id}")
@@ -730,7 +732,8 @@ def run(args) -> None:
         decoder=decoder,
         embodiment_id=args.only_emb,
         device=device,
-        **({"cfg": _cfg, "embodiment_name": args.embodiment_name} if flow else {}),
+        **({"cfg": _cfg, "embodiment_name": args.embodiment_name,
+            "model_autocast_precision": args.model_autocast_precision} if flow else {}),
     )
     coverages: list[float] = []
     episode_rows: list[dict[str, Any]] = []
@@ -815,7 +818,11 @@ def run(args) -> None:
     if flow:
         summary.update(action_flow_metadata(_cfg))
         summary.update(decoded_action_horizon=16, waypoint_count=None,
-                       comparability="pending_canonical_launcher_preflight",
+                       comparability=("NON-PROTOCOL_PRECISION_DIAGNOSTIC_NOT_COMPARABLE"
+                                      if args.model_autocast_precision == "bf16"
+                                      else "pending_canonical_launcher_preflight"),
+                       model_autocast_precision=args.model_autocast_precision,
+                       parameter_precision="fp32", native_arithmetic_precision="fp32",
                        checkpoint_epoch=int(_checkpoint.get("epoch", -1)),
                        checkpoint_global_step=int(_checkpoint.get("global_step", -1)))
     (out_dir / "rollout_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -839,6 +846,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--replan-every", type=int, default=None)
     parser.add_argument("--action-chunk-start-index", type=int, default=0)
     parser.add_argument("--sampler-inference-steps", type=int, default=None)
+    parser.add_argument("--model-autocast-precision", choices=("fp32", "bf16"), default="fp32")
     parser.add_argument("--chunk-stitch-weights", default=None)
     parser.add_argument("--chunk-seam-artifact", default=None)
     parser.add_argument("--rollout-noise-shift-tokens", type=int, default=None)

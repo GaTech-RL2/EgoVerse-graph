@@ -1,6 +1,7 @@
 """Dense routed Action Flow simulator boundary; no replacement sampler/model."""
 
 from collections.abc import Mapping
+from contextlib import nullcontext
 
 import numpy as np
 import torch
@@ -76,10 +77,16 @@ def action_flow_metadata(cfg):
 
 class RoutedActionFlowPolicy:
     def __init__(self, *, algo, normalizer, decoder, embodiment_id, device, cfg,
-                 embodiment_name):
+                 embodiment_name, model_autocast_precision="fp32"):
         self.algo, self.normalizer, self.decoder = algo, normalizer, decoder
         self.embodiment_id, self.device = embodiment_id, device
         self.embodiment_name = embodiment_name
+        if model_autocast_precision not in ("fp32", "bf16"):
+            raise ValueError("model autocast precision must be fp32 or bf16")
+        if model_autocast_precision == "bf16" and (
+                device.type != "cuda" or not torch.cuda.is_bf16_supported()):
+            raise ValueError("BF16 model autocast requires a BF16-capable CUDA device")
+        self.model_autocast_precision = model_autocast_precision
         self.model_width, self.native_width, _, _, _ = _BOUNDARIES[embodiment_name]
         self.adapter = instantiate(cfg.deployment.observation_adapters[embodiment_name])
         self.token_horizon = self.decoded_horizon = 16
@@ -96,14 +103,19 @@ class RoutedActionFlowPolicy:
         adapted = self.adapter.encode(raw)
         normalized = self.normalizer.normalize(adapted, self.embodiment_id)
         normalized["embodiment"] = torch.tensor([self.embodiment_id], device=self.device)
-        prediction = self.algo.forward_eval({self.embodiment_name: normalized})
+        context = (torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+                   if self.model_autocast_precision == "bf16" else nullcontext())
+        with context:
+            prediction = self.algo.forward_eval({self.embodiment_name: normalized})
         result = prediction.get(self.embodiment_name)
         tokens = result.get("pred_action") if isinstance(result, Mapping) else None
         if not torch.is_tensor(tokens) or tuple(tokens.shape) != (1, 16, self.model_width):
             raise RuntimeError("Action Flow returned invalid model action shape")
         if not torch.isfinite(tokens).all():
             raise RuntimeError("Action Flow returned non-finite model actions")
-        actions = self.normalizer.unnormalize({"actions": tokens}, self.embodiment_id)["actions"]
+        # Native decoding and simulator arithmetic remain FP32; never cast
+        # checkpoint parameters or the Euler integration state to BF16.
+        actions = self.normalizer.unnormalize({"actions": tokens.float()}, self.embodiment_id)["actions"]
         # IK orientation context must remain in raw native coordinates; never
         # feed normalized proprio or an unexecuted future prediction back here.
         native = self.decoder.decode(actions, context=raw)

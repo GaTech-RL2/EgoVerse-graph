@@ -13,6 +13,10 @@
 #   EXTRA="trainer.max_steps=300 ..."   appended to every run (smoke tests)
 #   RUN_ROOT=...                          required, e.g. /workspace/users/$USER/stattempo/runs
 #   GPUS_PER_RUN=1                        must match the experiments' trainer.devices
+#   RUNTIME=enroot (2026-10-06)       run each step's commands through `enroot start` on a container this job creates once
+#                                         in node-local /tmp, instead of pyxis. Added when a storage migration removed the
+#                                         /ephemeral/loaner-enroot paths the cluster's enroot.conf points at (pyxis then fails
+#                                         every container with "mkdir: cannot create directory '/ephemeral/loaner-enroot'").
 #   Fewer than 8 GPUs (2026-10-06): pipe the script without its --exclusive/--gres/--cpus-per-task lines and pass e.g.
 #   --gres=gpu:h100:4 --cpus-per-task=112 on the sbatch line; CPUs per run follow the allocation.
 #   RUNS="exp/a exp/b+exp/c"             a '+' group shares ONE GPU step (GPUS_PER_RUN=1 only): both runs train on the same
@@ -43,7 +47,24 @@ nruns=$(tr ' +' '\n\n' <<< "$RUNS" | grep -c .)
 (( nruns == ${#steps[@]} || G == 1 )) || { echo "'+' GPU sharing needs GPUS_PER_RUN=1" >&2; exit 2; }
 CPR=$(( ${SLURM_CPUS_ON_NODE:-224} * 6 / 7 / (nruns * G) ))   # CPUs per run (per task): 6/7 of the allocation (192 of a full node)
 test -s "$IMAGE" && test -e "$VENV/bin/python" && test -s "$SRC/COMMIT"
-echo "=== pack_train job=$SLURM_JOB_ID node=$(hostname) restart=${SLURM_RESTART_COUNT:-0} commit=$(cat "$SRC/COMMIT") steps=${steps[*]}"
+echo "=== pack_train job=$SLURM_JOB_ID node=$(hostname) restart=${SLURM_RESTART_COUNT:-0} commit=$(cat "$SRC/COMMIT") runtime=${RUNTIME:-pyxis} steps=${steps[*]}"
+if [ "${RUNTIME:-pyxis}" = enroot ]; then
+  E=/tmp/$USER-enroot-$SLURM_JOB_ID
+  export ENROOT_RUNTIME_PATH=$E/run ENROOT_CACHE_PATH=$E/cache ENROOT_DATA_PATH=$E/data ENROOT_TEMP_PATH=$E/tmp
+  mkdir -p $E/run $E/cache $E/data $E/tmp
+  CNAME=stattempo_$SLURM_JOB_ID
+  trap 'enroot remove -f $CNAME >/dev/null 2>&1; rm -rf $E' EXIT
+  enroot create -f -n $CNAME "$IMAGE" > /dev/null
+  # one wrapper per job: start the shared container with this step's GPU / Slurm / home variables, run the step script
+  cat > "$RUN_ROOT/enroot_step-$SLURM_JOB_ID.sh" <<'WRAP'
+#!/bin/bash
+args=()
+for v in $(compgen -e | grep -E '^(SLURM_.*|CUDA_VISIBLE_DEVICES|HOME|USER|LOGNAME|WANDB_.*)$'); do args+=(--env "$v"); done
+m=(--mount /workspace:/workspace)
+case "$HOME" in /workspace/*) ;; *) [ -d "$HOME" ] && m+=(--mount "$HOME:$HOME") ;; esac  # W&B reads ~/.netrc (pyxis mounted home)
+exec enroot start --rw "${args[@]}" "${m[@]}" "$1" bash "$2"
+WRAP
+fi
 
 i=0
 for step in "${steps[@]}"; do
@@ -68,14 +89,22 @@ for step in "${steps[@]}"; do
           +experiment=$exp paths.output_dir=$run norm_stats.save_cache_dir=$run hydra.run.dir=$run \
           $resume ${EXTRA:-} ) >> $run/train-$SLURM_JOB_ID.log 2>&1 &"
   done
-  srun --exact --ntasks=$G --ntasks-per-node=$G --gres=gpu:h100:$G --gpu-bind=none --cpus-per-task=$(( CPR * k )) --mem=$(( 180 * k ))G \
-    --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw --container-workdir="$SRC" \
-    --output="$RUN_ROOT/step-%j-$i.log" \
-    bash -c "set -euo pipefail
-      ulimit -n \$(ulimit -Hn)  # zarr-heavy loaders exhaust the default 1024 fds (norm pass, job 405906)
-      export PYTHONPATH=$SRC HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 WANDB_MODE=\${WANDB_MODE:-online}
-      export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
-      $body
-      wait" &
+  stepfile="$RUN_ROOT/step-$SLURM_JOB_ID-$i.sh"
+  cat > "$stepfile" <<STEP
+set -euo pipefail
+cd $SRC
+ulimit -n \$(ulimit -Hn)  # zarr-heavy loaders exhaust the default 1024 fds (norm pass, job 405906)
+export PYTHONPATH=$SRC HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 WANDB_MODE=\${WANDB_MODE:-online}
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+$body
+wait
+STEP
+  common=(--exact --ntasks=$G --ntasks-per-node=$G --gres=gpu:h100:$G --gpu-bind=none --cpus-per-task=$(( CPR * k )) --mem=$(( 180 * k ))G
+          --output="$RUN_ROOT/step-%j-$i.log")
+  if [ "${RUNTIME:-pyxis}" = enroot ]; then
+    srun "${common[@]}" bash "$RUN_ROOT/enroot_step-$SLURM_JOB_ID.sh" "$CNAME" "$stepfile" &
+  else
+    srun "${common[@]}" --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw --container-workdir="$SRC" bash "$stepfile" &
+  fi
 done
 wait
